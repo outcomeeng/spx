@@ -160,7 +160,7 @@ describe("buildSpxTestArgs", () => {
     );
   });
 
-  it("non-default config mixed product config and source files map to the operand runner", () => {
+  it("non-default config mixed product config and source files map to changed-set testing against HEAD", () => {
     fc.assert(
       fc.property(
         PRECOMMIT_TEST_GENERATOR.config().chain((config) =>
@@ -169,10 +169,9 @@ describe("buildSpxTestArgs", () => {
             .map(([configPath, sourceFile]) => ({ config, configPath, sourceFile }))
         ),
         ({ config, configPath, sourceFile }) => {
-          expect(buildPrecommitTestInvocation([configPath, sourceFile], config)).toEqual({
-            runner: PRECOMMIT_TEST_RUNNERS.VITEST,
-            args: [VITEST_ARGS.RELATED, VITEST_ARGS.RUN, sourceFile],
-          });
+          expect(buildPrecommitTestInvocation([configPath, sourceFile], config).args).toEqual(
+            expectedSpxChangedSetArgs(),
+          );
         },
       ),
     );
