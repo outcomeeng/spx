@@ -24,6 +24,9 @@ const HASH_DIGEST_HEX = "hex";
 const POSIX_SEPARATOR = "/";
 const READ_FAILURE_MESSAGE = "fixture read failed";
 const GIT_STAGED_PATH_MISSING_MESSAGE = "fatal: path 'fixture.ts' does not exist (neither on disk nor in the index)";
+const GIT_STAGED_AMBIGUOUS_PATH_MESSAGE =
+  "fatal: ambiguous argument ':fixture.ts': unknown revision or path not in the working tree.";
+const GIT_STAGED_NOT_IN_INDEX_MESSAGE = "not in index";
 const BEFORE_SOURCE_VALUE = 1;
 const AFTER_SOURCE_VALUE = 2;
 
@@ -64,6 +67,8 @@ export interface ChangedSetFixtureContent {
   readonly posixSeparator: string;
   readonly readFailureMessage: string;
   readonly gitStagedPathMissingMessage: string;
+  readonly gitStagedAmbiguousPathMessage: string;
+  readonly gitStagedNotInIndexMessage: string;
   readonly beforeSourceValue: number;
   readonly afterSourceValue: number;
 }
@@ -108,6 +113,8 @@ export function fixtureContent(): ChangedSetFixtureContent {
     posixSeparator: POSIX_SEPARATOR,
     readFailureMessage: READ_FAILURE_MESSAGE,
     gitStagedPathMissingMessage: GIT_STAGED_PATH_MISSING_MESSAGE,
+    gitStagedAmbiguousPathMessage: GIT_STAGED_AMBIGUOUS_PATH_MESSAGE,
+    gitStagedNotInIndexMessage: GIT_STAGED_NOT_IN_INDEX_MESSAGE,
     beforeSourceValue: BEFORE_SOURCE_VALUE,
     afterSourceValue: AFTER_SOURCE_VALUE,
   };

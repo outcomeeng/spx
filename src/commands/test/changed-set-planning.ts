@@ -37,6 +37,8 @@ const GIT_SHOW_PATH_MISSING_PATTERNS = [
   "exists on disk, but not in",
   "does not exist in",
   "does not exist (neither on disk nor in the index)",
+  "not in index",
+  "unknown revision or path not in the working tree",
 ] as const;
 export const CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID = "changed-set-planning";
 export const CHANGED_TEST_PRODUCT_INPUT_PATHS = [
@@ -83,7 +85,7 @@ function stagedSnapshotReadError(path: string, stderr: string): StagedSnapshotRe
   return error;
 }
 
-function isStagedSnapshotMissing(stderr: string): boolean {
+export function isStagedSnapshotMissing(stderr: string): boolean {
   return GIT_SHOW_PATH_MISSING_PATTERNS.some((pattern) => stderr.includes(pattern));
 }
 

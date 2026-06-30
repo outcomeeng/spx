@@ -18,6 +18,7 @@ import {
   CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
+import { CONFIG_FILENAMES } from "@/config/index";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -37,6 +38,7 @@ import {
   LITERAL_TEST_GENERATOR_COUNTS,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { CHANGED_SET_PLANNING_GENERATOR } from "@testing/generators/testing/changed-set-planning";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
@@ -51,6 +53,8 @@ function invokedArgs(
 ): readonly string[] {
   return runner.calls.flatMap((call) => call.args);
 }
+
+const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
 // Identity resolution reaches git only through injected deps. A temp product dir is
 // not a git repo, so this stub stands in for branch and head-SHA resolution; the
@@ -68,6 +72,7 @@ function nameStatusNulDelimited(paths: readonly string[]): string {
 function stagedSnapshotGit(
   changedPaths: readonly string[],
   stagedFiles: ReadonlyMap<string, string>,
+  failedStagedFiles: ReadonlyMap<string, string> = new Map(),
 ): GitDependencies {
   const defaultBranchName = sampleLiteralTestValue(arbitraryDomainLiteral());
   const defaultBaseRef = [GIT_ROOT_COMMAND.ORIGIN, defaultBranchName].join("/");
@@ -101,9 +106,13 @@ function stagedSnapshotGit(
       }
       if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
         const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
+        const failure = failedStagedFiles.get(path);
+        if (failure !== undefined) {
+          return { exitCode: 1, stdout: "", stderr: failure };
+        }
         const content = stagedFiles.get(path);
         return content === undefined
-          ? { exitCode: 1, stdout: "", stderr: "" }
+          ? { exitCode: 1, stdout: "", stderr: changedSetContent.gitStagedPathMissingMessage }
           : { exitCode: 0, stdout: content, stderr: "" };
       }
       return { exitCode: 0, stdout: headSha, stderr: "" };
@@ -353,6 +362,37 @@ describe("spx test execution recording and per-node run", () => {
     );
   });
 
+  it("rejects staged testing config read failures", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const failureMessage = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, nodeFile);
+      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+
+      await expect(
+        runTestsCommand(
+          { productDir, passing: false, changed: { staged: true } },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+            relatedDepsFor: () => ({
+              isLanguagePresent: () => true,
+              readFile: async () => "",
+              runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+            }),
+            git: stagedSnapshotGit(
+              [nodeFile],
+              new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
+              new Map([[CONFIG_FILENAMES.json, failureMessage]]),
+            ),
+          },
+        ),
+      ).rejects.toThrow(failureMessage);
+    });
+  });
+
   it("records changed-set product input digests and changes them when those inputs change", async () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
@@ -450,6 +490,39 @@ describe("spx test execution recording and per-node run", () => {
       ),
       { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
     );
+  });
+
+  it("rejects staged product input read failures", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [productInputPath] = CHANGED_TEST_PRODUCT_INPUT_PATHS;
+    if (productInputPath === undefined) throw new Error("changed-set planning declares no product input path");
+    const failureMessage = sampleLiteralTestValue(arbitraryDomainLiteral());
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, nodeFile);
+      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+
+      await expect(
+        runTestsCommand(
+          { productDir, passing: false, changed: { staged: true } },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+            relatedDepsFor: () => ({
+              isLanguagePresent: () => true,
+              readFile: async () => "",
+              runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+            }),
+            git: stagedSnapshotGit(
+              [nodeFile],
+              new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
+              new Map([[productInputPath, failureMessage]]),
+            ),
+          },
+        ),
+      ).rejects.toThrow(failureMessage);
+    });
   });
 
   it("records Python product input digests and changes them when product-root conftest changes", async () => {

@@ -56,6 +56,7 @@ import {
   CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
   CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
+  isStagedSnapshotMissing,
   planChangedTestSelection,
 } from "./changed-set-planning";
 import { runTests, type TestDispatchResult } from "./dispatch";
@@ -182,7 +183,10 @@ async function readStagedConfigFile(productDir: string, git: GitDependencies): P
       [CHANGED_TEST_SHOW_COMMAND, `${CHANGED_TEST_INDEX_PATH_PREFIX}${definition.filename}`],
       { cwd: productDir, reject: false },
     );
-    if (result.exitCode !== 0) continue;
+    if (result.exitCode !== 0) {
+      if (isStagedSnapshotMissing(result.stderr)) continue;
+      throw new Error(`failed to read staged testing config for ${definition.filename}: ${result.stderr}`);
+    }
     detected.push({
       filename: definition.filename,
       format: definition.format,
@@ -305,7 +309,10 @@ function stagedSnapshotFileReader(productDir: string, git: GitDependencies): Sna
       [CHANGED_TEST_SHOW_COMMAND, `${CHANGED_TEST_INDEX_PATH_PREFIX}${path}`],
       { cwd: productDir, reject: false },
     );
-    if (result.exitCode !== 0) return { present: false };
+    if (result.exitCode !== 0) {
+      if (isStagedSnapshotMissing(result.stderr)) return { present: false };
+      throw new Error(`failed to read staged snapshot file for test recording: ${path}: ${result.stderr}`);
+    }
     return { present: true, content: result.stdout };
   };
 }
