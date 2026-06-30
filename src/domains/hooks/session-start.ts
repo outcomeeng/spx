@@ -33,6 +33,7 @@ export const HOOK_SESSION_START_ENV = {
 export const HOOK_ENV_FILE = {
   ENCODING: "utf8",
   EXPORT_PREFIX: "export ",
+  UNSET_PREFIX: "unset ",
 } as const;
 
 export const HOOK_SESSION_START_ERROR = {
@@ -146,10 +147,15 @@ export function renderHookSessionStartEnvFile(input: HookSessionStartEnvRenderIn
     renderExportLine(HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, input.productDir),
     renderExportLine(HOOK_SESSION_START_ENV.PROJECT_DIR, input.productDir),
     ...(input.claimPath === undefined
-      ? []
+      ? [renderUnsetLine(HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH)]
       : [renderExportLine(HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH, input.claimPath)]),
     "",
   ].join(LINE_SEPARATOR);
+}
+
+function renderUnsetLine(name: string): string {
+  if (!ENV_NAME_PATTERN.test(name)) throw new Error(`invalid environment variable name: ${name}`);
+  return `${HOOK_ENV_FILE.UNSET_PREFIX}${name}`;
 }
 
 function renderExportLine(name: string, value: string): string {
