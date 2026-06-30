@@ -8,11 +8,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   ARRAY_SORT_COMPARATOR_RULE,
+  DUPLICATE_IMPORT_RULE,
   MIRROR_ERROR_RULES,
   MIRROR_ERROR_SEVERITY,
   MIRROR_RULES,
   MIRROR_WARN_RULES,
   MIRROR_WARN_SEVERITY,
+  OBJECT_HAS_OWN_RULE,
+  PSEUDO_RANDOM_RULE,
+  REDUNDANT_ASSERTION_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
 
@@ -97,16 +101,13 @@ describe("type-aware lint mirror", () => {
   it("places the cleared classes in the error tier", () => {
     // The cleared finding classes have no remaining occurrence in the linted
     // tree, so each runs at the error tier: a new occurrence fails the gate. The
-    // sort-comparator class (SonarQube S2871) is named through its source-owned
-    // constant; the other three graduates — the redundant-assertion
-    // (@typescript-eslint), object-has-own (ESLint core), and duplicate-import
-    // (eslint-plugin-import) classes — are read by family from the source-owned
-    // error tier, so no rule-id literal is duplicated from source.
+    // Each graduated class is named through a source-owned constant, so no
+    // rule-id literal is duplicated from source.
     expect(MIRROR_ERROR_RULES).toHaveProperty(ARRAY_SORT_COMPARATOR_RULE, MIRROR_ERROR_SEVERITY);
-    const errorRuleNames = Object.keys(MIRROR_ERROR_RULES);
-    expect(errorRuleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
-    expect(errorRuleNames.some(isCoreRule)).toBe(true);
-    expect(errorRuleNames.some((rule) => rule.startsWith(importPrefix))).toBe(true);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(PSEUDO_RANDOM_RULE, MIRROR_ERROR_SEVERITY);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(REDUNDANT_ASSERTION_RULE, MIRROR_ERROR_SEVERITY);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(OBJECT_HAS_OWN_RULE, MIRROR_ERROR_SEVERITY);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(DUPLICATE_IMPORT_RULE, MIRROR_ERROR_SEVERITY);
   });
 
   it("places the unicorn-family rules in the warn tier", () => {
@@ -160,6 +161,16 @@ describe("type-aware lint mirror", () => {
     expect(
       messages.some((message) => message.ruleId?.startsWith(sonarjsPrefix)),
     ).toBe(true);
+  });
+
+  it("reports a finding when ESLint runs the PRNG recurrence guard against Math.random", () => {
+    const linter = new Linter();
+    const messages = linter.verify("const token = Math.random();\ntoken;\n", {
+      plugins: { sonarjs },
+      rules: { [PSEUDO_RANDOM_RULE]: MIRROR_ERROR_SEVERITY },
+    });
+
+    expect(messages.some((message) => message.ruleId === PSEUDO_RANDOM_RULE)).toBe(true);
   });
 
   // The non-type-aware error-tier rules paired with violating source. Each rule
