@@ -12,12 +12,17 @@ import { dirname, join } from "node:path";
 import type { Result } from "@/config/types";
 import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 
-export const STATE_STORE_PATH = {
+export const STATE_STORE_SCOPE_PATH = {
   SPX_DIR: ".spx",
   BRANCH_SCOPE: "branch",
   WORKTREE_SCOPE: "worktree",
+  CHANGES_SCOPE: "changes",
   SESSIONS_SCOPE: "sessions",
   WORKTREES_SCOPE: "worktrees",
+} as const;
+
+export const STATE_STORE_PATH = {
+  ...STATE_STORE_SCOPE_PATH,
   RUNS_DIR: "runs",
   RUN_FILE_PREFIX: "run-",
   JSONL_EXTENSION: ".jsonl",
@@ -263,6 +268,12 @@ export interface ResolveSessionsScopeResult {
   readonly warning?: string;
 }
 
+/** The shared `.spx/changes` scope dir plus the non-git-repo diagnostic, if any. */
+export interface ResolveChangesScopeResult {
+  readonly changesDir: string;
+  readonly warning?: string;
+}
+
 /** The shared `.spx/worktrees` scope dir plus the non-git-repo diagnostic, if any. */
 export interface ResolveWorktreesScopeResult {
   readonly worktreesDir: string;
@@ -298,8 +309,23 @@ export function worktreeScopeDir(productDir: string): string {
   return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREE_SCOPE);
 }
 
+export function changesScopeDir(productDir: string): string {
+  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.CHANGES_SCOPE);
+}
+
 export function sessionsScopeDir(productDir: string): string {
   return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+}
+
+/** Resolves the shared `.spx/changes` scope directory from the Git common-dir product root. */
+export async function resolveChangesScopeDir(
+  options: ResolveScopeOptions = {},
+): Promise<ResolveChangesScopeResult> {
+  const gitResult = await detectGitCommonDirProductRoot(options.cwd, options.deps);
+  return {
+    changesDir: changesScopeDir(gitResult.productDir),
+    warning: gitResult.warning,
+  };
 }
 
 /**

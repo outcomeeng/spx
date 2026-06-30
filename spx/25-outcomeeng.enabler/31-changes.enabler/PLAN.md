@@ -29,10 +29,11 @@ Session-domain cleanup stays under `spx/36-session.enabler/PLAN.md` until a late
 
 1. Update the spec-tree filename grammar, kind registry, validation model, and naming-schema version so `.surface` is a recognized canonical node suffix.
 2. Add the `surface` node type to the spec-tree methodology after the grammar can recognize it.
-3. Create `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler`.
-4. Create `spx/45-cli.surface/28-changes-cli.surface`.
-5. Implement the change-store fields and query semantics governed by `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md`.
-6. Expose change records through JSON and text surfaces after the CLI surface exists.
+3. Extend `spx/18-state.enabler/32-scope-addressing.enabler` with `.spx/changes/` shared scope addressing before implementing the worktree backend.
+4. Create `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler`.
+5. Create `spx/45-cli.surface/28-changes-cli.surface`.
+6. Implement the change-store fields and query semantics governed by `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md`.
+7. Expose change records through JSON and text surfaces after the CLI surface exists.
 
 ### Open structure questions
 
