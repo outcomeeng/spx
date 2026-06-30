@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.property.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-lifecycle-recording-harness.enabler/tests/lifecycle-recording-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}
