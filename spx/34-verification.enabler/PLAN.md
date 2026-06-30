@@ -1,6 +1,8 @@
 # Plan: Verify Command Surface
 
-1. Add the `spx/34-verification.enabler/32-verify.enabler` tests that lock the `start`, `input`, `append-scope`, `append-finding`, `finish`, `status`, and `render` lifecycle, including append payload, idempotency-key, terminal-status, run-token, and changeset-scope validation.
-2. Implement `src/domains/verify/`, `src/commands/verify/`, and `src/interfaces/cli/verify.ts` per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`.
-3. Wire review-run callers to `spx verify --verification-type review --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] <verb>` and remove wrapper-owned journal-event construction.
-4. Keep prompt wording changes separate from the CLI-interface slice; the command contract is the durable interface that prompt cleanup consumes.
+1. Apply `spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler`: add tests for `start`, `input`, changeset scope mapping, run-token selection, start-only input, and working-tree scope rejection; implement the corresponding pure rules, command orchestration, and CLI behavior per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`.
+2. Apply `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler`: add tests for append payloads, finding validation, and idempotency; implement the corresponding pure rules, command orchestration, and CLI behavior.
+3. Apply `spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler`: add tests for `finish`, `status`, and `render`; implement terminal status validation, run sealing, resumable status, and journal projection.
+4. Apply the parent `spx/34-verification.enabler/32-verify.enabler` cross-lifecycle assertions: lock the full verb mapping and the journal-event boundary, then remove the parent and child entries from `spx/EXCLUDE` as their implementations begin passing.
+5. Wire review-run callers to `spx verify --verification-type review --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] <verb>` and remove wrapper-owned journal-event construction.
+6. Keep prompt wording changes separate from the CLI-interface slice; the command contract is the durable interface that prompt cleanup consumes.
