@@ -8,7 +8,7 @@ CAN resolve domain-owned policy through `spx.config.{toml,json,yaml}`
 
 ### Mappings
 
-- Test descriptor config format mapping: equivalent JSON, YAML, and TOML test sections resolve to identical typed test config ([test](tests/testing-descriptor.mapping.l1.test.ts))
+- Test descriptor config format mapping: equivalent JSON, YAML, and TOML `testing` sections resolve to identical typed testing config ([test](tests/testing-descriptor.mapping.l1.test.ts))
 
 ### Compliance
 
