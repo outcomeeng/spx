@@ -10,7 +10,7 @@ import {
   compactStashPath,
   extractCompactRecord,
 } from "@/domains/compact";
-import { resolveWorktreeScopeDir, STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
+import { resolveWorktreeScopeDir, STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 
@@ -109,16 +109,16 @@ describe("compact transcript extraction", () => {
     if (!nonMain.ok) throw new Error(nonMain.error);
     expect(mainCheckout.value).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREE_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
       sessionToken,
       STATE_STORE_DOMAIN.COMPACT,
       COMPACT_STORE_PATH.STASH_FILE,
     ));
     expect(nonMain.value).toBe(join(
       SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREE_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
       sessionToken,
       STATE_STORE_DOMAIN.COMPACT,
       COMPACT_STORE_PATH.STASH_FILE,

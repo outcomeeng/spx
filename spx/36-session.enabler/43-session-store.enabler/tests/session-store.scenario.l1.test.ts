@@ -74,7 +74,7 @@ import {
   type SessionPriority,
 } from "@/domains/session/types";
 import { GIT_ROOT_COMMAND } from "@/git/root";
-import { STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import {
@@ -552,7 +552,7 @@ describe("SEARCH_ORDER", () => {
 
 describe("DEFAULT_SESSION_CONFIG", () => {
   it("GIVEN default config WHEN checked THEN all dirs contain the sessions scope base", () => {
-    const sessionsBase = join(STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+    const sessionsBase = join(STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE);
     expect(DEFAULT_SESSION_CONFIG.todoDir).toContain(sessionsBase);
     expect(DEFAULT_SESSION_CONFIG.doingDir).toContain(sessionsBase);
     expect(DEFAULT_SESSION_CONFIG.archiveDir).toContain(sessionsBase);

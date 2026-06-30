@@ -22,7 +22,6 @@ export const STATE_STORE_SCOPE_PATH = {
 } as const;
 
 export const STATE_STORE_PATH = {
-  ...STATE_STORE_SCOPE_PATH,
   RUNS_DIR: "runs",
   RUN_FILE_PREFIX: "run-",
   JSONL_EXTENSION: ".jsonl",
@@ -301,20 +300,20 @@ export function branchScopeDir(productDir: string, branchSlug: string): Result<s
   if (!validated.ok) return validated;
   return {
     ok: true,
-    value: join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.BRANCH_SCOPE, validated.value),
+    value: join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.BRANCH_SCOPE, validated.value),
   };
 }
 
 export function worktreeScopeDir(productDir: string): string {
-  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREE_SCOPE);
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE);
 }
 
 export function changesScopeDir(productDir: string): string {
-  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.CHANGES_SCOPE);
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.CHANGES_SCOPE);
 }
 
 export function sessionsScopeDir(productDir: string): string {
-  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE);
 }
 
 /** Resolves the shared `.spx/changes` scope directory from the Git common-dir product root. */
@@ -345,7 +344,7 @@ export async function resolveWorktreesScopeDir(
 }
 
 export function worktreesScopeDir(productDir: string): string {
-  return join(productDir, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.WORKTREES_SCOPE);
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE);
 }
 
 export function composeScopeDir(baseScopeDir: string, ...tokens: readonly string[]): Result<string> {

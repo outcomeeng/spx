@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
 import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
-import { STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
@@ -42,8 +42,8 @@ function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
 function compactStashPath(productDir: string, sessionToken: string): string {
   return join(
     productDir,
-    STATE_STORE_PATH.SPX_DIR,
-    STATE_STORE_PATH.WORKTREE_SCOPE,
+    STATE_STORE_SCOPE_PATH.SPX_DIR,
+    STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
     sessionToken,
     STATE_STORE_DOMAIN.COMPACT,
     COMPACT_STORE_PATH.STASH_FILE,
@@ -477,8 +477,8 @@ describe("compact CLI", () => {
       expect(output).toHaveLength(0);
       await expect(readdir(join(
         gitEnv.productDir,
-        STATE_STORE_PATH.SPX_DIR,
-        STATE_STORE_PATH.WORKTREE_SCOPE,
+        STATE_STORE_SCOPE_PATH.SPX_DIR,
+        STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
       ))).rejects.toThrow();
     });
   });

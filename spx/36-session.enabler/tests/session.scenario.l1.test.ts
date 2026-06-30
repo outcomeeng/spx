@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { resolveSessionConfig } from "@/commands/session/resolve-config";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { GIT_DIR_BASENAME } from "@/git/root";
-import { STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { createScriptedGitDeps } from "@testing/harnesses/state/git-deps";
 
 describe("resolveSessionConfig", () => {
@@ -27,7 +27,7 @@ describe("resolveSessionConfig", () => {
 
     const result = await resolveSessionConfig({ deps });
 
-    const expectedBase = join(productRoot, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+    const expectedBase = join(productRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE);
     expect(result.config.todoDir).toBe(join(expectedBase, DEFAULT_CONFIG.sessions.statusDirs.todo));
     expect(result.config.doingDir).toBe(join(expectedBase, DEFAULT_CONFIG.sessions.statusDirs.doing));
     expect(result.config.archiveDir).toBe(join(expectedBase, DEFAULT_CONFIG.sessions.statusDirs.archive));
@@ -40,7 +40,12 @@ describe("resolveSessionConfig", () => {
     const result = await resolveSessionConfig({ deps, cwd });
 
     expect(result.config.todoDir).toBe(
-      join(cwd, STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE, DEFAULT_CONFIG.sessions.statusDirs.todo),
+      join(
+        cwd,
+        STATE_STORE_SCOPE_PATH.SPX_DIR,
+        STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
+        DEFAULT_CONFIG.sessions.statusDirs.todo,
+      ),
     );
     expect(result.warning).toBeDefined();
   });
@@ -58,8 +63,8 @@ describe("resolveSessionConfig", () => {
     expect(result.config.todoDir).toBe(
       join(
         gitCommonDirProductRoot,
-        STATE_STORE_PATH.SPX_DIR,
-        STATE_STORE_PATH.SESSIONS_SCOPE,
+        STATE_STORE_SCOPE_PATH.SPX_DIR,
+        STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
         DEFAULT_CONFIG.sessions.statusDirs.todo,
       ),
     );
