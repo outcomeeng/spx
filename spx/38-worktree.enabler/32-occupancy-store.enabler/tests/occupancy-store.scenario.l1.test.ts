@@ -7,8 +7,11 @@ import {
   claimFilePath,
   claimLockPath,
   claimLockTarget,
+  OCCUPANCY_CLAIM,
   OCCUPANCY_ERROR,
+  OCCUPANCY_FS_TEXT_ENCODING,
   OCCUPANCY_STATUS,
+  type OccupancyFileSystem,
   type ProcessProbe,
   readClaim,
   readOccupancy,
@@ -23,6 +26,7 @@ import {
   createDeadHolderProbe,
   createForeignHostProbe,
   createLiveHolderProbe,
+  createProcessProbe,
   createRecycledPidProbe,
 } from "@testing/harnesses/worktree/harness";
 
@@ -34,6 +38,51 @@ function createThrowingProbe(): ProcessProbe {
     isAlive: () => true,
     startTimeOf: () => undefined,
   };
+}
+
+class ReplacingStaleLockFileSystem implements OccupancyFileSystem {
+  private replaced = false;
+
+  constructor(
+    private readonly backing: OccupancyFileSystem,
+    private readonly lockPath: string,
+    private readonly staleTarget: string,
+    private readonly freshTarget: string,
+  ) {}
+
+  async mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void> {
+    await this.backing.mkdir(path, options);
+  }
+
+  async writeFile(path: string, data: string): Promise<void> {
+    await this.backing.writeFile(path, data);
+  }
+
+  async rename(from: string, to: string): Promise<void> {
+    await this.backing.rename(from, to);
+  }
+
+  async symlink(target: string, path: string): Promise<void> {
+    await this.backing.symlink(target, path);
+  }
+
+  async readlink(path: string): Promise<string> {
+    const target = await this.backing.readlink(path);
+    if (!this.replaced && path === this.lockPath && target === this.staleTarget) {
+      this.replaced = true;
+      await this.backing.rm(path, { force: true, recursive: true });
+      await this.backing.symlink(this.freshTarget, path);
+    }
+    return target;
+  }
+
+  async readFile(path: string, encoding: typeof OCCUPANCY_FS_TEXT_ENCODING): Promise<string> {
+    return this.backing.readFile(path, encoding);
+  }
+
+  async rm(path: string, options?: { readonly force?: boolean; readonly recursive?: boolean }): Promise<void> {
+    await this.backing.rm(path, options);
+  }
 }
 
 describe("worktree occupancy claim store", () => {
@@ -219,6 +268,85 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createRecycledPidProbe(lockOwner, recycledPidStartTime),
+        { fs: defaultOccupancyFileSystem, writeToken },
+      );
+
+      expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(nextRecord);
+    });
+  });
+
+  it("does not remove a fresh claim-acquisition lock after reading a stale lock owner", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [staleSessionId, freshSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const [staleStartedAt, freshStartedAt] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
+    const [stalePid, freshPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+    const staleLockOwner = { ...claimBase, sessionId: staleSessionId, pid: stalePid, startedAt: staleStartedAt };
+    const freshLockOwner = { ...claimBase, sessionId: freshSessionId, pid: freshPid, startedAt: freshStartedAt };
+    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([freshPid]),
+      startTimes: new Map([[freshPid, freshStartedAt]]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      const staleTarget = claimLockTarget(staleLockOwner);
+      const freshTarget = claimLockTarget(freshLockOwner);
+      await defaultOccupancyFileSystem.mkdir(worktreesDir, { recursive: true });
+      await defaultOccupancyFileSystem.symlink(staleTarget, lockPath);
+
+      const acquired = await acquireClaim(worktreesDir, name, nextRecord, probe, {
+        fs: new ReplacingStaleLockFileSystem(defaultOccupancyFileSystem, lockPath, staleTarget, freshTarget),
+        writeToken,
+      });
+
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
+      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(freshTarget);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toBeUndefined();
+    });
+  });
+
+  it("recovers an orphaned claim-lock recovery marker whose owner process is dead", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [lockSessionId, recoverySessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const lockOwner = { ...claimBase, sessionId: lockSessionId };
+    const recoveryOwner = { ...claimBase, sessionId: recoverySessionId };
+    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      await defaultOccupancyFileSystem.mkdir(worktreesDir, { recursive: true });
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(lockOwner), lockPath);
+      await defaultOccupancyFileSystem.symlink(
+        claimLockTarget(recoveryOwner),
+        `${lockPath}${OCCUPANCY_CLAIM.LOCK_RECOVERY_EXTENSION}`,
+      );
+
+      const acquired = await acquireClaim(
+        worktreesDir,
+        name,
+        nextRecord,
+        createDeadHolderProbe(lockOwner),
         { fs: defaultOccupancyFileSystem, writeToken },
       );
 

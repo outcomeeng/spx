@@ -23,6 +23,7 @@ export type OccupancyStatus = (typeof OCCUPANCY_STATUS)[keyof typeof OCCUPANCY_S
 export const OCCUPANCY_CLAIM = {
   FILE_EXTENSION: ".claim",
   LOCK_EXTENSION: ".lock",
+  LOCK_RECOVERY_EXTENSION: ".recover",
   TEMP_EXTENSION: ".tmp",
   UNREADABLE_STARTED_AT_PREFIX: "unreadable:",
 } as const;
@@ -107,6 +108,11 @@ export function claimTempFilePath(claimPath: string, writeToken: string): Result
 /** The per-claim acquisition lock path for a claim file path. */
 export function claimLockPath(claimPath: string): string {
   return `${claimPath}${OCCUPANCY_CLAIM.LOCK_EXTENSION}`;
+}
+
+/** The short-lived marker serializing recovery of a stale acquisition lock. */
+function claimLockRecoveryPath(lockPath: string): string {
+  return `${lockPath}${OCCUPANCY_CLAIM.LOCK_RECOVERY_EXTENSION}`;
 }
 
 /** The recoverable admission-lock payload recording the claimant process. */
@@ -309,17 +315,10 @@ async function acquireClaimLock(
     }
   }
 
-  const stale = await clearRecoverableClaimLock(lockPath, probe, fs);
-  if (!stale.ok) return stale;
-  if (!stale.value) return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
-
-  try {
-    await fs.symlink(claimLockTarget(owner), lockPath);
-    return { ok: true, value: undefined };
-  } catch (error) {
-    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
-    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
-  }
+  const recovered = await recoverClaimLock(lockPath, owner, probe, fs);
+  if (!recovered.ok) return recovered;
+  if (recovered.value) return { ok: true, value: undefined };
+  return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
 }
 
 async function releaseClaimLock(lockPath: string, fs: OccupancyFileSystem): Promise<Result<void>> {
@@ -391,6 +390,76 @@ function parseClaim(content: string): Result<WorktreeClaimRecord> {
   return { ok: true, value: parsed };
 }
 
+async function recoverClaimLock(
+  lockPath: string,
+  owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
+  const recoveryPath = claimLockRecoveryPath(lockPath);
+  const recoveryMarker = await acquireClaimRecoveryMarker(recoveryPath, owner, probe, fs);
+  if (!recoveryMarker.ok || !recoveryMarker.value) return recoveryMarker;
+
+  let recovered: Result<boolean>;
+  try {
+    const cleared = await clearRecoverableClaimLock(lockPath, probe, fs);
+    if (!cleared.ok || !cleared.value) {
+      recovered = cleared;
+    } else {
+      recovered = await publishRecoveredClaimLock(lockPath, owner, fs);
+    }
+  } catch (error) {
+    recovered = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
+  }
+
+  const released = await releaseClaimLock(recoveryPath, fs);
+  if (!released.ok) return released;
+  return recovered;
+}
+
+async function acquireClaimRecoveryMarker(
+  recoveryPath: string,
+  owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
+  const acquired = await writeClaimRecoveryMarker(recoveryPath, owner, fs);
+  if (acquired.ok && acquired.value) return acquired;
+  if (!acquired.ok) return acquired;
+
+  const cleared = await clearRecoverableClaimLock(recoveryPath, probe, fs);
+  if (!cleared.ok || !cleared.value) return cleared;
+  return writeClaimRecoveryMarker(recoveryPath, owner, fs);
+}
+
+async function writeClaimRecoveryMarker(
+  recoveryPath: string,
+  owner: WorktreeClaimRecord,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
+  try {
+    await fs.symlink(claimLockTarget(owner), recoveryPath);
+    return { ok: true, value: true };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) return { ok: true, value: false };
+    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
+  }
+}
+
+async function publishRecoveredClaimLock(
+  lockPath: string,
+  owner: WorktreeClaimRecord,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
+  try {
+    await fs.symlink(claimLockTarget(owner), lockPath);
+    return { ok: true, value: true };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) return { ok: true, value: false };
+    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
+  }
+}
+
 async function clearRecoverableClaimLock(
   lockPath: string,
   probe: ProcessProbe,
@@ -406,9 +475,9 @@ async function clearRecoverableClaimLock(
 
   const parsed = parseClaim(content);
   if (!parsed.ok) {
-    const removed = await removeRecoverableClaimLock(lockPath, fs);
+    const removed = await removeRecoverableClaimLock(lockPath, content, fs);
     if (!removed.ok) return removed;
-    return { ok: true, value: true };
+    return { ok: true, value: removed.value };
   }
   let recoverable: boolean;
   try {
@@ -419,9 +488,9 @@ async function clearRecoverableClaimLock(
   if (!recoverable) {
     return { ok: true, value: false };
   }
-  const removed = await removeRecoverableClaimLock(lockPath, fs);
+  const removed = await removeRecoverableClaimLock(lockPath, content, fs);
   if (!removed.ok) return removed;
-  return { ok: true, value: true };
+  return { ok: true, value: removed.value };
 }
 
 function claimLockOwnerIsRecoverable(owner: WorktreeClaimRecord, probe: ProcessProbe): boolean {
@@ -432,11 +501,18 @@ function claimLockOwnerIsRecoverable(owner: WorktreeClaimRecord, probe: ProcessP
   return liveStartTime !== undefined && liveStartTime !== owner.startedAt;
 }
 
-async function removeRecoverableClaimLock(lockPath: string, fs: OccupancyFileSystem): Promise<Result<void>> {
+async function removeRecoverableClaimLock(
+  lockPath: string,
+  expectedTarget: string,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
   try {
+    const currentTarget = await fs.readlink(lockPath);
+    if (currentTarget !== expectedTarget) return { ok: true, value: false };
     await fs.rm(lockPath, { force: true, recursive: true });
-    return { ok: true, value: undefined };
+    return { ok: true, value: true };
   } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: true };
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
   }
 }
