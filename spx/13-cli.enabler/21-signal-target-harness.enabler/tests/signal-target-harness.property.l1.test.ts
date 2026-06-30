@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { FOREGROUND_SIGNALS, type SignalListener } from "@/lib/process-lifecycle";
+import { FOREGROUND_SIGNALS, SIGINT_NAME, type SignalListener, SIGTERM_NAME } from "@/lib/process-lifecycle";
 import { RecordingSignalTarget } from "@testing/harnesses/process-lifecycle/signal-target";
 
 const listenerPoolSize = 3;
@@ -65,8 +65,8 @@ describe("Property: recording signal target listener registry", () => {
         fc.array(fc.integer({ min: 0, max: listenerPoolSize - 1 })),
         (sigintIndexes, sigtermIndexes) => {
           const listenerPool = createListenerPool();
-          const sigintSignal = FOREGROUND_SIGNALS[0];
-          const sigtermSignal = FOREGROUND_SIGNALS[1];
+          const sigintSignal = SIGINT_NAME;
+          const sigtermSignal = SIGTERM_NAME;
           const sigintListeners = sigintIndexes.map((index) => listenerPool[index]).filter(isListener);
           const sigtermListeners = sigtermIndexes.map((index) => listenerPool[index]).filter(isListener);
           const target = new RecordingSignalTarget(
