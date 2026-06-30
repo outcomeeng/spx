@@ -16,7 +16,7 @@ The plugin-side integration design is governed in `github.com/outcomeeng/plugins
 
 ## Harness vocabulary alignment
 
-`spx/12-agent-harness.pdr.md` distinguishes configured agents from agent sessions. Align worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
+`spx/12-agent-harness.pdr.md` distinguishes configured agents from agent sessions. Align `spx/15-worktree-management.pdr.md`, worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
 
 ## Harness governance
 

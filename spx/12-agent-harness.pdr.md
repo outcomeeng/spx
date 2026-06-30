@@ -23,5 +23,5 @@ Codex and Claude Code are configured agents. The harness is the SPX-managed repo
 ### Audit
 
 - ALWAYS: top-level specs and decisions that govern Codex, Claude Code, configured agent selection, agent configuration, agent adapters, agent sessions, plugin bootstrap, skill bootstrap, isolated agent execution, or agent observation identify whether they are describing the harness, a configured agent, an agent adapter, or an agent session ([audit])
-- ALWAYS: root-level placement and decomposition account for top-level enablers, outcomes, command domains, and source domains whose behavior configures, launches, resumes, observes, isolates, or equips coding agents ([audit])
+- ALWAYS: root-level placement and decomposition account for top-level enablers, outcomes, command domains, and source domains whose behavior configures, launches, resumes, isolates, equips, or journals verification runs executed by coding agents ([audit])
 - NEVER: use agent as the noun for adapter implementation, session identity, plugin package, marketplace package, or the SPX-managed harness ([audit])
