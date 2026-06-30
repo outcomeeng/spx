@@ -1,7 +1,7 @@
 # Shared Config Primitives
 
 PROVIDES reusable config value primitives for descriptor-owned sections
-SO THAT validate, test, and additional execution domains
+SO THAT `validation`, `testing`, and additional execution domains
 CAN share structural validation without sharing domain policy
 
 ## Assertions
@@ -21,4 +21,4 @@ CAN share structural validation without sharing domain policy
 - ALWAYS: path include/exclude filters are declared once and imported by every descriptor that exposes path-scope configuration ([test](tests/path-filter.compliance.l1.test.ts), [review])
 - ALWAYS: path filter validation rejects non-object filters and non-string include/exclude fields with descriptor path-qualified errors ([test](tests/path-filter.compliance.l1.test.ts))
 - ALWAYS: path filter validation ignores unknown keys so future descriptors can add policy-owned fields without changing the shared primitive output ([test](tests/path-filter.compliance.l1.test.ts))
-- NEVER: put validate, test, or other domain policy defaults inside a shared primitive ([review])
+- NEVER: put `validation`, `testing`, or other domain policy defaults inside a shared primitive ([review])
