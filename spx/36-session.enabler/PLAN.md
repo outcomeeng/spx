@@ -2,7 +2,7 @@
 
 ## Harness vocabulary alignment
 
-`spx/12-agent-harness.pdr.md` distinguishes SPX handoff sessions from coding-agent sessions. Align this node's specs, command text, and state naming so `session` stays explicit about whether it names an SPX handoff session or an agent session.
+`spx/12-agent-harness.pdr.md` distinguishes SPX handoff session files and handoff records from coding-agent sessions. Align this node's specs, command text, and state naming so `session` stays explicit about whether it names a handoff file, a handoff record, or an agent session.
 
 ## Wire the spx CLI half of the session-scope accumulator
 
