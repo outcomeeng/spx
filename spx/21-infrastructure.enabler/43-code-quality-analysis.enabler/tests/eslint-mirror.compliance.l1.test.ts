@@ -21,6 +21,7 @@ import {
   OBJECT_HAS_OWN_RULE,
   PSEUDO_RANDOM_RULE,
   REDUNDANT_ASSERTION_RULE,
+  TASK_MARKER_COMMENT_FALLBACK_FILES,
   TASK_MARKER_COMMENT_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
@@ -255,6 +256,23 @@ describe("type-aware lint mirror", () => {
     );
 
     expect(domainVocabularyMessages).toEqual([]);
+  });
+
+  it("reports task-marker comments in root TypeScript config files through the fallback config", () => {
+    const linter = new Linter();
+    const [rootTypeScriptConfigGlob] = TASK_MARKER_COMMENT_FALLBACK_FILES.slice(-1);
+    const rootTypeScriptConfigFile = rootTypeScriptConfigGlob.replace("*", TASK_MARKER_COMMENT_RULE.split("/").at(-1)!);
+    const messages = linter.verify(
+      "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
+      {
+        files: [rootTypeScriptConfigGlob],
+        plugins: { spx: customRules },
+        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
+      },
+      { filename: rootTypeScriptConfigFile },
+    );
+
+    expect(messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
   });
 
   it("declares mirror rule ids the owning plugins recognize", () => {

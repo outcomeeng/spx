@@ -21,7 +21,11 @@ import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-
 import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TASK_MARKER_COMMENTS_RULE_ID } from "./eslint-rules/no-task-marker-comments";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
-import { MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "./eslint-rules/offline-mirror";
+import {
+  MIRROR_RULES,
+  TASK_MARKER_COMMENT_FALLBACK_FILES,
+  TYPE_AWARE_PARSER_OPTIONS,
+} from "./eslint-rules/offline-mirror";
 import {
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
@@ -271,7 +275,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
     },
     {
-      files: ["eslint-rules/**/*.ts"],
+      files: [...TASK_MARKER_COMMENT_FALLBACK_FILES],
       plugins: {
         spx: customRules,
       },
