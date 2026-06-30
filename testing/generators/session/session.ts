@@ -527,6 +527,12 @@ const PATH_UNSAFE_MARKERS = String.raw`:/+.\@ `;
 /** Fixed seed for single-value path-unsafe-identity draws so scenario tests stay deterministic. */
 const PATH_UNSAFE_IDENTITY_SAMPLE_SEED = 0x5e5530;
 
+/** Whitespace-only agent-session env values are absent for resolution. */
+const WHITESPACE_IDENTITY_VALUES = [" ", "\t", "\n", "\r\n", " \t\n "] as const;
+
+/** Fixed seed for single-value whitespace-identity draws so scenario tests stay deterministic. */
+const WHITESPACE_IDENTITY_SAMPLE_SEED = 0x5e5532;
+
 export const SESSION_GENERATOR_ERROR = {
   EMPTY_IDENTITY_SAMPLE: "session identity generator returned an empty value",
 } as const;
@@ -547,6 +553,11 @@ export function arbitraryPathUnsafeAgentSessionIdentity(): fc.Arbitrary<string> 
     .map(([head, marker, tail]) => `${head}${marker}${tail}`);
 }
 
+/** Arbitrary whitespace-only agent-session identity for env fallback tests. */
+export function arbitraryWhitespaceAgentSessionIdentity(): fc.Arbitrary<string> {
+  return fc.constantFrom(...WHITESPACE_IDENTITY_VALUES);
+}
+
 /**
  * Draws one deterministic path-unsafe agent-session identity for scenario tests
  * that need a single example rather than a full property loop.
@@ -555,6 +566,13 @@ export function samplePathUnsafeAgentSessionIdentity(
   seed: number = PATH_UNSAFE_IDENTITY_SAMPLE_SEED,
 ): string {
   return fc.sample(arbitraryPathUnsafeAgentSessionIdentity(), { numRuns: 1, seed })[0];
+}
+
+/** Draws one deterministic whitespace-only agent-session identity. */
+export function sampleWhitespaceAgentSessionIdentity(
+  seed: number = WHITESPACE_IDENTITY_SAMPLE_SEED,
+): string {
+  return fc.sample(arbitraryWhitespaceAgentSessionIdentity(), { numRuns: 1, seed })[0];
 }
 
 export function sampleDistinctPathUnsafeAgentSessionIdentities(
