@@ -1,8 +1,8 @@
 # Worktree Occupancy
 
-PROVIDES the `spx worktree` command family and shared occupancy services — a write-once per-agent worktree claim and an on-demand process-liveness check over `.spx/worktrees/<name>.claim`
+PROVIDES the `spx worktree` command family and shared occupancy services — a write-once holder-session worktree claim and an on-demand process-liveness check over `.spx/worktrees/<name>.claim`
 SO THAT the `session-start` hook, `/handoff`, `/pickup`, and any flow that enters a bare-repository pool worktree
-CAN distinguish a worktree a live agent holds from a free one instead of inferring occupancy from git cleanliness
+CAN distinguish a worktree held by an active agent session from a free one instead of inferring occupancy from git cleanliness
 
 ## Assertions
 

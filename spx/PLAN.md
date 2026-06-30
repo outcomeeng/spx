@@ -1,72 +1,31 @@
-# Root Coordination Index
+# Root coordination plan
+
+This note groups the harness vocabulary work into mergeable slices. Product truth remains in `spx/spx.product.md`, decisions, specs, tests, and source; this file records the delivery order.
 
 ## Harness vocabulary guard
 
-Before applying this plan to agent-facing surfaces or session-domain boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep SPX handoff sessions, configured-agent sessions, and command-surface actors distinct.
+Before applying this plan to agent-facing commands, docs, or session-domain boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session.
 
-This file is a coordination note for the top-down repair sequence. It is not product truth. Durable product behavior belongs in PDRs, ADRs, specs, tests, and implementation under the owning nodes.
+Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled. Keep SPX handoff sessions, configured-agent sessions, and command actors distinct.
 
-Use this note to orient `/contextualize spx/` quickly, then follow the node-local `PLAN.md` files for details.
+## Active delivery program
 
-## Target Structure
+**Harness vocabulary entry.** Align `spx/spx.product.md`, `spx/12-agent-harness.pdr.md`, `spx/15-agent-run-journal.enabler`, `spx/33-agent-environment.enabler`, `spx/34-verification.enabler`, `spx/36-session.enabler`, `spx/38-worktree.enabler`, and `spx/46-agent.enabler` so each root affected node uses the terms harness, configured agent, agent adapter, and agent session consistently. This slice also removes stale vocabulary from the affected `PLAN.md` files.
 
-```text
-spx/
-├── <methodology vocabulary PDR>
-├── 23-spec-tree.enabler/
-│   └── 24-materialization.enabler/
-│       ├── 21-filesystem-git-backend.enabler/
-│       └── 32-executable-operations.enabler/
-├── 25-outcomeeng.enabler/
-│   └── 31-changes.enabler/
-├── 31-spec-domain.enabler/
-└── future interface surfaces
-```
+**Harness environment contract.** Rename the configured contract owned by `spx/33-agent-environment.enabler`: `agentEnvironment` becomes `harnessEnvironment`, legacy collections become agent collections, `AgentRuntime` becomes `Agent`, and adapter naming remains separate from configured-agent naming. This slice updates specs, tests, source modules, config fixtures, generators, and examples with no compatibility aliases.
 
-- The methodology vocabulary PDR settles product-wide terms before implementation: durable map, node type, dependency order, decision reach, assertion/evidence vocabulary, state/status vocabulary, materialization, backend, consumer, and pending `surface`.
-- `spx/23-spec-tree.enabler/` owns the Spec Tree logical foundation: node identity, dependency/order semantics, state/status semantics, projection, and logical operations.
-- `spx/23-spec-tree.enabler/24-materialization.enabler/` owns backend materialization: current state, history, per-node metadata, evidence records, dependency inputs, and executable operation requests.
-- `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler/` is the first materialization backend, binding tracked `spx/` files, Git history, local evidence, and status metadata to the materialization contract.
-- `spx/25-outcomeeng.enabler/` owns Outcome Engineering methodology primitives.
-- `spx/25-outcomeeng.enabler/31-changes.enabler/` owns the backend-neutral change model: maturity, product-qualified node anchors, refinement, query predicates, backend-qualified handles, and backend capability expectations.
-- `spx/31-spec-domain.enabler/` is a consumer/interface adapter over the Spec Tree foundation. It does not own state, status, storage, or materialization semantics.
-- CLI commands, session commands, hosted APIs, MCP, UI, and future interaction boundaries are surfaces over foundation or change models after the `surface` node kind exists.
+**Harness node path.** Rename `spx/33-agent-environment.enabler` with `/refactor` after the public config contract is aligned. The default target is `spx/33-harness-environment.enabler` unless `/decompose` establishes a broader root node.
 
-## Ownership Summary
+**Verification and journal identity.** Align `spx/15-agent-run-journal.enabler` and `spx/34-verification.enabler` so journal records describe verification runs executed by configured agents, distinct from configured-agent sessions and SPX handoff records. Then apply the verify lifecycle child queue under `spx/34-verification.enabler/32-verify.enabler`.
 
-The foundation/materialization split and the changes model fit together as separate provider layers:
+**Session and worktree identity.** Align `spx/36-session.enabler`, `spx/38-worktree.enabler`, and `spx/15-worktree-management.pdr.md` so SPX handoff files, handoff records, agent sessions, and worktree holder session identity stay separate. The session accumulator implementation follows as its own slice.
 
-- Spec Tree foundation answers what the product tree is, how nodes relate, how state/status is derived, and how consumers read projections.
-- Spec Tree materialization answers how a backend stores and retrieves current state, history, metadata, evidence, dependency inputs, and executable operation records.
-- Outcome Engineering changes answer what a change record is, how under-refined intent becomes planned or implementation-ready work, and how records are queried across backends.
-- Worktree files, hosted issue trackers, and future stores are backends for changes or materialization. They do not define the product model.
-- Session files and commands remain governed by `spx/36-session.enabler` until a later decision rewrites or prunes that domain. No root plan text should create a compatibility bridge from sessions to changes.
+**Agent resume and adapter boundary.** Align `spx/46-agent.enabler` and `spx/46-agent.enabler/21-resume.enabler` so `spx agent resume` coordinates agent-native sessions and keeps adapter implementation naming separate from configured-agent naming.
 
-## Sequencing
+## Per-slice gates
 
-1. Settle the methodology vocabulary PDR, including whether `surface` becomes a product-wide node kind and how it relates to enablers and outcomes.
-2. Update the Spec Tree filename grammar, kind registry, validation model, and naming-schema version before creating any `.surface` node.
-3. Keep Spec Tree materialization work under `spx/23-spec-tree.enabler/**`.
-4. Keep change-record schema, maturity, backend identity, product-qualified node anchors, query predicates, and backend capability details under `spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md`.
-5. Keep `spx/31-spec-domain.enabler/` as a consumer while foundation and materialization ownership move under `spx/23-spec-tree.enabler/**`.
-6. Introduce worktree-backed changes only after the backend-neutral change model is settled.
-7. Migrate CLI, session, hosted, MCP, or UI surfaces only after the model they expose exists and the `surface` node kind is valid.
+Each slice starts from current `origin/main`, loads context with `/contextualize`, and uses `/plan-slice` when the slice is selected from this program. Structural moves use `/refactor`; implementation work uses `/apply`.
 
-## Detail Owners
+Before merge, each slice runs the matching verifier agents: `pdr-auditor` for PDR edits, `adr-auditor` for ADR edits, `spec-auditor` for changed specs, `test-evidence-auditor` for test edits, `auditor` for TypeScript source edits, and `changes-reviewer` for the whole changeset.
 
-- `spx/23-spec-tree.enabler/PLAN.md` owns logical foundation repair details.
-- `spx/23-spec-tree.enabler/24-materialization.enabler/PLAN.md` owns the materialization contract details.
-- `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler/PLAN.md` owns filesystem + Git backend details.
-- `spx/23-spec-tree.enabler/24-materialization.enabler/32-executable-operations.enabler/PLAN.md` owns executable-operation request and evidence details.
-- `spx/31-spec-domain.enabler/PLAN.md` owns consumer/interface-adapter cleanup details.
-- `spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md` owns change-record model, backend, query, and future surface details.
-- `spx/36-session.enabler/PLAN.md` owns session-domain cleanup or retirement details until a later decision changes that domain.
-
-## Completion Criteria
-
-- The methodology vocabulary PDR exists and is audited.
-- `.surface` is either rejected as a node kind or accepted only after grammar, kind registry, validation, and naming-schema changes are in place.
-- `spx/23-spec-tree.enabler/**` owns Spec Tree logical foundation and materialization semantics.
-- `spx/31-spec-domain.enabler/` owns only consumer/interface-adapter behavior.
-- `spx/25-outcomeeng.enabler/31-changes.enabler/` owns the backend-neutral changes model.
-- Root coordination no longer duplicates node-local implementation plans or stale migration queues.
+Local deterministic gates are `pnpm run validate`, focused `spx test spx/<node>` for changed implementation or tests, and `pnpm run build` before push when source changes. Commits go through `/commit-changes`; delivery goes through `/merge`.
