@@ -268,6 +268,14 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
+      },
+    },
+    {
+      files: ["eslint-rules/**/*.ts"],
+      plugins: {
+        spx: customRules,
+      },
+      rules: {
         [NO_TASK_MARKER_COMMENTS_RULE_ID]: "error",
       },
     },
