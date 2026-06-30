@@ -1,5 +1,3 @@
-# Changes
-
 PROVIDES backend-neutral change records with maturity, node anchoring, refinement, query, and backend capability semantics
 SO THAT worktree-backed files, CLI commands, hosted issue trackers, agent handoffs, and other surfaces
 CAN record, refine, query, claim, and implement Outcome Engineering work without coupling the product model to one storage backend or interaction surface
