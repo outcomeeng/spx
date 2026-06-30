@@ -13,12 +13,14 @@ The snapshot is command-layer orchestration, not domain classification. Domain c
 - For identical git facts, claim reads, process table observations, current worktree root, agent-session environment, and doing-session records, the snapshot and all derived readings are identical.
 - A non-errored snapshot has exactly one worktree entry for every active worktree root reported by git facts, and the sum of `running` and `free` entries equals the entry count.
 - A live occupancy claim contributes a normalized session token to the snapshot's live claim set; missing or dead claims classify as `free`.
+- A live claim named by `SPX_WORKTREE_CLAIM_PATH` contributes to the snapshot only when its claim filename matches the current worktree entry; when it contributes, it marks that current worktree entry `running` and adds the normalized session token to the live claim set.
 
 ## Verification
 
 ### Testing
 
 - ALWAYS: the snapshot gather maps injected git facts, occupancy claim reads, and process-liveness observations to bare-repository, linked-worktree, current-worktree, running/free, and live-claim-set data without invoking `spx worktree status` ([mapping])
+- ALWAYS: the snapshot gather merges a live `SPX_WORKTREE_CLAIM_PATH` claim into the current worktree entry and live claim set only when the exported claim filename matches the current worktree ([mapping])
 - ALWAYS: adding a free worktree or dead claim to an otherwise compliant layout never degrades the worktree-pool verdict and only changes reported occupancy counts ([property])
 - ALWAYS: the session-environment reading derives `worktreeClaimed` from the current worktree's snapshot entry plus the hook and agent-session identity inputs ([mapping])
 - ALWAYS: the session-store reading derives orphaned doing-session count by joining doing sessions against the snapshot's normalized live claim set ([mapping])
