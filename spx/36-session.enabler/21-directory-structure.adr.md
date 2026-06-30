@@ -29,4 +29,4 @@ Directory-based status is faster than the alternatives because `readdir()` retur
 - NEVER: use filename prefixes (`TODO_`, `DOING_`) for status — that violates positional status ([audit])
 - NEVER: mix sessions of different statuses in one directory — it breaks fast enumeration ([audit])
 - NEVER: parse filenames to determine session status — status is the directory, not the name ([audit])
-- NEVER: hardcode the status-directory names (`todo`, `doing`, `archive`) outside `DEFAULT_CONFIG`, or the `.spx` and `sessions` path segments outside the state module's `STATE_STORE_PATH` — that causes drift ([audit])
+- NEVER: hardcode the status-directory names (`todo`, `doing`, `archive`) outside `DEFAULT_CONFIG`, or the `.spx` and `sessions` path segments outside the state module's `STATE_STORE_SCOPE_PATH` — that causes drift ([audit])
