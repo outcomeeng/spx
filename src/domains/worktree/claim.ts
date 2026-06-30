@@ -8,14 +8,15 @@ import type { Result } from "@/config/types";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import { type OccupancyFileSystem, writeClaim } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import type { RandomBytes } from "@/lib/atomic-file-write";
 
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "./resolve";
 
 export interface ClaimWorktreeOccupancyOptions extends WorktreeScopeOptions {
   /** The claiming agent's session id. */
   readonly sessionId: string;
-  /** Writer-unique token used for the atomic claim temp path. */
-  readonly claimWriteToken: string;
+  /** Source of cryptographic random bytes for the atomic claim temp path. */
+  readonly randomBytes: RandomBytes;
   /** Environment read for the controlling-pid override. */
   readonly env: ControllingProcessEnv;
   /** Injected process table. */
@@ -42,6 +43,6 @@ export async function claimWorktreeOccupancy(options: ClaimWorktreeOccupancyOpti
       pid: controlling.value.pid,
       startedAt: controlling.value.startedAt,
     },
-    { fs: options.fs, writeToken: options.claimWriteToken },
+    { fs: options.fs, randomBytes: options.randomBytes },
   );
 }

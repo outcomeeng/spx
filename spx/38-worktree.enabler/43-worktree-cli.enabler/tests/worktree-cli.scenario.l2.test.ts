@@ -59,7 +59,7 @@ describe("worktree CLI occupancy round-trip", () => {
 
   it("reports a resolved worktree once when multiple path forms denote it", async () => {
     const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       const worktreePath = layout.worktree(worktreeName);

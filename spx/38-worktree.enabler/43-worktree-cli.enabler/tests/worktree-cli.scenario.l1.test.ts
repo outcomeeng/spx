@@ -146,7 +146,7 @@ describe("worktree command handlers", () => {
     const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const [selfPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const expectedName = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
@@ -157,7 +157,7 @@ describe("worktree command handlers", () => {
 
     await withTempDir(prefix, async (worktreesDir) => {
       const result = await claimCommand({
-        claimWriteToken,
+        randomBytes,
         cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
         fs: defaultOccupancyFileSystem,
         sessionId,
@@ -209,7 +209,7 @@ describe("worktree command handlers", () => {
           pid: holder.pid,
           startedAt: holder.startedAt,
         },
-        { fs: env.fs, writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()) },
+        { fs: env.fs, randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()) },
       );
 
       const running = await statusCommand({
@@ -304,7 +304,7 @@ describe("worktree command handlers", () => {
             },
             {
               fs: defaultOccupancyFileSystem,
-              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
+              randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
             },
           );
 
@@ -339,12 +339,12 @@ describe("worktree command handlers", () => {
 
   it("renders mixed-parent worktrees under slash-suffixed parent headings", async () => {
     const [firstParentName, secondParentName] = sampleWorktreeTestValue(
-      WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
+      WORKTREE_TEST_GENERATOR.distinctSafeTokens(),
     );
     const [firstWorktreeName, secondWorktreeName] = sampleWorktreeTestValue(
       WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames(),
     );
-    const commonDirName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const commonDirName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
     const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
 
     await withTempDir(tempPrefix, async (container) => {
@@ -382,7 +382,7 @@ describe("worktree command handlers", () => {
 
   it("reports duplicate resolved status targets once in first-seen order", async () => {
     const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
@@ -435,7 +435,7 @@ describe("worktree command handlers", () => {
             },
             {
               fs: defaultOccupancyFileSystem,
-              writeToken: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken()),
+              randomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
             },
           );
 
@@ -585,12 +585,12 @@ describe("worktree command handlers", () => {
   it("removes the running worktree's claim", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
     const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
 
       const result = await releaseCommand({
         cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
@@ -612,7 +612,7 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const relativeWorktreesDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
@@ -620,7 +620,7 @@ describe("worktree command handlers", () => {
       const resolvedWorktreesDir = resolvePath(env.worktreePath, relativeWorktreesDir);
 
       const claim = await claimCommand({
-        claimWriteToken,
+        randomBytes,
         sessionId,
         cwd: env.worktreePath,
         fs: env.fs,
@@ -672,11 +672,11 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const claim = await claimCommand({
-        claimWriteToken,
+        randomBytes,
         sessionId,
         cwd: env.worktreePath,
         fs: env.fs,
@@ -709,7 +709,7 @@ describe("worktree command handlers", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const callerPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const probe = createProcessTable({
       host: holder.host,
@@ -721,7 +721,7 @@ describe("worktree command handlers", () => {
       // Claim from the worktree with no explicit scope, so the claim is written
       // under the worktree's own git-common-dir `.spx/worktrees`.
       const claim = await claimCommand({
-        claimWriteToken,
+        randomBytes,
         sessionId,
         cwd: worktreePath,
         fs: defaultOccupancyFileSystem,

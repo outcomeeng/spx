@@ -19,7 +19,7 @@ CAN answer `spx worktree status`, write a claim for `spx worktree claim`, and re
 ### Properties
 
 - A claim record round-trips: writing the session id, host, controlling-process id, and start time then reading the claim returns the same four fields ([test](tests/occupancy-store.property.l1.test.ts))
-- A claim write is atomic: a concurrent read observes either no claim or the complete four-field record, never a partial record ([test](tests/occupancy-store.property.l1.test.ts))
+- A claim write routes through the shared atomic file-write primitive: a concurrent read observes either no claim or the complete four-field record, never a partial record, and overlapping writes use distinct temporary siblings from injected random bytes ([test](tests/occupancy-store.property.l1.test.ts))
 
 ### Compliance
 

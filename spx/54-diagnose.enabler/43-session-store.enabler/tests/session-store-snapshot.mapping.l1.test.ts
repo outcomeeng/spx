@@ -93,10 +93,10 @@ describe("the session-store snapshot mapping joins doing sessions to live worktr
       const worktreesDir = join(productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName()));
       const [doingSessionId] = sampleDistinctSessionIds(1);
       const claim = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-      const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+      const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
       const written = await writeClaim(worktreesDir, worktreeClaimName(worktreeRoot), claim, {
         fs: defaultOccupancyFileSystem,
-        writeToken,
+        randomBytes,
       });
       if (!written.ok) throw new Error(written.error);
 

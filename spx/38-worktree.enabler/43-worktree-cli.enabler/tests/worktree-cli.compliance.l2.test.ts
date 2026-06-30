@@ -160,7 +160,7 @@ describe("worktree CLI compliance", () => {
 
   it("ALWAYS: multi-target status --format json de-duplicates resolved worktree roots", async () => {
     const [worktreeName, subdir] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const fileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.safeToken());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       const worktreePath = layout.worktree(worktreeName);
@@ -325,7 +325,7 @@ describe("worktree CLI compliance", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       await withTempDir(prefix, async (worktreesDir) => {
@@ -334,7 +334,7 @@ describe("worktree CLI compliance", () => {
           worktreesDir,
           worktreeClaimName(worktreePath),
           { sessionId, host: hostname(), pid: Number.MAX_SAFE_INTEGER, startedAt },
-          { fs: defaultOccupancyFileSystem, writeToken: claimWriteToken },
+          { fs: defaultOccupancyFileSystem, randomBytes },
         );
         expect(write.ok).toBe(true);
         if (!write.ok) throw new Error(write.error);

@@ -17,10 +17,10 @@ describe("worktree occupancy claim store", () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      const written = await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      const written = await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       expect(written.ok).toBe(true);
 
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
@@ -34,10 +34,10 @@ describe("worktree occupancy claim store", () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       const removed = await removeClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(removed.ok).toBe(true);
 
@@ -53,10 +53,10 @@ describe("worktree occupancy claim store", () => {
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const probe = createLiveHolderProbe(record);
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       const held = await readOccupancy(worktreesDir, name, probe, { fs: defaultOccupancyFileSystem });
       expect(held.ok).toBe(true);
       if (!held.ok) throw new Error(held.error);

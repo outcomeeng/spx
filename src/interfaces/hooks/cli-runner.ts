@@ -10,6 +10,7 @@ import type { ControllingProcessEnv } from "@/domains/worktree/controlling-proce
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { GitDependencies } from "@/git/root";
+import type { RandomBytes } from "@/lib/atomic-file-write";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import { HOOK_ERROR, isHookEvent, runHookEvent, type RunHookEventOptions } from "./registry";
@@ -21,7 +22,6 @@ export interface HookProcessIo {
 }
 
 export interface HookCliRunOptions {
-  readonly claimWriteToken: string;
   readonly compactStdout: boolean;
   readonly stdinContent?: Result<string | undefined>;
   readonly cwd: string;
@@ -33,6 +33,7 @@ export interface HookCliRunOptions {
   readonly io: HookProcessIo;
   readonly onWarning?: (warning: string | undefined) => void;
   readonly processTable: ProcessTable;
+  readonly randomBytes: RandomBytes;
   readonly runEvent?: (options: RunHookEventOptions) => ReturnType<typeof runHookEvent>;
   readonly selfPid: number;
   readonly worktreesDir?: string;
@@ -74,7 +75,6 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   if (!stdin.ok) diagnostics.push(stdin.error);
   const runEvent = options.runEvent ?? runHookEvent;
   const result = await runEvent({
-    claimWriteToken: options.claimWriteToken,
     compactStdout: options.compactStdout,
     content,
     cwd: options.cwd,
@@ -85,6 +85,7 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
     gitDeps: options.gitDeps,
     onWarning: options.onWarning,
     processTable: options.processTable,
+    randomBytes: options.randomBytes,
     selfPid: options.selfPid,
     worktreesDir: options.worktreesDir,
   });
