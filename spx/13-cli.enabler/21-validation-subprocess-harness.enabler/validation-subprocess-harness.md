@@ -9,6 +9,7 @@ CAN verify managed-subprocess wiring, spawn-option propagation, stream forwardin
 ### Scenarios
 
 - Given a recording validation child, when `closeSuccessfully` runs, then the child emits the validation success close event expected by validation subprocess consumers ([test](tests/validation-subprocess-harness.scenario.l1.test.ts))
+- Given a recording validation child whose stdout and stderr streams receive bytes, when a consumer reads those streams, then the child exposes those bytes through pass-through stream objects ([test](tests/validation-subprocess-harness.scenario.l1.test.ts))
 
 ### Properties
 
@@ -16,5 +17,4 @@ CAN verify managed-subprocess wiring, spawn-option propagation, stream forwardin
 
 ### Compliance
 
-- ALWAYS: the recording validation child exposes pass-through stdout and stderr streams and a child-process-compatible event surface, so consuming tests observe stream forwarding through real stream objects rather than framework mocks ([audit])
 - ALWAYS: the shared harness governs `testing/harnesses/validation/subprocess.ts` for both the CLI lifecycle compliance tests and validation tests, so the module has one spec owner and no duplicate harness contract ([audit])
