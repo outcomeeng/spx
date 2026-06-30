@@ -553,8 +553,7 @@ function sameClaimOwner(left: WorktreeClaimRecord, right: WorktreeClaimRecord): 
 }
 
 function sameClaimOwnerStartTime(left: WorktreeClaimRecord, right: WorktreeClaimRecord): boolean {
-  const unreadable = unreadableStartedAt(left.pid);
-  return left.startedAt === right.startedAt || left.startedAt === unreadable || right.startedAt === unreadable;
+  return left.startedAt === right.startedAt || left.startedAt === unreadableStartedAt(left.pid);
 }
 
 function isWorktreeClaimRecord(value: unknown): value is WorktreeClaimRecord {
