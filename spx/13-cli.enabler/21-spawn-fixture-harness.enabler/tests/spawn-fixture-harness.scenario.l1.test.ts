@@ -1,4 +1,3 @@
-import { constants as osConstants } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -53,8 +52,7 @@ describe("Scenario: spawn fixture result capture", () => {
       cwd: process.cwd(),
     });
 
-    const posixSignalExitOffset = SIGTERM_EXIT_CODE - osConstants.signals[SIGTERM_NAME];
-    expect(result.exitCode).toBe(posixSignalExitOffset + osConstants.signals[SIGINT_NAME]);
+    expect(result.exitCode).toBe(SIGINT_EXIT_CODE);
   });
 
   it("settles spawn errors with the source-owned unknown exit code", async () => {
@@ -74,6 +72,6 @@ describe("Scenario: spawn fixture result capture", () => {
 
 function createMultibyteStdoutText(): string {
   const asciiPrefix = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const multibyteCodePoint = SIGINT_EXIT_CODE + SIGTERM_EXIT_CODE;
+  const multibyteCodePoint = 0x111;
   return `${asciiPrefix}${String.fromCodePoint(multibyteCodePoint)}`;
 }
