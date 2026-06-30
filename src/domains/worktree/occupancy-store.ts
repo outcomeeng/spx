@@ -10,6 +10,7 @@
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
+import { type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
 import { ERROR_CODE_FILE_EXISTS, ERROR_CODE_NOT_FOUND, hasErrorCode, validateScopeToken } from "@/lib/state-store";
 
@@ -32,7 +33,6 @@ export const OCCUPANCY_FS_TEXT_ENCODING = "utf8";
 
 export const OCCUPANCY_ERROR = {
   INVALID_NAME: "worktree occupancy claim name must be a safe path segment",
-  INVALID_WRITE_TOKEN: "worktree occupancy claim write token must be a safe path segment",
   CLAIM_WRITE_FAILED: "worktree occupancy claim write failed",
   CLAIM_READ_FAILED: "worktree occupancy claim read failed",
   CLAIM_REMOVE_FAILED: "worktree occupancy claim remove failed",
@@ -83,7 +83,7 @@ export interface OccupancyFsOptions {
 }
 
 export interface OccupancyWriteOptions extends OccupancyFsOptions {
-  readonly writeToken: string;
+  readonly randomBytes: RandomBytes;
 }
 
 /** The claim filename for a worktree `name` — `<name>.claim`. */
@@ -96,13 +96,6 @@ export function claimFilePath(worktreesDir: string, name: string): Result<string
   const validated = validateScopeToken(name);
   if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_NAME };
   return { ok: true, value: join(worktreesDir, claimFileName(validated.value)) };
-}
-
-/** Composes the writer-unique temporary claim path for an atomic claim write. */
-export function claimTempFilePath(claimPath: string, writeToken: string): Result<string> {
-  const validated = validateScopeToken(writeToken);
-  if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_WRITE_TOKEN };
-  return { ok: true, value: `${claimPath}.${validated.value}${OCCUPANCY_CLAIM.TEMP_EXTENSION}` };
 }
 
 /** The per-claim acquisition lock path for a claim file path. */
@@ -188,8 +181,6 @@ export async function acquireClaim(
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
   const claimPath = pathResult.value;
-  const tempPath = claimTempFilePath(claimPath, options.writeToken);
-  if (!tempPath.ok) return tempPath;
 
   try {
     await options.fs.mkdir(worktreesDir, { recursive: true });
@@ -202,11 +193,11 @@ export async function acquireClaim(
 
   let acquired: Result<string>;
   try {
-    acquired = await acquireClaimWhileLocked(claimPath, tempPath.value, record, probe, options.fs);
+    acquired = await acquireClaimWhileLocked(claimPath, record, probe, options);
   } catch (error) {
     acquired = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };
   }
-  const released = await releaseClaimLock(claimLockPath(claimPath), options.fs);
+  const released = await releaseClaimLock(claimLockPath(claimPath), record, options.fs);
   if (!released.ok) return released;
   return acquired;
 }
@@ -250,7 +241,7 @@ export async function removeClaim(
   } catch (error) {
     removed = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_REMOVE_FAILED, toErrorMessage(error)) };
   }
-  const released = await releaseClaimLock(claimLockPath(claimPath), options.fs);
+  const released = await releaseClaimLock(claimLockPath(claimPath), owner, options.fs);
   if (!released.ok) return released;
   return removed;
 }
@@ -287,17 +278,19 @@ export async function readOccupancy(
 
 async function acquireClaimWhileLocked(
   claimPath: string,
-  tempPath: string,
   record: WorktreeClaimRecord,
   probe: ProcessProbe,
-  fs: OccupancyFileSystem,
+  options: OccupancyWriteOptions,
 ): Promise<Result<string>> {
-  const current = await readClaimAtPath(claimPath, fs);
+  const current = await readClaimAtPath(claimPath, options.fs);
   if (!current.ok) return current;
+  if (current.value !== undefined && sameClaimOwner(current.value, record)) {
+    return { ok: true, value: claimPath };
+  }
   if (classifyOccupancy(current.value, probe) === OCCUPANCY_STATUS.RUNNING) {
     return { ok: false, error: OCCUPANCY_ERROR.CLAIM_HELD };
   }
-  return writeSerializedClaim(claimPath, tempPath, record, fs);
+  return writeClaimAtPath(claimPath, record, options);
 }
 
 async function acquireClaimLock(
@@ -315,17 +308,60 @@ async function acquireClaimLock(
     }
   }
 
+  const matchingOwner = await claimLockMatchesOwner(lockPath, owner, fs);
+  if (!matchingOwner.ok) return matchingOwner;
+  if (matchingOwner.value) return { ok: true, value: undefined };
+
   const recovered = await recoverClaimLock(lockPath, owner, probe, fs);
   if (!recovered.ok) return recovered;
   if (recovered.value) return { ok: true, value: undefined };
   return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
 }
 
-async function releaseClaimLock(lockPath: string, fs: OccupancyFileSystem): Promise<Result<void>> {
+async function claimLockMatchesOwner(
+  lockPath: string,
+  owner: WorktreeClaimRecord,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
   try {
-    await fs.rm(lockPath, { force: true, recursive: true });
+    const currentTarget = await fs.readlink(lockPath);
+    const parsed = parseClaim(currentTarget);
+    return { ok: true, value: parsed.ok && sameClaimOwner(parsed.value, owner) };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: false };
+    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
+  }
+}
+
+async function releaseClaimLock(
+  lockPath: string,
+  owner: WorktreeClaimRecord,
+  fs: OccupancyFileSystem,
+): Promise<Result<void>> {
+  try {
+    const currentTarget = await fs.readlink(lockPath);
+    if (currentTarget !== claimLockTarget(owner)) return { ok: true, value: undefined };
+    const removed = await removeOwnedClaimLock(lockPath, currentTarget, fs);
+    if (!removed.ok) return removed;
     return { ok: true, value: undefined };
   } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: undefined };
+    return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_UNLOCK_FAILED, toErrorMessage(error)) };
+  }
+}
+
+async function removeOwnedClaimLock(
+  lockPath: string,
+  expectedTarget: string,
+  fs: OccupancyFileSystem,
+): Promise<Result<boolean>> {
+  try {
+    const currentTarget = await fs.readlink(lockPath);
+    if (currentTarget !== expectedTarget) return { ok: true, value: false };
+    await fs.rm(lockPath, { force: true, recursive: true });
+    return { ok: true, value: true };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: true };
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_UNLOCK_FAILED, toErrorMessage(error)) };
   }
 }
@@ -335,20 +371,8 @@ async function writeClaimAtPath(
   record: WorktreeClaimRecord,
   options: OccupancyWriteOptions,
 ): Promise<Result<string>> {
-  const tempPath = claimTempFilePath(claimPath, options.writeToken);
-  if (!tempPath.ok) return tempPath;
-  return writeSerializedClaim(claimPath, tempPath.value, record, options.fs);
-}
-
-async function writeSerializedClaim(
-  claimPath: string,
-  tempPath: string,
-  record: WorktreeClaimRecord,
-  fs: OccupancyFileSystem,
-): Promise<Result<string>> {
   try {
-    await fs.writeFile(tempPath, serializeClaim(record));
-    await fs.rename(tempPath, claimPath);
+    await writeFileAtomic(claimPath, serializeClaim(record), options);
     return { ok: true, value: claimPath };
   } catch (error) {
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };
@@ -412,7 +436,7 @@ async function recoverClaimLock(
     recovered = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_LOCK_FAILED, toErrorMessage(error)) };
   }
 
-  const released = await releaseClaimLock(recoveryPath, fs);
+  const released = await releaseClaimLock(recoveryPath, owner, fs);
   if (!released.ok) return released;
   return recovered;
 }

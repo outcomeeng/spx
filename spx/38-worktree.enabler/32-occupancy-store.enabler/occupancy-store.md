@@ -10,12 +10,15 @@ CAN answer `spx worktree status`, acquire a claim for `spx worktree claim`, and 
 
 - Given an unclaimed worktree, when a claim is written, then `.spx/worktrees/<name>.claim` holds the session id, host, controlling-process id, and start time ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree whose existing claim holder is live on the same host, when another claimant attempts acquisition, then the acquisition is refused and the existing claim remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a worktree whose existing claim already belongs to the same live holder, when that holder attempts acquisition again, then acquisition succeeds and the existing claim remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree whose existing claim holder is dead, when another claimant attempts acquisition, then the claim file holds the new claim ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree with a claim-acquisition marker whose owner process is dead, when another claimant attempts acquisition, then the marker is recovered and the claim file holds the new claim ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree with a claim-acquisition marker whose owner is alive on the same host with an unreadable start time, when another claimant attempts acquisition, then acquisition reports an in-progress claim and leaves the marker unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree with a claim-acquisition marker whose owner is recorded on another host, when another claimant attempts acquisition, then acquisition reports an in-progress claim and leaves the marker unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given the running worktree holds a claim, when the claim is released, then `.spx/worktrees/<name>.claim` is absent ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree claim belongs to another holder, when a different holder releases, then the current claim remains unchanged and release reports an ownership failure ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a claim-acquisition marker changes owners while a release cleans up, when the old owner releases, then the new owner's marker remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given a live holder's release removes the claim but leaves a claim-acquisition marker that names the same holder, when that holder attempts acquisition again, then acquisition succeeds and writes the claim ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a process-probe boundary throws while acquisition classifies an existing holder, when another claimant attempts acquisition afterward, then the later claimant is not blocked by the failed acquisition marker ([test](tests/occupancy-store.scenario.l1.test.ts))
 
 ### Mappings

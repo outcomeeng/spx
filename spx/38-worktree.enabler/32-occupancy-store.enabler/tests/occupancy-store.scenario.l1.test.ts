@@ -85,15 +85,56 @@ class ReplacingStaleLockFileSystem implements OccupancyFileSystem {
   }
 }
 
+class FailingLockRemovalFileSystem implements OccupancyFileSystem {
+  private failed = false;
+
+  constructor(
+    private readonly backing: OccupancyFileSystem,
+    private readonly lockPath: string,
+  ) {}
+
+  async mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void> {
+    await this.backing.mkdir(path, options);
+  }
+
+  async writeFile(path: string, data: string): Promise<void> {
+    await this.backing.writeFile(path, data);
+  }
+
+  async rename(from: string, to: string): Promise<void> {
+    await this.backing.rename(from, to);
+  }
+
+  async symlink(target: string, path: string): Promise<void> {
+    await this.backing.symlink(target, path);
+  }
+
+  async readlink(path: string): Promise<string> {
+    return this.backing.readlink(path);
+  }
+
+  async readFile(path: string, encoding: typeof OCCUPANCY_FS_TEXT_ENCODING): Promise<string> {
+    return this.backing.readFile(path, encoding);
+  }
+
+  async rm(path: string, options?: { readonly force?: boolean; readonly recursive?: boolean }): Promise<void> {
+    if (!this.failed && path === this.lockPath) {
+      this.failed = true;
+      throw new Error(OCCUPANCY_ERROR.CLAIM_UNLOCK_FAILED);
+    }
+    await this.backing.rm(path, options);
+  }
+}
+
 describe("worktree occupancy claim store", () => {
   it("writes a claim file holding the four-field record for an unclaimed worktree", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      const written = await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      const written = await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       expect(written.ok).toBe(true);
 
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
@@ -107,10 +148,10 @@ describe("worktree occupancy claim store", () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       const removed = await removeClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
         fs: defaultOccupancyFileSystem,
       });
@@ -126,19 +167,21 @@ describe("worktree occupancy claim store", () => {
   it("refuses to replace a live-held claim and leaves the existing holder unchanged", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const existingRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [existingSessionId, nextSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const existingRecord = { ...claimBase, sessionId: existingSessionId };
+    const nextRecord = { ...claimBase, sessionId: nextSessionId };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, randomBytes });
 
       const acquired = await acquireClaim(
         worktreesDir,
         name,
         nextRecord,
         createLiveHolderProbe(existingRecord),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_HELD });
@@ -149,6 +192,31 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
+  it("treats a repeated acquisition by the same live holder as successful and keeps the claim unchanged", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const acquired = await acquireClaim(
+        worktreesDir,
+        name,
+        record,
+        createLiveHolderProbe(record),
+        { fs: defaultOccupancyFileSystem, randomBytes },
+      );
+
+      expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(record);
+    });
+  });
+
   it("keeps another holder's claim when an old holder releases after the claim has changed", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
@@ -156,10 +224,10 @@ describe("worktree occupancy claim store", () => {
     const [oldSessionId, newSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
     const oldRecord = { ...newRecord, sessionId: oldSessionId };
     const currentRecord = { ...newRecord, sessionId: newSessionId };
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, currentRecord, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, currentRecord, { fs: defaultOccupancyFileSystem, randomBytes });
 
       const removed = await removeClaim(worktreesDir, name, oldRecord, createLiveHolderProbe(oldRecord), {
         fs: defaultOccupancyFileSystem,
@@ -170,6 +238,70 @@ describe("worktree occupancy claim store", () => {
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
       expect(readBack.value).toEqual(currentRecord);
+    });
+  });
+
+  it("does not remove a fresh claim-acquisition lock while releasing an old owner", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [oldSessionId, freshSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const oldRecord = { ...claimBase, sessionId: oldSessionId };
+    const freshRecord = { ...claimBase, sessionId: freshSessionId };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, oldRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      const oldTarget = claimLockTarget(oldRecord);
+      const freshTarget = claimLockTarget(freshRecord);
+
+      const removed = await removeClaim(worktreesDir, name, oldRecord, createLiveHolderProbe(oldRecord), {
+        fs: new ReplacingStaleLockFileSystem(defaultOccupancyFileSystem, lockPath, oldTarget, freshTarget),
+      });
+
+      expect(removed.ok).toBe(true);
+      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(freshTarget);
+    });
+  });
+
+  it("allows the same live holder to acquire after its release leaves a residual lock", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+
+      const failedRelease = await removeClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
+        fs: new FailingLockRemovalFileSystem(defaultOccupancyFileSystem, lockPath),
+      });
+
+      expect(failedRelease.ok).toBe(false);
+      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(claimLockTarget(record));
+      const removedClaim = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(removedClaim.ok).toBe(true);
+      if (!removedClaim.ok) throw new Error(removedClaim.error);
+      expect(removedClaim.value).toBeUndefined();
+
+      const acquired = await acquireClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
+        fs: defaultOccupancyFileSystem,
+        randomBytes,
+      });
+
+      expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(record);
     });
   });
 
@@ -194,19 +326,21 @@ describe("worktree occupancy claim store", () => {
   it("replaces a residual claim whose holder is dead", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const existingRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [existingSessionId, nextSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const existingRecord = { ...claimBase, sessionId: existingSessionId };
+    const nextRecord = { ...claimBase, sessionId: nextSessionId };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, randomBytes });
 
       const acquired = await acquireClaim(
         worktreesDir,
         name,
         nextRecord,
         createDeadHolderProbe(existingRecord),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired.ok).toBe(true);
@@ -222,7 +356,7 @@ describe("worktree occupancy claim store", () => {
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const deadLockOwner = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
@@ -236,7 +370,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createDeadHolderProbe(deadLockOwner),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired.ok).toBe(true);
@@ -253,7 +387,7 @@ describe("worktree occupancy claim store", () => {
     const lockOwnerBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const lockOwner = { ...lockOwnerBase, startedAt: unreadableStartedAt(lockOwnerBase.pid) };
     const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
@@ -269,7 +403,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createUnreadableStartTimeProbe(lockOwner),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
@@ -291,7 +425,7 @@ describe("worktree occupancy claim store", () => {
     const staleLockOwner = { ...claimBase, sessionId: staleSessionId, pid: stalePid, startedAt: staleStartedAt };
     const freshLockOwner = { ...claimBase, sessionId: freshSessionId, pid: freshPid, startedAt: freshStartedAt };
     const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const probe = createProcessProbe({
       host: claimBase.host,
       alivePids: new Set([freshPid]),
@@ -310,7 +444,7 @@ describe("worktree occupancy claim store", () => {
 
       const acquired = await acquireClaim(worktreesDir, name, nextRecord, probe, {
         fs: new ReplacingStaleLockFileSystem(defaultOccupancyFileSystem, lockPath, staleTarget, freshTarget),
-        writeToken,
+        randomBytes,
       });
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
@@ -330,7 +464,7 @@ describe("worktree occupancy claim store", () => {
     const lockOwner = { ...claimBase, sessionId: lockSessionId };
     const recoveryOwner = { ...claimBase, sessionId: recoverySessionId };
     const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
@@ -349,7 +483,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createDeadHolderProbe(lockOwner),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired.ok).toBe(true);
@@ -366,7 +500,7 @@ describe("worktree occupancy claim store", () => {
     const [lockHost, claimantHost] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctHosts());
     const lockOwner = { ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()), host: lockHost };
     const nextRecord = { ...sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()), host: claimantHost };
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
@@ -382,7 +516,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createForeignHostProbe(lockOwner, claimantHost),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
@@ -393,16 +527,18 @@ describe("worktree occupancy claim store", () => {
   it("releases the claim-acquisition lock when the process probe throws during holder classification", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const existingRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [existingSessionId, nextSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const existingRecord = { ...claimBase, sessionId: existingSessionId };
+    const nextRecord = { ...claimBase, sessionId: nextSessionId };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, existingRecord, { fs: defaultOccupancyFileSystem, randomBytes });
 
       const failed = await acquireClaim(worktreesDir, name, nextRecord, createThrowingProbe(), {
         fs: defaultOccupancyFileSystem,
-        writeToken,
+        randomBytes,
       });
       expect(failed.ok).toBe(false);
 
@@ -411,7 +547,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createDeadHolderProbe(existingRecord),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
       expect(recovered.ok).toBe(true);
     });
@@ -420,9 +556,11 @@ describe("worktree occupancy claim store", () => {
   it("keeps an existing claim-acquisition lock when recovery classification throws", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const existingLockOwner = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [existingSessionId, nextSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const existingLockOwner = { ...claimBase, sessionId: existingSessionId };
+    const nextRecord = { ...claimBase, sessionId: nextSessionId };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
@@ -435,7 +573,7 @@ describe("worktree occupancy claim store", () => {
 
       const failed = await acquireClaim(worktreesDir, name, nextRecord, createThrowingProbe(), {
         fs: defaultOccupancyFileSystem,
-        writeToken,
+        randomBytes,
       });
       expect(failed.ok).toBe(false);
       await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(lockTarget);
@@ -445,7 +583,7 @@ describe("worktree occupancy claim store", () => {
         name,
         nextRecord,
         createDeadHolderProbe(existingLockOwner),
-        { fs: defaultOccupancyFileSystem, writeToken },
+        { fs: defaultOccupancyFileSystem, randomBytes },
       );
       expect(recovered.ok).toBe(true);
     });
@@ -456,10 +594,10 @@ describe("worktree occupancy claim store", () => {
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const probe = createLiveHolderProbe(record);
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withTempDir(prefix, async (worktreesDir) => {
-      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, writeToken });
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
       const held = await readOccupancy(worktreesDir, name, probe, { fs: defaultOccupancyFileSystem });
       expect(held.ok).toBe(true);
       if (!held.ok) throw new Error(held.error);

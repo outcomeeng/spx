@@ -25,10 +25,10 @@ describe("the worktree-pool snapshot preserves layout verdicts when free worktre
           pids: WORKTREE_TEST_GENERATOR.distinctPids(),
           startTimes: WORKTREE_TEST_GENERATOR.distinctStartTimes(),
           host: WORKTREE_TEST_GENERATOR.host(),
-          writeTokens: WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
+          randomBytesPair: WORKTREE_TEST_GENERATOR.distinctRandomBytes(),
           tempPrefix: WORKTREE_TEST_GENERATOR.tempPrefix(),
         }),
-        async ({ worktreeNames, sessionIds, pids, startTimes, host, writeTokens, tempPrefix }) => {
+        async ({ worktreeNames, sessionIds, pids, startTimes, host, randomBytesPair, tempPrefix }) => {
           const [runningName, freeName, deadName] = worktreeNames;
           const [liveSessionId, deadSessionId] = sessionIds;
           const [livePid, deadPid] = pids;
@@ -59,7 +59,7 @@ describe("the worktree-pool snapshot preserves layout verdicts when free worktre
 
             await writeClaim(worktreesDir, worktreeClaimName(runningRoot), liveClaim, {
               fs: defaultOccupancyFileSystem,
-              writeToken: writeTokens[0],
+              randomBytes: randomBytesPair[0],
             });
 
             async function gather(worktreeRoots: readonly string[]): Promise<ReturnType<typeof classifyWorktreePool>> {
@@ -84,7 +84,7 @@ describe("the worktree-pool snapshot preserves layout verdicts when free worktre
 
             await writeClaim(worktreesDir, worktreeClaimName(deadRoot), deadClaim, {
               fs: defaultOccupancyFileSystem,
-              writeToken: writeTokens[1],
+              randomBytes: randomBytesPair[1],
             });
             const deadRecord = await gather([runningRoot, deadRoot]);
 

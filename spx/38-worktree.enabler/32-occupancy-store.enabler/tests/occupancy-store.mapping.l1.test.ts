@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   claimFilePath,
-  claimTempFilePath,
   classifyOccupancy,
   OCCUPANCY_CLAIM,
   OCCUPANCY_ERROR,
@@ -14,6 +13,7 @@ import {
   type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
+import { atomicWriteTempPath, type RandomBytes } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -97,13 +97,13 @@ class SymbolThrowingClaimFileSystem implements OccupancyFileSystem {
   }
 }
 
-function identicalClaimRecordWithDistinctWriteTokens(): readonly [
+function identicalClaimRecordWithDistinctRandomBytes(): readonly [
   WorktreeClaimRecord,
-  readonly [string, string],
+  readonly [RandomBytes, RandomBytes],
 ] {
   return sampleWorktreeTestValue(
     WORKTREE_TEST_GENERATOR.claimRecord().chain((record) =>
-      WORKTREE_TEST_GENERATOR.distinctWriteTokens().map((writeTokens) => [record, writeTokens] as const)
+      WORKTREE_TEST_GENERATOR.distinctRandomBytes().map((randomBytesPair) => [record, randomBytesPair] as const)
     ),
   );
 }
@@ -171,27 +171,23 @@ describe("worktree occupancy classification mapping", () => {
   it("maps overlapping writes for one worktree to writer-unique temporary claim paths", async () => {
     const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const [record, [firstWriteToken, secondWriteToken]] = identicalClaimRecordWithDistinctWriteTokens();
+    const [record, [firstRandomBytes, secondRandomBytes]] = identicalClaimRecordWithDistinctRandomBytes();
     const fs = new RecordingClaimFileSystem();
     const claimPath = claimFilePath(worktreesDir, name);
     expect(claimPath.ok).toBe(true);
     if (!claimPath.ok) throw new Error(claimPath.error);
-    const firstTempPath = claimTempFilePath(claimPath.value, firstWriteToken);
-    const secondTempPath = claimTempFilePath(claimPath.value, secondWriteToken);
-    expect(firstTempPath.ok).toBe(true);
-    expect(secondTempPath.ok).toBe(true);
-    if (!firstTempPath.ok) throw new Error(firstTempPath.error);
-    if (!secondTempPath.ok) throw new Error(secondTempPath.error);
+    const firstTempPath = atomicWriteTempPath(claimPath.value, firstRandomBytes);
+    const secondTempPath = atomicWriteTempPath(claimPath.value, secondRandomBytes);
 
     const [first, second] = await Promise.all([
-      writeClaim(worktreesDir, name, record, { fs, writeToken: firstWriteToken }),
-      writeClaim(worktreesDir, name, record, { fs, writeToken: secondWriteToken }),
+      writeClaim(worktreesDir, name, record, { fs, randomBytes: firstRandomBytes }),
+      writeClaim(worktreesDir, name, record, { fs, randomBytes: secondRandomBytes }),
     ]);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(new Set(fs.renamedFrom)).toEqual(
-      new Set([firstTempPath.value, secondTempPath.value]),
+      new Set([firstTempPath, secondTempPath]),
     );
   });
 
@@ -199,11 +195,11 @@ describe("worktree occupancy classification mapping", () => {
     const worktreesDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     const result = await writeClaim(worktreesDir, name, record, {
       fs: new SymbolThrowingClaimFileSystem(),
-      writeToken,
+      randomBytes,
     });
 
     expect(result.ok).toBe(false);

@@ -48,7 +48,6 @@ export const HOOK_CLI = {
 } as const;
 
 const HOOK_DOMAIN_DESCRIPTION = "Run host lifecycle hook events";
-const CLAIM_WRITE_TOKEN_BYTES = 16;
 
 interface HookCommandOptions {
   readonly hookEnvFile?: string;
@@ -103,7 +102,7 @@ async function resolveHookExecutionContext(
       io: processHookIo,
       onWarning: (warning) => writeInvocationWarning(invocation, warning),
       processTable: defaultProcessTable,
-      claimWriteToken: nodeRandomBytes(CLAIM_WRITE_TOKEN_BYTES).toString("hex"),
+      claimRandomBytes: nodeRandomBytes,
       selfPid: process.pid,
       stdinContent,
       worktreesDir: options.worktreesDir,

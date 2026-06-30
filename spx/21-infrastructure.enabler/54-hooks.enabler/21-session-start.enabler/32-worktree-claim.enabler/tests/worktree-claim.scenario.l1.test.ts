@@ -14,11 +14,12 @@ import { readClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
+import type { RandomBytes } from "@/lib/atomic-file-write";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface SessionStartHookScenarioInput {
-  readonly claimWriteToken: string;
+  readonly claimRandomBytes: RandomBytes;
   readonly content: string;
   readonly env: HookSessionStartEnv;
   readonly envFile?: string;
@@ -50,7 +51,7 @@ function hookEnvWithHolder(
 
 async function runSessionStartHookScenario(env: WorktreePoolEnv, input: SessionStartHookScenarioInput) {
   return runSessionStartHook({
-    claimWriteToken: input.claimWriteToken,
+    claimRandomBytes: input.claimRandomBytes,
     compactStdout: false,
     content: input.content,
     cwd: env.container,
@@ -96,13 +97,13 @@ describe("hook session-start worktree claim", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
       const existingExport = await seedHookEnvFile(envFile, sessionId);
       const result = await runSessionStartHookScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env, sessionId),
         env: hookEnvWithHolder(env, envFile),
       });
@@ -139,13 +140,13 @@ describe("hook session-start worktree claim", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const relativeWorktreesDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
       const result = await runSessionStartHookScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env, sessionId),
         env: hookEnvWithHolder(env, envFile),
         worktreesDir: relativeWorktreesDir,
@@ -174,12 +175,12 @@ describe("hook session-start worktree claim", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
       const result = await runSessionStartHookScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env),
         env: hookEnvWithHolder(env, envFile),
       });
@@ -203,12 +204,12 @@ describe("hook session-start worktree claim", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = hookEnvFilePath(env, envFileName);
       const result = await runSessionStartHookScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env, sessionId),
         env: {
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: envFile,

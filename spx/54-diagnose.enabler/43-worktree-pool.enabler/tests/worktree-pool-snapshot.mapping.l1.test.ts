@@ -56,7 +56,7 @@ describe("the worktree-pool snapshot maps git facts and occupancy into the workt
       pid: deadPid,
       startedAt: deadStartedAt,
     };
-    const [liveWriteToken, deadWriteToken] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctWriteTokens());
+    const [liveRandomBytes, deadRandomBytes] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctRandomBytes());
 
     await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (productDir) => {
       const runningRoot = join(productDir, runningName);
@@ -76,11 +76,11 @@ describe("the worktree-pool snapshot maps git facts and occupancy into the workt
       if (testCase.writeClaims) {
         await writeClaim(worktreesDir, worktreeClaimName(runningRoot), liveClaim, {
           fs: defaultOccupancyFileSystem,
-          writeToken: liveWriteToken,
+          randomBytes: liveRandomBytes,
         });
         await writeClaim(worktreesDir, worktreeClaimName(freeRoot), deadClaim, {
           fs: defaultOccupancyFileSystem,
-          writeToken: deadWriteToken,
+          randomBytes: deadRandomBytes,
         });
       }
 

@@ -86,12 +86,12 @@ describe("worktree status path-form resolution", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const [subdir, fileName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const claim = await claimCommand({
-        claimWriteToken,
+        claimRandomBytes,
         sessionId,
         cwd: env.worktreePath,
         fs: env.fs,
@@ -136,7 +136,7 @@ describe("worktree status path-form resolution", () => {
     const [claimedName, callerName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const processTable = createProcessTable({
       host: holder.host,
@@ -150,7 +150,7 @@ describe("worktree status path-form resolution", () => {
       async (layout) => {
         await withTempDir(tempPrefix, async (worktreesDir) => {
           const claim = await claimCommand({
-            claimWriteToken,
+            claimRandomBytes,
             sessionId,
             cwd: layout.worktree(claimedName),
             fs: defaultOccupancyFileSystem,
