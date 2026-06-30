@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +22,7 @@ interface SessionStartHookScenarioInput {
   readonly content: string;
   readonly env: HookSessionStartEnv;
   readonly envFile?: string;
+  readonly worktreesDir?: string;
 }
 
 function hookContent(env: WorktreePoolEnv, sessionId?: string): string {
@@ -56,7 +57,7 @@ async function runSessionStartHookScenario(env: WorktreePoolEnv, input: SessionS
     envFile: input.envFile ?? input.env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE],
     fs: env.fs,
     gitDeps: defaultGitDependencies,
-    worktreesDir: env.worktreesDir,
+    worktreesDir: input.worktreesDir ?? env.worktreesDir,
     processTable: env.processTable,
     selfPid: env.holder.pid,
     env: input.env,
@@ -129,6 +130,42 @@ describe("hook session-start worktree claim", () => {
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH, `'${result.value.claimPath}'`);
+    });
+  });
+
+  it("exports an absolute claim path from a relative worktrees directory", async () => {
+    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const relativeWorktreesDir = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      const envFile = hookEnvFilePath(env, envFileName);
+      const result = await runSessionStartHookScenario(env, {
+        claimWriteToken,
+        content: hookContent(env, sessionId),
+        env: hookEnvWithHolder(env, envFile),
+        worktreesDir: relativeWorktreesDir,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.claimPath).toBeDefined();
+      if (result.value.claimPath === undefined) throw new Error("expected claim path");
+      expect(isAbsolute(result.value.claimPath)).toBe(true);
+
+      const resolvedWorktreesDir = join(env.worktreePath, relativeWorktreesDir);
+      const claim = await readClaim(resolvedWorktreesDir, worktreeClaimName(basename(env.worktreePath)), {
+        fs: env.fs,
+      });
+      expect(claim.ok).toBe(true);
+      if (!claim.ok) throw new Error(claim.error);
+      expect(claim.value?.sessionId).toBe(sessionId);
+
+      const envContent = await readHookEnvFile(envFile);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH, `'${result.value.claimPath}'`);
     });
   });
