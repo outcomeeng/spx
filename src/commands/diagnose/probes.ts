@@ -65,6 +65,7 @@ export interface WorktreePoolSnapshot {
 
 export interface WorktreePoolSnapshotDependencies {
   readonly gatherGitFacts: () => Promise<GitFacts | null>;
+  readonly env?: Readonly<Record<string, string | undefined>>;
   readonly fs: OccupancyFileSystem;
   readonly processTable: ProcessTable;
 }
@@ -74,24 +75,13 @@ export interface SessionEnvironmentSnapshotInput {
   readonly sessionIdentity: boolean;
 }
 
-export interface SessionEnvironmentProbeDependencies {
-  readonly env: Readonly<Record<string, string | undefined>>;
-  readonly fs: OccupancyFileSystem;
-  readonly processTable: ProcessTable;
-}
-
 export interface WorktreePoolSnapshotProvider {
   read(): Promise<WorktreePoolSnapshot>;
 }
 
 const defaultWorktreePoolSnapshotDependencies: WorktreePoolSnapshotDependencies = {
-  gatherGitFacts,
-  fs: defaultOccupancyFileSystem,
-  processTable: defaultProcessTable,
-};
-
-const defaultSessionEnvironmentProbeDependencies: SessionEnvironmentProbeDependencies = {
   env: process.env,
+  gatherGitFacts,
   fs: defaultOccupancyFileSystem,
   processTable: defaultProcessTable,
 };
@@ -100,6 +90,12 @@ interface ExportedClaimReading {
   readonly errored: boolean;
   readonly name?: string;
   readonly running: boolean;
+  readonly sessionId?: string;
+}
+
+interface ExportedClaimDependencies {
+  readonly fs: OccupancyFileSystem;
+  readonly processTable: ProcessTable;
 }
 
 interface Capture {
@@ -167,6 +163,25 @@ export async function gatherWorktreePoolSnapshot(
     worktrees.push({ root, name, status, sessionId });
   }
 
+  const exportedClaim = await exportedClaimReadingFromEnv(deps.env, deps);
+  if (exportedClaim.errored) return erroredWorktreePoolSnapshot();
+
+  const currentWorktreeIndex = worktrees.findIndex((worktree) => worktree.root === facts.worktreeRoot);
+  const currentWorktree = currentWorktreeIndex === -1 ? undefined : worktrees[currentWorktreeIndex];
+  if (
+    currentWorktree !== undefined
+    && exportedClaim.running
+    && exportedClaim.sessionId !== undefined
+    && exportedClaim.name === currentWorktree.name
+  ) {
+    liveClaimSessionIds.add(exportedClaim.sessionId);
+    worktrees[currentWorktreeIndex] = {
+      ...currentWorktree,
+      status: OCCUPANCY_STATUS.RUNNING,
+      sessionId: exportedClaim.sessionId,
+    };
+  }
+
   return {
     errored: false,
     bareRepository: facts.commonDirIsBare,
@@ -218,19 +233,22 @@ export function sessionEnvironmentReadingFromSnapshot(
 }
 
 async function exportedClaimReadingFromEnv(
-  deps: SessionEnvironmentProbeDependencies,
+  env: Readonly<Record<string, string | undefined>> | undefined,
+  deps: ExportedClaimDependencies,
 ): Promise<ExportedClaimReading> {
-  const claimPath = deps.env[HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH];
+  const claimPath = env?.[HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH];
   if (claimPath === undefined) return { errored: false, running: false };
 
   const claimName = basename(claimPath, OCCUPANCY_CLAIM.FILE_EXTENSION);
   const claim = await readClaim(dirname(claimPath), claimName, { fs: deps.fs });
   if (!claim.ok) return { errored: true, running: false };
 
+  const running = classifyOccupancy(claim.value, deps.processTable) === OCCUPANCY_STATUS.RUNNING;
   return {
     errored: false,
     name: claimName,
-    running: classifyOccupancy(claim.value, deps.processTable) === OCCUPANCY_STATUS.RUNNING,
+    running,
+    sessionId: running && claim.value !== undefined ? normalizeAgentSessionToken(claim.value.sessionId) : undefined,
   };
 }
 
@@ -269,25 +287,17 @@ export function worktreePoolProbeFromSnapshotProvider(provider: WorktreePoolSnap
 
 export function sessionEnvironmentProbeFromSnapshotProvider(
   provider: WorktreePoolSnapshotProvider,
-  deps: SessionEnvironmentProbeDependencies = defaultSessionEnvironmentProbeDependencies,
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): SessionEnvironmentProbe {
   return {
     async probe(): Promise<SessionEnvironmentReading> {
-      const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in deps.env;
-      const sessionIdentity = resolveAgentSessionId(deps.env) !== undefined;
+      const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in env;
+      const sessionIdentity = resolveAgentSessionId(env) !== undefined;
       const snapshot = await provider.read();
-      const snapshotReading = sessionEnvironmentReadingFromSnapshot(snapshot, {
+      return sessionEnvironmentReadingFromSnapshot(snapshot, {
         hookPresent,
         sessionIdentity,
       });
-      const exportedClaim = await exportedClaimReadingFromEnv(deps);
-      const currentWorktree = snapshot.worktrees.find((worktree) => worktree.root === snapshot.currentWorktreeRoot);
-      const exportedClaimMatchesCurrentWorktree = exportedClaim.running && exportedClaim.name === currentWorktree?.name;
-      return {
-        ...snapshotReading,
-        errored: snapshotReading.errored || exportedClaim.errored,
-        worktreeClaimed: snapshotReading.worktreeClaimed || exportedClaimMatchesCurrentWorktree,
-      };
     },
   };
 }
