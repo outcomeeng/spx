@@ -9,7 +9,7 @@
  * @module commands/diagnose/probes
  */
 
-import { dirname } from "node:path";
+import { basename, dirname } from "node:path";
 
 import { execa } from "execa";
 
@@ -30,6 +30,7 @@ import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/ses
 import type { SessionRecord } from "@/domains/session/list";
 import {
   classifyOccupancy,
+  OCCUPANCY_CLAIM,
   OCCUPANCY_STATUS,
   type OccupancyFileSystem,
   type OccupancyStatus,
@@ -73,6 +74,12 @@ export interface SessionEnvironmentSnapshotInput {
   readonly sessionIdentity: boolean;
 }
 
+export interface SessionEnvironmentProbeDependencies {
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly fs: OccupancyFileSystem;
+  readonly processTable: ProcessTable;
+}
+
 export interface WorktreePoolSnapshotProvider {
   read(): Promise<WorktreePoolSnapshot>;
 }
@@ -82,6 +89,17 @@ const defaultWorktreePoolSnapshotDependencies: WorktreePoolSnapshotDependencies 
   fs: defaultOccupancyFileSystem,
   processTable: defaultProcessTable,
 };
+
+const defaultSessionEnvironmentProbeDependencies: SessionEnvironmentProbeDependencies = {
+  env: process.env,
+  fs: defaultOccupancyFileSystem,
+  processTable: defaultProcessTable,
+};
+
+interface ExportedClaimReading {
+  readonly errored: boolean;
+  readonly running: boolean;
+}
 
 interface Capture {
   readonly ok: boolean;
@@ -198,6 +216,22 @@ export function sessionEnvironmentReadingFromSnapshot(
   };
 }
 
+async function exportedClaimReadingFromEnv(
+  deps: SessionEnvironmentProbeDependencies,
+): Promise<ExportedClaimReading> {
+  const claimPath = deps.env[HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH];
+  if (claimPath === undefined) return { errored: false, running: false };
+
+  const claimName = basename(claimPath, OCCUPANCY_CLAIM.FILE_EXTENSION);
+  const claim = await readClaim(dirname(claimPath), claimName, { fs: deps.fs });
+  if (!claim.ok) return { errored: true, running: false };
+
+  return {
+    errored: false,
+    running: classifyOccupancy(claim.value, deps.processTable) === OCCUPANCY_STATUS.RUNNING,
+  };
+}
+
 export function sessionStoreReadingFromSnapshot(
   snapshot: WorktreePoolSnapshot,
   doing: readonly SessionRecord[],
@@ -233,15 +267,22 @@ export function worktreePoolProbeFromSnapshotProvider(provider: WorktreePoolSnap
 
 export function sessionEnvironmentProbeFromSnapshotProvider(
   provider: WorktreePoolSnapshotProvider,
+  deps: SessionEnvironmentProbeDependencies = defaultSessionEnvironmentProbeDependencies,
 ): SessionEnvironmentProbe {
   return {
     async probe(): Promise<SessionEnvironmentReading> {
-      const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in process.env;
-      const sessionIdentity = resolveAgentSessionId(process.env) !== undefined;
-      return sessionEnvironmentReadingFromSnapshot(await provider.read(), {
+      const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in deps.env;
+      const sessionIdentity = resolveAgentSessionId(deps.env) !== undefined;
+      const snapshotReading = sessionEnvironmentReadingFromSnapshot(await provider.read(), {
         hookPresent,
         sessionIdentity,
       });
+      const exportedClaim = await exportedClaimReadingFromEnv(deps);
+      return {
+        ...snapshotReading,
+        errored: snapshotReading.errored || exportedClaim.errored,
+        worktreeClaimed: snapshotReading.worktreeClaimed || exportedClaim.running,
+      };
     },
   };
 }

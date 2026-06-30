@@ -37,7 +37,7 @@ Govern the still-ungoverned infrastructure and remaining cross-domain test harne
 Modules to govern (place each governing node beside its owning domain node):
 
 - `testing/harnesses/github-snapshot-client.ts` → `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler`
-- `testing/harnesses/hook-cli.ts` → `spx/21-infrastructure.enabler/54-hooks.enabler`
+- `testing/harnesses/hook-cli.ts` plus duplicated session-start hook test helpers for env-file reading, env export assertions, holder env setup, and hook payload construction → `spx/21-infrastructure.enabler/54-hooks.enabler`
 - `testing/harnesses/agent-run-journal/in-memory-backend.ts` → `spx/15-agent-run-journal.enabler`
 - `testing/harnesses/spec-tree/assertions.ts` → no governing node: its only uncovered statement is an unreachable type-narrowing throw reached after `expect()` has already thrown, so a coverage-driven node adds nothing
 - `testing/harnesses/with-markdown-env.ts` → `spx/41-validation.enabler/65-markdown-validation.enabler` (reconcile with the validation batch)
