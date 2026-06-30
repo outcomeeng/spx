@@ -27,7 +27,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 2. Complete file-inclusion path-scope migration.
    - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
    - Consume the settled path-filter primitive.
-   - Final ignore-source deletion follows testing passing-scope integration.
+   - Final ignore-source deletion follows test passing-scope integration.
 
 3. Complete agent instruction and plugin bootstrap packets.
    - Work in `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` and `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
@@ -100,7 +100,7 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 
 - Record shared gaps discovered during implementation here before opening a shared branch.
 - After config primitives land, update file-inclusion and test implementation branches to consume the shared primitive rather than duplicating path-filter validation.
-- Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence integrate.
+- Agree on the canonical descriptor digest API shape before branches implementing test last-run evidence integrate.
 - After T1-T2 settle, evaluate whether the parent `spx/41-test.enabler/` spec needs a separate parent-level test API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After T1 settles, evaluate whether the parent `spx/22-test-environment.enabler/` spec needs a separate parent-level fixture-harness alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After F1 and T2 settle, inspect F1's PLAN for ignore-source deletion candidates and create a follow-up packet only when a concrete production deletion remains.
@@ -113,7 +113,7 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 - Config primitive tests cover valid/invalid include and exclude arrays, missing fields, empty config, and error paths.
 - Registry-extension tests prove test descriptors compose without changing existing descriptor modules.
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
-- Descriptor isolation tests prove a malformed test section cannot read or change validate config.
+- Descriptor isolation tests prove a malformed `testing` section cannot read or change validation config.
 - Shared-primitive tests prove validate and test descriptors import the same path-filter primitive while exposing policy under separate sections.
 - Registry-extension tests prove the shared-primitive scenario from `config.md`: two domain descriptors import one shared path-filter primitive and expose it under separate domain sections without sharing policy defaults.
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
