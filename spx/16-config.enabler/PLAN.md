@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validation, testing, agent environment management, context ingestion, and future execution domains.
+Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validate, test, agent environment management, context ingestion, and future execution domains.
 
 ## Governing Decisions
 
@@ -13,16 +13,16 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 ## Settled foundations
 
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the shared path-filter primitive.
-- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered testing descriptor extension.
+- `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered test descriptor extension.
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` owns canonical descriptor JSON and digest computation.
 - `spx/16-config.enabler/65-product-directory-api.enabler/` owns product-directory API vocabulary for config-owned root resolution.
 - `spx/33-agent-environment.enabler/` owns the agent environment descriptor shape consumed by runtime and future agent-environment packets.
 
 ## Active tranche
 
-1. Complete testing status evidence.
+1. Complete test status evidence.
    - Work in `spx/41-test.enabler/43-last-run-evidence.enabler/`.
-   - Consume the settled testing descriptor, domain execution descriptor, canonical descriptor digest, and product-directory API.
+   - Consume the settled test descriptor, domain execution descriptor, canonical descriptor digest, and product-directory API.
 
 2. Complete file-inclusion path-scope migration.
    - Work in `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`.
@@ -42,7 +42,7 @@ Settled prerequisites on current `origin/main`:
 This list reflects expected state. Agents verify these at branch time, and dispatchers use the commands below to confirm current state before packet assignment.
 
 - Shared path-filter primitive: `spx/16-config.enabler/32-shared-config-primitives.enabler/` owns the structural `{ include?: string[]; exclude?: string[] }` primitive. Dependent packets consume it and do not recreate path-filter validators.
-- Testing descriptor: `spx/41-test.enabler/32-test-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered testing descriptor. Dependent packets consume it and do not create a second testing descriptor.
+- Test descriptor: `spx/41-test.enabler/32-test-config.enabler/` and `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` own the registered test descriptor. Dependent packets consume it and do not create a second test descriptor.
 - Spec-domain public surface: `spx/31-spec-domain.enabler/spec-domain.md` and `spx/23-spec-tree.enabler/spec-tree.md` own the settled command and library surfaces S1 consumes.
 - F1 consumes the settled path-filter primitive directly.
 
@@ -66,7 +66,7 @@ Dispatcher Verification covers already-settled prerequisites only. Packet output
 | C2     | `spx/16-config.enabler/65-product-directory-api.enabler/`         | none; dispatcher-enforced preference to sequence after C1 because both touch config modules | Settled on `origin/main`: product-root vocabulary across config APIs, harnesses, and root helpers                   |
 | F1     | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`   | settled path-filter primitive                                                               | File-inclusion resolver accepts descriptor-owned domain path filters                                                |
 | T1     | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`  | C2                                                                                          | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures                         |
-| T2     | `spx/41-test.enabler/43-last-run-evidence.enabler/`               | settled testing config, settled domain execution descriptor, C1, C2                         | Persisted test observations and stale-status inputs                                                                 |
+| T2     | `spx/41-test.enabler/43-last-run-evidence.enabler/`               | settled test config, settled domain execution descriptor, C1, C2                            | Persisted test observations and stale-status inputs                                                                 |
 | S1     | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/`        | settled public-surface files on `origin/main`; S1 verifies surface completeness             | Deterministic context-ingestion command surface                                                                     |
 | E0     | `spx/33-agent-environment.enabler/`                               | none; critical-path priority before E2                                                      | Settled on `origin/main`: agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
 | E1     | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2                                                 | Assign after E2 merges: deterministic instruction-file reconciliation; sentinel `agent-instructions.md`             |
@@ -99,9 +99,9 @@ Ownership and review loop:
 See packet-level PLAN files for per-node evidence items; this section records cross-packet coordination only.
 
 - Record shared gaps discovered during implementation here before opening a shared branch.
-- After config primitives land, update file-inclusion and testing implementation branches to consume the shared primitive rather than duplicating path-filter validation.
+- After config primitives land, update file-inclusion and test implementation branches to consume the shared primitive rather than duplicating path-filter validation.
 - Agree on the canonical descriptor digest API shape before branches implementing testing last-run evidence integrate.
-- After T1-T2 settle, evaluate whether the parent `spx/41-test.enabler/` spec needs a separate parent-level testing API alignment packet; create that packet only when a concrete parent-spec change is identified.
+- After T1-T2 settle, evaluate whether the parent `spx/41-test.enabler/` spec needs a separate parent-level test API alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After T1 settles, evaluate whether the parent `spx/22-test-environment.enabler/` spec needs a separate parent-level fixture-harness alignment packet; create that packet only when a concrete parent-spec change is identified.
 - After F1 and T2 settle, inspect F1's PLAN for ignore-source deletion candidates and create a follow-up packet only when a concrete production deletion remains.
 - After F1 settles, evaluate whether the parent `spx/17-file-inclusion.enabler/` spec needs a separate parent-level file-inclusion API alignment packet; create that packet only when a concrete parent-spec change is identified.
@@ -111,10 +111,10 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 ## Evidence Required
 
 - Config primitive tests cover valid/invalid include and exclude arrays, missing fields, empty config, and error paths.
-- Registry-extension tests prove testing descriptors compose without changing existing descriptor modules.
+- Registry-extension tests prove test descriptors compose without changing existing descriptor modules.
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
-- Descriptor isolation tests prove a malformed testing section cannot read or change validation config.
-- Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
+- Descriptor isolation tests prove a malformed test section cannot read or change validate config.
+- Shared-primitive tests prove validate and test descriptors import the same path-filter primitive while exposing policy under separate sections.
 - Registry-extension tests prove the shared-primitive scenario from `config.md`: two domain descriptors import one shared path-filter primitive and expose it under separate domain sections without sharing policy defaults.
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
