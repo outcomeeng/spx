@@ -164,7 +164,7 @@ sonar auth login -o outcomeeng   # opens a browser; the token is stored in the O
 
 Until then the MCP server entry is inert: it does not affect builds, tests, or validation.
 
-A Lefthook **pre-push** hook runs `sonar analyze --base origin/main` so SonarQube Cloud findings on the pushed changeset surface before the code leaves your machine, and a finding blocks the push. It uses the same `sonar` CLI and authentication as the MCP server above, so install the CLI and run `sonar auth login` before pushing. When the CLI is genuinely unavailable, `git push --no-verify` skips the hook.
+The local static-analysis gate is `pnpm run validate`, which includes the ESLint mirror of SonarQube findings. SonarQube Cloud automatic analysis still runs server-side on pushes and pull requests. Contributors with SonarQube Cloud plan access for local CLI analysis can set `SPX_SONAR_CLI_ANALYZE=1`; the Lefthook **pre-push** hook then runs `sonar analyze --base origin/main` and blocks the push on findings.
 
 ## CI/CD
 
