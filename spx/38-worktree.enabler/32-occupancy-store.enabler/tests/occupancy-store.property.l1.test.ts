@@ -139,11 +139,11 @@ describe("worktree occupancy claim store properties", () => {
         fc.asyncProperty(
           WORKTREE_TEST_GENERATOR.worktreeName(),
           WORKTREE_TEST_GENERATOR.claimRecord(),
-          WORKTREE_TEST_GENERATOR.writeToken(),
-          async (name, record, writeToken) => {
+          WORKTREE_TEST_GENERATOR.randomBytes(),
+          async (name, record, randomBytes) => {
             const written = await writeClaim(worktreesDir, name, record, {
               fs: defaultOccupancyFileSystem,
-              writeToken,
+              randomBytes,
             });
             expect(written.ok).toBe(true);
 
@@ -164,12 +164,12 @@ describe("worktree occupancy claim store properties", () => {
         WORKTREE_TEST_GENERATOR.tempPrefix(),
         WORKTREE_TEST_GENERATOR.worktreeName(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
-        WORKTREE_TEST_GENERATOR.writeToken(),
-        async (prefix, name, record, writeToken) => {
+        WORKTREE_TEST_GENERATOR.randomBytes(),
+        async (prefix, name, record, randomBytes) => {
           await withTempDir(prefix, async (worktreesDir) => {
             const pausing = new PausingClaimWriteFileSystem(defaultOccupancyFileSystem);
             const recording = createRecordingOccupancyFileSystem(pausing);
-            const write = writeClaim(worktreesDir, name, record, { fs: recording, writeToken });
+            const write = writeClaim(worktreesDir, name, record, { fs: recording, randomBytes });
 
             await pausing.waitUntilTempWritten();
 
@@ -214,20 +214,20 @@ describe("worktree occupancy claim store properties", () => {
         WORKTREE_TEST_GENERATOR.worktreeName(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
-        WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
+        WORKTREE_TEST_GENERATOR.distinctRandomBytes(),
         async (prefix, name, firstRecord, secondRecord, [firstWriteToken, secondWriteToken]) => {
           await withTempDir(prefix, async (worktreesDir) => {
             const pausing = new PausingClaimAcquisitionFileSystem(defaultOccupancyFileSystem);
             const first = acquireClaim(worktreesDir, name, firstRecord, createLiveHolderProbe(firstRecord), {
               fs: pausing,
-              writeToken: firstWriteToken,
+              randomBytes: firstWriteToken,
             });
 
             await pausing.waitUntilLockAcquired();
 
             const second = await acquireClaim(worktreesDir, name, secondRecord, createLiveHolderProbe(firstRecord), {
               fs: defaultOccupancyFileSystem,
-              writeToken: secondWriteToken,
+              randomBytes: secondWriteToken,
             });
             expect(second).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
 
@@ -253,12 +253,12 @@ describe("worktree occupancy claim store properties", () => {
         WORKTREE_TEST_GENERATOR.worktreeName(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
-        WORKTREE_TEST_GENERATOR.distinctWriteTokens(),
+        WORKTREE_TEST_GENERATOR.distinctRandomBytes(),
         async (prefix, name, firstRecord, secondRecord, [firstWriteToken, secondWriteToken]) => {
           await withTempDir(prefix, async (worktreesDir) => {
             await writeClaim(worktreesDir, name, firstRecord, {
               fs: defaultOccupancyFileSystem,
-              writeToken: firstWriteToken,
+              randomBytes: firstWriteToken,
             });
             const pausing = new PausingClaimAcquisitionFileSystem(defaultOccupancyFileSystem);
             const release = removeClaim(worktreesDir, name, firstRecord, createLiveHolderProbe(firstRecord), {
@@ -269,7 +269,7 @@ describe("worktree occupancy claim store properties", () => {
 
             const acquire = await acquireClaim(worktreesDir, name, secondRecord, createLiveHolderProbe(firstRecord), {
               fs: defaultOccupancyFileSystem,
-              writeToken: secondWriteToken,
+              randomBytes: secondWriteToken,
             });
             expect(acquire).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
 

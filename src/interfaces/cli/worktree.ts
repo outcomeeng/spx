@@ -28,7 +28,6 @@ export const WORKTREE_CLI = {
 } as const;
 
 const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare-repository pool";
-const CLAIM_WRITE_TOKEN_BYTES = 16;
 
 function writeOutput(invocation: CliInvocation, output: string): void {
   invocation.io.writeStdout(`${output}\n`);
@@ -64,7 +63,7 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         processTable: defaultProcessTable,
-        claimWriteToken: nodeRandomBytes(CLAIM_WRITE_TOKEN_BYTES).toString("hex"),
+        claimRandomBytes: nodeRandomBytes,
         selfPid: process.pid,
         sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,

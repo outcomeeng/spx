@@ -13,12 +13,13 @@ import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
+import type { RandomBytes } from "@/lib/atomic-file-write";
 import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface SessionStartIdentityScenarioInput {
-  readonly claimWriteToken: string;
+  readonly claimRandomBytes: RandomBytes;
   readonly content: string;
   readonly env: HookSessionStartEnv;
 }
@@ -44,7 +45,7 @@ function hookEnvWithHolder(
 
 async function runSessionStartIdentityScenario(env: WorktreePoolEnv, input: SessionStartIdentityScenarioInput) {
   return runSessionStartHook({
-    claimWriteToken: input.claimWriteToken,
+    claimRandomBytes: input.claimRandomBytes,
     compactStdout: false,
     content: input.content,
     cwd: env.container,
@@ -72,12 +73,12 @@ describe("hook session-start session identity", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const threadId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runSessionStartIdentityScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env),
         env: hookEnvWithHolder(env, envFile, { [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: threadId }),
       });
@@ -99,12 +100,12 @@ describe("hook session-start session identity", () => {
     const normalizedSessionId = resolveAgentSessionId({ [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: payloadSessionId });
     if (normalizedSessionId === undefined) throw new Error(SESSION_GENERATOR_ERROR.EMPTY_IDENTITY_SAMPLE);
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runSessionStartIdentityScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env, payloadSessionId),
         env: hookEnvWithHolder(env, envFile, {}),
       });
@@ -124,12 +125,12 @@ describe("hook session-start session identity", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runSessionStartIdentityScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env),
         env: hookEnvWithHolder(env, envFile, {
           [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
@@ -152,12 +153,12 @@ describe("hook session-start session identity", () => {
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const [payloadSessionId, envSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runSessionStartIdentityScenario(env, {
-        claimWriteToken,
+        claimRandomBytes,
         content: hookContent(env, payloadSessionId),
         env: hookEnvWithHolder(env, envFile, { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: envSessionId }),
       });
