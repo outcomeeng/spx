@@ -38,7 +38,7 @@ export interface WorktreeScopeOptions {
 
 /** The shared `.spx/worktrees` scope directory — the explicit override or the git-resolved root. */
 export async function resolveWorktreesDir(options: WorktreeScopeOptions): Promise<string> {
-  if (options.worktreesDir !== undefined) return resolve(options.cwd, options.worktreesDir);
+  if (options.worktreesDir !== undefined) return options.worktreesDir;
   const resolved = await resolveWorktreesScopeDir({ cwd: options.cwd, deps: options.gitDeps });
   options.onWarning?.(resolved.warning);
   return resolved.worktreesDir;
