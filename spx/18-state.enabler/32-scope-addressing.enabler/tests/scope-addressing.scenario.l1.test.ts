@@ -5,12 +5,13 @@ import { describe, expect, it } from "vitest";
 import {
   composeScopeDir,
   resolveBranchScopeDir,
+  resolveChangesScopeDir,
   resolveSessionsScopeDir,
   resolveWorktreeScopeDir,
   resolveWorktreesScopeDir,
   slugBranchIdentity,
   STATE_STORE_DOMAIN,
-  STATE_STORE_PATH,
+  STATE_STORE_SCOPE_PATH,
 } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
@@ -31,8 +32,8 @@ describe("scope addressing", () => {
     if (!nonMain.ok) throw new Error(nonMain.error);
     expect(mainCheckout.value).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.BRANCH_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.BRANCH_SCOPE,
       branchSlug,
     ));
     expect(nonMain.value).toBe(mainCheckout.value);
@@ -48,13 +49,13 @@ describe("scope addressing", () => {
 
     expect(mainCheckout).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREE_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
     ));
     expect(nonMain).toBe(join(
       SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREE_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
     ));
   });
 
@@ -68,10 +69,26 @@ describe("scope addressing", () => {
 
     expect(mainCheckout.sessionsDir).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.SESSIONS_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
     ));
     expect(nonMain.sessionsDir).toBe(mainCheckout.sessionsDir);
+  });
+
+  it("resolves changes scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
+    const mainCheckout = await resolveChangesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
+    });
+    const nonMain = await resolveChangesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.changesDir).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.CHANGES_SCOPE,
+    ));
+    expect(nonMain.changesDir).toBe(mainCheckout.changesDir);
   });
 
   it("resolves worktrees scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
@@ -84,8 +101,8 @@ describe("scope addressing", () => {
 
     expect(mainCheckout.worktreesDir).toBe(join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREES_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE,
     ));
     expect(nonMain.worktreesDir).toBe(mainCheckout.worktreesDir);
   });
@@ -94,8 +111,8 @@ describe("scope addressing", () => {
     const sessionToken = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const baseScope = join(
       SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREE_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
     );
     const scoped = composeScopeDir(baseScope, sessionToken, STATE_STORE_DOMAIN.COMPACT);
 
