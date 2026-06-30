@@ -48,6 +48,13 @@ export function hasConfigFile(files: readonly string[], config: PrecommitConfig 
   return files.some((file) => categorizeFile(file, config) === FILE_CATEGORIES.CONFIG);
 }
 
+export function hasOperandRunnerFile(files: readonly string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): boolean {
+  return files.some((file) => {
+    const category = categorizeFile(file, config);
+    return category === FILE_CATEGORIES.SOURCE || category === FILE_CATEGORIES.TEST;
+  });
+}
+
 export function buildVitestArgs(files: string[], config: PrecommitConfig = PRECOMMIT_DEFAULTS): string[] {
   if (files.length === 0) {
     return [];
@@ -67,7 +74,7 @@ export function buildPrecommitTestInvocation(
   files: string[],
   config: PrecommitConfig = PRECOMMIT_DEFAULTS,
 ): PrecommitTestInvocation {
-  return isDefaultPrecommitConfig(config) || hasConfigFile(files, config)
+  return isDefaultPrecommitConfig(config) || (hasConfigFile(files, config) && !hasOperandRunnerFile(files, config))
     ? { runner: PRECOMMIT_TEST_RUNNERS.SPX, args: buildSpxTestArgs(files, config) }
     : { runner: PRECOMMIT_TEST_RUNNERS.VITEST, args: buildVitestArgs(files, config) };
 }
