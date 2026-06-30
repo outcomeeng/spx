@@ -44,6 +44,7 @@ export const WORKTREE_TEST_GENERATOR = {
   tempPrefix: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }).map((token) => `${token}-`),
   worktreeName: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 48 }),
+  emptyWorktreeName: (): fc.Arbitrary<string> => fc.constant(""),
   /** A lowercase, filesystem-safe pool worktree directory name (no case-folding surprises on disk). */
   poolWorktreeName: (): fc.Arbitrary<string> =>
     stringFromCharacters([..."abcdefghijklmnopqrstuvwxyz0123456789"], { minLength: 4, maxLength: 16 }),

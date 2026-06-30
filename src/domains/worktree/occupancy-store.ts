@@ -1,7 +1,7 @@
 /**
  * Worktree-occupancy claim store — atomic claim-record I/O paths at
  * `.spx/worktrees/<name>.claim` and the on-demand process-liveness
- * classification. The filesystem, writer token, and process probe are injected
+ * classification. The filesystem, random-bytes source, and process probe are injected
  * so classification and I/O sequencing verify over controlled inputs.
  *
  * @module domains/worktree/occupancy-store
