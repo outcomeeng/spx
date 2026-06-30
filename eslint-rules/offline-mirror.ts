@@ -60,7 +60,7 @@ export const TASK_MARKER_COMMENT_RULE = NO_TASK_MARKER_COMMENTS_RULE_ID;
  * The error-tier rules: finding classes fully cleared from the linted tree, so a
  * new finding blocks the push. Each mirrors a SonarQube finding through an
  * already-present ESLint rule — SonarJS, `@typescript-eslint`, ESLint core, or
- * `eslint-plugin-import`.
+ * `eslint-plugin-import`, or the product's custom `spx` plugin.
  */
 export const MIRROR_ERROR_RULES: Linter.RulesRecord = {
   [ARRAY_SORT_COMPARATOR_RULE]: MIRROR_ERROR_SEVERITY,
