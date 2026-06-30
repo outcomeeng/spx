@@ -4,7 +4,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { journalRunFilePath } from "@/domains/journal/run-scope";
-import { runFileName, STATE_STORE_ERROR, STATE_STORE_PATH } from "@/lib/state-store";
+import { runFileName, STATE_STORE_ERROR, STATE_STORE_PATH, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 describe("journalRunFilePath", () => {
@@ -23,8 +23,8 @@ describe("journalRunFilePath", () => {
           expect(result.value).toBe(
             join(
               productDir,
-              STATE_STORE_PATH.SPX_DIR,
-              STATE_STORE_PATH.BRANCH_SCOPE,
+              STATE_STORE_SCOPE_PATH.SPX_DIR,
+              STATE_STORE_SCOPE_PATH.BRANCH_SCOPE,
               branchSlug,
               type,
               STATE_STORE_PATH.RUNS_DIR,

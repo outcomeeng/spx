@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { compareAsciiStrings, STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
+import { compareAsciiStrings, STATE_STORE_DOMAIN, STATE_STORE_PATH, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import {
   createTestRunFile,
   formatTestRunTimestamp,
@@ -100,8 +100,8 @@ describe("testing last-run state storage", () => {
       // module's own path helper, so a join bug in testingRunsDir cannot pass this assertion.
       const expectedPath = join(
         productDir,
-        STATE_STORE_PATH.SPX_DIR,
-        STATE_STORE_PATH.WORKTREE_SCOPE,
+        STATE_STORE_SCOPE_PATH.SPX_DIR,
+        STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
         STATE_STORE_DOMAIN.TEST,
         STATE_STORE_PATH.RUNS_DIR,
         created.value.runFileName,

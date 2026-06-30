@@ -7,7 +7,7 @@
 import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { parseSessionMetadata } from "./list";
 import { SESSION_STATUSES, type SessionStatus } from "./types";
 
@@ -43,7 +43,7 @@ export interface SessionDirectoryConfig {
  * the `.spx/` layout; the status-directory names derive from DEFAULT_CONFIG. NEVER
  * hardcode these path components - always derive them from their owning source.
  */
-const sessionsBaseDir = join(STATE_STORE_PATH.SPX_DIR, STATE_STORE_PATH.SESSIONS_SCOPE);
+const sessionsBaseDir = join(STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE);
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 
 export const DEFAULT_SESSION_CONFIG: SessionDirectoryConfig = {

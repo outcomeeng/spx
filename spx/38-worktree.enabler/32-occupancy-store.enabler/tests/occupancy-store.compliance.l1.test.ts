@@ -9,7 +9,7 @@ import {
   OCCUPANCY_CLAIM,
   OCCUPANCY_STATUS,
 } from "@/domains/worktree/occupancy-store";
-import { resolveWorktreesScopeDir, STATE_STORE_PATH } from "@/lib/state-store";
+import { resolveWorktreesScopeDir, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 import { createLiveHolderProbe } from "@testing/harnesses/worktree/harness";
@@ -18,8 +18,8 @@ describe("worktree occupancy compliance", () => {
   it("composes claim paths under the resolved .spx/worktrees shared scope, the same from any worktree", async () => {
     const sharedWorktreesDir = join(
       dirname(SESSION_GIT_DEPS_PATHS.SHARED_COMMON_DIR),
-      STATE_STORE_PATH.SPX_DIR,
-      STATE_STORE_PATH.WORKTREES_SCOPE,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE,
     );
     const fromMain = await resolveWorktreesScopeDir({
       deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),

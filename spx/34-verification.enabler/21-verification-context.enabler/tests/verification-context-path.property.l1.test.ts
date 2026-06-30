@@ -9,7 +9,7 @@ import {
   VERIFICATION_CONTEXT_STATE_PATH,
   verificationContextFilePath,
 } from "@/domains/verification-context/path";
-import { STATE_STORE_PATH } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { VERIFICATION_CONTEXT_TEST_GENERATOR } from "@testing/generators/verification-context";
 
@@ -40,8 +40,8 @@ describe("verificationContextFilePath", () => {
           expect(result.value).toBe(
             join(
               productDir,
-              STATE_STORE_PATH.SPX_DIR,
-              STATE_STORE_PATH.BRANCH_SCOPE,
+              STATE_STORE_SCOPE_PATH.SPX_DIR,
+              STATE_STORE_SCOPE_PATH.BRANCH_SCOPE,
               branchSlug,
               VERIFICATION_CONTEXT_STATE_DOMAIN,
               VERIFICATION_CONTEXT_STATE_PATH.CONTEXTS_DIR,
