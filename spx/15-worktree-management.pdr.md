@@ -6,11 +6,11 @@ spx commands resolve product roots from an effective invocation directory. Witho
 
 Git worktrees share one Git common directory while each keeps its own working copy of tracked files. The three state classes follow that split. Session state exists once per repository and must be reachable from any worktree, so it resolves to the Git common-dir product root every worktree shares. Branch-scoped local state follows the reviewable changeset across worktrees, so it also resolves to the shared root. Worktree-occupancy claims record once per repository which agent holds each worktree, so any worktree can read whether a sibling is held; they resolve to the shared root as well. The tracked `spx/` spec tree varies per branch, so it resolves to the worktree's own working copy. Per-worktree local state — test-run evidence and compact resume state tied to dirty files in one checkout — describes one working copy's current state, so resolving it to the worktree root keeps each branch's evidence with that branch and lets the evidence be discarded with the worktree, instead of accumulating branch-slugged directories under the shared root.
 
-| State class                                                                  | Root resolution             | Git mechanism                              |
-| ---------------------------------------------------------------------------- | --------------------------- | ------------------------------------------ |
-| `.spx/branch/`, `.spx/sessions/`, and `.spx/worktrees/` (gitignored, shared) | Git common-dir product root | Parent of `git rev-parse --git-common-dir` |
-| `.spx/worktree/` (gitignored, per-worktree)                                  | Local worktree root         | `git rev-parse --show-toplevel`            |
-| `spx/` (tracked)                                                             | Local worktree root         | `git rev-parse --show-toplevel`            |
+| State class                                                                                   | Root resolution             | Git mechanism                              |
+| --------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------ |
+| `.spx/branch/`, `.spx/changes/`, `.spx/sessions/`, and `.spx/worktrees/` (gitignored, shared) | Git common-dir product root | Parent of `git rev-parse --git-common-dir` |
+| `.spx/worktree/` (gitignored, per-worktree)                                                   | Local worktree root         | `git rev-parse --show-toplevel`            |
+| `spx/` (tracked)                                                                              | Local worktree root         | `git rev-parse --show-toplevel`            |
 
 Resolving every directory to a single root fails one class or another: a single common-dir root reads the wrong branch's spec tree and dirty-checkout evidence from sibling worktrees; a single worktree root strands shared session and branch state where no other worktree can see it.
 
@@ -20,7 +20,7 @@ One worktree is canonical because a single working copy backs the repository's s
 
 ## Product properties
 
-- Shared session, worktree-occupancy, and branch-scoped state are visible from every worktree of a repository, while tracked `spx/` files and `.spx/worktree/` state stay local to the current worktree.
+- Shared session, change, worktree-occupancy, and branch-scoped state are visible from every worktree of a repository, while tracked `spx/` files and `.spx/worktree/` state stay local to the current worktree.
 - `spx -C <path> ...` operates as if `<path>` supplied the command's invocation directory for product-root, config, worktree, and shared-state resolution, while the caller's ambient directory does not participate in target command gates.
 - At most one worktree of a repository is the main checkout: a non-bare repository's main working tree, or the pool worktree beside the bare repository whose directory name is the `origin` remote's repository name; a pool without that observed worktree has no main checkout, and the designation does not depend on the branch any worktree has checked out.
 
@@ -37,7 +37,7 @@ One worktree is canonical because a single working copy backs the repository's s
 ### Audit
 
 - ALWAYS: expose `-C <path>` as a global CLI option whose resolved path becomes the effective invocation directory for every command domain ([audit])
-- ALWAYS: resolve `.spx/branch/`, `.spx/sessions/`, `.spx/worktrees/`, and other shared `.spx/` state to the Git common-dir product root — the parent of `git rev-parse --git-common-dir` ([audit])
+- ALWAYS: resolve `.spx/branch/`, `.spx/changes/`, `.spx/sessions/`, `.spx/worktrees/`, and other shared `.spx/` state to the Git common-dir product root — the parent of `git rev-parse --git-common-dir` ([audit])
 - ALWAYS: resolve `.spx/worktree/` per-worktree state and tracked `spx/` files to the local worktree root via `git rev-parse --show-toplevel` ([audit])
 - ALWAYS: fall back to the current working directory with a warning when the command runs outside a git repository ([audit])
 - ALWAYS: separate a non-bare repository from a bare-repository pool by `git config --get core.bare`, never by the common-dir-versus-worktree path relationship alone — that relationship cannot tell a non-bare repository's linked worktree from a bare-pool member ([audit])
