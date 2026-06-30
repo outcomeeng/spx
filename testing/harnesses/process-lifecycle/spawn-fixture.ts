@@ -10,21 +10,16 @@
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
+import { constants as osConstants } from "node:os";
 
 const STDOUT_DATA_EVENT = "data";
 const STDERR_DATA_EVENT = "data";
-const CHILD_EXIT_EVENT = "exit";
+const CHILD_CLOSE_EVENT = "close";
 const STDERR_ENCODING = "utf8";
-const SIGNAL_BASE_EXIT_CODE = 128;
 const UNKNOWN_EXIT_CODE = -1;
+const SIGNAL_NUMBERS: Readonly<Partial<Record<string, number>>> = osConstants.signals;
 
-const SIGNAL_NUMBERS: Readonly<Partial<Record<NodeJS.Signals, number>>> = {
-  SIGHUP: 1,
-  SIGINT: 2,
-  SIGQUIT: 3,
-  SIGTERM: 15,
-  SIGPIPE: 13,
-};
+export const SPAWN_FIXTURE_SIGNAL_BASE_EXIT_CODE = 128;
 
 export interface SpawnFixtureOptions {
   readonly command: string;
@@ -59,17 +54,17 @@ export async function runSpawnFixture(options: SpawnFixtureOptions): Promise<Spa
     }, options.destroyStdoutAfterMs);
   }
 
-  const exitCode = await waitForExit(child);
+  const exitCode = await waitForClose(child);
 
   return { exitCode, stderr, stdoutBytesObserved };
 }
 
-function waitForExit(child: ChildProcess): Promise<number> {
+function waitForClose(child: ChildProcess): Promise<number> {
   return new Promise<number>((resolve) => {
-    child.on(CHILD_EXIT_EVENT, (code: number | null, signal: NodeJS.Signals | null) => {
+    child.on(CHILD_CLOSE_EVENT, (code: number | null, signal: NodeJS.Signals | null) => {
       if (signal !== null) {
         const signalNumber = SIGNAL_NUMBERS[signal];
-        resolve(signalNumber === undefined ? UNKNOWN_EXIT_CODE : SIGNAL_BASE_EXIT_CODE + signalNumber);
+        resolve(signalNumber === undefined ? UNKNOWN_EXIT_CODE : SPAWN_FIXTURE_SIGNAL_BASE_EXIT_CODE + signalNumber);
         return;
       }
       resolve(code ?? UNKNOWN_EXIT_CODE);
