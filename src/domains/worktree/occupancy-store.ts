@@ -497,7 +497,7 @@ function claimLockOwnerIsRecoverable(owner: WorktreeClaimRecord, probe: ProcessP
   if (owner.host !== probe.currentHost()) return false;
   if (!probe.isAlive(owner.pid)) return true;
   const liveStartTime = probe.startTimeOf(owner.pid);
-  if (owner.startedAt === unreadableStartedAt(owner.pid)) return liveStartTime !== undefined;
+  if (owner.startedAt === unreadableStartedAt(owner.pid)) return false;
   return liveStartTime !== undefined && liveStartTime !== owner.startedAt;
 }
 

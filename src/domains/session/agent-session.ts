@@ -17,7 +17,7 @@ const AGENT_SESSION_TOKEN_HASH_ENCODING = "hex";
 const AGENT_SESSION_TOKEN_HASH_LENGTH = 12;
 const EMPTY_TOKEN = "";
 
-function nonEmptyEnvValue(value: string | undefined): string | undefined {
+export function nonEmptyEnvValue(value: string | undefined): string | undefined {
   return value === undefined || value.length === 0 ? undefined : value;
 }
 
