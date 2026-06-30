@@ -19,6 +19,6 @@
 
 `resolveConfig` returns `Config` (a `Record<string, unknown>`), so every consumer reads its descriptor's section with an unchecked cast — `loaded.value[descriptor.section] as TestingConfig` in `src/interfaces/cli/test.ts`, `loaded.value[descriptor.section] as ValidationConfig` in `src/commands/validation/circular.ts`. The cast compiles regardless of whether the descriptor was passed to `resolveConfig`, so a missing-descriptor or renamed-section drift surfaces only at runtime.
 
-**Resolution (deferred — touches the config domain, all descriptor consumers):** introduce a generic accessor on the config result, e.g. `getSection<T>(config: Config, descriptor: ConfigDescriptor<T>): T`, that derives the section key and the value type from the descriptor, and update the test and validate consumers to use it instead of the inline cast.
+**Resolution (deferred — touches the config domain, all descriptor consumers):** introduce a generic accessor on the config result, e.g. `getSection<T>(config: Config, descriptor: ConfigDescriptor<T>): T`, that derives the section key and the value type from the descriptor, and update the testing and validation consumers to use it instead of the inline cast.
 
 **Evidence:** local changes review on PR-2b; `src/interfaces/cli/test.ts` `resolveTestingPassingScope`; `src/commands/validation/circular.ts` section cast; the `Config` contract from `resolveConfig`.

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: validate, test, agent environment management, context ingestion, and future execution domains.
+Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: `validation`, `testing`, agent environment management, context ingestion, and future execution domains.
 
 ## Governing Decisions
 
@@ -111,10 +111,10 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 ## Evidence Required
 
 - Config primitive tests cover valid/invalid include and exclude arrays, missing fields, empty config, and error paths.
-- Registry-extension tests prove test descriptors compose without changing existing descriptor modules.
+- Registry-extension tests prove testing descriptors compose without changing existing descriptor modules.
 - Config-format mapping tests cover the new sections across JSON, YAML, and TOML.
 - Descriptor isolation tests prove a malformed `testing` section cannot read or change validation config.
-- Shared-primitive tests prove validate and test descriptors import the same path-filter primitive while exposing policy under separate sections.
+- Shared-primitive tests prove validation and testing descriptors import the same path-filter primitive while exposing policy under separate sections.
 - Registry-extension tests prove the shared-primitive scenario from `config.md`: two domain descriptors import one shared path-filter primitive and expose it under separate domain sections without sharing policy defaults.
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
