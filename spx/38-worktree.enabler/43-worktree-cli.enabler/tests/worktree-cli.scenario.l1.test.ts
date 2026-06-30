@@ -7,6 +7,7 @@ import {
   claimCommand,
   releaseCommand,
   statusCommand,
+  WORKTREE_RELEASE_ERROR,
   WORKTREE_STATUS_ERROR,
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
@@ -888,6 +889,26 @@ describe("worktree command handlers", () => {
       if (!after.ok) throw new Error(after.error);
       expect(after.value).toEqual(ownedRecord);
     });
+  });
+
+  it("refuses release when no session identity resolves", async () => {
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const processTable = createProcessTable({
+      host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
+      processes: new Map<number, ProcessTableEntry>(),
+    });
+
+    const result = await releaseCommand({
+      cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      env: {},
+      fs: defaultOccupancyFileSystem,
+      processTable,
+      selfPid,
+      gitDeps,
+    });
+
+    expect(result).toEqual({ ok: false, error: WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED });
   });
 
   it("reports the current worktree's occupancy when no worktree argument is given", async () => {

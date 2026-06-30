@@ -5,13 +5,13 @@
  */
 
 import type { Result } from "@/config/types";
-import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { nonEmptyEnvValue, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import { type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "@/domains/worktree/resolve";
 
-const WORKTREE_RELEASE_ERROR = {
+export const WORKTREE_RELEASE_ERROR = {
   SESSION_UNRESOLVED: "worktree release session id could not be resolved",
 } as const;
 
@@ -55,10 +55,6 @@ function resolveReleaseSessionId(
   explicitSessionId: string | undefined,
   env: ControllingProcessEnv,
 ): string | undefined {
-  const explicit = nonEmptyString(explicitSessionId);
+  const explicit = nonEmptyEnvValue(explicitSessionId);
   return explicit === undefined ? resolveAgentSessionId(env) : normalizeAgentSessionToken(explicit);
-}
-
-function nonEmptyString(value: string | undefined): string | undefined {
-  return value === undefined || value.length === 0 ? undefined : value;
 }

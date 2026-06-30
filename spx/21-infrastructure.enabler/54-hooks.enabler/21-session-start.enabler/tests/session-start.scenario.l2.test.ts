@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { basename } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -10,6 +10,8 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { defaultProcessTable } from "@/lib/worktree-process-table";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
@@ -28,8 +30,15 @@ describe("hook CLI session-start boundary", () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const existingEnvName = sampleLiteralTestValue(arbitraryDomainLiteral()).toUpperCase().replaceAll("-", "_");
+    const existingEnvValue = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const existingEnvFileLine = `${HOOK_ENV_FILE.EXPORT_PREFIX}${existingEnvName}=${existingEnvValue}\n`;
 
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
+      const expectedHost = defaultProcessTable.currentHost();
+      const expectedStartedAt = defaultProcessTable.startTimeOf(process.pid);
+      await writeFile(env.envFile, existingEnvFileLine, HOOK_ENV_FILE.ENCODING);
+
       const result = await runWorktreeCli(
         [
           HOOK_CLI.COMMAND,
@@ -59,10 +68,11 @@ describe("hook CLI session-start boundary", () => {
       if (!claim.ok) throw new Error(claim.error);
       expect(claim.value?.sessionId).toBe(sessionId);
       expect(claim.value?.pid).toBe(process.pid);
-      expect(claim.value?.host.length).toBeGreaterThan(0);
-      expect(claim.value?.startedAt.length).toBeGreaterThan(0);
+      expect(claim.value?.host).toBe(expectedHost);
+      expect(claim.value?.startedAt).toBe(expectedStartedAt);
 
       const envContent = await readHookEnvFile(env.envFile);
+      expect(envContent.startsWith(existingEnvFileLine)).toBe(true);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);

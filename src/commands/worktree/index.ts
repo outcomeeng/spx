@@ -5,7 +5,7 @@
  */
 
 export { claimCommand, type ClaimCommandOptions } from "./claim";
-export { releaseCommand, type ReleaseCommandOptions } from "./release";
+export { releaseCommand, type ReleaseCommandOptions, WORKTREE_RELEASE_ERROR } from "./release";
 export {
   statusCommand,
   type StatusCommandOptions,

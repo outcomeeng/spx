@@ -27,7 +27,7 @@ import {
   createForeignHostProbe,
   createLiveHolderProbe,
   createProcessProbe,
-  createRecycledPidProbe,
+  createUnreadableStartTimeProbe,
 } from "@testing/harnesses/worktree/harness";
 
 function createThrowingProbe(): ProcessProbe {
@@ -247,35 +247,37 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
-  it("recovers a claim-acquisition lock whose unreadable-start owner pid was recycled", async () => {
+  it("keeps a claim-acquisition lock whose owner is alive with an unreadable start time", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const lockOwnerBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const lockOwner = { ...lockOwnerBase, startedAt: unreadableStartedAt(lockOwnerBase.pid) };
     const nextRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
     const writeToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
-    const recycledPidStartTime = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
 
     await withTempDir(prefix, async (worktreesDir) => {
       const claimPath = claimFilePath(worktreesDir, name);
       expect(claimPath.ok).toBe(true);
       if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      const lockTarget = claimLockTarget(lockOwner);
       await defaultOccupancyFileSystem.mkdir(worktreesDir, { recursive: true });
-      await defaultOccupancyFileSystem.symlink(claimLockTarget(lockOwner), claimLockPath(claimPath.value));
+      await defaultOccupancyFileSystem.symlink(lockTarget, lockPath);
 
       const acquired = await acquireClaim(
         worktreesDir,
         name,
         nextRecord,
-        createRecycledPidProbe(lockOwner, recycledPidStartTime),
+        createUnreadableStartTimeProbe(lockOwner),
         { fs: defaultOccupancyFileSystem, writeToken },
       );
 
-      expect(acquired.ok).toBe(true);
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
-      expect(readBack.value).toEqual(nextRecord);
+      expect(readBack.value).toBeUndefined();
+      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(lockTarget);
     });
   });
 
