@@ -234,6 +234,33 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
+  it("refuses to release a readable-start claim with an unreadable-start requester", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const releaseRecord = { ...storedRecord, startedAt: unreadableStartedAt(storedRecord.pid) };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: storedRecord.host,
+      alivePids: new Set([storedRecord.pid]),
+      startTimes: new Map(),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const removed = await removeClaim(worktreesDir, name, releaseRecord, probe, {
+        fs: defaultOccupancyFileSystem,
+      });
+
+      expect(removed).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER });
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(storedRecord);
+    });
+  });
+
   it("refuses to replace a live-held claim and leaves the existing holder unchanged", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
@@ -310,6 +337,34 @@ describe("worktree occupancy claim store", () => {
       });
 
       expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(storedRecord);
+    });
+  });
+
+  it("refuses repeated acquisition when the stored start time is readable but the requester start time is unreadable", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const retryRecord = { ...storedRecord, startedAt: unreadableStartedAt(storedRecord.pid) };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: storedRecord.host,
+      alivePids: new Set([storedRecord.pid]),
+      startTimes: new Map(),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const acquired = await acquireClaim(worktreesDir, name, retryRecord, probe, {
+        fs: defaultOccupancyFileSystem,
+        randomBytes,
+      });
+
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_HELD });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
