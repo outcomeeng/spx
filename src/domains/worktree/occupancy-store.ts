@@ -1,8 +1,8 @@
 /**
  * Worktree-occupancy claim store — atomic claim-record I/O paths at
  * `.spx/worktrees/<name>.claim` and the on-demand process-liveness
- * classification. The filesystem, writer token, and process probe are injected
- * so classification and I/O sequencing verify over controlled inputs.
+ * classification. The filesystem, random-bytes source, and process probe are
+ * injected so classification and I/O sequencing verify over controlled inputs.
  *
  * @module domains/worktree/occupancy-store
  */
@@ -10,6 +10,7 @@
 import { join } from "node:path";
 
 import type { Result } from "@/config/types";
+import { type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
 import { ERROR_CODE_NOT_FOUND, hasErrorCode, validateScopeToken } from "@/lib/state-store";
 
@@ -22,13 +23,11 @@ export type OccupancyStatus = (typeof OCCUPANCY_STATUS)[keyof typeof OCCUPANCY_S
 
 export const OCCUPANCY_CLAIM = {
   FILE_EXTENSION: ".claim",
-  TEMP_EXTENSION: ".tmp",
   UNREADABLE_STARTED_AT_PREFIX: "unreadable:",
 } as const;
 
 export const OCCUPANCY_ERROR = {
   INVALID_NAME: "worktree occupancy claim name must be a safe path segment",
-  INVALID_WRITE_TOKEN: "worktree occupancy claim write token must be a safe path segment",
   CLAIM_WRITE_FAILED: "worktree occupancy claim write failed",
   CLAIM_READ_FAILED: "worktree occupancy claim read failed",
   CLAIM_REMOVE_FAILED: "worktree occupancy claim remove failed",
@@ -72,7 +71,7 @@ export interface OccupancyFsOptions {
 }
 
 export interface OccupancyWriteOptions extends OccupancyFsOptions {
-  readonly writeToken: string;
+  readonly randomBytes: RandomBytes;
 }
 
 /** The claim filename for a worktree `name` — `<name>.claim`. */
@@ -85,13 +84,6 @@ export function claimFilePath(worktreesDir: string, name: string): Result<string
   const validated = validateScopeToken(name);
   if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_NAME };
   return { ok: true, value: join(worktreesDir, claimFileName(validated.value)) };
-}
-
-/** Composes the writer-unique temporary claim path for an atomic claim write. */
-export function claimTempFilePath(claimPath: string, writeToken: string): Result<string> {
-  const validated = validateScopeToken(writeToken);
-  if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_WRITE_TOKEN };
-  return { ok: true, value: `${claimPath}.${validated.value}${OCCUPANCY_CLAIM.TEMP_EXTENSION}` };
 }
 
 /**
@@ -138,13 +130,19 @@ export async function writeClaim(
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
   const claimPath = pathResult.value;
-  const tempPath = claimTempFilePath(claimPath, options.writeToken);
-  if (!tempPath.ok) return tempPath;
 
   try {
     await options.fs.mkdir(worktreesDir, { recursive: true });
-    await options.fs.writeFile(tempPath.value, serializeClaim(record));
-    await options.fs.rename(tempPath.value, claimPath);
+    await writeFileAtomic(claimPath, serializeClaim(record), {
+      fs: {
+        writeFile: options.fs.writeFile.bind(options.fs),
+        rename: options.fs.rename.bind(options.fs),
+        rm: async (path, removeOptions) => {
+          await options.fs.rm(path, removeOptions);
+        },
+      },
+      randomBytes: options.randomBytes,
+    });
     return { ok: true, value: claimPath };
   } catch (error) {
     return { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED, toErrorMessage(error)) };

@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { rename, rm, writeFile } from "node:fs/promises";
 
 import {
   type ConfigFile,
@@ -23,6 +22,7 @@ import {
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 
+import { writeFileAtomic } from "@/lib/atomic-file-write";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { validateLiteralReuse } from "./index";
 
@@ -54,21 +54,24 @@ const ALLOWLIST_INCLUDE_PATH = [
   VALIDATION_LITERAL_VALUES_SUBSECTION,
   INCLUDE_FIELD,
 ] as const;
-const TEMP_FILE_PREFIX = ".spx-allowlist-existing-";
-const TEMP_FILE_SUFFIX = ".tmp";
-const RANDOM_TOKEN_BYTES = 8;
-
 export const productionReader: ConfigReader = {
   read: readProductConfigFile,
 };
 
 export const productionWriter: ConfigWriter = {
   async write(filePath: string, content: string): Promise<void> {
-    const dir = dirname(filePath);
-    const random = randomBytes(RANDOM_TOKEN_BYTES).toString("hex");
-    const tmpPath = join(dir, `${TEMP_FILE_PREFIX}${random}${TEMP_FILE_SUFFIX}`);
-    await writeFile(tmpPath, content, "utf8");
-    await rename(tmpPath, filePath);
+    await writeFileAtomic(filePath, content, {
+      fs: {
+        writeFile: async (path, data) => {
+          await writeFile(path, data, "utf8");
+        },
+        rename,
+        rm: async (path, options) => {
+          await rm(path, options);
+        },
+      },
+      randomBytes,
+    });
   },
 };
 

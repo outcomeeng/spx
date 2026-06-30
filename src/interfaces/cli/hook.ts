@@ -4,6 +4,8 @@
  * @module interfaces/cli/hook
  */
 
+import { randomBytes as nodeRandomBytes } from "node:crypto";
+
 import type { Command } from "commander";
 
 import { resolveConfig } from "@/config/index";
@@ -33,7 +35,6 @@ import {
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_ERROR, HOOK_EVENT, isHookEvent } from "@/interfaces/hooks/registry";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
@@ -92,7 +93,6 @@ async function resolveHookExecutionContext(
   const compactStdout = await resolveHookCliCompactStdout(productDir, env);
   return {
     runOptions: {
-      claimWriteToken: createClaimWriteToken(),
       compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
       cwd,
       env,
@@ -102,6 +102,7 @@ async function resolveHookExecutionContext(
       io: processHookIo,
       onWarning: (warning) => writeInvocationWarning(invocation, warning),
       processTable: defaultProcessTable,
+      randomBytes: nodeRandomBytes,
       selfPid: process.pid,
       stdinContent,
       worktreesDir: options.worktreesDir,

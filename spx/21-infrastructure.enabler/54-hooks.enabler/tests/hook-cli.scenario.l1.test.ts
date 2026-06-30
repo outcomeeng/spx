@@ -70,7 +70,7 @@ describe("hook CLI runner", () => {
   it("records a diagnostic when hook stdin cannot be read", async () => {
     const cwd = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const stdinFailure = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
     const io = new RecordingHookIo(stdinFailure);
     const processTable = createProcessTable({
@@ -79,7 +79,7 @@ describe("hook CLI runner", () => {
     });
 
     const result = await runHookCli({
-      claimWriteToken,
+      randomBytes,
       compactStdout: false,
       cwd,
       env: {},
@@ -100,7 +100,7 @@ describe("hook CLI runner", () => {
     const cwd = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const stdinFailure = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const handlerFailure = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const claimWriteToken = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.writeToken());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
     const io = new RecordingHookIo(stdinFailure);
     const processTable = createProcessTable({
@@ -109,7 +109,7 @@ describe("hook CLI runner", () => {
     });
 
     const result = await runHookCli({
-      claimWriteToken,
+      randomBytes,
       compactStdout: false,
       cwd,
       env: {},

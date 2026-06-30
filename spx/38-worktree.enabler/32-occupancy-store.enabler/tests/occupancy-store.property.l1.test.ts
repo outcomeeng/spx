@@ -65,11 +65,11 @@ describe("worktree occupancy claim store properties", () => {
         fc.asyncProperty(
           WORKTREE_TEST_GENERATOR.worktreeName(),
           WORKTREE_TEST_GENERATOR.claimRecord(),
-          WORKTREE_TEST_GENERATOR.writeToken(),
-          async (name, record, writeToken) => {
+          WORKTREE_TEST_GENERATOR.randomBytes(),
+          async (name, record, randomBytes) => {
             const written = await writeClaim(worktreesDir, name, record, {
               fs: defaultOccupancyFileSystem,
-              writeToken,
+              randomBytes,
             });
             expect(written.ok).toBe(true);
 
@@ -90,12 +90,12 @@ describe("worktree occupancy claim store properties", () => {
         WORKTREE_TEST_GENERATOR.tempPrefix(),
         WORKTREE_TEST_GENERATOR.worktreeName(),
         WORKTREE_TEST_GENERATOR.claimRecord(),
-        WORKTREE_TEST_GENERATOR.writeToken(),
-        async (prefix, name, record, writeToken) => {
+        WORKTREE_TEST_GENERATOR.randomBytes(),
+        async (prefix, name, record, randomBytes) => {
           await withTempDir(prefix, async (worktreesDir) => {
             const pausing = new PausingClaimWriteFileSystem(defaultOccupancyFileSystem);
             const recording = createRecordingOccupancyFileSystem(pausing);
-            const write = writeClaim(worktreesDir, name, record, { fs: recording, writeToken });
+            const write = writeClaim(worktreesDir, name, record, { fs: recording, randomBytes });
 
             await pausing.waitUntilTempWritten();
 
@@ -117,7 +117,7 @@ describe("worktree occupancy claim store properties", () => {
 
             const writtenPath = writeCall?.paths[0];
             expect(writtenPath).not.toBe(claimPath);
-            expect(writtenPath?.endsWith(OCCUPANCY_CLAIM.TEMP_EXTENSION)).toBe(true);
+            expect(writtenPath?.startsWith(`${claimPath}.`)).toBe(true);
             expect(renameCall?.paths[0]).toBe(writtenPath);
             expect(renameCall?.paths[1]).toBe(claimPath);
             expect(claimPath.endsWith(OCCUPANCY_CLAIM.FILE_EXTENSION)).toBe(true);

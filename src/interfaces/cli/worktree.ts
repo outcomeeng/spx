@@ -2,13 +2,14 @@
  * Worktree CLI — Commander registration descriptor for the `spx worktree`
  * occupancy subcommands (claim, status, release).
  */
+import { randomBytes as nodeRandomBytes } from "node:crypto";
+
 import type { Command } from "commander";
 
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import { defaultGitDependencies } from "@/git/root";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
-import { createClaimWriteToken } from "@/lib/worktree-claim-write-token";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -57,12 +58,12 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
     .option(`${WORKTREE_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (options: { sessionId: string; worktreesDir?: string }) => {
       const result = await claimCommand({
-        claimWriteToken: createClaimWriteToken(),
         cwd: effectiveInvocationDir(),
         env: process.env,
         fs: defaultOccupancyFileSystem,
         gitDeps: defaultGitDependencies,
         processTable: defaultProcessTable,
+        randomBytes: nodeRandomBytes,
         selfPid: process.pid,
         sessionId: options.sessionId,
         worktreesDir: options.worktreesDir,
