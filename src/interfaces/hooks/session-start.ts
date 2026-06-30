@@ -5,7 +5,6 @@
  */
 
 import { appendFile as nodeAppendFile } from "node:fs/promises";
-import { resolve } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
@@ -81,14 +80,12 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
   const payload = payloadResult.ok ? payloadResult.value : {};
   const productDir = resolveHookSessionStartProductDir(payload, options.cwd);
   const sessionId = resolveHookSessionStartSessionId(payload, options.env);
-  const worktreesDir = resolveHookSessionStartWorktreesDir(productDir, options.worktreesDir);
 
   let claimPath: string | undefined;
   if (sessionId !== undefined) {
     const claim = await claimWorktreeOccupancy({
       ...options,
       cwd: productDir,
-      ...(worktreesDir === undefined ? {} : { worktreesDir }),
       sessionId,
     });
     if (claim.ok) {
@@ -153,11 +150,4 @@ async function writeEnvFileIfConfigured(options: {
     );
     return false;
   }
-}
-
-function resolveHookSessionStartWorktreesDir(
-  productDir: string,
-  worktreesDir: string | undefined,
-): string | undefined {
-  return worktreesDir === undefined ? undefined : resolve(productDir, worktreesDir);
 }
