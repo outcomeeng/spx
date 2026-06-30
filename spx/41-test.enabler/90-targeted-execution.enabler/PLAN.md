@@ -1,5 +1,9 @@
 # Targeted Execution Plan
 
+## Harness vocabulary guard
+
+Before applying this plan to agent-facing test selection or output guidance, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; command vocabulary such as agent-oriented output must stay distinct from configured agents, agent adapters, and agent sessions.
+
 Implements Slice 2 of the parent testing PLAN.md: explicit target operands for
 `spx test` and `spx test passing`, so agents verify only the node or file they
 changed instead of the full suite.

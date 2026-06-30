@@ -1,5 +1,9 @@
 # Root Coordination Index
 
+## Harness vocabulary guard
+
+Before applying this plan to agent-facing surfaces or session-domain boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep SPX handoff sessions, configured-agent sessions, and command-surface actors distinct.
+
 This file is a coordination note for the top-down repair sequence. It is not product truth. Durable product behavior belongs in PDRs, ADRs, specs, tests, and implementation under the owning nodes.
 
 Use this note to orient `/contextualize spx/` quickly, then follow the node-local `PLAN.md` files for details.

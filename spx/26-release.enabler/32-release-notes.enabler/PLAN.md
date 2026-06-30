@@ -1,5 +1,9 @@
 # Plan
 
+## Harness vocabulary guard
+
+Before applying this plan to agent-driven release-note composition or SDK-backed runner boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+
 ## Decided design — single accumulating CHANGELOG.md
 
 Release notes are one Keep a Changelog `CHANGELOG.md` in the product working tree; each release prepends a `## [version]` section. The output path resolves from the resolved configuration + working tree (default `CHANGELOG.md`), **not** from release-data content; the release data determines the section content (the version, the commits to describe and group). A configured changelog path that escapes the product working tree is rejected.

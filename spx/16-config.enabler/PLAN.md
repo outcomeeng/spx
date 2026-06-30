@@ -1,5 +1,9 @@
 # Plan: Config-Backed Execution Scope
 
+## Harness vocabulary guard
+
+Before applying an agent-environment or agent-facing packet from this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+
 ## Purpose
 
 Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: `validation`, `testing`, agent environment management, context ingestion, and future execution domains.

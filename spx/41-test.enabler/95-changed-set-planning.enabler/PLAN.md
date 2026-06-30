@@ -1,5 +1,9 @@
 # Plan: Changed-Set Planning (`spx test --changed`)
 
+## Harness vocabulary guard
+
+Before applying this plan to focused agent defaults or agent-facing test planning, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; command vocabulary such as agent-focused defaults must stay distinct from configured agents, agent adapters, and agent sessions.
+
 ## Implementation route
 
 The spec (`changed-set-planning.md`) and resolution ADR

@@ -1,5 +1,9 @@
 # Plan: Runtime decision relocation
 
+## Harness vocabulary guard
+
+Before applying this plan to agent-run journal generators, hook/session helpers, or agent-facing infrastructure, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep test harness and Node runtime wording distinct from the agent harness vocabulary.
+
 This coordination note records the infrastructure part of the top-level methodology repair.
 
 ## Ownership target

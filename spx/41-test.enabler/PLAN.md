@@ -1,5 +1,9 @@
 # Plan: Testing provider role in spec-tree materialization
 
+## Harness vocabulary guard
+
+Before applying this plan to agent-facing test output, transcript handling, or verification-loop guidance, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; command vocabulary such as `--agent` output mode must stay distinct from configured agents, agent adapters, and agent sessions.
+
 This coordination note records the testing-domain responsibility in the spec-tree foundation repair.
 
 ## Ownership target
