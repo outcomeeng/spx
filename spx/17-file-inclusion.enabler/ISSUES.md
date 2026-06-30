@@ -18,7 +18,7 @@ Governing artifacts:
 - `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/domain-path-filters.md`
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 
-Checklist for each validation-domain or `spx test` consumer that walks files or passes file-scope arguments:
+Checklist for each `spx validation` or `spx test` consumer that walks files or passes file-scope arguments:
 
 - Identify whether the consumer participates in validate or test work.
 - For review, audit, and evaluate changeset verification, confirm scope derives from `spx verify --scope-type changeset` base/head paths rather than automatic file-inclusion walks.
