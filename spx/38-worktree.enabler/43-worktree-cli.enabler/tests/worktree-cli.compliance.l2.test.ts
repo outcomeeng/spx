@@ -7,7 +7,13 @@ import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_CLAIM, OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
+import {
+  OCCUPANCY_CLAIM,
+  OCCUPANCY_ERROR,
+  OCCUPANCY_STATUS,
+  readClaim,
+  writeClaim,
+} from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
@@ -324,6 +330,7 @@ describe("worktree CLI compliance", () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
+    const [claimTimeZone, statusTimeZone] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctTimeZones());
 
     await withWorktreeLayoutEnv({ bare: true, worktrees: [{ name: worktreeName }] }, async (layout) => {
       await withTempDir(prefix, async (worktreesDir) => {
@@ -337,7 +344,7 @@ describe("worktree CLI compliance", () => {
             WORKTREE_CLI.WORKTREES_DIR_FLAG,
             worktreesDir,
           ],
-          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "America/New_York" },
+          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: claimTimeZone },
           worktreePath,
         );
         expect(claim.exitCode).toBe(0);
@@ -352,7 +359,7 @@ describe("worktree CLI compliance", () => {
             WORKTREE_CLI.WORKTREES_DIR_FLAG,
             worktreesDir,
           ],
-          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: "Asia/Tokyo" },
+          { [CONTROLLING_PID_ENV]: String(process.pid), TZ: statusTimeZone },
           worktreePath,
         );
 
