@@ -1,3 +1,5 @@
+import { compareAsciiStrings } from "@/lib/state-store";
+
 export const GIT_NAME_STATUS_FLAG = "--name-status";
 export const GIT_DIFF_FILTER_FLAG = "--diff-filter";
 export const GIT_NULL_DELIMITED_FLAG = "-z";
@@ -10,12 +12,6 @@ export const GIT_RENAMED_PATH_SUFFIX = ".renamed";
 const GIT_RENAME_STATUS_PREFIX = "R";
 const GIT_COPY_STATUS_PREFIX = "C";
 const NULL_RECORD_SEPARATOR = "\0";
-
-function compareAsciiStrings(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
 
 function sortedPathSet(paths: ReadonlySet<string>): readonly string[] {
   return [...paths].sort(compareAsciiStrings);

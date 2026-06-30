@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import * as fc from "fast-check";
@@ -13,6 +13,8 @@ import {
   CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
   CHANGED_TEST_LS_FILES_OTHERS_FLAG,
   CHANGED_TEST_NULL_DELIMITED_FLAG,
+  CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+  CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
@@ -132,6 +134,12 @@ function expectedTestContentDigest(path: string, content: string): string {
   return digest.value.sha256;
 }
 
+async function writeProductInputFile(productDir: string, path: string, content: string): Promise<void> {
+  const absolutePath = join(productDir, path);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, content);
+}
+
 describe("spx test execution recording and per-node run", () => {
   it("filters a config-excluded node when `spx test passing` reads the passing scope from spx.config", async () => {
     const [excludedNode, includedNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
@@ -232,14 +240,14 @@ describe("spx test execution recording and per-node run", () => {
         async ([firstInputContent, secondInputContent]) => {
           await withTestingTempProductDir(async (productDir) => {
             await writeTestFileFixture(productDir, nodeFile);
-            await writeFile(join(productDir, productInputPath), firstInputContent);
+            await writeProductInputFile(productDir, productInputPath, firstInputContent);
 
             const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
             const firstDigest = recordedProductInputDigest(first.recorded, typescriptTestingLanguage.name);
             expect(firstDigest).toBeDefined();
 
-            await writeFile(join(productDir, productInputPath), secondInputContent);
+            await writeProductInputFile(productDir, productInputPath, secondInputContent);
 
             const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
@@ -309,7 +317,7 @@ describe("spx test execution recording and per-node run", () => {
         async ([worktreeInputContent, stagedInputContent]) => {
           await withTestingTempProductDir(async (productDir) => {
             await writeTestFileFixture(productDir, nodeFile);
-            await writeFile(join(productDir, productInputPath), worktreeInputContent);
+            await writeProductInputFile(productDir, productInputPath, worktreeInputContent);
 
             const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const recorded = await runTestsCommand(
@@ -334,9 +342,108 @@ describe("spx test execution recording and per-node run", () => {
             const stagedDigest = recordedProductInputDigest(recorded.recorded, typescriptTestingLanguage.name);
             expect(stagedDigest).toBeDefined();
 
-            await writeFile(join(productDir, productInputPath), stagedInputContent);
+            await writeProductInputFile(productDir, productInputPath, stagedInputContent);
             const currentInputs = await currentStalenessInputs(productDir, [nodeFile], { registry: testingRegistry });
             const currentDigest = recordedProductInputDigest(currentInputs, typescriptTestingLanguage.name);
+            expect(stagedDigest).toBe(currentDigest);
+          });
+        },
+      ),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records changed-set product input digests and changes them when those inputs change", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [productInputPath] = CHANGED_TEST_PRODUCT_INPUT_PATHS;
+    if (productInputPath === undefined) throw new Error("changed-set planning declares no product input path");
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([firstInputContent, secondInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeProductInputFile(productDir, productInputPath, firstInputContent);
+
+            const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+            const firstDigest = recordedProductInputDigest(
+              first.recorded,
+              CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+            );
+            expect(firstDigest).toBeDefined();
+
+            await writeProductInputFile(productDir, productInputPath, secondInputContent);
+
+            const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+            const secondDigest = recordedProductInputDigest(
+              second.recorded,
+              CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+            );
+            expect(secondDigest).toBeDefined();
+            expect(secondDigest).not.toBe(firstDigest);
+          });
+        },
+      ),
+      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+    );
+  });
+
+  it("records staged changed-set product input digests when staged changed-set planning runs", async () => {
+    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+    const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [productInputPath] = CHANGED_TEST_PRODUCT_INPUT_PATHS;
+    if (productInputPath === undefined) throw new Error("changed-set planning declares no product input path");
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.uniqueArray(arbitraryDomainLiteral(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        }),
+        async ([worktreeInputContent, stagedInputContent]) => {
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestFileFixture(productDir, nodeFile);
+            await writeProductInputFile(productDir, productInputPath, worktreeInputContent);
+
+            const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+            const recorded = await runTestsCommand(
+              { productDir, passing: false, changed: { staged: true } },
+              {
+                registry: testingRegistry,
+                runnerDepsFor: () => runner,
+                relatedDepsFor: () => ({
+                  isLanguagePresent: () => true,
+                  readFile: async () => "",
+                  runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+                }),
+                git: stagedSnapshotGit(
+                  [nodeFile, productInputPath],
+                  new Map([
+                    [nodeFile, (await readFile(join(productDir, nodeFile))).toString()],
+                    [productInputPath, stagedInputContent],
+                  ]),
+                ),
+              },
+            );
+            const stagedDigest = recordedProductInputDigest(
+              recorded.recorded,
+              CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+            );
+            expect(stagedDigest).toBeDefined();
+
+            await writeProductInputFile(productDir, productInputPath, stagedInputContent);
+            const currentInputs = await currentStalenessInputs(productDir, [nodeFile], { registry: testingRegistry });
+            const currentDigest = recordedProductInputDigest(
+              currentInputs,
+              CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+            );
             expect(stagedDigest).toBe(currentDigest);
           });
         },
