@@ -1,1 +1,13 @@
-export const TEST_RELEVANT_SOURCE_ROOT_PREFIXES = ["src/", "testing/", "scripts/", "eslint-rules/"] as const;
+export const TEST_RELEVANT_SOURCE_ROOT_PREFIX = {
+  SOURCE: "src/",
+  TESTING: "testing/",
+  SCRIPTS: "scripts/",
+  ESLINT_RULES: "eslint-rules/",
+} as const;
+
+export const TEST_RELEVANT_SOURCE_ROOT_PREFIXES = [
+  TEST_RELEVANT_SOURCE_ROOT_PREFIX.SOURCE,
+  TEST_RELEVANT_SOURCE_ROOT_PREFIX.TESTING,
+  TEST_RELEVANT_SOURCE_ROOT_PREFIX.SCRIPTS,
+  TEST_RELEVANT_SOURCE_ROOT_PREFIX.ESLINT_RULES,
+] as const;

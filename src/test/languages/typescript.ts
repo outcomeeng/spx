@@ -10,6 +10,8 @@ import { posix } from "node:path";
 
 import ts from "typescript";
 
+import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import type {
   RelatedTestDependencies,
   RelatedTestRequest,
@@ -44,6 +46,7 @@ const PACKAGE_MANAGER_COMMAND = "pnpm";
 const VITEST_INVOKE_ARGS = ["exec", "vitest", "run"] as const;
 const VITEST_ROOT_FLAG = "--root";
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"] as const;
+const SPEC_TREE_SOURCE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
 const TYPESCRIPT_RUNTIME_EXTENSION_MAP = {
   ".js": ".ts",
   ".jsx": ".tsx",
@@ -247,11 +250,8 @@ function isConcreteSourcePath(path: string): boolean {
 }
 
 function isTraversableModulePath(path: string): boolean {
-  return path.startsWith("src/")
-    || path.startsWith("spx/")
-    || path.startsWith("testing/")
-    || path.startsWith("scripts/")
-    || path.startsWith("eslint-rules/");
+  return TEST_RELEVANT_SOURCE_ROOT_PREFIXES.some((prefix) => path.startsWith(prefix))
+    || path.startsWith(SPEC_TREE_SOURCE_ROOT_PREFIX);
 }
 
 type ModuleTextCache = Map<string, Promise<string | null>>;
