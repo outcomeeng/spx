@@ -1,8 +1,8 @@
 # Agent Instructions
 
-PROVIDES deterministic instruction-file reconciliation for agent runtimes
+PROVIDES deterministic instruction-file reconciliation for configured agents
 SO THAT products using spx
-CAN keep `AGENTS.md` and runtime-specific instruction files aligned with configured product guidance
+CAN keep `AGENTS.md` and configured-agent instruction files aligned with configured product guidance
 
 ## Assertions
 
