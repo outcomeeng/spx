@@ -73,10 +73,11 @@ describe("in-memory StateStoreFileSystem double — writes", () => {
 describe("in-memory StateStoreFileSystem double — removal and stat", () => {
   it("removes files and directories, forces past an absent path, and classifies a path via lstat", async () => {
     const fs = createInMemoryStateStoreFileSystem();
-    const [dir, file, absent] = distinctSegments(3);
+    const [dir, nestedDir, file, absent] = distinctSegments(4);
     const initial = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const filePath = `/${dir}/${file}`;
     await fs.mkdir(`/${dir}`, { recursive: true });
+    await fs.mkdir(`/${dir}/${nestedDir}`, { recursive: true });
     await fs.writeFile(filePath, initial, { flag: EXCLUSIVE_CREATE_FLAG });
 
     const fileStat = await fs.lstat(filePath);
@@ -91,8 +92,13 @@ describe("in-memory StateStoreFileSystem double — removal and stat", () => {
 
     await fs.rm(filePath);
     await expectErrorCode(fs.lstat(filePath), ERROR_CODE_NOT_FOUND);
+    await fs.writeFile(filePath, initial, { flag: EXCLUSIVE_CREATE_FLAG });
+    const recreatedFileStat = await fs.lstat(filePath);
+    expect(recreatedFileStat.birthtimeMs).toBeGreaterThan(fileStat.birthtimeMs);
+    await fs.rm(filePath);
     await fs.rm(`/${dir}`);
     await expectErrorCode(fs.lstat(`/${dir}`), ERROR_CODE_NOT_FOUND);
+    await expectErrorCode(fs.lstat(`/${dir}/${nestedDir}`), ERROR_CODE_NOT_FOUND);
 
     await expectErrorCode(fs.rm(`/${dir}/${absent}`), ERROR_CODE_NOT_FOUND);
     await fs.rm(`/${dir}/${absent}`, { force: true });

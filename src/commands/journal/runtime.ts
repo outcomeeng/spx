@@ -1,16 +1,36 @@
 import type { Result } from "@/config/types";
-import { journalRunFilePath } from "@/domains/journal/run-scope";
+import {
+  applyJournalRunListLimit,
+  compareJournalRunsNewestFirst,
+  compareJournalRunsOldestFirst,
+  journalBranchScopesDir,
+  journalRunBranchSlugFromEntry,
+  type JournalRunDirectoryScope,
+  journalRunFileNameFromEntry,
+  journalRunFilePath,
+  type JournalRunListScope,
+  type JournalRunMetadata,
+  journalRunMetadataMatches,
+  journalRunsDir,
+  journalRunStartedAt,
+  journalRunTerminalState,
+  journalRunTypeFromEntry,
+  type SealedJournalRun,
+} from "@/domains/journal/run-scope";
 import { createJournal, type JournalEvent, type JournalEventInput, type Projection } from "@/lib/agent-run-journal";
 import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { toMessage } from "@/lib/error-message";
 import {
   branchScopeDir,
+  compareAsciiStrings,
   createJsonlRunFile,
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   runFileName,
   type StateStoreFileSystem,
+  validateBranchSlug,
+  validateScopeToken,
 } from "@/lib/state-store";
 
 export const JOURNAL_RUNTIME_ERROR = {
@@ -38,13 +58,6 @@ export interface JournalRunRef {
   readonly branchSlug: string;
   readonly type: string;
   readonly runToken: string;
-}
-
-/** The scope that opens a new journal run, before its run token is assigned. */
-export interface JournalRunScope {
-  readonly productDir: string;
-  readonly branchSlug: string;
-  readonly type: string;
 }
 
 export interface OpenJournalRunOptions {
@@ -81,6 +94,131 @@ async function runFileExists(fs: StateStoreFileSystem, runFilePath: string): Pro
   }
 }
 
+async function directoryEntries(
+  fs: StateStoreFileSystem,
+  directory: string,
+): Promise<Result<readonly { readonly name: string; isFile(): boolean }[]>> {
+  try {
+    return { ok: true, value: await fs.readdir(directory, { withFileTypes: true }) };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: [] };
+    return { ok: false, error: toMessage(error) };
+  }
+}
+
+async function branchSlugs(scope: JournalRunListScope, fs: StateStoreFileSystem): Promise<Result<readonly string[]>> {
+  if (scope.branchSlug !== undefined) {
+    const validated = validateBranchSlug(scope.branchSlug);
+    if (!validated.ok) return validated;
+    return { ok: true, value: [validated.value] };
+  }
+
+  const root = journalBranchScopesDir(scope.productDir);
+  const entries = await directoryEntries(fs, root);
+  if (!entries.ok) return entries;
+  const slugs: string[] = [];
+  for (const entry of entries.value) {
+    const slug = journalRunBranchSlugFromEntry(entry.name, !entry.isFile());
+    if (slug !== undefined) slugs.push(slug);
+  }
+  return { ok: true, value: slugs.sort(compareAsciiStrings) };
+}
+
+async function journalTypes(
+  productDir: string,
+  branchSlug: string,
+  type: string | undefined,
+  fs: StateStoreFileSystem,
+): Promise<Result<readonly string[]>> {
+  const branchScope = branchScopeDir(productDir, branchSlug);
+  if (!branchScope.ok) return branchScope;
+  if (type !== undefined) {
+    const validated = validateScopeToken(type);
+    if (!validated.ok) return validated;
+    return { ok: true, value: [validated.value] };
+  }
+
+  const entries = await directoryEntries(fs, branchScope.value);
+  if (!entries.ok) return entries;
+  const types: string[] = [];
+  for (const entry of entries.value) {
+    const journalType = journalRunTypeFromEntry(entry.name, !entry.isFile());
+    if (journalType !== undefined) types.push(journalType);
+  }
+  return { ok: true, value: types.sort(compareAsciiStrings) };
+}
+
+async function readRunMetadata(
+  productDir: string,
+  branchSlug: string,
+  type: string,
+  runFileNameValue: { readonly runFileName: string; readonly runToken: string },
+  fs: StateStoreFileSystem,
+): Promise<Result<{ readonly metadata: JournalRunMetadata; readonly events: readonly JournalEvent[] }>> {
+  const { runFileName, runToken } = runFileNameValue;
+  const runFile = journalRunFilePath({ productDir, branchSlug, type, runToken });
+  if (!runFile.ok) return runFile;
+  const store = createAppendableJournalStore({ runFilePath: runFile.value, fs });
+  try {
+    const [events, sealed, stats] = await Promise.all([store.readAll(), store.isSealed(), fs.lstat(runFile.value)]);
+    const metadata: JournalRunMetadata = {
+      productDir,
+      branchSlug,
+      type,
+      runToken,
+      runFilePath: runFile.value,
+      runFileName,
+      startedAt: journalRunStartedAt(runToken),
+      createdAtMs: stats.birthtimeMs,
+      sealed,
+      eventCount: events.length,
+      terminalState: journalRunTerminalState(events, sealed),
+    };
+    return { ok: true, value: { metadata, events } };
+  } catch (error) {
+    return { ok: false, error: `${JOURNAL_RUNTIME_ERROR.READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+async function runsForType(
+  scope: JournalRunListScope,
+  branchSlug: string,
+  type: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<readonly JournalRunMetadata[]>> {
+  const typeRunsDir = journalRunsDir({ productDir: scope.productDir, branchSlug, type });
+  if (!typeRunsDir.ok) return typeRunsDir;
+  const entries = await directoryEntries(fs, typeRunsDir.value);
+  if (!entries.ok) return entries;
+
+  const runs: JournalRunMetadata[] = [];
+  for (const entry of entries.value) {
+    const runFileNameValue = journalRunFileNameFromEntry(entry.name, entry.isFile());
+    if (runFileNameValue === undefined) continue;
+    const run = await readRunMetadata(scope.productDir, branchSlug, type, runFileNameValue, fs);
+    if (!run.ok) return run;
+    if (journalRunMetadataMatches(scope, run.value.metadata)) runs.push(run.value.metadata);
+  }
+  return { ok: true, value: runs };
+}
+
+async function runsForBranch(
+  scope: JournalRunListScope,
+  branchSlug: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<readonly JournalRunMetadata[]>> {
+  const types = await journalTypes(scope.productDir, branchSlug, scope.type, fs);
+  if (!types.ok) return types;
+
+  const runs: JournalRunMetadata[] = [];
+  for (const type of types.value) {
+    const typeRuns = await runsForType(scope, branchSlug, type, fs);
+    if (!typeRuns.ok) return typeRuns;
+    runs.push(...typeRuns.value);
+  }
+  return { ok: true, value: runs };
+}
+
 /**
  * Bind the journal contract to a run that `open` already created. The four
  * operate-verbs require the run file to exist so a mistyped or never-opened run
@@ -105,7 +243,7 @@ async function bindJournal(ref: JournalRunRef, fs?: StateStoreFileSystem) {
  * `.spx/branch/<branch-slug>/<type>/runs/` and return the scope that addresses it.
  */
 export async function openJournalRun(
-  scope: JournalRunScope,
+  scope: JournalRunDirectoryScope,
   options: OpenJournalRunOptions = {},
 ): Promise<Result<JournalRunHandle>> {
   const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
@@ -128,6 +266,48 @@ export async function openJournalRun(
       runFilePath: runFile.value.runFilePath,
       runFileName: runFile.value.runFileName,
     },
+  };
+}
+
+export async function listJournalRuns(
+  scope: JournalRunListScope,
+  options: JournalVerbOptions = {},
+): Promise<Result<readonly JournalRunMetadata[]>> {
+  const fs = options.fs ?? defaultStateStoreFileSystem;
+  const branches = await branchSlugs(scope, fs);
+  if (!branches.ok) return branches;
+  const runs: JournalRunMetadata[] = [];
+  for (const branchSlug of branches.value) {
+    const branchRuns = await runsForBranch(scope, branchSlug, fs);
+    if (!branchRuns.ok) return branchRuns;
+    runs.push(...branchRuns.value);
+  }
+  const sorted = runs.sort(compareJournalRunsNewestFirst);
+  return { ok: true, value: applyJournalRunListLimit(sorted, scope.limit) };
+}
+
+export async function readSealedJournalRunSet(
+  scope: JournalRunDirectoryScope,
+  options: JournalVerbOptions = {},
+): Promise<Result<readonly SealedJournalRun[]>> {
+  const fs = options.fs ?? defaultStateStoreFileSystem;
+  const typeRunsDir = journalRunsDir(scope);
+  if (!typeRunsDir.ok) return typeRunsDir;
+  const entries = await directoryEntries(fs, typeRunsDir.value);
+  if (!entries.ok) return entries;
+  const runs: Array<{ readonly metadata: JournalRunMetadata; readonly events: readonly JournalEvent[] }> = [];
+  for (const entry of entries.value) {
+    const runFileNameValue = journalRunFileNameFromEntry(entry.name, entry.isFile());
+    if (runFileNameValue === undefined) continue;
+    const run = await readRunMetadata(scope.productDir, scope.branchSlug, scope.type, runFileNameValue, fs);
+    if (!run.ok) return run;
+    if (run.value.metadata.sealed) runs.push(run.value);
+  }
+  return {
+    ok: true,
+    value: runs
+      .sort((left, right) => compareJournalRunsOldestFirst(left.metadata, right.metadata))
+      .map((run) => ({ runToken: run.metadata.runToken, metadata: run.metadata, events: run.events })),
   };
 }
 

@@ -4,8 +4,10 @@ import {
   JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
+  journalListCommand,
   journalOpenCommand,
   journalReadCommand,
+  journalReadSetCommand,
   journalRenderCommand,
   journalSealCommand,
   type JournalStreamBinding,
@@ -25,9 +27,15 @@ export const JOURNAL_CLI = {
   readCommandName: "read",
   sealCommandName: "seal",
   renderCommandName: "render",
+  listCommandName: "list",
+  readSetCommandName: "read-set",
   typeOption: "--type <type>",
   runOption: "--run <token>",
   fromOption: "--from <cursor>",
+  branchSlugOption: "--branch-slug <slug>",
+  sealedOption: "--sealed <state>",
+  terminalStateOption: "--terminal-state <state>",
+  limitOption: "--limit <count>",
 } as const;
 
 const STREAM_LINE_SEPARATOR = "\n";
@@ -39,25 +47,49 @@ interface JournalScopeCliOptions {
 
 interface JournalRunCliOptions extends JournalScopeCliOptions {
   readonly run: string;
+  readonly branchSlug?: string;
 }
 
 interface JournalReadCliOptions extends JournalRunCliOptions {
   readonly from: string;
 }
 
+interface JournalListCliOptions {
+  readonly type?: string;
+  readonly branchSlug?: string;
+  readonly sealed?: string;
+  readonly terminalState?: string;
+  readonly limit?: string;
+}
+
+interface JournalReadSetCliOptions extends JournalScopeCliOptions {
+  readonly branchSlug?: string;
+}
+
 function scope(options: JournalScopeCliOptions): { readonly type: string } {
   return { type: options.type };
 }
 
-function runScope(options: JournalRunCliOptions): { readonly type: string; readonly runToken: string } {
-  return { ...scope(options), runToken: options.run };
+function runScope(
+  options: JournalRunCliOptions,
+): { readonly type: string; readonly runToken: string; readonly branchSlug?: string } {
+  return {
+    ...scope(options),
+    runToken: options.run,
+    ...(options.branchSlug === undefined ? {} : { branchSlug: options.branchSlug }),
+  };
 }
 
 export const journalDomain: Domain = {
   name: JOURNAL_CLI.commandName,
   description: JOURNAL_CLI.description,
   register: (program: Command, invocation: CliInvocation) => {
-    const journalDeps = () => ({ cwd: invocation.resolveEffectiveInvocationDir() });
+    const journalDeps = () => ({
+      cwd: invocation.resolveEffectiveInvocationDir(),
+      onWarning: (warning: string | undefined) => {
+        if (warning !== undefined) invocation.io.writeStderr(`${warning}${STREAM_LINE_SEPARATOR}`);
+      },
+    });
     const journalCmd = program.command(JOURNAL_CLI.commandName).description(JOURNAL_CLI.description);
 
     journalCmd
@@ -97,6 +129,7 @@ export const journalDomain: Domain = {
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
       .requiredOption(JOURNAL_CLI.fromOption, "Sequence cursor; events at or after it are returned")
+      .option(JOURNAL_CLI.branchSlugOption, "Branch slug reported by journal list")
       .action(async (options: JournalReadCliOptions) => {
         report(await journalReadCommand(runScope(options), options.from, journalDeps()), invocation.io);
       });
@@ -115,8 +148,39 @@ export const journalDomain: Domain = {
       .description("Render the run's event-prefix projection")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .requiredOption(JOURNAL_CLI.runOption, "Run token reported by open")
+      .option(JOURNAL_CLI.branchSlugOption, "Branch slug reported by journal list")
       .action(async (options: JournalRunCliOptions) => {
         report(await journalRenderCommand(runScope(options), journalDeps()), invocation.io);
+      });
+
+    journalCmd
+      .command(JOURNAL_CLI.listCommandName)
+      .description("List persisted run metadata")
+      .option(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
+      .option(JOURNAL_CLI.branchSlugOption, "State-store branch slug")
+      .option(JOURNAL_CLI.sealedOption, "Sealed-state filter")
+      .option(JOURNAL_CLI.terminalStateOption, "Terminal-state filter")
+      .option(JOURNAL_CLI.limitOption, "Maximum number of runs")
+      .action(async (options: JournalListCliOptions) => {
+        report(await journalListCommand(options, journalDeps()), invocation.io);
+      });
+
+    journalCmd
+      .command(JOURNAL_CLI.readSetCommandName)
+      .description("Read sealed runs in one branch and type scope")
+      .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
+      .option(JOURNAL_CLI.branchSlugOption, "State-store branch slug")
+      .action(async (options: JournalReadSetCliOptions) => {
+        report(
+          await journalReadSetCommand(
+            {
+              ...scope(options),
+              ...(options.branchSlug === undefined ? {} : { branchSlug: options.branchSlug }),
+            },
+            journalDeps(),
+          ),
+          invocation.io,
+        );
       });
   },
 };

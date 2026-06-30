@@ -63,6 +63,7 @@ export const STATE_STORE_TEST_GENERATOR = {
     fc.date({
       min: new Date("2026-01-01T00:00:00.000Z"),
       max: new Date("2026-12-31T23:59:59.999Z"),
+      noInvalidDate: true,
     }),
   runIdBytes: (): fc.Arbitrary<Buffer> =>
     fc.uint8Array({

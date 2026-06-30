@@ -6,7 +6,15 @@ import {
   type JournalEnvironment,
   resolveJournalBackend,
 } from "@/domains/journal/backend-selection";
-import { journalRunFilePath } from "@/domains/journal/run-scope";
+import {
+  JOURNAL_RUN_SEALED_FILTER,
+  JOURNAL_RUN_TERMINAL_FILTER,
+  type JournalRunDirectoryScope,
+  journalRunFilePath,
+  type JournalRunListScope,
+  type JournalRunSealedFilter,
+  type JournalRunTerminalFilter,
+} from "@/domains/journal/run-scope";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
@@ -31,8 +39,10 @@ import {
   appendJournalEvent,
   type JournalRunRef,
   type JournalStreamSink,
+  listJournalRuns,
   openJournalRun,
   readJournalEvents,
+  readSealedJournalRunSet,
   renderJournalRun,
   sealJournalRun,
 } from "./runtime";
@@ -40,6 +50,10 @@ import {
 export const JOURNAL_CLI_EXIT_CODE = {
   OK: 0,
   ERROR: 1,
+} as const;
+
+export const JOURNAL_CLI_LIST_LIMIT = {
+  MIN: 1,
 } as const;
 
 export const JOURNAL_CLI_ENV = {
@@ -60,10 +74,14 @@ export const JOURNAL_CLI_ERROR = {
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
+  INVALID_LIST_LIMIT: "journal list limit must be a positive whole integer",
+  INVALID_SEALED_FILTER: "journal list sealed filter is not registered",
+  INVALID_TERMINAL_STATE_FILTER: "journal list terminal-state filter is not registered",
   OPEN_HYDRATION_FAILED: "journal open failed to hydrate the pull request's prior runs",
 } as const;
 
 const CURSOR_PATTERN = /^\d+$/;
+const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
 const JOURNAL_EVENT_INPUT_STRING_FIELDS = ["id", "source", "type", "time"] as const;
 
 export const JOURNAL_COMMENT_MARKER_PREFIX = "spx-journal-run:" as const;
@@ -95,14 +113,24 @@ export interface JournalCliDeps {
   readonly fs?: StateStoreFileSystem;
   readonly now?: () => Date;
   readonly randomBytes?: (size: number) => Buffer;
+  readonly onWarning?: (warning: string | undefined) => void;
 }
 
 export interface JournalCliScope {
   readonly type: string;
+  readonly branchSlug?: string;
 }
 
 export interface JournalRunCliScope extends JournalCliScope {
   readonly runToken: string;
+}
+
+export interface JournalListCliScope {
+  readonly type?: string;
+  readonly branchSlug?: string;
+  readonly sealed?: string;
+  readonly terminalState?: string;
+  readonly limit?: string;
 }
 
 interface JournalRunContext {
@@ -146,32 +174,60 @@ async function resolveJournalRunContext(
   scope: JournalCliScope,
   deps: JournalCliDeps,
 ): Promise<Result<JournalRunContext>> {
-  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
-  const git = deps.git ?? defaultGitDependencies;
   const cliEnvironment = readJournalCliEnvironment(deps.processEnv ?? process.env);
   const environment = deps.env ?? cliEnvironment.backend;
 
   const backend = resolveJournalBackend(environment);
   if (!backend.ok) return backend;
 
+  const journalScope = await resolveJournalRunScope(scope, deps);
+  if (!journalScope.ok) return journalScope;
+  return {
+    ok: true,
+    value: {
+      ...journalScope.value,
+      backendKind: backend.value,
+    },
+  };
+}
+
+async function resolveJournalRunScope(
+  scope: JournalCliScope,
+  deps: JournalCliDeps,
+): Promise<Result<JournalRunDirectoryScope>> {
+  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
+  const git = deps.git ?? defaultGitDependencies;
+  const cliEnvironment = readJournalCliEnvironment(deps.processEnv ?? process.env);
   const product = await detectGitCommonDirProductRoot(cwd, git);
-  // Probe the branch and head only inside a git repository. Outside one (git
-  // absent, which makes the probes throw, or simply not a repo), the root
-  // resolver already fell back to cwd, so fall back to the caller/env branch and
-  // the missing-head-sha placeholder rather than letting the probes fail the verb.
-  const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
-  const branchName = deps.branch ?? cliEnvironment.branch ?? probedBranch;
-  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
-  const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
+  deps.onWarning?.(product.warning);
+  let branchSlug = scope.branchSlug;
+  if (branchSlug === undefined) {
+    // Probe the branch and head only inside a git repository. Outside one (git
+    // absent, which makes the probes throw, or simply not a repo), the root
+    // resolver already fell back to cwd, so fall back to the caller/env branch and
+    // the missing-head-sha placeholder rather than letting the probes fail the verb.
+    const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
+    const branchName = deps.branch ?? cliEnvironment.branch ?? probedBranch;
+    const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
+    const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
+    branchSlug = slugBranchIdentity(branchIdentity);
+  }
   return {
     ok: true,
     value: {
       productDir: product.productDir,
-      branchSlug: slugBranchIdentity(branchIdentity),
+      branchSlug,
       type: scope.type,
-      backendKind: backend.value,
     },
   };
+}
+
+async function resolveJournalProductDir(deps: JournalCliDeps): Promise<string> {
+  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
+  const git = deps.git ?? defaultGitDependencies;
+  const product = await detectGitCommonDirProductRoot(cwd, git);
+  deps.onWarning?.(product.warning);
+  return product.productDir;
 }
 
 function resolvePullRequestNumber(processEnv: NodeJS.ProcessEnv): Result<number> {
@@ -359,6 +415,33 @@ export function parseJournalCursor(raw: string): Result<number> {
   return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_CURSOR };
 }
 
+function parseJournalListLimit(raw: string | undefined): Result<number | undefined> {
+  if (raw === undefined) return { ok: true, value: undefined };
+  if (!POSITIVE_INTEGER_PATTERN.test(raw)) {
+    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
+  }
+  const value = Number.parseInt(raw, DECIMAL_RADIX);
+  return Number.isSafeInteger(value) && value >= JOURNAL_CLI_LIST_LIMIT.MIN
+    ? { ok: true, value }
+    : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
+}
+
+function parseJournalSealedFilter(raw: string | undefined): Result<JournalRunSealedFilter | undefined> {
+  if (raw === undefined) return { ok: true, value: undefined };
+  const filter = Object.values(JOURNAL_RUN_SEALED_FILTER).find((candidate) => candidate === raw);
+  return filter === undefined
+    ? { ok: false, error: JOURNAL_CLI_ERROR.INVALID_SEALED_FILTER }
+    : { ok: true, value: filter };
+}
+
+function parseJournalTerminalFilter(raw: string | undefined): Result<JournalRunTerminalFilter | undefined> {
+  if (raw === undefined) return { ok: true, value: undefined };
+  const filter = Object.values(JOURNAL_RUN_TERMINAL_FILTER).find((candidate) => candidate === raw);
+  return filter === undefined
+    ? { ok: false, error: JOURNAL_CLI_ERROR.INVALID_TERMINAL_STATE_FILTER }
+    : { ok: true, value: filter };
+}
+
 /**
  * Append a caller-supplied event to a run and stream it through the surface the
  * resolved backend binds — standard output under the local backend, the
@@ -399,6 +482,43 @@ export async function journalReadCommand(
   const events = await readJournalEvents(runRef(context.value, scope.runToken), cursor.value, verbOptions(deps));
   if (!events.ok) return errorResult(events.error);
   return okResult(JSON.stringify(events.value));
+}
+
+/** List persisted journal runs across optional branch, type, state, and recency filters. */
+export async function journalListCommand(
+  scope: JournalListCliScope,
+  deps: JournalCliDeps = {},
+): Promise<CliCommandResult> {
+  const sealed = parseJournalSealedFilter(scope.sealed);
+  if (!sealed.ok) return errorResult(sealed.error);
+  const terminalState = parseJournalTerminalFilter(scope.terminalState);
+  if (!terminalState.ok) return errorResult(terminalState.error);
+  const limit = parseJournalListLimit(scope.limit);
+  if (!limit.ok) return errorResult(limit.error);
+
+  const listScope: JournalRunListScope = {
+    productDir: await resolveJournalProductDir(deps),
+    ...(scope.branchSlug === undefined ? {} : { branchSlug: scope.branchSlug }),
+    ...(scope.type === undefined ? {} : { type: scope.type }),
+    ...(sealed.value === undefined ? {} : { sealed: sealed.value }),
+    ...(terminalState.value === undefined ? {} : { terminalState: terminalState.value }),
+    ...(limit.value === undefined ? {} : { limit: limit.value }),
+  };
+  const runs = await listJournalRuns(listScope, verbOptions(deps));
+  if (!runs.ok) return errorResult(runs.error);
+  return okResult(JSON.stringify(runs.value));
+}
+
+/** Read every sealed journal in one branch/type scope in deterministic oldest-first order. */
+export async function journalReadSetCommand(
+  scope: JournalCliScope,
+  deps: JournalCliDeps = {},
+): Promise<CliCommandResult> {
+  const context = await resolveJournalRunScope(scope, deps);
+  if (!context.ok) return errorResult(context.error);
+  const runs = await readSealedJournalRunSet(context.value, verbOptions(deps));
+  if (!runs.ok) return errorResult(runs.error);
+  return okResult(JSON.stringify(runs.value));
 }
 
 /** Seal a run's journal so further appends are rejected. */

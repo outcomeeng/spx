@@ -22,7 +22,9 @@ const ROOT_DIRECTORY = "/";
  */
 class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
   private readonly files = new Map<string, string>();
+  private readonly fileBirthtimes = new Map<string, number>();
   private readonly directories = new Set<string>([CURRENT_DIRECTORY, ROOT_DIRECTORY]);
+  private nextBirthtimeMs = 0;
 
   async mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void> {
     const directory = normalizeDirectoryPath(path);
@@ -48,12 +50,20 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     if (options?.flag === WRITE_EXISTING_FLAG && !this.files.has(path)) {
       throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
     }
+    if (!this.files.has(path)) {
+      this.fileBirthtimes.set(path, this.nextBirthtimeMs);
+      this.nextBirthtimeMs += 1;
+    }
     this.files.set(path, data);
   }
 
   async appendFile(path: string, data: string): Promise<void> {
     if (!this.directories.has(parentDirectory(path))) {
       throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
+    }
+    if (!this.files.has(path)) {
+      this.fileBirthtimes.set(path, this.nextBirthtimeMs);
+      this.nextBirthtimeMs += 1;
     }
     this.files.set(path, (this.files.get(path) ?? "") + data);
   }
@@ -65,22 +75,50 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
   }
 
   async rm(path: string, options?: { readonly force?: boolean }): Promise<void> {
-    if (this.files.delete(path) || this.directories.delete(normalizeDirectoryPath(path)) || options?.force === true) {
+    if (this.files.delete(path)) {
+      this.fileBirthtimes.delete(path);
+      return;
+    }
+
+    const directory = normalizeDirectoryPath(path);
+    if (this.directories.delete(directory)) {
+      // The harness removes descendants because state tests use directory removal as fixture cleanup.
+      for (const directoryPath of [...this.directories]) {
+        if (directoryPath.startsWith(directoryChildPrefix(directory))) {
+          this.directories.delete(directoryPath);
+        }
+      }
+      for (const filePath of [...this.files.keys()]) {
+        if (filePath.startsWith(directoryChildPrefix(directory))) {
+          this.files.delete(filePath);
+          this.fileBirthtimes.delete(filePath);
+        }
+      }
+      return;
+    }
+
+    if (options?.force === true) {
       return;
     }
     throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
   }
 
   async lstat(path: string): Promise<{
+    readonly birthtimeMs: number;
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
   }> {
     if (this.files.has(path)) {
-      return { isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
+      return {
+        birthtimeMs: this.fileBirthtimes.get(path) ?? 0,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+      };
     }
     if (this.directories.has(normalizeDirectoryPath(path))) {
-      return { isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false };
+      return { birthtimeMs: 0, isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false };
     }
     throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
   }
