@@ -5,12 +5,12 @@ Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quali
 ## Landed (session 01)
 
 - Type-aware lint mirror: `parserOptions.projectService` plus a curated SonarJS and `@typescript-eslint` rule set in `eslint-rules/offline-mirror.ts`, composed into `buildEslintConfig` and scoped to the tsconfig-covered trees, run warn-first so validation stays green over the existing backlog. `eslint-plugin-sonarjs` added.
-- Pre-push gate: a Lefthook pre-push hook runs `sonar analyze --base origin/main`.
+- Pre-push acceleration: a Lefthook pre-push hook can run `sonar analyze --base origin/main` when `SPX_SONAR_CLI_ANALYZE=1`; the deterministic local gate remains `spx validation` for Free-plan contributors.
 
 ## Landed (session 06)
 
 - Unicorn-family mirror: `eslint-plugin-unicorn` (65.0.1, for ESLint 9 peer compatibility) added to `eslint-rules/offline-mirror.ts` with `prefer-node-protocol`, `prefer-code-point`, `prefer-single-call`, and `prefer-string-raw` at the warn tier (backlog uncleared), plus the `unicorn` plugin registered in the mirror config block. The compliance test proves each unicorn rule flags a violating fixture and sits in the warn tier.
-- The unicorn classes graduate to the error tier in whatever change clears their last occurrence. Under zero-debt-on-touch (`sonar analyze --base origin/main` blocks on every finding in a changed file), a cross-cutting unicorn sweep would inherit the whole backlog of every touched file, so the clearing distributes across each session's touched-file collateral instead.
+- The unicorn classes graduate to the error tier in whatever change clears their last occurrence. Under Team-plan zero-debt-on-touch (`sonar analyze --base origin/main` blocks on every finding in a changed file when enabled), a cross-cutting unicorn sweep would inherit the whole backlog of every touched file, so the clearing distributes across each session's touched-file collateral instead.
 
 ## Pending
 
