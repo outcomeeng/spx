@@ -98,6 +98,7 @@ const defaultSessionEnvironmentProbeDependencies: SessionEnvironmentProbeDepende
 
 interface ExportedClaimReading {
   readonly errored: boolean;
+  readonly name?: string;
   readonly running: boolean;
 }
 
@@ -228,6 +229,7 @@ async function exportedClaimReadingFromEnv(
 
   return {
     errored: false,
+    name: claimName,
     running: classifyOccupancy(claim.value, deps.processTable) === OCCUPANCY_STATUS.RUNNING,
   };
 }
@@ -273,15 +275,18 @@ export function sessionEnvironmentProbeFromSnapshotProvider(
     async probe(): Promise<SessionEnvironmentReading> {
       const hookPresent = HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH in deps.env;
       const sessionIdentity = resolveAgentSessionId(deps.env) !== undefined;
-      const snapshotReading = sessionEnvironmentReadingFromSnapshot(await provider.read(), {
+      const snapshot = await provider.read();
+      const snapshotReading = sessionEnvironmentReadingFromSnapshot(snapshot, {
         hookPresent,
         sessionIdentity,
       });
       const exportedClaim = await exportedClaimReadingFromEnv(deps);
+      const currentWorktree = snapshot.worktrees.find((worktree) => worktree.root === snapshot.currentWorktreeRoot);
+      const exportedClaimMatchesCurrentWorktree = exportedClaim.running && exportedClaim.name === currentWorktree?.name;
       return {
         ...snapshotReading,
         errored: snapshotReading.errored || exportedClaim.errored,
-        worktreeClaimed: snapshotReading.worktreeClaimed || exportedClaim.running,
+        worktreeClaimed: snapshotReading.worktreeClaimed || exportedClaimMatchesCurrentWorktree,
       };
     },
   };
