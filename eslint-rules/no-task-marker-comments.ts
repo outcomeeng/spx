@@ -42,7 +42,7 @@ const rule: Rule.RuleModule = {
           if (matchedTerm === undefined) continue;
 
           context.report({
-            node: comment as unknown as Rule.Node,
+            loc: comment.loc!,
             messageId: TASK_MARKER_COMMENT_MESSAGE_ID,
             data: { term: matchedTerm },
           });
