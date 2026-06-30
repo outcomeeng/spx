@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
@@ -9,10 +10,15 @@ import { GIT_ROOT_COMMAND } from "@/git/root";
 import { SOURCE_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import type { TestRunState } from "@/test/run-state";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  CHANGED_SET_PLANNING_GENERATOR,
+  changedSetSourceFixture,
+  sampleChangedSetPlanningValue,
+} from "@testing/generators/testing/changed-set-planning";
 import {
   GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
@@ -21,11 +27,7 @@ import {
 } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 
-const packageJson = "{}";
-const tsconfigJson = "{}";
-const sourceDir = "src";
-const sourceFile = "changed.ts";
-const posixSeparator = "/";
+const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
 async function writeFileFixture(productDir: string, path: string, content: string): Promise<void> {
   const absolute = join(productDir, path);
@@ -34,7 +36,7 @@ async function writeFileFixture(productDir: string, path: string, content: strin
 }
 
 function importPath(fromFile: string, toFile: string): string {
-  const relativePath = relative(dirname(fromFile), toFile).split(/[/\\]/).join(posixSeparator);
+  const relativePath = relative(dirname(fromFile), toFile).split(/[/\\]/).join(changedSetContent.posixSeparator);
   return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
 }
 
@@ -56,22 +58,21 @@ async function readRecordedState(stdout: string): Promise<TestRunState> {
   return JSON.parse(terminalLine) as TestRunState;
 }
 
-function sourceFixture(value: number): string {
-  return [`export const value = ${value};`, ""].join("\n");
+function expectedSha256(value: string): string {
+  return createHash(changedSetContent.sha256Algorithm).update(value).digest(changedSetContent.hexEncoding);
+}
+
+function expectedCoveredPathsDigest(paths: readonly string[]): string {
+  return expectedSha256(JSON.stringify([...new Set(paths)].sort(compareAsciiStrings)));
+}
+
+function expectedCoveredContentDigest(path: string, content: string): string {
+  return expectedSha256(JSON.stringify([[path, content]]));
 }
 
 describe("changed-set planning command path", () => {
   it("runs only tests affected by the branch diff and records fresh evidence", async () => {
-    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const selectedTestPath = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-    );
-    const untouchedTestPath = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(
-        typescriptTestingLanguage,
-        sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()),
-      ),
-    );
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
 
     await withTestingTempProductDir(async (productDir) => {
       const [packageJsonPath] = typescriptTestingLanguage.productInputPaths;
@@ -79,21 +80,22 @@ describe("changed-set planning command path", () => {
       if (packageJsonPath === undefined || tsconfigPath === undefined) {
         throw new Error("TypeScript product input paths must include package.json and tsconfig.json");
       }
-      await writeFileFixture(productDir, packageJsonPath, packageJson);
-      await writeFileFixture(productDir, tsconfigPath, tsconfigJson);
+      await writeFileFixture(productDir, packageJsonPath, changedSetContent.packageJson);
+      await writeFileFixture(productDir, tsconfigPath, changedSetContent.tsconfigJson);
+      const selectedTestContent = `import { expect, it } from 'vitest'; import { value } from '${
+        importPath(paths.selectedTestPath, paths.sourcePath)
+      }'; it('passes', () => expect(value).toBe(${changedSetContent.afterSourceValue}));`;
+      await writeFileFixture(productDir, paths.selectedTestPath, selectedTestContent);
       await writeFileFixture(
         productDir,
-        selectedTestPath,
-        `import { expect, it } from 'vitest'; import { value } from '${
-          importPath(selectedTestPath, `${sourceDir}/${sourceFile}`)
-        }'; it('passes', () => expect(value).toBe(2));`,
-      );
-      await writeFileFixture(
-        productDir,
-        untouchedTestPath,
+        paths.untouchedTestPath,
         "import { expect, it } from 'vitest'; it('passes', () => expect(true).toBe(true));",
       );
-      await writeFileFixture(productDir, `${sourceDir}/${sourceFile}`, sourceFixture(1));
+      await writeFileFixture(
+        productDir,
+        paths.sourcePath,
+        changedSetSourceFixture(changedSetContent.beforeSourceValue),
+      );
 
       await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], { cwd: productDir });
       await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL], {
@@ -108,7 +110,11 @@ describe("changed-set planning command path", () => {
       await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, "base"], {
         cwd: productDir,
       });
-      await writeFileFixture(productDir, `${sourceDir}/${sourceFile}`, sourceFixture(2));
+      await writeFileFixture(
+        productDir,
+        paths.sourcePath,
+        changedSetSourceFixture(changedSetContent.afterSourceValue),
+      );
 
       const [sourceCliCommand, sourceCliPath] = SOURCE_CLI_INVOCATION.split(" ");
       if (sourceCliCommand === undefined || sourceCliPath === undefined) {
@@ -134,8 +140,12 @@ describe("changed-set planning command path", () => {
       expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(SUCCESS_EXIT_CODE);
       const recorded = await readRecordedState(result.stdout);
       const coveredPaths = recorded.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
-      expect(coveredPaths).toContain(selectedTestPath);
-      expect(coveredPaths).not.toContain(untouchedTestPath);
+      expect(coveredPaths).toEqual([paths.selectedTestPath]);
+      expect(coveredPaths).not.toContain(paths.untouchedTestPath);
+      expect(recorded.discoveredTestPathsDigest).toBe(expectedCoveredPathsDigest([paths.selectedTestPath]));
+      expect(recorded.discoveredTestContentDigest).toBe(
+        expectedCoveredContentDigest(paths.selectedTestPath, selectedTestContent),
+      );
     });
   });
 });

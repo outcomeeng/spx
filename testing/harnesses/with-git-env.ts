@@ -9,12 +9,11 @@
  * Used for Level 2 integration tests that verify real git + lefthook + spx test behavior.
  */
 import { execa, type Options as ExecaOptions } from "execa";
-import { mkdir, readFile, symlink, writeFile as writeFileFs } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { cp, mkdir, readFile, symlink, writeFile as writeFileFs } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PREPARE_HOOK_ENTRYPOINT } from "@/interfaces/cli/invocation";
-import { PRECOMMIT_PATH } from "@/lib/precommit/precommit-path";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import {
   buildGitTestEnvironment,
@@ -31,6 +30,7 @@ const __dirname = dirname(__filename);
 /** Project root resolved from this helper's location */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
 const BASELINE_COMMIT_MESSAGE = "baseline fixture";
+const RECURSIVE_COPY = { recursive: true } as const;
 
 /**
  * Result from executing a command
@@ -92,6 +92,11 @@ function execResultFromError(error: unknown): ExecResult | undefined {
     : undefined;
 }
 
+async function copyProductPath(relativePath: string, tempDir: string): Promise<void> {
+  await mkdir(join(tempDir, dirname(relativePath)), { recursive: true });
+  await cp(join(PRODUCT_ROOT, relativePath), join(tempDir, relativePath), RECURSIVE_COPY);
+}
+
 async function runGitEnvCommand(
   tempDir: string,
   command: string | string[],
@@ -138,11 +143,7 @@ export function withGitEnv<T>(
   fn: (ctx: GitTestEnvContext) => Promise<T>,
 ): Promise<T> {
   return withTempDir("spx-git-test-", async (tempDir) => {
-    const precommitRelativePath = relative(PRODUCT_ROOT, PRECOMMIT_PATH);
-    const configFilenamesRelativePath = "src/config/filenames.ts";
-    const sourceRootsRelativePath = "src/config/source-roots.ts";
-    const configDomainRelativePath = "src/domains/config";
-    const gitLibRelativePath = "src/lib/git";
+    const sourceRootRelativePath = "src";
 
     // Symlink project config files (ensures tests verify ACTUAL configuration)
     const filesToSymlink = ["node_modules", "lefthook.yml"];
@@ -155,34 +156,11 @@ export function withGitEnv<T>(
       await writeFileFs(join(tempDir, file), await readFile(join(PRODUCT_ROOT, file)));
     }
 
-    // Symlink src/lib/precommit specifically (NOT all of src/)
-    // This allows lefthook to find src/lib/precommit/run.ts while letting
-    // tests create their own src/ files without leaking to the real project
+    // Copy product source into the fixture so writeFile cannot escape the temp
+    // repository through source-directory symlinks while the hook still runs the
+    // source CLI path it uses in this product.
 
-    await mkdir(join(tempDir, dirname(precommitRelativePath)), { recursive: true });
-    await symlink(
-      join(PRECOMMIT_PATH),
-      join(tempDir, precommitRelativePath),
-    );
-    await mkdir(join(tempDir, dirname(configFilenamesRelativePath)), { recursive: true });
-    await symlink(
-      join(PRODUCT_ROOT, configFilenamesRelativePath),
-      join(tempDir, configFilenamesRelativePath),
-    );
-    await symlink(
-      join(PRODUCT_ROOT, sourceRootsRelativePath),
-      join(tempDir, sourceRootsRelativePath),
-    );
-    await mkdir(join(tempDir, dirname(configDomainRelativePath)), { recursive: true });
-    await symlink(
-      join(PRODUCT_ROOT, configDomainRelativePath),
-      join(tempDir, configDomainRelativePath),
-    );
-    await mkdir(join(tempDir, dirname(gitLibRelativePath)), { recursive: true });
-    await symlink(
-      join(PRODUCT_ROOT, gitLibRelativePath),
-      join(tempDir, gitLibRelativePath),
-    );
+    await copyProductPath(sourceRootRelativePath, tempDir);
 
     // Initialize git repo
     await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.INIT]);

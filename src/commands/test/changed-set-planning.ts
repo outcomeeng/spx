@@ -32,6 +32,17 @@ const REF_SEPARATOR = "/";
 const SPEC_TESTS_PATH_SEGMENT = "/tests/";
 const SPEC_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${REF_SEPARATOR}`;
 const SPEC_ROOT_OPERAND = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+const STAGED_SNAPSHOT_NOT_FOUND_ERROR_CODE = "ENOENT";
+const GIT_SHOW_PATH_MISSING_PATTERNS = [
+  "exists on disk, but not in",
+  "does not exist in",
+  "does not exist (neither on disk nor in the index)",
+] as const;
+export const CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID = "changed-set-planning";
+export const CHANGED_TEST_PRODUCT_INPUT_PATHS = [
+  "src/config/filenames.ts",
+  "src/config/source-roots.ts",
+] as const;
 export const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export interface ChangedTestSelectionOptions {
@@ -56,6 +67,25 @@ export interface ChangedTestSelectionDependencies {
 }
 
 export const changedPathsFromNameStatus = pathsFromNameStatus;
+
+interface StagedSnapshotReadError extends Error {
+  readonly code: string;
+}
+
+function stagedSnapshotReadError(path: string, stderr: string): StagedSnapshotReadError {
+  const error = new Error(
+    `failed to read staged test candidate for changed test planning: ${path}: ${stderr}`,
+  ) as StagedSnapshotReadError;
+  Object.defineProperty(error, "code", {
+    value: STAGED_SNAPSHOT_NOT_FOUND_ERROR_CODE,
+    enumerable: true,
+  });
+  return error;
+}
+
+function isStagedSnapshotMissing(stderr: string): boolean {
+  return GIT_SHOW_PATH_MISSING_PATTERNS.some((pattern) => stderr.includes(pattern));
+}
 
 async function defaultBaseRef(productDir: string, git?: GitDependencies): Promise<string> {
   const branch = await resolveDefaultBranch(productDir, git);
@@ -158,7 +188,10 @@ async function readStagedFile(productDir: string, path: string, git?: GitDepende
     { cwd: productDir, reject: false },
   );
   if (result.exitCode !== 0) {
-    throw new Error(`failed to read staged test candidate for changed test planning: ${path}: ${result.stderr}`);
+    if (!isStagedSnapshotMissing(result.stderr)) {
+      throw new Error(`failed to read staged test candidate for changed test planning: ${path}: ${result.stderr}`);
+    }
+    throw stagedSnapshotReadError(path, result.stderr);
   }
   return result.stdout;
 }
@@ -194,8 +227,9 @@ async function relatedTestPaths(
   };
 }
 
-function productInputPaths(registry: TestingRegistry): readonly string[] {
+export function changedTestProductInputPaths(registry: TestingRegistry): readonly string[] {
   return [
+    ...CHANGED_TEST_PRODUCT_INPUT_PATHS,
     ...Object.values(CONFIG_FILENAMES),
     ...registry.languages.flatMap((language) => language.productInputPaths),
   ].sort(compareAsciiStrings);
@@ -212,7 +246,7 @@ export async function planChangedTestSelection(
     requiredRefSha(HEAD_REF, options.productDir, deps.git),
   ]);
   const paths = await changedPaths(options.productDir, baseSha, options.staged === true, deps.git);
-  const partition = partitionChangedPaths(paths, productInputPaths(deps.registry));
+  const partition = partitionChangedPaths(paths, changedTestProductInputPaths(deps.registry));
   let candidateTestPaths: readonly string[] = [];
   if (partition.sourceFiles.length > 0) {
     candidateTestPaths = options.staged === true

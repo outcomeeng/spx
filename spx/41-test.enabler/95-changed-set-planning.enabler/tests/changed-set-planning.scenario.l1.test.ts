@@ -9,6 +9,7 @@ import {
   CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
   CHANGED_TEST_LS_FILES_OTHERS_FLAG,
   CHANGED_TEST_NULL_DELIMITED_FLAG,
+  CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
   changedPathsFromNameStatus,
   EMPTY_TREE_SHA,
@@ -29,19 +30,28 @@ import type {
 } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import type { TestingRegistry } from "@/test/registry";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import {
+  CHANGED_SET_PLANNING_GENERATOR,
+  changedSetImportStatement,
+  sampleChangedSetPlanningValue,
+  tsconfigWithPaths,
+} from "@testing/generators/testing/changed-set-planning";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 
 const defaultBranchName = sampleLiteralTestValue(arbitraryDomainLiteral());
 const defaultBaseRef = [GIT_ROOT_COMMAND.ORIGIN, defaultBranchName].join("/");
 const defaultBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const explicitBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
 interface GitCall {
   readonly command: string;
@@ -145,6 +155,7 @@ function stagedSourceGitRunner(
   sourcePath: string,
   testPath: string,
   testContent: string,
+  tsconfigContent: string = changedSetContent.emptyTsconfig,
 ): RecordingGitRunner {
   const calls: GitCall[] = [];
   return {
@@ -166,7 +177,46 @@ function stagedSourceGitRunner(
           return { exitCode: 0, stdout: nulDelimited([testPath]), stderr: "" };
         }
         if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
-          return { exitCode: 0, stdout: testContent, stderr: "" };
+          const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
+          return { exitCode: 0, stdout: path === TYPESCRIPT_MARKER ? tsconfigContent : testContent, stderr: "" };
+        }
+        return { exitCode: 0, stdout: headSha, stderr: "" };
+      },
+    },
+  };
+}
+
+function stagedMissingCandidateGitRunner(
+  sourcePath: string,
+  testPath: string,
+  missingStderr: string,
+  tsconfigContent: string = changedSetContent.emptyTsconfig,
+): RecordingGitRunner {
+  const calls: GitCall[] = [];
+  return {
+    calls,
+    git: {
+      execa: async (command, args) => {
+        calls.push({ command, args });
+        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
+          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
+        }
+        const lastArg = args.at(-1);
+        if (lastArg === defaultBaseRef) {
+          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
+          return { exitCode: 0, stdout: nameStatusNulDelimited([sourcePath]), stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_LS_FILES_COMMAND)) {
+          return { exitCode: 0, stdout: nulDelimited([testPath]), stderr: "" };
+        }
+        if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
+          const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
+          if (path === TYPESCRIPT_MARKER) {
+            return { exitCode: 0, stdout: tsconfigContent, stderr: "" };
+          }
+          return { exitCode: 1, stdout: "", stderr: missingStderr };
         }
         return { exitCode: 0, stdout: headSha, stderr: "" };
       },
@@ -177,6 +227,7 @@ function stagedSourceGitRunner(
 function stagedSourceCandidatesGitRunner(
   sourcePaths: readonly string[],
   candidateContents: ReadonlyMap<string, string>,
+  tsconfigContent: string = changedSetContent.emptyTsconfig,
 ): RecordingGitRunner {
   const calls: GitCall[] = [];
   return {
@@ -199,7 +250,11 @@ function stagedSourceCandidatesGitRunner(
         }
         if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
           const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
-          return { exitCode: 0, stdout: candidateContents.get(path) ?? "", stderr: "" };
+          return {
+            exitCode: 0,
+            stdout: path === TYPESCRIPT_MARKER ? tsconfigContent : candidateContents.get(path) ?? "",
+            stderr: "",
+          };
         }
         return { exitCode: 0, stdout: headSha, stderr: "" };
       },
@@ -213,7 +268,13 @@ function descriptorWithRelatedTests(
 ): TestingLanguageDescriptor {
   return {
     ...typescriptTestingLanguage,
-    relatedTestPaths: (_request: RelatedTestRequest) => Promise.resolve({ testPaths, resolvedSourcePaths }),
+    relatedTestPaths: (request: RelatedTestRequest) => {
+      const selectedTestPaths = testPaths.filter((testPath) => request.candidateTestPaths.includes(testPath));
+      return Promise.resolve({
+        testPaths: selectedTestPaths,
+        resolvedSourcePaths: selectedTestPaths.length > 0 ? resolvedSourcePaths : [],
+      });
+    },
   };
 }
 
@@ -232,7 +293,7 @@ function relatedDeps(): RelatedTestDependencies {
   return {
     isLanguagePresent: () => true,
     runCommand: () => Promise.resolve({ exitCode: 0, stdout: "", stderr: "" }),
-    readFile: () => Promise.resolve(""),
+    readFile: (path) => Promise.resolve(path === TYPESCRIPT_MARKER ? changedSetContent.emptyTsconfig : ""),
   };
 }
 
@@ -244,6 +305,10 @@ function nodeSpecSlug(nodePath: string, suffix: string): string {
 
 function specFileUnder(nodePath: string, suffix: string): string {
   return `${nodeOperand(nodePath)}/${nodeSpecSlug(nodePath, suffix)}.md`;
+}
+
+function nativeStringOrder(paths: readonly string[]): readonly string[] {
+  return [...paths].sort(compareAsciiStrings);
 }
 
 async function noRunTests(_request: TestRunRequest): Promise<TestRunInvocation> {
@@ -266,7 +331,7 @@ describe("changed-set planning path partition", () => {
     const partition = partitionChangedPaths([specPath, testPath, outcomeSpecPath, outcomeTestPath]);
 
     expect(partition.operands).toEqual(
-      [nodeOperand(enablerNodePath), nodeOperand(outcomeNodePath)].sort(compareAsciiStrings),
+      nativeStringOrder([nodeOperand(enablerNodePath), nodeOperand(outcomeNodePath)]),
     );
     expect(partition.sourceFiles).toEqual([]);
   });
@@ -283,17 +348,21 @@ describe("changed-set planning path partition", () => {
       runTests: noRunTests,
     };
 
-    const plan = await planChangedTestSelection(
-      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
-      {
-        git: git.git,
-        registry: registry([language]),
-        relatedDepsFor: () => relatedDeps(),
-      },
-    );
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, relatedTestPath);
 
-    expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
-    expect(plan.unresolvedSourceFiles).toEqual([]);
+      const plan = await planChangedTestSelection(
+        { productDir },
+        {
+          git: git.git,
+          registry: registry([language]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    });
   });
 
   it("reports only the source files left unresolved after a related-test capability resolves another source file", async () => {
@@ -309,17 +378,21 @@ describe("changed-set planning path partition", () => {
       runTests: noRunTests,
     };
 
-    const plan = await planChangedTestSelection(
-      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
-      {
-        git: git.git,
-        registry: registry([language]),
-        relatedDepsFor: () => relatedDeps(),
-      },
-    );
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, relatedTestPath);
 
-    expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
-    expect(plan.unresolvedSourceFiles).toEqual([unresolvedSourcePath]);
+      const plan = await planChangedTestSelection(
+        { productDir },
+        {
+          git: git.git,
+          registry: registry([language]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([unresolvedSourcePath]);
+    });
   });
 
   it("reports a changed source file when no registered related-test capability can resolve it", async () => {
@@ -351,26 +424,30 @@ describe("changed-set planning path partition", () => {
       runTests: noRunTests,
     };
 
-    const plan = await planChangedTestSelection(
-      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
-      {
-        git: git.git,
-        registry: registry([language]),
-        relatedDepsFor: () => relatedDeps(),
-      },
-    );
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, relatedTestPath);
 
-    expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
-    expect(plan.changedPaths).toEqual([sourcePath]);
-    expect(plan.unresolvedSourceFiles).toEqual([]);
-    expect(
-      git.calls.some((call) =>
-        call.args.includes(CHANGED_TEST_LS_FILES_COMMAND)
-        && call.args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
-        && call.args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
-        && call.args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ),
-    ).toBe(true);
+      const plan = await planChangedTestSelection(
+        { productDir },
+        {
+          git: git.git,
+          registry: registry([language]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+      expect(plan.changedPaths).toEqual([sourcePath]);
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+      expect(
+        git.calls.some((call) =>
+          call.args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+          && call.args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
+          && call.args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
+          && call.args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+        ),
+      ).toBe(true);
+    });
   });
 
   it("selects a node operand for an untracked spec-tree test file", async () => {
@@ -429,20 +506,18 @@ describe("changed-set planning path partition", () => {
       },
     );
 
-    expect(plan.changedPaths).toEqual([oldPath, newPath].sort(compareAsciiStrings));
-    expect(plan.unresolvedSourceFiles).toEqual([oldPath, newPath].sort(compareAsciiStrings));
+    expect(plan.changedPaths).toEqual(nativeStringOrder([oldPath, newPath]));
+    expect(plan.unresolvedSourceFiles).toEqual(nativeStringOrder([oldPath, newPath]));
   });
 
   it("routes changed testing harness files through related-test resolution", async () => {
-    const sourcePath = "testing/harnesses/with-git-env.ts";
-    const testPath = "spx/21-infrastructure.enabler/43-precommit.enabler/tests/precommit.scenario.l2.test.ts";
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.harnessAliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
     const git = stagedSourceGitRunner(
-      sourcePath,
-      testPath,
-      `import { withGitEnv } from "@testing/harnesses/with-git-env";
-
-withGitEnv;
-`,
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -450,32 +525,29 @@ withGitEnv;
       { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([]);
   });
 
   it("routes indirectly imported source files through related-test resolution", async () => {
-    const sourcePath = "src/commands/test/changed-set-planning.ts";
-    const helperPath = "spx/41-test.enabler/tests/helpers/changed-source-helper.ts";
-    const testPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
     const git = stagedSourceCandidatesGitRunner(
-      [sourcePath],
+      [fixture.sourcePath],
       new Map([
         [
-          testPath,
-          `import { helper } from "./helpers/changed-source-helper";
+          paths.testPath,
+          `import { helper } from "${paths.helperImportSpecifier}";
 
 helper;
 `,
         ],
         [
-          helperPath,
-          `import { planChangedTestSelection } from "@/commands/test/changed-set-planning";
-
-planChangedTestSelection;
-`,
+          paths.helperPath,
+          changedSetImportStatement(fixture.importSpecifier),
         ],
       ]),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -483,20 +555,18 @@ planChangedTestSelection;
       { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([]);
   });
 
   it("resolves tsconfig alias directory imports to changed source index modules", async () => {
-    const sourcePath = "src/commands/test/index.ts";
-    const testPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.indexAliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
     const git = stagedSourceGitRunner(
-      sourcePath,
-      testPath,
-      `import { runTests } from "@/commands/test";
-
-runTests;
-`,
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -504,22 +574,57 @@ runTests;
       { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([]);
   });
 
-  it.each([
-    ["scripts/release.ts", "@scripts/release"],
-    ["eslint-rules/no-legacy.ts", "@eslint-rules/no-legacy"],
-  ])("routes changed alias source root %s through related-test resolution", async (sourcePath, importSpecifier) => {
-    const testPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
-    const git = stagedSourceGitRunner(
-      sourcePath,
-      testPath,
-      `import { subject } from "${importSpecifier}";
+  it.each(sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixtureSet()))(
+    "routes changed alias source root %s through related-test resolution",
+    async (fixture) => {
+      const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+      const git = stagedSourceGitRunner(
+        fixture.sourcePath,
+        paths.testPath,
+        changedSetImportStatement(fixture.importSpecifier),
+        tsconfigWithPaths(fixture.tsconfigPaths),
+      );
 
-subject;
-`,
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    },
+  );
+
+  it("rejects malformed tsconfig content during related-test resolution", async () => {
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+    const git = stagedSourceGitRunner(
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      changedSetContent.malformedTsconfig,
+    );
+
+    await expect(
+      planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      ),
+    ).rejects.toThrow(TYPESCRIPT_MARKER);
+  });
+
+  it("does not prefix-match exact tsconfig path aliases", async () => {
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.exactAliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+    const git = stagedSourceGitRunner(
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -527,26 +632,69 @@ subject;
       { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.targets).toEqual({ operands: [], recursive: false });
+    expect(plan.unresolvedSourceFiles).toEqual([fixture.sourcePath]);
+  });
+
+  it("resolves tsconfig path alias fallback targets", async () => {
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fallbackAliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+    const git = stagedSourceGitRunner(
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      tsconfigWithPaths(fixture.tsconfigPaths),
+    );
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+      { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+    );
+
+    expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([]);
+  });
+
+  it("propagates non-missing module read failures during related-test resolution", async () => {
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.readFailureFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+    const testContent = changedSetImportStatement(fixture.importSpecifier);
+    const git = recordingGitRunner([fixture.sourcePath]);
+    const failure = new Error(changedSetContent.readFailureMessage);
+    const deps = relatedDeps();
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, paths.testPath);
+
+      await expect(
+        planChangedTestSelection(
+          { productDir },
+          {
+            git: git.git,
+            registry: registry([typescriptTestingLanguage]),
+            relatedDepsFor: () => ({
+              ...deps,
+              readFile: (path) => {
+                if (path === TYPESCRIPT_MARKER) return Promise.resolve(tsconfigWithPaths(fixture.tsconfigPaths));
+                if (path === paths.testPath) return Promise.resolve(testContent);
+                if (path === fixture.missingPath) return Promise.reject(failure);
+                return deps.readFile(path);
+              },
+            }),
+          },
+        ),
+      ).rejects.toThrow(changedSetContent.readFailureMessage);
+    });
   });
 
   it("does not select unrelated testing harness consumers for changed harness sources", async () => {
-    const precommitTestPath = "spx/21-infrastructure.enabler/43-precommit.enabler/tests/precommit.scenario.l2.test.ts";
-    const cliTestPath = "spx/41-test.enabler/tests/test.scenario.l1.test.ts";
-    const worktreeTestPath = "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.compliance.l2.test.ts";
-    const sessionTestPath = "spx/36-session.enabler/76-session-cli.enabler/tests/session-cli.compliance.l2.test.ts";
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.harnessConsumersFixture());
+    const selectedConsumers = new Map(Object.entries(fixture.selectedConsumers));
+    const unrelatedConsumers = new Map(Object.entries(fixture.unrelatedConsumers));
     const git = stagedSourceCandidatesGitRunner(
-      ["testing/harnesses/with-git-env.ts", "testing/harnesses/testing/cli.ts"],
-      new Map([
-        [precommitTestPath, `import { withGitEnv } from "@testing/harnesses/with-git-env";`],
-        [cliTestPath, `import { runTestingCli } from "@testing/harnesses/testing/cli";`],
-        [
-          worktreeTestPath,
-          `import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";`,
-        ],
-        [sessionTestPath, `import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";`],
-      ]),
+      fixture.sourcePaths,
+      new Map([...selectedConsumers, ...unrelatedConsumers]),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -555,7 +703,7 @@ subject;
     );
 
     expect(plan.targets).toEqual({
-      operands: [precommitTestPath, cliTestPath].sort(compareAsciiStrings),
+      operands: nativeStringOrder([...selectedConsumers.keys()]),
       recursive: false,
     });
     expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -584,6 +732,21 @@ subject;
 
   it.each(typescriptTestingLanguage.productInputPaths)(
     "selects the full spec tree when TypeScript product input changes: %s",
+    async (productInputPath) => {
+      const git = recordingGitRunner([productInputPath]);
+
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    },
+  );
+
+  it.each(CHANGED_TEST_PRODUCT_INPUT_PATHS)(
+    "selects the full spec tree when changed-set product input changes: %s",
     async (productInputPath) => {
       const git = recordingGitRunner([productInputPath]);
 
@@ -662,20 +825,18 @@ subject;
     const newPath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${GIT_RENAMED_PATH_SUFFIX}${pathNewline}`;
 
     expect(changedPathsFromNameStatus(`${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0`)).toEqual(
-      [oldPath, newPath].sort(compareAsciiStrings),
+      nativeStringOrder([oldPath, newPath]),
     );
   });
 
   it("resolves staged source changes from test candidates and content in the index", async () => {
-    const sourcePath = "src/math.ts";
-    const testPath = "spx/10-math.enabler/tests/math.scenario.l1.test.ts";
+    const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixture());
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
     const git = stagedSourceGitRunner(
-      sourcePath,
-      testPath,
-      `import { add } from "../../../src/math.js";
-
-add(1, 1);
-`,
+      fixture.sourcePath,
+      paths.testPath,
+      changedSetImportStatement(fixture.importSpecifier),
+      tsconfigWithPaths(fixture.tsconfigPaths),
     );
 
     const plan = await planChangedTestSelection(
@@ -683,7 +844,7 @@ add(1, 1);
       { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
     );
 
-    expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
     expect(plan.unresolvedSourceFiles).toEqual([]);
     expect(git.calls.some((call) => call.args.includes(CHANGED_TEST_LS_FILES_COMMAND))).toBe(true);
     expect(
@@ -691,6 +852,25 @@ add(1, 1);
         call.args.includes(CHANGED_TEST_LS_FILES_COMMAND) && call.args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
       ),
     ).toBe(true);
-    expect(git.calls.some((call) => call.args.includes(`${CHANGED_TEST_INDEX_PATH_PREFIX}${testPath}`))).toBe(true);
+    expect(git.calls.some((call) => call.args.includes(`${CHANGED_TEST_INDEX_PATH_PREFIX}${paths.testPath}`))).toBe(
+      true,
+    );
+  });
+
+  it("ignores staged candidate test paths missing from the index", async () => {
+    const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+    const git = stagedMissingCandidateGitRunner(
+      paths.sourcePath,
+      paths.testPath,
+      changedSetContent.gitStagedPathMissingMessage,
+    );
+
+    const plan = await planChangedTestSelection(
+      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+      { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+    );
+
+    expect(plan.targets).toEqual({ operands: [], recursive: false });
+    expect(plan.unresolvedSourceFiles).toEqual([paths.sourcePath]);
   });
 });

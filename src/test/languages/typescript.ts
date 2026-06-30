@@ -19,7 +19,7 @@ import type {
   TestRunnerDependencies,
   TestRunRequest,
 } from "@/test/languages/types";
-import { detectTypeScript } from "@/validation/discovery/language-finder";
+import { detectTypeScript, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
 const TYPESCRIPT_TEST_FILE_PATTERNS = ["*.test.ts", "*.test.tsx"] as const;
@@ -27,7 +27,7 @@ const TYPESCRIPT_TEST_FILE_SUFFIXES = [".test.ts", ".test.tsx"] as const;
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
-  "tsconfig.json",
+  TYPESCRIPT_MARKER,
   "vitest.config.js",
   "vitest.config.mjs",
   "vitest.config.ts",
@@ -48,13 +48,18 @@ const TYPESCRIPT_RUNTIME_EXTENSION_MAP = {
   ".js": ".ts",
   ".jsx": ".tsx",
 } as const;
-const TYPESCRIPT_ALIAS_PREFIXES = [
-  { prefix: "@/", target: "src/" },
-  { prefix: "@testing/", target: "testing/" },
-  { prefix: "@root/", target: "" },
-  { prefix: "@scripts/", target: "scripts/" },
-  { prefix: "@eslint-rules/", target: "eslint-rules/" },
-] as const;
+const TSCONFIG_COMPILER_OPTIONS_KEY = "compilerOptions";
+const TSCONFIG_PATHS_KEY = "paths";
+const TSCONFIG_WILDCARD_SUFFIX = "*";
+const TSCONFIG_CURRENT_DIRECTORY_PREFIX = "./";
+const NOT_FOUND_ERROR_CODE = "ENOENT";
+
+interface TypeScriptPathMapping {
+  readonly aliasPrefix: string;
+  readonly aliasSuffix: string;
+  readonly hasWildcard: boolean;
+  readonly targets: readonly string[];
+}
 
 function matchesTestFile(filePath: string): boolean {
   return TYPESCRIPT_TEST_FILE_SUFFIXES.some((suffix) => filePath.endsWith(suffix));
@@ -106,21 +111,114 @@ function importSpecifiers(sourceText: string, testPath: string): readonly string
   return specifiers;
 }
 
-function normalizedImportPath(testPath: string, specifier: string): string | null {
-  if (specifier.startsWith(".")) {
-    return posix.normalize(posix.join(posix.dirname(testPath), specifier));
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object"
+    && error !== null
+    && !Array.isArray(error)
+    && "code" in error
+    && (error as { readonly code?: unknown }).code === code
+  );
+}
+
+function wildcardIndex(value: string): number {
+  return value.indexOf(TSCONFIG_WILDCARD_SUFFIX);
+}
+
+function splitTsconfigPattern(
+  value: string,
+): { readonly prefix: string; readonly suffix: string; readonly hasWildcard: boolean } {
+  const index = wildcardIndex(value);
+  if (index < 0) return { prefix: value, suffix: "", hasWildcard: false };
+  return {
+    prefix: value.slice(0, index),
+    suffix: value.slice(index + TSCONFIG_WILDCARD_SUFFIX.length),
+    hasWildcard: true,
+  };
+}
+
+function normalizeTsconfigTarget(target: string, wildcardValue: string): string {
+  const substituted = target.replace(TSCONFIG_WILDCARD_SUFFIX, wildcardValue);
+  return substituted.startsWith(TSCONFIG_CURRENT_DIRECTORY_PREFIX)
+    ? substituted.slice(TSCONFIG_CURRENT_DIRECTORY_PREFIX.length)
+    : substituted;
+}
+
+function pathMappingFromTsconfigPath(pathAlias: string, targets: unknown): TypeScriptPathMapping | null {
+  if (!Array.isArray(targets)) return null;
+  const stringTargets = targets.filter((target): target is string => typeof target === "string");
+  if (stringTargets.length === 0) return null;
+  const alias = splitTsconfigPattern(pathAlias);
+  return {
+    aliasPrefix: alias.prefix,
+    aliasSuffix: alias.suffix,
+    hasWildcard: alias.hasWildcard,
+    targets: stringTargets,
+  };
+}
+
+function pathMappingsFromTsconfig(config: unknown): readonly TypeScriptPathMapping[] {
+  if (!isRecord(config)) return [];
+  const compilerOptions = config[TSCONFIG_COMPILER_OPTIONS_KEY];
+  if (!isRecord(compilerOptions)) return [];
+  const paths = compilerOptions[TSCONFIG_PATHS_KEY];
+  if (!isRecord(paths)) return [];
+  return Object.entries(paths).flatMap(([pathAlias, targets]) => {
+    const mapping = pathMappingFromTsconfigPath(pathAlias, targets);
+    return mapping === null ? [] : [mapping];
+  });
+}
+
+async function typescriptPathMappings(
+  deps: Pick<RelatedTestDependencies, "readFile">,
+): Promise<readonly TypeScriptPathMapping[]> {
+  const tsconfigText = await deps.readFile(TYPESCRIPT_MARKER);
+  const parsed = ts.parseConfigFileTextToJson(TYPESCRIPT_MARKER, tsconfigText);
+  if (parsed.error !== undefined) {
+    throw new Error(`failed to parse ${TYPESCRIPT_MARKER}`);
   }
-  const alias = TYPESCRIPT_ALIAS_PREFIXES.find((candidate) => specifier.startsWith(candidate.prefix));
-  return alias === undefined ? null : posix.normalize(`${alias.target}${specifier.slice(alias.prefix.length)}`);
+  return pathMappingsFromTsconfig(parsed.config);
+}
+
+function normalizedImportPath(
+  testPath: string,
+  specifier: string,
+  mappings: readonly TypeScriptPathMapping[],
+): readonly string[] {
+  if (specifier.startsWith(".")) {
+    return [posix.normalize(posix.join(posix.dirname(testPath), specifier))];
+  }
+  return mappings.flatMap((mapping) => normalizedPathsFromMapping(mapping, specifier));
+}
+
+function normalizedPathsFromMapping(mapping: TypeScriptPathMapping, specifier: string): readonly string[] {
+  if (!mapping.hasWildcard) {
+    return specifier === mapping.aliasPrefix
+      ? mapping.targets.map((target) => posix.normalize(normalizeTsconfigTarget(target, "")))
+      : [];
+  }
+  if (!specifier.startsWith(mapping.aliasPrefix) || !specifier.endsWith(mapping.aliasSuffix)) return [];
+  const wildcardValue = specifier.slice(mapping.aliasPrefix.length, specifier.length - mapping.aliasSuffix.length);
+  return mapping.targets.map((target) => posix.normalize(normalizeTsconfigTarget(target, wildcardValue)));
 }
 
 function indexImportCandidates(normalized: string): readonly string[] {
   return TYPESCRIPT_SOURCE_EXTENSIONS.map((extension) => `${normalized}/index${extension}`);
 }
 
-function candidateImportPaths(testPath: string, specifier: string): readonly string[] {
-  const normalized = normalizedImportPath(testPath, specifier);
-  if (normalized === null) return [];
+function candidateImportPaths(
+  testPath: string,
+  specifier: string,
+  mappings: readonly TypeScriptPathMapping[],
+): readonly string[] {
+  return normalizedImportPath(testPath, specifier, mappings).flatMap(expandedImportCandidates);
+}
+
+function expandedImportCandidates(normalized: string): readonly string[] {
   if (TYPESCRIPT_SOURCE_EXTENSIONS.some((extension) => normalized.endsWith(extension))) {
     const runtimeExtension = Object.keys(TYPESCRIPT_RUNTIME_EXTENSION_MAP).find((extension) =>
       normalized.endsWith(extension)
@@ -167,11 +265,12 @@ async function changedSourcesReachableFromText(
   moduleTextCache: ModuleTextCache,
   reachabilityCache: ReachabilityCache,
   visiting: ReadonlySet<string>,
+  mappings: readonly TypeScriptPathMapping[],
 ): Promise<readonly string[]> {
   const matched = new Set<string>();
 
   for (const specifier of importSpecifiers(importerText, importerPath)) {
-    const candidates = candidateImportPaths(importerPath, specifier).filter(isProductRelativePath);
+    const candidates = candidateImportPaths(importerPath, specifier, mappings).filter(isProductRelativePath);
     const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
     if (directMatches.length > 0) {
       for (const candidate of directMatches) matched.add(candidate);
@@ -187,6 +286,7 @@ async function changedSourcesReachableFromText(
           moduleTextCache,
           reachabilityCache,
           visiting,
+          mappings,
         )
       ) {
         matched.add(sourcePath);
@@ -204,6 +304,7 @@ async function changedSourcesReachableFromPath(
   moduleTextCache: ModuleTextCache,
   reachabilityCache: ReachabilityCache,
   visiting: ReadonlySet<string>,
+  mappings: readonly TypeScriptPathMapping[],
 ): Promise<readonly string[]> {
   if (visiting.has(path)) return [];
   const cached = reachabilityCache.get(path);
@@ -222,6 +323,7 @@ async function changedSourcesReachableFromPath(
         ...visiting,
         path,
       ]),
+      mappings,
     );
   });
   reachabilityCache.set(path, reachable);
@@ -235,7 +337,10 @@ async function readCandidateModule(
 ): Promise<string | null> {
   const cached = moduleTextCache.get(path);
   if (cached !== undefined) return cached;
-  const loaded = deps.readFile(path).catch(() => null);
+  const loaded = deps.readFile(path).catch((error: unknown) => {
+    if (hasErrorCode(error, NOT_FOUND_ERROR_CODE)) return null;
+    throw error;
+  });
   moduleTextCache.set(path, loaded);
   return loaded;
 }
@@ -244,13 +349,16 @@ async function readCandidateTest(
   path: string,
   deps: Pick<RelatedTestDependencies, "readFile">,
   moduleTextCache: ModuleTextCache,
-): Promise<string> {
+): Promise<string | null> {
   const cached = moduleTextCache.get(path);
   if (cached !== undefined) {
     const text = await cached;
     if (text !== null) return text;
   }
-  const loaded = deps.readFile(path);
+  const loaded = deps.readFile(path).catch((error: unknown) => {
+    if (hasErrorCode(error, NOT_FOUND_ERROR_CODE)) return null;
+    throw error;
+  });
   moduleTextCache.set(path, loaded);
   return loaded;
 }
@@ -267,8 +375,10 @@ async function relatedTestPaths(
   const resolvedSourcePaths = new Set<string>();
   const moduleTextCache = new Map<string, Promise<string | null>>();
   const reachabilityCache = new Map<string, Promise<readonly string[]>>();
+  const mappings = await typescriptPathMappings(deps);
   for (const testPath of request.candidateTestPaths.filter(matchesTestFile)) {
     const sourceText = await readCandidateTest(testPath, deps, moduleTextCache);
+    if (sourceText === null) continue;
     const matchedSources = await changedSourcesReachableFromText(
       testPath,
       sourceText,
@@ -277,6 +387,7 @@ async function relatedTestPaths(
       moduleTextCache,
       reachabilityCache,
       new Set([testPath]),
+      mappings,
     );
     if (matchedSources.length > 0) {
       testPaths.push(testPath);

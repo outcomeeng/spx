@@ -53,6 +53,8 @@ import {
   CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
   CHANGED_TEST_LS_FILES_OTHERS_FLAG,
   CHANGED_TEST_NULL_DELIMITED_FLAG,
+  CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+  CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
   planChangedTestSelection,
 } from "./changed-set-planning";
@@ -245,12 +247,7 @@ async function digestLanguageProductInputs(
   coveredPaths: readonly string[],
   readSnapshotFile: SnapshotFileReader,
 ): Promise<string> {
-  const entries = await readProductInputEntries(languageProductInputPaths(language, coveredPaths), readSnapshotFile);
-  const digest = digestDescriptorSection(entries, `${language.name} product inputs`);
-  if (!digest.ok) {
-    throw new Error(`failed to digest ${language.name} product inputs: ${digest.error}`);
-  }
-  return digest.value.sha256;
+  return digestProductInputs(language.name, languageProductInputPaths(language, coveredPaths), readSnapshotFile);
 }
 
 async function productInputDigests(
@@ -258,7 +255,16 @@ async function productInputDigests(
   coveredPaths: readonly string[],
   readSnapshotFile: SnapshotFileReader,
 ): Promise<readonly ProductInputDigest[]> {
-  const digests: ProductInputDigest[] = [];
+  const digests: ProductInputDigest[] = [
+    {
+      descriptorId: CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+      digest: await digestProductInputs(
+        CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
+        CHANGED_TEST_PRODUCT_INPUT_PATHS,
+        readSnapshotFile,
+      ),
+    },
+  ];
   for (const language of registry.languages) {
     digests.push({
       descriptorId: language.name,
@@ -266,6 +272,19 @@ async function productInputDigests(
     });
   }
   return digests;
+}
+
+async function digestProductInputs(
+  descriptorId: string,
+  paths: readonly string[],
+  readSnapshotFile: SnapshotFileReader,
+): Promise<string> {
+  const entries = await readProductInputEntries(paths, readSnapshotFile);
+  const digest = digestDescriptorSection(entries, `${descriptorId} product inputs`);
+  if (!digest.ok) {
+    throw new Error(`failed to digest ${descriptorId} product inputs: ${digest.error}`);
+  }
+  return digest.value.sha256;
 }
 
 function worktreeSnapshotFileReader(productDir: string, fs: TestRunStateFileSystem): SnapshotFileReader {
