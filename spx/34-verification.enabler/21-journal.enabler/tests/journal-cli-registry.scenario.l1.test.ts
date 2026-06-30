@@ -20,6 +20,8 @@ describe("journal CLI registry", () => {
       JOURNAL_CLI.readCommandName,
       JOURNAL_CLI.sealCommandName,
       JOURNAL_CLI.renderCommandName,
+      JOURNAL_CLI.listCommandName,
+      JOURNAL_CLI.readSetCommandName,
     ]);
   });
 });

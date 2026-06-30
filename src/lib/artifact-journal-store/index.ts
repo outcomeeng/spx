@@ -2,6 +2,7 @@ import { basename, dirname } from "node:path";
 
 import { appendableJournalSealMarkerPath } from "@/lib/appendable-journal-store";
 import {
+  compareAsciiStrings,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   STATE_STORE_TEXT_ENCODING,
@@ -102,7 +103,8 @@ export async function hydratePriorRuns(options: HydratePriorRunsOptions): Promis
   }
 
   const hydrated: HydratedRun[] = [];
-  for (const entry of entries) {
+  const orderedEntries = [...entries].sort((left, right) => compareAsciiStrings(left.name, right.name));
+  for (const entry of orderedEntries) {
     if (!entry.name.startsWith(prefix)) continue;
     // A restored artifact is the subdirectory `actions/download-artifact` creates, holding
     // the run file; a stray plain file in the staging directory is not a restored run, so

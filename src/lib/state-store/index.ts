@@ -75,6 +75,7 @@ export interface StateStoreFileEntry {
 }
 
 export interface StateStorePathStats {
+  readonly birthtimeMs: number;
   isDirectory(): boolean;
   isFile(): boolean;
   isSymbolicLink(): boolean;
@@ -300,8 +301,12 @@ export function branchScopeDir(productDir: string, branchSlug: string): Result<s
   if (!validated.ok) return validated;
   return {
     ok: true,
-    value: join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.BRANCH_SCOPE, validated.value),
+    value: join(branchScopesDir(productDir), validated.value),
   };
+}
+
+export function branchScopesDir(productDir: string): string {
+  return join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.BRANCH_SCOPE);
 }
 
 export function worktreeScopeDir(productDir: string): string {

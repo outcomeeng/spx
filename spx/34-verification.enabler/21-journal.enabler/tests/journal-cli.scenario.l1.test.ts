@@ -5,8 +5,10 @@ import {
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
   type JournalCliDeps,
+  journalListCommand,
   journalOpenCommand,
   journalReadCommand,
+  journalReadSetCommand,
   journalRenderCommand,
   journalSealCommand,
 } from "@/commands/journal/cli";
@@ -62,12 +64,10 @@ describe("journal CLI", () => {
 
   it("rejects an append whose event input lacks a required CloudEvents field", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const runToken = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runToken());
 
     await withGitEnv(async ({ path }) => {
       const deps = localDeps(path);
-      const opened = await journalOpenCommand({ type }, deps);
-      const { runToken } = JSON.parse(opened.output) as { runToken: string };
-
       const sink = new RecordingJournalStreamSink();
       const appended = await journalAppendCommand({ type, runToken }, {}, { localSink: sink }, deps);
 
@@ -84,9 +84,13 @@ describe("journal CLI", () => {
     await withGitEnv(async ({ path }) => {
       // A git runner that always fails, standing in for git not being installed:
       // the root resolver falls back to cwd and the verbs must not throw.
+      const warnings: string[] = [];
       const noGit: JournalCliDeps = {
         ...localDeps(path),
         git: failingGitDependencies(),
+        onWarning: (warning) => {
+          if (warning !== undefined) warnings.push(warning);
+        },
       };
 
       const opened = await journalOpenCommand({ type }, noGit);
@@ -111,17 +115,25 @@ describe("journal CLI", () => {
 
       const rendered = await journalRenderCommand({ type, runToken }, noGit);
       expect(rendered.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+
+      const warningCountBeforeInspection = warnings.length;
+      const listed = await journalListCommand({ type }, noGit);
+      const readSet = await journalReadSetCommand({ type }, noGit);
+      const inspectionResults = [listed, readSet];
+
+      for (const result of inspectionResults) {
+        expect(result.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      }
+      expect(warnings.slice(warningCountBeforeInspection)).toHaveLength(inspectionResults.length);
     });
   });
 
   it("rejects a read whose cursor is not a whole non-negative integer", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const runToken = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runToken());
 
     await withGitEnv(async ({ path }) => {
       const deps = localDeps(path);
-      const opened = await journalOpenCommand({ type }, deps);
-      const { runToken } = JSON.parse(opened.output) as { runToken: string };
-
       const read = await journalReadCommand({ type, runToken }, "nope", deps);
 
       expect(read.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.ERROR);

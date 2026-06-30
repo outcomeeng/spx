@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,19 +8,23 @@ import {
   journalAppendCommand,
   type JournalCliDeps,
   journalCommentMarker,
+  journalListCommand,
   journalOpenCommand,
   journalReadCommand,
+  journalReadSetCommand,
 } from "@/commands/journal/cli";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
+import { JOURNAL_RUN_SEALED_FILTER } from "@/domains/journal/run-scope";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { artifactJournalRunArtifactName } from "@/lib/artifact-journal-store";
-import { runFileName } from "@/lib/state-store";
+import { compareAsciiStrings, createStateStoreRunToken, runFileName } from "@/lib/state-store";
 import {
   arbitraryJournalEventInput,
   arbitraryJournalEventInputs,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { arbitraryPullNumber, arbitraryRunToken, sampleGithubSnapshotValue } from "@testing/generators/github-snapshot";
+import { arbitraryJournalListLimit } from "@testing/generators/journal/type";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { RecordingGithubSnapshotClient } from "@testing/harnesses/github-snapshot-client";
 import { failingGitDependencies, RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
@@ -31,6 +36,27 @@ import {
 } from "@testing/harnesses/restored-journal-artifacts";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withGitEnv } from "@testing/harnesses/with-git-env";
+
+function deterministicRunIdBytes(idBytes: Buffer): (size: number) => Buffer {
+  return (size: number): Buffer => Buffer.from(idBytes.subarray(0, size));
+}
+
+function sampleSameMillisecondPriorRunTokens(): readonly [string, string] {
+  return sampleStateStoreTestValue(
+    fc
+      .tuple(
+        STATE_STORE_TEST_GENERATOR.runDate(),
+        STATE_STORE_TEST_GENERATOR.runIdBytes(),
+        STATE_STORE_TEST_GENERATOR.runIdBytes(),
+      )
+      .filter(([, firstIdBytes, secondIdBytes]) => !firstIdBytes.equals(secondIdBytes))
+      .map(([date, firstIdBytes, secondIdBytes]) => {
+        const first = createStateStoreRunToken({ date, randomBytes: deterministicRunIdBytes(firstIdBytes) }).runToken;
+        const second = createStateStoreRunToken({ date, randomBytes: deterministicRunIdBytes(secondIdBytes) }).runToken;
+        return [first, second] as const;
+      }),
+  );
+}
 
 describe("journal CLI github-pr backend", () => {
   it("streams a rendered projection to the run's pull-request comment", async () => {
@@ -186,5 +212,64 @@ describe("journal CLI github-pr backend", () => {
     expect((JSON.parse(read.output) as JournalEvent[]).map((event) => event.seq)).toEqual(
       priorEvents.map((event) => event.seq),
     );
+  });
+
+  it("hydrates same-millisecond prior runs in deterministic inspection order", async () => {
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const pullNumber = sampleGithubSnapshotValue(arbitraryPullNumber());
+    const [firstPriorToken, secondPriorToken] = sampleSameMillisecondPriorRunTokens();
+    const expectedOldestFirst = [firstPriorToken, secondPriorToken].sort(compareAsciiStrings);
+    const expectedNewestFirst = [...expectedOldestFirst].reverse();
+    const listLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedNewestFirst.length));
+    const priorInputs = sampleAgentRunJournalValue(arbitraryJournalEventInputs());
+
+    const fs = createInMemoryStateStoreFileSystem();
+    for (const priorToken of [secondPriorToken, firstPriorToken]) {
+      const { body } = await buildSealedRunBody({
+        fs,
+        runFilePath: runFileName(priorToken),
+        runToken: priorToken,
+        inputs: priorInputs,
+      });
+      await stageRestoredRun({
+        fs,
+        pullNumber,
+        type,
+        runToken: priorToken,
+        runFilePath: runFileName(priorToken),
+        body,
+      });
+    }
+
+    const deps: JournalCliDeps = {
+      cwd: "/workspace",
+      git: failingGitDependencies(),
+      env: { backendOverride: JOURNAL_BACKEND.GITHUB_PR, continuousIntegration: true, githubPullRequest: true },
+      processEnv: {
+        [JOURNAL_CLI_ENV.GITHUB_REF]: `refs/pull/${pullNumber}/merge`,
+        [JOURNAL_CLI_ENV.RESTORED_RUNS_DIR]: RESTORED_JOURNAL_RUNS_DIR,
+      },
+      fs,
+    };
+
+    const opened = await journalOpenCommand({ type }, deps);
+    expect(opened.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+
+    const listed = await journalListCommand(
+      {
+        type,
+        sealed: JOURNAL_RUN_SEALED_FILTER.SEALED,
+        limit: String(listLimit),
+      },
+      deps,
+    );
+    const readSet = await journalReadSetCommand({ type }, deps);
+
+    expect(listed.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+    expect(readSet.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+    const listedRuns = JSON.parse(listed.output) as Array<{ readonly runToken: string }>;
+    const sealedRuns = JSON.parse(readSet.output) as Array<{ readonly runToken: string }>;
+    expect(listedRuns.map((run) => run.runToken)).toEqual(expectedNewestFirst.slice(0, listLimit));
+    expect(sealedRuns.map((run) => run.runToken)).toEqual(expectedOldestFirst);
   });
 });
