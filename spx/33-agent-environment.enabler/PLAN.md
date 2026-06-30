@@ -1,4 +1,4 @@
-# Plan: Agent Environment
+# Plan: harness environment
 
 ## Harness vocabulary guard
 
@@ -6,27 +6,27 @@ Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabu
 
 ## Purpose
 
-Define and implement deterministic management for agent instructions, runtime config, plugin marketplaces, plugins, and skills.
+Define and implement deterministic management for agent instructions, configured-agent config, plugin marketplaces, plugins, and skills.
 
-## Governing Specs
+## Governing specs
 
 - `spx/spx.product.md`
 - `spx/33-agent-environment.enabler/21-agent-instructions.enabler/agent-instructions.md`
 - `spx/33-agent-environment.enabler/32-runtime-config.enabler/runtime-config.md`
 - `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/plugin-bootstrap.md`
 
-## Implementation Notes
+## Implementation notes
 
 - Keep this node broader than the Claude-only outcome subtree.
-- Treat `spx/46-claude.outcome/` as Claude-specific source material for reconciling runtime configuration and instruction-management assumptions into this node; it does not own agent-environment product truth.
-- Make runtime config reconciliation deterministic and safe to run repeatedly.
+- Treat `spx/46-claude.outcome/` as Claude-specific source material for reconciling configured-agent configuration and instruction-management assumptions into this node; it does not own harness-environment product truth.
+- Make configured-agent config reconciliation deterministic and safe to run repeatedly.
 - Keep agentic verification environment bootstrapping hermetically separate from the invoking agent.
 
 ## Settled work
 
 - The parent agent-environment descriptor shape is settled on `origin/main`.
-- Runtime config reconciliation is settled on `origin/main`.
-- Runtime-state boundary notes are recorded for agentic verification consumers.
+- Configured-agent config reconciliation is settled on `origin/main`.
+- Configured-agent state boundary notes are recorded for agentic verification consumers.
 
 ## Active work
 
@@ -34,7 +34,7 @@ Define and implement deterministic management for agent instructions, runtime co
 - Plugin marketplace, plugin, and skill bootstrap status remains under `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
 - `spx/46-claude.outcome/` reconciliation waits until instruction-file reconciliation and plugin bootstrap settle.
 
-## Evidence Required
+## Evidence required
 
 - Tests or review evidence prove generated instruction files are deterministic.
 - Tests or review evidence prove plugin bootstrap can distinguish installed, missing, and misconfigured entries.
@@ -42,23 +42,23 @@ Define and implement deterministic management for agent instructions, runtime co
 
 ## Parallelization
 
-Instruction-file reconciliation and plugin bootstrap can proceed independently after runtime config reconciliation.
+Instruction-file reconciliation and plugin bootstrap can proceed independently after configured-agent config reconciliation.
 
-## Open Coordination
+## Open coordination
 
-- Align this node with `spx/12-agent-harness.pdr.md`: distinguish harness configuration from configured agents, agent adapters, and agent sessions across specs, config contracts, source modules, generators, and tests. The existing `runtime` vocabulary remains a migration target; the rename belongs here because the descriptor and child reconcilers own that shared vocabulary.
+- Align this node with `spx/12-agent-harness.pdr.md`: distinguish harness configuration from configured agents, agent adapters, and agent sessions across specs, config contracts, source modules, generators, and tests. The existing configured-agent vocabulary rename belongs here because the descriptor and child reconcilers own that shared vocabulary.
 - Author the invoking-agent isolation decision before an agentic verification run's implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
-- When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.agentEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
+- When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.harnessEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
 
-## Gate Dependencies
+## Gate dependencies
 
 The central packet table in `spx/16-config.enabler/PLAN.md` is authoritative; this section is a local reminder only.
 
-- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` consumes settled runtime config reconciliation.
-- `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` consumes settled runtime config reconciliation.
+- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` consumes settled configured-agent config reconciliation.
+- `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/` consumes settled configured-agent config reconciliation.
 
-## Agent Pickup Prompt
+## Agent pickup prompt
 
 ```text
-Use the child-node pickup prompts for E1 and E3. The parent descriptor and E2 runtime-config packets are settled on `origin/main`.
+Use the child-node pickup prompts for E1 and E3. The parent descriptor and E2 configured-agent config packets are settled on `origin/main`.
 ```

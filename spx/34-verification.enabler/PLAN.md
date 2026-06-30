@@ -1,4 +1,4 @@
-# Plan: Verify Command Surface
+# Plan: verify command
 
 ## Harness vocabulary alignment
 

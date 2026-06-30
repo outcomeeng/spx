@@ -4,7 +4,7 @@ Every agentic verification run executed by a coding-agent skill is one named, ap
 
 ## Rationale
 
-A contract phrased in facts and derivations — `append`, `read`, cursor, `render` — survives backend substitution, because no backend's storage shape appears in it. Separating the canonical event history from its projections keeps a mutable, size-bounded display surface from contaminating the run's source of truth: the journal accumulates facts, and a projection re-renders from them on demand and serves as the run's final output.
+A contract phrased in facts and derivations — `append`, `read`, cursor, `render` — survives backend substitution, because no backend's storage shape appears in it. Separating the canonical event history from its projections keeps mutable, size-bounded displayed output from contaminating the run's source of truth: the journal accumulates facts, and a projection re-renders from them on demand and serves as the run's final output.
 
 ## Invariants
 
