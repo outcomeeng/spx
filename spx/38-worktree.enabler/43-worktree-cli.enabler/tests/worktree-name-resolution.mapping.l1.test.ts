@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { claimCommand, statusCommand, WORKTREE_STATUS_RENDER } from "@/commands/worktree/index";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { WORKTREE_RESOLVE_ERROR, type WorktreePathInfo } from "@/domains/worktree/resolve";
+import { resolveWorktreesDir, WORKTREE_RESOLVE_ERROR, type WorktreePathInfo } from "@/domains/worktree/resolve";
 import {
   defaultGitDependencies,
   GIT_COMMON_DIR_ARGS,
@@ -64,6 +64,24 @@ const absentPathInfo: WorktreePathInfo = {
 };
 
 describe("worktree status path-form resolution", () => {
+  it("resolves an explicit relative worktrees-dir override from the command cwd", async () => {
+    const [cwdName, worktreesName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const tempPrefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+
+    await withTempDir(tempPrefix, async (container) => {
+      const cwd = join(container, cwdName);
+      await mkdir(cwd, { recursive: true });
+
+      const resolved = await resolveWorktreesDir({
+        cwd,
+        gitDeps: defaultGitDependencies,
+        worktreesDir: worktreesName,
+      });
+
+      expect(resolved).toBe(resolvePath(cwd, worktreesName));
+    });
+  });
+
   it("maps every path that denotes the claimed worktree to its occupancy", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
