@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each validate-domain and `spx test` consumer narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
+Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each `spx validation` and `spx test` consumer narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
 
 ## Governing Artifacts
 
