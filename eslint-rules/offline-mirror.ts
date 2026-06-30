@@ -48,6 +48,10 @@ export const MIRROR_WARN_RULES: Linter.RulesRecord = {
  * `JSON.stringify(a.sort()) === JSON.stringify(b.sort())` normalization idiom.
  */
 export const ARRAY_SORT_COMPARATOR_RULE = "sonarjs/no-alphabetical-sort" as const;
+export const PSEUDO_RANDOM_RULE = "sonarjs/pseudo-random" as const;
+export const REDUNDANT_ASSERTION_RULE = "@typescript-eslint/no-unnecessary-type-assertion" as const;
+export const OBJECT_HAS_OWN_RULE = "prefer-object-has-own" as const;
+export const DUPLICATE_IMPORT_RULE = "import/no-duplicates" as const;
 
 /**
  * The error-tier rules: finding classes fully cleared from the linted tree, so a
@@ -57,12 +61,13 @@ export const ARRAY_SORT_COMPARATOR_RULE = "sonarjs/no-alphabetical-sort" as cons
  */
 export const MIRROR_ERROR_RULES: Linter.RulesRecord = {
   [ARRAY_SORT_COMPARATOR_RULE]: MIRROR_ERROR_SEVERITY,
+  [PSEUDO_RANDOM_RULE]: MIRROR_ERROR_SEVERITY,
   // S4325 redundant casts / non-null assertions (type-aware).
-  "@typescript-eslint/no-unnecessary-type-assertion": MIRROR_ERROR_SEVERITY,
+  [REDUNDANT_ASSERTION_RULE]: MIRROR_ERROR_SEVERITY,
   // S6653 prefer Object.hasOwn over Object.prototype.hasOwnProperty.
-  "prefer-object-has-own": MIRROR_ERROR_SEVERITY,
+  [OBJECT_HAS_OWN_RULE]: MIRROR_ERROR_SEVERITY,
   // S3863 merge duplicate imports from the same module.
-  "import/no-duplicates": MIRROR_ERROR_SEVERITY,
+  [DUPLICATE_IMPORT_RULE]: MIRROR_ERROR_SEVERITY,
 };
 
 /**

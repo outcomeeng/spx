@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
@@ -23,7 +24,7 @@ describe("withTestEnv — filesystem safety", () => {
   });
 
   it("removes the temp directory it created but leaves sibling directories under os.tmpdir() untouched", async () => {
-    const sibling = join(tmpdir(), `spx-safety-sibling-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const sibling = join(tmpdir(), `spx-safety-sibling-${Date.now()}-${randomBytes(8).toString("hex")}`);
     mkdirSync(sibling);
 
     try {

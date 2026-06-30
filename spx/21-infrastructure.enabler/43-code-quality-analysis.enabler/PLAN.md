@@ -19,7 +19,7 @@ Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quali
 ## Pending
 
 - SonarQube Cloud gate: create and assign the custom `spx — zero tolerance` gate — new-code-zero conditions now (session 01 operator task), overall-zero conditions in session 12 once the backlog clears. Server-side config, covered by the `[audit]` gate-policy assertions in `code-quality-analysis.md`; needs the SonarQube Cloud UI or a web-API token.
-- Backlog: the remaining mirror-extension sessions add their rule classes (warn-tier while uncleared) and graduate each to error as its last occurrence is cleared; the per-file clearing distributes across sessions' touched-file collateral. Session 12 locks the overall-zero gate.
+- Backlog: the remaining mirror-extension sessions add their rule classes (warn-tier while uncleared) and graduate each to error as its last occurrence is cleared; the PRNG recurrence guard is in the error tier, and the per-file clearing distributes across sessions' touched-file collateral. Session 12 locks the overall-zero gate.
 
 ## Gate scope — touched-file cleanliness vs new-code-only (operator decision pending)
 
