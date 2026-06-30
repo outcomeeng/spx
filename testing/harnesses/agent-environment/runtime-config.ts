@@ -1,20 +1,20 @@
 import {
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
-  agentEnvironmentConfigDescriptor,
+  AGENT,
+  type HarnessEnvironmentConfig,
+  harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
 import { RUNTIME_CONFIG_STATE_FIELDS } from "@/domains/agent-environment/runtime-config";
 
-export function enabledAgentEnvironment(): AgentEnvironmentConfig {
+export function enabledHarnessEnvironment(): HarnessEnvironmentConfig {
   return {
-    ...agentEnvironmentConfigDescriptor.defaults,
-    runtimes: {
-      [AGENT_RUNTIME.CODEX]: {
-        ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CODEX],
+    ...harnessEnvironmentConfigDescriptor.defaults,
+    agents: {
+      [AGENT.CODEX]: {
+        ...harnessEnvironmentConfigDescriptor.defaults.agents[AGENT.CODEX],
         enabled: true,
       },
-      [AGENT_RUNTIME.CLAUDE_CODE]: {
-        ...agentEnvironmentConfigDescriptor.defaults.runtimes[AGENT_RUNTIME.CLAUDE_CODE],
+      [AGENT.CLAUDE_CODE]: {
+        ...harnessEnvironmentConfigDescriptor.defaults.agents[AGENT.CLAUDE_CODE],
         enabled: true,
       },
     },
@@ -24,7 +24,7 @@ export function enabledAgentEnvironment(): AgentEnvironmentConfig {
 export function readManagedRuntimeConfigState(value: unknown): Record<string, unknown> {
   const root = readRecord(value);
   const spx = readRecord(root[RUNTIME_CONFIG_STATE_FIELDS.SPX]);
-  return readRecord(spx[RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]);
+  return readRecord(spx[RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]);
 }
 
 export function readRecord(value: unknown): Record<string, unknown> {

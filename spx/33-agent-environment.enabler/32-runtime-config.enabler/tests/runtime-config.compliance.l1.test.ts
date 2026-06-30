@@ -2,7 +2,7 @@ import { readFile as readNodeFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT_RUNTIME } from "@/domains/agent-environment/config";
+import { AGENT } from "@/domains/agent-environment/config";
 import {
   CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
   CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
@@ -18,33 +18,33 @@ import {
 } from "@/domains/agent-environment/runtime-config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
-  enabledAgentEnvironment,
+  enabledHarnessEnvironment,
   readManagedRuntimeConfigState,
 } from "@testing/harnesses/agent-environment/runtime-config";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { parse as parseToml } from "smol-toml";
 
 describe("runtime config boundary compliance", () => {
-  it("models Claude Code and Codex settings as runtime-specific outputs under agent environment ownership", async () => {
-    const agentEnvironment = enabledAgentEnvironment();
+  it("models Claude Code and Codex settings as agent-specific outputs under harness environment ownership", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
-      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment });
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.files.map((file) => [file.runtime, file.format, file.action, file.path])).toEqual([
         [
-          AGENT_RUNTIME.CODEX,
+          AGENT.CODEX,
           RUNTIME_CONFIG_FORMAT.TOML,
           RUNTIME_CONFIG_ACTION.CREATE,
-          runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX),
+          runtimeConfigPath(productDir, AGENT.CODEX),
         ],
         [
-          AGENT_RUNTIME.CLAUDE_CODE,
+          AGENT.CLAUDE_CODE,
           RUNTIME_CONFIG_FORMAT.JSON,
           RUNTIME_CONFIG_ACTION.CREATE,
-          runtimeConfigPath(productDir, AGENT_RUNTIME.CLAUDE_CODE),
+          runtimeConfigPath(productDir, AGENT.CLAUDE_CODE),
         ],
       ]);
 
@@ -52,7 +52,7 @@ describe("runtime config boundary compliance", () => {
       expect(codexState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
 
@@ -62,18 +62,18 @@ describe("runtime config boundary compliance", () => {
       expect(claudeCodeState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CLAUDE_CODE,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
     });
   });
 
   it("keeps invoking-agent output paths separate from hermetic execution state paths", async () => {
-    const agentEnvironment = enabledAgentEnvironment();
+    const harnessEnvironment = enabledHarnessEnvironment();
     const stateDirName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     await withTestEnv({}, async ({ productDir }) => {
-      const stateDir = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX).replace(
+      const stateDir = runtimeConfigPath(productDir, AGENT.CODEX).replace(
         CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
         stateDirName,
       );
@@ -83,14 +83,14 @@ describe("runtime config boundary compliance", () => {
         stateDir,
       } as const;
 
-      const invokingPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX);
-      const hermeticPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX, hermeticTarget);
+      const invokingPath = runtimeConfigPath(productDir, AGENT.CODEX);
+      const hermeticPath = runtimeConfigPath(productDir, AGENT.CODEX, hermeticTarget);
       expect(hermeticPath).not.toBe(invokingPath);
       expect(hermeticPath).toContain(HERMETIC_RUNTIME_CONFIG_DIRECTORY);
 
       const result = await reconcileRuntimeConfig({
         productDir,
-        agentEnvironment,
+        harnessEnvironment,
         target: hermeticTarget,
         dryRun: true,
       });
@@ -104,11 +104,11 @@ describe("runtime config boundary compliance", () => {
   });
 
   it("writes hermetic runtime files under the supplied state directory only", async () => {
-    const agentEnvironment = enabledAgentEnvironment();
+    const harnessEnvironment = enabledHarnessEnvironment();
     const stateDirName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
-      const stateDir = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX).replace(
+      const stateDir = runtimeConfigPath(productDir, AGENT.CODEX).replace(
         CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
         stateDirName,
       );
@@ -116,11 +116,11 @@ describe("runtime config boundary compliance", () => {
         kind: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
         stateDir,
       } as const;
-      const hermeticCodexPath = runtimeConfigPath(productDir, AGENT_RUNTIME.CODEX, hermeticTarget);
+      const hermeticCodexPath = runtimeConfigPath(productDir, AGENT.CODEX, hermeticTarget);
 
       const result = await reconcileRuntimeConfig({
         productDir,
-        agentEnvironment,
+        harnessEnvironment,
         target: hermeticTarget,
       });
 
@@ -131,7 +131,7 @@ describe("runtime config boundary compliance", () => {
       ).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT_RUNTIME.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
       });
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
@@ -139,18 +139,18 @@ describe("runtime config boundary compliance", () => {
   });
 
   it("plans runtime config changes without writing runtime files", async () => {
-    const agentEnvironment = enabledAgentEnvironment();
+    const harnessEnvironment = enabledHarnessEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
-      const result = await planRuntimeConfigReconciliation({ productDir, agentEnvironment });
+      const result = await planRuntimeConfigReconciliation({ productDir, harnessEnvironment });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.dryRun).toBe(true);
       expect(result.value.changed).toBe(true);
       expect(result.value.files.map((file) => [file.runtime, file.action, file.content !== undefined])).toEqual([
-        [AGENT_RUNTIME.CODEX, RUNTIME_CONFIG_ACTION.CREATE, true],
-        [AGENT_RUNTIME.CLAUDE_CODE, RUNTIME_CONFIG_ACTION.CREATE, true],
+        [AGENT.CODEX, RUNTIME_CONFIG_ACTION.CREATE, true],
+        [AGENT.CLAUDE_CODE, RUNTIME_CONFIG_ACTION.CREATE, true],
       ]);
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
       await expect(readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
@@ -158,10 +158,10 @@ describe("runtime config boundary compliance", () => {
   });
 
   it("plans dry-run changes without writing runtime files", async () => {
-    const agentEnvironment = enabledAgentEnvironment();
+    const harnessEnvironment = enabledHarnessEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
-      const result = await reconcileRuntimeConfig({ productDir, agentEnvironment, dryRun: true });
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment, dryRun: true });
 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);

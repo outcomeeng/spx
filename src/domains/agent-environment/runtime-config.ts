@@ -6,7 +6,7 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import type { Result } from "@/config/types";
 import { toMessage } from "@/lib/error-message";
 
-import { AGENT_RUNTIME, type AgentEnvironmentConfig, type AgentRuntime } from "./config";
+import { AGENT, type Agent, type HarnessEnvironmentConfig } from "./config";
 
 export const RUNTIME_CONFIG_TARGET_KIND = {
   INVOKING_AGENT: "invokingAgent",
@@ -34,11 +34,11 @@ export type RuntimeConfigFormat = (typeof RUNTIME_CONFIG_FORMAT)[keyof typeof RU
 export const CODEX_RUNTIME_CONFIG_RELATIVE_PATH = ".codex/config.toml";
 export const CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH = ".claude/settings.local.json";
 
-export const HERMETIC_RUNTIME_CONFIG_DIRECTORY = "agent-environment/runtime-config";
+export const HERMETIC_RUNTIME_CONFIG_DIRECTORY = "harness-environment/runtime-config";
 
 export const RUNTIME_CONFIG_STATE_FIELDS = {
   SPX: "spx",
-  AGENT_ENVIRONMENT: "agentEnvironment",
+  HARNESS_ENVIRONMENT: "harnessEnvironment",
   ENABLED: "enabled",
   PRODUCT_DIR: "productDir",
   RUNTIME: "runtime",
@@ -67,14 +67,14 @@ export type RuntimeConfigTarget =
 
 export interface RuntimeConfigReconciliationOptions {
   readonly productDir: string;
-  readonly agentEnvironment: AgentEnvironmentConfig;
+  readonly harnessEnvironment: HarnessEnvironmentConfig;
   readonly target?: RuntimeConfigTarget;
   readonly dryRun?: boolean;
   readonly deps?: RuntimeConfigDependencies;
 }
 
 export interface RuntimeConfigFilePlan {
-  readonly runtime: AgentRuntime;
+  readonly runtime: Agent;
   readonly action: RuntimeConfigAction;
   readonly format: RuntimeConfigFormat;
   readonly path: string;
@@ -103,7 +103,7 @@ export interface RuntimeConfigDependencies {
 type RuntimeConfigState = {
   readonly [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: boolean;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: string;
-  readonly [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AgentRuntime;
+  readonly [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: Agent;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RuntimeConfigTargetKind;
 };
 
@@ -120,21 +120,21 @@ const DEFAULT_RUNTIME_CONFIG_TARGET: RuntimeConfigTarget = {
 };
 
 const RUNTIME_CONFIG_SPECS = {
-  [AGENT_RUNTIME.CODEX]: {
-    runtime: AGENT_RUNTIME.CODEX,
+  [AGENT.CODEX]: {
+    runtime: AGENT.CODEX,
     format: RUNTIME_CONFIG_FORMAT.TOML,
     relativePath: CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
   },
-  [AGENT_RUNTIME.CLAUDE_CODE]: {
-    runtime: AGENT_RUNTIME.CLAUDE_CODE,
+  [AGENT.CLAUDE_CODE]: {
+    runtime: AGENT.CLAUDE_CODE,
     format: RUNTIME_CONFIG_FORMAT.JSON,
     relativePath: CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
   },
 } as const;
 
 const RUNTIME_CONFIG_ORDER = [
-  AGENT_RUNTIME.CODEX,
-  AGENT_RUNTIME.CLAUDE_CODE,
+  AGENT.CODEX,
+  AGENT.CLAUDE_CODE,
 ] as const;
 
 const CODEX_RUNTIME_CONFIG_DIRECTORY = "codex";
@@ -142,9 +142,9 @@ const CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY = "claude-code";
 const JSON_INDENT = 2;
 export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
 const TOML_MANAGED_TABLE_HEADER =
-  `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}]`;
+  `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT}]`;
 const TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN = new RegExp(
-  String.raw`^${RUNTIME_CONFIG_STATE_FIELDS.SPX}\s*\.\s*${RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT}\s*=`,
+  String.raw`^${RUNTIME_CONFIG_STATE_FIELDS.SPX}\s*\.\s*${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT}\s*=`,
 );
 
 const DEFAULT_RUNTIME_CONFIG_DEPENDENCIES: RuntimeConfigDependencies = {
@@ -173,7 +173,7 @@ async function planRuntimeConfigReconciliationWithDeps(
   const files: InternalRuntimeConfigFilePlan[] = [];
 
   for (const runtime of RUNTIME_CONFIG_ORDER) {
-    const runtimeConfig = options.agentEnvironment.runtimes[runtime];
+    const runtimeConfig = options.harnessEnvironment.agents[runtime];
     const spec = RUNTIME_CONFIG_SPECS[runtime];
     const path = runtimeConfigPath(options.productDir, runtime, target);
 
@@ -246,7 +246,7 @@ export async function reconcileRuntimeConfig(
 
 export function runtimeConfigPath(
   productDir: string,
-  runtime: AgentRuntime,
+  runtime: Agent,
   target: RuntimeConfigTarget = DEFAULT_RUNTIME_CONFIG_TARGET,
 ): string {
   const spec = RUNTIME_CONFIG_SPECS[runtime];
@@ -258,7 +258,7 @@ export function runtimeConfigPath(
 
 async function reconcileRuntimeConfigFile(options: {
   readonly productDir: string;
-  readonly runtime: AgentRuntime;
+  readonly runtime: Agent;
   readonly target: RuntimeConfigTarget;
   readonly format: RuntimeConfigFormat;
   readonly path: string;
@@ -335,7 +335,7 @@ function mergeJsonRuntimeConfig(
     ...parsed.value,
     [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
       ...readNestedRecord(parsed.value, RUNTIME_CONFIG_STATE_FIELDS.SPX),
-      [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: state,
+      [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: state,
     },
   };
 
@@ -382,7 +382,7 @@ function parseTomlRuntimeConfig(raw: string, path: string): Result<Record<string
 
 function runtimeConfigState(
   productDir: string,
-  runtime: AgentRuntime,
+  runtime: Agent,
   targetKind: RuntimeConfigTargetKind,
 ): RuntimeConfigState {
   return {
@@ -393,11 +393,11 @@ function runtimeConfigState(
   };
 }
 
-function runtimeDirectory(runtime: AgentRuntime): string {
+function runtimeDirectory(runtime: Agent): string {
   switch (runtime) {
-    case AGENT_RUNTIME.CODEX:
+    case AGENT.CODEX:
       return CODEX_RUNTIME_CONFIG_DIRECTORY;
-    case AGENT_RUNTIME.CLAUDE_CODE:
+    case AGENT.CLAUDE_CODE:
       return CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY;
   }
 }
@@ -462,7 +462,7 @@ async function removeRuntimeConfigFile(
 function renderTomlManagedTable(state: RuntimeConfigState): string {
   return stringifyToml({
     [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
-      [RUNTIME_CONFIG_STATE_FIELDS.AGENT_ENVIRONMENT]: state,
+      [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: state,
     },
   });
 }

@@ -11,10 +11,10 @@ import type { Command } from "commander";
 import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
 import {
-  AGENT_RUNTIME,
-  type AgentEnvironmentConfig,
-  agentEnvironmentConfigDescriptor,
-  type AgentRuntime,
+  AGENT,
+  type Agent,
+  type HarnessEnvironmentConfig,
+  harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
@@ -59,25 +59,25 @@ interface HookExecutionContext {
   readonly warnings: readonly string[];
 }
 
-function resolveHookCliRuntime(env: HookSessionStartEnv): AgentRuntime {
-  if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT_RUNTIME.CODEX;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT_RUNTIME.CLAUDE_CODE;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT_RUNTIME.CLAUDE_CODE;
-  return AGENT_RUNTIME.CODEX;
+function resolveHookCliAgent(env: HookSessionStartEnv): Agent {
+  if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT.CODEX;
+  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT.CLAUDE_CODE;
+  if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT.CLAUDE_CODE;
+  return AGENT.CODEX;
 }
 
 async function resolveHookCliCompactStdout(productDir: string, env: HookSessionStartEnv): Promise<Result<boolean>> {
-  const loaded = await resolveConfig(productDir, [agentEnvironmentConfigDescriptor]);
+  const loaded = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
   if (!loaded.ok) return loaded;
-  const agentEnvironment = loaded.value[agentEnvironmentConfigDescriptor.section] as AgentEnvironmentConfig;
+  const harnessEnvironment = loaded.value[harnessEnvironmentConfigDescriptor.section] as HarnessEnvironmentConfig;
   return {
     ok: true,
-    value: agentEnvironment.runtimes[resolveHookCliRuntime(env)].hooks.sessionStart.compactStdout,
+    value: harnessEnvironment.agents[resolveHookCliAgent(env)].hooks.sessionStart.compactStdout,
   };
 }
 
 function defaultHookCliCompactStdout(env: HookSessionStartEnv): boolean {
-  return agentEnvironmentConfigDescriptor.defaults.runtimes[resolveHookCliRuntime(env)].hooks.sessionStart
+  return harnessEnvironmentConfigDescriptor.defaults.agents[resolveHookCliAgent(env)].hooks.sessionStart
     .compactStdout;
 }
 

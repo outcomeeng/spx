@@ -1,29 +1,29 @@
 import type { ConfigDescriptor, Result } from "@/config/types";
 
-export const AGENT_ENVIRONMENT_SECTION = "agentEnvironment";
+export const HARNESS_ENVIRONMENT_SECTION = "harnessEnvironment";
 
-export const AGENT_RUNTIME = {
+export const AGENT = {
   CODEX: "codex",
   CLAUDE_CODE: "claudeCode",
 } as const;
 
-export type AgentRuntime = (typeof AGENT_RUNTIME)[keyof typeof AGENT_RUNTIME];
+export type Agent = (typeof AGENT)[keyof typeof AGENT];
 
-export const AGENT_ENVIRONMENT_CONFIG_FIELDS = {
+export const HARNESS_ENVIRONMENT_CONFIG_FIELDS = {
   INSTRUCTIONS: "instructions",
-  RUNTIMES: "runtimes",
+  AGENTS: "agents",
   PLUGIN_BOOTSTRAP: "pluginBootstrap",
   HOOKS: "hooks",
   SESSION_START: "sessionStart",
   COMPACT_STDOUT: "compactStdout",
   FILES: "files",
   PATH: "path",
-  TARGET_RUNTIMES: "targetRuntimes",
+  TARGET_AGENTS: "targetAgents",
   ENABLED: "enabled",
   MARKETPLACES: "marketplaces",
   PLUGINS: "plugins",
   SKILLS: "skills",
-  RUNTIME: "runtime",
+  AGENT: "agent",
   NAME: "name",
   SOURCE: "source",
   VERSION: "version",
@@ -32,47 +32,47 @@ export const AGENT_ENVIRONMENT_CONFIG_FIELDS = {
 
 export interface AgentInstructionFileConfig {
   readonly path: string;
-  readonly targetRuntimes: readonly AgentRuntime[];
+  readonly targetAgents: readonly Agent[];
 }
 
-export interface AgentRuntimeSessionStartHookConfig {
+export interface AgentSessionStartHookConfig {
   readonly compactStdout: boolean;
 }
 
-export interface AgentRuntimeHooksConfig {
-  readonly sessionStart: AgentRuntimeSessionStartHookConfig;
+export interface AgentHooksConfig {
+  readonly sessionStart: AgentSessionStartHookConfig;
 }
 
-export interface AgentRuntimeConfig {
+export interface AgentConfig {
   readonly enabled: boolean;
-  readonly hooks: AgentRuntimeHooksConfig;
+  readonly hooks: AgentHooksConfig;
 }
 
 export interface AgentMarketplaceConfig {
-  readonly runtime: AgentRuntime;
+  readonly agent: Agent;
   readonly name: string;
   readonly source: string;
 }
 
 export interface AgentPluginConfig {
-  readonly runtime: AgentRuntime;
+  readonly agent: Agent;
   readonly name: string;
   readonly marketplace?: string;
   readonly version?: string;
 }
 
 export interface AgentSkillConfig {
-  readonly runtime: AgentRuntime;
+  readonly agent: Agent;
   readonly name: string;
   readonly source?: string;
   readonly version?: string;
 }
 
-export interface AgentEnvironmentConfig {
+export interface HarnessEnvironmentConfig {
   readonly instructions: {
     readonly files: readonly AgentInstructionFileConfig[];
   };
-  readonly runtimes: { readonly [K in AgentRuntime]: AgentRuntimeConfig };
+  readonly agents: { readonly [K in Agent]: AgentConfig };
   readonly pluginBootstrap: {
     readonly marketplaces: readonly AgentMarketplaceConfig[];
     readonly plugins: readonly AgentPluginConfig[];
@@ -80,25 +80,25 @@ export interface AgentEnvironmentConfig {
   };
 }
 
-const AGENT_RUNTIME_SET: ReadonlySet<string> = new Set(Object.values(AGENT_RUNTIME));
-const DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES = [
-  AGENT_RUNTIME.CODEX,
-  AGENT_RUNTIME.CLAUDE_CODE,
-] as const satisfies readonly AgentRuntime[];
+const AGENT_SET: ReadonlySet<string> = new Set(Object.values(AGENT));
+const DEFAULT_AGENT_INSTRUCTION_TARGET_AGENTS = [
+  AGENT.CODEX,
+  AGENT.CLAUDE_CODE,
+] as const satisfies readonly Agent[];
 
 export const DEFAULT_AGENT_INSTRUCTION_FILE_PATH = "AGENTS.md";
 
-export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
+export const DEFAULT_HARNESS_ENVIRONMENT_CONFIG: HarnessEnvironmentConfig = {
   instructions: {
     files: [
       {
         path: DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-        targetRuntimes: DEFAULT_AGENT_INSTRUCTION_TARGET_RUNTIMES,
+        targetAgents: DEFAULT_AGENT_INSTRUCTION_TARGET_AGENTS,
       },
     ],
   },
-  runtimes: {
-    [AGENT_RUNTIME.CODEX]: {
+  agents: {
+    [AGENT.CODEX]: {
       enabled: true,
       hooks: {
         sessionStart: {
@@ -106,7 +106,7 @@ export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
         },
       },
     },
-    [AGENT_RUNTIME.CLAUDE_CODE]: {
+    [AGENT.CLAUDE_CODE]: {
       enabled: true,
       hooks: {
         sessionStart: {
@@ -122,58 +122,58 @@ export const DEFAULT_AGENT_ENVIRONMENT_CONFIG: AgentEnvironmentConfig = {
   },
 };
 
-const AGENT_ENVIRONMENT_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+const HARNESS_ENVIRONMENT_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
 ]);
 
-const AGENT_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES,
+const HARNESS_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
 ]);
 
-const AGENT_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES,
+const HARNESS_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS,
 ]);
 
-const AGENT_ENVIRONMENT_RUNTIME_CONFIG_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS,
+const HARNESS_ENVIRONMENT_AGENT_CONFIG_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS,
 ]);
 
-const AGENT_ENVIRONMENT_RUNTIME_HOOKS_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START,
+const HARNESS_ENVIRONMENT_AGENT_HOOKS_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START,
 ]);
 
-const AGENT_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT,
+const HARNESS_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT,
 ]);
 
-const AGENT_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+const HARNESS_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
 ]);
 
-const AGENT_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+const HARNESS_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
 ]);
 
-const AGENT_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
+const HARNESS_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION,
 ]);
 
-const AGENT_ENVIRONMENT_SKILL_ALLOWED_FIELDS = new Set([
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
-  AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION,
+const HARNESS_ENVIRONMENT_SKILL_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION,
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -209,59 +209,59 @@ function validateBoolean(path: string, value: unknown): Result<boolean> {
   return { ok: true, value };
 }
 
-function validateRuntime(path: string, value: unknown): Result<AgentRuntime> {
-  if (typeof value !== "string" || !isAgentRuntime(value)) {
-    return { ok: false, error: `${path} must be a registered agent runtime` };
+function validateAgent(path: string, value: unknown): Result<Agent> {
+  if (typeof value !== "string" || !isAgent(value)) {
+    return { ok: false, error: `${path} must be a registered configured agent` };
   }
   return { ok: true, value };
 }
 
-function isAgentRuntime(value: string): value is AgentRuntime {
-  return AGENT_RUNTIME_SET.has(value);
+function isAgent(value: string): value is Agent {
+  return AGENT_SET.has(value);
 }
 
-function validateRuntimeArray(path: string, value: unknown): Result<readonly AgentRuntime[]> {
+function validateAgentArray(path: string, value: unknown): Result<readonly Agent[]> {
   if (!Array.isArray(value) || value.length === 0) {
-    return { ok: false, error: `${path} must be a non-empty array of registered agent runtimes` };
+    return { ok: false, error: `${path} must be a non-empty array of registered configured agents` };
   }
 
-  const runtimes: AgentRuntime[] = [];
-  const seen = new Set<AgentRuntime>();
+  const agents: Agent[] = [];
+  const seen = new Set<Agent>();
   for (const [index, entry] of value.entries()) {
-    const runtime = validateRuntime(`${path}.${index}`, entry);
-    if (!runtime.ok) return runtime;
-    if (seen.has(runtime.value)) {
-      return { ok: false, error: `${path}.${index} repeats registered agent runtime ${runtime.value}` };
+    const agent = validateAgent(`${path}.${index}`, entry);
+    if (!agent.ok) return agent;
+    if (seen.has(agent.value)) {
+      return { ok: false, error: `${path}.${index} repeats registered configured agent ${agent.value}` };
     }
-    seen.add(runtime.value);
-    runtimes.push(runtime.value);
+    seen.add(agent.value);
+    agents.push(agent.value);
   }
-  return { ok: true, value: runtimes };
+  return { ok: true, value: agents };
 }
 
-function validateInstructions(raw: unknown): Result<AgentEnvironmentConfig["instructions"]> {
-  const sectionPath = `${AGENT_ENVIRONMENT_SECTION}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS}`;
+function validateInstructions(raw: unknown): Result<HarnessEnvironmentConfig["instructions"]> {
+  const sectionPath = `${HARNESS_ENVIRONMENT_SECTION}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS}`;
   if (!isRecord(raw)) {
     return { ok: false, error: `${sectionPath} must be an object` };
   }
 
-  const unknown = rejectUnknownFields(sectionPath, raw, AGENT_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS);
+  const unknown = rejectUnknownFields(sectionPath, raw, HARNESS_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
-  const filesRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES];
-  if (filesRaw === undefined) return { ok: true, value: DEFAULT_AGENT_ENVIRONMENT_CONFIG.instructions };
+  const filesRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES];
+  if (filesRaw === undefined) return { ok: true, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.instructions };
   if (!Array.isArray(filesRaw)) {
-    return { ok: false, error: `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES} must be an array` };
+    return { ok: false, error: `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES} must be an array` };
   }
 
   const files: AgentInstructionFileConfig[] = [];
   for (const [index, entry] of filesRaw.entries()) {
-    const file = validateInstructionFile(`${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES}.${index}`, entry);
+    const file = validateInstructionFile(`${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES}.${index}`, entry);
     if (!file.ok) return file;
     files.push(file.value);
   }
   const filePathUniqueness = validateInstructionFilePathUniqueness(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.FILES}`,
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES}`,
     files,
   );
   if (!filePathUniqueness.ok) return filePathUniqueness;
@@ -273,82 +273,82 @@ function validateInstructionFile(path: string, raw: unknown): Result<AgentInstru
   const unknown = rejectUnknownFields(
     path,
     raw,
-    AGENT_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_INSTRUCTION_FILE_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
   const filePath = validateNonEmptyString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH],
   );
   if (!filePath.ok) return filePath;
 
-  const targetRuntimes = validateRuntimeArray(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.TARGET_RUNTIMES],
+  const targetAgents = validateAgentArray(
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS],
   );
-  if (!targetRuntimes.ok) return targetRuntimes;
+  if (!targetAgents.ok) return targetAgents;
 
-  return { ok: true, value: { path: filePath.value, targetRuntimes: targetRuntimes.value } };
+  return { ok: true, value: { path: filePath.value, targetAgents: targetAgents.value } };
 }
 
-function validateRuntimes(raw: unknown): Result<AgentEnvironmentConfig["runtimes"]> {
-  const sectionPath = `${AGENT_ENVIRONMENT_SECTION}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES}`;
+function validateAgents(raw: unknown): Result<HarnessEnvironmentConfig["agents"]> {
+  const sectionPath = `${HARNESS_ENVIRONMENT_SECTION}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS}`;
   if (!isRecord(raw)) {
     return { ok: false, error: `${sectionPath} must be an object` };
   }
 
-  const runtimes: Record<AgentRuntime, AgentRuntimeConfig> = { ...DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes };
-  for (const [runtimeName, runtimeRaw] of Object.entries(raw)) {
-    // Runtime ids are the field names, so unknown-field rejection is the runtime-id validation below.
-    const runtime = validateRuntime(`${sectionPath}.${runtimeName}`, runtimeName);
-    if (!runtime.ok) return runtime;
-    const config = validateRuntimeConfig(`${sectionPath}.${runtimeName}`, runtimeRaw, runtimes[runtime.value]);
+  const agents: Record<Agent, AgentConfig> = { ...DEFAULT_HARNESS_ENVIRONMENT_CONFIG.agents };
+  for (const [agentName, agentRaw] of Object.entries(raw)) {
+    // Configured-agent ids are the field names, so unknown-field rejection is the agent-id validation below.
+    const agent = validateAgent(`${sectionPath}.${agentName}`, agentName);
+    if (!agent.ok) return agent;
+    const config = validateAgentConfig(`${sectionPath}.${agentName}`, agentRaw, agents[agent.value]);
     if (!config.ok) return config;
-    runtimes[runtime.value] = config.value;
+    agents[agent.value] = config.value;
   }
 
-  return { ok: true, value: runtimes };
+  return { ok: true, value: agents };
 }
 
-function validateRuntimeConfig(
+function validateAgentConfig(
   path: string,
   raw: unknown,
-  defaults: AgentRuntimeConfig,
-): Result<AgentRuntimeConfig> {
+  defaults: AgentConfig,
+): Result<AgentConfig> {
   if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
-  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_RUNTIME_CONFIG_ALLOWED_FIELDS);
+  const unknown = rejectUnknownFields(path, raw, HARNESS_ENVIRONMENT_AGENT_CONFIG_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
-  const enabledRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED];
+  const enabledRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED];
   const enabled = enabledRaw === undefined
     ? { ok: true as const, value: defaults.enabled }
-    : validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.ENABLED}`, enabledRaw);
+    : validateBoolean(`${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED}`, enabledRaw);
   if (!enabled.ok) return enabled;
 
-  const hooksRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS];
+  const hooksRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS];
   const hooks = hooksRaw === undefined
     ? { ok: true as const, value: defaults.hooks }
-    : validateRuntimeHooks(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS}`, hooksRaw, defaults.hooks);
+    : validateAgentHooks(`${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS}`, hooksRaw, defaults.hooks);
   if (!hooks.ok) return hooks;
 
   return { ok: true, value: { enabled: enabled.value, hooks: hooks.value } };
 }
 
-function validateRuntimeHooks(
+function validateAgentHooks(
   path: string,
   raw: unknown,
-  defaults: AgentRuntimeHooksConfig,
-): Result<AgentRuntimeHooksConfig> {
+  defaults: AgentHooksConfig,
+): Result<AgentHooksConfig> {
   if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
-  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_RUNTIME_HOOKS_ALLOWED_FIELDS);
+  const unknown = rejectUnknownFields(path, raw, HARNESS_ENVIRONMENT_AGENT_HOOKS_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
-  const sessionStartRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START];
+  const sessionStartRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START];
   const sessionStart = sessionStartRaw === undefined
     ? { ok: true as const, value: defaults.sessionStart }
     : validateSessionStartHooks(
-      `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START}`,
+      `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START}`,
       sessionStartRaw,
       defaults.sessionStart,
     );
@@ -360,23 +360,23 @@ function validateRuntimeHooks(
 function validateSessionStartHooks(
   path: string,
   raw: unknown,
-  defaults: AgentRuntimeSessionStartHookConfig,
-): Result<AgentRuntimeSessionStartHookConfig> {
+  defaults: AgentSessionStartHookConfig,
+): Result<AgentSessionStartHookConfig> {
   if (!isRecord(raw)) return { ok: false, error: `${path} must be an object` };
-  const unknown = rejectUnknownFields(path, raw, AGENT_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS);
+  const unknown = rejectUnknownFields(path, raw, HARNESS_ENVIRONMENT_SESSION_START_HOOKS_ALLOWED_FIELDS);
   if (!unknown.ok) return unknown;
 
-  const compactStdoutRaw = raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT];
+  const compactStdoutRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT];
   const compactStdout = compactStdoutRaw === undefined
     ? { ok: true as const, value: defaults.compactStdout }
-    : validateBoolean(`${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT}`, compactStdoutRaw);
+    : validateBoolean(`${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT}`, compactStdoutRaw);
   if (!compactStdout.ok) return compactStdout;
 
   return { ok: true, value: { compactStdout: compactStdout.value } };
 }
 
-function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["pluginBootstrap"]> {
-  const sectionPath = `${AGENT_ENVIRONMENT_SECTION}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP}`;
+function validatePluginBootstrap(raw: unknown): Result<HarnessEnvironmentConfig["pluginBootstrap"]> {
+  const sectionPath = `${HARNESS_ENVIRONMENT_SECTION}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP}`;
   if (!isRecord(raw)) {
     return { ok: false, error: `${sectionPath} must be an object` };
   }
@@ -384,34 +384,34 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   const unknown = rejectUnknownFields(
     sectionPath,
     raw,
-    AGENT_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_PLUGIN_BOOTSTRAP_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
   const marketplaces = validateEntryArray(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES],
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES],
     validateMarketplace,
-    DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.marketplaces,
+    DEFAULT_HARNESS_ENVIRONMENT_CONFIG.pluginBootstrap.marketplaces,
   );
   if (!marketplaces.ok) return marketplaces;
 
-  const marketplaceUniqueness = validateNamedRuntimeEntryUniqueness(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
+  const marketplaceUniqueness = validateNamedAgentEntryUniqueness(
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}`,
     marketplaces.value,
   );
   if (!marketplaceUniqueness.ok) return marketplaceUniqueness;
 
   const plugins = validateEntryArray(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS],
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS],
     validatePlugin,
-    DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.plugins,
+    DEFAULT_HARNESS_ENVIRONMENT_CONFIG.pluginBootstrap.plugins,
   );
   if (!plugins.ok) return plugins;
 
-  const pluginUniqueness = validateNamedRuntimeEntryUniqueness(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
+  const pluginUniqueness = validateNamedAgentEntryUniqueness(
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}`,
     plugins.value,
   );
   if (!pluginUniqueness.ok) return pluginUniqueness;
@@ -424,15 +424,15 @@ function validatePluginBootstrap(raw: unknown): Result<AgentEnvironmentConfig["p
   if (!pluginMarketplaceReferences.ok) return pluginMarketplaceReferences;
 
   const skills = validateEntryArray(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS],
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS],
     validateSkill,
-    DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap.skills,
+    DEFAULT_HARNESS_ENVIRONMENT_CONFIG.pluginBootstrap.skills,
   );
   if (!skills.ok) return skills;
 
-  const skillUniqueness = validateNamedRuntimeEntryUniqueness(
-    `${sectionPath}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
+  const skillUniqueness = validateNamedAgentEntryUniqueness(
+    `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS}`,
     skills.value,
   );
   if (!skillUniqueness.ok) return skillUniqueness;
@@ -474,7 +474,7 @@ function validateInstructionFilePathUniqueness(
     if (paths.has(file.path)) {
       return {
         ok: false,
-        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PATH} ${
+        error: `${path}.${index}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH} ${
           JSON.stringify(file.path)
         } is already used by another instruction file entry`,
       };
@@ -484,23 +484,23 @@ function validateInstructionFilePathUniqueness(
   return { ok: true, value: undefined };
 }
 
-function validateNamedRuntimeEntryUniqueness(
+function validateNamedAgentEntryUniqueness(
   path: string,
-  entries: readonly { readonly runtime: AgentRuntime; readonly name: string }[],
+  entries: readonly { readonly agent: Agent; readonly name: string }[],
 ): Result<undefined> {
-  const namesByRuntime = new Map<AgentRuntime, Set<string>>();
+  const namesByAgent = new Map<Agent, Set<string>>();
   for (const [index, entry] of entries.entries()) {
-    const runtimeNames = namesByRuntime.get(entry.runtime) ?? new Set<string>();
-    if (runtimeNames.has(entry.name)) {
+    const agentNames = namesByAgent.get(entry.agent) ?? new Set<string>();
+    if (agentNames.has(entry.name)) {
       return {
         ok: false,
-        error: `${path}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME} ${
+        error: `${path}.${index}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME} ${
           JSON.stringify(entry.name)
-        } is already used by another ${entry.runtime} entry`,
+        } is already used by another ${entry.agent} entry`,
       };
     }
-    runtimeNames.add(entry.name);
-    namesByRuntime.set(entry.runtime, runtimeNames);
+    agentNames.add(entry.name);
+    namesByAgent.set(entry.agent, agentNames);
   }
   return { ok: true, value: undefined };
 }
@@ -510,21 +510,21 @@ function validatePluginMarketplaceReferences(
   marketplaces: readonly AgentMarketplaceConfig[],
   plugins: readonly AgentPluginConfig[],
 ): Result<undefined> {
-  const marketplacesByRuntime = new Map<AgentRuntime, Set<string>>();
+  const marketplacesByAgent = new Map<Agent, Set<string>>();
   for (const marketplace of marketplaces) {
-    const runtimeMarketplaces = marketplacesByRuntime.get(marketplace.runtime) ?? new Set<string>();
-    runtimeMarketplaces.add(marketplace.name);
-    marketplacesByRuntime.set(marketplace.runtime, runtimeMarketplaces);
+    const agentMarketplaces = marketplacesByAgent.get(marketplace.agent) ?? new Set<string>();
+    agentMarketplaces.add(marketplace.name);
+    marketplacesByAgent.set(marketplace.agent, agentMarketplaces);
   }
 
   for (const [index, plugin] of plugins.entries()) {
     if (plugin.marketplace === undefined) continue;
-    const runtimeMarketplaces = marketplacesByRuntime.get(plugin.runtime);
-    if (!runtimeMarketplaces?.has(plugin.marketplace)) {
+    const agentMarketplaces = marketplacesByAgent.get(plugin.agent);
+    if (!agentMarketplaces?.has(plugin.marketplace)) {
       return {
         ok: false,
         error:
-          `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}.${index}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE} must reference a configured marketplace for the same runtime`,
+          `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}.${index}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE} must reference a configured marketplace for the same agent`,
       };
     }
   }
@@ -537,15 +537,15 @@ function validateMarketplace(path: string, raw: unknown): Result<AgentMarketplac
   const unknown = rejectUnknownFields(
     path,
     raw,
-    AGENT_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_MARKETPLACE_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
-  const base = validateNamedRuntimeEntry(path, raw);
+  const base = validateNamedAgentEntry(path, raw);
   if (!base.ok) return base;
   const source = validateNonEmptyString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
   );
   if (!source.ok) return source;
   return { ok: true, value: { ...base.value, source: source.value } };
@@ -556,20 +556,20 @@ function validatePlugin(path: string, raw: unknown): Result<AgentPluginConfig> {
   const unknown = rejectUnknownFields(
     path,
     raw,
-    AGENT_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_PLUGIN_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
-  const base = validateNamedRuntimeEntry(path, raw);
+  const base = validateNamedAgentEntry(path, raw);
   if (!base.ok) return base;
   const marketplace = validateOptionalString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACE],
   );
   if (!marketplace.ok) return marketplace;
   const version = validateOptionalString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
   return {
@@ -587,20 +587,20 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
   const unknown = rejectUnknownFields(
     path,
     raw,
-    AGENT_ENVIRONMENT_SKILL_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_SKILL_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
-  const base = validateNamedRuntimeEntry(path, raw);
+  const base = validateNamedAgentEntry(path, raw);
   if (!base.ok) return base;
   const source = validateOptionalString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE],
   );
   if (!source.ok) return source;
   const version = validateOptionalString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.VERSION],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION],
   );
   if (!version.ok) return version;
   return {
@@ -613,21 +613,21 @@ function validateSkill(path: string, raw: unknown): Result<AgentSkillConfig> {
   };
 }
 
-function validateNamedRuntimeEntry(
+function validateNamedAgentEntry(
   path: string,
   raw: Record<string, unknown>,
-): Result<{ readonly runtime: AgentRuntime; readonly name: string }> {
-  const runtime = validateRuntime(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIME],
+): Result<{ readonly agent: Agent; readonly name: string }> {
+  const agent = validateAgent(
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT],
   );
-  if (!runtime.ok) return runtime;
+  if (!agent.ok) return agent;
   const name = validateNonEmptyString(
-    `${path}.${AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME}`,
-    raw[AGENT_ENVIRONMENT_CONFIG_FIELDS.NAME],
+    `${path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME}`,
+    raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME],
   );
   if (!name.ok) return name;
-  return { ok: true, value: { runtime: runtime.value, name: name.value } };
+  return { ok: true, value: { agent: agent.value, name: name.value } };
 }
 
 function validateOptionalString(path: string, value: unknown): Result<string | undefined> {
@@ -635,33 +635,33 @@ function validateOptionalString(path: string, value: unknown): Result<string | u
   return validateNonEmptyString(path, value);
 }
 
-function validate(value: unknown): Result<AgentEnvironmentConfig> {
+function validate(value: unknown): Result<HarnessEnvironmentConfig> {
   if (!isRecord(value)) {
-    return { ok: false, error: `${AGENT_ENVIRONMENT_SECTION} section must be an object` };
+    return { ok: false, error: `${HARNESS_ENVIRONMENT_SECTION} section must be an object` };
   }
 
   const unknown = rejectUnknownFields(
-    AGENT_ENVIRONMENT_SECTION,
+    HARNESS_ENVIRONMENT_SECTION,
     value,
-    AGENT_ENVIRONMENT_ALLOWED_FIELDS,
+    HARNESS_ENVIRONMENT_ALLOWED_FIELDS,
   );
   if (!unknown.ok) return unknown;
 
-  const instructionsRaw = value[AGENT_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS];
+  const instructionsRaw = value[HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS];
   const instructions = instructionsRaw === undefined
-    ? { ok: true as const, value: DEFAULT_AGENT_ENVIRONMENT_CONFIG.instructions }
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.instructions }
     : validateInstructions(instructionsRaw);
   if (!instructions.ok) return instructions;
 
-  const runtimesRaw = value[AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES];
-  const runtimes = runtimesRaw === undefined
-    ? { ok: true as const, value: DEFAULT_AGENT_ENVIRONMENT_CONFIG.runtimes }
-    : validateRuntimes(runtimesRaw);
-  if (!runtimes.ok) return runtimes;
+  const agentsRaw = value[HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS];
+  const agents = agentsRaw === undefined
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.agents }
+    : validateAgents(agentsRaw);
+  if (!agents.ok) return agents;
 
-  const pluginBootstrapRaw = value[AGENT_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP];
+  const pluginBootstrapRaw = value[HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP];
   const pluginBootstrap = pluginBootstrapRaw === undefined
-    ? { ok: true as const, value: DEFAULT_AGENT_ENVIRONMENT_CONFIG.pluginBootstrap }
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.pluginBootstrap }
     : validatePluginBootstrap(pluginBootstrapRaw);
   if (!pluginBootstrap.ok) return pluginBootstrap;
 
@@ -669,14 +669,14 @@ function validate(value: unknown): Result<AgentEnvironmentConfig> {
     ok: true,
     value: {
       instructions: instructions.value,
-      runtimes: runtimes.value,
+      agents: agents.value,
       pluginBootstrap: pluginBootstrap.value,
     },
   };
 }
 
-export const agentEnvironmentConfigDescriptor: ConfigDescriptor<AgentEnvironmentConfig> = {
-  section: AGENT_ENVIRONMENT_SECTION,
-  defaults: DEFAULT_AGENT_ENVIRONMENT_CONFIG,
+export const harnessEnvironmentConfigDescriptor: ConfigDescriptor<HarnessEnvironmentConfig> = {
+  section: HARNESS_ENVIRONMENT_SECTION,
+  defaults: DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   validate,
 };

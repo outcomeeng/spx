@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILENAMES } from "@/config/index";
 import {
-  AGENT_ENVIRONMENT_CONFIG_FIELDS,
-  AGENT_ENVIRONMENT_SECTION,
-  AGENT_RUNTIME,
+  AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
+  HARNESS_ENVIRONMENT_SECTION,
 } from "@/domains/agent-environment/config";
 import {
   HOOK_COMPACT_FOUNDATION_DIRECTIVE,
@@ -27,12 +27,12 @@ async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: 
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
     JSON.stringify({
-      [AGENT_ENVIRONMENT_SECTION]: {
-        [AGENT_ENVIRONMENT_CONFIG_FIELDS.RUNTIMES]: {
-          [AGENT_RUNTIME.CODEX]: {
-            [AGENT_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
-              [AGENT_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
-                [AGENT_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
+      [HARNESS_ENVIRONMENT_SECTION]: {
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
+          [AGENT.CODEX]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
               },
             },
           },
@@ -43,7 +43,7 @@ async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: 
 }
 
 describe("hook CLI compact stdout boundary", () => {
-  it("keeps process stdout empty for Codex compact source under the default runtime policy", async () => {
+  it("keeps process stdout empty for Codex compact source under the default configured-agent policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -76,7 +76,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("keeps process stdout empty when Codex and Claude Code runtime markers are both present", async () => {
+  it("keeps process stdout empty when Codex and Claude Code configured-agent markers are both present", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
@@ -110,7 +110,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("emits compact stdout for Claude Code compact source under the default runtime policy", async () => {
+  it("emits compact stdout for Claude Code compact source under the default configured-agent policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -143,7 +143,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("defaults to Codex compact stdout policy when no runtime marker is present", async () => {
+  it("defaults to Codex compact stdout policy when no configured-agent marker is present", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -177,7 +177,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("falls back to runtime defaults and warns when compact stdout config is malformed", async () => {
+  it("falls back to configured-agent defaults and warns when compact stdout config is malformed", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
