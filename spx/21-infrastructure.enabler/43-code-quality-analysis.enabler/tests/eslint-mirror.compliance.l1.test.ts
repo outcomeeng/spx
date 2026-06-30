@@ -1,4 +1,4 @@
-import { Linter } from "eslint";
+import { ESLint, Linter } from "eslint";
 import importPlugin from "eslint-plugin-import";
 import sonarjs from "eslint-plugin-sonarjs";
 import unicorn from "eslint-plugin-unicorn";
@@ -263,8 +263,10 @@ describe("type-aware lint mirror", () => {
     expect(domainVocabularyMessages).toEqual([]);
   });
 
-  it("reports task-marker comments in root TypeScript config files through the fallback config", () => {
-    const linter = new Linter();
+  it("reports task-marker comments in root TypeScript config files through the fallback config", async () => {
+    const eslint = new ESLint({
+      overrideConfigFile: DEFAULT_ESLINT_CONFIG_FILE,
+    });
     const [eslintRuleFileGlob, rootTypeScriptConfigGlob, productionTypeScriptConfigGlob] =
       TASK_MARKER_COMMENT_FALLBACK_FILES;
     const [productionEslintConfigFile] = ESLINT_PRODUCTION_CONFIG_FILES;
@@ -283,17 +285,12 @@ describe("type-aware lint mirror", () => {
       },
     ];
     for (const fallbackCase of fallbackCases) {
-      const messages = linter.verify(
+      const [result] = await eslint.lintText(
         "// TODO: replace placeholder\nconst value = 1;\nvalue;\n",
-        {
-          files: fallbackCase.files,
-          plugins: { spx: customRules },
-          rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
-        },
-        { filename: fallbackCase.filename },
+        { filePath: fallbackCase.filename },
       );
 
-      expect(messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
+      expect(result?.messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
     }
   });
 
