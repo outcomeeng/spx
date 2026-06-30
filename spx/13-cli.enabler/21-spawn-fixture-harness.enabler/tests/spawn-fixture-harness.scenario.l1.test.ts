@@ -2,7 +2,7 @@ import { constants as osConstants } from "node:os";
 
 import { describe, expect, it } from "vitest";
 
-import { SIGINT_EXIT_CODE, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
+import { SIGINT_EXIT_CODE, SIGINT_NAME, SIGTERM_EXIT_CODE, SIGTERM_NAME } from "@/lib/process-lifecycle";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 
@@ -44,16 +44,15 @@ describe("Scenario: spawn fixture result capture", () => {
   it("maps another standard signal through Node's signal table", async () => {
     const evalFlag = "-e";
     const script = "process.kill(process.pid, process.argv[1]);";
-    const signalName = "SIGUSR2" satisfies NodeJS.Signals;
 
     const result = await runSpawnFixture({
       command: process.execPath,
-      args: [evalFlag, script, signalName],
+      args: [evalFlag, script, SIGINT_NAME],
       cwd: process.cwd(),
     });
 
     const posixSignalExitOffset = SIGTERM_EXIT_CODE - osConstants.signals[SIGTERM_NAME];
-    expect(result.exitCode).toBe(posixSignalExitOffset + osConstants.signals[signalName]);
+    expect(result.exitCode).toBe(posixSignalExitOffset + osConstants.signals[SIGINT_NAME]);
   });
 });
 
