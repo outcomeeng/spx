@@ -21,8 +21,7 @@ export interface SpxConfig {
      */
     statusDirs: {
       /**
-       * Available sessions directory
-       * @default "todo"
+       * Available sessions directory.
        */
       todo: string;
 

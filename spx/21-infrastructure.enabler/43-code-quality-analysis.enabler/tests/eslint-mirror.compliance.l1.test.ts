@@ -6,6 +6,9 @@ import { builtinRules } from "eslint/use-at-your-own-risk";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
+import customRules from "@eslint-rules/index";
+import { TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
 import {
   ARRAY_SORT_COMPARATOR_RULE,
   COGNITIVE_COMPLEXITY_RULE,
@@ -18,6 +21,7 @@ import {
   OBJECT_HAS_OWN_RULE,
   PSEUDO_RANDOM_RULE,
   REDUNDANT_ASSERTION_RULE,
+  TASK_MARKER_COMMENT_RULE,
   TYPE_AWARE_PARSER_OPTIONS,
 } from "@eslint-rules/offline-mirror";
 
@@ -26,6 +30,7 @@ describe("type-aware lint mirror", () => {
   const typescriptPrefix = "@typescript-eslint/";
   const unicornPrefix = "unicorn/";
   const importPrefix = "import/";
+  const spxPrefix = SPX_RULE_PREFIX;
   // ESLint core rules carry no plugin prefix (no `/` in the rule id).
   const isCoreRule = (rule: string): boolean => !rule.includes("/");
   // Identical operands around `&&` violate a mirrored SonarJS rule
@@ -110,6 +115,7 @@ describe("type-aware lint mirror", () => {
     expect(MIRROR_ERROR_RULES).toHaveProperty(REDUNDANT_ASSERTION_RULE, MIRROR_ERROR_SEVERITY);
     expect(MIRROR_ERROR_RULES).toHaveProperty(OBJECT_HAS_OWN_RULE, MIRROR_ERROR_SEVERITY);
     expect(MIRROR_ERROR_RULES).toHaveProperty(DUPLICATE_IMPORT_RULE, MIRROR_ERROR_SEVERITY);
+    expect(MIRROR_ERROR_RULES).toHaveProperty(TASK_MARKER_COMMENT_RULE, MIRROR_ERROR_SEVERITY);
   });
 
   it("places the unicorn-family rules in the warn tier", () => {
@@ -143,13 +149,14 @@ describe("type-aware lint mirror", () => {
     }
   });
 
-  it("draws rules from sonarjs, @typescript-eslint, ESLint core, eslint-plugin-import, and unicorn across its tiers", () => {
+  it("draws rules from sonarjs, @typescript-eslint, ESLint core, eslint-plugin-import, unicorn, and spx across its tiers", () => {
     const ruleNames = Object.keys(MIRROR_RULES);
 
     expect(ruleNames.some((rule) => rule.startsWith(sonarjsPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(unicornPrefix))).toBe(true);
     expect(ruleNames.some((rule) => rule.startsWith(importPrefix))).toBe(true);
+    expect(ruleNames.some((rule) => rule.startsWith(spxPrefix))).toBe(true);
     expect(ruleNames.some(isCoreRule)).toBe(true);
   });
 
@@ -228,6 +235,28 @@ describe("type-aware lint mirror", () => {
     }
   });
 
+  it("reports each uppercase task-marker comment while allowing lower-case session vocabulary", () => {
+    const linter = new Linter();
+    for (const marker of TASK_MARKER_COMMENT_TERMS) {
+      const violatingMessages = linter.verify(`// ${marker}: replace placeholder\nconst value = 1;\nvalue;\n`, {
+        plugins: { spx: customRules },
+        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
+      });
+
+      expect(violatingMessages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
+    }
+
+    const domainVocabularyMessages = linter.verify(
+      "// session todo directory\nconst value = 1;\nvalue;\n",
+      {
+        plugins: { spx: customRules },
+        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
+      },
+    );
+
+    expect(domainVocabularyMessages).toEqual([]);
+  });
+
   it("declares mirror rule ids the owning plugins recognize", () => {
     // Type-aware rules report only against a real TypeScript project, covered by
     // the buildEslintConfig composition [audit] and the live `spx validation`
@@ -253,6 +282,7 @@ describe("type-aware lint mirror", () => {
     expectAllRecognized(namesUnder(sonarjsPrefix), pluginRulesOf(sonarjs));
     expectAllRecognized(namesUnder(importPrefix), pluginRulesOf(importPlugin));
     expectAllRecognized(namesUnder(unicornPrefix), pluginRulesOf(unicorn));
+    expectAllRecognized(namesUnder(spxPrefix), pluginRulesOf(customRules));
 
     // ESLint core rules carry no plugin prefix; the builtin rule map owns them.
     const coreRuleNames = Object.keys(MIRROR_RULES).filter(isCoreRule);

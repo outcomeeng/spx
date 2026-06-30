@@ -19,6 +19,7 @@ import { NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID } from "./eslint-rules/no-import-so
 import { NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID } from "./eslint-rules/no-process-cwd-for-product-roots";
 import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-position-access";
 import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
+import { NO_TASK_MARKER_COMMENTS_RULE_ID } from "./eslint-rules/no-task-marker-comments";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
 import { MIRROR_RULES, TYPE_AWARE_PARSER_OPTIONS } from "./eslint-rules/offline-mirror";
 import {
@@ -174,6 +175,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       ],
       plugins: {
         "@typescript-eslint": tseslint.plugin,
+        spx: customRules,
         sonarjs,
         unicorn,
         import: importPlugin,
@@ -266,6 +268,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
+        [NO_TASK_MARKER_COMMENTS_RULE_ID]: "error",
       },
     },
     {
