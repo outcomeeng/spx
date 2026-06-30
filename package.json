@@ -73,7 +73,7 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@vitest/coverage-v8": "^4.1.5",
-    "dprint": "0.54.0",
+    "dprint": "0.55.0",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-sonarjs": "^4.1.0",
