@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  acquireClaim,
+  acquireClaim as acquireClaimBase,
   claimFilePath,
   claimLockPath,
   claimLockTarget,
@@ -12,11 +12,14 @@ import {
   OCCUPANCY_FS_TEXT_ENCODING,
   OCCUPANCY_STATUS,
   type OccupancyFileSystem,
+  type OccupancyFsOptions,
+  type OccupancyWriteOptions,
   type ProcessProbe,
   readClaim,
   readOccupancy,
-  removeClaim,
+  removeClaim as removeClaimBase,
   unreadableStartedAt,
+  type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
 import { ERROR_CODE_NOT_FOUND, hasErrorCode } from "@/lib/state-store";
@@ -50,6 +53,32 @@ async function expectLinkAbsent(path: string): Promise<void> {
     return;
   }
   throw new Error(`${OCCUPANCY_ERROR.CLAIM_UNLOCK_FAILED}: ${target}`);
+}
+
+async function expectLinkRecord(path: string, record: WorktreeClaimRecord): Promise<void> {
+  const target = await defaultOccupancyFileSystem.readlink(path);
+  const parsed: unknown = JSON.parse(target);
+  expect(parsed).toEqual(record);
+}
+
+function acquireClaim(
+  worktreesDir: string,
+  name: string,
+  record: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyWriteOptions,
+): ReturnType<typeof acquireClaimBase> {
+  return acquireClaimBase(worktreesDir, name, record, probe, { ...options, operation: record });
+}
+
+function removeClaim(
+  worktreesDir: string,
+  name: string,
+  owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyFsOptions,
+): ReturnType<typeof removeClaimBase> {
+  return removeClaimBase(worktreesDir, name, owner, probe, { ...options, operation: owner });
 }
 
 class ReplacingStaleLockFileSystem implements OccupancyFileSystem {
@@ -176,6 +205,35 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
+  it("removes a claim written with an unreadable start time after the live holder start time becomes readable", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const readableStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const storedRecord = { ...claimBase, startedAt: unreadableStartedAt(claimBase.pid) };
+    const releaseRecord = { ...claimBase, startedAt: readableStartedAt };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([claimBase.pid]),
+      startTimes: new Map([[claimBase.pid, readableStartedAt]]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const removed = await removeClaim(worktreesDir, name, releaseRecord, probe, {
+        fs: defaultOccupancyFileSystem,
+      });
+
+      expect(removed.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toBeUndefined();
+    });
+  });
+
   it("refuses to replace a live-held claim and leaves the existing holder unchanged", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
@@ -229,6 +287,36 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
+  it("treats a repeated acquisition as the same holder after an unreadable start time becomes readable", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const readableStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const storedRecord = { ...claimBase, startedAt: unreadableStartedAt(claimBase.pid) };
+    const retryRecord = { ...claimBase, startedAt: readableStartedAt };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([claimBase.pid]),
+      startTimes: new Map([[claimBase.pid, readableStartedAt]]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const acquired = await acquireClaim(worktreesDir, name, retryRecord, probe, {
+        fs: defaultOccupancyFileSystem,
+        randomBytes,
+      });
+
+      expect(acquired.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(storedRecord);
+    });
+  });
+
   it("keeps another holder's claim when an old holder releases after the claim has changed", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
@@ -276,15 +364,30 @@ describe("worktree occupancy claim store", () => {
       });
 
       expect(removed.ok).toBe(true);
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(freshTarget);
+      await expectLinkRecord(lockPath, freshRecord);
     });
   });
 
-  it("allows the same live holder to acquire after its release leaves a residual lock", async () => {
+  it("keeps a live operation residual lock after the claim is removed", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [holderPid, operationPid, nextOperationPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+    const holderStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const operationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const nextOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const record = { ...claimBase, pid: holderPid, startedAt: holderStartedAt };
+    const operation = { ...claimBase, pid: operationPid, startedAt: operationStartedAt };
+    const nextOperation = { ...claimBase, pid: nextOperationPid, startedAt: nextOperationStartedAt };
     const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([operationPid, nextOperationPid]),
+      startTimes: new Map([
+        [operationPid, operationStartedAt],
+        [nextOperationPid, nextOperationStartedAt],
+      ]),
+    });
 
     await withTempDir(prefix, async (worktreesDir) => {
       await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
@@ -293,27 +396,30 @@ describe("worktree occupancy claim store", () => {
       if (!claimPath.ok) throw new Error(claimPath.error);
       const lockPath = claimLockPath(claimPath.value);
 
-      const failedRelease = await removeClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
+      const failedRelease = await removeClaimBase(worktreesDir, name, record, probe, {
         fs: new FailingLockRemovalFileSystem(defaultOccupancyFileSystem, lockPath),
+        operation,
       });
 
       expect(failedRelease.ok).toBe(false);
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(claimLockTarget(record));
+      await expectLinkRecord(lockPath, operation);
       const removedClaim = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(removedClaim.ok).toBe(true);
       if (!removedClaim.ok) throw new Error(removedClaim.error);
       expect(removedClaim.value).toBeUndefined();
 
-      const acquired = await acquireClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
+      const acquired = await acquireClaimBase(worktreesDir, name, record, probe, {
         fs: defaultOccupancyFileSystem,
+        operation: nextOperation,
         randomBytes,
       });
 
-      expect(acquired.ok).toBe(true);
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
-      expect(readBack.value).toEqual(record);
+      expect(readBack.value).toBeUndefined();
+      await expectLinkRecord(lockPath, operation);
     });
   });
 
@@ -374,8 +480,9 @@ describe("worktree occupancy claim store", () => {
       const claimPath = claimFilePath(worktreesDir, name);
       expect(claimPath.ok).toBe(true);
       if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
       await defaultOccupancyFileSystem.mkdir(worktreesDir, { recursive: true });
-      await defaultOccupancyFileSystem.symlink(claimLockTarget(deadLockOwner), claimLockPath(claimPath.value));
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(deadLockOwner), lockPath);
 
       const acquired = await acquireClaim(
         worktreesDir,
@@ -390,6 +497,7 @@ describe("worktree occupancy claim store", () => {
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
       expect(readBack.value).toEqual(nextRecord);
+      await expectLinkAbsent(lockPath);
     });
   });
 
@@ -423,7 +531,7 @@ describe("worktree occupancy claim store", () => {
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
       expect(readBack.value).toBeUndefined();
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(lockTarget);
+      await expectLinkRecord(lockPath, lockOwner);
     });
   });
 
@@ -460,7 +568,7 @@ describe("worktree occupancy claim store", () => {
       });
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(freshTarget);
+      await expectLinkRecord(lockPath, freshLockOwner);
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
@@ -506,7 +614,7 @@ describe("worktree occupancy claim store", () => {
     });
   });
 
-  it("reclaims an orphaned claim-lock recovery marker from the same live holder", async () => {
+  it("keeps a claim-lock recovery marker whose owner is the live acquisition requester", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
     const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
@@ -537,20 +645,38 @@ describe("worktree occupancy claim store", () => {
         randomBytes,
       });
 
-      expect(acquired.ok).toBe(true);
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
-      expect(readBack.value).toEqual(nextRecord);
-      await expectLinkAbsent(recoveryPath);
+      expect(readBack.value).toBeUndefined();
+      await expectLinkRecord(lockPath, lockOwner);
+      await expectLinkRecord(recoveryPath, nextRecord);
     });
   });
 
-  it("reclaims a claim-lock recovery marker when the same live holder already owns the lock", async () => {
+  it("keeps a live operation claim-acquisition lock while the claim exists", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [holderPid, lockOperationPid, nextOperationPid] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPids(),
+    );
+    const holderStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const lockOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const nextOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const record = { ...claimBase, pid: holderPid, startedAt: holderStartedAt };
+    const lockOperation = { ...claimBase, pid: lockOperationPid, startedAt: lockOperationStartedAt };
+    const nextOperation = { ...claimBase, pid: nextOperationPid, startedAt: nextOperationStartedAt };
     const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([lockOperationPid, nextOperationPid]),
+      startTimes: new Map([
+        [lockOperationPid, lockOperationStartedAt],
+        [nextOperationPid, nextOperationStartedAt],
+      ]),
+    });
 
     await withTempDir(prefix, async (worktreesDir) => {
       await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
@@ -558,21 +684,110 @@ describe("worktree occupancy claim store", () => {
       expect(claimPath.ok).toBe(true);
       if (!claimPath.ok) throw new Error(claimPath.error);
       const lockPath = claimLockPath(claimPath.value);
-      const recoveryPath = `${lockPath}${OCCUPANCY_CLAIM.LOCK_RECOVERY_EXTENSION}`;
-      await defaultOccupancyFileSystem.symlink(claimLockTarget(record), lockPath);
-      await defaultOccupancyFileSystem.symlink(claimLockTarget(record), recoveryPath);
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(lockOperation), lockPath);
 
-      const acquired = await acquireClaim(worktreesDir, name, record, createLiveHolderProbe(record), {
+      const acquired = await acquireClaimBase(worktreesDir, name, record, probe, {
         fs: defaultOccupancyFileSystem,
+        operation: nextOperation,
         randomBytes,
       });
 
-      expect(acquired.ok).toBe(true);
+      expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
       expect(readBack.ok).toBe(true);
       if (!readBack.ok) throw new Error(readBack.error);
       expect(readBack.value).toEqual(record);
-      await expectLinkAbsent(recoveryPath);
+      await expectLinkRecord(lockPath, lockOperation);
+    });
+  });
+
+  it("keeps a live operation claim-acquisition lock while releasing the claim", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [holderPid, lockOperationPid, releaseOperationPid] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPids(),
+    );
+    const holderStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const lockOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const releaseOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const record = { ...claimBase, pid: holderPid, startedAt: holderStartedAt };
+    const lockOperation = { ...claimBase, pid: lockOperationPid, startedAt: lockOperationStartedAt };
+    const releaseOperation = { ...claimBase, pid: releaseOperationPid, startedAt: releaseOperationStartedAt };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([lockOperationPid, releaseOperationPid]),
+      startTimes: new Map([
+        [lockOperationPid, lockOperationStartedAt],
+        [releaseOperationPid, releaseOperationStartedAt],
+      ]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(lockOperation), lockPath);
+
+      const removed = await removeClaimBase(worktreesDir, name, record, probe, {
+        fs: defaultOccupancyFileSystem,
+        operation: releaseOperation,
+      });
+
+      expect(removed).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(record);
+      await expectLinkRecord(lockPath, lockOperation);
+    });
+  });
+
+  it("recovers a dead operation claim-acquisition lock while releasing the claim", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [holderPid, deadOperationPid, releaseOperationPid] = sampleWorktreeTestValue(
+      WORKTREE_TEST_GENERATOR.distinctPids(),
+    );
+    const holderStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const deadOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const releaseOperationStartedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+    const record = { ...claimBase, pid: holderPid, startedAt: holderStartedAt };
+    const deadOperation = { ...claimBase, pid: deadOperationPid, startedAt: deadOperationStartedAt };
+    const releaseOperation = { ...claimBase, pid: releaseOperationPid, startedAt: releaseOperationStartedAt };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: claimBase.host,
+      alivePids: new Set([holderPid, releaseOperationPid]),
+      startTimes: new Map([
+        [holderPid, holderStartedAt],
+        [releaseOperationPid, releaseOperationStartedAt],
+      ]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+      const claimPath = claimFilePath(worktreesDir, name);
+      expect(claimPath.ok).toBe(true);
+      if (!claimPath.ok) throw new Error(claimPath.error);
+      const lockPath = claimLockPath(claimPath.value);
+      await defaultOccupancyFileSystem.symlink(claimLockTarget(deadOperation), lockPath);
+
+      const removed = await removeClaimBase(worktreesDir, name, record, probe, {
+        fs: defaultOccupancyFileSystem,
+        operation: releaseOperation,
+      });
+
+      expect(removed.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toBeUndefined();
+      await expectLinkAbsent(lockPath);
     });
   });
 
@@ -602,7 +817,7 @@ describe("worktree occupancy claim store", () => {
       );
 
       expect(acquired).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY });
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(lockTarget);
+      await expectLinkRecord(lockPath, lockOwner);
     });
   });
 
@@ -658,7 +873,7 @@ describe("worktree occupancy claim store", () => {
         randomBytes,
       });
       expect(failed.ok).toBe(false);
-      await expect(defaultOccupancyFileSystem.readlink(lockPath)).resolves.toBe(lockTarget);
+      await expectLinkRecord(lockPath, existingLockOwner);
 
       const recovered = await acquireClaim(
         worktreesDir,

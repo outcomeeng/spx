@@ -2,12 +2,16 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
-  acquireClaim,
+  acquireClaim as acquireClaimBase,
   OCCUPANCY_CLAIM,
   OCCUPANCY_ERROR,
   type OccupancyFileSystem,
+  type OccupancyFsOptions,
+  type OccupancyWriteOptions,
+  type ProcessProbe,
   readClaim,
-  removeClaim,
+  removeClaim as removeClaimBase,
+  type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -23,6 +27,26 @@ type OccupancyReadFile = OccupancyFileSystem extends {
   readFile: infer ReadFile extends (...args: never[]) => Promise<string>;
 } ? ReadFile
   : never;
+
+function acquireClaim(
+  worktreesDir: string,
+  name: string,
+  record: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyWriteOptions,
+): ReturnType<typeof acquireClaimBase> {
+  return acquireClaimBase(worktreesDir, name, record, probe, { ...options, operation: record });
+}
+
+function removeClaim(
+  worktreesDir: string,
+  name: string,
+  owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyFsOptions,
+): ReturnType<typeof removeClaimBase> {
+  return removeClaimBase(worktreesDir, name, owner, probe, { ...options, operation: owner });
+}
 
 class PausingClaimWriteFileSystem implements OccupancyFileSystem {
   private resumeWrite: (() => void) | undefined;
