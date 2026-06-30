@@ -27,13 +27,11 @@ export interface SpxConfig {
 
       /**
        * Claimed sessions directory
-       * @default "doing"
        */
       doing: string;
 
       /**
        * Archived sessions directory
-       * @default "archive"
        */
       archive: string;
     };
