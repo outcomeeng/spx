@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/21-crypto-test-harness.enabler/tests/crypto-test-harness.compliance.l1.test.ts": "passed"
+    }
+  }
+}

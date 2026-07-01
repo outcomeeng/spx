@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.compliance.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.mapping.l1.test.ts": "passed",
+      "spx/22-test-environment.enabler/32-git-worktree.enabler/21-git-command-test-harness.enabler/tests/git-command-test-harness.scenario.l1.test.ts": "passed"
+    }
+  }
+}

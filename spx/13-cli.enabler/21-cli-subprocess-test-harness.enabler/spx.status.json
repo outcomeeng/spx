@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts": "passed",
+      "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts": "passed"
+    }
+  }
+}

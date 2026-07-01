@@ -84,18 +84,18 @@ Critical path: E0 must settle before E2, and E2 gates E1 and E3 transitively. As
 Use this prompt skeleton for every packet, replacing `{target-node}` and `{packet-slug}` with the descriptive branch slug from the node-local prompt:
 
 ```text
-Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite sentinel file named by this PLAN exists on origin/main with `git cat-file -e origin/main:<path>`; this command must exit 0 for each sentinel. Directory existence alone is not a settled-prerequisite check. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understand if the foundation marker is absent, then invoke spec-tree:contextualize for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:apply before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:commit-changes plus spec-tree:manage-github-pr before publishing the branch.
+Start from fresh origin/main on a branch named work/{packet-slug}. Before branching, run `git ls-remote --exit-code --heads origin work/{packet-slug}`; if the branch already exists, stop and inspect the existing PR or branch before claiming the packet. Fetch origin main and verify every settled prerequisite sentinel file named by this PLAN exists on origin/main with `git cat-file -e origin/main:<path>`; this command must exit 0 for each sentinel. Directory existence alone is not a settled-prerequisite check. If a prerequisite is absent, stop and record the gap in the owning PLAN.md before implementation. Invoke spec-tree:understand if the foundation marker is absent, then invoke spec-tree:contextualize for {target-node}. Read {target-node}/PLAN.md and every governing spec or decision named there. Then invoke spec-tree:apply before implementation, the relevant language architecture/testing/coding skills before changing tests or code, and spec-tree:commit-changes plus spec-tree:merge before publishing the branch.
 
 The output sentinel file for each packet must strip the numeric prefix and `.enabler` suffix from the node directory slug, then add `.md`; for example, `54-canonical-descriptor-digest.enabler` produces `canonical-descriptor-digest.md`. A node-local PLAN may name a different sentinel path only when the target artifact is intentionally elsewhere.
 
-Fallback: If the runtime cannot load `spec-tree:manage-github-pr`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md`, if configured as a symlink to `CLAUDE.md`, provides the same product instructions.
+Fallback: If the runtime cannot load `spec-tree:merge`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md`, if configured as a symlink to `CLAUDE.md`, provides the same product instructions.
 
 Ownership and review loop:
 1. Own only {target-node} and the implementation files required by its assertions.
 2. Do not edit sibling packet PLAN files except to record a scope-expanding review finding in the owning PLAN.
 3. If the packet touches shared helpers or cross-node harness files, add or follow an Implementation Ownership section before editing.
 4. Do not use subagents for edits.
-5. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused tests plus pnpm run validate and pnpm test, and repeat until the PR is merged or a repository-governed decision blocks progress.
+5. Keep the PR focused, ask for adversarial review of the packet's API shape, evidence coverage, and behavior preservation, wait for PR checks and comments, patch actionable findings, rerun focused `spx test {target-node}` plus `pnpm run validate`, and repeat until the PR is merged or a repository-governed decision blocks progress.
 ```
 
 ## Open Coordination
@@ -123,11 +123,3 @@ See packet-level PLAN files for per-node evidence items; this section records cr
 - Canonical descriptor JSON tests prove object keys sort recursively, array order is preserved, primitive serialization matches JSON semantics, and digest input bytes are stable across equivalent resolved descriptor sections.
 - Canonical descriptor JSON tests prove validators reject `undefined`, `NaN`, `Infinity`, functions, symbols, and other non-JSON-representable values before digest computation.
 - Canonical descriptor JSON digest implementation uses Node.js `node:crypto`; no third-party crypto dependency is introduced.
-
-## Harness governance (queued)
-
-Govern the still-ungoverned config generators and shared helpers using the node-local harness-governance pattern: author per-module generator or test-harness enablers, run the spec-auditor and test-evidence-auditor gates including coverage, and carry the literal-collision lessons from the completed recording-runner batch in `spx/41-test.enabler/PLAN.md`. One PR.
-
-Modules: `testing/generators/config/{config,descriptors}.ts`, `testing/harnesses/crypto.ts` (-> `spx/16-config.enabler/54-canonical-descriptor-digest.enabler`), `testing/harnesses/git-test-constants.ts` (-> `spx/16-config.enabler/21-config-cli.enabler`), `testing/harnesses/constants.ts` (govern beside its dominant consumer, or extract a shared infrastructure node if genuinely cross-domain).
-
-Route: `/understand` -> `/contextualize spx/16-config.enabler` -> `/author` per-module generator/test-harness enablers -> `/apply` audit gates (spec-auditor + test-evidence-auditor, including the coverage gate) -> `/merge`.
