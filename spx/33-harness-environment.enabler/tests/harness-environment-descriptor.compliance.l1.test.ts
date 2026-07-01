@@ -107,7 +107,7 @@ describe("harness environment config descriptor", () => {
     });
   });
 
-  it("resolves explicit configured-agent hook policy overrides", async () => {
+  it("resolves explicit agent hook policy overrides", async () => {
     const productConfig: Config = {
       [HARNESS_ENVIRONMENT_SECTION]: {
         [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
@@ -173,7 +173,7 @@ describe("harness environment config descriptor", () => {
     });
   });
 
-  it("rejects unregistered configured-agent ids before child reconcilers run", async () => {
+  it("rejects unregistered agent ids before child reconcilers run", async () => {
     const unknownAgent = sampleUnknownAgent();
     const productConfig: Config = {
       [HARNESS_ENVIRONMENT_SECTION]: {
@@ -545,7 +545,7 @@ describe("harness environment config descriptor", () => {
     }
   });
 
-  it("rejects duplicate marketplace names for the same configured agent", async () => {
+  it("rejects duplicate marketplace names for the same agent", async () => {
     const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const productConfig: Config = {
@@ -582,7 +582,7 @@ describe("harness environment config descriptor", () => {
     });
   });
 
-  it("rejects duplicate plugin and skill names for the same configured agent", async () => {
+  it("rejects duplicate plugin and skill names for the same agent", async () => {
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const skillName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const duplicateSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
@@ -645,7 +645,75 @@ describe("harness environment config descriptor", () => {
     }
   });
 
-  it("rejects plugin marketplace references that are not configured for the same configured agent", async () => {
+  it("rejects duplicate bootstrap names across marketplaces, plugins, and skills for the same agent", async () => {
+    const duplicateName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const duplicateSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
+      {
+        productConfig: {
+          [HARNESS_ENVIRONMENT_SECTION]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+                },
+              ],
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: harnessEnvironmentPath(
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS,
+          "0",
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
+      },
+      {
+        productConfig: {
+          [HARNESS_ENVIRONMENT_SECTION]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                },
+              ],
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: harnessEnvironmentPath(
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+          "0",
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
+      },
+    ];
+
+    for (const { productConfig, expectedErrorPath } of duplicateSections) {
+      await withTestEnv(productConfig, async ({ productDir }) => {
+        const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
+
+        expectRejectedConfig(result, expectedErrorPath);
+      });
+    }
+  });
+
+  it("rejects plugin marketplace references that are not configured for the same agent", async () => {
     const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -710,7 +778,7 @@ describe("harness environment config descriptor", () => {
     }
   });
 
-  it("accepts plugin marketplace references configured for the same configured agent", async () => {
+  it("accepts plugin marketplace references configured for the same agent", async () => {
     const marketplaceName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const pluginName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -784,7 +852,7 @@ describe("harness environment config descriptor", () => {
     });
   });
 
-  it("accepts multiple instruction files with different configured-agent target subsets", async () => {
+  it("accepts multiple instruction files with different agent target subsets", async () => {
     const firstPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const secondPath = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const productConfig: Config = {

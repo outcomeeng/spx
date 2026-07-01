@@ -9,7 +9,7 @@ import {
   readRecord,
 } from "@testing/harnesses/agent-environment/runtime-config";
 
-describe("runtime-config test harness", () => {
+describe("agent config test harness", () => {
   it("enables both agents over the descriptor defaults", () => {
     const config = enabledHarnessEnvironment();
 

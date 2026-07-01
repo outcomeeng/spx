@@ -1,13 +1,13 @@
 # Plugin Bootstrap
 
 PROVIDES deterministic bootstrap of configured plugin marketplaces, plugins, and skills
-SO THAT configured agents launched or prepared by spx
+SO THAT agents launched or prepared by spx
 CAN depend on required local capabilities without manual installation steps
 
 ## Assertions
 
 ### Compliance
 
-- ALWAYS: plugin bootstrap distinguishes configured marketplace, plugin, and skill entries by type and target configured agent ([review])
+- ALWAYS: plugin bootstrap distinguishes configured marketplace, plugin, and skill entries by type and target agent ([review])
 - ALWAYS: bootstrap reports installed, missing, stale, and failed entries deterministically ([review])
 - NEVER: silently install network-fetched capabilities during offline core operations ([review])

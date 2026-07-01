@@ -211,7 +211,7 @@ function validateBoolean(path: string, value: unknown): Result<boolean> {
 
 function validateAgent(path: string, value: unknown): Result<Agent> {
   if (typeof value !== "string" || !isAgent(value)) {
-    return { ok: false, error: `${path} must be a registered configured agent` };
+    return { ok: false, error: `${path} must be a registered agent` };
   }
   return { ok: true, value };
 }
@@ -222,7 +222,7 @@ function isAgent(value: string): value is Agent {
 
 function validateAgentArray(path: string, value: unknown): Result<readonly Agent[]> {
   if (!Array.isArray(value) || value.length === 0) {
-    return { ok: false, error: `${path} must be a non-empty array of registered configured agents` };
+    return { ok: false, error: `${path} must be a non-empty array of registered agents` };
   }
 
   const agents: Agent[] = [];
@@ -231,7 +231,7 @@ function validateAgentArray(path: string, value: unknown): Result<readonly Agent
     const agent = validateAgent(`${path}.${index}`, entry);
     if (!agent.ok) return agent;
     if (seen.has(agent.value)) {
-      return { ok: false, error: `${path}.${index} repeats registered configured agent ${agent.value}` };
+      return { ok: false, error: `${path}.${index} repeats registered agent ${agent.value}` };
     }
     seen.add(agent.value);
     agents.push(agent.value);
@@ -300,7 +300,7 @@ function validateAgents(raw: unknown): Result<HarnessEnvironmentConfig["agents"]
 
   const agents: Record<Agent, AgentConfig> = { ...DEFAULT_HARNESS_ENVIRONMENT_CONFIG.agents };
   for (const [agentName, agentRaw] of Object.entries(raw)) {
-    // Configured-agent ids are the field names, so unknown-field rejection is the agent-id validation below.
+    // Agent ids are the field names, so unknown-field rejection is the agent-id validation below.
     const agent = validateAgent(`${sectionPath}.${agentName}`, agentName);
     if (!agent.ok) return agent;
     const config = validateAgentConfig(`${sectionPath}.${agentName}`, agentRaw, agents[agent.value]);
@@ -437,6 +437,14 @@ function validatePluginBootstrap(raw: unknown): Result<HarnessEnvironmentConfig[
   );
   if (!skillUniqueness.ok) return skillUniqueness;
 
+  const bootstrapNameUniqueness = validatePluginBootstrapNameUniqueness(
+    sectionPath,
+    marketplaces.value,
+    plugins.value,
+    skills.value,
+  );
+  if (!bootstrapNameUniqueness.ok) return bootstrapNameUniqueness;
+
   return {
     ok: true,
     value: {
@@ -502,6 +510,48 @@ function validateNamedAgentEntryUniqueness(
     agentNames.add(entry.name);
     namesByAgent.set(entry.agent, agentNames);
   }
+  return { ok: true, value: undefined };
+}
+
+function validatePluginBootstrapNameUniqueness(
+  sectionPath: string,
+  marketplaces: readonly AgentMarketplaceConfig[],
+  plugins: readonly AgentPluginConfig[],
+  skills: readonly AgentSkillConfig[],
+): Result<undefined> {
+  const namesByAgent = new Map<Agent, Set<string>>();
+  const entries = [
+    ...marketplaces.map((entry, index) => ({
+      agent: entry.agent,
+      name: entry.name,
+      path: `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES}.${index}`,
+    })),
+    ...plugins.map((entry, index) => ({
+      agent: entry.agent,
+      name: entry.name,
+      path: `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGINS}.${index}`,
+    })),
+    ...skills.map((entry, index) => ({
+      agent: entry.agent,
+      name: entry.name,
+      path: `${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS}.${index}`,
+    })),
+  ] as const;
+
+  for (const entry of entries) {
+    const agentNames = namesByAgent.get(entry.agent) ?? new Set<string>();
+    if (agentNames.has(entry.name)) {
+      return {
+        ok: false,
+        error: `${entry.path}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME} ${
+          JSON.stringify(entry.name)
+        } is already used by another ${entry.agent} bootstrap entry`,
+      };
+    }
+    agentNames.add(entry.name);
+    namesByAgent.set(entry.agent, agentNames);
+  }
+
   return { ok: true, value: undefined };
 }
 

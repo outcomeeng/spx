@@ -1,8 +1,8 @@
-# Plan: configured-agent config
+# Plan: agent config
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -10,8 +10,8 @@ Reconcile Claude Code and Codex configuration from configured harness environmen
 
 ## Governing specs
 
-- `spx/33-agent-environment.enabler/agent-environment.md`
-- `spx/33-agent-environment.enabler/21-agent-instructions.enabler/agent-instructions.md`
+- `spx/33-harness-environment.enabler/harness-environment.md`
+- `spx/33-harness-environment.enabler/21-agent-instructions.enabler/agent-instructions.md`
 
 ## Implementation notes
 
@@ -31,5 +31,5 @@ Can proceed in parallel with instruction management, but review/audit execution 
 
 ## Settled work
 
-- Configured-agent config reconciliation is settled on `origin/main`.
-- Follow-up configured-agent state boundary notes are recorded in the parent harness-environment plan and owning consumer packets.
+- Agent config reconciliation is settled on `origin/main`.
+- Follow-up agent state boundary notes are recorded in the parent harness-environment plan and owning consumer packets.

@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -27,38 +29,20 @@ import {
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 
-class FailingWriteFileSystem implements RuntimeConfigFileSystem {
-  constructor(private readonly message: string) {}
-
-  async readFile(_path: string, _encoding: BufferEncoding): Promise<string> {
-    const error = new Error(RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND);
-    (error as NodeJS.ErrnoException).code = RUNTIME_CONFIG_FILE_ERROR_CODES.FILE_NOT_FOUND;
-    throw error;
-  }
-
-  async mkdir(_path: string, _options: { readonly recursive: true }): Promise<unknown> {
-    return undefined;
-  }
-
-  async rm(_path: string, _options: { readonly force: true }): Promise<unknown> {
-    return undefined;
-  }
-
-  async writeFile(_path: string, _content: string, _encoding: BufferEncoding): Promise<unknown> {
-    throw new Error(this.message);
-  }
+interface RuntimeConfigMemoryFileSystemOptions {
+  readonly failMkdirMessage?: string;
+  readonly failMkdirPath?: string;
+  readonly failRemoveMessage?: string;
+  readonly failRemovePath?: string;
+  readonly failWriteMessage?: string;
+  readonly failWritePath?: string;
+  readonly readError?: Error;
 }
 
 class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
   private readonly files = new Map<string, string>();
 
-  constructor(
-    private readonly failWritePath?: string,
-    private readonly failWriteMessage?: string,
-    private readonly readError?: Error,
-    private readonly failRemovePath?: string,
-    private readonly failRemoveMessage?: string,
-  ) {}
+  constructor(private readonly options: RuntimeConfigMemoryFileSystemOptions = {}) {}
 
   hasFile(path: string): boolean {
     return this.files.has(path);
@@ -69,27 +53,30 @@ class RuntimeConfigMemoryFileSystem implements RuntimeConfigFileSystem {
   }
 
   async readFile(path: string, _encoding: BufferEncoding): Promise<string> {
-    if (this.readError !== undefined) throw this.readError;
+    if (this.options.readError !== undefined) throw this.options.readError;
     const value = this.files.get(path);
     if (value === undefined) throw fileNotFoundError();
     return value;
   }
 
-  async mkdir(_path: string, _options: { readonly recursive: true }): Promise<unknown> {
+  async mkdir(path: string, _options: { readonly recursive: true }): Promise<unknown> {
+    if (path === this.options.failMkdirPath) {
+      throw new Error(this.options.failMkdirMessage);
+    }
     return undefined;
   }
 
   async rm(path: string, _options: { readonly force: true }): Promise<unknown> {
-    if (path === this.failRemovePath) {
-      throw new Error(this.failRemoveMessage);
+    if (path === this.options.failRemovePath) {
+      throw new Error(this.options.failRemoveMessage);
     }
     this.files.delete(path);
     return undefined;
   }
 
   async writeFile(path: string, content: string, _encoding: BufferEncoding): Promise<unknown> {
-    if (path === this.failWritePath) {
-      throw new Error(this.failWriteMessage);
+    if (path === this.options.failWritePath) {
+      throw new Error(this.options.failWriteMessage);
     }
     this.files.set(path, content);
     return undefined;
@@ -102,8 +89,8 @@ function fileNotFoundError(): NodeJS.ErrnoException {
   return error;
 }
 
-describe("configured-agent config reconciliation scenarios", () => {
-  it("reconciles existing configured-agent files and reruns without byte changes", async () => {
+describe("agent config reconciliation scenarios", () => {
+  it("reconciles existing agent files and reruns without byte changes", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const codexField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const codexValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -202,6 +189,39 @@ describe("configured-agent config reconciliation scenarios", () => {
       }).trimEnd();
       expect(codexRaw).toContain(`${managedTable}\n\n[[tasks]]`);
       expect(readManagedRuntimeConfigState(codex)).toEqual(managedState);
+    });
+  });
+
+  it("preserves Codex TOML comments between the managed table and the next table", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const preservedComment = `# ${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}`;
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          "",
+          preservedComment,
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+      expect(codexRaw).toContain(`\n${preservedComment}\n\n[[tasks]]`);
+      expect(readRecord(parseToml(codexRaw)).tasks).toEqual([{ name: taskName }]);
     });
   });
 
@@ -593,7 +613,7 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
-  it("reports invalid existing configured-agent config before writing", async () => {
+  it("reports invalid existing agent config before writing", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const malformedAgentConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
@@ -636,7 +656,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       const result = await reconcileRuntimeConfig({
         productDir,
         harnessEnvironment,
-        deps: { fs: new RuntimeConfigMemoryFileSystem(undefined, undefined, readError) },
+        deps: { fs: new RuntimeConfigMemoryFileSystem({ readError }) },
       });
 
       expect(result.ok).toBe(false);
@@ -647,33 +667,71 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
-  it("reports write failures as reconciliation diagnostics", async () => {
+  it("reports parent-directory setup failures as reconciliation diagnostics", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
-    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const setupFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
 
     await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
       const result = await reconcileRuntimeConfig({
         productDir,
         harnessEnvironment,
-        deps: { fs: new FailingWriteFileSystem(writeFailureMessage) },
+        deps: {
+          fs: new RuntimeConfigMemoryFileSystem({
+            failMkdirMessage: setupFailureMessage,
+            failMkdirPath: dirname(codexPath),
+          }),
+        },
       });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.PREPARE_DIRECTORY_FAILED);
         expect(result.error).toContain(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
-        expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(setupFailureMessage);
+        expect(result.error).not.toContain(RUNTIME_CONFIG_ERROR_MESSAGES.WRITE_FILE_FAILED);
       }
     });
   });
 
-  it("rolls back earlier configured-agent writes when a later configured-agent write fails", async () => {
+  it("reports file write failures as reconciliation diagnostics", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir }) => {
+      const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
+      const result = await reconcileRuntimeConfig({
+        productDir,
+        harnessEnvironment,
+        deps: {
+          fs: new RuntimeConfigMemoryFileSystem({
+            failWriteMessage: writeFailureMessage,
+            failWritePath: codexPath,
+          }),
+        },
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.WRITE_FILE_FAILED);
+        expect(result.error).toContain(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+        expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).not.toContain(RUNTIME_CONFIG_ERROR_MESSAGES.PREPARE_DIRECTORY_FAILED);
+      }
+    });
+  });
+
+  it("rolls back earlier agent writes when a later agent write fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
 
     await withTestEnv({}, async ({ productDir }) => {
       const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
       const claudeCodePath = runtimeConfigPath(productDir, AGENT.CLAUDE_CODE);
-      const fs = new RuntimeConfigMemoryFileSystem(claudeCodePath, writeFailureMessage);
+      const fs = new RuntimeConfigMemoryFileSystem({
+        failWriteMessage: writeFailureMessage,
+        failWritePath: claudeCodePath,
+      });
 
       const result = await reconcileRuntimeConfig({
         productDir,
@@ -699,11 +757,12 @@ describe("configured-agent config reconciliation scenarios", () => {
       const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
       const claudeCodePath = runtimeConfigPath(productDir, AGENT.CLAUDE_CODE);
       const fs = new RuntimeConfigMemoryFileSystem(
-        claudeCodePath,
-        writeFailureMessage,
-        undefined,
-        codexPath,
-        rollbackFailureMessage,
+        {
+          failRemoveMessage: rollbackFailureMessage,
+          failRemovePath: codexPath,
+          failWriteMessage: writeFailureMessage,
+          failWritePath: claudeCodePath,
+        },
       );
 
       const result = await reconcileRuntimeConfig({
@@ -723,7 +782,7 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
-  it("continues rolling back remaining configured-agent files after one rollback step fails", async () => {
+  it("continues rolling back remaining agent files after one rollback step fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const rollbackFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -732,11 +791,12 @@ describe("configured-agent config reconciliation scenarios", () => {
       const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
       const claudeCodePath = runtimeConfigPath(productDir, AGENT.CLAUDE_CODE);
       const fs = new RuntimeConfigMemoryFileSystem(
-        claudeCodePath,
-        writeFailureMessage,
-        undefined,
-        claudeCodePath,
-        rollbackFailureMessage,
+        {
+          failRemoveMessage: rollbackFailureMessage,
+          failRemovePath: claudeCodePath,
+          failWriteMessage: writeFailureMessage,
+          failWritePath: claudeCodePath,
+        },
       );
 
       const result = await reconcileRuntimeConfig({
@@ -756,7 +816,7 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
-  it("continues restoring previous configured-agent file content after one restore step fails", async () => {
+  it("continues restoring previous agent file content after one restore step fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const originalCodex = stringifyToml({
       [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
@@ -771,7 +831,10 @@ describe("configured-agent config reconciliation scenarios", () => {
     await withTestEnv({}, async ({ productDir }) => {
       const codexPath = runtimeConfigPath(productDir, AGENT.CODEX);
       const claudeCodePath = runtimeConfigPath(productDir, AGENT.CLAUDE_CODE);
-      const fs = new RuntimeConfigMemoryFileSystem(claudeCodePath, writeFailureMessage);
+      const fs = new RuntimeConfigMemoryFileSystem({
+        failWriteMessage: writeFailureMessage,
+        failWritePath: claudeCodePath,
+      });
       fs.setFile(codexPath, originalCodex);
       fs.setFile(claudeCodePath, originalClaudeCode);
 
@@ -790,7 +853,7 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
-  it("skips disabled agents without deleting or writing their configured-agent files", async () => {
+  it("skips disabled agents without deleting or writing their agent files", async () => {
     const harnessEnvironment: HarnessEnvironmentConfig = {
       ...harnessEnvironmentConfigDescriptor.defaults,
       agents: {

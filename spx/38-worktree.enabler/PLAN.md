@@ -2,7 +2,7 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Index horizon
 
@@ -20,9 +20,9 @@ The plugin-side integration design is governed in `github.com/outcomeeng/plugins
 
 ## Harness vocabulary alignment
 
-`spx/12-agent-harness.pdr.md` distinguishes configured agents from agent sessions. Align `spx/15-worktree-management.pdr.md`, worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
+`spx/12-agent-harness.pdr.md` distinguishes agents from agent sessions. Align `spx/15-worktree-management.pdr.md`, worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
 
-`src/domains/worktree/controlling-process.ts`, `src/domains/worktree/process-table.ts`, `spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`, `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md`, and their tests still use `AGENT_RUNTIME` / agent-runtime wording for controlling-process detection. The worktree identity slice reconciles those names to the configured-agent and agent-session vocabulary in `spx/12-agent-harness.pdr.md`.
+`src/domains/worktree/controlling-process.ts`, `src/domains/worktree/process-table.ts`, `spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`, `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md`, and their tests still use `AGENT_RUNTIME` / agent-runtime wording for controlling-process detection. The worktree identity slice reconciles those names to the agent and agent-session vocabulary in `spx/12-agent-harness.pdr.md`.
 
 ## Harness governance
 

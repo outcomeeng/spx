@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts": "passed",
+      "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.mapping.l1.test.ts": "passed"
+    }
+  }
+}
