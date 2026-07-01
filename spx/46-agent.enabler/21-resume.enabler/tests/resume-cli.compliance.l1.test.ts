@@ -22,9 +22,6 @@ describe("agent resume non-interactive compliance", () => {
               readDir: async () => {
                 throw new Error("discovery should not run for non-interactive refusal");
               },
-              readFile: async () => {
-                throw new Error("discovery should not run for non-interactive refusal");
-              },
               readHead: async () => {
                 throw new Error("discovery should not run for non-interactive refusal");
               },

@@ -22,7 +22,7 @@ CAN continue the right Codex or Claude Code conversation through `spx agent resu
 ### Compliance
 
 - ALWAYS: within the active scope, at most the five most recently modified sessions per agent are shown, newest first, for at most ten candidates total ([test](tests/resume.compliance.l1.test.ts))
-- ALWAYS: only sessions modified within the recent-activity window are candidates, so a session older than the window does not surface ([test](tests/resume.compliance.l1.test.ts))
+- ALWAYS: only sessions modified within the recent-activity window are candidates, so a session older than the window or carrying a future modification time does not surface ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: candidate discovery resolves the active scope's reference once — the invocation worktree root for worktree scope, the target name for branch scope — and classifies each candidate from its own recorded working directory or branch, never resolving a worktree root per candidate ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: a candidate is identified from its transcript's opening metadata and, for a per-row field, a bounded scan, never by parsing the whole transcript ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: sessions sharing one session id collapse to a single candidate, the most recently modified source ([test](tests/resume.compliance.l1.test.ts))

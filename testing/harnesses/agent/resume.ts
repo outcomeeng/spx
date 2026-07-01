@@ -58,15 +58,10 @@ const CANDIDATE_SAMPLE = {
 
 export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
   private readonly files = new Map<string, MemoryFile>();
-  private readonly readCounts = new Map<string, number>();
   private readonly headReadBytes = new Map<string, number>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
-  }
-
-  readCount(path: string): number {
-    return this.readCounts.get(resolve(path)) ?? 0;
   }
 
   maxHeadReadBytes(path: string): number {
@@ -90,16 +85,6 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
       names.set(name, { name, isDirectory, isFile: !isDirectory });
     }
     return [...names.values()];
-  }
-
-  async readFile(path: string): Promise<string> {
-    const resolved = resolve(path);
-    this.readCounts.set(resolved, this.readCount(resolved) + 1);
-    const file = this.files.get(resolved);
-    if (file === undefined) {
-      throw new Error(`missing file: ${path}`);
-    }
-    return file.content;
   }
 
   async readHead(path: string, maxBytes: number): Promise<string> {

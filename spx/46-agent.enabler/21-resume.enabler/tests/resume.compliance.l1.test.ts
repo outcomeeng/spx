@@ -10,12 +10,14 @@ import {
   CODEX_SESSION_ORIGINATOR,
 } from "@/domains/agent/protocol";
 import {
+  branchResumeScope,
   claudeCodeSessionStoreDir,
   codexSessionStoreDir,
   discoverAgentResumeCandidates,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
 import {
+  arbitraryAgentBranch,
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeOverCapCount,
   arbitraryAgentSessionCwd,
@@ -153,7 +155,6 @@ describe("agent resume bounded-read compliance", () => {
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
-    expect(fs.readCount(transcriptPath)).toBe(0);
     expect(fs.maxHeadReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES);
   });
 });
@@ -191,6 +192,45 @@ describe("agent resume deduplication compliance", () => {
     expect(candidates.map((candidate) => [candidate.sessionId, candidate.modifiedAtMs])).toEqual([
       [sessionId, newestMtimeMs],
     ]);
+  });
+
+  it("keeps an in-scope session when a newer transcript of the same id is out of scope", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 220);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 221);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 222);
+    const siblingRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 223);
+    const inScopeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 224);
+    const outOfScopeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 225);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 226);
+    const newerFile = sampleAgentResumeValue(arbitraryAgentSessionId(), 227);
+    const olderFile = sampleAgentResumeValue(arbitraryAgentSessionId(), 228);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(newerFile)),
+      codexTranscript({ sessionId, cwd: outOfScopeCwd, timestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(olderFile)),
+      codexTranscript({ sessionId, cwd: inScopeCwd, timestamp }),
+      nowMs - 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: inScopeCwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: async (candidateCwd) => {
+        if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
+        if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
+        return null;
+      },
+    });
+
+    expect(candidates.map((candidate) => [candidate.sessionId, candidate.cwd])).toEqual([[sessionId, inScopeCwd]]);
   });
 });
 
@@ -298,6 +338,40 @@ describe("agent resume recency-window compliance", () => {
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
   });
+
+  it("excludes sessions carrying a future modification time", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 210);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 211);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 212);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 213);
+    const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 214);
+    const futureId = sampleAgentResumeValue(arbitraryAgentSessionId(), 215);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(recentId)),
+      codexTranscript({ sessionId: recentId, cwd, timestamp }),
+      nowMs,
+    );
+    const futureTranscriptPath = codexTranscriptPath(homeDir, jsonlName(futureId));
+    fs.writeFile(
+      futureTranscriptPath,
+      codexTranscript({ sessionId: futureId, cwd, timestamp }),
+      nowMs + 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
+    expect(fs.maxHeadReadBytes(futureTranscriptPath)).toBe(0);
+  });
 });
 
 describe("agent resume Claude project-prefix compliance", () => {
@@ -335,6 +409,38 @@ describe("agent resume Claude project-prefix compliance", () => {
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([insideId]);
     expect(fs.maxHeadReadBytes(siblingTranscriptPath)).toBe(0);
+  });
+});
+
+describe("agent resume Claude branch-scan compliance", () => {
+  it("reads the initial Claude branch from a later head row when the first row omits it", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 240);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 241);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 242);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 243);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 244);
+    const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 245);
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwd, jsonlName(sessionId)),
+      [
+        claudeCodeTranscript({ sessionId, cwd, timestamp }),
+        claudeCodeTranscript({ sessionId, cwd, timestamp, branch: targetBranch }),
+      ].join("\n"),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: branchResumeScope(targetBranch),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
   });
 });
 
