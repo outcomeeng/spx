@@ -35,7 +35,10 @@ export interface JournalRunScope {
   readonly runToken: string;
 }
 
-export type JournalRunDirectoryScope = Omit<JournalRunScope, "runToken">;
+export interface JournalRunDirectoryScope extends Omit<JournalRunScope, "runToken"> {
+  readonly eventLimit?: number;
+  readonly limit?: number;
+}
 
 export const JOURNAL_RUN_SEALED_FILTER = {
   ANY: "any",

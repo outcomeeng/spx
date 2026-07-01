@@ -52,7 +52,13 @@ export const JOURNAL_CLI_EXIT_CODE = {
   ERROR: 1,
 } as const;
 
-export const JOURNAL_CLI_LIST_LIMIT = {
+export const JOURNAL_CLI_RUN_LIMIT = {
+  DEFAULT: 20,
+  MIN: 1,
+} as const;
+
+export const JOURNAL_CLI_READ_SET_EVENT_LIMIT = {
+  DEFAULT: 100,
   MIN: 1,
 } as const;
 
@@ -74,7 +80,8 @@ export const JOURNAL_CLI_ERROR = {
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
-  INVALID_LIST_LIMIT: "journal list limit must be a positive whole integer",
+  INVALID_LIST_LIMIT: "journal run limit must be a positive whole integer",
+  INVALID_READ_SET_EVENT_LIMIT: "journal read-set event limit must be a positive whole integer",
   INVALID_SEALED_FILTER: "journal list sealed filter is not registered",
   INVALID_TERMINAL_STATE_FILTER: "journal list terminal-state filter is not registered",
   OPEN_HYDRATION_FAILED: "journal open failed to hydrate the pull request's prior runs",
@@ -123,6 +130,11 @@ export interface JournalCliScope {
 
 export interface JournalRunCliScope extends JournalCliScope {
   readonly runToken: string;
+}
+
+export interface JournalReadSetCliScope extends JournalCliScope {
+  readonly limit?: string;
+  readonly eventLimit?: string;
 }
 
 export interface JournalListCliScope {
@@ -415,15 +427,26 @@ export function parseJournalCursor(raw: string): Result<number> {
   return Number.isSafeInteger(value) ? { ok: true, value } : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_CURSOR };
 }
 
-function parseJournalListLimit(raw: string | undefined): Result<number | undefined> {
-  if (raw === undefined) return { ok: true, value: undefined };
+function parseJournalRunLimit(raw: string | undefined): Result<number> {
+  if (raw === undefined) return { ok: true, value: JOURNAL_CLI_RUN_LIMIT.DEFAULT };
   if (!POSITIVE_INTEGER_PATTERN.test(raw)) {
     return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
   }
   const value = Number.parseInt(raw, DECIMAL_RADIX);
-  return Number.isSafeInteger(value) && value >= JOURNAL_CLI_LIST_LIMIT.MIN
+  return Number.isSafeInteger(value) && value >= JOURNAL_CLI_RUN_LIMIT.MIN
     ? { ok: true, value }
     : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
+}
+
+function parseJournalReadSetEventLimit(raw: string | undefined): Result<number> {
+  if (raw === undefined) return { ok: true, value: JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT };
+  if (!POSITIVE_INTEGER_PATTERN.test(raw)) {
+    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_READ_SET_EVENT_LIMIT };
+  }
+  const value = Number.parseInt(raw, DECIMAL_RADIX);
+  return Number.isSafeInteger(value) && value >= JOURNAL_CLI_READ_SET_EVENT_LIMIT.MIN
+    ? { ok: true, value }
+    : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_READ_SET_EVENT_LIMIT };
 }
 
 function parseJournalSealedFilter(raw: string | undefined): Result<JournalRunSealedFilter | undefined> {
@@ -493,7 +516,7 @@ export async function journalListCommand(
   if (!sealed.ok) return errorResult(sealed.error);
   const terminalState = parseJournalTerminalFilter(scope.terminalState);
   if (!terminalState.ok) return errorResult(terminalState.error);
-  const limit = parseJournalListLimit(scope.limit);
+  const limit = parseJournalRunLimit(scope.limit);
   if (!limit.ok) return errorResult(limit.error);
 
   const listScope: JournalRunListScope = {
@@ -502,7 +525,7 @@ export async function journalListCommand(
     ...(scope.type === undefined ? {} : { type: scope.type }),
     ...(sealed.value === undefined ? {} : { sealed: sealed.value }),
     ...(terminalState.value === undefined ? {} : { terminalState: terminalState.value }),
-    ...(limit.value === undefined ? {} : { limit: limit.value }),
+    limit: limit.value,
   };
   const runs = await listJournalRuns(listScope, verbOptions(deps));
   if (!runs.ok) return errorResult(runs.error);
@@ -511,12 +534,23 @@ export async function journalListCommand(
 
 /** Read every sealed journal in one branch/type scope in deterministic oldest-first order. */
 export async function journalReadSetCommand(
-  scope: JournalCliScope,
+  scope: JournalReadSetCliScope,
   deps: JournalCliDeps = {},
 ): Promise<CliCommandResult> {
+  const limit = parseJournalRunLimit(scope.limit);
+  if (!limit.ok) return errorResult(limit.error);
+  const eventLimit = parseJournalReadSetEventLimit(scope.eventLimit);
+  if (!eventLimit.ok) return errorResult(eventLimit.error);
   const context = await resolveJournalRunScope(scope, deps);
   if (!context.ok) return errorResult(context.error);
-  const runs = await readSealedJournalRunSet(context.value, verbOptions(deps));
+  const runs = await readSealedJournalRunSet(
+    {
+      ...context.value,
+      eventLimit: eventLimit.value,
+      limit: limit.value,
+    },
+    verbOptions(deps),
+  );
   if (!runs.ok) return errorResult(runs.error);
   return okResult(JSON.stringify(runs.value));
 }
