@@ -199,7 +199,7 @@ npm audit signatures
 
 ```bash
 git pull --ff-only
-pnpm build
+pnpm run build
 spx --version
 ```
 
