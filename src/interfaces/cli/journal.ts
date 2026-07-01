@@ -1,7 +1,6 @@
 import type { Command } from "commander";
 
 import {
-  JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
   journalAppendCommand,
   journalListCommand,
@@ -10,14 +9,12 @@ import {
   journalReadSetCommand,
   journalRenderCommand,
   journalSealCommand,
-  type JournalStreamBinding,
 } from "@/commands/journal/cli";
-import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { CliCommandResult, Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import type { JournalEvent } from "@/lib/agent-run-journal";
-import { createGithubPullRequestCommentClient, runGhApi } from "@/lib/github-snapshot-sink";
+
+import { createJournalStreamBinding } from "./lib/journal-stream-binding";
 
 export const JOURNAL_CLI = {
   commandName: "journal",
@@ -114,7 +111,7 @@ export const journalDomain: Domain = {
         const result = await journalAppendCommand(
           runScope(options),
           input.value,
-          streamBinding(invocation.io),
+          createJournalStreamBinding(invocation.io),
           journalDeps(),
         );
         // A successful append's result is empty — the event already reached the
@@ -184,24 +181,6 @@ export const journalDomain: Domain = {
       });
   },
 };
-
-function stdoutStreamSink(io: CliIo): JournalStreamSink {
-  return {
-    async emit(event: JournalEvent): Promise<void> {
-      io.writeStdout(`${JSON.stringify(event)}${STREAM_LINE_SEPARATOR}`);
-    },
-  };
-}
-
-/** The boundary surfaces the journal append streams through: stdout locally, the gh client under github-pr. */
-function streamBinding(io: CliIo): JournalStreamBinding {
-  const repository = process.env[JOURNAL_CLI_ENV.GITHUB_REPOSITORY] ?? "";
-  return {
-    localSink: stdoutStreamSink(io),
-    githubClient: createGithubPullRequestCommentClient({ repository, run: runGhApi }),
-    githubRepository: repository,
-  };
-}
 
 async function readStdinEventInput(): Promise<Result<unknown>> {
   const chunks: Buffer[] = [];
