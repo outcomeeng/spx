@@ -168,15 +168,15 @@ export function claudeCodeSessionStoreDir(homeDir: string): string {
   return resolve(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR);
 }
 
-const CLAUDE_PROJECT_PATH_SEPARATOR = "/";
+const CLAUDE_PROJECT_PATH_SEPARATORS = /[/\\]/g;
 const CLAUDE_PROJECT_ENCODED_SEPARATOR = "-";
 
 // Claude Code names each project directory after the session's working
-// directory with every path separator rewritten to `-`
-// (`/Users/x/repo` -> `-Users-x-repo`), so the directory name resolves the
-// working directory without opening a transcript.
+// directory with every path separator — POSIX `/` or Windows `\` — rewritten
+// to `-` (`/Users/x/repo` -> `-Users-x-repo`), so the directory name resolves
+// the working directory without opening a transcript.
 export function claudeProjectDirName(cwd: string): string {
-  return cwd.replaceAll(CLAUDE_PROJECT_PATH_SEPARATOR, CLAUDE_PROJECT_ENCODED_SEPARATOR);
+  return cwd.replace(CLAUDE_PROJECT_PATH_SEPARATORS, CLAUDE_PROJECT_ENCODED_SEPARATOR);
 }
 
 export async function discoverAgentResumeCandidates(
