@@ -41,13 +41,13 @@ export const RUNTIME_CONFIG_STATE_FIELDS = {
   HARNESS_ENVIRONMENT: "harnessEnvironment",
   ENABLED: "enabled",
   PRODUCT_DIR: "productDir",
-  RUNTIME: "runtime",
+  AGENT: "agent",
   TARGET_KIND: "targetKind",
 } as const;
 
 export const RUNTIME_CONFIG_ERROR_MESSAGES = {
-  INVALID_JSON: "not valid JSON runtime config",
-  INVALID_TOML: "not valid TOML runtime config",
+  INVALID_JSON: "not valid JSON configured-agent config",
+  INVALID_TOML: "not valid TOML configured-agent config",
   ROLLBACK_FAILED: "rollback failed",
 } as const;
 
@@ -74,7 +74,7 @@ export interface RuntimeConfigReconciliationOptions {
 }
 
 export interface RuntimeConfigFilePlan {
-  readonly runtime: Agent;
+  readonly agent: Agent;
   readonly action: RuntimeConfigAction;
   readonly format: RuntimeConfigFormat;
   readonly path: string;
@@ -103,7 +103,7 @@ export interface RuntimeConfigDependencies {
 type RuntimeConfigState = {
   readonly [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: boolean;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: string;
-  readonly [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: Agent;
+  readonly [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: Agent;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RuntimeConfigTargetKind;
 };
 
@@ -121,12 +121,12 @@ const DEFAULT_RUNTIME_CONFIG_TARGET: RuntimeConfigTarget = {
 
 const RUNTIME_CONFIG_SPECS = {
   [AGENT.CODEX]: {
-    runtime: AGENT.CODEX,
+    agent: AGENT.CODEX,
     format: RUNTIME_CONFIG_FORMAT.TOML,
     relativePath: CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
   },
   [AGENT.CLAUDE_CODE]: {
-    runtime: AGENT.CLAUDE_CODE,
+    agent: AGENT.CLAUDE_CODE,
     format: RUNTIME_CONFIG_FORMAT.JSON,
     relativePath: CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
   },
@@ -137,10 +137,12 @@ const RUNTIME_CONFIG_ORDER = [
   AGENT.CLAUDE_CODE,
 ] as const;
 
-const CODEX_RUNTIME_CONFIG_DIRECTORY = "codex";
-const CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY = "claude-code";
+const CODEX_AGENT_CONFIG_DIRECTORY = "codex";
+const CLAUDE_CODE_AGENT_CONFIG_DIRECTORY = "claude-code";
 const JSON_INDENT = 2;
 export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
+const TOML_MULTILINE_BASIC_STRING_DELIMITER = "\"\"\"";
+const TOML_MULTILINE_LITERAL_STRING_DELIMITER = "'''";
 const TOML_MANAGED_TABLE_HEADER =
   `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT}]`;
 const TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN = new RegExp(
@@ -172,14 +174,14 @@ async function planRuntimeConfigReconciliationWithDeps(
   const target = options.target ?? DEFAULT_RUNTIME_CONFIG_TARGET;
   const files: InternalRuntimeConfigFilePlan[] = [];
 
-  for (const runtime of RUNTIME_CONFIG_ORDER) {
-    const runtimeConfig = options.harnessEnvironment.agents[runtime];
-    const spec = RUNTIME_CONFIG_SPECS[runtime];
-    const path = runtimeConfigPath(options.productDir, runtime, target);
+  for (const agent of RUNTIME_CONFIG_ORDER) {
+    const agentConfig = options.harnessEnvironment.agents[agent];
+    const spec = RUNTIME_CONFIG_SPECS[agent];
+    const path = runtimeConfigPath(options.productDir, agent, target);
 
-    if (!runtimeConfig.enabled) {
+    if (!agentConfig.enabled) {
       files.push({
-        runtime,
+        agent,
         action: RUNTIME_CONFIG_ACTION.SKIP_DISABLED,
         format: spec.format,
         path,
@@ -189,7 +191,7 @@ async function planRuntimeConfigReconciliationWithDeps(
 
     const reconciled = await reconcileRuntimeConfigFile({
       productDir: options.productDir,
-      runtime,
+      agent,
       target,
       format: spec.format,
       path,
@@ -246,19 +248,19 @@ export async function reconcileRuntimeConfig(
 
 export function runtimeConfigPath(
   productDir: string,
-  runtime: Agent,
+  agent: Agent,
   target: RuntimeConfigTarget = DEFAULT_RUNTIME_CONFIG_TARGET,
 ): string {
-  const spec = RUNTIME_CONFIG_SPECS[runtime];
+  const spec = RUNTIME_CONFIG_SPECS[agent];
   if (target.kind === RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION) {
-    return join(target.stateDir, HERMETIC_RUNTIME_CONFIG_DIRECTORY, runtimeDirectory(runtime), spec.relativePath);
+    return join(target.stateDir, HERMETIC_RUNTIME_CONFIG_DIRECTORY, agentConfigDirectory(agent), spec.relativePath);
   }
   return join(productDir, spec.relativePath);
 }
 
 async function reconcileRuntimeConfigFile(options: {
   readonly productDir: string;
-  readonly runtime: Agent;
+  readonly agent: Agent;
   readonly target: RuntimeConfigTarget;
   readonly format: RuntimeConfigFormat;
   readonly path: string;
@@ -267,7 +269,7 @@ async function reconcileRuntimeConfigFile(options: {
   const current = await readOptionalRuntimeConfigFile(options.path, options.deps);
   if (!current.ok) return current;
 
-  const state = runtimeConfigState(options.productDir, options.runtime, options.target.kind);
+  const state = runtimeConfigState(options.productDir, options.agent, options.target.kind);
   const content = mergeRuntimeConfigContent(current.value, options.format, state, options.path);
   if (!content.ok) return content;
 
@@ -275,7 +277,7 @@ async function reconcileRuntimeConfigFile(options: {
     return {
       ok: true,
       value: {
-        runtime: options.runtime,
+        agent: options.agent,
         action: RUNTIME_CONFIG_ACTION.UNCHANGED,
         format: options.format,
         path: options.path,
@@ -286,7 +288,7 @@ async function reconcileRuntimeConfigFile(options: {
   return {
     ok: true,
     value: {
-      runtime: options.runtime,
+      agent: options.agent,
       action: current.value === undefined ? RUNTIME_CONFIG_ACTION.CREATE : RUNTIME_CONFIG_ACTION.UPDATE,
       format: options.format,
       path: options.path,
@@ -304,7 +306,7 @@ async function readOptionalRuntimeConfigFile(
     return { ok: true, value: await deps.fs.readFile(path, RUNTIME_CONFIG_TEXT_ENCODING) };
   } catch (error) {
     if (isFileNotFound(error)) return { ok: true, value: undefined };
-    return { ok: false, error: `failed to read runtime config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `failed to read configured-agent config ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -382,23 +384,23 @@ function parseTomlRuntimeConfig(raw: string, path: string): Result<Record<string
 
 function runtimeConfigState(
   productDir: string,
-  runtime: Agent,
+  agent: Agent,
   targetKind: RuntimeConfigTargetKind,
 ): RuntimeConfigState {
   return {
     [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
     [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-    [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: runtime,
+    [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: agent,
     [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: targetKind,
   };
 }
 
-function runtimeDirectory(runtime: Agent): string {
-  switch (runtime) {
+function agentConfigDirectory(agent: Agent): string {
+  switch (agent) {
     case AGENT.CODEX:
-      return CODEX_RUNTIME_CONFIG_DIRECTORY;
+      return CODEX_AGENT_CONFIG_DIRECTORY;
     case AGENT.CLAUDE_CODE:
-      return CLAUDE_CODE_RUNTIME_CONFIG_DIRECTORY;
+      return CLAUDE_CODE_AGENT_CONFIG_DIRECTORY;
   }
 }
 
@@ -420,7 +422,7 @@ async function writeRuntimeConfigFile(
     await deps.fs.writeFile(path, content, RUNTIME_CONFIG_TEXT_ENCODING);
     return { ok: true, value: undefined };
   } catch (error) {
-    return { ok: false, error: `failed to write runtime config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `failed to write configured-agent config ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -455,7 +457,7 @@ async function removeRuntimeConfigFile(
     await deps.fs.rm(path, { force: true });
     return { ok: true, value: undefined };
   } catch (error) {
-    return { ok: false, error: `failed to remove runtime config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `failed to remove configured-agent config ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -473,9 +475,9 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
 
   const currentLines = trimTrailingNewline(current.replaceAll("\r\n", "\n")).split("\n");
   const managedLines = trimTrailingNewline(normalizedManagedTable).split("\n");
-  const managedStart = currentLines.findIndex(isTomlManagedTableHeader);
+  const managedStart = findTopLevelTomlLine(currentLines, 0, isTomlManagedTableHeader);
   if (managedStart === -1) {
-    const inlineManagedStart = currentLines.findIndex(isTomlManagedInlineAssignment);
+    const inlineManagedStart = findTopLevelTomlLine(currentLines, 0, isTomlManagedInlineAssignment);
     if (inlineManagedStart !== -1) {
       const currentWithoutInlineAssignment = [
         ...currentLines.slice(0, inlineManagedStart),
@@ -486,7 +488,7 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
     return `${trimTrailingNewline(current)}\n\n${normalizedManagedTable}`;
   }
 
-  const managedEnd = findNextTomlTableHeader(currentLines, managedStart + 1);
+  const managedEnd = findNextTopLevelTomlTableHeader(currentLines, managedStart + 1);
   const separatorLines = trailingBlankLines(currentLines, managedStart + 1, managedEnd);
   return `${
     [
@@ -498,11 +500,76 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
   }\n`;
 }
 
-function findNextTomlTableHeader(lines: readonly string[], start: number): number {
-  for (let index = start; index < lines.length; index += 1) {
-    if (isTomlTableHeader(lines[index] ?? "")) return index;
+function findNextTopLevelTomlTableHeader(lines: readonly string[], start: number): number {
+  const index = findTopLevelTomlLine(lines, start, isTomlTableHeader);
+  return index === -1 ? lines.length : index;
+}
+
+function findTopLevelTomlLine(
+  lines: readonly string[],
+  start: number,
+  predicate: (line: string) => boolean,
+): number {
+  let multilineDelimiter: string | undefined;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (index >= start && multilineDelimiter === undefined && predicate(line)) return index;
+    multilineDelimiter = scanTomlMultilineStringDelimiter(line, multilineDelimiter);
   }
-  return lines.length;
+  return -1;
+}
+
+function scanTomlMultilineStringDelimiter(
+  line: string,
+  activeDelimiter: string | undefined,
+): string | undefined {
+  let delimiter = activeDelimiter;
+  let offset = 0;
+  while (offset < line.length) {
+    if (delimiter === undefined) {
+      const next = nextTomlMultilineStringStart(line, offset);
+      if (next === undefined) return undefined;
+      delimiter = next.delimiter;
+      offset = next.index + delimiter.length;
+      continue;
+    }
+
+    const closing = findTomlDelimiter(line, delimiter, offset);
+    if (closing === -1) return delimiter;
+    offset = closing + delimiter.length;
+    delimiter = undefined;
+  }
+  return delimiter;
+}
+
+function nextTomlMultilineStringStart(
+  line: string,
+  offset: number,
+): { readonly delimiter: string; readonly index: number } | undefined {
+  const basicIndex = findTomlDelimiter(line, TOML_MULTILINE_BASIC_STRING_DELIMITER, offset);
+  const literalIndex = findTomlDelimiter(line, TOML_MULTILINE_LITERAL_STRING_DELIMITER, offset);
+  if (basicIndex === -1 && literalIndex === -1) return undefined;
+  if (basicIndex !== -1 && (literalIndex === -1 || basicIndex < literalIndex)) {
+    return { delimiter: TOML_MULTILINE_BASIC_STRING_DELIMITER, index: basicIndex };
+  }
+  return { delimiter: TOML_MULTILINE_LITERAL_STRING_DELIMITER, index: literalIndex };
+}
+
+function findTomlDelimiter(line: string, delimiter: string, offset: number): number {
+  let index = line.indexOf(delimiter, offset);
+  while (index !== -1) {
+    if (delimiter !== TOML_MULTILINE_BASIC_STRING_DELIMITER || !isEscapedTomlDelimiter(line, index)) return index;
+    index = line.indexOf(delimiter, index + delimiter.length);
+  }
+  return -1;
+}
+
+function isEscapedTomlDelimiter(line: string, index: number): boolean {
+  let backslashCount = 0;
+  for (let cursor = index - 1; cursor >= 0 && line[cursor] === "\\"; cursor -= 1) {
+    backslashCount += 1;
+  }
+  return backslashCount % 2 === 1;
 }
 
 function trailingBlankLines(lines: readonly string[], start: number, end: number): readonly string[] {

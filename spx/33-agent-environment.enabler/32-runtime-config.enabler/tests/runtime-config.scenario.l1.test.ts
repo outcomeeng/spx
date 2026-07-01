@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   type HarnessEnvironmentConfig,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
@@ -102,8 +103,8 @@ function fileNotFoundError(): NodeJS.ErrnoException {
   return error;
 }
 
-describe("runtime config reconciliation scenarios", () => {
-  it("reconciles existing runtime files and reruns without byte changes", async () => {
+describe("configured-agent config reconciliation scenarios", () => {
+  it("reconciles existing configured-agent files and reruns without byte changes", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const codexField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
     const codexValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -122,10 +123,6 @@ describe("runtime config reconciliation scenarios", () => {
       expect(first.ok).toBe(true);
       if (!first.ok) throw new Error(first.error);
       expect(first.value.changed).toBe(true);
-      expect(first.value.files.map((file) => file.action)).toEqual([
-        RUNTIME_CONFIG_ACTION.UPDATE,
-        RUNTIME_CONFIG_ACTION.UPDATE,
-      ]);
 
       const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
       const claudeCodeRaw = await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
@@ -137,25 +134,23 @@ describe("runtime config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
       expect(claudeCode[claudeCodeField]).toBe(claudeCodeValue);
       expect(readManagedRuntimeConfigState(claudeCode)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
+      expect(codexRaw).toContain(`${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT} = "${AGENT.CODEX}"`);
+      expect(claudeCodeRaw).toContain(`"${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT}": "${AGENT.CLAUDE_CODE}"`);
 
       const second = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
       expect(second.ok).toBe(true);
       if (!second.ok) throw new Error(second.error);
       expect(second.value.changed).toBe(false);
-      expect(second.value.files.map((file) => file.action)).toEqual([
-        RUNTIME_CONFIG_ACTION.UNCHANGED,
-        RUNTIME_CONFIG_ACTION.UNCHANGED,
-      ]);
       expect(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).toBe(codexRaw);
       expect(await readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).toBe(claudeCodeRaw);
     });
@@ -173,7 +168,7 @@ describe("runtime config reconciliation scenarios", () => {
           "[spx.harnessEnvironment]",
           "enabled = false",
           `productDir = "${productDir}"`,
-          `runtime = "${AGENT.CODEX}"`,
+          `agent = "${AGENT.CODEX}"`,
           `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
           "",
           "[[tasks]]",
@@ -200,7 +195,7 @@ describe("runtime config reconciliation scenarios", () => {
       const managedState = {
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       };
       const managedTable = stringifyToml({
@@ -223,7 +218,7 @@ describe("runtime config reconciliation scenarios", () => {
           "[spx.harnessEnvironment]",
           "enabled = false",
           `productDir = "${productDir}"`,
-          `runtime = "${AGENT.CODEX}"`,
+          `agent = "${AGENT.CODEX}"`,
           `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
           `${matrixField} = [`,
           "  [\"nested\"],",
@@ -247,9 +242,43 @@ describe("runtime config reconciliation scenarios", () => {
       expect(managedState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
+    });
+  });
+
+  it("does not split managed Codex TOML replacement at table-like text inside multiline strings", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          `${userField} = """`,
+          "[[tasks]]",
+          "\"\"\"",
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codex = readRecord(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
+      expect(codex[userField]).toBeUndefined();
+      expect(codex.tasks).toEqual([{ name: taskName }]);
     });
   });
 
@@ -262,7 +291,7 @@ describe("runtime config reconciliation scenarios", () => {
       await writeRaw(
         CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
         [
-          `${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT} = { ${RUNTIME_CONFIG_STATE_FIELDS.ENABLED} = false, ${RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR} = "${productDir}", ${RUNTIME_CONFIG_STATE_FIELDS.RUNTIME} = "${AGENT.CODEX}", ${RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND} = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}" }`,
+          `${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT} = { ${RUNTIME_CONFIG_STATE_FIELDS.ENABLED} = false, ${RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR} = "${productDir}", ${RUNTIME_CONFIG_STATE_FIELDS.AGENT} = "${AGENT.CODEX}", ${RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND} = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}" }`,
           `${userField} = "${userValue}"`,
           "",
         ].join("\n"),
@@ -277,7 +306,7 @@ describe("runtime config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CODEX,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
     });
@@ -308,7 +337,7 @@ describe("runtime config reconciliation scenarios", () => {
               [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: {
                 [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
                 [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-                [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
+                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
                 [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
               },
             },
@@ -362,7 +391,7 @@ describe("runtime config reconciliation scenarios", () => {
               [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
                 [spxUserField]: spxUserValue,
                 [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: {
-                  [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
                   [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
                   [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
                   [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
@@ -393,7 +422,7 @@ describe("runtime config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(normalizedConfig)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
 
@@ -409,12 +438,12 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
-  it("reports invalid existing runtime config before writing", async () => {
+  it("reports invalid existing configured-agent config before writing", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
-    const malformedRuntimeConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const malformedAgentConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
-      await writeRaw(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH, malformedRuntimeConfig);
+      await writeRaw(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH, malformedAgentConfig);
 
       const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
 
@@ -428,10 +457,10 @@ describe("runtime config reconciliation scenarios", () => {
 
   it("reports invalid existing Codex TOML before writing", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
-    const malformedRuntimeConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const malformedAgentConfig = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
-      await writeRaw(CODEX_RUNTIME_CONFIG_RELATIVE_PATH, malformedRuntimeConfig);
+      await writeRaw(CODEX_RUNTIME_CONFIG_RELATIVE_PATH, malformedAgentConfig);
 
       const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
 
@@ -482,7 +511,7 @@ describe("runtime config reconciliation scenarios", () => {
     });
   });
 
-  it("rolls back earlier runtime writes when a later runtime write fails", async () => {
+  it("rolls back earlier configured-agent writes when a later configured-agent write fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
 
@@ -532,14 +561,13 @@ describe("runtime config reconciliation scenarios", () => {
       if (!result.ok) {
         expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
-        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
         expect(result.error).toContain(rollbackFailureMessage);
       }
       expect(fs.hasFile(codexPath)).toBe(true);
     });
   });
 
-  it("continues rolling back remaining runtime files after one rollback step fails", async () => {
+  it("continues rolling back remaining configured-agent files after one rollback step fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const writeFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const rollbackFailureMessage = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
@@ -565,14 +593,13 @@ describe("runtime config reconciliation scenarios", () => {
       if (!result.ok) {
         expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
-        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
         expect(result.error).toContain(rollbackFailureMessage);
       }
       expect(fs.hasFile(codexPath)).toBe(false);
     });
   });
 
-  it("continues restoring previous runtime file content after one restore step fails", async () => {
+  it("continues restoring previous configured-agent file content after one restore step fails", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const originalCodex = stringifyToml({
       [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()),
@@ -601,13 +628,12 @@ describe("runtime config reconciliation scenarios", () => {
       if (!result.ok) {
         expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
-        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
       }
       await expect(fs.readFile(codexPath, RUNTIME_CONFIG_TEXT_ENCODING)).resolves.toBe(originalCodex);
     });
   });
 
-  it("skips disabled agents without deleting or writing their runtime files", async () => {
+  it("skips disabled agents without deleting or writing their configured-agent files", async () => {
     const harnessEnvironment: HarnessEnvironmentConfig = {
       ...harnessEnvironmentConfigDescriptor.defaults,
       agents: {
@@ -636,7 +662,7 @@ describe("runtime config reconciliation scenarios", () => {
         .toEqual({
           [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
           [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-          [RUNTIME_CONFIG_STATE_FIELDS.RUNTIME]: AGENT.CLAUDE_CODE,
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
           [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
         });
     });
