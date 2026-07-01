@@ -4,12 +4,12 @@ This coordination note preserves the spec-domain repair before durable specs and
 
 ## Ownership target
 
-`spx/31-spec-domain.enabler` should consume the spec-tree logical foundation and feed interfaces:
+`spx/31-spec-domain.enabler` should consume the spec-tree logical foundation and expose cross-library use-case operations that the surface layer (`spx/60-surfaces.enabler`, see root `spx/PLAN.md` Program C) wraps:
 
-- CLI command behavior
-- web API and MCP use-cases when those surfaces exist
-- terminal, JSON, and UI projection rendering
-- diagnostics and exit behavior
+- application use-cases as calls into the foundation (e.g. the status rollup that composes spec-tree × verification × test)
+- web API and MCP use-cases when those surfaces exist, exposed as the same operations, not per-surface reimplementations
+- projection production — the projection object a surface renders, not the terminal/JSON/UI formatting itself
+- diagnostics as structured results the surface reports
 
 It should not own:
 
@@ -19,31 +19,32 @@ It should not own:
 - filesystem metadata schema
 - language dependency discovery
 - executable evidence semantics
+- CLI command binding, verbs, flags, help text, or terminal/JSON rendering — these live in `spx/60-surfaces.enabler/21-cli-surface.enabler` per root `spx/PLAN.md` Program C
 
 ## Current node-status disposition
 
 `spx/31-spec-domain.enabler/21-node-status.enabler` is a migration holding area. Its business logic should move to `spx/23-spec-tree.enabler` and its filesystem status-file behavior should move under the materialization backend.
 
-Spec-domain may keep a status command/use-case node only after it is reduced to:
+Spec-domain may keep a status use-case node only after it is reduced to:
 
 - call the spec-tree foundation
-- pass interface options
-- render projections
-- report diagnostics
+- accept resolved options from the surface
+- produce projections (the surface renders them)
+- return structured diagnostics
 
 ## Interface model
 
-All interfaces should sit above spec-domain use-cases:
+The surface layer sits above spec-domain use-cases:
 
 ```text
-CLI / Web API / MCP / UI
+spx/60-surfaces.enabler        (CLI / Web API / MCP / UI wrappers)
         ↓
-spx/31-spec-domain.enabler
+spx/31-spec-domain.enabler     (cross-library use-cases)
         ↓
-spx/23-spec-tree.enabler
+spx/23-spec-tree.enabler       (logical foundation)
 ```
 
-No interface should shell out to another interface. A web frontend calls an API/use-case boundary; it does not run the CLI.
+No surface shells out to another surface. A web frontend calls the use-case boundary; it does not run the CLI.
 
 ## Next steps
 
@@ -55,6 +56,8 @@ No interface should shell out to another interface. A web frontend calls an API/
 ---
 
 ## Existing plan: Spec-domain command refactor
+
+> Transitional: the section below describes `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` as it stands today, owning `spx spec` command binding, flags, and terminal rendering — its completed (`[x]`) items are the current state, not the target. Root `spx/PLAN.md` Program C supersedes that ownership: migration step 4 moves this CLI wrapper into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, leaving spec-domain the use-case layer per the "Ownership target" above.
 
 ## Purpose
 
