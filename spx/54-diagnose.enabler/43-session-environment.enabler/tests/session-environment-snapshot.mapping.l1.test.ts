@@ -27,10 +27,21 @@ describe("the session-environment snapshot mapping derives the current worktree 
       expectedBucket: VERDICT_BUCKET.DEGRADED,
     },
     {
-      name: "running current worktree without identity",
+      name: "running current worktree with claim identity",
       status: OCCUPANCY_STATUS.RUNNING,
       hookPresent: true,
       sessionIdentity: false,
+      expectedWorktreeClaimed: true,
+      expectedSessionIdentity: true,
+      expectedVerdict: SESSION_ENVIRONMENT_VERDICT.WORKING,
+      expectedBucket: VERDICT_BUCKET.HEALTHY,
+    },
+    {
+      name: "running current worktree without claim identity",
+      status: OCCUPANCY_STATUS.RUNNING,
+      hookPresent: true,
+      sessionIdentity: false,
+      omitClaimSessionId: true,
       expectedWorktreeClaimed: true,
       expectedVerdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
       expectedBucket: VERDICT_BUCKET.UNKNOWN,
@@ -55,7 +66,9 @@ describe("the session-environment snapshot mapping derives the current worktree 
           root: worktreeRoot,
           name: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName()),
           status: testCase.status,
-          sessionId: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
+          ...(testCase.omitClaimSessionId ? {} : {
+            sessionId: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
+          }),
         },
       ],
       currentWorktreeRoot: worktreeRoot,
@@ -70,7 +83,7 @@ describe("the session-environment snapshot mapping derives the current worktree 
     ).toEqual({
       errored: false,
       hookPresent: testCase.hookPresent,
-      sessionIdentity: testCase.sessionIdentity,
+      sessionIdentity: testCase.expectedSessionIdentity ?? testCase.sessionIdentity,
       worktreeClaimed: testCase.expectedWorktreeClaimed,
     });
     const record = classifySessionEnvironment(

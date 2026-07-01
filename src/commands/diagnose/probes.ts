@@ -224,11 +224,12 @@ export function sessionEnvironmentReadingFromSnapshot(
   environment: SessionEnvironmentSnapshotInput,
 ): SessionEnvironmentReading {
   const currentWorktree = snapshot.worktrees.find((worktree) => worktree.root === snapshot.currentWorktreeRoot);
+  const worktreeClaimed = currentWorktree?.status === OCCUPANCY_STATUS.RUNNING;
   return {
     errored: snapshot.errored,
     hookPresent: environment.hookPresent,
-    sessionIdentity: environment.sessionIdentity,
-    worktreeClaimed: currentWorktree?.status === OCCUPANCY_STATUS.RUNNING,
+    sessionIdentity: environment.sessionIdentity || (worktreeClaimed && currentWorktree.sessionId !== undefined),
+    worktreeClaimed,
   };
 }
 
