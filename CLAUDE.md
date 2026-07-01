@@ -166,7 +166,20 @@ Before publishing or tagging a release:
 
 ### Releasing CLI-surface changes (interim — remove when the `/release` skill ships)
 
-When a changeset reaching `main` adds a new CLI subcommand, verb, or option, it is not done at merge: drive a release, autonomous up to the publish gate — on `main` synced to `origin/main` via `/sync-base` (so the gate and bump see the merged state), `pnpm version patch --no-git-tag-version` (unless directed otherwise; updates `package.json` only), run `pnpm run publish:check`, use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`, tag `vX.Y.Z` with `git tag vX.Y.Z`, then push both refs with `git push origin main && git push origin vX.Y.Z` (fast-forward only for `main`; never `--force`). Then pause: ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment (the human checkpoint the environment gate exists for); after they approve, verify with `npm view @outcomeeng/spx version` that the registry shows the new version and run `npm audit signatures` for provenance.
+When a changeset reaching `main` adds a new CLI subcommand, verb, or option, merge completes the PR and then release work begins: drive a release, autonomous up to the publish gate.
+
+Agent release sequence:
+
+1. On `main` synced to `origin/main` via `/sync-base`, run `pnpm version patch --no-git-tag-version` unless directed otherwise. This updates `package.json` only.
+2. Run `pnpm run publish:check`.
+3. Use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`.
+4. Tag `vX.Y.Z` with `git tag vX.Y.Z`.
+5. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
+6. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for.
+7. After approval, verify the registry with `npm view @outcomeeng/spx version` and provenance with `npm audit signatures`.
+8. Complete the operator-visible CLI update from the primary checkout: run `git pull --ff-only`, run `pnpm build`, and verify `spx --version` reports `X.Y.Z`.
+
+Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package-manager update commands during release close-out.
 
 ### Release request protocol
 
