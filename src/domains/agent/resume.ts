@@ -298,7 +298,7 @@ async function recentStoreFiles(
   });
   return stats
     .filter((file): file is AgentStoreFile => file !== null)
-    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs);
+    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
 }
 
 // Claude Code stores each session's transcript directly under its
@@ -314,16 +314,13 @@ async function claudeTranscriptFiles(
   const projectDirs = (await fs.readDir(root).catch(() => []))
     .filter((entry) => entry.isDirectory && dirAccepts(entry.name))
     .map((entry) => resolve(root, entry.name));
-  const files: string[] = [];
-  for (const dir of projectDirs) {
+  const perDir = await mapWithConcurrency(projectDirs, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (dir) => {
     const entries = await fs.readDir(dir).catch(() => []);
-    for (const entry of entries) {
-      if (entry.isFile && entry.name.endsWith(AGENT_SESSION_STORE.JSONL_EXTENSION)) {
-        files.push(resolve(dir, entry.name));
-      }
-    }
-  }
-  return files;
+    return entries
+      .filter((entry) => entry.isFile && entry.name.endsWith(AGENT_SESSION_STORE.JSONL_EXTENSION))
+      .map((entry) => resolve(dir, entry.name));
+  });
+  return perDir.flat();
 }
 
 // Scans candidate files newest first, reading only each transcript's metadata
