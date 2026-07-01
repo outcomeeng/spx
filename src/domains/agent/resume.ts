@@ -238,7 +238,8 @@ async function resolveAgentResumeScopeContext(
   const projectPrefix = claudeProjectDirName(invocationRoot);
   return {
     match: (core) => isPathInsideOrEqual(invocationRoot, core.cwd),
-    claudeDirAccepts: (dirName) => dirName.startsWith(projectPrefix),
+    claudeDirAccepts: (dirName) =>
+      dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`),
   };
 }
 
