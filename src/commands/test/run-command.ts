@@ -554,11 +554,13 @@ export async function runTestsCommand(
       throw new Error(CHANGED_TEST_STAGED_SELECTION_MISSING_ERROR);
     }
     selectedTargets = mergeTargetSelections(options.targets, changedSelection.targets) ?? changedSelection.targets;
+    const dirtyTargets = mergeTargetSelections(options.targets, changedSelection.dirtyTargets)
+      ?? changedSelection.dirtyTargets;
     await requireWorktreeMatchesIndexForStagedRun(
       options.productDir,
       changedGit,
       changedSelection,
-      selectedTargets,
+      dirtyTargets,
       passingScope,
     );
   }

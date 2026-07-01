@@ -443,7 +443,7 @@ describe("spx test dispatch over the language registry", () => {
     });
   });
 
-  it("runs staged changed selection when an untracked sibling file is outside the selected test file", async () => {
+  it("rejects staged path-selected changed sets when an untracked node test input is dirty", async () => {
     const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
     const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
     const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
@@ -456,26 +456,27 @@ describe("spx test dispatch over the language registry", () => {
     await withTestingTempProductDir(async (productDir) => {
       await writeTestFileFixture(productDir, testPath);
 
-      const run = await runTestsCommand(
-        {
-          productDir,
-          passing: false,
-          changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-        },
-        {
-          registry: testingRegistry,
-          runnerDepsFor: () => runner,
-          relatedDepsFor: () => ({
-            isLanguagePresent: () => true,
-            readFile: async () => "",
-            runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-          }),
-          git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
-        },
-      );
+      await expect(
+        runTestsCommand(
+          {
+            productDir,
+            passing: false,
+            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+          },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+            relatedDepsFor: () => ({
+              isLanguagePresent: () => true,
+              readFile: async () => "",
+              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+            }),
+            git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
+          },
+        ),
+      ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
 
-      expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
-      expect(invokedArgs(runner)).toContain(testPath);
+      expect(invokedArgs(runner)).toEqual([]);
     });
   });
 
