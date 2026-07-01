@@ -1,16 +1,20 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
+export { isPathInsideOrEqual } from "@/domains/agent/resume";
+
 import {
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_ROW_TYPE,
   AGENT_SESSION_STORE,
   CODEX_SESSION_ORIGINATOR,
+  CODEX_SESSION_THREAD_SOURCE,
 } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   type AgentSessionDirEntry,
   type AgentSessionFileSystem,
+  claudeProjectDirName,
 } from "@/domains/agent/resume";
 import {
   arbitraryAgentResumeNowMs,
@@ -26,6 +30,8 @@ export interface TranscriptInput {
   readonly timestamp: string;
   readonly branch?: string;
   readonly originator?: string;
+  readonly threadSource?: string;
+  readonly padToBytes?: number;
 }
 
 export class ImmediateExit extends Error {
@@ -53,6 +59,7 @@ const CANDIDATE_SAMPLE = {
 export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
   private readonly files = new Map<string, MemoryFile>();
   private readonly readCounts = new Map<string, number>();
+  private readonly headReadBytes = new Map<string, number>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -60,6 +67,10 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
 
   readCount(path: string): number {
     return this.readCounts.get(resolve(path)) ?? 0;
+  }
+
+  maxHeadReadBytes(path: string): number {
+    return this.headReadBytes.get(resolve(path)) ?? 0;
   }
 
   async readDir(path: string): Promise<readonly AgentSessionDirEntry[]> {
@@ -91,6 +102,16 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
     return file.content;
   }
 
+  async readHead(path: string, maxBytes: number): Promise<string> {
+    const resolved = resolve(path);
+    this.headReadBytes.set(resolved, Math.max(this.maxHeadReadBytes(resolved), maxBytes));
+    const file = this.files.get(resolved);
+    if (file === undefined) {
+      throw new Error(`missing file: ${path}`);
+    }
+    return Buffer.from(file.content, "utf8").subarray(0, maxBytes).toString("utf8");
+  }
+
   async stat(path: string): Promise<{ readonly mtimeMs: number }> {
     const file = this.files.get(resolve(path));
     if (file === undefined) {
@@ -100,16 +121,36 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
   }
 }
 
+const TRANSCRIPT_PAD_FILLER = "x";
+
+function withTranscriptPadding(head: string, padToBytes: number | undefined): string {
+  if (padToBytes === undefined) {
+    return head;
+  }
+  const fillerLength = Math.max(0, padToBytes - head.length - 1);
+  return `${head}\n${TRANSCRIPT_PAD_FILLER.repeat(fillerLength)}`;
+}
+
 export function codexTranscript(input: TranscriptInput): string {
-  return JSON.stringify({
+  const payload: Record<string, unknown> = {
+    [AGENT_SESSION_JSON_FIELDS.SESSION_ID]: input.sessionId,
+    [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
+    [AGENT_SESSION_JSON_FIELDS.ORIGINATOR]: input.originator ?? CODEX_SESSION_ORIGINATOR.TUI,
+    [AGENT_SESSION_JSON_FIELDS.GIT]: { [AGENT_SESSION_JSON_FIELDS.BRANCH]: input.branch ?? null },
+  };
+  if (input.threadSource !== undefined) {
+    payload[AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE] = input.threadSource;
+  }
+  const meta = JSON.stringify({
     [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
     [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META,
-    [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
-      [AGENT_SESSION_JSON_FIELDS.SESSION_ID]: input.sessionId,
-      [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
-      [AGENT_SESSION_JSON_FIELDS.ORIGINATOR]: input.originator ?? CODEX_SESSION_ORIGINATOR.TUI,
-    },
+    [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: payload,
   });
+  return withTranscriptPadding(meta, input.padToBytes);
+}
+
+export function codexSubagentTranscript(input: TranscriptInput): string {
+  return codexTranscript({ ...input, threadSource: CODEX_SESSION_THREAD_SOURCE.SUBAGENT });
 }
 
 export function codexTranscriptPath(homeDir: string, fileName: string): string {
@@ -125,12 +166,34 @@ export function codexTranscriptPath(homeDir: string, fileName: string): string {
 }
 
 export function claudeCodeTranscript(input: TranscriptInput): string {
-  return JSON.stringify({
+  const row = JSON.stringify({
     [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
     [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL]: input.sessionId,
     [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
     [AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]: input.branch ?? null,
   });
+  return withTranscriptPadding(row, input.padToBytes);
+}
+
+export function claudeProjectTranscriptPath(homeDir: string, cwd: string, fileName: string): string {
+  return join(
+    homeDir,
+    AGENT_SESSION_STORE.CLAUDE_DIR,
+    AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+    claudeProjectDirName(cwd),
+    fileName,
+  );
+}
+
+export function claudeSubagentTranscriptPath(homeDir: string, cwd: string, fileName: string): string {
+  return join(
+    homeDir,
+    AGENT_SESSION_STORE.CLAUDE_DIR,
+    AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+    claudeProjectDirName(cwd),
+    AGENT_SESSION_STORE.CLAUDE_SUBAGENTS_DIR,
+    fileName,
+  );
 }
 
 export function agentResumeCandidate(overrides: Partial<AgentResumeCandidate> = {}): AgentResumeCandidate {
@@ -152,9 +215,4 @@ export function agentResumeCandidate(overrides: Partial<AgentResumeCandidate> = 
     branch: null,
     ...overrides,
   };
-}
-
-export function isPathInsideOrEqual(parent: string, child: string): boolean {
-  const rel = relative(resolve(parent), resolve(child));
-  return rel.length === 0 || (!rel.startsWith("..") && rel !== ".." && !rel.startsWith(`..${sep}`));
 }

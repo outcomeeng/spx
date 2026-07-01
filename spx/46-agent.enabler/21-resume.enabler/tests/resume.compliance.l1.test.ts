@@ -4,15 +4,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT_RESUME_LIMITS,
-  AGENT_RESUME_RECENT_WINDOW_MS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
   CODEX_SESSION_ORIGINATOR,
 } from "@/domains/agent/protocol";
-import { claudeCodeSessionStoreDir, codexSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import {
-  arbitraryAgentResumeExtraCandidateCount,
+  claudeCodeSessionStoreDir,
+  codexSessionStoreDir,
+  discoverAgentResumeCandidates,
+  worktreeResumeScope,
+} from "@/domains/agent/resume";
+import {
   arbitraryAgentResumeNowMs,
+  arbitraryAgentResumeOverCapCount,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
@@ -20,269 +24,248 @@ import {
 } from "@testing/generators/agent/resume";
 import {
   claudeCodeTranscript,
+  claudeProjectTranscriptPath,
+  claudeSubagentTranscriptPath,
+  codexSubagentTranscript,
   codexTranscript,
   codexTranscriptPath,
   isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 
-describe("agent resume recency and display compliance", () => {
-  it("sorts newest first, limits candidates to recent sessions, and caps displayed candidates", async () => {
+function jsonlName(sessionId: string): string {
+  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
+
+function worktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string | null> {
+  return async (candidateCwd) => (isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null);
+}
+
+describe("agent resume per-agent display cap compliance", () => {
+  it("keeps only the newest sessions per agent within the active scope, newest first", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
-    const sessionTimestamp = new Date(nowMs).toISOString();
-    const oldSessionOffsetMs = AGENT_RESUME_RECENT_WINDOW_MS + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND;
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 2);
-    const candidateCount = AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES
-      + sampleAgentResumeValue(arbitraryAgentResumeExtraCandidateCount());
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 2);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
+    const codexCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 4);
+    const claudeCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 5);
+    const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
 
-    for (let index = 0; index < candidateCount; index += 1) {
-      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), index);
+    const codexIds: string[] = [];
+    for (let index = 0; index < codexCount; index += 1) {
+      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10 + index);
+      codexIds.push(sessionId);
       fs.writeFile(
-        codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-        codexTranscript({ sessionId, cwd, timestamp: sessionTimestamp }),
+        codexTranscriptPath(homeDir, jsonlName(sessionId)),
+        codexTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
         nowMs - index,
       );
     }
-    const oldSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), candidateCount);
-    const futureSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), candidateCount + 1);
-    const oldSessionPath = join(
-      homeDir,
-      AGENT_SESSION_STORE.CLAUDE_DIR,
-      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
-      `${oldSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-    );
-    const futureSessionPath = join(
-      homeDir,
-      AGENT_SESSION_STORE.CLAUDE_DIR,
-      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
-      `${futureSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-    );
-    fs.writeFile(
-      oldSessionPath,
-      claudeCodeTranscript({ sessionId: oldSessionId, cwd, timestamp: sessionTimestamp }),
-      nowMs - oldSessionOffsetMs,
-    );
-    fs.writeFile(
-      futureSessionPath,
-      claudeCodeTranscript({ sessionId: futureSessionId, cwd, timestamp: sessionTimestamp }),
-      nowMs + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
-    );
+    const claudeIds: string[] = [];
+    for (let index = 0; index < claudeCount; index += 1) {
+      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 40 + index);
+      claudeIds.push(sessionId);
+      fs.writeFile(
+        claudeProjectTranscriptPath(homeDir, cwd, jsonlName(sessionId)),
+        claudeCodeTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+        nowMs - index,
+      );
+    }
 
     const candidates = await discoverAgentResumeCandidates({
       invocationDir: cwd,
       homeDir,
       nowMs,
+      scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: async (candidateCwd) =>
-        isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
     });
 
-    expect(candidates).toHaveLength(AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES);
+    const codexResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX);
+    const claudeResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE);
+    expect(codexResult.map((candidate) => candidate.sessionId)).toEqual(codexIds.slice(0, cap));
+    expect(claudeResult.map((candidate) => candidate.sessionId)).toEqual(claudeIds.slice(0, cap));
     expect(candidates.map((candidate) => candidate.modifiedAtMs)).toEqual(
       [...candidates].map((candidate) => candidate.modifiedAtMs).sort((left, right) => right - left),
     );
-    expect(candidates.map((candidate) => candidate.sessionId)).not.toContain(oldSessionId);
-    expect(candidates.map((candidate) => candidate.sessionId)).not.toContain(futureSessionId);
-    expect(fs.readCount(oldSessionPath)).toBe(0);
-    expect(fs.readCount(futureSessionPath)).toBe(0);
   });
 });
 
-describe("agent resume root-resolution compliance", () => {
-  it("uses the latest Codex cwd row when resolving a candidate worktree", async () => {
+describe("agent resume scope-reference resolution compliance", () => {
+  it("resolves the invocation worktree root once rather than once per candidate", async () => {
     const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 40);
-    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 42);
-    const originalWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 43);
-    const currentWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 44);
-    const originalCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(originalWorktreeRoot), 45);
-    const currentCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(currentWorktreeRoot), 46);
-    const originalTimestamp = new Date(nowMs - AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND).toISOString();
-    const currentTimestamp = new Date(nowMs).toISOString();
-    fs.writeFile(
-      codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-      [
-        codexTranscript({ sessionId, cwd: originalCwd, timestamp: originalTimestamp }),
-        codexTranscript({ sessionId, cwd: currentCwd, timestamp: currentTimestamp }),
-      ].join("\n"),
-      nowMs,
-    );
-
-    const candidates = await discoverAgentResumeCandidates({
-      invocationDir: currentCwd,
-      homeDir,
-      nowMs,
-      fs,
-      resolveWorktreeRoot: async (candidateCwd) =>
-        isPathInsideOrEqual(currentWorktreeRoot, candidateCwd) ? currentWorktreeRoot : null,
-    });
-
-    expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId, candidate.cwd])).toEqual([
-      [AGENT_SESSION_KIND.CODEX, sessionId, currentCwd],
-    ]);
-  });
-
-  it("uses the latest Claude Code cwd row when resolving a candidate worktree", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 20);
-    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 21);
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 22);
-    const originalWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 23);
-    const currentWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 24);
-    const originalCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(originalWorktreeRoot), 25);
-    const currentCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(currentWorktreeRoot), 26);
-    const originalTimestamp = new Date(nowMs - AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND).toISOString();
-    const currentTimestamp = new Date(nowMs).toISOString();
-    const transcriptPath = join(
-      homeDir,
-      AGENT_SESSION_STORE.CLAUDE_DIR,
-      AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
-      `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-    );
-    fs.writeFile(
-      transcriptPath,
-      [
-        claudeCodeTranscript({ sessionId, cwd: originalCwd, timestamp: originalTimestamp }),
-        claudeCodeTranscript({ sessionId, cwd: currentCwd, timestamp: currentTimestamp }),
-      ].join("\n"),
-      nowMs,
-    );
-
-    const candidates = await discoverAgentResumeCandidates({
-      invocationDir: currentCwd,
-      homeDir,
-      nowMs,
-      fs,
-      resolveWorktreeRoot: async (candidateCwd) =>
-        isPathInsideOrEqual(currentWorktreeRoot, candidateCwd) ? currentWorktreeRoot : null,
-    });
-
-    expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId, candidate.cwd])).toEqual([
-      [AGENT_SESSION_KIND.CLAUDE_CODE, sessionId, currentCwd],
-    ]);
-  });
-
-  it("resolves candidate worktree roots with bounded concurrency while preserving newest-first matches", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
-    const sessionTimestamp = new Date(nowMs).toISOString();
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 6);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 7);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 8);
-    const candidateCount = AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY
-      + sampleAgentResumeValue(arbitraryAgentResumeExtraCandidateCount(), 9);
-    let activeResolutions = 0;
-    let maxActiveResolutions = 0;
-    let releaseResolution: (() => void) | null = null;
-    const resolutionBarrier = new Promise<void>((resolveBarrier) => {
-      releaseResolution = resolveBarrier;
-    });
-
-    for (let index = 0; index < candidateCount; index += 1) {
-      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), index + 10);
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 70);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 71);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 72);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 73);
+    const sessionCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 74);
+    for (let index = 0; index < sessionCount; index += 1) {
+      const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 80 + index);
       fs.writeFile(
-        codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-        codexTranscript({ sessionId, cwd, timestamp: sessionTimestamp }),
+        codexTranscriptPath(homeDir, jsonlName(sessionId)),
+        codexTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
         nowMs - index,
       );
     }
+    let resolveCallCount = 0;
 
-    const candidates = await discoverAgentResumeCandidates({
-      invocationDir: worktreeRoot,
+    await discoverAgentResumeCandidates({
+      invocationDir: cwd,
       homeDir,
       nowMs,
+      scope: worktreeResumeScope(),
       fs,
       resolveWorktreeRoot: async (candidateCwd) => {
-        if (candidateCwd === worktreeRoot) {
-          return worktreeRoot;
-        }
-        activeResolutions += 1;
-        maxActiveResolutions = Math.max(maxActiveResolutions, activeResolutions);
-        if (activeResolutions === AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY && releaseResolution !== null) {
-          releaseResolution();
-        }
-        await resolutionBarrier;
-        activeResolutions -= 1;
+        resolveCallCount += 1;
         return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null;
       },
     });
 
-    expect(candidates).toHaveLength(Math.min(candidateCount, AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES));
-    expect(candidates.map((candidate) => candidate.modifiedAtMs)).toEqual(
-      [...candidates].map((candidate) => candidate.modifiedAtMs).sort((left, right) => right - left),
+    expect(resolveCallCount).toBe(1);
+  });
+});
+
+describe("agent resume bounded-read compliance", () => {
+  it("identifies a candidate from a bounded metadata head without reading the whole transcript", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 90);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 91);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 92);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 93);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 94);
+    const transcriptPath = codexTranscriptPath(homeDir, jsonlName(sessionId));
+    const oversizeBytes = AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES * 2;
+    fs.writeFile(
+      transcriptPath,
+      codexTranscript({ sessionId, cwd, timestamp: new Date(nowMs).toISOString(), padToBytes: oversizeBytes }),
+      nowMs,
     );
-    expect(maxActiveResolutions).toBe(AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY);
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
+    expect(fs.readCount(transcriptPath)).toBe(0);
+    expect(fs.maxHeadReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES);
+  });
+});
+
+describe("agent resume deduplication compliance", () => {
+  it("collapses sessions that share one session id to the most recently modified source", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 110);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 111);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 112);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 113);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 114);
+    const rolloutCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 115);
+    let newestMtimeMs = 0;
+    for (let index = 0; index < rolloutCount; index += 1) {
+      const rolloutId = sampleAgentResumeValue(arbitraryAgentSessionId(), 120 + index);
+      const mtimeMs = nowMs - index;
+      newestMtimeMs = Math.max(newestMtimeMs, mtimeMs);
+      fs.writeFile(
+        codexTranscriptPath(homeDir, jsonlName(rolloutId)),
+        codexTranscript({ sessionId, cwd, timestamp: new Date(mtimeMs).toISOString() }),
+        mtimeMs,
+      );
+    }
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => [candidate.sessionId, candidate.modifiedAtMs])).toEqual([
+      [sessionId, newestMtimeMs],
+    ]);
+  });
+});
+
+describe("agent resume subagent-exclusion compliance", () => {
+  it("excludes non-interactive exec and subagent-thread Codex transcripts", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 140);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 141);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 142);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 143);
+    const interactiveId = sampleAgentResumeValue(arbitraryAgentSessionId(), 144);
+    const execId = sampleAgentResumeValue(arbitraryAgentSessionId(), 145);
+    const subagentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 146);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(interactiveId)),
+      codexTranscript({ sessionId: interactiveId, cwd, timestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(execId)),
+      codexTranscript({ sessionId: execId, cwd, timestamp, originator: CODEX_SESSION_ORIGINATOR.EXEC }),
+      nowMs - 1,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(subagentId)),
+      codexSubagentTranscript({ sessionId: subagentId, cwd, timestamp }),
+      nowMs - 2,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([interactiveId]);
+  });
+
+  it("excludes Claude Code subagent transcripts from resume candidates", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 160);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 161);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 162);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 163);
+    const topLevelId = sampleAgentResumeValue(arbitraryAgentSessionId(), 164);
+    const subagentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 165);
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwd, jsonlName(topLevelId)),
+      claudeCodeTranscript({ sessionId: topLevelId, cwd, timestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      claudeSubagentTranscriptPath(homeDir, cwd, jsonlName(subagentId)),
+      claudeCodeTranscript({ sessionId: subagentId, cwd, timestamp }),
+      nowMs - 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([topLevelId]);
   });
 });
 
 describe("agent resume store path compliance", () => {
-  it("excludes non-interactive Codex exec transcripts from interactive resume candidates", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 50);
-    const sessionTimestamp = new Date(nowMs).toISOString();
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 51);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 52);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 53);
-    const interactiveSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 54);
-    const execSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 55);
-    fs.writeFile(
-      codexTranscriptPath(homeDir, `${interactiveSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-      codexTranscript({ sessionId: interactiveSessionId, cwd, timestamp: sessionTimestamp }),
-      nowMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, `${execSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-      codexTranscript({
-        sessionId: execSessionId,
-        cwd,
-        timestamp: sessionTimestamp,
-        originator: CODEX_SESSION_ORIGINATOR.EXEC,
-      }),
-      nowMs + 1,
-    );
-
-    const candidates = await discoverAgentResumeCandidates({
-      invocationDir: cwd,
-      homeDir,
-      nowMs: nowMs + AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
-      fs,
-      resolveWorktreeRoot: async (candidateCwd) =>
-        isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
-    });
-
-    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([interactiveSessionId]);
-  });
-
-  it("includes Codex VS Code transcripts as interactive resume candidates", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 60);
-    const sessionTimestamp = new Date(nowMs).toISOString();
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 61);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 62);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 63);
-    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 64);
-    fs.writeFile(
-      codexTranscriptPath(homeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-      codexTranscript({ sessionId, cwd, timestamp: sessionTimestamp, originator: CODEX_SESSION_ORIGINATOR.VSCODE }),
-      nowMs,
-    );
-
-    const candidates = await discoverAgentResumeCandidates({
-      invocationDir: cwd,
-      homeDir,
-      nowMs,
-      fs,
-      resolveWorktreeRoot: async (candidateCwd) =>
-        isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
-    });
-
-    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
-  });
-
   it("reads Codex and Claude Code candidates from their default agent session stores", () => {
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
 

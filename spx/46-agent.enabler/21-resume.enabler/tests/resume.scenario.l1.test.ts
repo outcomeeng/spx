@@ -1,12 +1,12 @@
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
-import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
+  branchResumeScope,
   buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
+  worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { launchAgentResume } from "@/interfaces/cli/agent/resume/launch-agent-resume";
@@ -15,6 +15,7 @@ import { FOREGROUND_LAUNCH_STDIO } from "@/interfaces/cli/foreground-launch";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
+  arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
   arbitraryAgentSessionCwd,
@@ -26,6 +27,7 @@ import { renderAgentResumePickerView } from "@testing/harnesses/agent/picker";
 import {
   agentResumeCandidate,
   claudeCodeTranscript,
+  claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
   ImmediateExit,
@@ -33,6 +35,10 @@ import {
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
+
+function jsonlName(sessionId: string): string {
+  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
 
 describe("agent resume discovery scenarios", () => {
   it("includes sessions recorded inside the invocation worktree and excludes sibling worktrees", async () => {
@@ -49,20 +55,19 @@ describe("agent resume discovery scenarios", () => {
     const codexCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 7);
     const claudeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 8);
     const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 9);
-    const claudeSourceFileName = `${claudeSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
 
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${codexSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
       codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp: sessionTimestamp }),
       nowMs,
     );
     fs.writeFile(
-      join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR, claudeSourceFileName),
+      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
       claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp: sessionTimestamp }),
-      nowMs - AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
+      nowMs - 1,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${siblingSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, jsonlName(siblingSessionId)),
       codexTranscript({ sessionId: siblingSessionId, cwd: siblingCwd, timestamp: sessionTimestamp }),
       nowMs,
     );
@@ -71,6 +76,7 @@ describe("agent resume discovery scenarios", () => {
       invocationDir,
       homeDir,
       nowMs,
+      scope: worktreeResumeScope(),
       fs,
       resolveWorktreeRoot: async (cwd) => {
         if (isPathInsideOrEqual(worktreeRoot, cwd)) return worktreeRoot;
@@ -85,14 +91,57 @@ describe("agent resume discovery scenarios", () => {
     ]);
   });
 
+  it("includes sessions started on the named branch across worktrees and excludes other branches", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 30);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 31);
+    const worktreeRootA = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 32);
+    const worktreeRootB = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 33);
+    const invocationDir = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRootA), 34);
+    const cwdA = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRootA), 35);
+    const cwdB = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRootB), 36);
+    const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 37);
+    const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 38);
+    const codexOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 39);
+    const claudeOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 40);
+    const codexOtherBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
+
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(codexOnBranch)),
+      codexTranscript({ sessionId: codexOnBranch, cwd: cwdA, timestamp, branch: targetBranch }),
+      nowMs,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwdB, jsonlName(claudeOnBranch)),
+      claudeCodeTranscript({ sessionId: claudeOnBranch, cwd: cwdB, timestamp, branch: targetBranch }),
+      nowMs - 1,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(codexOtherBranch)),
+      codexTranscript({ sessionId: codexOtherBranch, cwd: cwdA, timestamp, branch: otherBranch }),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir,
+      homeDir,
+      nowMs,
+      scope: branchResumeScope(targetBranch),
+      fs,
+      resolveWorktreeRoot: async () => worktreeRootA,
+    });
+
+    expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(
+      new Set([codexOnBranch, claudeOnBranch]),
+    );
+  });
+
   it("lets the interactive picker choose a candidate and launches it through the agent command", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 10);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 13);
-    const sourcePath = codexTranscriptPath(
-      homeDir,
-      `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
-    );
+    const sourcePath = codexTranscriptPath(homeDir, jsonlName(sessionId));
     const chosen = agentResumeCandidate({
       cwd: sampleAgentResumeValue(
         arbitraryAgentSessionCwd(sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 11)),
