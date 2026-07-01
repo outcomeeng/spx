@@ -22,6 +22,8 @@ The plugin-side integration design is governed in `github.com/outcomeeng/plugins
 
 `spx/12-agent-harness.pdr.md` distinguishes configured agents from agent sessions. Align `spx/15-worktree-management.pdr.md`, worktree occupancy specs, command text, and claim records so the worktree holder vocabulary names the holder session identity the claim records, rather than treating the worktree claim itself as an agent.
 
+`src/domains/worktree/controlling-process.ts`, `src/domains/worktree/process-table.ts`, `spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md`, `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md`, and their tests still use `AGENT_RUNTIME` / agent-runtime wording for controlling-process detection. The worktree identity slice reconciles those names to the configured-agent and agent-session vocabulary in `spx/12-agent-harness.pdr.md`.
+
 ## Harness governance
 
 `testing/harnesses/worktree/harness.ts`'s recording `OccupancyFileSystem` double is governed by `spx/38-worktree.enabler/32-occupancy-store.enabler/21-test-harness.enabler` (the harness file reaches 100% statement coverage; its probes, process table, CLI runner, and pool-env builders are consumer-covered). The `worktree` generator is fully consumer-covered (no node). `testing/harnesses/worktree-layout/worktree-layout.ts` is a cross-cutting provisioner (6 consumer nodes) deferred to the infrastructure batch in `spx/21-infrastructure.enabler/PLAN.md`.
