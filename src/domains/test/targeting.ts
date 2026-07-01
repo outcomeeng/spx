@@ -1,4 +1,4 @@
-import { applyPathFilter } from "@/config/primitives/path-filter";
+import { applyPathFilter, normalizePathPrefix } from "@/config/primitives/path-filter";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
@@ -21,6 +21,10 @@ export interface TargetResolution {
   readonly unresolved: readonly string[];
 }
 
+export function normalizeTargetOperand(operand: string): string {
+  return normalizePathPrefix(operand);
+}
+
 // A single operand's matches against the discovered set. An exact file operand, or
 // any operand under `recursive`, uses the operand itself as the include prefix — it
 // matches the file exactly or the whole node subtree. A default node operand uses
@@ -31,16 +35,7 @@ function matchOperand(
   operand: string,
   recursive: boolean,
 ): readonly string[] {
-  // Strip trailing slashes (e.g. from shell directory completion) so a node
-  // operand's own-tests prefix is `{node}/tests`, never `{node}//tests`, which
-  // applyPathFilter's segment matcher would never match against discovered paths.
-  // A character scan rather than a `/+$` regex keeps the strip linear and free of
-  // any backtracking.
-  let normalizedEnd = operand.length;
-  while (normalizedEnd > 0 && operand.charAt(normalizedEnd - 1) === PATH_SEGMENT_SEPARATOR) {
-    normalizedEnd -= 1;
-  }
-  const normalized = operand.slice(0, normalizedEnd);
+  const normalized = normalizeTargetOperand(operand);
   if (recursive || discovered.includes(normalized)) {
     return applyPathFilter(discovered, { include: [normalized] });
   }

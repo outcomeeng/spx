@@ -13,6 +13,7 @@ export const PRECOMMIT_TEST_GENERATOR = {
   config: arbitraryPrecommitConfig,
   exitCode: arbitraryNonSuccessExitCode,
   fileList: arbitraryFileList,
+  fileContent: arbitraryFileContent,
   path: arbitraryPath,
   pathSegment: arbitraryPathSegment,
   pathFragment: arbitraryPathFragment,
@@ -39,6 +40,10 @@ export function samplePrecommitTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 
 function arbitraryPathFragment(): fc.Arbitrary<string> {
   return fc.array(arbitraryPathSegment(), { maxLength: 3 }).map((segments) => segments.join("/"));
+}
+
+function arbitraryFileContent(): fc.Arbitrary<string> {
+  return fc.string({ minLength: 1 });
 }
 
 function arbitraryPosixDirectoryPrefix(): fc.Arbitrary<string> {

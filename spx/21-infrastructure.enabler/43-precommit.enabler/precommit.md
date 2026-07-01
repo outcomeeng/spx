@@ -17,6 +17,7 @@ CAN block commits when staged changes break their related tests, block commits w
 - Given non-default precommit config with a staged product config file, when the runner executes, then `spx test --changed --staged --base HEAD` runs and the runner's exit code equals the `spx test` exit code ([test](tests/run.scenario.l1.test.ts))
 - Given a staged failing test, when a user attempts `git commit`, then the lefthook pre-commit hook blocks the commit and surfaces the failure output ([test](tests/precommit.scenario.l2.test.ts))
 - Given a staged passing test, when a user attempts `git commit`, then the lefthook pre-commit hook allows the commit ([test](tests/precommit.scenario.l2.test.ts))
+- Given a staged passing test and an unrelated unstaged non-test file, when a user attempts `git commit`, then the lefthook pre-commit hook allows the commit ([test](tests/precommit.scenario.l2.test.ts))
 - Given staged files that are exclusively non-test-relevant, when a user attempts `git commit`, then the lefthook pre-commit hook skips `spx test` and allows the commit ([test](tests/precommit.scenario.l2.test.ts))
 - Given a branch checkout with a real previous ref, when the post-checkout gate resolves its exit code through an injected git runner, then a lockfile-scoped diff containing the lockfile yields the install exit code, an empty diff yields the skip exit code, and a probe that errors — throwing or resolving a non-zero git exit code — yields the failure exit code ([test](tests/deps-install-gate.scenario.l1.test.ts))
 

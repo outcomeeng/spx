@@ -9,8 +9,9 @@ import {
   resolveConfig,
   resolveConfigFromReadResult,
 } from "@/config/index";
+import { applyPathFilter, type PathFilterConfig } from "@/config/primitives/path-filter";
 import type { Config, Result } from "@/config/types";
-import { SUCCESS_EXIT_CODE, type TargetSelection } from "@/domains/test";
+import { normalizeTargetOperand, SUCCESS_EXIT_CODE, type TargetSelection } from "@/domains/test";
 import {
   defaultGitDependencies,
   getCurrentBranch,
@@ -45,6 +46,8 @@ import {
 } from "@/test/run-state";
 
 import { pathsFromNameStatus, pathsFromNulDelimited } from "@/lib/git/name-status";
+import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   CHANGED_TEST_DIFF_COMMAND,
   CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
@@ -56,6 +59,7 @@ import {
   CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
   CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
+  type ChangedTestSelection,
   isStagedSnapshotMissing,
   planChangedTestSelection,
 } from "./changed-set-planning";
@@ -71,9 +75,14 @@ const PRODUCT_INPUT_FIELDS = {
   PRESENT: "present",
   CONTENT: "content",
 } as const;
+const SPEC_TREE_ROOT_OPERAND = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+const PATH_SEPARATOR = "/";
+const SPEC_TREE_TESTS_PATH_SEGMENT = `${PATH_SEPARATOR}${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}${PATH_SEPARATOR}`;
 export const CHANGED_TEST_RELATED_DEPS_ERROR = "spx test --changed requires related-test dependencies";
 export const CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR =
-  "spx test --changed --staged requires the worktree to match the index";
+  "spx test --changed --staged requires selected staged test inputs to match the index";
+export const CHANGED_TEST_STAGED_SELECTION_MISSING_ERROR =
+  "staged changed test planning did not produce a changed selection";
 
 /** Shared command dependencies; filesystem, clock, and git default to real access. */
 export interface TestCommandDependencies {
@@ -349,10 +358,54 @@ async function dirtyWorktreePaths(productDir: string, git: GitDependencies): Pro
   ].sort(compareAsciiStrings);
 }
 
-async function requireWorktreeMatchesIndexForStagedRun(productDir: string, git: GitDependencies): Promise<void> {
+function isSpecTreeTestPath(path: string): boolean {
+  return path.startsWith(`${SPEC_TREE_ROOT_OPERAND}${PATH_SEPARATOR}`) && path.includes(SPEC_TREE_TESTS_PATH_SEGMENT);
+}
+
+function dirtyPathAffectsOperand(path: string, operand: string, recursive: boolean): boolean {
+  const normalizedOperand = normalizeTargetOperand(operand);
+  const normalizedPath = normalizeTargetOperand(path);
+  if (normalizedOperand.length === 0) {
+    return isSpecTreeTestPath(normalizedPath);
+  }
+  if (normalizedOperand === SPEC_TREE_ROOT_OPERAND) {
+    return isSpecTreeTestPath(normalizedPath);
+  }
+  if (normalizedPath === normalizedOperand) {
+    return true;
+  }
+  if (normalizedPath.startsWith(`${normalizedOperand}${SPEC_TREE_TESTS_PATH_SEGMENT}`)) {
+    return true;
+  }
+  return recursive && normalizedPath.startsWith(`${normalizedOperand}${PATH_SEPARATOR}`)
+    && isSpecTreeTestPath(normalizedPath);
+}
+
+function stagedRunAffectedDirtyPaths(
+  dirtyPaths: readonly string[],
+  changedSelection: ChangedTestSelection,
+  targets: TargetSelection,
+  passingScope: PathFilterConfig | undefined,
+): readonly string[] {
+  const changedPaths = new Set(changedSelection.changedPaths.map(normalizeTargetOperand));
+  const affectedPaths = dirtyPaths.filter((path) =>
+    changedPaths.has(normalizeTargetOperand(path))
+    || targets.operands.some((operand) => dirtyPathAffectsOperand(path, operand, targets.recursive))
+  );
+  return passingScope === undefined ? affectedPaths : applyPathFilter(affectedPaths, passingScope);
+}
+
+async function requireWorktreeMatchesIndexForStagedRun(
+  productDir: string,
+  git: GitDependencies,
+  changedSelection: ChangedTestSelection,
+  targets: TargetSelection,
+  passingScope: PathFilterConfig | undefined,
+): Promise<void> {
   const dirtyPaths = await dirtyWorktreePaths(productDir, git);
-  if (dirtyPaths.length > 0) {
-    throw new Error(`${CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR}: ${dirtyPaths.join(", ")}`);
+  const affectedPaths = stagedRunAffectedDirtyPaths(dirtyPaths, changedSelection, targets, passingScope);
+  if (affectedPaths.length > 0) {
+    throw new Error(`${CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR}: ${affectedPaths.join(", ")}`);
   }
 }
 
@@ -491,23 +544,34 @@ export async function runTestsCommand(
     );
   }
   const stagedChangedRun = options.changed?.staged === true;
-  if (stagedChangedRun) {
-    await requireWorktreeMatchesIndexForStagedRun(options.productDir, changedGit);
-  }
+  let selectedTargets = mergeTargetSelections(options.targets, changedSelection?.targets);
   const { config, digest } = stagedChangedRun
     ? await resolveStagedTestingConfig(options.productDir, changedGit)
     : await resolveTestingConfig(options.productDir);
+  const passingScope = options.passing ? config.passingScope : undefined;
+  if (stagedChangedRun) {
+    if (changedSelection === undefined) {
+      throw new Error(CHANGED_TEST_STAGED_SELECTION_MISSING_ERROR);
+    }
+    selectedTargets = mergeTargetSelections(options.targets, changedSelection.targets) ?? changedSelection.targets;
+    await requireWorktreeMatchesIndexForStagedRun(
+      options.productDir,
+      changedGit,
+      changedSelection,
+      selectedTargets,
+      passingScope,
+    );
+  }
   const snapshotFileReader = stagedChangedRun
     ? stagedSnapshotFileReader(options.productDir, changedGit)
     : undefined;
-  const passingScope = options.passing ? config.passingScope : undefined;
   const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
     {
       productDir: options.productDir,
       registry: deps.registry,
       passingScope,
-      targets: mergeTargetSelections(options.targets, changedSelection?.targets),
+      targets: selectedTargets,
       unresolvedChangedSourceFiles: changedSelection?.unresolvedSourceFiles,
     },
     { runnerDepsFor: deps.runnerDepsFor },
