@@ -3,7 +3,9 @@
   "verification": {
     "test": {
       "overall": "passed",
-      "spx/17-language-detection.enabler/tests/language-detection.property.l1.test.ts": "passed"
+      "spx/17-language-detection.enabler/tests/language-detection.compliance.l1.test.ts": "passed",
+      "spx/17-language-detection.enabler/tests/language-detection.property.l1.test.ts": "passed",
+      "spx/17-language-detection.enabler/tests/language-detection.scenario.l1.test.ts": "passed"
     }
   }
 }
