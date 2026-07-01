@@ -12,6 +12,7 @@ import {
 import {
   branchResumeScope,
   claudeCodeSessionStoreDir,
+  claudeProjectDirName,
   codexSessionStoreDir,
   discoverAgentResumeCandidates,
   worktreeResumeScope,
@@ -501,6 +502,21 @@ describe("agent resume Claude branch-scan compliance", () => {
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
+  });
+});
+
+describe("agent resume Claude project encoding compliance", () => {
+  it("encodes every POSIX and Windows path separator so the project name carries none", () => {
+    const cwd = sampleAgentResumeValue(
+      arbitraryAgentSessionCwd(sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 280)),
+      281,
+    );
+    const posixEncoded = claudeProjectDirName(cwd);
+    const windowsEncoded = claudeProjectDirName(cwd.replaceAll("/", "\\"));
+
+    expect(posixEncoded.includes("/")).toBe(false);
+    expect(windowsEncoded.includes("\\")).toBe(false);
+    expect(windowsEncoded).toBe(posixEncoded);
   });
 });
 
