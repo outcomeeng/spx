@@ -40,7 +40,7 @@ export interface SessionEnvironmentProbe {
   probe(): Promise<SessionEnvironmentReading>;
 }
 
-const SESSION_ENVIRONMENT_REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
+export const SESSION_ENVIRONMENT_REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
   [SESSION_ENVIRONMENT_VERDICT.WORKING]: "Session environment is established; no action needed.",
   [SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY]:
     "The SessionStart hook set the session identity but did not claim the worktree; check the worktree-claim step.",
