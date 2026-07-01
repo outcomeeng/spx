@@ -37,6 +37,16 @@ describe("the session-environment snapshot mapping derives the current worktree 
       expectedBucket: VERDICT_BUCKET.HEALTHY,
     },
     {
+      name: "running current worktree with claim identity and no hook",
+      status: OCCUPANCY_STATUS.RUNNING,
+      hookPresent: false,
+      sessionIdentity: false,
+      expectedWorktreeClaimed: true,
+      expectedSessionIdentity: true,
+      expectedVerdict: SESSION_ENVIRONMENT_VERDICT.WORKING,
+      expectedBucket: VERDICT_BUCKET.HEALTHY,
+    },
+    {
       name: "running current worktree without claim identity",
       status: OCCUPANCY_STATUS.RUNNING,
       hookPresent: true,
