@@ -11,7 +11,7 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 
-import { mergeChangedSetOperands, partitionChangedPaths } from "@/domains/test/changed-set-planning";
+import { mergeChangedSetOperands, partitionChangedPaths, resolveTargetedTestFiles } from "@/domains/test";
 import type { TargetSelection } from "@/domains/test/targeting";
 
 import { discoverTestFiles } from "./discovery";
@@ -25,7 +25,7 @@ export const CHANGED_TEST_DIFF_NAME_STATUS_FLAG = GIT_NAME_STATUS_FLAG;
 export const CHANGED_TEST_NULL_DELIMITED_FLAG = GIT_NULL_DELIMITED_FLAG;
 export const CHANGED_TEST_LS_FILES_OTHERS_FLAG = "--others";
 export const CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG = "--exclude-standard";
-const LS_FILES_CACHED_FLAG = "--cached";
+export const CHANGED_TEST_LS_FILES_CACHED_FLAG = "--cached";
 const HEAD_REF = "HEAD";
 const ORIGIN_REMOTE = "origin";
 const REF_SEPARATOR = "/";
@@ -170,7 +170,7 @@ async function stagedCandidateTestPaths(productDir: string, git?: GitDependencie
   }
   const result = await runner(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [CHANGED_TEST_LS_FILES_COMMAND, LS_FILES_CACHED_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG],
+    [CHANGED_TEST_LS_FILES_COMMAND, CHANGED_TEST_LS_FILES_CACHED_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG],
     { cwd: productDir, reject: false },
   );
   if (result.exitCode !== 0) {
@@ -237,6 +237,15 @@ export function changedTestProductInputPaths(registry: TestingRegistry): readonl
   ].sort(compareAsciiStrings);
 }
 
+async function candidateTestPaths(
+  options: ChangedTestSelectionOptions,
+  git?: GitDependencies,
+): Promise<readonly string[]> {
+  return options.staged === true
+    ? stagedCandidateTestPaths(options.productDir, git)
+    : discoverTestFiles(options.productDir);
+}
+
 /** Resolves the changed-set operand source consumed by targeted execution. */
 export async function planChangedTestSelection(
   options: ChangedTestSelectionOptions,
@@ -249,21 +258,21 @@ export async function planChangedTestSelection(
   ]);
   const paths = await changedPaths(options.productDir, baseSha, options.staged === true, deps.git);
   const partition = partitionChangedPaths(paths, changedTestProductInputPaths(deps.registry));
-  let candidateTestPaths: readonly string[] = [];
-  if (partition.sourceFiles.length > 0) {
-    candidateTestPaths = options.staged === true
-      ? await stagedCandidateTestPaths(options.productDir, deps.git)
-      : await discoverTestFiles(options.productDir);
-  }
+  const testPaths = partition.sourceFiles.length > 0 || partition.operands.length > 0
+    ? await candidateTestPaths(options, deps.git)
+    : [];
+  const pathSelectedTests = partition.operands.length === 0
+    ? []
+    : resolveTargetedTestFiles(testPaths, { operands: partition.operands, recursive: true }).selected;
   const related = partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
-    : await relatedTestPaths(partition.sourceFiles, options, baseRef, candidateTestPaths, deps);
+    : await relatedTestPaths(partition.sourceFiles, options, baseRef, testPaths, deps);
 
   return {
     targets: {
       operands: partition.productInputChanged
         ? [SPEC_ROOT_OPERAND]
-        : mergeChangedSetOperands(partition.operands, related.testPaths),
+        : mergeChangedSetOperands(pathSelectedTests, related.testPaths),
       recursive: partition.productInputChanged,
     },
     baseRef,

@@ -1,6 +1,6 @@
 # Changed-Set Planning
 
-PROVIDES a `--changed [--base <ref>] [--staged]` operand source for `spx test` and `spx test passing` — resolving the tests affected by the branch's changes against a base ref (default `origin/<default-branch>`), optionally limiting the diff to the staged snapshot, partitioning changed paths into changed spec or test files that select their own node's `tests/` directly and changed source files that route through each registered language adapter's related-test capability, and feeding the resolved set into the targeted-execution pipeline
+PROVIDES a `--changed [--base <ref>] [--staged]` operand source for `spx test` and `spx test passing` — resolving the tests affected by the branch's changes against a base ref (default `origin/<default-branch>`), optionally limiting the diff to the staged snapshot, partitioning changed paths into changed spec or test files that select discovered tests in the affected node subtree and changed source files that route through each registered language adapter's related-test capability, and feeding the resolved test-file set into the targeted-execution pipeline
 SO THAT agents and developers running focused verification against their branch's diff
 CAN run only the tests their changes affect — selected by diff rather than named operands — while obtaining the same runner selection, passing-scope policy, agent output, and recorded last-run evidence as a full run
 
@@ -8,7 +8,7 @@ CAN run only the tests their changes affect — selected by diff rather than nam
 
 ### Scenarios
 
-- Given a changed test or spec file under a node's `spx/<node>/`, when `--changed` resolves the affected set, then that node's `tests/` files are selected by path ([test](tests/changed-set-planning.scenario.l1.test.ts))
+- Given a changed test or spec file under a node's `spx/<node>/`, when `--changed` resolves the affected set, then discovered tests in that node subtree are selected by path without reporting changed no-test nodes as unresolved explicit operands ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed source file whose registered language adapter declares a related-test capability, when `--changed` resolves the affected set, then that adapter's related tests are selected ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed source file whose registered language adapter declares no related-test capability, when `--changed` resolves the affected set, then no tests are selected from that file and the unresolved capability is reported ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed source file whose registered language adapter resolves related tests and another changed source file remains unresolved, when `--changed` resolves the affected set, then only the unresolved source file is reported as unresolved ([test](tests/changed-set-planning.scenario.l1.test.ts))
@@ -29,7 +29,7 @@ CAN run only the tests their changes affect — selected by diff rather than nam
 
 ### Properties
 
-- The resolved set is the deduplicated union of the path-selected node tests and the adapter-derived related tests, unchanged by the order or repetition of changed paths ([test](tests/changed-set-planning.property.l1.test.ts))
+- The resolved set is the deduplicated union of the path-selected discovered tests and the adapter-derived related tests, unchanged by the order or repetition of changed paths ([test](tests/changed-set-planning.property.l1.test.ts))
 
 ### Compliance
 

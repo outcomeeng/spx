@@ -15,6 +15,7 @@ import {
   CHANGED_TEST_DIFF_CACHED_FLAG,
   CHANGED_TEST_DIFF_COMMAND,
   CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
+  CHANGED_TEST_LS_FILES_CACHED_FLAG,
   CHANGED_TEST_LS_FILES_COMMAND,
   CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
   CHANGED_TEST_LS_FILES_OTHERS_FLAG,
@@ -31,6 +32,7 @@ import {
 import type { GitDependencies } from "@/git/root";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { GIT_MODIFY_STATUS_EXAMPLE } from "@/lib/git/name-status";
+import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
 import { pythonTestingLanguage } from "@/test/languages/python";
@@ -115,6 +117,17 @@ function stagedConfigChangeGit(
         return {
           exitCode: 0,
           stdout: dirtyWorktreePaths.map((path) => `${GIT_MODIFY_STATUS_EXAMPLE}\0${path}\0`).join(""),
+          stderr: "",
+        };
+      }
+      if (
+        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
+        && args.includes(CHANGED_TEST_LS_FILES_CACHED_FLAG)
+        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
+      ) {
+        return {
+          exitCode: 0,
+          stdout: changedPath.includes(`/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/`) ? `${changedPath}\0` : "",
           stderr: "",
         };
       }
@@ -430,7 +443,7 @@ describe("spx test dispatch over the language registry", () => {
     });
   });
 
-  it("rejects staged changed selection when an untracked file falls under the selected test target", async () => {
+  it("runs staged changed selection when an untracked sibling file is outside the selected test file", async () => {
     const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
     const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
     const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
@@ -443,27 +456,26 @@ describe("spx test dispatch over the language registry", () => {
     await withTestingTempProductDir(async (productDir) => {
       await writeTestFileFixture(productDir, testPath);
 
-      await expect(
-        runTestsCommand(
-          {
-            productDir,
-            passing: false,
-            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-          },
-          {
-            registry: testingRegistry,
-            runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
-            git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
-          },
-        ),
-      ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
+      const run = await runTestsCommand(
+        {
+          productDir,
+          passing: false,
+          changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+        },
+        {
+          registry: testingRegistry,
+          runnerDepsFor: () => runner,
+          relatedDepsFor: () => ({
+            isLanguagePresent: () => true,
+            readFile: async () => "",
+            runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+          }),
+          git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
+        },
+      );
 
-      expect(invokedArgs(runner)).toEqual([]);
+      expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
+      expect(invokedArgs(runner)).toContain(testPath);
     });
   });
 

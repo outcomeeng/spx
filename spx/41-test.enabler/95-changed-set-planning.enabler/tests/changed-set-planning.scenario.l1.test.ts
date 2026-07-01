@@ -450,18 +450,54 @@ describe("changed-set planning path partition", () => {
     });
   });
 
-  it("selects a node operand for an untracked spec-tree test file", async () => {
+  it("selects a changed spec-tree test file as the changed-set target", async () => {
     const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
     const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
     const git = recordingGitRunner([], [testPath]);
 
-    const plan = await planChangedTestSelection(
-      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
-      { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
-    );
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testPath);
 
-    expect(plan.targets).toEqual({ operands: [nodeOperand(nodePath)], recursive: false });
-    expect(plan.changedPaths).toEqual([testPath]);
+      const plan = await planChangedTestSelection(
+        { productDir },
+        { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+      expect(plan.changedPaths).toEqual([testPath]);
+    });
+  });
+
+  it("selects descendant evidence for changed nodes without forwarding no-test node operands", async () => {
+    const changedParentNode = "spx/33-renamed-target.enabler";
+    const changedNoTestNode = `${changedParentNode}/21-instructions.enabler`;
+    const changedChildNode = `${changedParentNode}/32-tested-child.enabler`;
+    const removedParentNode = "spx/33-renamed-source.enabler";
+    const removedNoTestNode = `${removedParentNode}/21-instructions.enabler`;
+    const parentTestPath = `${changedParentNode}/tests/renamed-target.compliance.l1.test.ts`;
+    const childTestPath = `${changedChildNode}/tests/tested-child.scenario.l1.test.ts`;
+    const git = recordingGitRunner([
+      `${removedParentNode}/renamed-source.md`,
+      `${removedNoTestNode}/agent-instructions.md`,
+      `${changedParentNode}/renamed-target.md`,
+      `${changedNoTestNode}/agent-instructions.md`,
+      `${changedChildNode}/tested-child.md`,
+    ]);
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, parentTestPath);
+      await writeTestFileFixture(productDir, childTestPath);
+
+      const plan = await planChangedTestSelection(
+        { productDir },
+        { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: nativeStringOrder([parentTestPath, childTestPath]), recursive: false });
+      expect(plan.targets.operands).not.toContain(changedNoTestNode);
+      expect(plan.targets.operands).not.toContain(removedNoTestNode);
+      expect(plan.targets.operands).not.toContain(removedParentNode);
+    });
   });
 
   it("preserves changed path whitespace from name-status diff output", async () => {
@@ -784,13 +820,17 @@ helper;
     const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
     const git = unbornHeadGitRunner([testPath]);
 
-    const plan = await planChangedTestSelection(
-      { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), baseRef: GIT_ROOT_COMMAND.HEAD },
-      { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
-    );
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestFileFixture(productDir, testPath);
 
-    expect(plan.baseSha).toBe(EMPTY_TREE_SHA);
-    expect(plan.targets).toEqual({ operands: [nodeOperand(nodePath)], recursive: false });
+      const plan = await planChangedTestSelection(
+        { productDir, baseRef: GIT_ROOT_COMMAND.HEAD },
+        { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.baseSha).toBe(EMPTY_TREE_SHA);
+      expect(plan.targets).toEqual({ operands: [testPath], recursive: false });
+    });
   });
 
   it("diffs the staged snapshot when changed-set planning requests staged changes", async () => {
