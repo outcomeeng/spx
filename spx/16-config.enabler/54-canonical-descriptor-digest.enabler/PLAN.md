@@ -41,7 +41,7 @@ This packet has no settled prerequisite sentinel files beyond the branch-existen
 
 If C2 branches while this branch is in progress, check `spx/16-config.enabler/PLAN.md` for the dispatcher-enforced merge-ordering guard before both are open simultaneously.
 
-Start from fresh origin/main on work/config-descriptor-digest. Invoke spec-tree:understanding if needed, then spec-tree:contextualizing for spx/16-config.enabler/54-canonical-descriptor-digest.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:applying, typescript:architecting-typescript for the public API shape if an ADR change becomes necessary, spec-tree:testing and typescript:testing-typescript before tests, then typescript:coding-typescript before implementation.
+Start from fresh origin/main on work/config-descriptor-digest. Invoke spec-tree:understand if needed, then spec-tree:contextualize for spx/16-config.enabler/54-canonical-descriptor-digest.enabler/. Read this PLAN and the governing specs it names. Invoke spec-tree:apply, typescript:architect-typescript for the public API shape if an ADR change becomes necessary, spec-tree:test and typescript:test-typescript before tests, then typescript:code-typescript before implementation.
 
 Implement only the config-owned canonical descriptor JSON and SHA-256 descriptor digest API. Prove recursive key sorting, array preservation, JSON primitive serialization, rejection of non-JSON-representable values, stable digest bytes, and descriptor-section isolation. Do not change testing, audit, or review state code except for compile-time integration required by this API. Open one PR and ask reviewers to audit digest determinism, JSON representation boundaries, and state-staleness compatibility.
 ```

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/76-config-test-generators.enabler/tests/config-test-generators.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/76-config-test-generators.enabler/tests/config-test-generators.property.l1.test.ts": "passed"
+    }
+  }
+}

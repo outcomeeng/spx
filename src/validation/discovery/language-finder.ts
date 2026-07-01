@@ -1,7 +1,7 @@
 /**
  * Language detection for validation infrastructure.
  *
- * Detects which programming languages a project uses based on configuration
+ * Detects which programming languages a product uses based on configuration
  * file presence. Language-specific validation tools (ESLint, tsc, mypy) consult
  * detection results to determine whether to run.
  *
@@ -16,12 +16,12 @@ import path from "node:path";
 // =============================================================================
 
 /**
- * Marker file for TypeScript projects, checked in the project root.
+ * Marker file for TypeScript products, checked in the product root.
  */
 export const TYPESCRIPT_MARKER = "tsconfig.json";
 
 /**
- * Marker file for Python projects, checked in the project root.
+ * Marker file for Python products, checked in the product root.
  */
 export const PYTHON_MARKER = "pyproject.toml";
 
@@ -58,7 +58,7 @@ export type EslintProductionConfigFile = (typeof ESLINT_PRODUCTION_CONFIG_FILES)
  * Result of TypeScript language detection.
  */
 export interface TypeScriptDetection {
-  /** Whether TypeScript is present in the project. */
+  /** Whether TypeScript is present in the product. */
   present: boolean;
   /** The ESLint flat config file name found, if any. Only set when `present` is true. */
   eslintConfigFile?: EslintConfigFile;
@@ -70,7 +70,7 @@ export interface TypeScriptDetection {
  * Result of Python language detection.
  */
 export interface PythonDetection {
-  /** Whether Python is present in the project. */
+  /** Whether Python is present in the product. */
   present: boolean;
 }
 
@@ -107,66 +107,64 @@ export const defaultLanguageDetectionDeps: LanguageDetectionDeps = {
 // =============================================================================
 
 /**
- * Detect whether a project uses TypeScript.
+ * Detect whether a product uses TypeScript.
  *
- * TypeScript is present when `tsconfig.json` exists in the project root. When
+ * TypeScript is present when `tsconfig.json` exists in the product root. When
  * present, the function also searches for an ESLint flat config file and
  * returns its name in priority order.
  *
- * @param projectRoot - Absolute path to the project root.
+ * @param productDir - Absolute path to the product root.
  * @param deps - Injectable filesystem dependencies.
  * @returns Detection result with presence flag and optional ESLint config path.
  */
 export function detectTypeScript(
-  projectRoot: string,
+  productDir: string,
   deps: LanguageDetectionDeps = defaultLanguageDetectionDeps,
 ): TypeScriptDetection {
-  const present = deps.existsSync(path.join(projectRoot, TYPESCRIPT_MARKER));
+  const present = deps.existsSync(path.join(productDir, TYPESCRIPT_MARKER));
 
   if (!present) {
     return { present: false };
   }
 
-  const eslintConfigFile = ESLINT_CONFIG_FILES.find((configFile) =>
-    deps.existsSync(path.join(projectRoot, configFile))
-  );
+  const eslintConfigFile = ESLINT_CONFIG_FILES.find((configFile) => deps.existsSync(path.join(productDir, configFile)));
   const productionEslintConfigFile = ESLINT_PRODUCTION_CONFIG_FILES.find((configFile) =>
-    deps.existsSync(path.join(projectRoot, configFile))
+    deps.existsSync(path.join(productDir, configFile))
   );
 
   return { present: true, eslintConfigFile, productionEslintConfigFile };
 }
 
 /**
- * Detect whether a project uses Python.
+ * Detect whether a product uses Python.
  *
- * Python is present when `pyproject.toml` exists in the project root.
+ * Python is present when `pyproject.toml` exists in the product root.
  *
- * @param projectRoot - Absolute path to the project root.
+ * @param productDir - Absolute path to the product root.
  * @param deps - Injectable filesystem dependencies.
  * @returns Detection result with presence flag.
  */
 export function detectPython(
-  projectRoot: string,
+  productDir: string,
   deps: LanguageDetectionDeps = defaultLanguageDetectionDeps,
 ): PythonDetection {
-  const present = deps.existsSync(path.join(projectRoot, PYTHON_MARKER));
+  const present = deps.existsSync(path.join(productDir, PYTHON_MARKER));
   return { present };
 }
 
 /**
- * Detect all supported languages in a project.
+ * Detect all supported languages in a product.
  *
- * @param projectRoot - Absolute path to the project root.
+ * @param productDir - Absolute path to the product root.
  * @param deps - Injectable filesystem dependencies.
  * @returns Detection result for every supported language.
  */
 export function detectLanguages(
-  projectRoot: string,
+  productDir: string,
   deps: LanguageDetectionDeps = defaultLanguageDetectionDeps,
 ): LanguageDetection {
   return {
-    typescript: detectTypeScript(projectRoot, deps),
-    python: detectPython(projectRoot, deps),
+    typescript: detectTypeScript(productDir, deps),
+    python: detectPython(productDir, deps),
   };
 }

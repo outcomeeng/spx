@@ -8,6 +8,7 @@ import {
   PYTHON_MARKER,
   TYPESCRIPT_MARKER,
 } from "@/validation/discovery/language-finder";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 function makeDeps(existing: ReadonlySet<string>): LanguageDetectionDeps {
   return {
@@ -16,29 +17,31 @@ function makeDeps(existing: ReadonlySet<string>): LanguageDetectionDeps {
 }
 
 describe("detectLanguages — properties", () => {
-  it("typescript.present and python.present each reflect whether their marker is in existsSync", () => {
+  it("is deterministic for the same product root and dependency view", () => {
     fc.assert(
-      fc.property(fc.string(), fc.boolean(), fc.boolean(), (root, hasTs, hasPy) => {
-        const existing = new Set([
-          ...(hasTs ? [join(root, TYPESCRIPT_MARKER)] : []),
-          ...(hasPy ? [join(root, PYTHON_MARKER)] : []),
-        ]);
-        const result = detectLanguages(root, makeDeps(existing));
-        expect(result.typescript.present).toBe(hasTs);
-        expect(result.python.present).toBe(hasPy);
-      }),
-    );
-  });
-
-  it("is deterministic: same root and deps produce equal results on repeated calls", () => {
-    fc.assert(
-      fc.property(fc.string(), fc.boolean(), fc.boolean(), (root, hasTs, hasPy) => {
+      fc.property(arbitraryDomainLiteral(), fc.boolean(), fc.boolean(), (root, hasTs, hasPy) => {
         const existing = new Set([
           ...(hasTs ? [join(root, TYPESCRIPT_MARKER)] : []),
           ...(hasPy ? [join(root, PYTHON_MARKER)] : []),
         ]);
         const deps = makeDeps(existing);
-        expect(detectLanguages(root, deps)).toEqual(detectLanguages(root, deps));
+        const expected = {
+          typescript: hasTs
+            ? {
+              present: true,
+              eslintConfigFile: undefined,
+              productionEslintConfigFile: undefined,
+            }
+            : { present: false },
+          python: { present: hasPy },
+        };
+
+        const first = detectLanguages(root, deps);
+        const second = detectLanguages(root, deps);
+
+        expect(first).toEqual(expected);
+        expect(second).toEqual(expected);
+        expect(second).toEqual(first);
       }),
     );
   });
