@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT,
-  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   type HarnessEnvironmentConfig,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
@@ -134,18 +133,18 @@ describe("configured-agent config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
       expect(claudeCode[claudeCodeField]).toBe(claudeCodeValue);
       expect(readManagedRuntimeConfigState(claudeCode)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
-      expect(codexRaw).toContain(`${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT} = "${AGENT.CODEX}"`);
-      expect(claudeCodeRaw).toContain(`"${HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT}": "${AGENT.CLAUDE_CODE}"`);
+      expect(codexRaw).toContain(`${RUNTIME_CONFIG_STATE_FIELDS.AGENT} = "${AGENT.CODEX}"`);
+      expect(claudeCodeRaw).toContain(`"${RUNTIME_CONFIG_STATE_FIELDS.AGENT}": "${AGENT.CLAUDE_CODE}"`);
 
       const second = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
       expect(second.ok).toBe(true);
@@ -195,7 +194,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       const managedState = {
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       };
       const managedTable = stringifyToml({
@@ -242,7 +241,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       expect(managedState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
     });
@@ -282,6 +281,80 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
+  it("ignores TOML comment tails after multiline strings close", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          `${userField} = """`,
+          "body",
+          "\"\"\" # \"\"\"",
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codex = readRecord(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
+      expect(codex[userField]).toBeUndefined();
+      expect(codex.tasks).toEqual([{ name: taskName }]);
+    });
+  });
+
+  it("ignores TOML comments when finding the existing managed Codex table", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "# \"\"\"",
+          "",
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+      const codex = readRecord(parseToml(codexRaw));
+      const managedTableOccurrences = codexRaw.match(/\[spx\.harnessEnvironment\]/gu);
+      expect(managedTableOccurrences).toHaveLength(1);
+      expect(codex.tasks).toEqual([{ name: taskName }]);
+      expect(readManagedRuntimeConfigState(codex)).toEqual({
+        [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
+        [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
+      });
+    });
+  });
+
   it("normalizes an inline Codex managed TOML assignment to the managed table", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const userField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
@@ -306,7 +379,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(codex)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
     });
@@ -337,7 +410,7 @@ describe("configured-agent config reconciliation scenarios", () => {
               [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: {
                 [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
                 [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+                [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
                 [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
               },
             },
@@ -391,7 +464,7 @@ describe("configured-agent config reconciliation scenarios", () => {
               [RUNTIME_CONFIG_STATE_FIELDS.SPX]: {
                 [spxUserField]: spxUserValue,
                 [RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT]: {
-                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+                  [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
                   [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
                   [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
                   [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
@@ -422,7 +495,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       expect(readManagedRuntimeConfigState(normalizedConfig)).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
 
@@ -662,7 +735,7 @@ describe("configured-agent config reconciliation scenarios", () => {
         .toEqual({
           [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
           [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+          [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
           [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
         });
     });

@@ -527,7 +527,8 @@ function scanTomlMultilineStringDelimiter(
   let offset = 0;
   while (offset < line.length) {
     if (delimiter === undefined) {
-      const next = nextTomlMultilineStringStart(line, offset);
+      const comment = findTomlCommentStart(line, offset);
+      const next = nextTomlMultilineStringStart(line, offset, comment);
       if (next === undefined) return undefined;
       delimiter = next.delimiter;
       offset = next.index + delimiter.length;
@@ -542,12 +543,29 @@ function scanTomlMultilineStringDelimiter(
   return delimiter;
 }
 
+function findTomlCommentStart(line: string, offset: number): number {
+  let inBasicString = false;
+  let inLiteralString = false;
+  for (let index = offset; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === "#" && !inBasicString && !inLiteralString) return index;
+    if (character === "\"" && !inLiteralString && !isEscapedTomlDelimiter(line, index)) {
+      inBasicString = !inBasicString;
+    }
+    if (character === "'" && !inBasicString) {
+      inLiteralString = !inLiteralString;
+    }
+  }
+  return line.length;
+}
+
 function nextTomlMultilineStringStart(
   line: string,
   offset: number,
+  limit: number = line.length,
 ): { readonly delimiter: string; readonly index: number } | undefined {
-  const basicIndex = findTomlDelimiter(line, TOML_MULTILINE_BASIC_STRING_DELIMITER, offset);
-  const literalIndex = findTomlDelimiter(line, TOML_MULTILINE_LITERAL_STRING_DELIMITER, offset);
+  const basicIndex = findTomlDelimiter(line, TOML_MULTILINE_BASIC_STRING_DELIMITER, offset, limit);
+  const literalIndex = findTomlDelimiter(line, TOML_MULTILINE_LITERAL_STRING_DELIMITER, offset, limit);
   if (basicIndex === -1 && literalIndex === -1) return undefined;
   if (basicIndex !== -1 && (literalIndex === -1 || basicIndex < literalIndex)) {
     return { delimiter: TOML_MULTILINE_BASIC_STRING_DELIMITER, index: basicIndex };
@@ -555,9 +573,10 @@ function nextTomlMultilineStringStart(
   return { delimiter: TOML_MULTILINE_LITERAL_STRING_DELIMITER, index: literalIndex };
 }
 
-function findTomlDelimiter(line: string, delimiter: string, offset: number): number {
+function findTomlDelimiter(line: string, delimiter: string, offset: number, limit: number = line.length): number {
   let index = line.indexOf(delimiter, offset);
   while (index !== -1) {
+    if (index >= limit) return -1;
     if (delimiter !== TOML_MULTILINE_BASIC_STRING_DELIMITER || !isEscapedTomlDelimiter(line, index)) return index;
     index = line.indexOf(delimiter, index + delimiter.length);
   }
