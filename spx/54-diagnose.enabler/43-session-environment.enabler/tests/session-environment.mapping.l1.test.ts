@@ -16,6 +16,23 @@ const reading = (overrides: Partial<SessionEnvironmentReading>): SessionEnvironm
   ...overrides,
 });
 
+function expectedRemediationMarker(
+  verdict: (typeof SESSION_ENVIRONMENT_VERDICT)[keyof typeof SESSION_ENVIRONMENT_VERDICT],
+): string {
+  switch (verdict) {
+    case SESSION_ENVIRONMENT_VERDICT.WORKING:
+      return "no action needed";
+    case SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY:
+      return "worktree-claim step";
+    case SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP:
+      return HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH;
+    case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:
+      return "configured and enabled";
+    case SESSION_ENVIRONMENT_VERDICT.UNKNOWN:
+      return "shared worktree occupancy";
+  }
+}
+
 describe("the session-environment check classifies the SessionStart worktree occupancy", () => {
   it.each([
     {
@@ -23,7 +40,11 @@ describe("the session-environment check classifies the SessionStart worktree occ
       verdict: SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE,
       bucket: VERDICT_BUCKET.NOT_APPLICABLE,
     },
-    { overrides: { errored: true }, verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN, bucket: VERDICT_BUCKET.UNKNOWN },
+    {
+      overrides: { errored: true },
+      verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+    },
     {
       overrides: { errored: true, hookPresent: false },
       verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
@@ -54,7 +75,11 @@ describe("the session-environment check classifies the SessionStart worktree occ
       verdict: SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY,
       bucket: VERDICT_BUCKET.DEGRADED,
     },
-    { overrides: {}, verdict: SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP, bucket: VERDICT_BUCKET.BROKEN },
+    {
+      overrides: {},
+      verdict: SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
     {
       overrides: { worktreeClaimed: true },
       verdict: SESSION_ENVIRONMENT_VERDICT.UNKNOWN,
@@ -69,7 +94,7 @@ describe("the session-environment check classifies the SessionStart worktree occ
     const result = classifySessionEnvironment(reading(overrides));
     expect(result.verdict).toBe(verdict);
     expect(result.bucket).toBe(bucket);
-    expect(result.remediation.length).toBeGreaterThan(0);
+    expect(result.remediation).toContain(expectedRemediationMarker(verdict));
   });
 
   it("describes silent no-op as a stale claim-path signal", () => {
