@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   JOURNAL_CLI_ENV,
   JOURNAL_CLI_EXIT_CODE,
+  JOURNAL_CLI_READ_SET_EVENT_LIMIT,
+  JOURNAL_CLI_RUN_LIMIT,
   type JournalCliDeps,
   journalListCommand,
   journalReadCommand,
@@ -241,6 +243,48 @@ describe("journal inspection", () => {
     });
   });
 
+  it("bounds list and read-set output by default when no run limit is supplied", async () => {
+    const branchSlug = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
+    const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+    const baseDate = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runDate());
+    const idBytes = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runIdBytes());
+    const runCount = JOURNAL_CLI_RUN_LIMIT.DEFAULT + 1;
+    const defaultLimitStressEventInputs = Array.from(
+      { length: JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT + 1 },
+      () => input,
+    );
+
+    await withJournalHarness(async (productDir) => {
+      for (const index of Array.from({ length: runCount }, (_, runIndex) => runIndex)) {
+        const opened = await openJournalRun({ productDir, branchSlug, type }, {
+          now: () => new Date(baseDate.getTime() + index),
+          randomBytes: deterministicRunIdBytes(idBytes),
+        });
+        expect(opened.ok).toBe(true);
+        if (!opened.ok) return;
+        const eventInputs = index === 0 ? defaultLimitStressEventInputs : [input];
+        for (const eventInput of eventInputs) {
+          await appendJournalEvent(opened.value.ref, eventInput, new RecordingJournalStreamSink());
+        }
+        await sealJournalRun(opened.value.ref);
+      }
+
+      const listed = await journalListCommand({ branchSlug, type }, localDeps(productDir));
+      const readSet = await journalReadSetCommand({ branchSlug, type }, localDeps(productDir));
+
+      expect(listed.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      expect(readSet.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      const defaultReadSet = JSON.parse(readSet.output) as Array<{ readonly events: JournalEvent[] }>;
+      expect(JSON.parse(listed.output)).toHaveLength(defaultReadSet.length);
+      expect(defaultReadSet.length).toBeGreaterThan(0);
+      expect(defaultReadSet.length).toBeLessThan(runCount);
+      const firstDefaultRunEvents = defaultReadSet[0]?.events ?? [];
+      expect(firstDefaultRunEvents.length).toBeGreaterThan(0);
+      expect(firstDefaultRunEvents.length).toBeLessThan(defaultLimitStressEventInputs.length);
+    });
+  });
+
   it("reads and renders a listed run from an explicit branch slug", async () => {
     const { branchSlug, otherBranchSlug, type } = sampleDistinctJournalScopes();
     const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
@@ -289,7 +333,7 @@ describe("journal inspection", () => {
     const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
 
     await withJournalHarness(async (productDir) => {
-      const [firstRunDate, secondRunDate, unsealedRunDate] = runCreation.dates;
+      const [firstRunDate, secondRunDate, thirdRunDate, unsealedRunDate] = runCreation.dates;
       const first = await openJournalRun({ productDir, branchSlug, type }, {
         now: () => firstRunDate,
         randomBytes: deterministicRunIdBytes(runCreation.idBytes),
@@ -298,20 +342,47 @@ describe("journal inspection", () => {
         now: () => secondRunDate,
         randomBytes: deterministicRunIdBytes(runCreation.idBytes),
       });
+      const third = await openJournalRun({ productDir, branchSlug, type }, {
+        now: () => thirdRunDate,
+        randomBytes: deterministicRunIdBytes(runCreation.idBytes),
+      });
       const unsealed = await openJournalRun({ productDir, branchSlug, type }, {
         now: () => unsealedRunDate,
         randomBytes: deterministicRunIdBytes(runCreation.idBytes),
       });
-      expect(first.ok && second.ok && unsealed.ok).toBe(true);
-      if (!first.ok || !second.ok || !unsealed.ok) return;
+      expect(first.ok && second.ok && third.ok && unsealed.ok).toBe(true);
+      if (!first.ok || !second.ok || !third.ok || !unsealed.ok) return;
 
-      for (const opened of [first, second, unsealed]) {
+      for (const opened of [first, second, third, unsealed]) {
         await appendJournalEvent(opened.value.ref, input, new RecordingJournalStreamSink());
       }
+      await appendJournalEvent(
+        first.value.ref,
+        journalRunEventInput(
+          JOURNAL_RUN_EVENT.COMPLETED_TYPE,
+          sampleTerminalRunState(JOURNAL_RUN_STATE_STATUS.APPROVED),
+          input,
+        ),
+        new RecordingJournalStreamSink(),
+      );
       await sealJournalRun(first.value.ref);
       await sealJournalRun(second.value.ref);
+      await sealJournalRun(third.value.ref);
+      const expectedRunTokens = [first.value.ref.runToken, second.value.ref.runToken, third.value.ref.runToken];
+      const expectedLimitedRunTokens = [first.value.ref.runToken, second.value.ref.runToken];
+      const expectedLimitedEventSeqs = [JOURNAL_SEQ_BASE];
+      const readSetLimit = sampleStateStoreTestValue(
+        arbitraryJournalListLimit(expectedLimitedRunTokens.length).filter(
+          (limit) => limit === expectedLimitedRunTokens.length,
+        ),
+      );
+      const readSetEventLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedLimitedEventSeqs.length));
 
       const readSet = await journalReadSetCommand({ branchSlug, type }, localDeps(productDir));
+      const limitedReadSet = await journalReadSetCommand(
+        { branchSlug, type, eventLimit: String(readSetEventLimit), limit: String(readSetLimit) },
+        localDeps(productDir),
+      );
       const readSetWithMalformedBackendOverride = await journalReadSetCommand(
         { branchSlug, type },
         {
@@ -321,23 +392,47 @@ describe("journal inspection", () => {
       );
 
       expect(readSet.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      expect(limitedReadSet.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       expect(readSetWithMalformedBackendOverride.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
-      expect(readSetWithMalformedBackendOverride.output).toBe(readSet.output);
       const runs = JSON.parse(readSet.output) as Array<
+        { readonly runToken: string; readonly metadata: JournalRunMetadata; readonly events: JournalEvent[] }
+      >;
+      const limitedRuns = JSON.parse(limitedReadSet.output) as Array<
+        { readonly runToken: string; readonly metadata: JournalRunMetadata; readonly events: JournalEvent[] }
+      >;
+      const overrideRuns = JSON.parse(readSetWithMalformedBackendOverride.output) as Array<
         { readonly runToken: string; readonly metadata: JournalRunMetadata; readonly events: JournalEvent[] }
       >;
       const firstRead = runs[0];
       const secondRead = runs[1];
-      if (firstRead === undefined || secondRead === undefined) throw new Error("expected two sealed journal runs");
+      const thirdRead = runs[2];
+      if (firstRead === undefined || secondRead === undefined || thirdRead === undefined) {
+        throw new Error("expected three sealed journal runs");
+      }
+      expect(runs.map((run) => run.runToken)).toEqual(expectedRunTokens);
+      expect(overrideRuns.map((run) => run.runToken)).toEqual(expectedRunTokens);
+      expect(overrideRuns[0]?.metadata).toEqual(
+        expect.objectContaining({
+          branchSlug,
+          runToken: first.value.ref.runToken,
+          sealed: true,
+          type,
+        }),
+      );
+      expect(limitedRuns.map((run) => run.runToken)).toEqual(expectedLimitedRunTokens);
+      expect(limitedRuns[0]?.events.map((event) => event.seq)).toEqual(expectedLimitedEventSeqs);
       expect(runs).toEqual([
         {
-          events: [expect.objectContaining({ seq: JOURNAL_SEQ_BASE })],
+          events: [
+            expect.objectContaining({ seq: JOURNAL_SEQ_BASE }),
+            expect.objectContaining({ seq: JOURNAL_SEQ_BASE + 1 }),
+          ],
           metadata: expect.objectContaining({
             branchSlug,
             eventCount: firstRead.events.length,
             runToken: first.value.ref.runToken,
             sealed: true,
-            terminalState: JOURNAL_RUN_TERMINAL_FILTER.MISSING_STATE,
+            terminalState: JOURNAL_RUN_STATE_STATUS.APPROVED,
             type,
           }),
           runToken: first.value.ref.runToken,
@@ -353,6 +448,18 @@ describe("journal inspection", () => {
             type,
           }),
           runToken: second.value.ref.runToken,
+        },
+        {
+          events: [expect.objectContaining({ seq: JOURNAL_SEQ_BASE })],
+          metadata: expect.objectContaining({
+            branchSlug,
+            eventCount: thirdRead.events.length,
+            runToken: third.value.ref.runToken,
+            sealed: true,
+            terminalState: JOURNAL_RUN_TERMINAL_FILTER.MISSING_STATE,
+            type,
+          }),
+          runToken: third.value.ref.runToken,
         },
       ]);
     });

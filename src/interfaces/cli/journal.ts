@@ -34,6 +34,7 @@ export const JOURNAL_CLI = {
   sealedOption: "--sealed <state>",
   terminalStateOption: "--terminal-state <state>",
   limitOption: "--limit <count>",
+  eventLimitOption: "--event-limit <count>",
 } as const;
 
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
@@ -61,6 +62,8 @@ interface JournalListCliOptions {
 
 interface JournalReadSetCliOptions extends JournalScopeCliOptions {
   readonly branchSlug?: string;
+  readonly eventLimit?: string;
+  readonly limit?: string;
 }
 
 function scope(options: JournalScopeCliOptions): { readonly type: string } {
@@ -167,12 +170,16 @@ export const journalDomain: Domain = {
       .description("Read sealed runs in one branch and type scope")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .option(JOURNAL_CLI.branchSlugOption, "State-store branch slug")
+      .option(JOURNAL_CLI.limitOption, "Maximum number of sealed runs")
+      .option(JOURNAL_CLI.eventLimitOption, "Maximum events returned per run")
       .action(async (options: JournalReadSetCliOptions) => {
         report(
           await journalReadSetCommand(
             {
               ...scope(options),
               ...(options.branchSlug === undefined ? {} : { branchSlug: options.branchSlug }),
+              ...(options.eventLimit === undefined ? {} : { eventLimit: options.eventLimit }),
+              ...(options.limit === undefined ? {} : { limit: options.limit }),
             },
             journalDeps(),
           ),

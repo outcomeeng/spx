@@ -1,8 +1,8 @@
 # Surfaces
 
-PROVIDES product interaction surfaces that compose lower-index SPX capability libraries into operator-facing, agent-facing, and integration-facing interfaces
+PROVIDES product interaction surfaces for operator-facing, agent-facing, and integration-facing interfaces
 SO THAT CLI, MCP, web API, and UI surfaces
-CAN expose the same interface-neutral product capabilities through surface-specific command, protocol, rendering, and invocation contracts without owning the underlying library semantics
+CAN expose SPX capabilities through surface-specific command, protocol, rendering, and invocation contracts
 
 ## Assertions
 
