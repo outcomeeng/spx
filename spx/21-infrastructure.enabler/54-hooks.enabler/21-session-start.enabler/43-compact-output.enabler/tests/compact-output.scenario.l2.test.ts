@@ -43,7 +43,7 @@ async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: 
 }
 
 describe("hook CLI compact stdout boundary", () => {
-  it("keeps process stdout empty for Codex compact source under the default configured-agent policy", async () => {
+  it("keeps process stdout empty for Codex compact source under the default agent policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
@@ -76,7 +76,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("keeps process stdout empty when Codex and Claude Code configured-agent markers are both present", async () => {
+  it("keeps process stdout empty when Codex and Claude Code agent markers are both present", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const [claudeSessionId, codexThreadId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
@@ -110,7 +110,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("emits compact stdout for Claude Code compact source under the default configured-agent policy", async () => {
+  it("emits compact stdout for Claude Code compact source under the default agent policy", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -143,7 +143,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("defaults to Codex compact stdout policy when no configured-agent marker is present", async () => {
+  it("defaults to Codex compact stdout policy when no agent marker is present", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
@@ -177,7 +177,7 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("falls back to configured-agent defaults and warns when compact stdout config is malformed", async () => {
+  it("falls back to agent defaults and warns when compact stdout config is malformed", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());

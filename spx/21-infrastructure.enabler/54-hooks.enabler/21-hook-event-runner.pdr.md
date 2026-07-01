@@ -1,26 +1,26 @@
 # Hook Event Runner
 
-SPX exposes configured-agent lifecycle hooks as a product-level event runner invoked as
+SPX exposes agent lifecycle hooks as a product-level event runner invoked as
 `spx hook run <event>`. Hook events are named by lowercase hyphenated operands
-derived from the upstream configured-agent lifecycle event they serve, consume the hook
+derived from the upstream agent lifecycle event they serve, consume the hook
 payload and hook execution environment, and may coordinate multiple SPX domains
 without becoming commands in any one domain. `session-start` is the first
 required event: it reports session and project identity, writes hook environment
 exports, reports the claim file path when the worktree is held by the agent session, and emits
-compact lifecycle source hook stdout according to the invoking configured agent's
+compact lifecycle source hook stdout according to the invoking agent's
 hook policy.
 
 ## Rationale
 
 Lifecycle hooks integrate plugins through hook events. A hook event can span
 worktree occupancy, session identity, Spec Tree context, stale-base detection,
-queued-work discoverability, and configured-agent hook policy in one invocation,
+queued-work discoverability, and agent hook policy in one invocation,
 so the product contract belongs to hooks infrastructure and the domain-specific
 commands remain focused on explicit operator actions.
 
 ## Product properties
 
-1. A plugin invokes SPX hook behavior by naming a configured-agent lifecycle event and
+1. A plugin invokes SPX hook behavior by naming an agent lifecycle event and
    providing that event's payload and hook execution context.
 2. `session-start` produces session identity, project identity, and a worktree
    claim path when the hook payload and hook execution context provide enough
@@ -34,7 +34,7 @@ commands remain focused on explicit operator actions.
 
 ### Audit
 
-- ALWAYS: hook behavior that consumes configured-agent lifecycle payloads is described as
+- ALWAYS: hook behavior that consumes agent lifecycle payloads is described as
   SPX hook event behavior, not as a command in the worktree, session, or Spec
   Tree domains ([audit])
 - ALWAYS: the public hook invocation contract is `spx hook run <event>`, and
@@ -52,7 +52,7 @@ commands remain focused on explicit operator actions.
   stdout policy from the product directory named by the hook payload `cwd` when
   the payload is readable, rather than from the process launch directory
   ([audit])
-- ALWAYS: compact-source stdout configured-agent selection treats
+- ALWAYS: compact-source stdout agent selection treats
   `CODEX_THREAD_ID` as the Codex marker even when a `CLAUDE_SESSION_ID`
   value is also present, treats `CLAUDE_SESSION_ID` as the Claude Code marker
   when `CODEX_THREAD_ID` is absent, and treats `CLAUDE_ENV_FILE` as the
@@ -63,7 +63,7 @@ commands remain focused on explicit operator actions.
   explicit marker or diagnostic while allowing the hook invocation to complete
   successfully ([audit])
 - NEVER: `session-start` emits model-visible hook stdout for the compact
-  lifecycle source when the invoking configured agent's compact stdout policy is false
+  lifecycle source when the invoking agent's compact stdout policy is false
   ([audit])
 - NEVER: hook stdout carries diagnostics; stdout is reserved for hook-specific
   model-visible context ([audit])

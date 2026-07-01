@@ -2,9 +2,9 @@
 
 ## Harness vocabulary alignment
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
-`spx/12-agent-harness.pdr.md` includes top-level domains that journal verification runs executed by coding agents. Align this node's specs, `spx verify` command text, `spx journal` command text, and verification-run vocabulary so the run journal is described as evidence for verification runs executed by configured agents, distinct from configured-agent sessions, agent adapters, and SPX handoff session files.
+`spx/12-agent-harness.pdr.md` includes top-level domains that journal verification runs executed by coding agents. Align this node's specs, `spx verify` command text, `spx journal` command text, and verification-run vocabulary so the run journal is described as evidence for verification runs executed by agents, distinct from agent sessions, agent adapters, and SPX handoff session files.
 
 1. Apply `spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler`: add tests for `start`, `input`, changeset scope mapping, run-token selection, run-locator reporting, run-not-found diagnostics, start-only input, and working-tree scope rejection; implement the corresponding pure rules, command orchestration, and CLI behavior per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`.
 2. Apply `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler`: add tests for append payloads, review finding validation, and idempotency; implement the corresponding pure rules, command orchestration, and CLI behavior.

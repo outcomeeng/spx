@@ -23,7 +23,7 @@ import {
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { parse as parseToml } from "smol-toml";
 
-describe("configured-agent config boundary compliance", () => {
+describe("agent config boundary compliance", () => {
   it("models Claude Code and Codex settings as agent-specific outputs under harness environment ownership", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
 
@@ -83,7 +83,7 @@ describe("configured-agent config boundary compliance", () => {
       expect(result.value.files.every((file) => file.path.startsWith(stateDir))).toBe(true);
       const hermeticCodexPlan = result.value.files.find((file) => file.agent === AGENT.CODEX);
       expect(hermeticCodexPlan).toBeDefined();
-      if (hermeticCodexPlan === undefined) throw new Error("missing Codex configured-agent file plan");
+      if (hermeticCodexPlan === undefined) throw new Error("missing Codex agent file plan");
       expect(hermeticCodexPlan.path).toContain(HERMETIC_RUNTIME_CONFIG_DIRECTORY);
       expect(result.value.files.map((file) => file.action)).toEqual([
         RUNTIME_CONFIG_ACTION.CREATE,
@@ -92,7 +92,7 @@ describe("configured-agent config boundary compliance", () => {
     });
   });
 
-  it("writes hermetic configured-agent files under the supplied state directory only", async () => {
+  it("writes hermetic agent files under the supplied state directory only", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const stateDirName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
 
@@ -113,7 +113,7 @@ describe("configured-agent config boundary compliance", () => {
       if (!result.ok) throw new Error(result.error);
       const hermeticCodexPlan = result.value.files.find((file) => file.agent === AGENT.CODEX);
       expect(hermeticCodexPlan).toBeDefined();
-      if (hermeticCodexPlan === undefined) throw new Error("missing Codex configured-agent file plan");
+      if (hermeticCodexPlan === undefined) throw new Error("missing Codex agent file plan");
       expect(hermeticCodexPlan.path).toContain(HERMETIC_RUNTIME_CONFIG_DIRECTORY);
       expect(
         readManagedRuntimeConfigState(
@@ -129,7 +129,7 @@ describe("configured-agent config boundary compliance", () => {
     });
   });
 
-  it("plans configured-agent config changes without writing configured-agent files", async () => {
+  it("plans agent config changes without writing agent files", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {
@@ -152,7 +152,7 @@ describe("configured-agent config boundary compliance", () => {
     });
   });
 
-  it("plans dry-run changes without writing configured-agent files", async () => {
+  it("plans dry-run changes without writing agent files", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
 
     await withTestEnv({}, async ({ productDir, readFile }) => {

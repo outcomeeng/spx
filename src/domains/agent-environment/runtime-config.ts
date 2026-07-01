@@ -46,9 +46,11 @@ export const RUNTIME_CONFIG_STATE_FIELDS = {
 } as const;
 
 export const RUNTIME_CONFIG_ERROR_MESSAGES = {
-  INVALID_JSON: "not valid JSON configured-agent config",
-  INVALID_TOML: "not valid TOML configured-agent config",
+  INVALID_JSON: "not valid JSON agent config",
+  INVALID_TOML: "not valid TOML agent config",
+  PREPARE_DIRECTORY_FAILED: "failed to prepare agent config directory",
   ROLLBACK_FAILED: "rollback failed",
+  WRITE_FILE_FAILED: "failed to write agent config",
 } as const;
 
 export const RUNTIME_CONFIG_FILE_ERROR_CODES = {
@@ -172,7 +174,7 @@ export async function planRuntimeConfigReconciliation(
   options: RuntimeConfigReconciliationOptions,
 ): Promise<Result<RuntimeConfigReconciliation>> {
   const deps = options.deps ?? DEFAULT_RUNTIME_CONFIG_DEPENDENCIES;
-  const plan = await planRuntimeConfigReconciliationWithDeps({ ...options, dryRun: true }, deps);
+  const plan = await planRuntimeConfigReconciliationWithDeps({ ...options, dryRun: options.dryRun ?? true }, deps);
   if (!plan.ok) return plan;
   return { ok: true, value: publicRuntimeConfigReconciliation(plan.value) };
 }
@@ -316,7 +318,7 @@ async function readOptionalRuntimeConfigFile(
     return { ok: true, value: await deps.fs.readFile(path, RUNTIME_CONFIG_TEXT_ENCODING) };
   } catch (error) {
     if (isFileNotFound(error)) return { ok: true, value: undefined };
-    return { ok: false, error: `failed to read configured-agent config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `failed to read agent config ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -427,12 +429,22 @@ async function writeRuntimeConfigFile(
   content: string,
   deps: RuntimeConfigDependencies,
 ): Promise<Result<undefined>> {
+  const parentDirectory = dirname(path);
   try {
-    await deps.fs.mkdir(dirname(path), { recursive: true });
+    await deps.fs.mkdir(parentDirectory, { recursive: true });
+  } catch (error) {
+    return {
+      ok: false,
+      error: `${RUNTIME_CONFIG_ERROR_MESSAGES.PREPARE_DIRECTORY_FAILED} ${parentDirectory} for ${path}: ${
+        toMessage(error)
+      }`,
+    };
+  }
+  try {
     await deps.fs.writeFile(path, content, RUNTIME_CONFIG_TEXT_ENCODING);
     return { ok: true, value: undefined };
   } catch (error) {
-    return { ok: false, error: `failed to write configured-agent config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `${RUNTIME_CONFIG_ERROR_MESSAGES.WRITE_FILE_FAILED} ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -467,7 +479,7 @@ async function removeRuntimeConfigFile(
     await deps.fs.rm(path, { force: true });
     return { ok: true, value: undefined };
   } catch (error) {
-    return { ok: false, error: `failed to remove configured-agent config ${path}: ${toMessage(error)}` };
+    return { ok: false, error: `failed to remove agent config ${path}: ${toMessage(error)}` };
   }
 }
 
@@ -499,7 +511,7 @@ function mergeTomlManagedTable(current: string | undefined, managedTable: string
   }
 
   const managedEnd = findNextTopLevelTomlTableHeader(currentLines, managedStart + 1);
-  const separatorLines = trailingBlankLines(currentLines, managedStart + 1, managedEnd);
+  const separatorLines = trailingTomlSeparatorLines(currentLines, managedStart + 1, managedEnd);
   return `${
     [
       ...currentLines.slice(0, managedStart),
@@ -618,12 +630,17 @@ function isEscapedTomlDelimiter(line: string, index: number): boolean {
   return backslashCount % 2 === 1;
 }
 
-function trailingBlankLines(lines: readonly string[], start: number, end: number): readonly string[] {
+function trailingTomlSeparatorLines(lines: readonly string[], start: number, end: number): readonly string[] {
   let separatorStart = end;
-  while (separatorStart > start && lines[separatorStart - 1]?.trim() === "") {
+  while (separatorStart > start && isTomlSeparatorLine(lines[separatorStart - 1] ?? "")) {
     separatorStart -= 1;
   }
   return lines.slice(separatorStart, end);
+}
+
+function isTomlSeparatorLine(line: string): boolean {
+  const trimmed = line.trimStart();
+  return trimmed === "" || trimmed.startsWith("#");
 }
 
 function isTomlManagedTableHeader(line: string): boolean {

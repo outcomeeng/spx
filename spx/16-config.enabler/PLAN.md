@@ -2,11 +2,11 @@
 
 ## Harness vocabulary guard
 
-Before applying an agent-environment or agent-facing packet from this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, configured agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying a harness-environment or agent-facing packet from this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
-Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: `validation`, `testing`, agent environment management, context ingestion, and future execution domains.
+Coordinate the refactor tranche that moves deterministic execution domains onto the shared config descriptor system: `validation`, `testing`, harness environment management, context ingestion, and future execution domains.
 
 ## Governing Decisions
 
@@ -20,7 +20,7 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 - `spx/16-config.enabler/43-domain-execution-descriptors.enabler/` owns the registered testing descriptor extension.
 - `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/` owns canonical descriptor JSON and digest computation.
 - `spx/16-config.enabler/65-product-directory-api.enabler/` owns product-directory API vocabulary for config-owned root resolution.
-- `spx/33-agent-environment.enabler/` owns the agent environment descriptor shape consumed by runtime and future agent-environment packets.
+- `spx/33-harness-environment.enabler/` owns the harness environment descriptor shape consumed by agent config and future harness-environment packets.
 
 ## Active tranche
 
@@ -34,8 +34,8 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
    - Final ignore-source deletion follows test passing-scope integration.
 
 3. Complete agent instruction and plugin bootstrap packets.
-   - Work in `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` and `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`.
-   - Consume settled agent descriptor and runtime config reconciliation.
+   - Work in `spx/33-harness-environment.enabler/21-agent-instructions.enabler/` and `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/`.
+   - Consume settled agent descriptor and agent config reconciliation.
 
 ## Refactor Tranche Agent Work Packets
 
@@ -64,20 +64,20 @@ git cat-file -e origin/main:spx/23-spec-tree.enabler/spec-tree.md
 
 Dispatcher Verification covers already-settled prerequisites only. Packet outputs such as C1 and C2 are checked by dependent agents at branch time, so dispatchers may assign dependent packets while those prerequisites are in flight when they expect the agents to self-block until the sentinel exists.
 
-| Packet | Target node                                                       | Depends on                                                                                  | Output                                                                                                              |
-| ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| C1     | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`   | none                                                                                        | Settled on `origin/main`: config-owned canonical descriptor JSON and descriptor digest API                          |
-| C2     | `spx/16-config.enabler/65-product-directory-api.enabler/`         | none; dispatcher-enforced preference to sequence after C1 because both touch config modules | Settled on `origin/main`: product-root vocabulary across config APIs, harnesses, and root helpers                   |
-| F1     | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`   | settled path-filter primitive                                                               | File-inclusion resolver accepts descriptor-owned domain path filters                                                |
-| T1     | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`  | C2                                                                                          | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures                         |
-| T2     | `spx/41-test.enabler/43-last-run-evidence.enabler/`               | settled test config, settled domain execution descriptor, C1, C2                            | Persisted test observations and stale-status inputs                                                                 |
-| S1     | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/`        | settled public-surface files on `origin/main`; S1 verifies surface completeness             | Deterministic context-ingestion command surface                                                                     |
-| E0     | `spx/33-agent-environment.enabler/`                               | none; critical-path priority before E2                                                      | Settled on `origin/main`: agent environment descriptor shape for instructions, runtime config, and plugin bootstrap |
-| E1     | `spx/33-agent-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2                                                 | Assign after E2 merges: deterministic instruction-file reconciliation; sentinel `agent-instructions.md`             |
-| E2     | `spx/33-agent-environment.enabler/32-runtime-config.enabler/`     | E0                                                                                          | Settled on `origin/main`: Claude Code and Codex runtime config reconciliation                                       |
-| E3     | `spx/33-agent-environment.enabler/43-plugin-bootstrap.enabler/`   | E2                                                                                          | Plugin marketplace, plugin, and skill bootstrap status                                                              |
+| Packet | Target node                                                         | Depends on                                                                                  | Output                                                                                                              |
+| ------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| C1     | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/`     | none                                                                                        | Settled on `origin/main`: config-owned canonical descriptor JSON and descriptor digest API                          |
+| C2     | `spx/16-config.enabler/65-product-directory-api.enabler/`           | none; dispatcher-enforced preference to sequence after C1 because both touch config modules | Settled on `origin/main`: product-root vocabulary across config APIs, harnesses, and root helpers                   |
+| F1     | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/`     | settled path-filter primitive                                                               | File-inclusion resolver accepts descriptor-owned domain path filters                                                |
+| T1     | `spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/`    | C2                                                                                          | Remaining spec-tree tests use `withSpecTreeEnv` when they need materialized `spx/` fixtures                         |
+| T2     | `spx/41-test.enabler/43-last-run-evidence.enabler/`                 | settled test config, settled domain execution descriptor, C1, C2                            | Persisted test observations and stale-status inputs                                                                 |
+| S1     | `spx/31-spec-domain.enabler/43-context-ingestion.enabler/`          | settled public-surface files on `origin/main`; S1 verifies surface completeness             | Deterministic context-ingestion command surface                                                                     |
+| E0     | `spx/33-harness-environment.enabler/`                               | none; critical-path priority before E2                                                      | Settled on `origin/main`: harness environment descriptor shape for instructions, agent config, and plugin bootstrap |
+| E1     | `spx/33-harness-environment.enabler/21-agent-instructions.enabler/` | E0, E2; E0 is direct and also implied by E2                                                 | Assign after E2 merges: deterministic instruction-file reconciliation; sentinel `agent-instructions.md`             |
+| E2     | `spx/33-harness-environment.enabler/32-agent-config.enabler/`       | E0                                                                                          | Settled on `origin/main`: Claude Code and Codex agent config reconciliation                                         |
+| E3     | `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/`   | E2                                                                                          | Plugin marketplace, plugin, and skill bootstrap status                                                              |
 
-Critical path: E0 must settle before E2, and E2 gates E1 and E3 transitively. Assign E0 and E2 early when agent-environment packets are planned. C1 and C2 can start independently, but both may touch `src/config/`, `testing/generators/config/`, and config descriptor tests; the C1-before-C2 preference is dispatcher-enforced rather than agent-enforced. If C1 and C2 run in parallel, merge one first, then rebase the other and rerun validation before review.
+Critical path: E0 must settle before E2, and E2 gates E1 and E3 transitively. Assign E0 and E2 early when harness-environment packets are planned. C1 and C2 can start independently, but both may touch `src/config/`, `testing/generators/config/`, and config descriptor tests; the C1-before-C2 preference is dispatcher-enforced rather than agent-enforced. If C1 and C2 run in parallel, merge one first, then rebase the other and rerun validation before review.
 
 ## Common Agent Pickup Rules
 
