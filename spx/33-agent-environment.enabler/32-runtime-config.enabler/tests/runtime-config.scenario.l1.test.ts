@@ -315,6 +315,88 @@ describe("configured-agent config reconciliation scenarios", () => {
     });
   });
 
+  it("ignores ordinary TOML strings when finding the existing managed Codex table", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const literalField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const literalValue = "\"\"\"";
+    const basicField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const basicValue = "'''";
+    const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          `${literalField} = '${literalValue}'`,
+          `${basicField} = "${basicValue}"`,
+          "",
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          "",
+          "[[tasks]]",
+          `name = "${taskName}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codexRaw = await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH);
+      const codex = readRecord(parseToml(codexRaw));
+      expect(codexRaw.match(/\[spx\.harnessEnvironment\]/gu)).toHaveLength(1);
+      expect(codex[literalField]).toBe(literalValue);
+      expect(codex[basicField]).toBe(basicValue);
+      expect(codex.tasks).toEqual([{ name: taskName }]);
+    });
+  });
+
+  it("preserves user TOML tables with quoted path segments after the managed table", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+    const tableRoot = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const hashSegment = `${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}#segment`;
+    const bracketSegment = `${sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())}]segment`;
+    const hashField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const bracketField = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const hashValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+    const bracketValue = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
+
+    await withTestEnv({}, async ({ productDir, writeRaw, readFile }) => {
+      await writeRaw(
+        CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+        [
+          "[spx.harnessEnvironment]",
+          "enabled = false",
+          `productDir = "${productDir}"`,
+          `agent = "${AGENT.CODEX}"`,
+          `targetKind = "${RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT}"`,
+          "",
+          `[${tableRoot}."${hashSegment}"]`,
+          `${hashField} = "${hashValue}"`,
+          "",
+          `[${tableRoot}."${bracketSegment}"]`,
+          `${bracketField} = "${bracketValue}"`,
+          "",
+        ].join("\n"),
+      );
+
+      const result = await reconcileRuntimeConfig({ productDir, harnessEnvironment });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const codex = readRecord(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
+      const tableRootRecord = readRecord(codex[tableRoot]);
+      const hashTable = readRecord(tableRootRecord[hashSegment]);
+      const bracketTable = readRecord(tableRootRecord[bracketSegment]);
+      expect(hashTable[hashField]).toBe(hashValue);
+      expect(bracketTable[bracketField]).toBe(bracketValue);
+    });
+  });
+
   it("ignores TOML comments when finding the existing managed Codex table", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
     const taskName = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
@@ -634,6 +716,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       if (!result.ok) {
         expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
         expect(result.error).toContain(rollbackFailureMessage);
       }
       expect(fs.hasFile(codexPath)).toBe(true);
@@ -666,6 +749,7 @@ describe("configured-agent config reconciliation scenarios", () => {
       if (!result.ok) {
         expect(result.error).toContain(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH);
         expect(result.error).toContain(writeFailureMessage);
+        expect(result.error).toContain(RUNTIME_CONFIG_ERROR_MESSAGES.ROLLBACK_FAILED);
         expect(result.error).toContain(rollbackFailureMessage);
       }
       expect(fs.hasFile(codexPath)).toBe(false);
