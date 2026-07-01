@@ -194,6 +194,19 @@ npm view @outcomeeng/spx version
 npm audit signatures
 ```
 
+8. Refresh the operator-visible CLI from the primary checkout and confirm it
+   reports the released version:
+
+```bash
+git pull --ff-only
+pnpm build
+spx --version
+```
+
+Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
+manager update commands during release close-out. The operator-visible binary
+comes from the primary checkout after it is fast-forwarded and rebuilt.
+
 ## Technical Stack
 
 - TypeScript — type-safe implementation (ESM)
