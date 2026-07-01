@@ -8,6 +8,7 @@ import {
   type WorktreePoolSnapshot,
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
+import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -72,6 +73,55 @@ describe("the session-environment probe maps exported claim paths", () => {
         sessionIdentity: true,
         worktreeClaimed: true,
       });
+    });
+  });
+
+  it("derives session identity from a live current-worktree claim when shell identity is absent", async () => {
+    await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (productDir) => {
+      const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+      const worktreeRoot = join(productDir, worktreeName);
+      const worktreesDir = join(productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName()));
+      const claim = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+      const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+      const claimName = worktreeClaimName(worktreeRoot);
+      const written = await writeClaim(worktreesDir, claimName, claim, {
+        fs: defaultOccupancyFileSystem,
+        randomBytes,
+      });
+      if (!written.ok) throw new Error(written.error);
+      const env = {
+        [HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH]: written.value,
+      };
+      const facts: GitFacts = {
+        worktreeRoot,
+        worktreeRoots: [worktreeRoot],
+        worktreeListRead: true,
+        commonDir: join(productDir, `${worktreeName}${GIT_URL_SUFFIX}`),
+        commonDirIsBare: true,
+        originUrl: null,
+      };
+      const snapshot = await gatherWorktreePoolSnapshot({
+        env,
+        gatherGitFacts: async () => facts,
+        fs: defaultOccupancyFileSystem,
+        processTable: createProcessTable({
+          host: claim.host,
+          processes: new Map([[claim.pid, { alive: true, startTime: claim.startedAt }]]),
+        }),
+      });
+
+      const reading = await sessionEnvironmentProbeFromSnapshotProvider(
+        snapshotProvider(snapshot),
+        env,
+      ).probe();
+
+      expect(reading).toEqual({
+        errored: false,
+        hookPresent: true,
+        sessionIdentity: true,
+        worktreeClaimed: true,
+      });
+      expect(classifySessionEnvironment(reading).verdict).toBe(SESSION_ENVIRONMENT_VERDICT.WORKING);
     });
   });
 
