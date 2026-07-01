@@ -2,11 +2,17 @@ import { readFile } from "node:fs/promises";
 
 import type { Command } from "commander";
 
-import { verifyInputCommand, verifyStartCommand } from "@/commands/verify/cli";
+import {
+  verifyAppendFindingCommand,
+  verifyAppendScopeCommand,
+  verifyInputCommand,
+  verifyStartCommand,
+} from "@/commands/verify/cli";
 import type { Domain } from "@/domains/types";
 import { VERIFY_INPUT_SOURCE, VERIFY_VERB } from "@/domains/verify/verify";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 
+import { createJournalStreamBinding } from "./lib/journal-stream-binding";
 import { reportCliResult } from "./lib/stream-report";
 
 export const VERIFY_CLI = {
@@ -14,14 +20,18 @@ export const VERIFY_CLI = {
   description: "Record and replay a typed verification run",
   startCommandName: VERIFY_VERB.START,
   inputCommandName: VERIFY_VERB.INPUT,
+  appendScopeCommandName: VERIFY_VERB.APPEND_SCOPE,
+  appendFindingCommandName: VERIFY_VERB.APPEND_FINDING,
   verificationTypeOption: "--verification-type <type>",
   scopeTypeOption: "--scope-type <scope-type>",
   scopeOption: "--scope <base>..<head>",
   inputOption: "--input <input-source>",
   runOption: "--run <token>",
+  payloadOption: "--payload <payload-source>",
+  idempotencyKeyOption: "--idempotency-key <key>",
 } as const;
 
-const INPUT_SOURCE_ENCODING = "utf8";
+const CLI_SOURCE_ENCODING = "utf8";
 
 interface VerifySharedCliOptions {
   readonly verificationType: string;
@@ -37,25 +47,36 @@ interface VerifyInputActionOptions extends VerifySharedCliOptions {
   readonly run: string;
 }
 
+interface VerifyAppendActionOptions extends VerifySharedCliOptions {
+  readonly run: string;
+  readonly payload: string;
+  readonly idempotencyKey: string;
+}
+
 async function readStdinText(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
   }
-  return Buffer.concat(chunks).toString(INPUT_SOURCE_ENCODING);
+  return Buffer.concat(chunks).toString(CLI_SOURCE_ENCODING);
 }
 
-/** Read the verification input from stdin when the source is `stdin`, otherwise from a file path. */
-async function readInputSource(source: string): Promise<string> {
+/** Read a verification input or append payload from stdin when the source is `stdin`, otherwise a file path. */
+async function readCliSource(source: string): Promise<string> {
   if (source === VERIFY_INPUT_SOURCE.STDIN) return readStdinText();
-  return readFile(source, INPUT_SOURCE_ENCODING);
+  return readFile(source, CLI_SOURCE_ENCODING);
 }
 
 export const verifyDomain: Domain = {
   name: VERIFY_CLI.commandName,
   description: VERIFY_CLI.description,
   register: (program: Command, invocation: CliInvocation) => {
-    const deps = () => ({ cwd: invocation.resolveEffectiveInvocationDir(), readInputSource });
+    const deps = () => ({
+      cwd: invocation.resolveEffectiveInvocationDir(),
+      readInputSource: readCliSource,
+      readPayloadSource: readCliSource,
+      journalBinding: createJournalStreamBinding(invocation.io),
+    });
     const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
 
     command
@@ -78,6 +99,32 @@ export const verifyDomain: Domain = {
       .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
       .action(async (options: VerifyInputActionOptions) => {
         reportCliResult(await verifyInputCommand(options, deps()), invocation.io);
+      });
+
+    command
+      .command(VERIFY_CLI.appendScopeCommandName)
+      .description("Record the inspected scope for a started run")
+      .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+      .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
+      .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+      .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+      .requiredOption(VERIFY_CLI.payloadOption, "Append payload source; stdin or a file path")
+      .requiredOption(VERIFY_CLI.idempotencyKeyOption, "Caller-supplied idempotency key for the append")
+      .action(async (options: VerifyAppendActionOptions) => {
+        reportCliResult(await verifyAppendScopeCommand(options, deps()), invocation.io);
+      });
+
+    command
+      .command(VERIFY_CLI.appendFindingCommandName)
+      .description("Record a validated verification finding for a started run")
+      .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+      .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
+      .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+      .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+      .requiredOption(VERIFY_CLI.payloadOption, "Append payload source; stdin or a file path")
+      .requiredOption(VERIFY_CLI.idempotencyKeyOption, "Caller-supplied idempotency key for the append")
+      .action(async (options: VerifyAppendActionOptions) => {
+        reportCliResult(await verifyAppendFindingCommand(options, deps()), invocation.io);
       });
   },
 };

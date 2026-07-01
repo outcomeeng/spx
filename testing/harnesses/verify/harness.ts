@@ -1,7 +1,11 @@
 import { join } from "node:path";
 
+import { type JournalCliDeps, journalReadCommand } from "@/commands/journal/cli";
+import type { JournalStreamSink } from "@/commands/journal/runtime";
 import {
   VERIFY_CLI_EXIT_CODE,
+  type VerifyAppendCliOptions,
+  type VerifyAppendReport,
   type VerifyCliDeps,
   type VerifyInputCliOptions,
   type VerifyInputReport,
@@ -19,6 +23,7 @@ import {
   GIT_SHOW_TOPLEVEL_ARGS,
   type GitDependencies,
 } from "@/git/root";
+import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { GIT_NAME_STATUS_FLAG } from "@/lib/git/name-status";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { formatNameStatusZ, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -171,4 +176,101 @@ export function createRecordingInputReader(): RecordingInputReader {
     },
     calls: () => count,
   };
+}
+
+export function verifyAppendOptions(
+  scenario: VerifyRunContextScenario,
+  args: { readonly run: string; readonly payload: string; readonly idempotencyKey: string },
+): VerifyAppendCliOptions {
+  return {
+    verificationType: scenario.verificationType,
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scope: scenario.scope,
+    run: args.run,
+    payload: args.payload,
+    idempotencyKey: args.idempotencyKey,
+  };
+}
+
+export interface RecordingStreamSink {
+  /** A journal streaming sink that records each emitted event for boundary observation. */
+  readonly sink: JournalStreamSink;
+  /** The events streamed through the sink, oldest first. */
+  events(): readonly JournalEvent[];
+}
+
+/**
+ * A recording stream-sink double (Stage-5 exception 6, observability): it captures each event
+ * the append verb streams so a test can observe the streamed evidence without a real terminal
+ * or pull-request comment.
+ */
+export function createRecordingStreamSink(): RecordingStreamSink {
+  const events: JournalEvent[] = [];
+  return {
+    sink: {
+      emit: (event: JournalEvent): Promise<void> => {
+        events.push(event);
+        return Promise.resolve();
+      },
+    },
+    events: () => events,
+  };
+}
+
+export function verifyAppendDeps(
+  scenario: VerifyRunContextScenario,
+  fs: VerifyStateStoreFileSystem,
+  sink: JournalStreamSink,
+): VerifyCliDeps {
+  return {
+    ...verifyDeps(scenario, fs),
+    readPayloadSource: (source: string) => Promise.resolve(source),
+    journalBinding: { localSink: sink },
+  };
+}
+
+export interface VerifyAppendScenarioEnv {
+  readonly scenario: VerifyRunContextScenario;
+  readonly fs: VerifyStateStoreFileSystem;
+  readonly sink: RecordingStreamSink;
+  readonly deps: VerifyCliDeps;
+}
+
+/** Compose an append fixture: a fresh in-memory store, a recording stream sink, and wired deps for one scenario. */
+export function createVerifyAppendScenario(scenario: VerifyRunContextScenario): VerifyAppendScenarioEnv {
+  const fs = createInMemoryStateStoreFileSystem();
+  const sink = createRecordingStreamSink();
+  const deps = verifyAppendDeps(scenario, fs, sink.sink);
+  return { scenario, fs, sink, deps };
+}
+
+function journalDepsFor(scenario: VerifyRunContextScenario, fs: VerifyStateStoreFileSystem): JournalCliDeps {
+  return {
+    cwd: scenario.productDir,
+    fs,
+    git: verifyGitDeps(scenario),
+    processEnv: {},
+    now: () => scenario.launchedAt,
+  };
+}
+
+/** Read every persisted event for a run through the real journal substrate over the in-memory store. */
+export async function readVerifyRunEvents(
+  scenario: VerifyRunContextScenario,
+  runToken: string,
+  fs: VerifyStateStoreFileSystem,
+): Promise<readonly JournalEvent[]> {
+  const read = await journalReadCommand(
+    { type: scenario.verificationType, runToken },
+    String(JOURNAL_SEQ_BASE),
+    journalDepsFor(scenario, fs),
+  );
+  if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify harness: journal read failed: ${read.output}`);
+  }
+  return JSON.parse(read.output) as readonly JournalEvent[];
+}
+
+export function parseAppendReport(output: string): VerifyAppendReport {
+  return JSON.parse(output) as VerifyAppendReport;
 }
