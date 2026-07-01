@@ -194,18 +194,22 @@ npm view @outcomeeng/spx version
 npm audit signatures
 ```
 
-8. Refresh the operator-visible CLI from the main worktree and confirm it
-   reports the released version:
+8. Refresh the operator-visible CLI from the release tag in the main worktree
+   and confirm it reports the released version:
 
 ```bash
-git pull --ff-only
+git fetch --tags origin
+git switch --detach vX.Y.Z
 pnpm run build
 spx --version
+git switch main
+git pull --ff-only origin main
 ```
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
 manager update commands during release close-out. The operator-visible binary
-comes from the main worktree after it is fast-forwarded and rebuilt.
+comes from the release tag after the main worktree checks out that tag and
+rebuilds it; return the worktree to current main after the version check.
 
 ## Technical Stack
 

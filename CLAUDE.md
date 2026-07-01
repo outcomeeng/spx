@@ -177,7 +177,7 @@ Agent release sequence:
 5. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
 6. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for.
 7. After approval, verify the registry with `npm view @outcomeeng/spx version` and provenance with `npm audit signatures`.
-8. Complete the operator-visible CLI update from the main worktree: run `git pull --ff-only`, run `pnpm run build`, and verify `spx --version` reports `X.Y.Z`.
+8. Complete the operator-visible CLI update from the release tag in the main worktree: run `git fetch --tags origin`, `git switch --detach vX.Y.Z`, `pnpm run build`, verify `spx --version` reports `X.Y.Z`, then run `git switch main` and `git pull --ff-only origin main`.
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package-manager update commands during release close-out.
 
