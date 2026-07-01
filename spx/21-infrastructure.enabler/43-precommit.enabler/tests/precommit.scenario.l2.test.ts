@@ -69,6 +69,42 @@ it("${PRECOMMIT_TEST_FIXTURE.PASSING_TEST_NAME}", () => {
         expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);
       });
     });
+
+    it("GIVEN staged passing test and unrelated unstaged non-test file WHEN committing THEN commit succeeds", async () => {
+      await withGitEnv(async ({ exec, writeFile }) => {
+        const sourcePath = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.sourcePath());
+        const testPath = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.testPath());
+        const otherPath = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.otherPath());
+        const otherContent = samplePrecommitTestValue(PRECOMMIT_TEST_GENERATOR.fileContent());
+        const sourceImportPath = `../../../${sourcePath.replace(/\.ts$/, ".js")}`;
+
+        await writeFile(
+          sourcePath,
+          `export function add(a: number, b: number): number {
+  return a + b;
+}
+`,
+        );
+
+        await writeFile(
+          testPath,
+          `import { expect, it } from "vitest";
+import { add } from "${sourceImportPath}";
+
+it("${PRECOMMIT_TEST_FIXTURE.PASSING_TEST_NAME}", () => {
+  expect(add(1, 1)).toBe(2);
+});
+`,
+        );
+
+        await exec("git add .");
+        await writeFile(otherPath, otherContent);
+
+        const result = await exec("git commit -m 'test commit'", { reject: false });
+
+        expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);
+      });
+    });
   });
 
   describe("FI2: Selective test execution", () => {
