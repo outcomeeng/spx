@@ -1,21 +1,36 @@
 import { dirname } from "node:path";
 
-import { journalOpenCommand, readJournalCliEnvironment } from "@/commands/journal/cli";
+import {
+  journalAppendCommand,
+  journalOpenCommand,
+  journalReadCommand,
+  type JournalRunCliScope,
+  type JournalStreamBinding,
+  readJournalCliEnvironment,
+} from "@/commands/journal/cli";
+import { JOURNAL_RUNTIME_ERROR } from "@/commands/journal/runtime";
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { CliCommandResult, Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import {
+  buildAppendEvent,
   buildRunLocator,
   type ChangesetScope,
   digestRunInput,
+  findAppendedSequence,
+  findingValidatorFor,
   type InputDescriptor,
+  parseAppendPayload,
   parseChangesetScope,
   type RecordedInput,
   type RunLocator,
+  VERIFY_APPEND_EVENT_TYPE,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
+  VERIFY_VERB,
+  type VerifyAppendEventType,
   verifyInputRecordPath,
   type VerifyRunScope,
   verifyRunsDir,
@@ -28,6 +43,7 @@ import {
   GIT_ROOT_COMMAND,
   type GitDependencies,
 } from "@/git/root";
+import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { changesetNameStatusArgs, pathsFromNameStatus } from "@/lib/git/name-status";
 import {
   defaultStateStoreFileSystem,
@@ -56,6 +72,13 @@ export const VERIFY_CLI_ERROR = {
   CHANGED_SCOPE_FAILED: "spx verify could not derive the changeset changed-file scope",
   INPUT_PERSIST_FAILED: "spx verify could not persist the recorded run input",
   INPUT_READ_FAILED: "spx verify could not read the recorded run input",
+  PAYLOAD_REQUIRED: "spx verify append verbs require --payload <payload-source>",
+  IDEMPOTENCY_KEY_REQUIRED: "spx verify append verbs require --idempotency-key <key>",
+  PAYLOAD_READ_FAILED: "spx verify could not read the append payload",
+  PAYLOAD_INVALID: "spx verify append payload is not valid JSON",
+  FINDING_INVALID: "spx verify append-finding payload failed verification-type validation",
+  UNSUPPORTED_VERIFICATION_TYPE: "spx verify append-finding has no finding validator for the verification type",
+  APPEND_FAILED: "spx verify could not append the evidence event",
 } as const;
 
 export interface VerifyCliDeps {
@@ -66,6 +89,10 @@ export interface VerifyCliDeps {
   readonly fs?: StateStoreFileSystem;
   readonly now?: () => Date;
   readonly readInputSource: (source: string) => Promise<string>;
+  /** Reads the append payload from its `--payload` source; the append verbs require it. */
+  readonly readPayloadSource?: (source: string) => Promise<string>;
+  /** The journal streaming binding the descriptor injects; the append verbs stream through it. */
+  readonly journalBinding?: JournalStreamBinding;
 }
 
 export interface VerifyStartCliOptions {
@@ -94,6 +121,20 @@ export interface VerifyInputReport {
   readonly source: string;
   readonly digest: string;
   readonly content: string;
+}
+
+export interface VerifyAppendCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+  readonly payload: string;
+  readonly idempotencyKey: string;
+}
+
+export interface VerifyAppendReport {
+  readonly sequence: number;
+  readonly idempotent: boolean;
 }
 
 interface VerifyResolvedScope {
@@ -347,4 +388,170 @@ export async function verifyInputCommand(
     content: record.value.content,
   };
   return okResult(JSON.stringify(report));
+}
+
+type VerifyAppendVerb = typeof VERIFY_VERB.APPEND_SCOPE | typeof VERIFY_VERB.APPEND_FINDING;
+
+/** Read a run's full event history through the journal substrate, or report the read failure. */
+async function readRunJournalEvents(
+  scope: JournalRunCliScope,
+  deps: VerifyCliDeps,
+): Promise<Result<readonly JournalEvent[]>> {
+  const read = await journalReadCommand(scope, String(JOURNAL_SEQ_BASE), forwardDeps(deps));
+  if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return { ok: false, error: read.output };
+  return { ok: true, value: JSON.parse(read.output) as readonly JournalEvent[] };
+}
+
+/**
+ * Append inspected scope or a validated finding to a started run exactly once per idempotency key.
+ * The append requires an explicit `--payload` and `--idempotency-key`, validates a finding payload
+ * against the run's verification type, and returns the existing journal sequence for a repeated key
+ * rather than duplicating evidence. It never reads the recorded run input as the append payload.
+ */
+interface PreparedAppend {
+  readonly readPayload: (source: string) => Promise<string>;
+  readonly binding: JournalStreamBinding;
+  readonly journalScope: JournalRunCliScope;
+  readonly namespace: string;
+  readonly backendIdentity: string;
+}
+
+/**
+ * Validate the append request's required selectors and injected capabilities, then resolve the
+ * run's journal scope and storage namespace, so `verifyAppend` orchestrates a prepared run.
+ */
+async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDeps): Promise<Result<PreparedAppend>> {
+  if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
+  if (options.payload.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
+  if (options.idempotencyKey.trim().length === 0) {
+    return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
+  }
+
+  const readPayload = deps.readPayloadSource;
+  const binding = deps.journalBinding;
+  if (readPayload === undefined || binding === undefined) return { ok: false, error: VERIFY_CLI_ERROR.APPEND_FAILED };
+
+  const resolved = await resolveVerifyScope(deps);
+  if (!resolved.ok) return resolved;
+
+  const runScope: VerifyRunScope = {
+    productDir: resolved.value.productDir,
+    branchSlug: resolved.value.branchSlug,
+    type: options.verificationType,
+    runToken: options.run,
+  };
+  const namespace = verifyRunsDir(runScope);
+  if (!namespace.ok) return namespace;
+
+  return {
+    ok: true,
+    value: {
+      readPayload,
+      binding,
+      journalScope: { type: options.verificationType, runToken: options.run, branchSlug: resolved.value.branchSlug },
+      namespace: namespace.value,
+      backendIdentity: resolved.value.backendIdentity,
+    },
+  };
+}
+
+/** Report the run-not-found diagnostic for an append whose run the journal store does not hold. */
+function appendRunNotFoundDiagnostic(
+  options: VerifyAppendCliOptions,
+  backendIdentity: string,
+  namespace: string,
+): string {
+  return verifyRunNotFoundDiagnostic({
+    runToken: options.run,
+    verificationType: options.verificationType,
+    scopeType: options.scopeType,
+    scopeIdentity: options.scope,
+    backendIdentity,
+    storageNamespace: namespace,
+    searchedTarget: namespace,
+  });
+}
+
+/** Validate a finding payload against its verification type, returning the CLI error when invalid. */
+function validateAppendFinding(
+  verb: VerifyAppendVerb,
+  verificationType: string,
+  payload: JsonValue,
+): string | undefined {
+  if (verb !== VERIFY_VERB.APPEND_FINDING) return undefined;
+  const validator = findingValidatorFor(verificationType);
+  if (validator === undefined) return VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE;
+  if (validator(payload) === undefined) return VERIFY_CLI_ERROR.FINDING_INVALID;
+  return undefined;
+}
+
+/** The CloudEvents type an append verb records: a finding for `append-finding`, otherwise inspected scope. */
+function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
+  return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
+}
+
+async function verifyAppend(
+  options: VerifyAppendCliOptions,
+  deps: VerifyCliDeps,
+  verb: VerifyAppendVerb,
+): Promise<CliCommandResult> {
+  const prepared = await prepareAppend(options, deps);
+  if (!prepared.ok) return errorResult(prepared.error);
+  const { readPayload, binding, journalScope, namespace, backendIdentity } = prepared.value;
+  const eventType = appendEventType(verb);
+
+  const before = await readRunJournalEvents(journalScope, deps);
+  if (!before.ok) {
+    // A missing run reports the addressable run locator; any other read failure (a backend,
+    // scope, or storage error) surfaces its real reason rather than masquerading as run-not-found.
+    if (before.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(appendRunNotFoundDiagnostic(options, backendIdentity, namespace));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.APPEND_FAILED}: ${before.error}`);
+  }
+
+  const existing = findAppendedSequence(before.value, options.idempotencyKey, eventType);
+  if (existing !== undefined) {
+    const report: VerifyAppendReport = { sequence: existing, idempotent: true };
+    return okResult(JSON.stringify(report));
+  }
+
+  const parsed = parseAppendPayload(await readPayload(options.payload));
+  if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
+  const findingError = validateAppendFinding(verb, options.verificationType, parsed);
+  if (findingError !== undefined) return errorResult(findingError);
+
+  const event = buildAppendEvent({
+    eventType,
+    idempotencyKey: options.idempotencyKey,
+    payload: parsed,
+    at: deps.now?.() ?? new Date(),
+  });
+  const appended = await journalAppendCommand(journalScope, event, binding, forwardDeps(deps));
+  if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return errorResult(`${VERIFY_CLI_ERROR.APPEND_FAILED}: ${appended.output}`);
+  }
+
+  const after = await readRunJournalEvents(journalScope, deps);
+  if (!after.ok) return errorResult(`${VERIFY_CLI_ERROR.APPEND_FAILED}: ${after.error}`);
+  const sequence = findAppendedSequence(after.value, options.idempotencyKey, eventType);
+  if (sequence === undefined) return errorResult(VERIFY_CLI_ERROR.APPEND_FAILED);
+  const report: VerifyAppendReport = { sequence, idempotent: false };
+  return okResult(JSON.stringify(report));
+}
+
+/** Record the inspected scope for a started run under a caller idempotency key. */
+export async function verifyAppendScopeCommand(
+  options: VerifyAppendCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  return verifyAppend(options, deps, VERIFY_VERB.APPEND_SCOPE);
+}
+
+/** Record a validated verification finding for a started run under a caller idempotency key. */
+export async function verifyAppendFindingCommand(
+  options: VerifyAppendCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  return verifyAppend(options, deps, VERIFY_VERB.APPEND_FINDING);
 }

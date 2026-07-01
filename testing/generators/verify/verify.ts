@@ -1,8 +1,17 @@
 import * as fc from "fast-check";
 
+import { REVIEW_FINDING_DISPOSITION, type ReviewFinding, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+
+const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
+const EMPTY_SUMMARY = "";
+
+/** A string outside the valid review-finding disposition set — an invalid `disposition` value. */
+function arbitraryNonDisposition(): fc.Arbitrary<string> {
+  return fc.string().filter((value) => !(REVIEW_FINDING_DISPOSITIONS as readonly string[]).includes(value));
+}
 
 const SAMPLE_SEED = 0x5645524659;
 const CHANGED_PATH_MIN = 1;
@@ -66,6 +75,36 @@ export const VERIFY_TEST_GENERATOR = {
         [...first].sort((a, b) => a.localeCompare(b)).join() !== [...second].sort((a, b) => a.localeCompare(b)).join()
       )
       .map(([first, second]) => ({ first, second })),
+  idempotencyKey: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  idempotencyKeyPair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
+    fc
+      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .filter(([first, second]) => first !== second)
+      .map(([first, second]) => ({ first, second })),
+  blankIdempotencyKey: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
+  blankPayloadSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
+  reviewFinding: (): fc.Arbitrary<ReviewFinding> =>
+    fc.record({
+      disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
+      summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  invalidReviewFinding: (): fc.Arbitrary<unknown> =>
+    fc.oneof(
+      fc.constant(null),
+      fc.integer(),
+      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
+      fc.record({ disposition: arbitraryNonDisposition(), summary: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({ summary: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({ disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS), summary: fc.constant(EMPTY_SUMMARY) }),
+      fc.record({ disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS) }),
+    ),
+  scopePayload: (): fc.Arbitrary<Record<string, string>> =>
+    fc.dictionary(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken(), {
+      minKeys: 1,
+      maxKeys: 4,
+    }),
+  unsupportedVerificationType: (): fc.Arbitrary<string> =>
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => value !== VERIFY_VERIFICATION_TYPE.REVIEW),
 } as const;
 
 export function sampleVerifyTestValue<T>(arbitrary: fc.Arbitrary<T>): T {

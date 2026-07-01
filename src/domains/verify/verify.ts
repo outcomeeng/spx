@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
+import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 
 export const VERIFY_SCOPE_TYPE = {
@@ -14,9 +15,58 @@ export type VerifyScopeType = (typeof VERIFY_SCOPE_TYPE)[keyof typeof VERIFY_SCO
 export const VERIFY_VERB = {
   START: "start",
   INPUT: "input",
+  APPEND_SCOPE: "append-scope",
+  APPEND_FINDING: "append-finding",
 } as const;
 
 export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];
+
+/**
+ * The verification types whose finding payloads `spx verify append-finding` validates. Each
+ * type registers a finding validator (see `FINDING_VALIDATORS`); dispatch is a registry lookup
+ * keyed by this vocabulary, never verification-type-name branching, per
+ * `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`.
+ */
+export const VERIFY_VERIFICATION_TYPE = {
+  REVIEW: "review",
+} as const;
+
+export type VerifyVerificationType = (typeof VERIFY_VERIFICATION_TYPE)[keyof typeof VERIFY_VERIFICATION_TYPE];
+
+/** The receiver-action classes a review finding carries, per the merge lifecycle's finding disposition. */
+export const REVIEW_FINDING_DISPOSITION = {
+  BLOCKING: "BLOCKING",
+  DEBT: "DEBT",
+} as const;
+
+export type ReviewFindingDisposition = (typeof REVIEW_FINDING_DISPOSITION)[keyof typeof REVIEW_FINDING_DISPOSITION];
+
+/**
+ * A validated `review` verification finding: the receiver-action disposition and the finding
+ * summary. `spx verify append-finding` validates this shape at the boundary so callers do not
+ * carry review-specific schema validation outside SPX.
+ */
+export interface ReviewFinding {
+  readonly disposition: ReviewFindingDisposition;
+  readonly summary: string;
+}
+
+/** The CloudEvents `type` each append verb records, distinguishing inspected scope from findings. */
+export const VERIFY_APPEND_EVENT_TYPE = {
+  SCOPE: "io.spx.verify.scope",
+  FINDING: "io.spx.verify.finding",
+} as const;
+
+export type VerifyAppendEventType = (typeof VERIFY_APPEND_EVENT_TYPE)[keyof typeof VERIFY_APPEND_EVENT_TYPE];
+
+/** The CloudEvents `source` every `spx verify` append event carries. */
+export const VERIFY_EVENT_SOURCE = "/spx/verify" as const;
+
+/** The `data` fields an append event records: the caller idempotency key and the appended payload. */
+export const VERIFY_APPEND_EVENT_FIELD = {
+  IDEMPOTENCY_KEY: "idempotencyKey",
+  PAYLOAD: "payload",
+} as const;
 
 export const VERIFY_INPUT_SOURCE = {
   STDIN: "stdin",
@@ -146,5 +196,96 @@ export function verifyInputRecordPath(scope: VerifyRunScope): Result<string> {
   return {
     ok: true,
     value: join(runs.value, `${VERIFY_INPUT_RECORD.PREFIX}${token.value}${VERIFY_INPUT_RECORD.SUFFIX}`),
+  };
+}
+
+/** The CloudEvents `attempt` an append event carries; verify records one attempt per idempotent append. */
+export const VERIFY_APPEND_ATTEMPT = 1;
+
+/** Parse an append payload source's content as JSON, returning `undefined` for malformed input. */
+export function parseAppendPayload(raw: string): JsonValue | undefined {
+  try {
+    return JSON.parse(raw) as JsonValue;
+  } catch {
+    return undefined;
+  }
+}
+
+function isJsonRecord(value: JsonValue | undefined): value is { readonly [key: string]: JsonValue } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isReviewFindingDisposition(value: JsonValue | undefined): value is ReviewFindingDisposition {
+  return (Object.values(REVIEW_FINDING_DISPOSITION) as readonly string[]).includes(value as string);
+}
+
+/** A verification type's finding-payload validator: returns the typed finding, or `undefined` when invalid. */
+export type FindingValidator = (payload: JsonValue) => ReviewFinding | undefined;
+
+/**
+ * Validate a `review` finding payload: it must be an object carrying a known receiver-action
+ * disposition and a non-empty summary. Any other shape is rejected so callers do not carry
+ * review-specific schema validation outside SPX.
+ */
+export function validateReviewFinding(payload: JsonValue): ReviewFinding | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const { disposition, summary } = payload;
+  if (!isReviewFindingDisposition(disposition)) return undefined;
+  if (typeof summary !== "string" || summary.length === 0) return undefined;
+  return { disposition, summary };
+}
+
+/**
+ * The finding-validator registry keyed by verification type. Dispatch is a registry lookup, not
+ * verification-type-name branching, per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`;
+ * a new verification type registers a validator here.
+ */
+const FINDING_VALIDATORS: Readonly<Record<VerifyVerificationType, FindingValidator>> = {
+  [VERIFY_VERIFICATION_TYPE.REVIEW]: validateReviewFinding,
+};
+
+/** Look up the finding validator for a verification type, or `undefined` when the type registers none. */
+export function findingValidatorFor(verificationType: string): FindingValidator | undefined {
+  return (FINDING_VALIDATORS as Readonly<Record<string, FindingValidator | undefined>>)[verificationType];
+}
+
+/**
+ * Find the sequence of an already-appended event of this append kind bearing this idempotency key,
+ * or `undefined` when none exists, so a repeated append returns the existing sequence instead of
+ * duplicating evidence. The match is scoped by event type as well as key: an `append-scope` and an
+ * `append-finding` never satisfy each other's idempotency check even when a caller reuses one key
+ * across both verbs, matching the spec's "duplicating scope or finding evidence" per-kind contract.
+ */
+export function findAppendedSequence(
+  events: readonly JournalEvent[],
+  idempotencyKey: string,
+  eventType: VerifyAppendEventType,
+): number | undefined {
+  const match = events.find(
+    (event) =>
+      event.type === eventType
+      && isJsonRecord(event.data)
+      && event.data[VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY] === idempotencyKey,
+  );
+  return match?.seq;
+}
+
+/** Build the append event input recording the caller idempotency key and the appended payload. */
+export function buildAppendEvent(args: {
+  readonly eventType: VerifyAppendEventType;
+  readonly idempotencyKey: string;
+  readonly payload: JsonValue;
+  readonly at: Date;
+}): JournalEventInput {
+  return {
+    id: args.idempotencyKey,
+    source: VERIFY_EVENT_SOURCE,
+    type: args.eventType,
+    time: args.at.toISOString(),
+    attempt: VERIFY_APPEND_ATTEMPT,
+    data: {
+      [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: args.idempotencyKey,
+      [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: args.payload,
+    },
   };
 }
