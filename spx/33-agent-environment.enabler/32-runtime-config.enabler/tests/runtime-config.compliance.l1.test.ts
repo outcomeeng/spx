@@ -3,12 +3,14 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT, HARNESS_ENVIRONMENT_CONFIG_FIELDS } from "@/domains/agent-environment/config";
+import { AGENT } from "@/domains/agent-environment/config";
 import {
   CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH,
   CODEX_RUNTIME_CONFIG_RELATIVE_PATH,
+  HERMETIC_RUNTIME_CONFIG_DIRECTORY,
   planRuntimeConfigReconciliation,
   reconcileRuntimeConfig,
+  RUNTIME_CONFIG_ACTION,
   RUNTIME_CONFIG_STATE_FIELDS,
   RUNTIME_CONFIG_TARGET_KIND,
   RUNTIME_CONFIG_TEXT_ENCODING,
@@ -31,13 +33,17 @@ describe("configured-agent config boundary compliance", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(result.value.files.map((file) => file.agent)).toEqual([AGENT.CODEX, AGENT.CLAUDE_CODE]);
+      expect(result.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.CREATE,
+        RUNTIME_CONFIG_ACTION.CREATE,
+      ]);
       expect(result.value.files.every((file) => file.content !== undefined)).toBe(true);
 
       const codexState = readManagedRuntimeConfigState(parseToml(await readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)));
       expect(codexState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
 
@@ -47,7 +53,7 @@ describe("configured-agent config boundary compliance", () => {
       expect(claudeCodeState).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CLAUDE_CODE,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.INVOKING_AGENT,
       });
     });
@@ -75,6 +81,14 @@ describe("configured-agent config boundary compliance", () => {
       if (!result.ok) throw new Error(result.error);
       expect(result.value.target).toEqual(hermeticTarget);
       expect(result.value.files.every((file) => file.path.startsWith(stateDir))).toBe(true);
+      const hermeticCodexPlan = result.value.files.find((file) => file.agent === AGENT.CODEX);
+      expect(hermeticCodexPlan).toBeDefined();
+      if (hermeticCodexPlan === undefined) throw new Error("missing Codex configured-agent file plan");
+      expect(hermeticCodexPlan.path).toContain(HERMETIC_RUNTIME_CONFIG_DIRECTORY);
+      expect(result.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.CREATE,
+        RUNTIME_CONFIG_ACTION.CREATE,
+      ]);
     });
   });
 
@@ -100,6 +114,7 @@ describe("configured-agent config boundary compliance", () => {
       const hermeticCodexPlan = result.value.files.find((file) => file.agent === AGENT.CODEX);
       expect(hermeticCodexPlan).toBeDefined();
       if (hermeticCodexPlan === undefined) throw new Error("missing Codex configured-agent file plan");
+      expect(hermeticCodexPlan.path).toContain(HERMETIC_RUNTIME_CONFIG_DIRECTORY);
       expect(
         readManagedRuntimeConfigState(
           parseToml(await readNodeFile(hermeticCodexPlan.path, RUNTIME_CONFIG_TEXT_ENCODING)),
@@ -107,7 +122,7 @@ describe("configured-agent config boundary compliance", () => {
       ).toEqual({
         [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: true,
         [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: productDir,
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+        [RUNTIME_CONFIG_STATE_FIELDS.AGENT]: AGENT.CODEX,
         [RUNTIME_CONFIG_STATE_FIELDS.TARGET_KIND]: RUNTIME_CONFIG_TARGET_KIND.HERMETIC_EXECUTION,
       });
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
@@ -128,6 +143,10 @@ describe("configured-agent config boundary compliance", () => {
         [AGENT.CODEX, true],
         [AGENT.CLAUDE_CODE, true],
       ]);
+      expect(result.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.CREATE,
+        RUNTIME_CONFIG_ACTION.CREATE,
+      ]);
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
       await expect(readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
     });
@@ -144,6 +163,10 @@ describe("configured-agent config boundary compliance", () => {
       expect(result.value.dryRun).toBe(true);
       expect(result.value.changed).toBe(true);
       expect(result.value.files.map((file) => file.agent)).toEqual([AGENT.CODEX, AGENT.CLAUDE_CODE]);
+      expect(result.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.CREATE,
+        RUNTIME_CONFIG_ACTION.CREATE,
+      ]);
       expect(result.value.files.every((file) => file.content !== undefined)).toBe(true);
       await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
       await expect(readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
