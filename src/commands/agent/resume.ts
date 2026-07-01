@@ -1,4 +1,4 @@
-import { open, readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 
 import {
@@ -34,9 +34,6 @@ export const nodeAgentSessionFileSystem: AgentSessionFileSystem = {
       isDirectory: entry.isDirectory(),
       isFile: entry.isFile(),
     }));
-  },
-  async readFile(path) {
-    return readFile(path, AGENT_SESSION_STORE.TEXT_ENCODING);
   },
   async readHead(path, maxBytes) {
     const handle = await open(path, "r");

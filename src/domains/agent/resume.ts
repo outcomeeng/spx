@@ -1,4 +1,4 @@
-import { relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
   AGENT_RESUME_COMMAND,
@@ -30,7 +30,6 @@ export interface AgentSessionFileStat {
 
 export interface AgentSessionFileSystem {
   readDir(path: string): Promise<readonly AgentSessionDirEntry[]>;
-  readFile(path: string): Promise<string>;
   readHead(path: string, maxBytes: number): Promise<string>;
   stat(path: string): Promise<AgentSessionFileStat>;
 }
@@ -329,8 +328,9 @@ async function claudeTranscriptFiles(
 
 // Scans candidate files newest first, reading only each transcript's metadata
 // head, and collects the newest scope-matching sessions per agent up to the cap.
-// Sessions sharing one session id collapse to their newest source because the
-// first (newest) occurrence claims the id and later ones are skipped.
+// A session id is claimed only by a scope-matching source, so an out-of-scope
+// newer transcript never suppresses an in-scope older one; among matching
+// sources the newest (first seen) wins and later duplicates are skipped.
 async function collectAgentCandidates(
   agent: AgentSessionKind,
   files: readonly AgentStoreFile[],
@@ -350,13 +350,10 @@ async function collectAgentCandidates(
       continue;
     }
     const core = parseHead(head);
-    if (core === null || !core.interactive || seen.has(core.sessionId)) {
+    if (core === null || !core.interactive || !match(core) || seen.has(core.sessionId)) {
       continue;
     }
     seen.add(core.sessionId);
-    if (!match(core)) {
-      continue;
-    }
     candidates.push({
       agent,
       sessionId: core.sessionId,
@@ -442,34 +439,39 @@ function isCodexInteractive(originator: string | null, threadSource: string | nu
     || originator === CODEX_SESSION_ORIGINATOR.VSCODE_HYPHEN;
 }
 
+// Claude Code records the working directory and session id on the opening rows
+// but the branch on a later row, so the metadata head is scanned for the first
+// non-null value of each field rather than read from a single row.
 function parseClaudeHead(head: string): AgentSessionHead | null {
+  let sessionId: string | null = null;
+  let cwd: string | null = null;
+  let branch: string | null = null;
+  let updatedAt: string | null = null;
   for (const line of head.split("\n")) {
     const row = parseJsonObject(line);
     if (row === null) {
       continue;
     }
-    const sessionId = firstString(row, [
+    sessionId ??= firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
     ]);
-    const cwd = firstString(row, [
+    cwd ??= firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
     ]);
-    if (sessionId === null || cwd === null) {
-      continue;
+    updatedAt ??= firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]);
+    branch ??= firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]);
+    if (sessionId !== null && cwd !== null && branch !== null) {
+      break;
     }
-    return {
-      sessionId,
-      cwd,
-      branch: firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]),
-      updatedAt: firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]),
-      interactive: true,
-    };
   }
-  return null;
+  if (sessionId === null || cwd === null) {
+    return null;
+  }
+  return { sessionId, cwd, branch, updatedAt, interactive: true };
 }
 
 function parseJsonObject(line: string): Record<string, unknown> | null {
@@ -519,9 +521,10 @@ function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandida
 }
 
 // Whether `child` is `parent` itself or nested beneath it, by normalized path.
+// An absolute `relative()` result (a different Windows drive) is never inside.
 export function isPathInsideOrEqual(parent: string, child: string): boolean {
   const rel = relative(resolve(parent), resolve(child));
-  return rel.length === 0 || (rel !== ".." && !rel.startsWith(`..${sep}`));
+  return rel.length === 0 || (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`));
 }
 
 async function mapWithConcurrency<T, U>(
