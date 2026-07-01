@@ -1,6 +1,6 @@
 # Verification
 
-PROVIDES typed verification-run infrastructure — the `spx verify` changeset lifecycle over deterministic verification-context materialization and an append-only run-journal substrate whose backend binds at the edge
+PROVIDES typed verification-run infrastructure over deterministic verification-context materialization and an append-only run-journal substrate whose backend binds at the edge
 SO THAT CI jobs, deterministic launchers, and the verification skills an agent executes
 CAN reconstruct a verification subject and predicate, stream typed run progress and findings to a backend the environment selects, resume and render the run from its journal, and observe the run incrementally and identically in local output and pull-request comments without spx spawning a verifier
 
@@ -13,7 +13,7 @@ CAN reconstruct a verification subject and predicate, stream typed run progress 
 ### Compliance
 
 - ALWAYS: a verification context is pre-execution input — it records the verification subject, reconstruction fields, predicate, requested workflow, launch context, and persistence intent, and excludes run status, terminal verdict, cost, and activity trace ([test](21-verification-context.enabler/tests/verification-context-shape.compliance.l1.test.ts))
-- ALWAYS: `spx verify` is the public typed lifecycle for scoped verification runs, while `spx journal` and `spx verification-context` remain substrate commands for event storage and canonical input materialization ([audit])
+- ALWAYS: typed verification runs use verification-context materialization and the run-journal substrate, while CLI commands that expose those capabilities are governed by `spx/32-surfaces.enabler/21-cli-surface.enabler` ([audit])
 - ALWAYS: `spx verify` validates the verification type, scope type, scope identity, append payload, idempotency key, terminal status, and finding payload before appending durable run evidence ([audit])
 - ALWAYS: spx exposes the verify lifecycle and journal substrate for an agent or launcher to call; spx never spawns, configures, or drives a verification agent ([audit])
 - ALWAYS: the channel binds its backend at the edge from the environment — a local file-and-standard-output backend by default, a GitHub pull-request backend under continuous integration — without the caller naming the backend ([audit])

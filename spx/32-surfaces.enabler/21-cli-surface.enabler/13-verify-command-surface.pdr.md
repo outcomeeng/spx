@@ -26,7 +26,7 @@ Verification runs share lifecycle, scope, finding, idempotency, status, and rend
 - ALWAYS: `finish` requires `--terminal-status <status>` and records that status in the terminal completion event before sealing the journal ([compliance])
 - ALWAYS: an existing-run lookup failure names the run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and the selector inputs that would address the run ([compliance])
 - ALWAYS: a sealed review run reports the run token and authoritative finding count from the journal projection, with rendered finding details as an optional projection ([compliance])
-- NEVER: expose a `spx verify` scope type whose subject cannot be represented by the verification-context substrate's reconstruction fields ([compliance])
+- NEVER: expose a `spx verify` scope type whose subject cannot be reconstructed from the selector values reported by the command ([compliance])
 - NEVER: move existing `spx validation` or `spx test` execution surfaces under `spx verify` solely because they are verification activities ([compliance])
 
 ### Audit

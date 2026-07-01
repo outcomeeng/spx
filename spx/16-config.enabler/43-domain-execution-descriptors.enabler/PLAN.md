@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Register the testing execution descriptor on top of the shared config descriptor mechanism. The audit and review descriptors this node once also registered collapsed into the journal channel at `spx/34-verification.enabler/21-journal.enabler/` and were removed.
+Register the testing execution descriptor on top of the shared config descriptor mechanism. The audit and review descriptors this node once also registered collapsed into the journal channel at `spx/32-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/` and were removed.
 
 ## Governing Specs
 

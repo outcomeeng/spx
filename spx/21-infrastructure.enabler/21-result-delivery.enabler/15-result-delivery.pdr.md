@@ -4,7 +4,7 @@ spx delivers a verification, validation, or test result to where its consumers w
 
 ## Rationale
 
-Every result a run surfaces — an agentic verification projection, a validation report, a test report — shares one delivery concern: reach the place its consumers watch, address it idempotently, and authenticate to it. The consumer owns the result vocabulary and renders the body; spx owns delivery, so the backend mechanics — authentication, pagination, idempotent upsert, the per-surface write — live in one place rather than re-derived per result kind or rebuilt in each consuming tool. A consumer that depends on neither a backend SDK nor a backend CLI still delivers by handing spx a body. Naming no result kind keeps the capability open to a new verification type or a new result without a delivery change, consistent with the type-agnostic journal channel of `spx/34-verification.enabler/13-journal-channel.adr.md`. Construction — which backend the environment binds, how each backend authenticates and writes — is decided per backend in the backend nodes, not here; a CLI descriptor or command may pass the rendered body into delivery, but it does not own the hosted backend transport.
+Every result a run surfaces — an agentic verification projection, a validation report, a test report — shares one delivery concern: reach the place its consumers watch and keep one current surface per marker. The consumer owns the result vocabulary and renders the body; spx owns delivery. Naming no result kind keeps the capability open to a new verification type or a new result without a delivery change, consistent with the type-agnostic journal channel of `spx/32-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md`.
 
 ## Product properties
 
@@ -22,6 +22,5 @@ Every result a run surfaces — an agentic verification projection, a validation
 
 ### Audit
 
-- ALWAYS: a consumer hands spx a rendered body, a marker, and a result scope, and spx delivers it — the consumer issues no backend API or CLI call of its own ([audit])
-- ALWAYS: hosted delivery backends are owned by their infrastructure backend nodes and exposed to consumers through injected delivery capabilities, so command and interface layers do not reimplement backend transport ([audit])
-- NEVER: result delivery names a verification type or result kind — the body and marker are opaque, per `spx/34-verification.enabler/13-journal-channel.adr.md` ([audit])
+- ALWAYS: a consumer hands spx a rendered body, a marker, and a result scope, and spx delivers it without the consumer naming a backend ([audit])
+- NEVER: result delivery names a verification type or result kind — the body and marker are opaque, per `spx/32-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md` ([audit])

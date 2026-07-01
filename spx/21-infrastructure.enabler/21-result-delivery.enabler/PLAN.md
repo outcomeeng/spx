@@ -21,9 +21,9 @@ Each backend is its own infrastructure node implementing this domain's port; the
 
 - The GitHub backend (`spx/21-infrastructure.enabler/43-github-ci.enabler`) that delivers an agentic verification run's projection binds result-delivery: it hands the journal-rendered body to result-delivery, which delivers it. `spx/15-agent-run-journal.enabler` renders the event-prefix projection and keeps the event log; it does not call result-delivery.
 - `spx/41-validation.enabler` and `spx/41-test.enabler`: render a report and deliver it through result-delivery, holding no backend I/O.
-- `spx/34-verification.enabler/21-journal.enabler`: its CI delivery path routes through result-delivery.
+- `spx/32-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler`: its CI delivery path routes through result-delivery.
 
 ## Constraints and sequencing
 
-- Type-agnostic throughout — no verification-type or result-kind vocabulary in the domain, per `spx/34-verification.enabler/13-journal-channel.adr.md`.
+- Type-agnostic throughout — no verification-type or result-kind vocabulary in the domain, per `spx/32-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md`.
 - A `0.7.0`-class spx release publishes result-delivery and the GitHub backend before the spec-tree plugin's CI-path PRs (`pr-reviewer` / `pr-review-orchestrator`) adopt it for the human-readable PR-comment verdict surface.
