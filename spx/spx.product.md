@@ -4,31 +4,6 @@
 
 Outcome Engineering requires agents that follow the methodology — ingesting spec-tree context, respecting truth hierarchy, executing quality gates, journaling agentic verification runs, managing harness environment configuration, and preserving session continuity. spx is the deterministic harness that turns those methodology operations into configured local commands.
 
-## Consumers and jobs
-
-| Consumer / persona               | Job to be done                                                                                           |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Outcome Engineering practitioner | Run methodology operations quickly and repeatably inside a product repository                            |
-| Coding agent or launcher         | Load context, execute quality gates, record verification runs, and resume agent-native sessions          |
-| Continuous-integration workflow  | Validate the product tree and publish verification, validation, and test results to the selected backend |
-
-## Surfaces
-
-- `spx` CLI - practitioners, agents, launchers, and CI workflows run deterministic methodology commands
-- `spx.config.{toml,json,yaml}` - product repositories declare harness, validation, testing, language, and session configuration
-- Tracked `spx/` tree - practitioners and agents read durable product truth, decisions, specs, tests, and coordination notes
-- Shared `.spx/` state - commands persist branch, session, worktree, and run-journal state for local workflows
-- Backend outputs - CI workflows publish rendered results to local output, pull-request comments, merge-request notes, or observability sinks
-
-## Actors and sidedness
-
-spx is a single-party product repository tool. It coordinates local practitioners, coding agents, launchers, and CI workflows around one tracked product tree.
-
-- Practitioner - supplies product intent and inspects deterministic command output
-- Coding agent or launcher - invokes commands and follows the configured harness contract
-- CI workflow - runs configured gates and publishes rendered results
-- Backend target - receives rendered verification, validation, or test output
-
 ## Product hypothesis
 
 WE BELIEVE THAT providing a deterministic agent harness for Outcome Engineering — context ingestion, spec-tree execution, harness environment management, validation, and session management
@@ -58,14 +33,6 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - Agent session coordination — discovery and resume launch for Codex and Claude Code agent sessions from the SPX CLI, distinct from SPX handoff session files
 - Session management — work handoffs between agent contexts with priority ordering
 - Release — per-release generation of release notes and documentation updates from the product's git history, plus governed, provenance-bearing publication
-
-### What's excluded
-
-| Excluded item          | Rationale                                                               |
-| ---------------------- | ----------------------------------------------------------------------- |
-| Hosted agent execution | spx governs repository-local commands and state, not remote agent hosts |
-| General task tracking  | Product truth, coordination notes, and session files carry spx work     |
-| Model inference        | Deterministic operations stay outside LLM inference                     |
 
 ## Product-level assertions
 
