@@ -74,7 +74,6 @@ export const VERIFY_CLI_ERROR = {
   INPUT_READ_FAILED: "spx verify could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verify append verbs require --payload <payload-source>",
   IDEMPOTENCY_KEY_REQUIRED: "spx verify append verbs require --idempotency-key <key>",
-  PAYLOAD_READ_FAILED: "spx verify could not read the append payload",
   PAYLOAD_INVALID: "spx verify append payload is not valid JSON",
   FINDING_INVALID: "spx verify append-finding payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verify append-finding has no finding validator for the verification type",
