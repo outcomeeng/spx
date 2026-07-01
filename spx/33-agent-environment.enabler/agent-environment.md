@@ -15,7 +15,7 @@ CAN run with configured instructions, configured agents, plugin marketplaces, pl
 - ALWAYS: generated or reconciled harness environment configuration is deterministic for the same product directory and resolved config ([audit])
 - ALWAYS: an agentic verification run receives isolated harness environment state rather than mutating the invoking agent's state ([audit])
 - NEVER: require network access for core config reconciliation when required marketplaces, plugins, and skills are present locally ([audit])
-- NEVER: the parent descriptor performs instruction reconciliation, configured-agent config writes, plugin installation, or network access per `spx/33-agent-environment.enabler/21-agent-environment-descriptor.adr.md` ([audit])
+- NEVER: the parent descriptor performs instruction reconciliation, configured-agent config writes, plugin installation, or network access ([audit])
 
 ### Mappings
 
