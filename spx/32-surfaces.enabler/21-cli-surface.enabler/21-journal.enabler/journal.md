@@ -27,6 +27,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 
 - A run's local persistence path is `.spx/branch/<branch-slug>/<type>/runs/run-<run-token>.jsonl` at the Git common-dir product root, with `<branch-slug>` from the state-store slug of `SPX_VERIFY_BRANCH` or the current branch and `<type>` the caller-supplied opaque scope segment ([test](tests/run-scope.property.l1.test.ts))
 - Run-scope discovery enumerates only state-store run files under `.spx/branch/<branch-slug>/<type>/runs/` and is deterministic for the same product directory, branch-scope filter, type filter, state filter, terminal-state filter, and limit ([test](tests/run-scope.property.l1.test.ts))
+- Run and event limit validation rejects every value outside the positive safe-integer domain before inspecting persisted runs ([test](tests/journal-inspection.property.l1.test.ts))
 - The rendered projection is a pure function of a run's event prefix — the same events always render the same projection across backends and repeated calls ([test](tests/projection.property.l1.test.ts))
 
 ### Compliance

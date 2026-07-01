@@ -80,7 +80,7 @@ export const JOURNAL_CLI_ERROR = {
   PULL_REQUEST_UNRESOLVED: "github pull-request number is not resolvable from the environment",
   INVALID_EVENT_INPUT: "journal append event input is missing a required CloudEvents field",
   INVALID_CURSOR: "journal read cursor must be a whole non-negative integer",
-  INVALID_LIST_LIMIT: "journal run limit must be a positive whole integer",
+  INVALID_RUN_LIMIT: "journal run limit must be a positive whole integer",
   INVALID_READ_SET_EVENT_LIMIT: "journal read-set event limit must be a positive whole integer",
   INVALID_SEALED_FILTER: "journal list sealed filter is not registered",
   INVALID_TERMINAL_STATE_FILTER: "journal list terminal-state filter is not registered",
@@ -430,12 +430,12 @@ export function parseJournalCursor(raw: string): Result<number> {
 function parseJournalRunLimit(raw: string | undefined): Result<number> {
   if (raw === undefined) return { ok: true, value: JOURNAL_CLI_RUN_LIMIT.DEFAULT };
   if (!POSITIVE_INTEGER_PATTERN.test(raw)) {
-    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
+    return { ok: false, error: JOURNAL_CLI_ERROR.INVALID_RUN_LIMIT };
   }
   const value = Number.parseInt(raw, DECIMAL_RADIX);
   return Number.isSafeInteger(value) && value >= JOURNAL_CLI_RUN_LIMIT.MIN
     ? { ok: true, value }
-    : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_LIST_LIMIT };
+    : { ok: false, error: JOURNAL_CLI_ERROR.INVALID_RUN_LIMIT };
 }
 
 function parseJournalReadSetEventLimit(raw: string | undefined): Result<number> {
