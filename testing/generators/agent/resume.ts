@@ -9,8 +9,6 @@ const SAMPLE_SEED = 46_210;
 const SAMPLE_RUN_COUNT = 1;
 const MIN_AGENT_RESUME_NOW_MS = 1_767_225_600_000;
 const MAX_AGENT_RESUME_NOW_MS = 1_798_761_599_999;
-const MIN_EXTRA_CANDIDATE_COUNT = 1;
-const MAX_EXTRA_CANDIDATE_COUNT = 5;
 const MIN_RECENT_OFFSET_MS = 1;
 const RECENT_OFFSET_WINDOW_DIVISOR = 2;
 const MAX_RECENT_OFFSET_MS = Math.floor(AGENT_RESUME_RECENT_WINDOW_MS / RECENT_OFFSET_WINDOW_DIVISOR);
@@ -42,10 +40,6 @@ export function arbitraryAgentSessionCwd(worktreeRoot: string): fc.Arbitrary<str
 
 export function arbitraryAgentResumeNowMs(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_AGENT_RESUME_NOW_MS, max: MAX_AGENT_RESUME_NOW_MS });
-}
-
-export function arbitraryAgentResumeExtraCandidateCount(): fc.Arbitrary<number> {
-  return fc.integer({ min: MIN_EXTRA_CANDIDATE_COUNT, max: MAX_EXTRA_CANDIDATE_COUNT });
 }
 
 export function arbitraryAgentBranch(): fc.Arbitrary<string> {

@@ -374,6 +374,60 @@ describe("agent resume scope mappings", () => {
       expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(new Set(testCase.expected));
     }
   });
+
+  it("scopes the CLI resume candidate set to the branch flag through Commander", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 61);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 62);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 63);
+    const siblingRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 64);
+    const invocationCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 65);
+    const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 66);
+    const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 67);
+    const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 68);
+    const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 69);
+    const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 70);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${siblingOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId: siblingOnTarget, cwd: siblingCwd, timestamp, branch: targetBranch }),
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${worktreeOnOther}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId: worktreeOnOther, cwd: invocationCwd, timestamp, branch: otherBranch }),
+      nowMs - 1,
+    );
+    const stdout: string[] = [];
+    const program = createCliProgram({
+      domains: [
+        createAgentDomain({
+          isInteractiveTerminal: () => true,
+          resumeDeps: {
+            fs,
+            homeDir: () => homeDir,
+            nowMs: () => nowMs,
+            resolveWorktreeRoot: async (candidateCwd) =>
+              isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
+          },
+          launchCandidate: async () => {
+            throw new Error("list mode should not launch an agent");
+          },
+        }),
+      ],
+      processCwd: () => invocationCwd,
+      writeStdout: (output) => stdout.push(output),
+    });
+
+    await program.parseAsync(
+      [AGENT_CLI.commandName, AGENT_CLI.resumeCommandName, AGENT_CLI.flags.branch, targetBranch, AGENT_CLI.flags.list],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+
+    const rendered = stdout.join("");
+    expect(rendered).toContain(siblingOnTarget);
+    expect(rendered).not.toContain(worktreeOnOther);
+  });
 });
 
 describe("agent resume picker state mappings", () => {

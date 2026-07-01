@@ -300,6 +300,44 @@ describe("agent resume recency-window compliance", () => {
   });
 });
 
+describe("agent resume Claude project-prefix compliance", () => {
+  it("skips sibling worktree project directories that share the invocation prefix without a path boundary", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 200);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 201);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 202);
+    const siblingRoot = `${worktreeRoot}extra`;
+    const invocationCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 203);
+    const insideId = sampleAgentResumeValue(arbitraryAgentSessionId(), 204);
+    const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 205);
+    const siblingId = sampleAgentResumeValue(arbitraryAgentSessionId(), 206);
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, invocationCwd, jsonlName(insideId)),
+      claudeCodeTranscript({ sessionId: insideId, cwd: invocationCwd, timestamp }),
+      nowMs,
+    );
+    const siblingTranscriptPath = claudeProjectTranscriptPath(homeDir, siblingCwd, jsonlName(siblingId));
+    fs.writeFile(
+      siblingTranscriptPath,
+      claudeCodeTranscript({ sessionId: siblingId, cwd: siblingCwd, timestamp }),
+      nowMs,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: invocationCwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([insideId]);
+    expect(fs.maxHeadReadBytes(siblingTranscriptPath)).toBe(0);
+  });
+});
+
 describe("agent resume store path compliance", () => {
   it("reads Codex and Claude Code candidates from their default agent session stores", () => {
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
