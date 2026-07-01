@@ -10,10 +10,14 @@ import {
 import {
   AGENT_RESUME_PICKER_ACTION,
   type AgentResumeCandidate,
+  type AgentResumeScope,
+  branchResumeScope,
   buildAgentResumeLaunchCommand,
+  discoverAgentResumeCandidates,
   initialAgentResumePickerState,
   reduceAgentResumePickerState,
   resolveAgentResumePickerAction,
+  worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
 import {
@@ -24,6 +28,7 @@ import {
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
+  arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeRecentOffsetMs,
@@ -34,6 +39,8 @@ import {
 } from "@testing/generators/agent/resume";
 import {
   agentResumeCandidate,
+  claudeCodeTranscript,
+  claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
   ImmediateExit,
@@ -229,9 +236,9 @@ describe("agent resume mode behavior mappings", () => {
     });
 
     const rendered = stdout.join("");
-    expect(rendered).toContain(fixture.newestSessionId);
-    expect(rendered).toContain(fixture.olderSessionId);
     expect(rendered).toContain(fixture.cwd);
+    expect(rendered.indexOf(fixture.newestSessionId)).toBeGreaterThanOrEqual(0);
+    expect(rendered.indexOf(fixture.newestSessionId)).toBeLessThan(rendered.indexOf(fixture.olderSessionId));
   });
 
   it("json mode prints matching sessions as parseable JSON without launching an agent", async () => {
@@ -310,6 +317,62 @@ describe("agent resume launch command mappings", () => {
       args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, claudeCode.sessionId],
       cwd: claudeCode.cwd,
     });
+  });
+});
+
+describe("agent resume scope mappings", () => {
+  it("maps the active scope to its candidate set: worktree by recorded cwd, branch by initial branch across worktrees", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 50);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 51);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 52);
+    const siblingRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 53);
+    const cwdInWorktree = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 54);
+    const cwdInSibling = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 55);
+    const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 56);
+    const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 57);
+    const worktreeOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 58);
+    const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 59);
+    const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 60);
+
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${worktreeOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId: worktreeOnTarget, cwd: cwdInWorktree, timestamp, branch: targetBranch }),
+      nowMs,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwdInSibling, `${siblingOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      claudeCodeTranscript({ sessionId: siblingOnTarget, cwd: cwdInSibling, timestamp, branch: targetBranch }),
+      nowMs - 1,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, `${worktreeOnOther}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
+      nowMs - 2,
+    );
+
+    const resolveWorktreeRoot = async (candidateCwd: string): Promise<string | null> => {
+      if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
+      if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
+      return null;
+    };
+    const cases: readonly { readonly scope: AgentResumeScope; readonly expected: readonly string[] }[] = [
+      { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther] },
+      { scope: branchResumeScope(targetBranch), expected: [worktreeOnTarget, siblingOnTarget] },
+    ];
+
+    for (const testCase of cases) {
+      const candidates = await discoverAgentResumeCandidates({
+        invocationDir: cwdInWorktree,
+        homeDir,
+        nowMs,
+        scope: testCase.scope,
+        fs,
+        resolveWorktreeRoot,
+      });
+      expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(new Set(testCase.expected));
+    }
   });
 });
 

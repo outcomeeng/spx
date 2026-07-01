@@ -1,9 +1,10 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 
 import {
   AGENT_SESSION_STORE,
   type AgentResumeCandidate,
+  type AgentResumeScope,
   type AgentSessionDirEntry,
   type AgentSessionFileSystem,
   discoverAgentResumeCandidates,
@@ -21,6 +22,7 @@ export interface AgentResumeCommandDeps {
 
 export interface AgentResumeCommandOptions {
   readonly cwd: string;
+  readonly scope: AgentResumeScope;
   readonly deps?: AgentResumeCommandDeps;
 }
 
@@ -35,6 +37,16 @@ export const nodeAgentSessionFileSystem: AgentSessionFileSystem = {
   },
   async readFile(path) {
     return readFile(path, AGENT_SESSION_STORE.TEXT_ENCODING);
+  },
+  async readHead(path, maxBytes) {
+    const handle = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(maxBytes);
+      const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0);
+      return buffer.toString(AGENT_SESSION_STORE.TEXT_ENCODING, 0, bytesRead);
+    } finally {
+      await handle.close();
+    }
   },
   async stat(path) {
     const result = await stat(path);
@@ -60,6 +72,7 @@ export async function loadAgentResumeCandidates(
     invocationDir: options.cwd,
     homeDir: deps.homeDir(),
     nowMs: deps.nowMs(),
+    scope: options.scope,
     fs: deps.fs,
     resolveWorktreeRoot: deps.resolveWorktreeRoot,
   });

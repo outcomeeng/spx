@@ -1,10 +1,11 @@
-import { resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import {
   AGENT_RESUME_COMMAND,
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_MODE,
   AGENT_RESUME_RECENT_WINDOW_MS,
+  AGENT_RESUME_SCOPE,
   AGENT_RESUME_TEXT,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
@@ -14,6 +15,7 @@ import {
   type AgentResumeMode,
   type AgentSessionKind,
   CODEX_SESSION_ORIGINATOR,
+  CODEX_SESSION_THREAD_SOURCE,
 } from "./protocol";
 
 export interface AgentSessionDirEntry {
@@ -29,10 +31,23 @@ export interface AgentSessionFileStat {
 export interface AgentSessionFileSystem {
   readDir(path: string): Promise<readonly AgentSessionDirEntry[]>;
   readFile(path: string): Promise<string>;
+  readHead(path: string, maxBytes: number): Promise<string>;
   stat(path: string): Promise<AgentSessionFileStat>;
 }
 
 export type AgentWorktreeRootResolver = (cwd: string) => Promise<string | null>;
+
+export type AgentResumeScope =
+  | { readonly kind: typeof AGENT_RESUME_SCOPE.WORKTREE }
+  | { readonly kind: typeof AGENT_RESUME_SCOPE.BRANCH; readonly branch: string };
+
+export function worktreeResumeScope(): AgentResumeScope {
+  return { kind: AGENT_RESUME_SCOPE.WORKTREE };
+}
+
+export function branchResumeScope(branch: string): AgentResumeScope {
+  return { kind: AGENT_RESUME_SCOPE.BRANCH, branch };
+}
 
 export interface AgentResumeCandidate {
   readonly agent: AgentSessionKind;
@@ -54,6 +69,7 @@ export interface DiscoverAgentResumeCandidatesOptions {
   readonly invocationDir: string;
   readonly homeDir: string;
   readonly nowMs: number;
+  readonly scope: AgentResumeScope;
   readonly fs: AgentSessionFileSystem;
   readonly resolveWorktreeRoot: AgentWorktreeRootResolver;
 }
@@ -96,16 +112,6 @@ export class AgentResumeModeError extends Error {
     super(`${AGENT_RESUME_TEXT.MODE_CONFLICT}: ${selectedModes.join(", ")}`);
     this.name = "AgentResumeModeError";
   }
-}
-
-interface CandidateDraft {
-  readonly agent: AgentSessionKind;
-  readonly sessionId: string;
-  readonly cwd: string;
-  readonly sourcePath: string;
-  readonly modifiedAtMs: number;
-  readonly updatedAt: string | null;
-  readonly branch: string | null;
 }
 
 export function resolveAgentResumeMode(flags: AgentResumeModeFlags): AgentResumeMode {
@@ -163,43 +169,77 @@ export function claudeCodeSessionStoreDir(homeDir: string): string {
   return resolve(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR);
 }
 
+const CLAUDE_PROJECT_PATH_SEPARATOR = "/";
+const CLAUDE_PROJECT_ENCODED_SEPARATOR = "-";
+
+// Claude Code names each project directory after the session's working
+// directory with every path separator rewritten to `-`
+// (`/Users/x/repo` -> `-Users-x-repo`), so the directory name resolves the
+// working directory without opening a transcript.
+export function claudeProjectDirName(cwd: string): string {
+  return cwd.replaceAll(CLAUDE_PROJECT_PATH_SEPARATOR, CLAUDE_PROJECT_ENCODED_SEPARATOR);
+}
+
 export async function discoverAgentResumeCandidates(
   options: DiscoverAgentResumeCandidatesOptions,
 ): Promise<AgentResumeCandidate[]> {
-  const invocationRoot = await options.resolveWorktreeRoot(options.invocationDir);
-  if (invocationRoot === null) {
+  const scope = await resolveAgentResumeScopeContext(options);
+  if (scope === null) {
     return [];
   }
 
-  const drafts = [
-    ...(await discoverCodexResumeCandidates(
-      codexSessionStoreDir(options.homeDir),
+  const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
+  const [codex, claude] = await Promise.all([
+    collectAgentCandidates(
+      AGENT_SESSION_KIND.CODEX,
+      await recentStoreFiles(
+        await collectJsonlFiles(codexSessionStoreDir(options.homeDir), options.fs),
+        options.fs,
+        options.nowMs,
+      ),
       options.fs,
-      options.nowMs,
-    )),
-    ...(await discoverClaudeCodeResumeCandidates(
-      claudeCodeSessionStoreDir(options.homeDir),
+      cap,
+      scope.match,
+      parseCodexHead,
+    ),
+    collectAgentCandidates(
+      AGENT_SESSION_KIND.CLAUDE_CODE,
+      await recentStoreFiles(
+        await claudeTranscriptFiles(claudeCodeSessionStoreDir(options.homeDir), options.fs, scope.claudeDirAccepts),
+        options.fs,
+        options.nowMs,
+      ),
       options.fs,
-      options.nowMs,
-    )),
-  ];
+      cap,
+      scope.match,
+      parseClaudeHead,
+    ),
+  ]);
 
-  const sortedDrafts = [...drafts];
-  sortedDrafts.sort(compareCandidates);
+  return [...codex, ...claude].sort(compareCandidates);
+}
 
-  const rootResults = await mapWithConcurrency(
-    sortedDrafts,
-    AGENT_RESUME_LIMITS.ROOT_RESOLUTION_CONCURRENCY,
-    async (candidate) => ({
-      candidate,
-      root: await options.resolveWorktreeRoot(candidate.cwd),
-    }),
-  );
+interface AgentResumeScopeContext {
+  readonly match: (core: AgentSessionHead) => boolean;
+  readonly claudeDirAccepts: (dirName: string) => boolean;
+}
 
-  return rootResults
-    .filter((result) => result.root !== null && samePath(result.root, invocationRoot))
-    .map((result) => result.candidate)
-    .slice(0, AGENT_RESUME_LIMITS.DISPLAYED_CANDIDATES);
+async function resolveAgentResumeScopeContext(
+  options: DiscoverAgentResumeCandidatesOptions,
+): Promise<AgentResumeScopeContext | null> {
+  if (options.scope.kind === AGENT_RESUME_SCOPE.BRANCH) {
+    const target = options.scope.branch;
+    return { match: (core) => core.branch === target, claudeDirAccepts: () => true };
+  }
+  const invocationRoot = await options.resolveWorktreeRoot(options.invocationDir);
+  if (invocationRoot === null) {
+    return null;
+  }
+  const projectPrefix = claudeProjectDirName(invocationRoot);
+  return {
+    match: (core) => isPathInsideOrEqual(invocationRoot, core.cwd),
+    claudeDirAccepts: (dirName) => dirName.startsWith(projectPrefix),
+  };
 }
 
 export function buildAgentResumeLaunchCommand(candidate: AgentResumeCandidate): AgentResumeLaunchCommand {
@@ -231,43 +271,99 @@ export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[
   return JSON.stringify(candidates, null, 2);
 }
 
-async function discoverCodexResumeCandidates(
-  root: string,
-  fs: AgentSessionFileSystem,
-  nowMs: number,
-): Promise<CandidateDraft[]> {
-  return discoverStoreCandidates(root, fs, nowMs, parseCodexCandidateFile);
+interface AgentSessionHead {
+  readonly sessionId: string;
+  readonly cwd: string;
+  readonly branch: string | null;
+  readonly updatedAt: string | null;
+  readonly interactive: boolean;
 }
 
-async function discoverClaudeCodeResumeCandidates(
-  root: string,
-  fs: AgentSessionFileSystem,
-  nowMs: number,
-): Promise<CandidateDraft[]> {
-  return discoverStoreCandidates(root, fs, nowMs, parseClaudeCodeCandidateFile);
+interface AgentStoreFile {
+  readonly path: string;
+  readonly modifiedAtMs: number;
 }
 
-async function discoverStoreCandidates(
-  root: string,
+async function recentStoreFiles(
+  paths: readonly string[],
   fs: AgentSessionFileSystem,
   nowMs: number,
-  parseCandidate: (sourcePath: string, content: string, modifiedAtMs: number) => CandidateDraft | null,
-): Promise<CandidateDraft[]> {
-  const files = await collectJsonlFiles(root, fs);
-  const candidates: CandidateDraft[] = [];
-  for (const file of files) {
-    const stat = await fs.stat(file).catch(() => null);
+): Promise<AgentStoreFile[]> {
+  const stats = await mapWithConcurrency(paths, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (path) => {
+    const stat = await fs.stat(path).catch(() => null);
     if (stat === null || !isRecentAgentSessionMtime(stat.mtimeMs, nowMs)) {
+      return null;
+    }
+    return { path, modifiedAtMs: stat.mtimeMs };
+  });
+  return stats
+    .filter((file): file is AgentStoreFile => file !== null)
+    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs);
+}
+
+// Claude Code stores each session's transcript directly under its
+// working-directory-named project directory; nested `subagents/` transcripts are
+// not resumable top-level conversations, so only files at the project directory's
+// top level are collected.
+async function claudeTranscriptFiles(
+  root: string,
+  fs: AgentSessionFileSystem,
+  dirAccepts: (dirName: string) => boolean,
+): Promise<string[]> {
+  const projectDirs = (await fs.readDir(root).catch(() => []))
+    .filter((entry) => entry.isDirectory && dirAccepts(entry.name))
+    .map((entry) => resolve(root, entry.name));
+  const files: string[] = [];
+  for (const dir of projectDirs) {
+    const entries = await fs.readDir(dir).catch(() => []);
+    for (const entry of entries) {
+      if (entry.isFile && entry.name.endsWith(AGENT_SESSION_STORE.JSONL_EXTENSION)) {
+        files.push(resolve(dir, entry.name));
+      }
+    }
+  }
+  return files;
+}
+
+// Scans candidate files newest first, reading only each transcript's metadata
+// head, and collects the newest scope-matching sessions per agent up to the cap.
+// Sessions sharing one session id collapse to their newest source because the
+// first (newest) occurrence claims the id and later ones are skipped.
+async function collectAgentCandidates(
+  agent: AgentSessionKind,
+  files: readonly AgentStoreFile[],
+  fs: AgentSessionFileSystem,
+  cap: number,
+  match: (core: AgentSessionHead) => boolean,
+  parseHead: (head: string) => AgentSessionHead | null,
+): Promise<AgentResumeCandidate[]> {
+  const seen = new Set<string>();
+  const candidates: AgentResumeCandidate[] = [];
+  for (const file of files) {
+    if (candidates.length >= cap) {
+      break;
+    }
+    const head = await fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
+    if (head === null) {
       continue;
     }
-    const content = await fs.readFile(file).catch(() => null);
-    if (content === null) {
+    const core = parseHead(head);
+    if (core === null || !core.interactive || seen.has(core.sessionId)) {
       continue;
     }
-    const candidate = parseCandidate(file, content, stat.mtimeMs);
-    if (candidate !== null) {
-      candidates.push(candidate);
+    seen.add(core.sessionId);
+    if (!match(core)) {
+      continue;
     }
+    candidates.push({
+      agent,
+      sessionId: core.sessionId,
+      cwd: core.cwd,
+      sourcePath: file.path,
+      modifiedAtMs: file.modifiedAtMs,
+      updatedAt: core.updatedAt,
+      branch: core.branch,
+    });
   }
   return candidates;
 }
@@ -290,104 +386,88 @@ function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean
   return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
 }
 
-function parseCodexCandidateFile(
-  sourcePath: string,
-  content: string,
-  modifiedAtMs: number,
-): CandidateDraft | null {
-  let sessionId: string | null = null;
-  let cwd: string | null = null;
-  let updatedAt: string | null = null;
-  let isInteractiveSession = false;
-
-  for (const line of content.split("\n")) {
+function parseCodexHead(head: string): AgentSessionHead | null {
+  for (const line of head.split("\n")) {
     const row = parseJsonObject(line);
     if (row === null) {
       continue;
     }
-    isInteractiveSession = isCodexInteractiveSessionRow(row) || isInteractiveSession;
-    sessionId ??= firstString(row, [
+    if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META) {
+      continue;
+    }
+    const sessionId = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ID],
     ]);
-    cwd = firstString(row, [
+    const cwd = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
-    ]) ?? cwd;
-    updatedAt = maxIsoTimestamp(updatedAt, firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
+    ]);
+    if (sessionId === null || cwd === null) {
+      return null;
+    }
+    const originator = firstString(row, [
+      [AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
+    ]);
+    const threadSource = firstString(row, [
+      [AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE],
+    ]);
+    return {
+      sessionId,
+      cwd,
+      branch: firstString(row, [
+        [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.GIT, AGENT_SESSION_JSON_FIELDS.BRANCH],
+        [AGENT_SESSION_JSON_FIELDS.GIT, AGENT_SESSION_JSON_FIELDS.BRANCH],
+      ]),
+      updatedAt: firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]),
+      interactive: isCodexInteractive(originator, threadSource),
+    };
   }
-
-  if (!isInteractiveSession || sessionId === null || cwd === null) {
-    return null;
-  }
-  return {
-    agent: AGENT_SESSION_KIND.CODEX,
-    sessionId,
-    cwd,
-    sourcePath,
-    modifiedAtMs,
-    updatedAt,
-    branch: null,
-  };
+  return null;
 }
 
-function isCodexInteractiveSessionRow(row: Record<string, unknown>): boolean {
-  if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META) {
+function isCodexInteractive(originator: string | null, threadSource: string | null): boolean {
+  if (threadSource === CODEX_SESSION_THREAD_SOURCE.SUBAGENT) {
     return false;
   }
-  const originator = firstString(row, [
-    [AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
-    [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ORIGINATOR],
-  ]);
   return originator === CODEX_SESSION_ORIGINATOR.TUI
     || originator === CODEX_SESSION_ORIGINATOR.CLI
     || originator === CODEX_SESSION_ORIGINATOR.VSCODE
     || originator === CODEX_SESSION_ORIGINATOR.VSCODE_HYPHEN;
 }
 
-function parseClaudeCodeCandidateFile(
-  sourcePath: string,
-  content: string,
-  modifiedAtMs: number,
-): CandidateDraft | null {
-  let sessionId: string | null = null;
-  let cwd: string | null = null;
-  let updatedAt: string | null = null;
-  let branch: string | null = null;
-
-  for (const line of content.split("\n")) {
+function parseClaudeHead(head: string): AgentSessionHead | null {
+  for (const line of head.split("\n")) {
     const row = parseJsonObject(line);
     if (row === null) {
       continue;
     }
-    sessionId ??= firstString(row, [
+    const sessionId = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
       [AGENT_SESSION_JSON_FIELDS.SESSION_ID],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SESSION_ID],
     ]);
-    cwd = firstString(row, [
+    const cwd = firstString(row, [
       [AGENT_SESSION_JSON_FIELDS.CWD],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
-    ]) ?? cwd;
-    updatedAt = maxIsoTimestamp(updatedAt, firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
-    branch = firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]) ?? branch;
+    ]);
+    if (sessionId === null || cwd === null) {
+      continue;
+    }
+    return {
+      sessionId,
+      cwd,
+      branch: firstString(row, [[AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]]),
+      updatedAt: firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]),
+      interactive: true,
+    };
   }
-
-  if (sessionId === null || cwd === null) {
-    return null;
-  }
-  return {
-    agent: AGENT_SESSION_KIND.CLAUDE_CODE,
-    sessionId,
-    cwd,
-    sourcePath,
-    modifiedAtMs,
-    updatedAt,
-    branch,
-  };
+  return null;
 }
 
 function parseJsonObject(line: string): Record<string, unknown> | null {
@@ -428,17 +508,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function maxIsoTimestamp(left: string | null, right: string | null): string | null {
-  if (right === null) {
-    return left;
-  }
-  if (left === null) {
-    return right;
-  }
-  return Date.parse(right) > Date.parse(left) ? right : left;
-}
-
-function compareCandidates(left: CandidateDraft, right: CandidateDraft): number {
+function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandidate): number {
   const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
   if (modifiedDiff !== 0) {
     return modifiedDiff;
@@ -446,8 +516,10 @@ function compareCandidates(left: CandidateDraft, right: CandidateDraft): number 
   return `${left.agent}:${left.sessionId}`.localeCompare(`${right.agent}:${right.sessionId}`);
 }
 
-function samePath(left: string, right: string): boolean {
-  return resolve(left) === resolve(right);
+// Whether `child` is `parent` itself or nested beneath it, by normalized path.
+export function isPathInsideOrEqual(parent: string, child: string): boolean {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel.length === 0 || (rel !== ".." && !rel.startsWith(`..${sep}`));
 }
 
 async function mapWithConcurrency<T, U>(

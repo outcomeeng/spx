@@ -4,6 +4,7 @@ import type { Command } from "commander";
 
 import {
   type AgentResumeCommandDeps,
+  type AgentResumeCommandOptions,
   jsonAgentResumeSessions,
   listAgentResumeSessions,
   loadAgentResumeCandidates,
@@ -12,8 +13,12 @@ import {
   AGENT_RESUME_MODE,
   AGENT_RESUME_TEXT,
   type AgentResumeCandidate,
+  type AgentResumeMode,
+  type AgentResumeScope,
+  branchResumeScope,
   buildAgentResumeLaunchCommand,
   resolveAgentResumeMode,
+  worktreeResumeScope,
 } from "@/domains/agent";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -33,6 +38,10 @@ export const AGENT_CLI = {
     latest: "--latest",
     list: "--list",
     json: "--json",
+    branch: "--branch",
+  },
+  optionArgs: {
+    branch: "--branch <name>",
   },
 } as const;
 
@@ -52,6 +61,7 @@ export interface AgentResumeCliOptions {
   readonly latest?: boolean;
   readonly list?: boolean;
   readonly json?: boolean;
+  readonly branch?: string;
 }
 
 const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
@@ -80,6 +90,30 @@ function handleError(invocation: CliInvocation, error: unknown): never {
   return invocation.io.exit(AGENT_CLI_EXIT.FAILURE);
 }
 
+function resumeScopeFromOptions(options: AgentResumeCliOptions): AgentResumeScope {
+  return options.branch === undefined ? worktreeResumeScope() : branchResumeScope(options.branch);
+}
+
+async function dispatchInteractiveResume(
+  mode: AgentResumeMode,
+  commandOptions: AgentResumeCommandOptions,
+  deps: AgentCliDependencies,
+  invocation: CliInvocation,
+): Promise<number> {
+  const candidates = await loadAgentResumeCandidates(commandOptions);
+  if (candidates.length === 0) {
+    writeError(invocation, AGENT_RESUME_TEXT.NO_MATCHES);
+    return AGENT_CLI_EXIT.FAILURE;
+  }
+  if (mode === AGENT_RESUME_MODE.LATEST) {
+    return deps.launchCandidate(candidates[0]);
+  }
+  const pickerResult = await deps.pickCandidate(candidates);
+  return pickerResult.kind === AGENT_RESUME_PICKER_RESULT.SELECTED
+    ? deps.launchCandidate(pickerResult.candidate)
+    : AGENT_CLI_EXIT.SUCCESS;
+}
+
 export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Domain {
   const resolvedDeps: AgentCliDependencies = {
     ...DEFAULT_AGENT_CLI_DEPENDENCIES,
@@ -97,6 +131,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         .option(AGENT_CLI.flags.latest, "Launch the newest matching session")
         .option(AGENT_CLI.flags.list, "List matching sessions")
         .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
+        .option(AGENT_CLI.optionArgs.branch, "Scope to sessions started on the named branch, across worktrees")
         .action(async (options: AgentResumeCliOptions) => {
           let requestedExitCode: number = AGENT_CLI_EXIT.SUCCESS;
           try {
@@ -105,8 +140,9 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
               writeError(invocation, AGENT_RESUME_TEXT.INTERACTIVE_REQUIRED);
               requestedExitCode = AGENT_CLI_EXIT.FAILURE;
             } else {
-              const commandOptions = {
+              const commandOptions: AgentResumeCommandOptions = {
                 cwd: invocation.resolveEffectiveInvocationDir(),
+                scope: resumeScopeFromOptions(options),
                 deps: resolvedDeps.resumeDeps,
               };
 
@@ -118,18 +154,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
                 writeOutput(invocation, await listAgentResumeSessions(commandOptions));
                 return;
               }
-              const candidates = await loadAgentResumeCandidates(commandOptions);
-              if (candidates.length === 0) {
-                writeError(invocation, AGENT_RESUME_TEXT.NO_MATCHES);
-                requestedExitCode = AGENT_CLI_EXIT.FAILURE;
-              } else if (mode === AGENT_RESUME_MODE.LATEST) {
-                requestedExitCode = await resolvedDeps.launchCandidate(candidates[0]);
-              } else {
-                const pickerResult = await resolvedDeps.pickCandidate(candidates);
-                if (pickerResult.kind === AGENT_RESUME_PICKER_RESULT.SELECTED) {
-                  requestedExitCode = await resolvedDeps.launchCandidate(pickerResult.candidate);
-                }
-              }
+              requestedExitCode = await dispatchInteractiveResume(mode, commandOptions, resolvedDeps, invocation);
             }
           } catch (error) {
             handleError(invocation, error);

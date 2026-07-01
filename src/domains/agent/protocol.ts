@@ -22,19 +22,28 @@ export const AGENT_SESSION_STORE = {
   CODEX_SESSIONS_DIR: "sessions",
   CLAUDE_DIR: ".claude",
   CLAUDE_PROJECTS_DIR: "projects",
+  CLAUDE_SUBAGENTS_DIR: "subagents",
   JSONL_EXTENSION: ".jsonl",
   TEXT_ENCODING: "utf8",
 } as const;
 
 export const AGENT_RESUME_LIMITS = {
   RECENT_DAYS: 7,
-  DISPLAYED_CANDIDATES: 20,
+  PER_AGENT_DISPLAYED_CANDIDATES: 5,
+  METADATA_HEAD_BYTES: 131_072,
   HOURS_PER_DAY: 24,
   MINUTES_PER_HOUR: 60,
   SECONDS_PER_MINUTE: 60,
   MILLISECONDS_PER_SECOND: 1000,
-  ROOT_RESOLUTION_CONCURRENCY: 8,
+  READ_CONCURRENCY: 8,
 } as const;
+
+export const AGENT_RESUME_SCOPE = {
+  WORKTREE: "worktree",
+  BRANCH: "branch",
+} as const;
+
+export type AgentResumeScopeKind = (typeof AGENT_RESUME_SCOPE)[keyof typeof AGENT_RESUME_SCOPE];
 
 export const AGENT_RESUME_MODE = {
   PICK: "pick",
@@ -61,6 +70,8 @@ export const AGENT_SESSION_JSON_FIELDS = {
   SESSION_ID_CAMEL: "sessionId",
   ID: "id",
   PAYLOAD: "payload",
+  GIT: "git",
+  BRANCH: "branch",
   GIT_BRANCH: "gitBranch",
   THREAD_SOURCE: "thread_source",
 } as const;
@@ -75,6 +86,10 @@ export const CODEX_SESSION_ORIGINATOR = {
   VSCODE: "codex_vscode",
   VSCODE_HYPHEN: "codex-vscode",
   EXEC: "codex-exec",
+} as const;
+
+export const CODEX_SESSION_THREAD_SOURCE = {
+  SUBAGENT: "subagent",
 } as const;
 
 export const AGENT_RESUME_RECENT_WINDOW_MS = AGENT_RESUME_LIMITS.RECENT_DAYS
