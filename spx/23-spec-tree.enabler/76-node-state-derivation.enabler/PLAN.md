@@ -8,7 +8,7 @@ This coordination note records state-model work opened by the methodology and ma
 
 ## Required expansion
 
-The state model needs to become a product-level state vocabulary governed by `spx/12-spec-tree-methodology.pdr.md` and materialized by `spx/23-spec-tree.enabler`.
+The state model needs to become a product-level state vocabulary governed by `spx/11-methodology-vocabulary.pdr.md` and materialized by `spx/23-spec-tree.enabler`.
 
 States to evaluate:
 
@@ -27,4 +27,4 @@ States to evaluate:
 
 ## Next action
 
-After the methodology PDR exists, rewrite this node's spec and ADRs to use that vocabulary and to consume materialization inputs rather than spec-domain status files.
+Amend `spx/11-methodology-vocabulary.pdr.md` where the state vocabulary needs a term it lacks — it already exists and owns the methodology vocabulary, so do not author a second methodology PDR — then rewrite this node's spec and ADRs to use that vocabulary and to consume materialization inputs rather than spec-domain status files.

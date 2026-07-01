@@ -1,6 +1,6 @@
 # Plan: Spec-tree materialization
 
-This placeholder coordination note records the intended materialization node before `/decompose` assigns final structure and `/author` creates the spec. The directory exists only to preserve context for the restructuring pass.
+This placeholder coordination note records the intended materialization node before `/decompose` assigns final structure and `/author` creates the spec. The directory exists only to preserve context for the restructuring pass — it is the surviving on-`main` coordination that root `spx/PLAN.md` Program B builds on.
 
 ## Purpose to author
 

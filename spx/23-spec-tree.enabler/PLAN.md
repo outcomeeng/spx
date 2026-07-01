@@ -13,7 +13,7 @@ This coordination note preserves the spec-tree foundation repair before `/decomp
 - projection contracts
 - logical operations over nodes, evidence, and materialization state
 
-The consumer `spx/31-spec-domain.enabler` should call this foundation and render or adapt results for interfaces.
+The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library use-case operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md` Program C) renders or adapts results per interface.
 
 ## New structure to decompose
 
@@ -53,7 +53,7 @@ Keep these outside this node:
 
 ## Immediate next steps
 
-1. Author `spx/12-spec-tree-methodology.pdr.md` before changing this node's durable spec.
+1. Amend `spx/11-methodology-vocabulary.pdr.md` only if the repair surfaces a vocabulary term it lacks — it already exists and owns the methodology vocabulary; do not author a second methodology PDR — before changing this node's durable spec.
 2. Run `/decompose spx/23-spec-tree.enabler` using the root `spx/PLAN.md` ownership model.
 3. Create specs for the materialization and backend placeholder nodes.
 4. Amend existing source, state, and projection nodes after the materialization boundary is settled.
@@ -64,7 +64,7 @@ Keep these outside this node:
 
 ## Purpose
 
-Keep the reusable spec-tree library as the foundation for the refactor. This node owns backend-neutral source records, entry recognition, assembly, traversal, state derivation, projections, and config-owned vocabulary. Command behavior, terminal rendering, and CLI contracts belong in `spx/31-spec-domain.enabler/`.
+Keep the reusable spec-tree library as the foundation for the refactor. This node owns backend-neutral source records, entry recognition, assembly, traversal, state derivation, projections, and config-owned vocabulary. Command behavior, terminal rendering, and CLI contracts live today in `spx/31-spec-domain.enabler/`; root `spx/PLAN.md` Program C moves them to the surface layer `spx/60-surfaces.enabler/21-cli-surface.enabler/`. Either way they stay out of this library node.
 
 ## First tranche
 
