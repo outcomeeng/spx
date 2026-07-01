@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { validatePathFilterConfig } from "@/config/primitives/path-filter";
-import { AGENT_ENVIRONMENT_SECTION, agentEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { DECISION_KINDS, NODE_KINDS, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_SECTION } from "@/lib/spec-tree/config";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/test/config";
 import { CONFIG_GENERATOR } from "@testing/generators/config/config";
@@ -42,8 +42,8 @@ describe("config test generators properties", () => {
       fc.property(
         CONFIG_TEST_GENERATOR.pathFilter(),
         CONFIG_TEST_GENERATOR.testingConfig(),
-        CONFIG_TEST_GENERATOR.agentEnvironmentConfig(),
-        (pathFilter, testingConfig, agentEnvironmentConfig) => {
+        CONFIG_TEST_GENERATOR.harnessEnvironmentConfig(),
+        (pathFilter, testingConfig, harnessEnvironmentConfig) => {
           const pathFilterResult = validatePathFilterConfig(
             pathFilter,
             `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
@@ -59,12 +59,12 @@ describe("config test generators properties", () => {
             expect(testingResult.value).toEqual(testingConfig.expected);
           }
 
-          const agentEnvironmentResult = agentEnvironmentConfigDescriptor.validate(
-            agentEnvironmentConfig.config[AGENT_ENVIRONMENT_SECTION],
+          const harnessEnvironmentResult = harnessEnvironmentConfigDescriptor.validate(
+            harnessEnvironmentConfig.config[HARNESS_ENVIRONMENT_SECTION],
           );
-          expect(agentEnvironmentResult.ok).toBe(true);
-          if (agentEnvironmentResult.ok) {
-            expect(agentEnvironmentResult.value).toEqual(agentEnvironmentConfig.expected);
+          expect(harnessEnvironmentResult.ok).toBe(true);
+          if (harnessEnvironmentResult.ok) {
+            expect(harnessEnvironmentResult.value).toEqual(harnessEnvironmentConfig.expected);
           }
         },
       ),
