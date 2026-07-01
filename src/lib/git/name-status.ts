@@ -3,6 +3,13 @@ import { compareAsciiStrings } from "@/lib/state-store";
 export const GIT_NAME_STATUS_FLAG = "--name-status";
 export const GIT_DIFF_FILTER_FLAG = "--diff-filter";
 export const GIT_NULL_DELIMITED_FLAG = "-z";
+export const GIT_DIFF_COMMAND = "diff";
+export const GIT_RANGE_SEPARATOR = "..";
+
+/** The `git diff --name-status -z <base>..<head>` argv that lists a changeset's changed paths. */
+export function changesetNameStatusArgs(base: string, head: string): readonly string[] {
+  return [GIT_DIFF_COMMAND, GIT_NAME_STATUS_FLAG, GIT_NULL_DELIMITED_FLAG, `${base}${GIT_RANGE_SEPARATOR}${head}`];
+}
 export const GIT_RENAME_STATUS_EXAMPLE = "R100";
 export const GIT_COPY_STATUS_EXAMPLE = "C100";
 export const GIT_MODIFY_STATUS_EXAMPLE = "M";
@@ -11,7 +18,8 @@ export const GIT_RENAMED_PATH_SUFFIX = ".renamed";
 
 const GIT_RENAME_STATUS_PREFIX = "R";
 const GIT_COPY_STATUS_PREFIX = "C";
-const NULL_RECORD_SEPARATOR = "\0";
+export const GIT_NULL_RECORD_SEPARATOR = "\0";
+const NULL_RECORD_SEPARATOR = GIT_NULL_RECORD_SEPARATOR;
 
 function sortedPathSet(paths: ReadonlySet<string>): readonly string[] {
   return [...paths].sort(compareAsciiStrings);
