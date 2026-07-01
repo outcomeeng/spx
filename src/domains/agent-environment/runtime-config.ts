@@ -100,6 +100,11 @@ export interface RuntimeConfigDependencies {
   readonly fs: RuntimeConfigFileSystem;
 }
 
+interface TomlSingleLineStringState {
+  readonly inBasicString: boolean;
+  readonly inLiteralString: boolean;
+}
+
 type RuntimeConfigState = {
   readonly [RUNTIME_CONFIG_STATE_FIELDS.ENABLED]: boolean;
   readonly [RUNTIME_CONFIG_STATE_FIELDS.PRODUCT_DIR]: string;
@@ -143,6 +148,11 @@ const JSON_INDENT = 2;
 export const RUNTIME_CONFIG_TEXT_ENCODING = "utf-8";
 const TOML_MULTILINE_BASIC_STRING_DELIMITER = "\"\"\"";
 const TOML_MULTILINE_LITERAL_STRING_DELIMITER = "'''";
+const TOML_SINGLE_LINE_STRING_STATE = {
+  OUTSIDE: { inBasicString: false, inLiteralString: false },
+  BASIC: { inBasicString: true, inLiteralString: false },
+  LITERAL: { inBasicString: false, inLiteralString: true },
+} as const;
 const TOML_MANAGED_TABLE_HEADER =
   `[${RUNTIME_CONFIG_STATE_FIELDS.SPX}.${RUNTIME_CONFIG_STATE_FIELDS.HARNESS_ENVIRONMENT}]`;
 const TOML_MANAGED_INLINE_ASSIGNMENT_PATTERN = new RegExp(
@@ -527,8 +537,7 @@ function scanTomlMultilineStringDelimiter(
   let offset = 0;
   while (offset < line.length) {
     if (delimiter === undefined) {
-      const comment = findTomlCommentStart(line, offset);
-      const next = nextTomlMultilineStringStart(line, offset, comment);
+      const next = nextTomlMultilineStringStart(line, offset);
       if (next === undefined) return undefined;
       delimiter = next.delimiter;
       offset = next.index + delimiter.length;
@@ -543,40 +552,58 @@ function scanTomlMultilineStringDelimiter(
   return delimiter;
 }
 
-function findTomlCommentStart(line: string, offset: number): number {
-  let inBasicString = false;
-  let inLiteralString = false;
-  for (let index = offset; index < line.length; index += 1) {
-    const character = line[index];
-    if (character === "#" && !inBasicString && !inLiteralString) return index;
-    if (character === "\"" && !inLiteralString && !isEscapedTomlDelimiter(line, index)) {
-      inBasicString = !inBasicString;
-    }
-    if (character === "'" && !inBasicString) {
-      inLiteralString = !inLiteralString;
-    }
-  }
-  return line.length;
-}
-
 function nextTomlMultilineStringStart(
   line: string,
   offset: number,
-  limit: number = line.length,
 ): { readonly delimiter: string; readonly index: number } | undefined {
-  const basicIndex = findTomlDelimiter(line, TOML_MULTILINE_BASIC_STRING_DELIMITER, offset, limit);
-  const literalIndex = findTomlDelimiter(line, TOML_MULTILINE_LITERAL_STRING_DELIMITER, offset, limit);
-  if (basicIndex === -1 && literalIndex === -1) return undefined;
-  if (basicIndex !== -1 && (literalIndex === -1 || basicIndex < literalIndex)) {
-    return { delimiter: TOML_MULTILINE_BASIC_STRING_DELIMITER, index: basicIndex };
+  let state: TomlSingleLineStringState = TOML_SINGLE_LINE_STRING_STATE.OUTSIDE;
+  for (let index = offset; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === "#" && isOutsideTomlSingleLineString(state)) return undefined;
+    const delimiter = tomlMultilineDelimiterAt(line, index, state);
+    if (delimiter !== undefined) return { delimiter, index };
+    state = nextTomlSingleLineStringState(line, index, state);
   }
-  return { delimiter: TOML_MULTILINE_LITERAL_STRING_DELIMITER, index: literalIndex };
+  return undefined;
 }
 
-function findTomlDelimiter(line: string, delimiter: string, offset: number, limit: number = line.length): number {
+function tomlMultilineDelimiterAt(
+  line: string,
+  index: number,
+  state: TomlSingleLineStringState,
+): string | undefined {
+  if (!isOutsideTomlSingleLineString(state)) return undefined;
+  if (line.startsWith(TOML_MULTILINE_BASIC_STRING_DELIMITER, index) && !isEscapedTomlDelimiter(line, index)) {
+    return TOML_MULTILINE_BASIC_STRING_DELIMITER;
+  }
+  if (line.startsWith(TOML_MULTILINE_LITERAL_STRING_DELIMITER, index)) {
+    return TOML_MULTILINE_LITERAL_STRING_DELIMITER;
+  }
+  return undefined;
+}
+
+function nextTomlSingleLineStringState(
+  line: string,
+  index: number,
+  state: TomlSingleLineStringState,
+): TomlSingleLineStringState {
+  const character = line[index];
+  if (character === "\"" && !state.inLiteralString && !isEscapedTomlDelimiter(line, index)) {
+    return state.inBasicString ? TOML_SINGLE_LINE_STRING_STATE.OUTSIDE : TOML_SINGLE_LINE_STRING_STATE.BASIC;
+  }
+  if (character === "'" && !state.inBasicString) {
+    return state.inLiteralString ? TOML_SINGLE_LINE_STRING_STATE.OUTSIDE : TOML_SINGLE_LINE_STRING_STATE.LITERAL;
+  }
+  return state;
+}
+
+function isOutsideTomlSingleLineString(state: TomlSingleLineStringState): boolean {
+  return !state.inBasicString && !state.inLiteralString;
+}
+
+function findTomlDelimiter(line: string, delimiter: string, offset: number): number {
   let index = line.indexOf(delimiter, offset);
   while (index !== -1) {
-    if (index >= limit) return -1;
     if (delimiter !== TOML_MULTILINE_BASIC_STRING_DELIMITER || !isEscapedTomlDelimiter(line, index)) return index;
     index = line.indexOf(delimiter, index + delimiter.length);
   }
@@ -608,18 +635,30 @@ function isTomlManagedInlineAssignment(line: string): boolean {
 }
 
 function isTomlTableHeader(line: string): boolean {
-  const trimmed = line.trim();
-  const commentStart = trimmed.indexOf("#");
-  const header = commentStart === -1 ? trimmed : trimmed.slice(0, commentStart).trimEnd();
-  if (header.startsWith("[[") && header.endsWith("]]")) {
-    const inner = header.slice(2, -2);
-    return inner.length > 0 && !inner.includes("]");
-  }
-  if (header.startsWith("[") && header.endsWith("]")) {
-    const inner = header.slice(1, -1);
-    return inner.length > 0 && !inner.includes("]");
-  }
+  const trimmed = line.trimStart();
+  if (trimmed.startsWith("[[")) return isTomlHeaderWithClosing(trimmed, 2, "]]");
+  if (trimmed.startsWith("[")) return isTomlHeaderWithClosing(trimmed, 1, "]");
   return false;
+}
+
+function isTomlHeaderWithClosing(line: string, innerStart: number, closing: string): boolean {
+  const closingStart = findTomlTableHeaderClosing(line, innerStart, closing);
+  if (closingStart === -1) return false;
+  const inner = line.slice(innerStart, closingStart).trim();
+  if (inner === "") return false;
+  const remainder = line.slice(closingStart + closing.length).trimStart();
+  return remainder === "" || remainder.startsWith("#");
+}
+
+function findTomlTableHeaderClosing(line: string, innerStart: number, closing: string): number {
+  let state: TomlSingleLineStringState = TOML_SINGLE_LINE_STRING_STATE.OUTSIDE;
+  for (let index = innerStart; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === "#" && isOutsideTomlSingleLineString(state)) return -1;
+    if (isOutsideTomlSingleLineString(state) && line.startsWith(closing, index)) return index;
+    state = nextTomlSingleLineStringState(line, index, state);
+  }
+  return -1;
 }
 
 function ensureTrailingNewline(value: string): string {
