@@ -55,6 +55,7 @@ export interface ChangedTestSelectionOptions {
 
 export interface ChangedTestSelection {
   readonly targets: TargetSelection;
+  readonly dirtyTargets: TargetSelection;
   readonly baseRef: string;
   readonly baseSha: string;
   readonly headSha: string;
@@ -267,13 +268,21 @@ export async function planChangedTestSelection(
   const related = partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
     : await relatedTestPaths(partition.sourceFiles, options, baseRef, testPaths, deps);
+  const dispatchOperands = mergeChangedSetOperands(pathSelectedTests, related.testPaths);
+  const dirtyOperands = partition.operands.length === 0
+    ? dispatchOperands
+    : mergeChangedSetOperands(partition.operands, related.testPaths);
 
   return {
     targets: {
       operands: partition.productInputChanged
         ? [SPEC_ROOT_OPERAND]
-        : mergeChangedSetOperands(pathSelectedTests, related.testPaths),
+        : dispatchOperands,
       recursive: partition.productInputChanged,
+    },
+    dirtyTargets: {
+      operands: partition.productInputChanged ? [SPEC_ROOT_OPERAND] : dirtyOperands,
+      recursive: partition.productInputChanged || partition.operands.length > 0,
     },
     baseRef,
     baseSha,

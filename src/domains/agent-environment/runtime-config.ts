@@ -174,7 +174,7 @@ export async function planRuntimeConfigReconciliation(
   options: RuntimeConfigReconciliationOptions,
 ): Promise<Result<RuntimeConfigReconciliation>> {
   const deps = options.deps ?? DEFAULT_RUNTIME_CONFIG_DEPENDENCIES;
-  const plan = await planRuntimeConfigReconciliationWithDeps({ ...options, dryRun: options.dryRun ?? true }, deps);
+  const plan = await planRuntimeConfigReconciliationWithDeps({ ...options, dryRun: true }, deps);
   if (!plan.ok) return plan;
   return { ok: true, value: publicRuntimeConfigReconciliation(plan.value) };
 }

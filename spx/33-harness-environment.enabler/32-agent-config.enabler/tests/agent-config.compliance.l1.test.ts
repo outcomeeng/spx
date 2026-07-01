@@ -152,6 +152,29 @@ describe("agent config boundary compliance", () => {
     });
   });
 
+  it("keeps agent config planning read-only when callers pass dryRun false", async () => {
+    const harnessEnvironment = enabledHarnessEnvironment();
+
+    await withTestEnv({}, async ({ productDir, readFile }) => {
+      const result = await planRuntimeConfigReconciliation({ productDir, harnessEnvironment, dryRun: false });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.dryRun).toBe(true);
+      expect(result.value.changed).toBe(true);
+      expect(result.value.files.map((file) => [file.agent, file.content !== undefined])).toEqual([
+        [AGENT.CODEX, true],
+        [AGENT.CLAUDE_CODE, true],
+      ]);
+      expect(result.value.files.map((file) => file.action)).toEqual([
+        RUNTIME_CONFIG_ACTION.CREATE,
+        RUNTIME_CONFIG_ACTION.CREATE,
+      ]);
+      await expect(readFile(CODEX_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
+      await expect(readFile(CLAUDE_CODE_RUNTIME_CONFIG_RELATIVE_PATH)).rejects.toThrow();
+    });
+  });
+
   it("plans dry-run changes without writing agent files", async () => {
     const harnessEnvironment = enabledHarnessEnvironment();
 

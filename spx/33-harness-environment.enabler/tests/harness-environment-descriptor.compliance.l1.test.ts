@@ -702,6 +702,33 @@ describe("harness environment config descriptor", () => {
           HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
         ),
       },
+      {
+        productConfig: {
+          [HARNESS_ENVIRONMENT_SECTION]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
+                },
+              ],
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS]: [
+                {
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENT]: AGENT.CODEX,
+                  [HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME]: duplicateName,
+                },
+              ],
+            },
+          },
+        },
+        expectedErrorPath: harnessEnvironmentPath(
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.SKILLS,
+          "0",
+          HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+        ),
+      },
     ];
 
     for (const { productConfig, expectedErrorPath } of duplicateSections) {
