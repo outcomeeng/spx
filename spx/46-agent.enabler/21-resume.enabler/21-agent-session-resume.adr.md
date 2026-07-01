@@ -12,7 +12,7 @@ Keeping store parsing pure and injected lets tests cover both formats without to
 
 - Candidate ordering is deterministic for the same discovered agent rows, current time, and active scope.
 - A launch command is derived only from the candidate agent, session id, and recorded current working directory.
-- The work discovery performs is bounded by the active scope and the per-agent candidate cap, not by the total number of stored sessions.
+- The transcript reads and per-candidate worktree resolution discovery performs are bounded by the active scope and the per-agent candidate cap, not by the total number of stored sessions.
 
 ## Verification
 
