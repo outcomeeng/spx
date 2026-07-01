@@ -302,9 +302,10 @@ async function recentStoreFiles(
 }
 
 // Claude Code stores each session's transcript directly under its
-// working-directory-named project directory; nested `subagents/` transcripts are
-// not resumable top-level conversations, so only files at the project directory's
-// top level are collected.
+// working-directory-named project directory. Only the immediate `.jsonl`
+// children of a project directory are collected, so every nested transcript is
+// excluded — including the `subagents/` transcripts, which are not resumable
+// top-level conversations.
 async function claudeTranscriptFiles(
   root: string,
   fs: AgentSessionFileSystem,

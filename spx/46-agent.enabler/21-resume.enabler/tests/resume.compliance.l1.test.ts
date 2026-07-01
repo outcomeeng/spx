@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT_RESUME_LIMITS,
+  AGENT_RESUME_RECENT_WINDOW_MS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
   CODEX_SESSION_ORIGINATOR,
@@ -262,6 +263,40 @@ describe("agent resume subagent-exclusion compliance", () => {
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([topLevelId]);
+  });
+});
+
+describe("agent resume recency-window compliance", () => {
+  it("excludes sessions modified before the recent-activity window", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 180);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 181);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 182);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 183);
+    const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 184);
+    const staleId = sampleAgentResumeValue(arbitraryAgentSessionId(), 185);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(recentId)),
+      codexTranscript({ sessionId: recentId, cwd, timestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(staleId)),
+      codexTranscript({ sessionId: staleId, cwd, timestamp }),
+      nowMs - AGENT_RESUME_RECENT_WINDOW_MS - 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
   });
 });
 
