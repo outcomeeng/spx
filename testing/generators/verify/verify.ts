@@ -1,6 +1,8 @@
 import * as fc from "fast-check";
 
 import { REVIEW_FINDING_DISPOSITION, type ReviewFinding, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+
+const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -104,7 +106,7 @@ export const VERIFY_TEST_GENERATOR = {
       maxKeys: 4,
     }),
   unsupportedVerificationType: (): fc.Arbitrary<string> =>
-    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => value !== VERIFY_VERIFICATION_TYPE.REVIEW),
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
 } as const;
 
 export function sampleVerifyTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
