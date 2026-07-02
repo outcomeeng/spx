@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { JOURNAL_CLI_ERROR, JOURNAL_CLI_EXIT_CODE } from "@/commands/journal/cli";
-import { JOURNAL_CLI } from "@/interfaces/cli/journal";
+import { JOURNAL_CLI, JOURNAL_CLI_HELP } from "@/interfaces/cli/journal";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
@@ -101,5 +101,22 @@ describe("journal CLI registry", () => {
         stdout: "",
       });
     });
+  });
+
+  it("documents read-set default bounds in the registered command help", () => {
+    const journalDomain = CLI_DOMAINS.find((domain) => domain.name === JOURNAL_CLI.commandName);
+    expect(journalDomain).toBeDefined();
+    if (journalDomain === undefined) throw new Error("journal domain missing from the CLI registry");
+
+    const program = createCliProgram({ domains: [journalDomain] });
+    const journalCommand = program.commands.find((command) => command.name() === JOURNAL_CLI.commandName);
+    const readSetCommand = journalCommand?.commands.find((command) =>
+      command.name() === JOURNAL_CLI.readSetCommandName
+    );
+    const limitOption = readSetCommand?.options.find((option) => option.flags === JOURNAL_CLI.limitOption);
+    const eventLimitOption = readSetCommand?.options.find((option) => option.flags === JOURNAL_CLI.eventLimitOption);
+
+    expect(limitOption?.description).toBe(JOURNAL_CLI_HELP.READ_SET_RUN_LIMIT);
+    expect(eventLimitOption?.description).toBe(JOURNAL_CLI_HELP.READ_SET_EVENT_LIMIT);
   });
 });
