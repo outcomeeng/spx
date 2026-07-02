@@ -1,5 +1,7 @@
 # Plan: State model expansion
 
+> **Reconcile against `spx/PLAN.md` first.** "state" here is the *volatile node-lifecycle* state (declared / specified / passing), deliberately distinct from durable `persistence` (records / journals / snapshots) — a node-state flips in a moment, a GitHub artifact lives 90 days. "materialization" is renamed `backend`. Where this note predates that model, the root plan governs.
+
 This coordination note records state-model work opened by the methodology and materialization restructure.
 
 ## Current role

@@ -1,5 +1,7 @@
 # Plan: Logical foundation ownership repair
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model renames "materialization" → `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, makes verification the five types that *consume* the journal (never contain it), names `spx verify` the SPX projection/validation home, requires additive migration (never a wholesale move), defers `.surface`, and builds the changes domain first. Read every "materialization" below as `backend`. Where this note predates that model, the root plan governs.
+
 This coordination note preserves the spec-tree foundation repair before `/decompose` and `/author` produce durable specs and decisions.
 
 ## Ownership target
@@ -13,7 +15,7 @@ This coordination note preserves the spec-tree foundation repair before `/decomp
 - projection contracts
 - logical operations over nodes, evidence, and materialization state
 
-The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library use-case operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md` Program C) renders or adapts results per interface.
+The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library use-case operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md`) renders or adapts results per interface.
 
 ## New structure to decompose
 
@@ -64,7 +66,7 @@ Keep these outside this node:
 
 ## Purpose
 
-Keep the reusable spec-tree library as the foundation for the refactor. This node owns backend-neutral source records, entry recognition, assembly, traversal, state derivation, projections, and config-owned vocabulary. Command behavior, terminal rendering, and CLI contracts live today in `spx/31-spec-domain.enabler/`; root `spx/PLAN.md` Program C moves them to the surface layer `spx/60-surfaces.enabler/21-cli-surface.enabler/`. Either way they stay out of this library node.
+Keep the reusable spec-tree library as the foundation for the refactor. This node owns backend-neutral source records, entry recognition, assembly, traversal, state derivation, projections, and config-owned vocabulary. Command behavior, terminal rendering, and CLI contracts live today in `spx/31-spec-domain.enabler/`; root `spx/PLAN.md` moves them to the surface layer `spx/60-surfaces.enabler/21-cli-surface.enabler/`. Either way they stay out of this library node.
 
 ## First tranche
 

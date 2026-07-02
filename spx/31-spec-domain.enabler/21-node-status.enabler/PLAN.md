@@ -1,5 +1,7 @@
 # Plan: Evacuate node-status business logic
 
+> **Reconcile against `spx/PLAN.md` first.** Status/state semantics evacuate to spec-tree (`node-state` derivation) and to `persistence` via `backend` (the rename of "materialization"). The corrected model separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, and requires additive migration (never a wholesale move). Where this note predates that model, the root plan governs.
+
 This coordination note records that `spx/31-spec-domain.enabler/21-node-status.enabler` is the wrong long-term owner for state, status, stale, and status-file semantics.
 
 ## Node-status changeset disposition

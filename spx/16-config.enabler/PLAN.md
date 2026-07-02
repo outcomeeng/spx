@@ -1,5 +1,7 @@
 # Plan: Config-Backed Execution Scope
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. This config library's CLI wrapper moves to the surface layer. Where this note predates that model, the root plan governs.
+
 ## Harness vocabulary guard
 
 Before applying a harness-environment or agent-facing packet from this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
