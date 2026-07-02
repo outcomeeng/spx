@@ -14,5 +14,4 @@
 26-release.enabler/32-documentation-sync.enabler
 26-release.enabler/43-publish-dispatch.enabler
 34-verification.enabler/32-verify.enabler
-34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler

@@ -1,4 +1,12 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts": "passed"
+    }
+  }
 }
