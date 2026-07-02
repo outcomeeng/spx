@@ -69,8 +69,8 @@ export interface ReviewFinding {
 
 /** The CloudEvents `type` each append verb records, distinguishing inspected scope from findings. */
 export const VERIFY_APPEND_EVENT_TYPE = {
-  SCOPE: "io.spx.verify.scope",
-  FINDING: "io.spx.verify.finding",
+  SCOPE: "sh.spx.verify.scope",
+  FINDING: "sh.spx.verify.finding",
 } as const;
 
 export type VerifyAppendEventType = (typeof VERIFY_APPEND_EVENT_TYPE)[keyof typeof VERIFY_APPEND_EVENT_TYPE];
@@ -112,10 +112,16 @@ export interface ChangesetScope {
  */
 export function parseChangesetScope(scope: string): Result<ChangesetScope> {
   const separatorIndex = scope.indexOf(VERIFY_SCOPE_SEPARATOR);
-  if (separatorIndex < 0) return { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET };
+  if (separatorIndex < 0) {
+    return { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET };
+  }
   const base = scope.slice(0, separatorIndex);
   const head = scope.slice(separatorIndex + VERIFY_SCOPE_SEPARATOR.length);
-  if (base.length === 0 || head.length === 0 || head.includes(VERIFY_SCOPE_SEPARATOR)) {
+  if (
+    base.length === 0
+    || head.length === 0
+    || head.includes(VERIFY_SCOPE_SEPARATOR)
+  ) {
     return { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET };
   }
   return { ok: true, value: { base, head } };
@@ -162,8 +168,14 @@ export interface InputDescriptor {
  * Digest a recorded run input canonically over its source and content, so the same input
  * yields the same descriptor digest for replay verification independent of the run token.
  */
-export function digestRunInput(source: string, content: string): Result<string> {
-  const digest = digestDescriptorSection({ source, content }, VERIFY_INPUT_DIGEST_PATH);
+export function digestRunInput(
+  source: string,
+  content: string,
+): Result<string> {
+  const digest = digestDescriptorSection(
+    { source, content },
+    VERIFY_INPUT_DIGEST_PATH,
+  );
   if (!digest.ok) return digest;
   return { ok: true, value: digest.value.sha256 };
 }
@@ -193,7 +205,9 @@ export interface RecordedInput {
  * The run's storage namespace — the state-store runs directory
  * `.spx/branch/<branch-slug>/<type>/runs` its journal and input record persist under.
  */
-export function verifyRunsDir(scope: Omit<VerifyRunScope, "runToken">): Result<string> {
+export function verifyRunsDir(
+  scope: Omit<VerifyRunScope, "runToken">,
+): Result<string> {
   const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
   if (!branchScope.ok) return branchScope;
   return runsDir(branchScope.value, scope.type);
@@ -211,7 +225,10 @@ export function verifyInputRecordPath(scope: VerifyRunScope): Result<string> {
   if (!token.ok) return token;
   return {
     ok: true,
-    value: join(runs.value, `${VERIFY_INPUT_RECORD.PREFIX}${token.value}${VERIFY_INPUT_RECORD.SUFFIX}`),
+    value: join(
+      runs.value,
+      `${VERIFY_INPUT_RECORD.PREFIX}${token.value}${VERIFY_INPUT_RECORD.SUFFIX}`,
+    ),
   };
 }
 
@@ -227,23 +244,33 @@ export function parseAppendPayload(raw: string): JsonValue | undefined {
   }
 }
 
-function isJsonRecord(value: JsonValue | undefined): value is { readonly [key: string]: JsonValue } {
+function isJsonRecord(
+  value: JsonValue | undefined,
+): value is { readonly [key: string]: JsonValue } {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isReviewFindingDisposition(value: JsonValue | undefined): value is ReviewFindingDisposition {
-  return (Object.values(REVIEW_FINDING_DISPOSITION) as readonly string[]).includes(value as string);
+function isReviewFindingDisposition(
+  value: JsonValue | undefined,
+): value is ReviewFindingDisposition {
+  return (
+    Object.values(REVIEW_FINDING_DISPOSITION) as readonly string[]
+  ).includes(value as string);
 }
 
 /** A verification type's finding-payload validator: returns the typed finding, or `undefined` when invalid. */
-export type FindingValidator = (payload: JsonValue) => ReviewFinding | undefined;
+export type FindingValidator = (
+  payload: JsonValue,
+) => ReviewFinding | undefined;
 
 /**
  * Validate a `review` finding payload: it must be an object carrying a known receiver-action
  * disposition and a non-empty summary. Any other shape is rejected so callers do not carry
  * review-specific schema validation outside SPX.
  */
-export function validateReviewFinding(payload: JsonValue): ReviewFinding | undefined {
+export function validateReviewFinding(
+  payload: JsonValue,
+): ReviewFinding | undefined {
   if (!isJsonRecord(payload)) return undefined;
   const { disposition, summary } = payload;
   if (!isReviewFindingDisposition(disposition)) return undefined;
@@ -255,13 +282,19 @@ export function validateReviewFinding(payload: JsonValue): ReviewFinding | undef
  * The finding-validator registry keyed by verification type. Dispatch is a registry lookup, not
  * verification-type-name branching; a new verification type registers a validator here.
  */
-const FINDING_VALIDATORS: Readonly<Record<VerifyVerificationType, FindingValidator>> = {
+const FINDING_VALIDATORS: Readonly<
+  Record<VerifyVerificationType, FindingValidator>
+> = {
   [VERIFY_VERIFICATION_TYPE.REVIEW]: validateReviewFinding,
 };
 
 /** Look up the finding validator for a verification type, or `undefined` when the type registers none. */
-export function findingValidatorFor(verificationType: string): FindingValidator | undefined {
-  return (FINDING_VALIDATORS as Readonly<Record<string, FindingValidator | undefined>>)[verificationType];
+export function findingValidatorFor(
+  verificationType: string,
+): FindingValidator | undefined {
+  return (
+    FINDING_VALIDATORS as Readonly<Record<string, FindingValidator | undefined>>
+  )[verificationType];
 }
 
 /**
@@ -306,7 +339,7 @@ export function buildAppendEvent(args: {
 }
 
 /** The CloudEvents `type` the verify terminal-completion event carries, distinguishing it from appends. */
-export const VERIFY_TERMINAL_EVENT_TYPE = "io.spx.verify.terminal" as const;
+export const VERIFY_TERMINAL_EVENT_TYPE = "sh.spx.verify.terminal" as const;
 
 /** The `data` field the terminal-completion event records: the run's terminal status. */
 export const VERIFY_TERMINAL_EVENT_FIELD = {
@@ -336,7 +369,9 @@ export function buildTerminalEvent(args: {
     type: VERIFY_TERMINAL_EVENT_TYPE,
     time: args.at.toISOString(),
     attempt: VERIFY_APPEND_ATTEMPT,
-    data: { [VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS]: args.terminalStatus },
+    data: {
+      [VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS]: args.terminalStatus,
+    },
   };
 }
 
@@ -353,7 +388,9 @@ export interface VerifyRunProjection {
 export const VERIFY_NO_EVENTS_SEQUENCE = 0;
 
 /** The run's terminal-completion event, or `undefined` when the run is not finished. */
-export function findTerminalEvent(events: readonly JournalEvent[]): JournalEvent | undefined {
+export function findTerminalEvent(
+  events: readonly JournalEvent[],
+): JournalEvent | undefined {
   return events.find((event) => event.type === VERIFY_TERMINAL_EVENT_TYPE);
 }
 
@@ -365,11 +402,16 @@ function terminalStatusOf(event: JournalEvent | undefined): string | undefined {
 
 /** The authoritative finding count from the event history: the number of recorded finding events. */
 export function countVerifyFindings(events: readonly JournalEvent[]): number {
-  return events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING).length;
+  return events.filter(
+    (event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING,
+  ).length;
 }
 
 function lastSequenceOf(events: readonly JournalEvent[]): number {
-  return events.reduce((max, event) => (event.seq > max ? event.seq : max), VERIFY_NO_EVENTS_SEQUENCE);
+  return events.reduce(
+    (max, event) => (event.seq > max ? event.seq : max),
+    VERIFY_NO_EVENTS_SEQUENCE,
+  );
 }
 
 /**
@@ -377,7 +419,9 @@ function lastSequenceOf(events: readonly JournalEvent[]): number {
  * carries a terminal-completion event; its terminal status, authoritative finding count, last
  * journal sequence, and remaining legal lifecycle actions all derive from the same history.
  */
-export function projectVerifyRun(events: readonly JournalEvent[]): VerifyRunProjection {
+export function projectVerifyRun(
+  events: readonly JournalEvent[],
+): VerifyRunProjection {
   const terminal = findTerminalEvent(events);
   const terminalStatus = terminalStatusOf(terminal);
   const sealed = terminal !== undefined;
