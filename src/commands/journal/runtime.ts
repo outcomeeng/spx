@@ -1,6 +1,5 @@
 import type { Result } from "@/config/types";
 import {
-  applyJournalRunListLimit,
   compareJournalRunsNewestFirst,
   compareJournalRunsOldestFirst,
   journalBranchScopesDir,
@@ -74,6 +73,22 @@ export interface JournalRunHandle {
 
 export interface JournalVerbOptions {
   readonly fs?: StateStoreFileSystem;
+}
+
+export interface JournalListRunsScope extends JournalRunListScope {
+  readonly limit: number;
+}
+
+export interface JournalSealedRunSetScope extends JournalRunDirectoryScope {
+  readonly eventLimit: number;
+  readonly limit: number;
+}
+
+function applyJournalRunListLimit(
+  runs: readonly JournalRunMetadata[],
+  limit: number,
+): readonly JournalRunMetadata[] {
+  return runs.slice(0, limit);
 }
 
 function bindRunFilePath(ref: JournalRunRef): Result<string> {
@@ -270,7 +285,7 @@ export async function openJournalRun(
 }
 
 export async function listJournalRuns(
-  scope: JournalRunListScope,
+  scope: JournalListRunsScope,
   options: JournalVerbOptions = {},
 ): Promise<Result<readonly JournalRunMetadata[]>> {
   const fs = options.fs ?? defaultStateStoreFileSystem;
@@ -287,7 +302,7 @@ export async function listJournalRuns(
 }
 
 export async function readSealedJournalRunSet(
-  scope: JournalRunDirectoryScope,
+  scope: JournalSealedRunSetScope,
   options: JournalVerbOptions = {},
 ): Promise<Result<readonly SealedJournalRun[]>> {
   const fs = options.fs ?? defaultStateStoreFileSystem;

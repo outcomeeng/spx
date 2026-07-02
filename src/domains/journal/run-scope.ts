@@ -35,10 +35,7 @@ export interface JournalRunScope {
   readonly runToken: string;
 }
 
-export interface JournalRunDirectoryScope extends Omit<JournalRunScope, "runToken"> {
-  readonly eventLimit?: number;
-  readonly limit?: number;
-}
+export type JournalRunDirectoryScope = Omit<JournalRunScope, "runToken">;
 
 export const JOURNAL_RUN_SEALED_FILTER = {
   ANY: "any",
@@ -70,7 +67,6 @@ export interface JournalRunListScope {
   readonly type?: string;
   readonly sealed?: JournalRunSealedFilter;
   readonly terminalState?: JournalRunTerminalFilter;
-  readonly limit?: number;
 }
 
 export interface JournalRunMetadata {
@@ -165,13 +161,6 @@ export function compareJournalRunsOldestFirst(left: JournalRunMetadata, right: J
   if (startedAtOrder !== 0) return startedAtOrder;
   const createdAtOrder = left.createdAtMs - right.createdAtMs;
   return createdAtOrder === 0 ? compareAsciiStrings(left.runToken, right.runToken) : createdAtOrder;
-}
-
-export function applyJournalRunListLimit(
-  runs: readonly JournalRunMetadata[],
-  limit: number | undefined,
-): readonly JournalRunMetadata[] {
-  return limit === undefined ? runs : runs.slice(0, limit);
 }
 
 /**
