@@ -51,12 +51,12 @@ describe("verify finish lifecycle scenario", () => {
     expect(findTerminalEvent(events)).toBeDefined();
     expect(report.lastSequence).toBe(events.length);
 
-    // Sealing rejects further evidence: a fresh append after finish fails on the sealed journal.
-    const afterSeal = await verifyAppendScopeCommand(
+    // A finished run rejects further evidence: a fresh append after finish is rejected as finished.
+    const afterFinish = await verifyAppendScopeCommand(
       verifyAppendOptions(scenario, { run: runToken, payload: scopePayload, idempotencyKey: keys.second }),
       deps,
     );
-    expect(afterSeal.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(afterSeal.output).toContain(VERIFY_CLI_ERROR.APPEND_FAILED);
+    expect(afterFinish.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(afterFinish.output).toBe(VERIFY_CLI_ERROR.RUN_FINISHED);
   });
 });
