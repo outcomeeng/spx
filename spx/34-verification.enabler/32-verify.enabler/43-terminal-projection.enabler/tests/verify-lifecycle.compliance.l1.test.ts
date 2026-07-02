@@ -8,6 +8,7 @@ import {
   createVerifyAppendScenario,
   createVerifyRunContextScenario,
   finishRecoversUnsealedRun,
+  finishRun,
   parseFinishReport,
   readVerifyRunEvents,
   startedRunToken,
@@ -70,5 +71,23 @@ describe("verify finish compliance", () => {
       (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
     );
     expect(terminalEvents).toHaveLength(1);
+  });
+
+  it("returns the first terminal projection when a second finish supplies a different terminal status", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+    const runToken = await startedRunToken(scenario, deps);
+    const statuses = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.distinctTerminalStatuses());
+
+    const first = await finishRun(scenario, deps, runToken, statuses.first);
+    const second = await finishRun(scenario, deps, runToken, statuses.second);
+
+    // First status wins: the second finish returns the recorded projection, not the new status.
+    expect(second.terminalStatus).toBe(statuses.first);
+    expect(second).toEqual(first);
+    const terminalEvents = (await readVerifyRunEvents(scenario, runToken, fs)).filter(
+      (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
+    );
+    expect(terminalEvents).toHaveLength(1);
+    expect(JSON.stringify(terminalEvents[0]?.data)).not.toContain(statuses.second);
   });
 });
