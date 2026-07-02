@@ -15,6 +15,7 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 
 import { createJournalStreamBinding } from "./lib/journal-stream-binding";
+import { CLI_STREAM_REPORT } from "./lib/stream-report";
 
 export const JOURNAL_CLI = {
   commandName: "journal",
@@ -35,7 +36,6 @@ export const JOURNAL_CLI = {
   limitOption: "--limit <count>",
 } as const;
 
-const STREAM_LINE_SEPARATOR = "\n";
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
 
 interface JournalScopeCliOptions {
@@ -84,7 +84,7 @@ export const journalDomain: Domain = {
     const journalDeps = () => ({
       cwd: invocation.resolveEffectiveInvocationDir(),
       onWarning: (warning: string | undefined) => {
-        if (warning !== undefined) invocation.io.writeStderr(`${warning}${STREAM_LINE_SEPARATOR}`);
+        if (warning !== undefined) invocation.io.writeStderr(`${warning}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
       },
     });
     const journalCmd = program.command(JOURNAL_CLI.commandName).description(JOURNAL_CLI.description);
@@ -195,7 +195,7 @@ async function readStdinEventInput(): Promise<Result<unknown>> {
 }
 
 function report(result: CliCommandResult, io: CliIo): void {
-  const output = `${result.output}${STREAM_LINE_SEPARATOR}`;
+  const output = `${result.output}${CLI_STREAM_REPORT.LINE_SEPARATOR}`;
   if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) io.writeStdout(output);
   else io.writeStderr(output);
   io.setExitCode(result.exitCode);
