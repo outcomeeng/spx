@@ -14,7 +14,7 @@ export function verificationLikeJournalTypes(): readonly string[] {
   return verificationLikeJournalTypeCases;
 }
 
-export function arbitraryJournalListLimit(max: number): fc.Arbitrary<number> {
+export function arbitraryJournalRunLimit(max: number): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_JOURNAL_LIST_LIMIT, max });
 }
 

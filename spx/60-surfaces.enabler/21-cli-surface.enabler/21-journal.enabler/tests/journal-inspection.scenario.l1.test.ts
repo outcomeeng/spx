@@ -30,7 +30,7 @@ import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { compareAsciiStrings, createStateStoreRunToken } from "@/lib/state-store";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
 import { JOURNAL_RUN_STATE_TEST_GENERATOR } from "@testing/generators/journal/run-state";
-import { arbitraryJournalListLimit } from "@testing/generators/journal/type";
+import { arbitraryJournalRunLimit } from "@testing/generators/journal/type";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { RecordingJournalStreamSink, withJournalHarness } from "@testing/harnesses/journal/harness";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
@@ -198,13 +198,13 @@ describe("journal inspection", () => {
       await sealJournalRun(otherBranch.value.ref);
       await sealJournalRun(terminalRun.value.ref);
       const expectedRunTokens = [second.value.ref.runToken, first.value.ref.runToken];
-      const listLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedRunTokens.length));
+      const listLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(expectedRunTokens.length));
       const expectedCrossBranchRuns = [
         { branchSlug: otherBranchSlug, type, runToken: otherBranch.value.ref.runToken },
         { branchSlug, type, runToken: second.value.ref.runToken },
         { branchSlug, type, runToken: first.value.ref.runToken },
       ];
-      const crossBranchLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedCrossBranchRuns.length));
+      const crossBranchLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(expectedCrossBranchRuns.length));
 
       const listed = await journalListCommand(
         {
@@ -263,7 +263,7 @@ describe("journal inspection", () => {
         });
         expect(opened.ok).toBe(true);
         if (!opened.ok) return;
-        const eventInputs = index === 0 ? defaultLimitStressEventInputs : [input];
+        const eventInputs = index === runCount - 1 ? defaultLimitStressEventInputs : [input];
         for (const eventInput of eventInputs) {
           await appendJournalEvent(opened.value.ref, eventInput, new RecordingJournalStreamSink());
         }
@@ -280,10 +280,10 @@ describe("journal inspection", () => {
       expect(defaultReadSet.length).toBe(JOURNAL_CLI_RUN_LIMIT.DEFAULT);
       expect(defaultReadSet.length).toBeGreaterThan(0);
       expect(defaultReadSet.length).toBeLessThan(runCount);
-      const firstDefaultRunEvents = defaultReadSet[0]?.events ?? [];
-      expect(firstDefaultRunEvents.length).toBe(JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT);
-      expect(firstDefaultRunEvents.length).toBeGreaterThan(0);
-      expect(firstDefaultRunEvents.length).toBeLessThan(defaultLimitStressEventInputs.length);
+      const newestDefaultRunEvents = defaultReadSet.at(-1)?.events ?? [];
+      expect(newestDefaultRunEvents.length).toBe(JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT);
+      expect(newestDefaultRunEvents.length).toBeGreaterThan(0);
+      expect(newestDefaultRunEvents.length).toBeLessThan(defaultLimitStressEventInputs.length);
     });
   });
 
@@ -371,14 +371,14 @@ describe("journal inspection", () => {
       await sealJournalRun(second.value.ref);
       await sealJournalRun(third.value.ref);
       const expectedRunTokens = [first.value.ref.runToken, second.value.ref.runToken, third.value.ref.runToken];
-      const expectedLimitedRunTokens = [first.value.ref.runToken, second.value.ref.runToken];
+      const expectedLimitedRunTokens = [second.value.ref.runToken, third.value.ref.runToken];
       const expectedLimitedEventSeqs = [JOURNAL_SEQ_BASE];
       const readSetLimit = sampleStateStoreTestValue(
-        arbitraryJournalListLimit(expectedLimitedRunTokens.length).filter(
+        arbitraryJournalRunLimit(expectedLimitedRunTokens.length).filter(
           (limit) => limit === expectedLimitedRunTokens.length,
         ),
       );
-      const readSetEventLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedLimitedEventSeqs.length));
+      const readSetEventLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(expectedLimitedEventSeqs.length));
 
       const readSet = await journalReadSetCommand({ branchSlug, type }, localDeps(productDir));
       const limitedReadSet = await journalReadSetCommand(
@@ -493,7 +493,7 @@ describe("journal inspection", () => {
       await sealJournalRun(first.value.ref, { fs });
       await sealJournalRun(second.value.ref, { fs });
       const expectedListedRunTokens = [second.value.ref.runToken, first.value.ref.runToken];
-      const listLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedListedRunTokens.length));
+      const listLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(expectedListedRunTokens.length));
 
       const deps = { ...localDeps(productDir), fs };
       const listed = await journalListCommand(

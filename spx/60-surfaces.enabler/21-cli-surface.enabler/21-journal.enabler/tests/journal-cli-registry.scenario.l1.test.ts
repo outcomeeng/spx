@@ -5,7 +5,7 @@ import { JOURNAL_CLI } from "@/interfaces/cli/journal";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
-import { arbitraryInvalidJournalLimit, arbitraryJournalListLimit } from "@testing/generators/journal/type";
+import { arbitraryInvalidJournalLimit, arbitraryJournalRunLimit } from "@testing/generators/journal/type";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { withJournalHarness } from "@testing/harnesses/journal/harness";
 
@@ -60,7 +60,7 @@ describe("journal CLI registry", () => {
 
   it("wires read-set run and event limits through the registered command surface", async () => {
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
-    const validLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(type.length));
+    const validLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(type.length));
     const invalidLimit = sampleStateStoreTestValue(arbitraryInvalidJournalLimit());
     const typeOption = optionName(JOURNAL_CLI.typeOption);
     const limitOption = optionName(JOURNAL_CLI.limitOption);
