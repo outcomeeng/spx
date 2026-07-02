@@ -677,6 +677,11 @@ async function resolveExistingRun(
   options: VerifyExistingRunSelector,
   deps: VerifyCliDeps,
 ): Promise<Result<VerifyExistingRun>> {
+  if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
+    return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
+  }
+  const scope = parseChangesetScope(options.scope);
+  if (!scope.ok) return scope;
   if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return resolved;
@@ -726,8 +731,6 @@ export async function verifyFinishCommand(
 ): Promise<CliCommandResult> {
   if (options.terminalStatus.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_REQUIRED);
   if (!isVerifyTerminalStatus(options.terminalStatus)) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID);
-  const binding = deps.journalBinding;
-  if (binding === undefined) return errorResult(VERIFY_CLI_ERROR.FINISH_FAILED);
   const run = await resolveExistingRun(options, deps);
   if (!run.ok) return errorResult(run.error);
 
@@ -739,10 +742,15 @@ export async function verifyFinishCommand(
     return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${before.error}`);
   }
   // A run already carrying its terminal event is finished; return the existing projection without
-  // appending a second terminal event or re-sealing.
+  // appending a second terminal event or re-sealing. This idempotent return is read-only, like
+  // status and render, so it needs no journal binding.
   if (findTerminalEvent(before.value) !== undefined) {
     return okResult(JSON.stringify(verifyFinishReport(run.value.runToken, projectVerifyRun(before.value))));
   }
+
+  // Only the append-and-seal path consumes the journal binding.
+  const binding = deps.journalBinding;
+  if (binding === undefined) return errorResult(VERIFY_CLI_ERROR.FINISH_FAILED);
 
   const event = buildTerminalEvent({
     runToken: run.value.runToken,
