@@ -10,6 +10,8 @@ Per-verification-type finding validation dispatches through a typed finding-vali
 
 A verification run has a single sequential driver: the caller that starts a run drives its appends and terminal completion in order. Append idempotency is therefore a pre-append read of the run's event history that returns the existing sequence for a repeated idempotency key — a check-then-act sufficient for a driver's sequential retries, which is the exactly-once-per-caller-intent the node declares. A run's concurrency is expressed as separate runs with their own tokens, never as concurrent writers appending to one run, so the command layer enforces idempotency without an atomic storage-layer dedup.
 
+Terminal completion is a verify-owned journal event, and run status is a pure fold over the run's event history. `finish` records a verify terminal-completion event carrying a status drawn from the journal terminal-status vocabulary, then seals the run journal so no further evidence appends. The projected run status — sealed state, terminal status, authoritative finding count, last journal sequence, and next legal lifecycle actions — is computed by replaying the event history, never read from the journal run-state schema, whose CI review-run identity fields a changeset verification run does not populate. `finish` is idempotent on the presence of its terminal-completion event: a repeated `finish` returns the existing terminal projection rather than appending a second terminal event, the same single-driver check-then-act the append verbs use. `status` and `render` are read-only projections that append and seal nothing.
+
 ## Invariants
 
 - `src/domains/verify/` accesses no filesystem, git process, process globals, command modules, journal storage, or verification-context storage.
@@ -18,6 +20,9 @@ A verification run has a single sequential driver: the caller that starts a run 
 - Verifier execution remains outside the verify module; the command records and renders caller-driven work.
 - Finding-payload validation dispatches through a finding-validator registry keyed by verification type; adding a verification type's finding validation adds one registry entry and changes no verify dispatch control flow.
 - A verification run has one sequential driver; append idempotency is a check-then-act over the run's event history that suffices for a driver's sequential retries, not for concurrent writers to one run.
+- Terminal completion is a verify-owned journal event; a run's projected status — sealed state, terminal status, authoritative finding count, last journal sequence, and next legal lifecycle actions — is a pure fold over the run's event history, never the journal run-state schema.
+- `finish` appends the terminal-completion event then seals the run journal, and returns the existing terminal projection for a repeated `finish` rather than appending a second terminal event.
+- `status` and `render` append no journal event and seal no run; they project the run from its event history read through the injected journal port.
 
 ## Verification
 
@@ -33,3 +38,8 @@ A verification run has a single sequential driver: the caller that starts a run 
 - ALWAYS: a `spx verify` append verb writes its single structured JSON result to standard output and routes the local backend's event stream to standard error, so a caller parses one JSON result on stdout while the run stays observable ([audit])
 - NEVER: verify command modules spawn, configure, or select a verifier agent ([audit])
 - NEVER: verify domain or command code branches on a verification-type name to select finding validation; a new verification type adds a finding-validator registry entry ([audit])
+- ALWAYS: terminal-status validation accepts only the journal terminal-status vocabulary and runs in `src/domains/verify/` as a pure function before `finish` records terminal completion or seals the run ([audit])
+- ALWAYS: `spx verify` records terminal completion as a verify-owned journal event and folds run status — sealed state, terminal status, authoritative finding count, last journal sequence, and next legal lifecycle actions — from the run's event history as a pure function, never from the journal run-state schema ([audit])
+- ALWAYS: `finish` appends the terminal-completion event then seals the run journal through injected journal ports, and returns the existing terminal projection for a repeated `finish` rather than appending a second terminal event ([audit])
+- NEVER: `status` or `render` append a journal event or seal a run — each projects the run from its event history read through the injected journal port ([audit])
+- ALWAYS: `finish` writes its single structured JSON result to standard output and routes the local backend's event stream to standard error, while `status` and `render` write only their structured JSON result to standard output without appending or streaming an event ([audit])
