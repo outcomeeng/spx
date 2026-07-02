@@ -69,6 +69,7 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
       .filter(([base, head]) => base !== head)
       .map(([base, head]) => ({ base, head })),
+  malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankRunToken: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
