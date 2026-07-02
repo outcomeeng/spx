@@ -84,6 +84,13 @@ export interface JournalSealedRunSetScope extends JournalRunDirectoryScope {
   readonly limit: number;
 }
 
+export interface JournalRunTokenLookupScope {
+  readonly productDir: string;
+  readonly branchSlug?: string;
+  readonly type: string;
+  readonly runToken: string;
+}
+
 function applyJournalRunListLimit(
   runs: readonly JournalRunMetadata[],
   limit: number,
@@ -330,6 +337,23 @@ export async function readSealedJournalRunSet(
         events: run.events.slice(0, scope.eventLimit),
       })),
   };
+}
+
+/** Return branch scopes that contain the requested run token for one opaque type. */
+export async function findJournalRunBranchSlugs(
+  scope: JournalRunTokenLookupScope,
+  options: JournalVerbOptions = {},
+): Promise<Result<readonly string[]>> {
+  const fs = options.fs ?? defaultStateStoreFileSystem;
+  const branches = await branchSlugs(scope, fs);
+  if (!branches.ok) return branches;
+  const matches: string[] = [];
+  for (const branchSlug of branches.value) {
+    const runFilePath = bindRunFilePath({ ...scope, branchSlug });
+    if (!runFilePath.ok) return runFilePath;
+    if (await runFileExists(fs, runFilePath.value)) matches.push(branchSlug);
+  }
+  return { ok: true, value: matches };
 }
 
 /**
