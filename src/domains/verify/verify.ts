@@ -24,8 +24,7 @@ export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];
 /**
  * The verification types whose finding payloads `spx verify append-finding` validates. Each
  * type registers a finding validator (see `FINDING_VALIDATORS`); dispatch is a registry lookup
- * keyed by this vocabulary, never verification-type-name branching, per
- * `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`.
+ * keyed by this vocabulary, never verification-type-name branching.
  */
 export const VERIFY_VERIFICATION_TYPE = {
   REVIEW: "review",
@@ -237,8 +236,7 @@ export function validateReviewFinding(payload: JsonValue): ReviewFinding | undef
 
 /**
  * The finding-validator registry keyed by verification type. Dispatch is a registry lookup, not
- * verification-type-name branching, per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`;
- * a new verification type registers a validator here.
+ * verification-type-name branching; a new verification type registers a validator here.
  */
 const FINDING_VALIDATORS: Readonly<Record<VerifyVerificationType, FindingValidator>> = {
   [VERIFY_VERIFICATION_TYPE.REVIEW]: validateReviewFinding,
