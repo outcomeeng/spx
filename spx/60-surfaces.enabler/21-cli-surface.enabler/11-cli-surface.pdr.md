@@ -16,6 +16,6 @@ Agents and operators need CLI output they can inspect, page, filter, and parse w
 
 ### Audit
 
-- ALWAYS: CLI command specs place command names, verb names, options, help text, rendering, default output bounds, color behavior, and exit diagnostics under `spx/32-surfaces.enabler/21-cli-surface.enabler` ([audit])
+- ALWAYS: CLI command specs place command names, verb names, options, help text, rendering, default output bounds, color behavior, and exit diagnostics under `spx/60-surfaces.enabler/21-cli-surface.enabler` ([audit])
 - ALWAYS: list-style CLI commands whose backing data grows across sessions, runs, branches, or product history define a bounded default projection and explicit widening controls ([audit])
 - NEVER: a CLI command family defines a private option, output-mode, color, help, or diagnostic vocabulary when the CLI surface vocabulary already covers that behavior ([audit])

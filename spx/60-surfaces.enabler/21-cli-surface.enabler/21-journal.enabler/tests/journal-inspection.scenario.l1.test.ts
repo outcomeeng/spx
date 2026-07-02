@@ -277,9 +277,11 @@ describe("journal inspection", () => {
       expect(readSet.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
       const defaultReadSet = JSON.parse(readSet.output) as Array<{ readonly events: JournalEvent[] }>;
       expect(JSON.parse(listed.output)).toHaveLength(defaultReadSet.length);
+      expect(defaultReadSet.length).toBe(JOURNAL_CLI_RUN_LIMIT.DEFAULT);
       expect(defaultReadSet.length).toBeGreaterThan(0);
       expect(defaultReadSet.length).toBeLessThan(runCount);
       const firstDefaultRunEvents = defaultReadSet[0]?.events ?? [];
+      expect(firstDefaultRunEvents.length).toBe(JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT);
       expect(firstDefaultRunEvents.length).toBeGreaterThan(0);
       expect(firstDefaultRunEvents.length).toBeLessThan(defaultLimitStressEventInputs.length);
     });
