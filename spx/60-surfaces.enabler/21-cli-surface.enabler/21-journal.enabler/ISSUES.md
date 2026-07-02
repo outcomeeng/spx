@@ -86,3 +86,21 @@ Enhancement: persist the comment id (e.g. alongside the run state or in the
 run-scope directory) on first create/find, and have `upsertPullRequestComment`
 accept and prefer a known comment id — editing it directly and skipping the
 list — falling back to the marker scan only when the id is absent or stale.
+
+## FOLLOW-UP — read-set bounds output but still reads every sealed run event
+
+`readSealedJournalRunSet` applies the requested run and event limits after
+`readRunMetadata` has already called `store.readAll()` for every sealed run in
+the directory. The command therefore bounds returned JSON correctly, but its
+disk I/O still scales with the full sealed-run history for the selected branch
+and type scope.
+
+This becomes visible when a caller requests a narrow inspection such as
+`--limit 1 --event-limit 1`: the output contains one event from one run, while
+the command still reads every event from every sealed run file before slicing.
+The bounded-output contract is satisfied, but the inspection cost does not yet
+scale with the explicit bounds.
+
+Enhancement: split sealed-run metadata discovery from event loading so the
+command can select the most recent bounded run set before reading per-run event
+history, and read at most the requested event count for each selected run.
