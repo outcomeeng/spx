@@ -5,8 +5,11 @@ import type { Command } from "commander";
 import {
   verifyAppendFindingCommand,
   verifyAppendScopeCommand,
+  verifyFinishCommand,
   verifyInputCommand,
+  verifyRenderCommand,
   verifyStartCommand,
+  verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { Domain } from "@/domains/types";
 import { VERIFY_INPUT_SOURCE, VERIFY_VERB } from "@/domains/verify/verify";
@@ -22,6 +25,9 @@ export const VERIFY_CLI = {
   inputCommandName: VERIFY_VERB.INPUT,
   appendScopeCommandName: VERIFY_VERB.APPEND_SCOPE,
   appendFindingCommandName: VERIFY_VERB.APPEND_FINDING,
+  finishCommandName: VERIFY_VERB.FINISH,
+  statusCommandName: VERIFY_VERB.STATUS,
+  renderCommandName: VERIFY_VERB.RENDER,
   verificationTypeOption: "--verification-type <type>",
   scopeTypeOption: "--scope-type <scope-type>",
   scopeOption: "--scope <base>..<head>",
@@ -29,6 +35,7 @@ export const VERIFY_CLI = {
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
   idempotencyKeyOption: "--idempotency-key <key>",
+  terminalStatusOption: "--terminal-status <status>",
 } as const;
 
 const CLI_SOURCE_ENCODING = "utf8";
@@ -51,6 +58,15 @@ interface VerifyAppendActionOptions extends VerifySharedCliOptions {
   readonly run: string;
   readonly payload: string;
   readonly idempotencyKey: string;
+}
+
+interface VerifyFinishActionOptions extends VerifySharedCliOptions {
+  readonly run: string;
+  readonly terminalStatus: string;
+}
+
+interface VerifyRunActionOptions extends VerifySharedCliOptions {
+  readonly run: string;
 }
 
 async function readStdinText(): Promise<string> {
@@ -127,6 +143,40 @@ export const verifyDomain: Domain = {
       .requiredOption(VERIFY_CLI.idempotencyKeyOption, "Caller-supplied idempotency key for the append")
       .action(async (options: VerifyAppendActionOptions) => {
         reportCliResult(await verifyAppendFindingCommand(options, deps()), invocation.io);
+      });
+
+    command
+      .command(VERIFY_CLI.finishCommandName)
+      .description("Record terminal completion, seal the run journal, and report its terminal projection")
+      .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+      .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
+      .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+      .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+      .requiredOption(VERIFY_CLI.terminalStatusOption, "Terminal status recorded before sealing")
+      .action(async (options: VerifyFinishActionOptions) => {
+        reportCliResult(await verifyFinishCommand(options, deps()), invocation.io);
+      });
+
+    command
+      .command(VERIFY_CLI.statusCommandName)
+      .description("Report the run's resumable status projected from its journal history")
+      .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+      .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
+      .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+      .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+      .action(async (options: VerifyRunActionOptions) => {
+        reportCliResult(await verifyStatusCommand(options, deps()), invocation.io);
+      });
+
+    command
+      .command(VERIFY_CLI.renderCommandName)
+      .description("Render the run's journal projection with its authoritative finding count")
+      .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+      .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
+      .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+      .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+      .action(async (options: VerifyRunActionOptions) => {
+        reportCliResult(await verifyRenderCommand(options, deps()), invocation.io);
       });
   },
 };
