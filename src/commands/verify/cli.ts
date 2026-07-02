@@ -4,7 +4,9 @@ import {
   journalAppendCommand,
   journalOpenCommand,
   journalReadCommand,
+  journalRenderCommand,
   type JournalRunCliScope,
+  journalSealCommand,
   type JournalStreamBinding,
   readJournalCliEnvironment,
 } from "@/commands/journal/cli";
@@ -17,13 +19,17 @@ import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-contex
 import {
   buildAppendEvent,
   buildRunLocator,
+  buildTerminalEvent,
   type ChangesetScope,
   digestRunInput,
   findAppendedSequence,
   findingValidatorFor,
+  findTerminalEvent,
   type InputDescriptor,
+  isVerifyTerminalStatus,
   parseAppendPayload,
   parseChangesetScope,
+  projectVerifyRun,
   type RecordedInput,
   type RunLocator,
   VERIFY_APPEND_EVENT_TYPE,
@@ -32,6 +38,7 @@ import {
   VERIFY_VERB,
   type VerifyAppendEventType,
   verifyInputRecordPath,
+  type VerifyRunProjection,
   type VerifyRunScope,
   verifyRunsDir,
 } from "@/domains/verify/verify";
@@ -79,6 +86,12 @@ export const VERIFY_CLI_ERROR = {
   FINDING_INVALID: "spx verify append-finding payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verify append-finding has no finding validator for the verification type",
   APPEND_FAILED: "spx verify could not append the evidence event",
+  TERMINAL_STATUS_REQUIRED: "spx verify finish requires --terminal-status <status>",
+  TERMINAL_STATUS_INVALID: "spx verify finish requires a terminal status in the journal terminal-status vocabulary",
+  FINISH_FAILED: "spx verify could not record terminal completion",
+  SEAL_FAILED: "spx verify could not seal the run journal",
+  STATUS_FAILED: "spx verify could not read the run status",
+  RENDER_FAILED: "spx verify could not render the run projection",
 } as const;
 
 export interface VerifyCliDeps {
@@ -135,6 +148,55 @@ export interface VerifyAppendCliOptions {
 export interface VerifyAppendReport {
   readonly sequence: number;
   readonly idempotent: boolean;
+}
+
+export interface VerifyFinishCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+  readonly terminalStatus: string;
+}
+
+export interface VerifyStatusCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+}
+
+export interface VerifyRenderCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+}
+
+export interface VerifyFinishReport {
+  readonly runToken: string;
+  readonly terminalStatus?: string;
+  readonly sealed: boolean;
+  readonly findingCount: number;
+  readonly lastSequence: number;
+}
+
+export interface VerifyStatusReport {
+  readonly runToken: string;
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly sealed: boolean;
+  readonly lastSequence: number;
+  readonly terminalStatus?: string;
+  readonly findingCount: number;
+  readonly nextActions: readonly string[];
+}
+
+export interface VerifyRenderReport {
+  readonly runToken: string;
+  readonly findingCount: number;
+  readonly sealed: boolean;
+  readonly terminalStatus?: string;
+  readonly events: readonly JournalEvent[];
 }
 
 interface VerifyResolvedScope {
@@ -571,4 +633,181 @@ export async function verifyAppendFindingCommand(
   deps: VerifyCliDeps,
 ): Promise<CliCommandResult> {
   return verifyAppend(options, deps, VERIFY_VERB.APPEND_FINDING);
+}
+
+/** An existing run's resolved journal scope and storage namespace, addressing one started run. */
+interface VerifyExistingRun {
+  readonly runToken: string;
+  readonly journalScope: JournalRunCliScope;
+  readonly namespace: string;
+  readonly backendIdentity: string;
+}
+
+interface VerifyExistingRunSelector {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+}
+
+/** Report the run-not-found diagnostic for an existing-run verb whose run the store does not hold. */
+function existingRunNotFound(run: VerifyExistingRun, options: VerifyExistingRunSelector): string {
+  return verifyRunNotFoundDiagnostic({
+    runToken: run.runToken,
+    verificationType: options.verificationType,
+    scopeType: options.scopeType,
+    scopeIdentity: options.scope,
+    backendIdentity: run.backendIdentity,
+    storageNamespace: run.namespace,
+    searchedTarget: run.namespace,
+  });
+}
+
+/**
+ * Resolve an existing run's journal scope and storage namespace, confirming it was started (its
+ * recorded input is present). A blank run token, or a token the store does not hold, is rejected
+ * with the addressable run-not-found diagnostic — the identity `input` and the append verbs report.
+ */
+async function resolveExistingRun(
+  options: VerifyExistingRunSelector,
+  deps: VerifyCliDeps,
+): Promise<Result<VerifyExistingRun>> {
+  if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
+  const resolved = await resolveVerifyScope(deps);
+  if (!resolved.ok) return resolved;
+  const runScope: VerifyRunScope = {
+    productDir: resolved.value.productDir,
+    branchSlug: resolved.value.branchSlug,
+    type: options.verificationType,
+    runToken: options.run,
+  };
+  const namespace = verifyRunsDir(runScope);
+  if (!namespace.ok) return namespace;
+  const inputPath = verifyInputRecordPath(runScope);
+  if (!inputPath.ok) return inputPath;
+  const inputRecord = await readInputRecordAt(inputPath.value, deps);
+  if (!inputRecord.ok) return inputRecord;
+  const run: VerifyExistingRun = {
+    runToken: options.run,
+    journalScope: { type: options.verificationType, runToken: options.run, branchSlug: resolved.value.branchSlug },
+    namespace: namespace.value,
+    backendIdentity: resolved.value.backendIdentity,
+  };
+  if (inputRecord.value === undefined) return { ok: false, error: existingRunNotFound(run, options) };
+  return { ok: true, value: run };
+}
+
+/** Assemble the terminal projection report a `finish` returns from a run's folded event history. */
+function verifyFinishReport(runToken: string, projection: VerifyRunProjection): VerifyFinishReport {
+  return {
+    runToken,
+    ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    sealed: projection.sealed,
+    findingCount: projection.findingCount,
+    lastSequence: projection.lastSequence,
+  };
+}
+
+/**
+ * Record terminal completion for a started run, seal its journal, and report the terminal
+ * projection folded from the event history. `finish` validates the terminal status against the
+ * journal terminal-status vocabulary before recording, and is idempotent on the presence of its
+ * terminal-completion event: a repeated finish returns the existing projection rather than
+ * appending a second terminal event.
+ */
+export async function verifyFinishCommand(
+  options: VerifyFinishCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  if (options.terminalStatus.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_REQUIRED);
+  if (!isVerifyTerminalStatus(options.terminalStatus)) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID);
+  const binding = deps.journalBinding;
+  if (binding === undefined) return errorResult(VERIFY_CLI_ERROR.FINISH_FAILED);
+  const run = await resolveExistingRun(options, deps);
+  if (!run.ok) return errorResult(run.error);
+
+  const before = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!before.ok) {
+    if (before.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(existingRunNotFound(run.value, options));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${before.error}`);
+  }
+  // A run already carrying its terminal event is finished; return the existing projection without
+  // appending a second terminal event or re-sealing.
+  if (findTerminalEvent(before.value) !== undefined) {
+    return okResult(JSON.stringify(verifyFinishReport(run.value.runToken, projectVerifyRun(before.value))));
+  }
+
+  const event = buildTerminalEvent({
+    runToken: run.value.runToken,
+    terminalStatus: options.terminalStatus,
+    at: deps.now?.() ?? new Date(),
+  });
+  const appended = await journalAppendCommand(run.value.journalScope, event, binding, forwardDeps(deps));
+  if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${appended.output}`);
+  }
+  const sealed = await journalSealCommand(run.value.journalScope, forwardDeps(deps));
+  if (sealed.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return errorResult(`${VERIFY_CLI_ERROR.SEAL_FAILED}: ${sealed.output}`);
+  }
+
+  const after = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!after.ok) return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${after.error}`);
+  return okResult(JSON.stringify(verifyFinishReport(run.value.runToken, projectVerifyRun(after.value))));
+}
+
+/** Report a started run's resumable status projected from its journal event history. */
+export async function verifyStatusCommand(
+  options: VerifyStatusCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const run = await resolveExistingRun(options, deps);
+  if (!run.ok) return errorResult(run.error);
+  const events = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!events.ok) {
+    if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(existingRunNotFound(run.value, options));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.STATUS_FAILED}: ${events.error}`);
+  }
+  const projection = projectVerifyRun(events.value);
+  const report: VerifyStatusReport = {
+    runToken: run.value.runToken,
+    verificationType: options.verificationType,
+    scopeType: options.scopeType,
+    sealed: projection.sealed,
+    lastSequence: projection.lastSequence,
+    ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    findingCount: projection.findingCount,
+    nextActions: projection.nextActions,
+  };
+  return okResult(JSON.stringify(report));
+}
+
+/** Render a started run's journal projection, including the authoritative finding count, without appending. */
+export async function verifyRenderCommand(
+  options: VerifyRenderCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const run = await resolveExistingRun(options, deps);
+  if (!run.ok) return errorResult(run.error);
+  const rendered = await journalRenderCommand(run.value.journalScope, forwardDeps(deps));
+  if (rendered.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    if (rendered.output === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(existingRunNotFound(run.value, options));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.RENDER_FAILED}: ${rendered.output}`);
+  }
+  const events = JSON.parse(rendered.output) as readonly JournalEvent[];
+  const projection = projectVerifyRun(events);
+  const report: VerifyRenderReport = {
+    runToken: run.value.runToken,
+    findingCount: projection.findingCount,
+    sealed: projection.sealed,
+    ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    events,
+  };
+  return okResult(JSON.stringify(report));
 }
