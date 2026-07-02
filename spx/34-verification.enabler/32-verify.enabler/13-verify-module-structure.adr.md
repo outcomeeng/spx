@@ -30,5 +30,6 @@ A verification run has a single sequential driver: the caller that starts a run 
 - ALWAYS: `src/interfaces/cli/verify.ts` owns Commander registration and process-boundary parsing for the `verify` command, and imports command handlers rather than domain internals directly ([audit])
 - NEVER: verify domain code imports from `src/commands/verify/`, `src/interfaces/cli/`, `src/domains/journal/` storage adapters, or `src/domains/verification-context/` storage adapters ([audit])
 - NEVER: verify command modules construct GitHub, artifact, local filesystem, or stdout backends directly; backend binding remains owned by the journal substrate ([audit])
+- ALWAYS: a `spx verify` append verb writes its single structured JSON result to standard output and routes the local backend's event stream to standard error, so a caller parses one JSON result on stdout while the run stays observable ([audit])
 - NEVER: verify command modules spawn, configure, or select a verifier agent ([audit])
 - NEVER: verify domain or command code branches on a verification-type name to select finding validation — a new verification type adds a finding-validator registry entry, the verify-domain analogue of the journal-layer prohibition in `spx/34-verification.enabler/13-journal-channel.adr.md` ([audit])
