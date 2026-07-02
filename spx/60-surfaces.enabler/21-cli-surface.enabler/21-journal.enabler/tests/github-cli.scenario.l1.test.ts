@@ -24,7 +24,7 @@ import {
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { arbitraryPullNumber, arbitraryRunToken, sampleGithubSnapshotValue } from "@testing/generators/github-snapshot";
-import { arbitraryJournalListLimit } from "@testing/generators/journal/type";
+import { arbitraryJournalRunLimit } from "@testing/generators/journal/type";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { RecordingGithubSnapshotClient } from "@testing/harnesses/github-snapshot-client";
 import { failingGitDependencies, RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
@@ -220,7 +220,7 @@ describe("journal CLI github-pr backend", () => {
     const [firstPriorToken, secondPriorToken] = sampleSameMillisecondPriorRunTokens();
     const expectedOldestFirst = [firstPriorToken, secondPriorToken].sort(compareAsciiStrings);
     const expectedNewestFirst = [...expectedOldestFirst].reverse();
-    const listLimit = sampleStateStoreTestValue(arbitraryJournalListLimit(expectedNewestFirst.length));
+    const listLimit = sampleStateStoreTestValue(arbitraryJournalRunLimit(expectedNewestFirst.length));
     const priorInputs = sampleAgentRunJournalValue(arbitraryJournalEventInputs());
 
     const fs = createInMemoryStateStoreFileSystem();

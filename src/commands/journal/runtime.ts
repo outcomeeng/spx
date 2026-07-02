@@ -306,8 +306,9 @@ export async function readSealedJournalRunSet(
   return {
     ok: true,
     value: runs
-      .sort((left, right) => compareJournalRunsOldestFirst(left.metadata, right.metadata))
+      .sort((left, right) => compareJournalRunsNewestFirst(left.metadata, right.metadata))
       .slice(0, scope.limit)
+      .sort((left, right) => compareJournalRunsOldestFirst(left.metadata, right.metadata))
       .map((run) => ({
         runToken: run.metadata.runToken,
         metadata: run.metadata,
