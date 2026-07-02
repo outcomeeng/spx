@@ -1,0 +1,99 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  VERIFY_CLI_EXIT_CODE,
+  verifyAppendScopeCommand,
+  verifyRenderCommand,
+  verifyStatusCommand,
+} from "@/commands/verify/cli";
+import { VERIFY_LIFECYCLE_ACTION, VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  appendFindingBatch,
+  createVerifyAppendScenario,
+  createVerifyRunContextScenario,
+  finishRun,
+  parseRenderReport,
+  parseStatusReport,
+  readVerifyRunEvents,
+  startedRunToken,
+  verifyAppendOptions,
+  verifyRenderOptions,
+  verifyStatusOptions,
+  withVerificationType,
+} from "@testing/harnesses/verify/harness";
+
+describe("verify status compliance", () => {
+  it("reports run token, verification type, scope type, unsealed state, last sequence, and next legal actions for a started run", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+
+    const scopeAppend = await verifyAppendScopeCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload())),
+        idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+      }),
+      deps,
+    );
+    expect(scopeAppend.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+
+    const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const report = parseStatusReport(status.output);
+
+    expect(report.runToken).toBe(runToken);
+    expect(report.verificationType).toBe(scenario.verificationType);
+    expect(report.scopeType).toBe(VERIFY_SCOPE_TYPE.CHANGESET);
+    expect(report.sealed).toBe(false);
+    expect(report.terminalStatus).toBeUndefined();
+    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE);
+    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.APPEND_FINDING);
+    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
+    // last journal sequence tracks the run's own event history, read independently.
+    expect(report.lastSequence).toBe((await readVerifyRunEvents(scenario, runToken, fs)).length);
+  });
+
+  it("reports sealed state, terminal status, and no remaining lifecycle actions after finish", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    await finishRun(scenario, deps, runToken, terminalStatus);
+
+    const report = parseStatusReport(
+      (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
+    );
+    expect(report.sealed).toBe(true);
+    expect(report.terminalStatus).toBe(terminalStatus);
+    expect(report.nextActions).toHaveLength(0);
+    expect(report.lastSequence).toBe((await readVerifyRunEvents(scenario, runToken, fs)).length);
+  });
+
+  it("reports the same authoritative finding count and run token across finish, status, and render for a sealed review run", async () => {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const findings = await appendFindingBatch(scenario, deps, runToken);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+
+    const finishReport = await finishRun(scenario, deps, runToken, terminalStatus);
+    const statusReport = parseStatusReport(
+      (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
+    );
+    const renderReport = parseRenderReport(
+      (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
+    );
+
+    expect(finishReport.findingCount).toBe(findings.length);
+    expect(statusReport.findingCount).toBe(findings.length);
+    expect(renderReport.findingCount).toBe(findings.length);
+    expect(finishReport.runToken).toBe(runToken);
+    expect(statusReport.runToken).toBe(runToken);
+    expect(renderReport.runToken).toBe(runToken);
+  });
+});
