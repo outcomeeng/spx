@@ -10,7 +10,7 @@ Agents cannot reliably place CLI-facing work, and the failures are structural ra
 
 - `spx/23-spec-tree.enabler` already declares itself a backend-neutral library, and `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` already declares itself a thin wrapper over it. The split works here, but the name `spec-domain` does not read as "CLI surface," so an agent scanning node names misses the boundary this pair already enforces.
 - Four more domains independently arrived at the same thin-wrapper pattern — `spx/16-config.enabler/21-config-cli.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/38-worktree.enabler/43-worktree-cli.enabler`, `spx/41-validation.enabler/21-validation-cli.enabler` — each at a different index, under a different parent, with a different local name. Five correct instances with no single discoverable location prove the pattern works but is not structurally enforced.
-- `spx/34-verification.enabler/21-journal.enabler` is the counter-example: no CLI-wrapper child exists at all. Its spec declares seven verbs (`open`, `append`, `read`, `seal`, `render`, `list`, `read-set`) as one undifferentiated set, while its own governing decision `spx/34-verification.enabler/13-journal-channel.adr.md` declares an invariant of exactly five (`open`, `append`, `read`, `seal`, `render`) "identical for every verification kind and every backend," framing the journal as substrate beneath `spx verify`'s public lifecycle. `list` and `read-set` were baked directly into the substrate node with no ADR authorization and no surface node to hold them.
+- The former verification-owned journal node was the counter-example: no CLI-wrapper child existed at all. Its spec declared seven verbs (`open`, `append`, `read`, `seal`, `render`, `list`, `read-set`) as one undifferentiated set, while its own governing decision declared an invariant of exactly five (`open`, `append`, `read`, `seal`, `render`) "identical for every verification kind and every backend," framing the journal as substrate beneath `spx verify`'s public lifecycle. `list` and `read-set` were baked directly into the substrate node with no ADR authorization and no surface node to hold them.
 
 The fix removes the per-domain judgment call: one unmissable surface layer for every command's binding, verbs, and help text, and interface-neutral logic left in libraries below it, so "library or surface" is never decided fresh.
 
@@ -32,11 +32,10 @@ flowchart TB
 
   subgraph Libraries["Backend-neutral domain libraries — no Commander, no process I/O"]
     ST["23-spec-tree.enabler<br/>nodes · deps · state · status · projection"]
-    VER["34-verification.enabler<br/>verify lifecycle + 5-verb journal substrate"]
+    VER["34-verification.enabler<br/>verification aggregate:<br/>verify lifecycle · journal substrate ·<br/>test + validation providers"]
     CFG["16-config.enabler"]
     SES["36-session.enabler"]
     WT["38-worktree.enabler"]
-    VAL["41-validation.enabler"]
   end
 
   subgraph Backends["spec-tree internal materialization"]
@@ -48,7 +47,7 @@ flowchart TB
   subgraph Cross["Cross-cutting mechanics & providers"]
     MECH["13-cli.enabler<br/>sanitization · process lifecycle"]
     INFRA["21-infrastructure.enabler<br/>result delivery · github-ci"]
-    TEST["41-test.enabler + language descriptors"]
+    TEST["41-test.enabler + language descriptors<br/>(temporary top-level provider)"]
   end
 
   CLIwrap -->|"cross-library commands"| App
@@ -94,9 +93,11 @@ flowchart LR
 
 The classification ("passing only when every linked reference passes; any unexecuted reference records `not-run`") spans spec-tree, verification, and test, so it belongs in no single library. A future `mcp spec status` must reuse it, so it belongs in no CLI wrapper. That forces a use-case layer between surfaces and libraries — which is what `spx/31-spec-domain.enabler` becomes. A command with no cross-library orchestration (`spx config show`) skips the layer and its wrapper calls the library directly. The use-case layer is per-need, not per-domain.
 
-The `60-surfaces.enabler` index below is a candidate, not a settled placement: 60 sits above every wrapped domain library (the highest current root index is 54), consistent with surface-consumes-library ordering, but `/decompose` confirms it from the ordering-evidence matrix before any spec is authored. Nothing under `60-surfaces.enabler` is built yet; every "desired structure" entry below is a working note.
+This PR uses `60-surfaces.enabler` as the catalyst placement: 60 sits above every wrapped domain library (the highest current root index is 54), consistent with surface-consumes-library ordering. Later `/decompose` can still refine neighboring root indices, but it must preserve the surface-consumes-library direction rather than moving CLI surface contracts back below their libraries.
 
 The target-architecture diagram's consumer edges also outrun the current indices, and `/decompose` re-settles them the same way: `spx/31-spec-domain.enabler` (index 31) as a use-case consumer of `spx/34-verification.enabler` (34) and `spx/41-test.enabler` (41), and `spx/34-verification.enabler` as a consumer of `spx/41-test.enabler`, both invert the ordering rule (lower = provider) at their present indices. A consumer of `41-test.enabler` must sit above it, so both `spec-domain` and `verification` require index re-settlement above `41` — deferred to `/decompose` alongside the surfaces index, not fixed here.
+
+Additional correction: `spx/41-test.enabler` and `spx/41-validation.enabler` are verification providers, not permanent peer product domains. They remain top-level only as a transitional layout. The verification restructuring must move or re-home their interface-neutral behavior under the verification aggregate before their CLI surfaces are treated as ordinary wrappers under `spx/60-surfaces.enabler/21-cli-surface.enabler/`.
 
 ## Program B: foundation ownership repair
 
@@ -135,11 +136,11 @@ Correction against the removed articulation: it listed `spx/31-spec-domain.enabl
 
 ### Target ownership model
 
-| Layer                            | Owner                                                                                                                       | Responsibility                                                                                                                                         |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Product-wide surface conventions | `spx/60-surfaces.enabler/`                                                                                                  | Cross-cutting conventions each concrete surface follows — help shape, stated defaults, bounded agent-safe default output, `--json`/`--fields` symmetry |
-| CLI command surface              | `spx/60-surfaces.enabler/21-cli-surface.enabler/`                                                                           | Every CLI command's Commander binding, verbs, flags, help text — thin composing wrappers only                                                          |
-| Domain logic libraries           | `spx/16-config.enabler`, `spx/36-session.enabler`, `spx/38-worktree.enabler`, `spx/41-validation.enabler` (each post-split) | Domain logic only, consumed by its CLI wrapper through a stable surface — no Commander concerns                                                        |
+| Layer                            | Owner                                                                                                                                                                                 | Responsibility                                                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Product-wide surface conventions | `spx/60-surfaces.enabler/`                                                                                                                                                            | Cross-cutting conventions each concrete surface follows — help shape, stated defaults, bounded agent-safe default output, `--json`/`--fields` symmetry |
+| CLI command surface              | `spx/60-surfaces.enabler/21-cli-surface.enabler/`                                                                                                                                     | Every CLI command's Commander binding, verbs, flags, help text — thin composing wrappers only                                                          |
+| Domain logic libraries           | `spx/16-config.enabler`, `spx/36-session.enabler`, `spx/38-worktree.enabler`, and verification-owned providers after `spx/41-test.enabler` / `spx/41-validation.enabler` are re-homed | Domain logic only, consumed by its CLI wrapper through a stable surface — no Commander concerns                                                        |
 
 ### Desired top-level structure
 
@@ -152,31 +153,32 @@ spx/
 ├── 16-config.enabler/                   # library only, once its CLI child moves out
 ├── 23-spec-tree.enabler/                # already library-only (Program B deepens it)
 ├── 31-spec-domain.enabler/              # use-case layer, once spec-cli-commands moves out
-├── 34-verification.enabler/             # library only, once journal-cli and verify-cli move out
+├── 34-verification.enabler/             # verification aggregate, once journal-cli and verify-cli move out
 ├── 36-session.enabler/                  # library only, once session-cli moves out
 ├── 38-worktree.enabler/                 # library only, once worktree-cli moves out
-└── 41-validation.enabler/               # library only, once validation-cli moves out
+├── 41-test.enabler/                     # temporary top-level verification provider until re-homed
+└── 41-validation.enabler/               # temporary top-level verification provider until re-homed
 ```
 
 ### Migration sequence
 
-1. `/decompose spx/` confirms `60-surfaces.enabler`'s index (candidate 60, above every wrapped domain library), creates `21-cli-surface.enabler` and settles its disposition against `spx/13-cli.enabler` (same-index peer, ordered, or absorbed), and re-settles `spx/31-spec-domain.enabler` and `spx/34-verification.enabler` above `spx/41-test.enabler` per the ordering inversion noted above — all in this slice, before any later step amends those nodes, so the library/use-case split never lands on a known ordering violation.
+1. This catalyst creates `spx/60-surfaces.enabler/21-cli-surface.enabler` at the high surface index and moves the current journal CLI node there. Follow-up `/decompose spx/` settles `spx/13-cli.enabler`'s relationship to the surface node (same-index peer, ordered, or absorbed), re-settles `spx/31-spec-domain.enabler`, and re-homes `spx/41-test.enabler` / `spx/41-validation.enabler` under verification before the larger wrapper migration continues.
 2. `/interview` resolves the open questions below wherever the ordering-evidence matrix cannot settle them from existing text.
-3. `/author` writes the CLI-surface UX-contract PDR inside `spx/60-surfaces.enabler/21-cli-surface.enabler/` — inline enum values, stated defaults, bounded default output, `--json`/`--fields` symmetry with `spx session list`'s pattern. Disposition of the existing `spx/32-verify-command-surface.pdr.md`: it stays a root peer governing verify-specific lifecycle conventions, and the new UX-contract PDR defers to it for the `spx verify` surface rather than restating or superseding it — the new PDR governs cross-command help/output/flag shape, the verify PDR governs the verify lifecycle vocabulary.
+3. This catalyst authors the CLI-surface UX-contract PDR inside `spx/60-surfaces.enabler/21-cli-surface.enabler/` — inline enum values, stated defaults, bounded default output, `--json`/`--fields` symmetry with `spx session list`'s pattern. It also relocates the verify-command surface PDR to `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`, making it surface context rather than verification-library context.
 4. `/refactor` moves the genuinely-thin CLI wrappers — `config-cli`, `session-cli`, `validation-cli`, `worktree-cli` — into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, one domain per reviewable slice. `spec-cli-commands` is not a clean wholesale move: it still owns cross-library use-case behavior — the `spx spec status --update` classification, resolver delegation, and partial-run semantics governed by `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md` — which the target architecture keeps in the spec-domain use-case layer. Split it as steps 5 and 6 do: the use-case orchestration stays in `spx/31-spec-domain.enabler`, and only the thin Commander binding moves to the surface.
-5. `/author` plus `/apply` split `spx/34-verification.enabler/21-journal.enabler` into its library remainder (the five-verb substrate matching `spx/34-verification.enabler/13-journal-channel.adr.md`'s invariant) and a new `journal-cli` wrapper under `21-cli-surface.enabler`, resolving `list`/`read-set` per whichever direction the open question below settles.
-6. `/refactor` moves the existing `spx verify` CLI surface into `21-cli-surface.enabler` as a `verify-cli` wrapper — `spx verify` is not missing: `spx/32-verify-command-surface.pdr.md`, `spx/34-verification.enabler/32-verify.enabler/`, and the `src/interfaces/cli/verify.ts` implementation already exist on `main`. The migration relocates that wrapper and leaves the verify library behavior in `spx/34-verification.enabler`, the same split step 4 applies to the other domains.
+5. This catalyst moves the current `spx journal` CLI node under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler` as a transitional surface node. A follow-up `/author` plus `/apply` splits any remaining interface-neutral journal substrate back into verification-owned library nodes, resolving `list`/`read-set` per whichever direction the open question below settles.
+6. `/refactor` moves the existing `spx verify` CLI surface into `21-cli-surface.enabler` as a `verify-cli` wrapper — `spx verify` is not missing: `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`, `spx/34-verification.enabler/32-verify.enabler/`, and the `src/interfaces/cli/verify.ts` implementation already exist. The migration relocates that wrapper and leaves the verify library behavior in `spx/34-verification.enabler`, the same split step 4 applies to the other domains.
 7. Author the `author-cli-domain` / `audit-cli-domain` skill pair once the PDR and at least one migrated domain exist as a worked example.
 
-Every split or relocation step above rewrites the affected node's spec `PROVIDES` clause to its post-migration scope, so the durable spec never claims a scope the migration moved away: `spx/31-spec-domain.enabler/spec-domain.md` changes from "deterministic CLI commands that operate on the spec tree" to the cross-library use-case layer (after step 4's split), and `spx/34-verification.enabler/21-journal.enabler/journal.md` changes from "the `spx journal` command" to the event-store substrate (after step 5's split). Leaving a node's declaration claiming "CLI commands" after its binding has moved to the surface is the spec-versus-implementation divergence this restructuring exists to remove.
+Every split or relocation step above rewrites the affected node's spec `PROVIDES` clause to its post-migration scope, so the durable spec never claims a scope the migration moved away: `spx/31-spec-domain.enabler/spec-domain.md` changes from "deterministic CLI commands that operate on the spec tree" to the cross-library use-case layer (after step 4's split), and the verification-owned journal substrate changes away from "the `spx journal` command" once the interface-neutral remainder is split back out of the transitional surface node. Leaving a node's declaration claiming "CLI commands" after its binding has moved to the surface is the spec-versus-implementation divergence this restructuring exists to remove.
 
 ### Open structural questions for `/decompose`
 
-| Question                                                                                                                                                                               | Candidate answer to test                                                                                                         |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Does `spx/13-cli.enabler` (sanitization, process lifecycle) move under `spx/60-surfaces.enabler`, or stay a separate root peer?                                                        | Keep separate — mechanics and UX/composition conventions are different concerns; same-index peer unless evidence proves an edge. |
-| Do the five existing CLI wrappers physically move, or does only the convention PDR centralize while wrappers stay put?                                                                 | Physically move — the journal counter-example proves per-domain placement does not reliably force the split.                     |
-| Does journal's `list`/`read-set` stay journal verbs (amend `spx/34-verification.enabler/13-journal-channel.adr.md`'s invariant) or move to `spx verify` (matching the ADR as written)? | Open — unresolved from the investigation that led to this program.                                                               |
+| Question                                                                                                                                                                            | Candidate answer to test                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Does `spx/13-cli.enabler` (sanitization, process lifecycle) move under `spx/60-surfaces.enabler`, or stay a separate root peer?                                                     | Keep separate — mechanics and UX/composition conventions are different concerns; same-index peer unless evidence proves an edge. |
+| Do the five existing CLI wrappers physically move, or does only the convention PDR centralize while wrappers stay put?                                                              | Physically move — the journal counter-example proves per-domain placement does not reliably force the split.                     |
+| Does journal's `list`/`read-set` stay journal verbs (amend the journal-channel invariant now located under the CLI surface) or move to `spx verify` (matching the old ADR wording)? | Open — unresolved from the investigation that led to this program.                                                               |
 
 ## Sequencing B and C, and the spec-domain resolution
 
