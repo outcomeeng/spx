@@ -1,6 +1,8 @@
 # Plan: Spec-tree materialization
 
-This placeholder coordination note records the intended materialization node before `/decompose` assigns final structure and `/author` creates the spec. The directory exists only to preserve context for the restructuring pass — it is the surviving on-`main` coordination that root `spx/PLAN.md` Program B builds on.
+> **Reconcile against `spx/PLAN.md` first.** "materialization" is renamed `backend` (adapter implementations: local / GitHub / future), orthogonal to `persistence` (records / journals / snapshots) and `delivery`. Read this whole node as the `backend` layer. The corrected model also requires additive migration (never a wholesale move) and defers `.surface`. Where this note predates that model, the root plan governs.
+
+This placeholder coordination note records the intended materialization node before `/decompose` assigns final structure and `/author` creates the spec. The directory exists only to preserve context for the restructuring pass — it is the surviving on-`main` coordination that root `spx/PLAN.md` builds on.
 
 ## Purpose to author
 

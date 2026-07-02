@@ -1,5 +1,7 @@
 # Plan: Result Delivery
 
+> **Reconcile against `spx/PLAN.md` first.** This node is the `delivery` layer — projection to external surfaces, distinct from `persistence`. The corrected model renames "materialization" → `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, and notes `21-snapshot-adapter.enabler` must split into its persistence half (artifact) and its delivery half (PR comment). Where this note predates that model, the root plan governs.
+
 ## Harness vocabulary guard
 
 Before applying this plan to verification-run delivery or agentic verification output, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.

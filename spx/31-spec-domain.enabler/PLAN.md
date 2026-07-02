@@ -1,10 +1,12 @@
 # Plan: Consumer boundary repair
 
+> **Reconcile against `spx/PLAN.md` first.** This is the use-case layer (cross-library orchestration only). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types that *consume* the journal, names `spx verify` the SPX projection/validation home, requires additive migration (never a wholesale move), and defers `.surface`. Where this note predates that model, the root plan governs.
+
 This coordination note preserves the spec-domain repair before durable specs and implementation are moved.
 
 ## Ownership target
 
-`spx/31-spec-domain.enabler` should consume the spec-tree logical foundation and expose cross-library use-case operations that the surface layer (`spx/60-surfaces.enabler`, see root `spx/PLAN.md` Program C) wraps:
+`spx/31-spec-domain.enabler` should consume the spec-tree logical foundation and expose cross-library use-case operations that the surface layer (`spx/60-surfaces.enabler`, see root `spx/PLAN.md`) wraps:
 
 - application use-cases as calls into the foundation (e.g. the status rollup that composes spec-tree × verification × test)
 - web API and MCP use-cases when those surfaces exist, exposed as the same operations, not per-surface reimplementations
@@ -19,7 +21,7 @@ It should not own:
 - filesystem metadata schema
 - language dependency discovery
 - executable evidence semantics
-- CLI command binding, verbs, flags, help text, or terminal/JSON rendering — these live in `spx/60-surfaces.enabler/21-cli-surface.enabler` per root `spx/PLAN.md` Program C
+- CLI command binding, verbs, flags, help text, or terminal/JSON rendering — these live in `spx/60-surfaces.enabler/21-cli-surface.enabler` per root `spx/PLAN.md`
 
 ## Current node-status disposition
 
@@ -57,7 +59,7 @@ No surface shells out to another surface. A web frontend calls the use-case boun
 
 ## Existing plan: Spec-domain command refactor
 
-> Transitional: the section below describes `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` as it stands today, owning `spx spec` command binding, flags, and terminal rendering — its completed (`[x]`) items are the current state, not the target. Root `spx/PLAN.md` Program C supersedes that ownership: migration step 4 moves this CLI wrapper into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, leaving spec-domain the use-case layer per the "Ownership target" above.
+> Transitional: the section below describes `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` as it stands today, owning `spx spec` command binding, flags, and terminal rendering — its completed (`[x]`) items are the current state, not the target. Root `spx/PLAN.md` supersedes that ownership: the surface wrapper migration (delivery-order step 4) moves this CLI wrapper into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, leaving spec-domain the use-case layer per the "Ownership target" above.
 
 ## Purpose
 

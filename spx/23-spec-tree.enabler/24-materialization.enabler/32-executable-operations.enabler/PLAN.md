@@ -1,5 +1,7 @@
 # Plan: Executable operations
 
+> **Reconcile against `spx/PLAN.md` first.** This lives under the `backend` layer ("materialization" is renamed `backend`), orthogonal to `persistence` (records / journals / snapshots) and `delivery`. Where this note predates that model, the root plan governs.
+
 This placeholder coordination note records the executable-operation node before `/decompose` and `/author` create durable specs and decisions.
 
 ## Purpose to author

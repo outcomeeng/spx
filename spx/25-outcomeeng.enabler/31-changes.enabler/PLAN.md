@@ -1,5 +1,7 @@
 # PLAN
 
+> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar and the *first build* after the plan merges — build `change-store` + its worktree records backend + `.spx/changes/` scope addressing (steps 3, 4, 6 below) before the `.surface` CLI, which is deferred (low value, disruptive). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`. Where this note predates that model, the root plan governs.
+
 ## Harness vocabulary guard
 
 Before applying this plan to agent-authored change intake, agent-facing surfaces, or session boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
@@ -26,6 +28,8 @@ Run `/decompose` before authoring the next structure change. The intended candid
 Session-domain cleanup stays under `spx/36-session.enabler/PLAN.md` until a later decision changes that domain.
 
 ### First implementation slice
+
+> Sequencing per the root `spx/PLAN.md` and the reconciliation header above: `.surface` is deferred, so do steps 3, 4, 6 (scope addressing, the worktree records backend, the change-store) first; steps 1, 2, 5, 7 (the `.surface` node kind and its CLI surface) come later.
 
 1. Update the spec-tree filename grammar, kind registry, validation model, and naming-schema version so `.surface` is a recognized canonical node suffix.
 2. Add the `surface` node type to the spec-tree methodology after the grammar can recognize it.
