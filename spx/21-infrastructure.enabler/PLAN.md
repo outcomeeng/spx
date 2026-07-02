@@ -1,5 +1,7 @@
 # Plan: Runtime decision relocation
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. This infra parent holds the `delivery` layer and the github-ci backends. Where this note predates that model, the root plan governs.
+
 ## Harness vocabulary guard
 
 Before applying this plan to agent-run journal generators, hook/session helpers, or agent-facing infrastructure, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep test harness and Node runtime wording distinct from the agent harness vocabulary.

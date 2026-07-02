@@ -1,5 +1,7 @@
 # Plan: State
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model renames "materialization" → `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, makes verification the five types that *consume* the journal (never contain it), names `spx verify` the SPX projection/validation home, requires additive migration (never a wholesale move), defers `.surface`, and builds the changes domain first. This node is the mis-named current home of `persistence`. Where this note predates that model, the root plan governs.
+
 ## Harness governance
 
 Governed under the node-local harness-governance pattern: per-module test-harness or generator enablers, spec-auditor and test-evidence-auditor gates including coverage, and literal-collision checks. Coverage survey dispositions for the state+worktree modules:

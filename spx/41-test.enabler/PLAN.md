@@ -1,5 +1,7 @@
 # Plan: Testing provider role in spec-tree materialization
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. This is the `test` verification type, re-homed under verification; read every "materialization" below (title and body) as `backend`. Where this note predates that model, the root plan governs.
+
 ## Harness vocabulary guard
 
 Before applying this plan to agent-facing test output, transcript handling, or verification-loop guidance, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; command vocabulary such as `--agent` output mode must stay distinct from agents, agent adapters, and agent sessions.
