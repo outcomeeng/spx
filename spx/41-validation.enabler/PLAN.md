@@ -1,5 +1,7 @@
 # Plan: Test Evidence Naming Enforcement
 
+> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. This is the `validation` verification type, re-homed under verification. Where this note predates that model, the root plan governs.
+
 ## Purpose
 
 Add a validation rule that prevents spec-tree test evidence filenames from regressing away from the canonical `<subject>.<evidence>.<level>[.<runner>].test.ts` form.

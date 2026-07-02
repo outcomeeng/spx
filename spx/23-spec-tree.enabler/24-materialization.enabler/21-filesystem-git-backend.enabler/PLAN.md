@@ -1,5 +1,7 @@
 # Plan: Filesystem and Git backend
 
+> **Reconcile against `spx/PLAN.md` first.** This is the local `backend` ("materialization" is renamed `backend`) — the local realization of the `persistence` kinds, orthogonal to `delivery`. Where this note predates that model, the root plan governs.
+
 This placeholder coordination note records the current backend node before `/decompose` and `/author` create durable specs and decisions.
 
 ## Purpose to author
