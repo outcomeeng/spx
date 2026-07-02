@@ -22,6 +22,7 @@ Terminal completion is a verify-owned journal event, and run status is a pure fo
 - A verification run has one sequential driver; append idempotency is a check-then-act over the run's event history that suffices for a driver's sequential retries, not for concurrent writers to one run.
 - Terminal completion is a verify-owned journal event; a run's projected status — sealed state, terminal status, authoritative finding count, last journal sequence, and next legal lifecycle actions — is a pure fold over the run's event history, never the journal run-state schema.
 - `finish` appends the terminal-completion event then seals the run journal, and returns the existing terminal projection for a repeated `finish` rather than appending a second terminal event.
+- The terminal-completion event authoritatively closes a run to further evidence: the append verbs reject a run carrying a terminal event, so a run's projected sealed state stays consistent with its append behavior whether or not the journal seal marker was written.
 - `status` and `render` append no journal event and seal no run; they project the run from its event history read through the injected journal port.
 
 ## Verification
@@ -41,5 +42,6 @@ Terminal completion is a verify-owned journal event, and run status is a pure fo
 - ALWAYS: terminal-status validation accepts only the journal terminal-status vocabulary and runs in `src/domains/verify/` as a pure function before `finish` records terminal completion or seals the run ([audit])
 - ALWAYS: `spx verify` records terminal completion as a verify-owned journal event and folds run status — sealed state, terminal status, authoritative finding count, last journal sequence, and next legal lifecycle actions — from the run's event history as a pure function, never from the journal run-state schema ([audit])
 - ALWAYS: `finish` appends the terminal-completion event then seals the run journal through injected journal ports, and returns the existing terminal projection for a repeated `finish` rather than appending a second terminal event ([audit])
+- ALWAYS: the append verbs reject a run that carries a terminal-completion event, so a projected sealed run rejects further evidence independent of the journal seal marker ([audit])
 - NEVER: `status` or `render` append a journal event or seal a run — each projects the run from its event history read through the injected journal port ([audit])
 - ALWAYS: `finish` writes its single structured JSON result to standard output and routes the local backend's event stream to standard error, while `status` and `render` write only their structured JSON result to standard output without appending or streaming an event ([audit])
