@@ -2,6 +2,8 @@ import type { Command } from "commander";
 
 import {
   JOURNAL_CLI_EXIT_CODE,
+  JOURNAL_CLI_READ_SET_EVENT_LIMIT,
+  JOURNAL_CLI_RUN_LIMIT,
   journalAppendCommand,
   journalListCommand,
   journalOpenCommand,
@@ -35,6 +37,11 @@ export const JOURNAL_CLI = {
   terminalStateOption: "--terminal-state <state>",
   limitOption: "--limit <count>",
   eventLimitOption: "--event-limit <count>",
+} as const;
+
+export const JOURNAL_CLI_HELP = {
+  READ_SET_EVENT_LIMIT: `Maximum events returned per run (default: ${JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT})`,
+  READ_SET_RUN_LIMIT: `Maximum number of sealed runs (default: ${JOURNAL_CLI_RUN_LIMIT.DEFAULT})`,
 } as const;
 
 const MALFORMED_EVENT_INPUT_ERROR = "journal append event input is not valid JSON";
@@ -170,8 +177,8 @@ export const journalDomain: Domain = {
       .description("Read sealed runs in one branch and type scope")
       .requiredOption(JOURNAL_CLI.typeOption, "Opaque verification-type scope segment")
       .option(JOURNAL_CLI.branchSlugOption, "State-store branch slug")
-      .option(JOURNAL_CLI.limitOption, "Maximum number of sealed runs")
-      .option(JOURNAL_CLI.eventLimitOption, "Maximum events returned per run")
+      .option(JOURNAL_CLI.limitOption, JOURNAL_CLI_HELP.READ_SET_RUN_LIMIT)
+      .option(JOURNAL_CLI.eventLimitOption, JOURNAL_CLI_HELP.READ_SET_EVENT_LIMIT)
       .action(async (options: JournalReadSetCliOptions) => {
         report(
           await journalReadSetCommand(
