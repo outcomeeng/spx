@@ -13,6 +13,9 @@ CAN close a scoped verification run with a terminal status and inspect the run's
 
 ### Compliance
 
-- ALWAYS: `finish` requires a terminal status in the journal terminal-status vocabulary before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.scenario.l1.test.ts))
+- ALWAYS: `finish` requires a terminal status in the journal terminal-status vocabulary before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
+- ALWAYS: `finish` rejects an unsupported scope type or a malformed changeset scope before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
+- ALWAYS: a repeated `finish` returns the existing terminal projection and appends no second terminal completion event ([test](tests/verify-lifecycle.compliance.l1.test.ts))
+- ALWAYS: a second `finish` with a different terminal status returns the terminal projection recorded by the first `finish` and appends no additional terminal completion event ([test](tests/verify-lifecycle.compliance.l1.test.ts))
 - ALWAYS: `status` reports the run token, verification type, scope type, sealed state, last journal sequence, terminal status when present, and next legal lifecycle actions ([test](tests/verify-status.compliance.l1.test.ts))
 - ALWAYS: `finish`, `status`, and `render` report the run token and authoritative finding count from the journal projection for sealed review runs ([test](tests/verify-status.compliance.l1.test.ts))
