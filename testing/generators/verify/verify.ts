@@ -105,6 +105,11 @@ export const VERIFY_TEST_GENERATOR = {
   blankPayloadSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryReviewFinding(),
   terminalStatus: (): fc.Arbitrary<string> => fc.constantFrom(...TERMINAL_STATUSES),
+  distinctTerminalStatuses: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
+    fc
+      .tuple(fc.constantFrom(...TERMINAL_STATUSES), fc.constantFrom(...TERMINAL_STATUSES))
+      .filter(([first, second]) => first !== second)
+      .map(([first, second]) => ({ first, second })),
   invalidTerminalStatus: (): fc.Arbitrary<string> =>
     STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
   blankTerminalStatus: (): fc.Arbitrary<string> => arbitraryBlankArgument(),

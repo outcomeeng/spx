@@ -83,6 +83,7 @@ export const VERIFY_CLI_ERROR = {
   IDEMPOTENCY_KEY_REQUIRED: "spx verify append verbs require --idempotency-key <key>",
   PAYLOAD_READ_FAILED: "spx verify could not read the append payload",
   PAYLOAD_INVALID: "spx verify append payload is not valid JSON",
+  RUN_FINISHED: "spx verify cannot append evidence to a finished run",
   FINDING_INVALID: "spx verify append-finding payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verify append-finding has no finding validator for the verification type",
   APPEND_FAILED: "spx verify could not append the evidence event",
@@ -582,6 +583,10 @@ async function verifyAppend(
     }
     return errorResult(`${VERIFY_CLI_ERROR.APPEND_FAILED}: ${before.error}`);
   }
+
+  // A run carrying a terminal-completion event is finished; it rejects further evidence whether or
+  // not its journal seal marker was written, so a projected sealed run never accepts a later append.
+  if (findTerminalEvent(before.value) !== undefined) return errorResult(VERIFY_CLI_ERROR.RUN_FINISHED);
 
   const existing = findAppendedSequence(before.value, options.idempotencyKey, eventType);
   if (existing !== undefined) {
