@@ -5,13 +5,21 @@ import type { JournalStreamSink } from "@/commands/journal/runtime";
 import {
   VERIFY_CLI_EXIT_CODE,
   type VerifyAppendCliOptions,
+  verifyAppendFindingCommand,
   type VerifyAppendReport,
   type VerifyCliDeps,
+  type VerifyFinishCliOptions,
+  verifyFinishCommand,
+  type VerifyFinishReport,
   type VerifyInputCliOptions,
   type VerifyInputReport,
+  type VerifyRenderCliOptions,
+  type VerifyRenderReport,
   type VerifyStartCliOptions,
   verifyStartCommand,
   type VerifyStartReport,
+  type VerifyStatusCliOptions,
+  type VerifyStatusReport,
 } from "@/commands/verify/cli";
 import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_SEPARATOR, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import {
@@ -26,7 +34,12 @@ import {
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { GIT_NAME_STATUS_FLAG } from "@/lib/git/name-status";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { formatNameStatusZ, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  type FindingWithKey,
+  formatNameStatusZ,
+  sampleVerifyTestValue,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 const GIT_UNEXPECTED_COMMAND: ExecResult = {
@@ -273,4 +286,112 @@ export async function readVerifyRunEvents(
 
 export function parseAppendReport(output: string): VerifyAppendReport {
   return JSON.parse(output) as VerifyAppendReport;
+}
+
+export function verifyFinishOptions(
+  scenario: VerifyRunContextScenario,
+  args: { readonly run: string; readonly terminalStatus: string },
+): VerifyFinishCliOptions {
+  return {
+    verificationType: scenario.verificationType,
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scope: scenario.scope,
+    run: args.run,
+    terminalStatus: args.terminalStatus,
+  };
+}
+
+export function verifyStatusOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyStatusCliOptions {
+  return {
+    verificationType: scenario.verificationType,
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scope: scenario.scope,
+    run: runToken,
+  };
+}
+
+export function verifyRenderOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyRenderCliOptions {
+  return {
+    verificationType: scenario.verificationType,
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scope: scenario.scope,
+    run: runToken,
+  };
+}
+
+export function parseFinishReport(output: string): VerifyFinishReport {
+  return JSON.parse(output) as VerifyFinishReport;
+}
+
+export function parseStatusReport(output: string): VerifyStatusReport {
+  return JSON.parse(output) as VerifyStatusReport;
+}
+
+export function parseRenderReport(output: string): VerifyRenderReport {
+  return JSON.parse(output) as VerifyRenderReport;
+}
+
+/** Start a run over the shared store and return its run token, throwing when start fails. */
+export async function startedRunToken(scenario: VerifyRunContextScenario, deps: VerifyCliDeps): Promise<string> {
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify start failed in harness: ${started.output}`);
+  }
+  return parseStartReport(started.output).runToken;
+}
+
+/** Append a generated batch of review findings to a run and return the batch, throwing on failure. */
+export async function appendFindingBatch(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+): Promise<readonly FindingWithKey[]> {
+  const findings = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch());
+  for (const entry of findings) {
+    const appended = await verifyAppendFindingCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(entry.finding),
+        idempotencyKey: entry.idempotencyKey,
+      }),
+      deps,
+    );
+    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+      throw new Error(`verify append-finding failed in harness: ${appended.output}`);
+    }
+  }
+  return findings;
+}
+
+/** Finish a run with the given terminal status and return the parsed terminal projection, throwing on failure. */
+export async function finishRun(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+  terminalStatus: string,
+): Promise<VerifyFinishReport> {
+  const finished = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
+  if (finished.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify finish failed in harness: ${finished.output}`);
+  }
+  return parseFinishReport(finished.output);
+}
+
+/**
+ * Prove a run is unsealed and finishable by finishing it with a fresh valid terminal status; the
+ * throw on a non-success finish is the proof, since a sealed run rejects the terminal-event append.
+ */
+export async function finishRecoversUnsealedRun(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+): Promise<VerifyFinishReport> {
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const report = await finishRun(scenario, deps, runToken, terminalStatus);
+  if (report.terminalStatus !== terminalStatus) {
+    throw new Error(
+      `verify finish recorded terminal status ${String(report.terminalStatus)}, expected ${terminalStatus}`,
+    );
+  }
+  return report;
 }

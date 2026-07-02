@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { REVIEW_FINDING_DISPOSITION, type ReviewFinding, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
@@ -8,6 +9,7 @@ import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
+const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
 
 /** A string outside the valid review-finding disposition set — an invalid `disposition` value. */
@@ -15,11 +17,27 @@ function arbitraryNonDisposition(): fc.Arbitrary<string> {
   return fc.string().filter((value) => !(REVIEW_FINDING_DISPOSITIONS as readonly string[]).includes(value));
 }
 
+/** A valid review finding: a known disposition and a non-empty summary. */
+function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return fc.record({
+    disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
+    summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
 const SAMPLE_SEED = 0x5645524659;
 const CHANGED_PATH_MIN = 1;
 const CHANGED_PATH_MAX = 5;
+const FINDING_BATCH_MIN = 1;
+const FINDING_BATCH_MAX = 4;
 const BLANK_CHARACTERS = [" ", "\t", "\n", "\r"] as const;
 const BLANK_ARGUMENT_MAX = 4;
+
+/** A review finding paired with the caller idempotency key that appends it. */
+export interface FindingWithKey {
+  readonly finding: ReviewFinding;
+  readonly idempotencyKey: string;
+}
 
 /**
  * The blank-argument domain: whitespace-only and empty strings a caller supplies when no real
@@ -85,11 +103,16 @@ export const VERIFY_TEST_GENERATOR = {
       .map(([first, second]) => ({ first, second })),
   blankIdempotencyKey: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankPayloadSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
-  reviewFinding: (): fc.Arbitrary<ReviewFinding> =>
-    fc.record({
-      disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
-      summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    }),
+  reviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryReviewFinding(),
+  terminalStatus: (): fc.Arbitrary<string> => fc.constantFrom(...TERMINAL_STATUSES),
+  invalidTerminalStatus: (): fc.Arbitrary<string> =>
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
+  blankTerminalStatus: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
+  reviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
+    fc.uniqueArray(
+      fc.record({ finding: arbitraryReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
+    ),
   invalidReviewFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
