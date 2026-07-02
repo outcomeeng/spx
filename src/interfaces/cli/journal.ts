@@ -40,6 +40,7 @@ export const JOURNAL_CLI = {
 } as const;
 
 export const JOURNAL_CLI_HELP = {
+  LIST_RUN_LIMIT: `Maximum number of runs (default: ${JOURNAL_CLI_RUN_LIMIT.DEFAULT})`,
   READ_SET_EVENT_LIMIT: `Maximum events returned per run (default: ${JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT})`,
   READ_SET_RUN_LIMIT: `Maximum number of sealed runs (default: ${JOURNAL_CLI_RUN_LIMIT.DEFAULT})`,
 } as const;
@@ -167,7 +168,7 @@ export const journalDomain: Domain = {
       .option(JOURNAL_CLI.branchSlugOption, "State-store branch slug")
       .option(JOURNAL_CLI.sealedOption, "Sealed-state filter")
       .option(JOURNAL_CLI.terminalStateOption, "Terminal-state filter")
-      .option(JOURNAL_CLI.limitOption, "Maximum number of runs")
+      .option(JOURNAL_CLI.limitOption, JOURNAL_CLI_HELP.LIST_RUN_LIMIT)
       .action(async (options: JournalListCliOptions) => {
         report(await journalListCommand(options, journalDeps()), invocation.io);
       });

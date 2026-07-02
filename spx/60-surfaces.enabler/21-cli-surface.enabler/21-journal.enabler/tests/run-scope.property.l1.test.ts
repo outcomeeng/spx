@@ -3,6 +3,7 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { JOURNAL_CLI_READ_SET_EVENT_LIMIT, JOURNAL_CLI_RUN_LIMIT } from "@/commands/journal/cli";
 import {
   appendJournalEvent,
   listJournalRuns,
@@ -168,10 +169,20 @@ describe("journal run-scope discovery", () => {
             type,
             sealed: JOURNAL_RUN_SEALED_FILTER.SEALED,
             terminalState: JOURNAL_RUN_TERMINAL_FILTER.MISSING_STATE,
+            limit: JOURNAL_CLI_RUN_LIMIT.DEFAULT,
           };
           const firstList = await listJournalRuns(listScope, { fs });
           const secondList = await listJournalRuns(listScope, { fs });
-          const readSet = await readSealedJournalRunSet({ productDir, branchSlug, type }, { fs });
+          const readSet = await readSealedJournalRunSet(
+            {
+              productDir,
+              branchSlug,
+              type,
+              eventLimit: JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT,
+              limit: JOURNAL_CLI_RUN_LIMIT.DEFAULT,
+            },
+            { fs },
+          );
 
           expect(firstList.ok && secondList.ok && readSet.ok).toBe(true);
           if (!firstList.ok || !secondList.ok || !readSet.ok) return;

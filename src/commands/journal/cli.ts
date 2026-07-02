@@ -11,7 +11,6 @@ import {
   JOURNAL_RUN_TERMINAL_FILTER,
   type JournalRunDirectoryScope,
   journalRunFilePath,
-  type JournalRunListScope,
   type JournalRunSealedFilter,
   type JournalRunTerminalFilter,
 } from "@/domains/journal/run-scope";
@@ -37,6 +36,7 @@ import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 import { createGithubPrStreamSink } from "./github-pr-sink";
 import {
   appendJournalEvent,
+  type JournalListRunsScope,
   type JournalRunRef,
   type JournalStreamSink,
   listJournalRuns,
@@ -519,7 +519,7 @@ export async function journalListCommand(
   const limit = parseJournalRunLimit(scope.limit);
   if (!limit.ok) return errorResult(limit.error);
 
-  const listScope: JournalRunListScope = {
+  const listScope: JournalListRunsScope = {
     productDir: await resolveJournalProductDir(deps),
     ...(scope.branchSlug === undefined ? {} : { branchSlug: scope.branchSlug }),
     ...(scope.type === undefined ? {} : { type: scope.type }),

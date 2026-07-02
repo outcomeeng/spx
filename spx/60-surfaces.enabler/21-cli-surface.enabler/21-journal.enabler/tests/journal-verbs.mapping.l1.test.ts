@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { JOURNAL_CLI_READ_SET_EVENT_LIMIT, JOURNAL_CLI_RUN_LIMIT } from "@/commands/journal/cli";
 import {
   appendJournalEvent,
   listJournalRuns,
@@ -132,7 +133,7 @@ function journalVerbMappingCases(): readonly JournalVerbMappingCase[] {
         const opened = await openJournalRun({ productDir, branchSlug, type });
         expect(opened.ok).toBe(true);
         if (!opened.ok) return;
-        const listed = await listJournalRuns({ productDir, branchSlug, type });
+        const listed = await listJournalRuns({ productDir, branchSlug, type, limit: JOURNAL_CLI_RUN_LIMIT.DEFAULT });
         expect(listed.ok).toBe(true);
         if (!listed.ok) return;
         expect(listed.value.map((run) => run.runToken)).toEqual([opened.value.ref.runToken]);
@@ -151,7 +152,13 @@ function journalVerbMappingCases(): readonly JournalVerbMappingCase[] {
         expect(appended.ok).toBe(true);
         if (!appended.ok) return;
         expect(await sealJournalRun(opened.value.ref)).toEqual({ ok: true, value: undefined });
-        const runSet = await readSealedJournalRunSet({ productDir, branchSlug, type });
+        const runSet = await readSealedJournalRunSet({
+          productDir,
+          branchSlug,
+          type,
+          eventLimit: JOURNAL_CLI_READ_SET_EVENT_LIMIT.DEFAULT,
+          limit: JOURNAL_CLI_RUN_LIMIT.DEFAULT,
+        });
         expect(runSet.ok).toBe(true);
         if (!runSet.ok) return;
         expect(runSet.value.map((run) => run.runToken)).toEqual([opened.value.ref.runToken]);

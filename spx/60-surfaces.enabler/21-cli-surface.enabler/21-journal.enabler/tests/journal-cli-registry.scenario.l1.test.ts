@@ -103,19 +103,22 @@ describe("journal CLI registry", () => {
     });
   });
 
-  it("documents read-set default bounds in the registered command help", () => {
+  it("documents default bounds in the registered command help", () => {
     const journalDomain = CLI_DOMAINS.find((domain) => domain.name === JOURNAL_CLI.commandName);
     expect(journalDomain).toBeDefined();
     if (journalDomain === undefined) throw new Error("journal domain missing from the CLI registry");
 
     const program = createCliProgram({ domains: [journalDomain] });
     const journalCommand = program.commands.find((command) => command.name() === JOURNAL_CLI.commandName);
+    const listCommand = journalCommand?.commands.find((command) => command.name() === JOURNAL_CLI.listCommandName);
     const readSetCommand = journalCommand?.commands.find((command) =>
       command.name() === JOURNAL_CLI.readSetCommandName
     );
+    const listLimitOption = listCommand?.options.find((option) => option.flags === JOURNAL_CLI.limitOption);
     const limitOption = readSetCommand?.options.find((option) => option.flags === JOURNAL_CLI.limitOption);
     const eventLimitOption = readSetCommand?.options.find((option) => option.flags === JOURNAL_CLI.eventLimitOption);
 
+    expect(listLimitOption?.description).toBe(JOURNAL_CLI_HELP.LIST_RUN_LIMIT);
     expect(limitOption?.description).toBe(JOURNAL_CLI_HELP.READ_SET_RUN_LIMIT);
     expect(eventLimitOption?.description).toBe(JOURNAL_CLI_HELP.READ_SET_EVENT_LIMIT);
   });
