@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
+import { isJournalRunStateStatus } from "@/domains/journal/run-state";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 
@@ -17,9 +18,25 @@ export const VERIFY_VERB = {
   INPUT: "input",
   APPEND_SCOPE: "append-scope",
   APPEND_FINDING: "append-finding",
+  FINISH: "finish",
+  STATUS: "status",
+  RENDER: "render",
 } as const;
 
 export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];
+
+/** The mutating lifecycle verbs a run still admits; a run's projection reports which remain legal. */
+export const VERIFY_LIFECYCLE_ACTION = {
+  APPEND_SCOPE: VERIFY_VERB.APPEND_SCOPE,
+  APPEND_FINDING: VERIFY_VERB.APPEND_FINDING,
+  FINISH: VERIFY_VERB.FINISH,
+} as const;
+
+const UNSEALED_NEXT_ACTIONS: readonly string[] = [
+  VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE,
+  VERIFY_LIFECYCLE_ACTION.APPEND_FINDING,
+  VERIFY_LIFECYCLE_ACTION.FINISH,
+];
 
 /**
  * The verification types whose finding payloads `spx verify append-finding` validates. Each
@@ -285,5 +302,90 @@ export function buildAppendEvent(args: {
       [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: args.idempotencyKey,
       [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: args.payload,
     },
+  };
+}
+
+/** The CloudEvents `type` the verify terminal-completion event carries, distinguishing it from appends. */
+export const VERIFY_TERMINAL_EVENT_TYPE = "io.spx.verify.terminal" as const;
+
+/** The `data` field the terminal-completion event records: the run's terminal status. */
+export const VERIFY_TERMINAL_EVENT_FIELD = {
+  TERMINAL_STATUS: "terminalStatus",
+} as const;
+
+/** The id prefix the terminal-completion event carries, deterministic per run so a repeated finish is idempotent. */
+export const VERIFY_TERMINAL_EVENT_ID_PREFIX = "verify-terminal-";
+
+/**
+ * Whether a value is a terminal status `finish` accepts. The terminal-status vocabulary is the
+ * journal run-state vocabulary; verify validates against it rather than owning a second copy.
+ */
+export function isVerifyTerminalStatus(value: string): boolean {
+  return isJournalRunStateStatus(value);
+}
+
+/** Build the terminal-completion event input recording the run's terminal status. */
+export function buildTerminalEvent(args: {
+  readonly runToken: string;
+  readonly terminalStatus: string;
+  readonly at: Date;
+}): JournalEventInput {
+  return {
+    id: `${VERIFY_TERMINAL_EVENT_ID_PREFIX}${args.runToken}`,
+    source: VERIFY_EVENT_SOURCE,
+    type: VERIFY_TERMINAL_EVENT_TYPE,
+    time: args.at.toISOString(),
+    attempt: VERIFY_APPEND_ATTEMPT,
+    data: { [VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS]: args.terminalStatus },
+  };
+}
+
+/** The run's projected lifecycle state, folded from its journal event history. */
+export interface VerifyRunProjection {
+  readonly sealed: boolean;
+  readonly terminalStatus?: string;
+  readonly findingCount: number;
+  readonly lastSequence: number;
+  readonly nextActions: readonly string[];
+}
+
+/** The last-sequence value a run with no events projects, one below the first assigned sequence. */
+export const VERIFY_NO_EVENTS_SEQUENCE = 0;
+
+/** The run's terminal-completion event, or `undefined` when the run is not finished. */
+export function findTerminalEvent(events: readonly JournalEvent[]): JournalEvent | undefined {
+  return events.find((event) => event.type === VERIFY_TERMINAL_EVENT_TYPE);
+}
+
+function terminalStatusOf(event: JournalEvent | undefined): string | undefined {
+  if (event === undefined || !isJsonRecord(event.data)) return undefined;
+  const status = event.data[VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS];
+  return typeof status === "string" ? status : undefined;
+}
+
+/** The authoritative finding count from the event history: the number of recorded finding events. */
+export function countVerifyFindings(events: readonly JournalEvent[]): number {
+  return events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING).length;
+}
+
+function lastSequenceOf(events: readonly JournalEvent[]): number {
+  return events.reduce((max, event) => (event.seq > max ? event.seq : max), VERIFY_NO_EVENTS_SEQUENCE);
+}
+
+/**
+ * Fold a run's journal event history into its projected lifecycle state. A run is sealed once it
+ * carries a terminal-completion event; its terminal status, authoritative finding count, last
+ * journal sequence, and remaining legal lifecycle actions all derive from the same history.
+ */
+export function projectVerifyRun(events: readonly JournalEvent[]): VerifyRunProjection {
+  const terminal = findTerminalEvent(events);
+  const terminalStatus = terminalStatusOf(terminal);
+  const sealed = terminal !== undefined;
+  return {
+    sealed,
+    ...(terminalStatus === undefined ? {} : { terminalStatus }),
+    findingCount: countVerifyFindings(events),
+    lastSequence: lastSequenceOf(events),
+    nextActions: sealed ? [] : UNSEALED_NEXT_ACTIONS,
   };
 }
