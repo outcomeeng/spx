@@ -328,6 +328,33 @@ describe("journal inspection", () => {
     });
   });
 
+  it("reads and renders a unique run token across branch scopes when branch slug is omitted", async () => {
+    const { branchSlug, otherBranchSlug, type } = sampleDistinctJournalScopes();
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+
+    await withJournalHarness(async (productDir) => {
+      const opened = await openJournalRun({ productDir, branchSlug, type });
+      expect(opened.ok).toBe(true);
+      if (!opened.ok) return;
+      await appendJournalEvent(opened.value.ref, input, new RecordingJournalStreamSink());
+
+      const read = await journalReadCommand(
+        { type, runToken: opened.value.ref.runToken },
+        String(JOURNAL_SEQ_BASE),
+        localDepsForBranch(productDir, otherBranchSlug),
+      );
+      const rendered = await journalRenderCommand(
+        { type, runToken: opened.value.ref.runToken },
+        localDepsForBranch(productDir, otherBranchSlug),
+      );
+
+      expect(read.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      expect(rendered.exitCode).toBe(JOURNAL_CLI_EXIT_CODE.OK);
+      expect((JSON.parse(read.output) as JournalEvent[]).map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
+      expect((JSON.parse(rendered.output) as JournalEvent[]).map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE]);
+    });
+  });
+
   it("reads only sealed runs in a branch/type scope in deterministic oldest-first order", async () => {
     const branchSlug = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
     const type = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());

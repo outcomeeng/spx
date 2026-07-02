@@ -36,6 +36,7 @@ import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 import { createGithubPrStreamSink } from "./github-pr-sink";
 import {
   appendJournalEvent,
+  findJournalRunBranchSlugs,
   type JournalListRunsScope,
   type JournalRunRef,
   type JournalStreamSink,
@@ -84,6 +85,7 @@ export const JOURNAL_CLI_ERROR = {
   INVALID_READ_SET_EVENT_LIMIT: "journal read-set event limit must be a positive whole integer",
   INVALID_SEALED_FILTER: "journal list sealed filter is not registered",
   INVALID_TERMINAL_STATE_FILTER: "journal list terminal-state filter is not registered",
+  RUN_TOKEN_AMBIGUOUS: "journal run token matches multiple branch scopes; rerun with --branch-slug",
   OPEN_HYDRATION_FAILED: "journal open failed to hydrate the pull request's prior runs",
 } as const;
 
@@ -306,6 +308,35 @@ function runRef(context: JournalRunContext, runToken: string): JournalRunRef {
   return { productDir: context.productDir, branchSlug: context.branchSlug, type: context.type, runToken };
 }
 
+async function inspectionRunRef(scope: JournalRunCliScope, deps: JournalCliDeps): Promise<Result<JournalRunRef>> {
+  const context = await resolveJournalRunContext(scope, deps);
+  if (!context.ok) return context;
+  if (scope.branchSlug !== undefined) return { ok: true, value: runRef(context.value, scope.runToken) };
+  const branches = await findJournalRunBranchSlugs(
+    {
+      productDir: context.value.productDir,
+      type: context.value.type,
+      runToken: scope.runToken,
+    },
+    verbOptions(deps),
+  );
+  if (!branches.ok) return branches;
+  if (branches.value.length === 1) {
+    const branchSlug = branches.value[0];
+    return {
+      ok: true,
+      value: {
+        productDir: context.value.productDir,
+        branchSlug,
+        type: context.value.type,
+        runToken: scope.runToken,
+      },
+    };
+  }
+  if (branches.value.length > 1) return { ok: false, error: JOURNAL_CLI_ERROR.RUN_TOKEN_AMBIGUOUS };
+  return { ok: true, value: runRef(context.value, scope.runToken) };
+}
+
 function okResult(output: string): CliCommandResult {
   return { exitCode: JOURNAL_CLI_EXIT_CODE.OK, output };
 }
@@ -500,9 +531,9 @@ export async function journalReadCommand(
 ): Promise<CliCommandResult> {
   const cursor = parseJournalCursor(fromCursor);
   if (!cursor.ok) return errorResult(cursor.error);
-  const context = await resolveJournalRunContext(scope, deps);
-  if (!context.ok) return errorResult(context.error);
-  const events = await readJournalEvents(runRef(context.value, scope.runToken), cursor.value, verbOptions(deps));
+  const ref = await inspectionRunRef(scope, deps);
+  if (!ref.ok) return errorResult(ref.error);
+  const events = await readJournalEvents(ref.value, cursor.value, verbOptions(deps));
   if (!events.ok) return errorResult(events.error);
   return okResult(JSON.stringify(events.value));
 }
@@ -572,10 +603,10 @@ export async function journalRenderCommand(
   scope: JournalRunCliScope,
   deps: JournalCliDeps = {},
 ): Promise<CliCommandResult> {
-  const context = await resolveJournalRunContext(scope, deps);
-  if (!context.ok) return errorResult(context.error);
+  const ref = await inspectionRunRef(scope, deps);
+  if (!ref.ok) return errorResult(ref.error);
   const rendered = await renderJournalRun<readonly JournalEvent[]>(
-    runRef(context.value, scope.runToken),
+    ref.value,
     (events) => [...events],
     verbOptions(deps),
   );
