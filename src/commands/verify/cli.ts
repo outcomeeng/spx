@@ -74,6 +74,7 @@ export const VERIFY_CLI_ERROR = {
   INPUT_READ_FAILED: "spx verify could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verify append verbs require --payload <payload-source>",
   IDEMPOTENCY_KEY_REQUIRED: "spx verify append verbs require --idempotency-key <key>",
+  PAYLOAD_READ_FAILED: "spx verify could not read the append payload",
   PAYLOAD_INVALID: "spx verify append payload is not valid JSON",
   FINDING_INVALID: "spx verify append-finding payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verify append-finding has no finding validator for the verification type",
@@ -401,12 +402,7 @@ async function readRunJournalEvents(
   return { ok: true, value: JSON.parse(read.output) as readonly JournalEvent[] };
 }
 
-/**
- * Append inspected scope or a validated finding to a started run exactly once per idempotency key.
- * The append requires an explicit `--payload` and `--idempotency-key`, validates a finding payload
- * against the run's verification type, and returns the existing journal sequence for a repeated key
- * rather than duplicating evidence. It never reads the recorded run input as the append payload.
- */
+/** The prepared context for an append: injected capabilities, the run's journal scope, and namespace. */
 interface PreparedAppend {
   readonly readPayload: (source: string) => Promise<string>;
   readonly binding: JournalStreamBinding;
@@ -441,6 +437,16 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   };
   const namespace = verifyRunsDir(runScope);
   if (!namespace.ok) return namespace;
+
+  // A started verify run persists a recorded input at `start`; its absence means the token names a
+  // raw journal run rather than a started verification run, so reject the append the way `input` does.
+  const inputPath = verifyInputRecordPath(runScope);
+  if (!inputPath.ok) return inputPath;
+  const inputRecord = await readInputRecordAt(inputPath.value, deps);
+  if (!inputRecord.ok) return inputRecord;
+  if (inputRecord.value === undefined) {
+    return { ok: false, error: appendRunNotFoundDiagnostic(options, resolved.value.backendIdentity, namespace.value) };
+  }
 
   return {
     ok: true,
@@ -489,6 +495,12 @@ function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
 }
 
+/**
+ * Append inspected scope or a validated finding to a started run exactly once per idempotency key.
+ * The append requires an explicit `--payload` and `--idempotency-key`, validates a finding payload
+ * against the run's verification type, and returns the existing journal sequence for a repeated key
+ * rather than duplicating evidence. It never reads the recorded run input as the append payload.
+ */
 async function verifyAppend(
   options: VerifyAppendCliOptions,
   deps: VerifyCliDeps,
@@ -515,7 +527,13 @@ async function verifyAppend(
     return okResult(JSON.stringify(report));
   }
 
-  const parsed = parseAppendPayload(await readPayload(options.payload));
+  let rawPayload: string;
+  try {
+    rawPayload = await readPayload(options.payload);
+  } catch (error) {
+    return errorResult(`${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}`);
+  }
+  const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
   const findingError = validateAppendFinding(verb, options.verificationType, parsed);
   if (findingError !== undefined) return errorResult(findingError);

@@ -12,7 +12,7 @@ import type { Domain } from "@/domains/types";
 import { VERIFY_INPUT_SOURCE, VERIFY_VERB } from "@/domains/verify/verify";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 
-import { createJournalStreamBinding } from "./lib/journal-stream-binding";
+import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
 import { reportCliResult } from "./lib/stream-report";
 
 export const VERIFY_CLI = {
@@ -75,7 +75,9 @@ export const verifyDomain: Domain = {
       cwd: invocation.resolveEffectiveInvocationDir(),
       readInputSource: readCliSource,
       readPayloadSource: readCliSource,
-      journalBinding: createJournalStreamBinding(invocation.io),
+      // The append verbs write a single structured JSON result to stdout, so the run's event
+      // stream goes to stderr under the local backend rather than sharing the result channel.
+      journalBinding: createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io)),
     });
     const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
 
