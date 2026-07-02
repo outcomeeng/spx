@@ -49,9 +49,15 @@ describe("verify status compliance", () => {
     expect(report.scopeType).toBe(VERIFY_SCOPE_TYPE.CHANGESET);
     expect(report.sealed).toBe(false);
     expect(report.terminalStatus).toBeUndefined();
-    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE);
-    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.APPEND_FINDING);
-    expect(report.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
+    // Exact set equality plus cardinality, not membership: an unintended UNSEALED_NEXT_ACTIONS
+    // entry (a new action or a duplicate) must fail here.
+    const expectedUnsealedActions = [
+      VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE,
+      VERIFY_LIFECYCLE_ACTION.APPEND_FINDING,
+      VERIFY_LIFECYCLE_ACTION.FINISH,
+    ];
+    expect(new Set(report.nextActions)).toEqual(new Set(expectedUnsealedActions));
+    expect(report.nextActions).toHaveLength(expectedUnsealedActions.length);
     // last journal sequence tracks the run's own event history, read independently.
     expect(report.lastSequence).toBe((await readVerifyRunEvents(scenario, runToken, fs)).length);
   });
