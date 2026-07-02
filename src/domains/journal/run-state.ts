@@ -35,9 +35,9 @@ export const JOURNAL_RUN_STATE_INCOMPLETE_REASON = {
  */
 export const JOURNAL_RUN_EVENT = {
   SOURCE: "/spx/journal",
-  STARTED_TYPE: "com.outcomeeng.spx.journal.run.started",
-  PROGRESS_TYPE: "com.outcomeeng.spx.journal.run.progress",
-  COMPLETED_TYPE: "com.outcomeeng.spx.journal.run.completed",
+  STARTED_TYPE: "sh.spx.journal.run.started",
+  PROGRESS_TYPE: "sh.spx.journal.run.progress",
+  COMPLETED_TYPE: "sh.spx.journal.run.completed",
 } as const;
 
 export const JOURNAL_RUN_STATE_FIELDS = {
@@ -94,7 +94,11 @@ export interface JournalRunState extends JournalRunStateIdentity, JournalRunStat
 
 export type JournalRunStateParseResult =
   | { readonly ok: true; readonly value: JournalRunState }
-  | { readonly ok: false; readonly reason: JournalRunStateIncompleteReason; readonly error?: string };
+  | {
+    readonly ok: false;
+    readonly reason: JournalRunStateIncompleteReason;
+    readonly error?: string;
+  };
 
 /**
  * Fold a run's event history and seal state into its terminal projection. A run
@@ -106,13 +110,18 @@ export function foldJournalRunState(
   events: readonly JournalEvent[],
   sealed: boolean,
 ): JournalRunStateParseResult {
-  if (!sealed) return { ok: false, reason: JOURNAL_RUN_STATE_INCOMPLETE_REASON.UNSEALED };
+  if (!sealed) {
+    return { ok: false, reason: JOURNAL_RUN_STATE_INCOMPLETE_REASON.UNSEALED };
+  }
   let completed: JournalEvent | undefined;
   for (const event of events) {
     if (event.type === JOURNAL_RUN_EVENT.COMPLETED_TYPE) completed = event;
   }
   if (completed === undefined) {
-    return { ok: false, reason: JOURNAL_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE };
+    return {
+      ok: false,
+      reason: JOURNAL_RUN_STATE_INCOMPLETE_REASON.MISSING_STATE,
+    };
   }
   const validated = validateJournalRunState(completed.data);
   if (!validated.ok) {
@@ -147,7 +156,9 @@ export function journalRunStateRecord(state: JournalRunState): JsonRecord {
     branchName: state.branchName,
     branchSlug: state.branchSlug,
     targetKind: state.targetKind,
-    ...(state.pullRequestNumber === undefined ? {} : { pullRequestNumber: state.pullRequestNumber }),
+    ...(state.pullRequestNumber === undefined
+      ? {}
+      : { pullRequestNumber: state.pullRequestNumber }),
     headSha: state.headSha,
     baseRef: state.baseRef,
     ...(state.baseSha === undefined ? {} : { baseSha: state.baseSha }),
@@ -161,17 +172,30 @@ export function journalRunStateRecord(state: JournalRunState): JsonRecord {
   };
 }
 
-export function isJournalRunStateStatus(value: unknown): value is JournalRunStateStatus {
-  return typeof value === "string"
-    && Object.values(JOURNAL_RUN_STATE_STATUS).includes(value as JournalRunStateStatus);
+export function isJournalRunStateStatus(
+  value: unknown,
+): value is JournalRunStateStatus {
+  return (
+    typeof value === "string"
+    && Object.values(JOURNAL_RUN_STATE_STATUS).includes(
+      value as JournalRunStateStatus,
+    )
+  );
 }
 
-export function isJournalTargetKind(value: unknown): value is JournalTargetKind {
-  return typeof value === "string" && Object.values(JOURNAL_TARGET_KIND).includes(value as JournalTargetKind);
+export function isJournalTargetKind(
+  value: unknown,
+): value is JournalTargetKind {
+  return (
+    typeof value === "string"
+    && Object.values(JOURNAL_TARGET_KIND).includes(value as JournalTargetKind)
+  );
 }
 
 function validateJournalRunState(value: unknown): Result<JournalRunState> {
-  if (!isRecord(value)) return { ok: false, error: "journal run state must be an object" };
+  if (!isRecord(value)) {
+    return { ok: false, error: "journal run state must be an object" };
+  }
   const identity = readRunStateIdentity(value);
   if (!identity.ok) return identity;
   const body = readRunStateBody(value);
@@ -179,14 +203,22 @@ function validateJournalRunState(value: unknown): Result<JournalRunState> {
   return { ok: true, value: { ...identity.value, ...body.value } };
 }
 
-function readRunStateIdentity(value: Record<string, unknown>): Result<JournalRunStateIdentity> {
+function readRunStateIdentity(
+  value: Record<string, unknown>,
+): Result<JournalRunStateIdentity> {
   const branchName = readString(value, JOURNAL_RUN_STATE_FIELDS.BRANCH_NAME);
   if (!branchName.ok) return branchName;
   const branchSlug = readString(value, JOURNAL_RUN_STATE_FIELDS.BRANCH_SLUG);
   if (!branchSlug.ok) return branchSlug;
-  const targetKind = readTargetKind(value, JOURNAL_RUN_STATE_FIELDS.TARGET_KIND);
+  const targetKind = readTargetKind(
+    value,
+    JOURNAL_RUN_STATE_FIELDS.TARGET_KIND,
+  );
   if (!targetKind.ok) return targetKind;
-  const pullRequestNumber = readOptionalNonNegativeInteger(value, JOURNAL_RUN_STATE_FIELDS.PULL_REQUEST_NUMBER);
+  const pullRequestNumber = readOptionalNonNegativeInteger(
+    value,
+    JOURNAL_RUN_STATE_FIELDS.PULL_REQUEST_NUMBER,
+  );
   if (!pullRequestNumber.ok) return pullRequestNumber;
   const headSha = readString(value, JOURNAL_RUN_STATE_FIELDS.HEAD_SHA);
   if (!headSha.ok) return headSha;
@@ -200,7 +232,9 @@ function readRunStateIdentity(value: Record<string, unknown>): Result<JournalRun
       branchName: branchName.value,
       branchSlug: branchSlug.value,
       targetKind: targetKind.value,
-      ...(pullRequestNumber.value === undefined ? {} : { pullRequestNumber: pullRequestNumber.value }),
+      ...(pullRequestNumber.value === undefined
+        ? {}
+        : { pullRequestNumber: pullRequestNumber.value }),
       headSha: headSha.value,
       baseRef: baseRef.value,
       ...(baseSha.value === undefined ? {} : { baseSha: baseSha.value }),
@@ -208,10 +242,18 @@ function readRunStateIdentity(value: Record<string, unknown>): Result<JournalRun
   };
 }
 
-function readRunStateBody(value: Record<string, unknown>): Result<JournalRunStateBody> {
-  const configDigest = readString(value, JOURNAL_RUN_STATE_FIELDS.CONFIG_DIGEST);
+function readRunStateBody(
+  value: Record<string, unknown>,
+): Result<JournalRunStateBody> {
+  const configDigest = readString(
+    value,
+    JOURNAL_RUN_STATE_FIELDS.CONFIG_DIGEST,
+  );
   if (!configDigest.ok) return configDigest;
-  const participants = readStringArray(value, JOURNAL_RUN_STATE_FIELDS.PARTICIPANTS);
+  const participants = readStringArray(
+    value,
+    JOURNAL_RUN_STATE_FIELDS.PARTICIPANTS,
+  );
   if (!participants.ok) return participants;
   const scope = readPathFilter(value, JOURNAL_RUN_STATE_FIELDS.SCOPE);
   if (!scope.ok) return scope;
@@ -219,7 +261,10 @@ function readRunStateBody(value: Record<string, unknown>): Result<JournalRunStat
   if (!startedAt.ok) return startedAt;
   const completedAt = readString(value, JOURNAL_RUN_STATE_FIELDS.COMPLETED_AT);
   if (!completedAt.ok) return completedAt;
-  const outputPaths = readStringArray(value, JOURNAL_RUN_STATE_FIELDS.OUTPUT_PATHS);
+  const outputPaths = readStringArray(
+    value,
+    JOURNAL_RUN_STATE_FIELDS.OUTPUT_PATHS,
+  );
   if (!outputPaths.ok) return outputPaths;
   const status = readStatus(value, JOURNAL_RUN_STATE_FIELDS.STATUS);
   if (!status.ok) return status;
@@ -237,14 +282,20 @@ function readRunStateBody(value: Record<string, unknown>): Result<JournalRunStat
   };
 }
 
-function readString(value: Record<string, unknown>, field: string): Result<string> {
+function readString(
+  value: Record<string, unknown>,
+  field: string,
+): Result<string> {
   const raw = value[field];
   return typeof raw === "string" && raw.length > 0
     ? { ok: true, value: raw }
     : { ok: false, error: `${field} must be a non-empty string` };
 }
 
-function readOptionalString(value: Record<string, unknown>, field: string): Result<string | undefined> {
+function readOptionalString(
+  value: Record<string, unknown>,
+  field: string,
+): Result<string | undefined> {
   const raw = value[field];
   if (raw === undefined) return { ok: true, value: undefined };
   return typeof raw === "string" && raw.length > 0
@@ -252,40 +303,63 @@ function readOptionalString(value: Record<string, unknown>, field: string): Resu
     : { ok: false, error: `${field} must be a non-empty string when present` };
 }
 
-function readOptionalNonNegativeInteger(value: Record<string, unknown>, field: string): Result<number | undefined> {
+function readOptionalNonNegativeInteger(
+  value: Record<string, unknown>,
+  field: string,
+): Result<number | undefined> {
   const raw = value[field];
   if (raw === undefined) return { ok: true, value: undefined };
   return typeof raw === "number" && Number.isInteger(raw) && raw >= 0
     ? { ok: true, value: raw }
-    : { ok: false, error: `${field} must be a non-negative integer when present` };
+    : {
+      ok: false,
+      error: `${field} must be a non-negative integer when present`,
+    };
 }
 
-function readStringArray(value: Record<string, unknown>, field: string): Result<readonly string[]> {
+function readStringArray(
+  value: Record<string, unknown>,
+  field: string,
+): Result<readonly string[]> {
   const raw = value[field];
-  return Array.isArray(raw) && raw.every((entry) => typeof entry === "string" && entry.length > 0)
+  return Array.isArray(raw)
+      && raw.every((entry) => typeof entry === "string" && entry.length > 0)
     ? { ok: true, value: raw }
     : { ok: false, error: `${field} must be an array of non-empty strings` };
 }
 
-function readPathFilter(value: Record<string, unknown>, field: string): Result<PathFilterConfig> {
+function readPathFilter(
+  value: Record<string, unknown>,
+  field: string,
+): Result<PathFilterConfig> {
   return validatePathFilterConfig(value[field], field);
 }
 
 function pathFilterRecord(filter: PathFilterConfig): JsonRecord {
   return {
-    ...(filter.include === undefined ? {} : { [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: filter.include }),
-    ...(filter.exclude === undefined ? {} : { [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: filter.exclude }),
+    ...(filter.include === undefined
+      ? {}
+      : { [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: filter.include }),
+    ...(filter.exclude === undefined
+      ? {}
+      : { [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: filter.exclude }),
   };
 }
 
-function readStatus(value: Record<string, unknown>, field: string): Result<JournalRunStateStatus> {
+function readStatus(
+  value: Record<string, unknown>,
+  field: string,
+): Result<JournalRunStateStatus> {
   const raw = value[field];
   return isJournalRunStateStatus(raw)
     ? { ok: true, value: raw }
     : { ok: false, error: `${field} must be a terminal journal status` };
 }
 
-function readTargetKind(value: Record<string, unknown>, field: string): Result<JournalTargetKind> {
+function readTargetKind(
+  value: Record<string, unknown>,
+  field: string,
+): Result<JournalTargetKind> {
   const raw = value[field];
   return isJournalTargetKind(raw)
     ? { ok: true, value: raw }
