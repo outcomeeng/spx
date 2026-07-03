@@ -60,6 +60,7 @@ export const RELEASE_TEST_GENERATOR = {
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
+  releaseDataWithSubjects: arbitraryReleaseDataWithSubjects,
 } as const;
 
 // Fixed arbitrary seed so a single-sample draw is reproducible: a failing
@@ -170,6 +171,27 @@ function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
         changedPaths: fixtures.map((fixture) => fixture.path),
       }))
   );
+}
+
+function arbitraryReleaseDataWithSubjects(subjects: readonly string[]): fc.Arbitrary<ReleaseData> {
+  return fc
+    .record({
+      version: arbitrarySemver(),
+      previousTag: arbitraryReleaseTag(),
+      versionDelta: fc.constantFrom(VERSION_DELTA.MAJOR, VERSION_DELTA.MINOR, VERSION_DELTA.PATCH),
+      shas: fc.uniqueArray(arbitraryCommitSha(), {
+        minLength: subjects.length,
+        maxLength: subjects.length,
+      }),
+      changedPaths: arbitraryCommitSequence(subjects.length),
+    })
+    .map(({ version, previousTag, versionDelta, shas, changedPaths }): ReleaseData => ({
+      version,
+      previousTag,
+      versionDelta,
+      commits: subjects.map((subject, index) => ({ sha: shas[index], subject })),
+      changedPaths: changedPaths.map((fixture) => fixture.path),
+    }));
 }
 
 function arbitraryVersionBumpFor(delta: VersionDelta): fc.Arbitrary<VersionBump> {
