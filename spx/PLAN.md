@@ -120,7 +120,7 @@ The classification ("passing only when every linked reference passes; any unexec
 
 ## The exemplar: the changes domain
 
-`spx/25-outcomeeng.enabler/31-changes.enabler` already works out the backend-neutral pattern this restructuring generalizes: one neutral record model (`21-change-store.pdr.md` — `handle`, `id`, `title`, `maturity`, `nodes`, `priority`, `blocked_by`, `backend_status`) over N backends (worktree `.spx/changes/`, hosted trackers), each mapping its own labels into shared query / selection / claimability semantics. It is a primary **records** store (not a derived snapshot), provably distinct from sessions (`NEVER: session files are change records`), and it is spec'd but not yet implemented in `src/`. It is the first build after this plan merges.
+`spx/25-outcomeeng.enabler/31-changes.enabler` already works out the backend-neutral pattern this restructuring generalizes: one neutral record model (`21-change-store.pdr.md` — `handle`, `id`, `title`, `maturity`, `nodes`, `priority`, `blocked_by`, `backend_status`) over N backends (worktree `.spx/changes/`, hosted trackers), each mapping its own labels into shared query / selection / claimability semantics. It is a primary **records** store (not a derived snapshot), provably distinct from sessions (`NEVER: session files are change records`), and it is spec'd but not yet implemented in `src/`. It is the first domain build, after the vocabulary reservation of delivery-order step 2 (its change-store authors durable `records` consumers).
 
 ## Migration policy: additive, never wholesale
 
@@ -166,7 +166,7 @@ Every node-local `PLAN.md`, so future syncs are a checklist. **R** = restructuri
 | `spx/15-agent-run-journal.enabler/PLAN.md`                                                      | R    | append-only journal port — a persistence kind, not a verification concern                  |
 | `spx/16-config.enabler/PLAN.md`                                                                 | R    | config library; its CLI wrapper moves to the surface                                       |
 | `spx/16-config.enabler/32-shared-config-primitives.enabler/PLAN.md`                             | I    | shared config primitives                                                                   |
-| `spx/16-config.enabler/43-domain-execution-descriptors.enabler/PLAN.md`                         | I    | domain execution descriptors                                                               |
+| `spx/16-config.enabler/43-domain-execution-descriptors.enabler/PLAN.md`                         | R    | references the audit/review → journal collapse (the catalyst misplacement); reconcile      |
 | `spx/16-config.enabler/54-canonical-descriptor-digest.enabler/PLAN.md`                          | I    | descriptor digest                                                                          |
 | `spx/17-file-inclusion.enabler/PLAN.md`                                                         | I    | file-inclusion path filters                                                                |
 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/PLAN.md`                          | I    | domain path filters                                                                        |

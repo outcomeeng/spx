@@ -1,5 +1,7 @@
 # Plan: Domain Execution Descriptors
 
+> **Reconcile against `spx/PLAN.md` first.** This plan's references to the audit and review descriptors "collapsed into the journal channel" at `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/` describe the current catalyst misplacement, not the target. The corrected model identifies that journal/surface collapse as the wholesale move to undo — the substrate splits back to a future persistence node (delivery-order step 4), and only the thin binding stays. Reconcile this node's descriptor scope against the corrected model before a config-descriptor follow-up preserves the collapse. Where this note predates that model, the root plan governs.
+
 ## Purpose
 
 Register the testing execution descriptor on top of the shared config descriptor mechanism. The audit and review descriptors this node once also registered collapsed into the journal channel at `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/` and were removed.
