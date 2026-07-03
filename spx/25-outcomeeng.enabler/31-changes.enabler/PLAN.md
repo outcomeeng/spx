@@ -1,6 +1,6 @@
 # PLAN
 
-> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar and the *first build* after the plan merges — build `change-store` + its worktree records backend + `.spx/changes/` scope addressing (steps 3, 4, 6 below) before the `.surface` CLI, which is deferred (low value, disruptive). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar and the first domain build, after the vocabulary reservation (root `spx/PLAN.md` delivery-order step 2) that the change-store's durable `records` consumers require — build `change-store` + its worktree records backend + `.spx/changes/` scope addressing (steps 3, 4, 6 below) before the `.surface` CLI, which is deferred (low value, disruptive). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`. Where this note predates that model, the root plan governs.
 
 ## Harness vocabulary guard
 
