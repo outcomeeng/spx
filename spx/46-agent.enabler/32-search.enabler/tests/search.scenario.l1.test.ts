@@ -7,6 +7,7 @@ import {
   pickupIdSearchLiteral,
   searchAgentSessions,
 } from "@/domains/agent/search";
+import { resolveProductDir } from "@/domains/config/root";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -159,6 +160,10 @@ describe("agent session search scenarios", () => {
     const pickupMarker = pickupIdSearchLiteral(pickupId);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 37);
     const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 38);
+    const warning = resolveProductDir(fallbackProductScopeRoot).warning;
+    if (warning === undefined) {
+      throw new Error("agent search fallback scope fixture must be outside a git worktree");
+    }
 
     writeCodexTranscriptFile(fs, homeDir, {
       sessionId,
@@ -200,7 +205,7 @@ describe("agent session search scenarios", () => {
       pickupId,
     ], { from: SPX_COMMANDER_PARSE_SOURCE });
 
-    expect(stderr.length).toBeGreaterThan(0);
+    expect(stderr.join("")).toContain(warning);
     expect(stdout.join("")).toContain(sessionId);
     expect(stdout.join("")).not.toContain(foreignSessionId);
   });

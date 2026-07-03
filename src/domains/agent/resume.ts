@@ -271,7 +271,7 @@ export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[
   return JSON.stringify(candidates, null, 2);
 }
 
-interface AgentSessionHead {
+export interface AgentSessionHead {
   readonly sessionId: string;
   readonly cwd: string;
   readonly branch: string | null;
@@ -279,7 +279,7 @@ interface AgentSessionHead {
   readonly interactive: boolean;
 }
 
-interface AgentStoreFile {
+export interface AgentStoreFile {
   readonly path: string;
   readonly modifiedAtMs: number;
 }
@@ -306,7 +306,7 @@ async function recentStoreFiles(
 // children of a project directory are collected, so every nested transcript is
 // excluded — including the `subagents/` transcripts, which are not resumable
 // top-level conversations.
-async function claudeTranscriptFiles(
+export async function claudeTranscriptFiles(
   root: string,
   fs: AgentSessionFileSystem,
   dirAccepts: (dirName: string) => boolean,
@@ -364,7 +364,7 @@ async function collectAgentCandidates(
   return candidates;
 }
 
-async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Promise<string[]> {
+export async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Promise<string[]> {
   const entries = await fs.readDir(root).catch(() => []);
   const files: string[] = [];
   for (const entry of entries) {
@@ -378,7 +378,7 @@ async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Prom
   return files;
 }
 
-function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean {
+export function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean {
   return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
 }
 
@@ -524,7 +524,7 @@ export function isPathInsideOrEqual(parent: string, child: string): boolean {
   return rel.length === 0 || (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`));
 }
 
-async function mapWithConcurrency<T, U>(
+export async function mapWithConcurrency<T, U>(
   items: readonly T[],
   concurrency: number,
   mapper: (item: T) => Promise<U>,

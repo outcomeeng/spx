@@ -1,23 +1,21 @@
-import { resolve } from "node:path";
-
 import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
+import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND, AGENT_SESSION_LABEL, type AgentSessionKind } from "./protocol";
 import {
-  AGENT_RESUME_LIMITS,
-  AGENT_RESUME_RECENT_WINDOW_MS,
-  AGENT_SESSION_KIND,
-  AGENT_SESSION_LABEL,
-  AGENT_SESSION_STORE,
-  type AgentSessionKind,
-} from "./protocol";
-import {
+  type AgentSessionFileStat,
+  type AgentSessionFileSystem,
+  type AgentSessionHead,
+  type AgentStoreFile,
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
+  claudeTranscriptFiles,
   codexSessionStoreDir,
+  collectJsonlFiles,
   isPathInsideOrEqual,
+  isRecentAgentSessionMtime,
+  mapWithConcurrency,
   parseClaudeHead,
   parseCodexHead,
 } from "./resume";
-import type { AgentSessionDirEntry, AgentSessionFileStat, AgentSessionFileSystem } from "./resume";
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
@@ -77,19 +75,6 @@ export interface AgentSearchResult {
   readonly updatedAt: string | null;
   readonly branch: string | null;
   readonly matches: readonly AgentSearchMatchReason[];
-}
-
-interface AgentSessionHead {
-  readonly sessionId: string;
-  readonly cwd: string;
-  readonly branch: string | null;
-  readonly updatedAt: string | null;
-  readonly interactive: boolean;
-}
-
-interface AgentStoreFile {
-  readonly path: string;
-  readonly modifiedAtMs: number;
 }
 
 type AgentHeadParser = (head: string) => AgentSessionHead | null;
@@ -283,67 +268,8 @@ async function storeFiles(
     .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
 }
 
-async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Promise<string[]> {
-  const entries = await fs.readDir(root).catch(() => []);
-  const files: string[] = [];
-  for (const entry of entries) {
-    const child = resolve(root, entry.name);
-    if (entry.isDirectory) {
-      files.push(...(await collectJsonlFiles(child, fs)));
-    } else if (entry.isFile && entry.name.endsWith(AGENT_SESSION_STORE.JSONL_EXTENSION)) {
-      files.push(child);
-    }
-  }
-  return files;
-}
-
-async function claudeTranscriptFiles(
-  root: string,
-  fs: AgentSessionFileSystem,
-  dirAccepts: (dirName: string) => boolean,
-): Promise<string[]> {
-  const projectDirs = (await fs.readDir(root).catch(() => []))
-    .filter((entry: AgentSessionDirEntry) => entry.isDirectory && dirAccepts(entry.name))
-    .map((entry) => resolve(root, entry.name));
-  const perDir = await mapWithConcurrency(projectDirs, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (dir) => {
-    const entries = await fs.readDir(dir).catch(() => []);
-    return entries
-      .filter((entry) => entry.isFile && entry.name.endsWith(AGENT_SESSION_STORE.JSONL_EXTENSION))
-      .map((entry) => resolve(dir, entry.name));
-  });
-  return perDir.flat();
-}
-
-function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean {
-  return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
-}
-
 function compareSearchResults(left: AgentSearchResult, right: AgentSearchResult): number {
   const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
   if (modifiedDiff !== 0) return modifiedDiff;
   return `${left.agent}:${left.sessionId}`.localeCompare(`${right.agent}:${right.sessionId}`);
-}
-
-async function mapWithConcurrency<T, U>(
-  items: readonly T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<U>,
-): Promise<U[]> {
-  const results = new Array<U>(items.length);
-  let nextIndex = 0;
-
-  async function worker(): Promise<void> {
-    for (;;) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= items.length) {
-        return;
-      }
-      results[index] = await mapper(items[index]);
-    }
-  }
-
-  const workerCount = Math.min(Math.max(1, concurrency), items.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return results;
 }

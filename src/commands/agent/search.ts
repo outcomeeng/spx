@@ -5,6 +5,7 @@ import {
   AGENT_SESSION_STORE,
   type AgentSearchFileSystem,
   type AgentSearchQuery,
+  type AgentSearchResult,
   type AgentSessionDirEntry,
   renderAgentSearchJson,
   renderAgentSearchList,
@@ -64,26 +65,23 @@ export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   },
 };
 
-export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+export async function loadAgentSearchResults(
+  options: AgentSearchCommandOptions,
+): Promise<AgentSearchResult[]> {
   const deps = options.deps ?? defaultAgentSearchCommandDeps;
-  const results = await searchAgentSessions({
+  return searchAgentSessions({
     homeDir: deps.homeDir(),
     nowMs: deps.nowMs(),
     productScopeRoot: await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot),
     fs: deps.fs,
     query: options.query,
   });
-  return renderAgentSearchList(results);
+}
+
+export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+  return renderAgentSearchList(await loadAgentSearchResults(options));
 }
 
 export async function jsonAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
-  const deps = options.deps ?? defaultAgentSearchCommandDeps;
-  const results = await searchAgentSessions({
-    homeDir: deps.homeDir(),
-    nowMs: deps.nowMs(),
-    productScopeRoot: await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot),
-    fs: deps.fs,
-    query: options.query,
-  });
-  return renderAgentSearchJson(results);
+  return renderAgentSearchJson(await loadAgentSearchResults(options));
 }
