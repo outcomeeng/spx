@@ -14,3 +14,4 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 - ALWAYS: `append-scope` and `append-finding` require `--payload <payload-source>` for appended evidence and reject reuse of the run input as an append payload channel ([test](tests/verify-payload.compliance.l1.test.ts))
 - ALWAYS: repeated append commands with the same caller-supplied idempotency key return the existing journal sequence instead of duplicating scope or finding evidence ([test](tests/verify-idempotency.compliance.l1.test.ts))
 - ALWAYS: `append-scope` and `append-finding` require a caller-supplied idempotency key for every append payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
+- ALWAYS: `append-scope` and `append-finding` reject a run carrying a terminal-completion event, so a finished run accepts no further evidence ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
