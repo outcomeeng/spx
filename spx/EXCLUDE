@@ -15,3 +15,8 @@
 26-release.enabler/43-publish-dispatch.enabler
 34-verification.enabler/32-verify.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
+25-outcomeeng.enabler/31-spec-tree.enabler
+25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler
+25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/21-spec.enabler
+25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/32-test.enabler
+25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler

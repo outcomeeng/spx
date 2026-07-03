@@ -1,6 +1,6 @@
 # PLAN
 
-> Reconcile against `spx/PLAN.md` and `spx/25-outcomeeng.enabler/31-spec-tree.enabler/PLAN.md` first. This directory is a PLAN-only placeholder until `/decompose` and `/author` materialize the graph aggregate.
+> Reconcile against `spx/PLAN.md` and `spx/25-outcomeeng.enabler/31-spec-tree.enabler/PLAN.md` first. This note coordinates the graph aggregate after the first specs are authored.
 
 ## Graph Decomposition Intent
 
@@ -15,7 +15,7 @@ The graph slices are ordered by truth flow:
 | `43-source.enabler` | Consumer of test | Source ownership is established from spec-linked tests plus language/provider facts.                       |
 | `change.enabler`    | Deferred         | Change graph placement needs a later decomposition against `spx/25-outcomeeng.enabler/31-changes.enabler`. |
 
-Only `43-source.enabler` is materialized in the first slice. The lower-index `spec` and `test` slices are reserved as graph concepts because the source graph depends on their contracts; they should be authored before or with the source slice if `/decompose` requires concrete provider specs.
+`43-source.enabler` is the first implementation slice. The lower-index `spec` and `test` graph slices are authored as graph concepts because the source graph depends on their contracts.
 
 ## Shared Concerns
 
