@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
@@ -22,17 +22,13 @@ import {
 } from "@testing/generators/agent/resume";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
-  claudeCodeTranscript,
-  claudeProjectTranscriptPath,
-  codexSubagentTranscript,
+  agentSessionJsonlName,
   codexTranscript,
-  codexTranscriptPath,
   MemoryAgentSessionFileSystem,
+  writeClaudeProjectTranscriptFile,
+  writeCodexSubagentTranscriptFile,
+  writeCodexTranscriptFile,
 } from "@testing/harnesses/agent/resume";
-
-function jsonlName(sessionId: string): string {
-  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
-}
 
 describe("agent session search compliance", () => {
   it("matches all scoped recent agent sessions when no selector is provided", async () => {
@@ -51,26 +47,30 @@ describe("agent session search compliance", () => {
     const staleSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 80);
     const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 81);
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
-      codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp }),
-      nowMs,
-    );
-    fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
-      claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
-      nowMs - recentOffsetMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(staleSessionId)),
-      codexTranscript({ sessionId: staleSessionId, cwd: codexCwd, timestamp: new Date(0).toISOString() }),
-      0,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
-      codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp }),
-      nowMs,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: codexSessionId,
+      cwd: codexCwd,
+      timestamp,
+      modifiedAtMs: nowMs,
+    });
+    writeClaudeProjectTranscriptFile(fs, homeDir, {
+      sessionId: claudeSessionId,
+      cwd: claudeCwd,
+      timestamp,
+      modifiedAtMs: nowMs - recentOffsetMs,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: staleSessionId,
+      cwd: codexCwd,
+      timestamp: new Date(0).toISOString(),
+      modifiedAtMs: 0,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: foreignSessionId,
+      cwd: foreignCwd,
+      timestamp,
+      modifiedAtMs: nowMs,
+    });
 
     const results = await searchAgentSessions({
       homeDir,
@@ -97,16 +97,18 @@ describe("agent session search compliance", () => {
     const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 95);
     const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 96);
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
-      codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp }),
-      nowMs,
-    );
-    fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
-      claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
-      nowMs,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: codexSessionId,
+      cwd: codexCwd,
+      timestamp,
+      modifiedAtMs: nowMs,
+    });
+    writeClaudeProjectTranscriptFile(fs, homeDir, {
+      sessionId: claudeSessionId,
+      cwd: claudeCwd,
+      timestamp,
+      modifiedAtMs: nowMs,
+    });
 
     const results = await searchAgentSessions({
       homeDir,
@@ -137,26 +139,34 @@ describe("agent session search compliance", () => {
     const sessionWrongBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 110);
     const sessionRightBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 111);
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexWithoutLiteral)),
-      `${codexTranscript({ sessionId: codexWithoutLiteral, cwd, timestamp })}\n${otherLiteral}`,
-      nowMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexWithLiteral)),
-      `${codexTranscript({ sessionId: codexWithLiteral, cwd, timestamp })}\n${matchingLiteral}`,
-      nowMs - 1,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(sessionWrongBranch)),
-      codexTranscript({ sessionId: sessionWrongBranch, cwd, timestamp, branch: otherBranch }),
-      nowMs - 2,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(sessionRightBranch)),
-      codexTranscript({ sessionId: sessionRightBranch, cwd, timestamp, branch: targetBranch }),
-      nowMs - 3,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: codexWithoutLiteral,
+      cwd,
+      timestamp,
+      marker: otherLiteral,
+      modifiedAtMs: nowMs,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: codexWithLiteral,
+      cwd,
+      timestamp,
+      marker: matchingLiteral,
+      modifiedAtMs: nowMs - 1,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: sessionWrongBranch,
+      cwd,
+      timestamp,
+      branch: otherBranch,
+      modifiedAtMs: nowMs - 2,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: sessionRightBranch,
+      cwd,
+      timestamp,
+      branch: targetBranch,
+      modifiedAtMs: nowMs - 3,
+    });
 
     const agentAndContent = await searchAgentSessions({
       homeDir,
@@ -197,11 +207,13 @@ describe("agent session search compliance", () => {
 
     for (const [index, sessionId] of matchingSessionIds.entries()) {
       const modifiedAtMs = nowMs - index;
-      fs.writeFile(
-        codexTranscriptPath(homeDir, jsonlName(sessionId)),
-        `${codexTranscript({ sessionId, cwd, timestamp: new Date(modifiedAtMs).toISOString() })}\n${marker}`,
+      writeCodexTranscriptFile(fs, homeDir, {
+        sessionId,
+        cwd,
+        timestamp: new Date(modifiedAtMs).toISOString(),
+        marker,
         modifiedAtMs,
-      );
+      });
     }
 
     const results = await searchAgentSessions({
@@ -237,33 +249,41 @@ describe("agent session search compliance", () => {
     const handoffSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 62);
     const recentTimestamp = new Date(nowMs - recentOffsetMs).toISOString();
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(includedSessionId)),
-      `${codexTranscript({ sessionId: includedSessionId, cwd, timestamp: recentTimestamp })}\n${marker}`,
-      nowMs - recentOffsetMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(subagentSessionId)),
-      `${codexSubagentTranscript({ sessionId: subagentSessionId, cwd, timestamp: recentTimestamp })}\n${marker}`,
-      nowMs - recentOffsetMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(staleSessionId)),
-      `${codexTranscript({ sessionId: staleSessionId, cwd, timestamp: new Date(0).toISOString() })}\n${marker}`,
-      0,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
-      `${codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp: recentTimestamp })}\n${marker}`,
-      nowMs - recentOffsetMs,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: includedSessionId,
+      cwd,
+      timestamp: recentTimestamp,
+      marker,
+      modifiedAtMs: nowMs - recentOffsetMs,
+    });
+    writeCodexSubagentTranscriptFile(fs, homeDir, {
+      sessionId: subagentSessionId,
+      cwd,
+      timestamp: recentTimestamp,
+      marker,
+      modifiedAtMs: nowMs - recentOffsetMs,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: staleSessionId,
+      cwd,
+      timestamp: new Date(0).toISOString(),
+      marker,
+      modifiedAtMs: 0,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: foreignSessionId,
+      cwd: foreignCwd,
+      timestamp: recentTimestamp,
+      marker,
+      modifiedAtMs: nowMs - recentOffsetMs,
+    });
     fs.writeFile(
       join(
         productScopeRoot,
         STATE_STORE_SCOPE_PATH.SPX_DIR,
         STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
         DEFAULT_CONFIG.sessions.statusDirs.doing,
-        jsonlName(handoffSessionId),
+        agentSessionJsonlName(handoffSessionId),
       ),
       `${codexTranscript({ sessionId: handoffSessionId, cwd, timestamp: recentTimestamp })}\n${marker}`,
       nowMs - recentOffsetMs,

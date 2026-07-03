@@ -146,6 +146,10 @@ export function codexSubagentTranscript(input: TranscriptInput): string {
   return codexTranscript({ ...input, threadSource: CODEX_SESSION_THREAD_SOURCE.SUBAGENT });
 }
 
+export function agentSessionJsonlName(sessionId: string): string {
+  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
+
 export function codexTranscriptPath(homeDir: string, fileName: string): string {
   return join(
     homeDir,
@@ -155,6 +159,51 @@ export function codexTranscriptPath(homeDir: string, fileName: string): string {
     CODEX_TRANSCRIPT_MONTH_DIR,
     CODEX_TRANSCRIPT_DAY_DIR,
     fileName,
+  );
+}
+
+interface TranscriptFileInput extends TranscriptInput {
+  readonly marker?: string;
+  readonly modifiedAtMs: number;
+}
+
+function appendTranscriptMarker(transcript: string, marker: string | undefined): string {
+  return marker === undefined ? transcript : `${transcript}\n${marker}`;
+}
+
+function writeTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  path: string,
+  transcript: string,
+  input: TranscriptFileInput,
+): string {
+  fs.writeFile(path, appendTranscriptMarker(transcript, input.marker), input.modifiedAtMs);
+  return path;
+}
+
+export function writeCodexTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  return writeTranscriptFile(
+    fs,
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    codexTranscript(input),
+    input,
+  );
+}
+
+export function writeCodexSubagentTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  return writeTranscriptFile(
+    fs,
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    codexSubagentTranscript(input),
+    input,
   );
 }
 
@@ -175,6 +224,32 @@ export function claudeProjectTranscriptPath(homeDir: string, cwd: string, fileNa
     AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
     claudeProjectDirName(cwd),
     fileName,
+  );
+}
+
+export function writeClaudeProjectTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  return writeTranscriptFile(
+    fs,
+    claudeProjectTranscriptPath(homeDir, input.cwd, agentSessionJsonlName(input.sessionId)),
+    claudeCodeTranscript(input),
+    input,
+  );
+}
+
+export function writeClaudeSubagentTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  return writeTranscriptFile(
+    fs,
+    claudeSubagentTranscriptPath(homeDir, input.cwd, agentSessionJsonlName(input.sessionId)),
+    claudeCodeTranscript(input),
+    input,
   );
 }
 
