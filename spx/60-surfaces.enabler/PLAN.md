@@ -6,12 +6,14 @@
 
 ## Child coordination
 
-| Path                                                     | Purpose                                                                                                                              |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md` | CLI command-surface governance, command-family organization, verification-run command shape, and current journal-surface correction. |
-| Future API surface                                       | Add only when an API interface contract needs its own durable surface node.                                                          |
-| Future MCP surface                                       | Add only when an MCP operation contract needs its own durable surface node.                                                          |
-| Future web frontend surface                              | Add only when a web frontend contract needs its own durable surface node.                                                            |
+| Path                                                                                            | Purpose                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md`                                        | CLI command-surface governance, command-family organization, verification-run command shape, and current journal-surface correction. |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md`  | Shared public command vocabulary and command-surface enforcement child grouping.                                                     |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler/PLAN.md` | Verification-run command-family child grouping.                                                                                      |
+| Future API surface                                                                              | Add only when an API interface contract needs its own durable surface node.                                                          |
+| Future MCP surface                                                                              | Add only when an MCP operation contract needs its own durable surface node.                                                          |
+| Future web frontend surface                                                                     | Add only when a web frontend contract needs its own durable surface node.                                                            |
 
 ## Boundary notes
 
