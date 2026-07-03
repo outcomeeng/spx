@@ -1,6 +1,6 @@
 # Evidence Append
 
-PROVIDES append-payload validation, verification-type finding validation, and caller-supplied idempotency for `spx verify` evidence append operations
+PROVIDES evidence-payload validation, verification-type finding validation, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
 CAN record inspected scope and typed findings exactly once per caller intent before terminal projection renders the run
 
@@ -8,10 +8,10 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 
 ### Compliance
 
-- ALWAYS: `append-finding` validates the finding payload against the selected verification type before it appends a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
-- ALWAYS: the `review` verification type validates finding payloads at the `spx verify append-finding` boundary so callers do not carry review-specific schema validation outside SPX ([test](tests/verify-finding.compliance.l1.test.ts))
-- ALWAYS: `append-finding` rejects a verification type that registers no finding validator, so an unregistered type cannot append an unvalidated finding ([test](tests/verify-finding.compliance.l1.test.ts))
-- ALWAYS: `append-scope` and `append-finding` require `--payload <payload-source>` for appended evidence and reject reuse of the run input as an append payload channel ([test](tests/verify-payload.compliance.l1.test.ts))
-- ALWAYS: repeated append commands with the same caller-supplied idempotency key return the existing journal sequence instead of duplicating scope or finding evidence ([test](tests/verify-idempotency.compliance.l1.test.ts))
-- ALWAYS: `append-scope` and `append-finding` require a caller-supplied idempotency key for every append payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
-- ALWAYS: `append-scope` and `append-finding` reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
+- ALWAYS: finding evidence validates the finding payload against the selected verification type before it appends a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
+- ALWAYS: the `review` verification type validates finding payloads at the finding-evidence boundary so callers do not carry review-specific schema validation outside SPX ([test](tests/verify-finding.compliance.l1.test.ts))
+- ALWAYS: finding evidence rejects a verification type that registers no finding validator, so an unregistered type cannot append an unvalidated finding ([test](tests/verify-finding.compliance.l1.test.ts))
+- ALWAYS: scope evidence and finding evidence require an evidence payload source and reject reuse of the run input as an evidence payload channel ([test](tests/verify-payload.compliance.l1.test.ts))
+- ALWAYS: repeated evidence operations with the same caller-supplied idempotency key return the existing journal sequence instead of duplicating scope or finding evidence ([test](tests/verify-idempotency.compliance.l1.test.ts))
+- ALWAYS: scope evidence and finding evidence require a caller-supplied idempotency key for every evidence payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
+- ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))

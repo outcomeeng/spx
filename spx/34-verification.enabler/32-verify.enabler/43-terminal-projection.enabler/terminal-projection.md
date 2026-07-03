@@ -1,6 +1,6 @@
 # Terminal Projection
 
-PROVIDES terminal completion, resumable status, finding-count projection, and rendered journal projection for `spx verify` runs
+PROVIDES terminal completion, resumable status, finding-count projection, and rendered journal projection for typed verification runs
 SO THAT agents, CI jobs, and launchers
 CAN close a scoped verification run with a terminal status and inspect the run's durable state from its journal history
 
@@ -8,8 +8,8 @@ CAN close a scoped verification run with a terminal status and inspect the run's
 
 ### Scenarios
 
-- Given a started run with appended scope and findings, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> --terminal-status approved finish` runs, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
-- Given a sealed review run with terminal completion, when `spx verify --verification-type review --scope-type changeset --scope <base>..<head> --run <run-token> render` runs, then it renders the journal projection including the authoritative finding count from the event history without appending journal events ([test](tests/verify-render.scenario.l1.test.ts))
+- Given a started run with recorded scope and findings, when finish records an approved terminal status, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
+- Given a sealed review run with terminal completion, when render is requested, then it renders the journal projection including the authoritative finding count from the event history without appending journal events ([test](tests/verify-render.scenario.l1.test.ts))
 
 ### Compliance
 

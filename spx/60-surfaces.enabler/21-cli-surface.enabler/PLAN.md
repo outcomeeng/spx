@@ -21,10 +21,10 @@ The public verification-run command shape is declared by:
 
 Remaining implementation-bearing work:
 
-1. Align the verification library specs under `spx/34-verification.enabler/32-verify.enabler` from legacy command names to interface-neutral lifecycle operations consumed by the CLI surface.
+1. Align the verification library tests and source under `spx/34-verification.enabler/32-verify.enabler` from legacy command names to the interface-neutral lifecycle operations consumed by the CLI surface.
 2. Update the CLI descriptor and command handlers to expose `spx verification run`, including `scope add` and `finding add`.
 3. Add the L2 CLI tests that exercise Commander parsing for the noun-grouped command paths, selector placement, stdin input, payload source, and idempotency key.
-4. Remove legacy `spx verify` command paths without compatibility aliases.
+4. Remove legacy command paths without compatibility aliases.
 5. Run the CLI-surface release sequence after merge because this changes public CLI command vocabulary.
 
 ## Plugin-skill follow-up
