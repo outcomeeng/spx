@@ -347,7 +347,7 @@ export const VERIFY_TERMINAL_EVENT_FIELD = {
   TERMINAL_STATUS: "terminalStatus",
 } as const;
 
-/** The id prefix the terminal-completion event carries, deterministic per run so a repeated finish is idempotent. */
+/** The id prefix the terminal-completion event carries; with the run token it forms a stable per-run event id. Repeated-finish idempotency comes from the pre-append terminal-event check, not this id. */
 export const VERIFY_TERMINAL_EVENT_ID_PREFIX = "verify-terminal-";
 
 /**
