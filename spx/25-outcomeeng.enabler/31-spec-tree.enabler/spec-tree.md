@@ -1,5 +1,3 @@
-# Spec Tree
-
 PROVIDES Outcome Engineering graph semantics for artifacts represented by the Spec Tree methodology
 SO THAT graph, source, test, spec, and change ownership workflows
 CAN reason about product truth, verification evidence, source artifacts, and change records through one methodology model
