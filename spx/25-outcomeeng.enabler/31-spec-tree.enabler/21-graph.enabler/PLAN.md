@@ -27,7 +27,7 @@ The graph aggregate should own shared graph vocabulary and provider rules that m
 - provider fact normalization
 - garbage-collection candidate vocabulary
 
-Do not parse implementation source files in SPX. SPX parses Spec Tree Markdown to extract `[test](...)` links and consumes provider outputs for source, coverage, module, or import facts.
+Do not parse implementation source files in SPX. The spec/test graph boundary supplies declared `[test](...)` link facts, and the source graph consumes provider outputs for source, coverage, module, or import facts.
 
 ## First Slice
 
