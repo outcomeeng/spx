@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_MATCH_REASON,
   agentSearchQueryFromOptions,
@@ -22,17 +22,11 @@ import {
 } from "@testing/generators/agent/resume";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
-  claudeCodeTranscript,
-  claudeProjectTranscriptPath,
-  claudeSubagentTranscriptPath,
-  codexTranscript,
-  codexTranscriptPath,
   MemoryAgentSessionFileSystem,
+  writeClaudeProjectTranscriptFile,
+  writeClaudeSubagentTranscriptFile,
+  writeCodexTranscriptFile,
 } from "@testing/harnesses/agent/resume";
-
-function jsonlName(sessionId: string): string {
-  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
-}
 
 describe("agent session search scenarios", () => {
   it("finds product-scoped top-level sessions by pickup marker", async () => {
@@ -52,26 +46,34 @@ describe("agent session search scenarios", () => {
     const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 9);
     const subagentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10);
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
-      `${codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp })}\n${pickupMarker}`,
-      nowMs,
-    );
-    fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
-      `${claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp })}\n${pickupMarker}`,
-      nowMs - 1,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
-      `${codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp })}\n${pickupMarker}`,
-      nowMs,
-    );
-    fs.writeFile(
-      claudeSubagentTranscriptPath(homeDir, claudeCwd, jsonlName(subagentSessionId)),
-      `${claudeCodeTranscript({ sessionId: subagentSessionId, cwd: claudeCwd, timestamp })}\n${pickupMarker}`,
-      nowMs,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: codexSessionId,
+      cwd: codexCwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs,
+    });
+    writeClaudeProjectTranscriptFile(fs, homeDir, {
+      sessionId: claudeSessionId,
+      cwd: claudeCwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs - 1,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: foreignSessionId,
+      cwd: foreignCwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs,
+    });
+    writeClaudeSubagentTranscriptFile(fs, homeDir, {
+      sessionId: subagentSessionId,
+      cwd: claudeCwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs,
+    });
 
     const results = await searchAgentSessions({
       homeDir,
@@ -96,13 +98,13 @@ describe("agent session search scenarios", () => {
     const timestamp = new Date(nowMs).toISOString();
     const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), 24);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 25);
-    const sourcePath = codexTranscriptPath(homeDir, jsonlName(sessionId));
-
-    fs.writeFile(
-      sourcePath,
-      `${codexTranscript({ sessionId, cwd, timestamp })}\n${pickupIdSearchLiteral(pickupId)}`,
-      nowMs,
-    );
+    const sourcePath = writeCodexTranscriptFile(fs, homeDir, {
+      sessionId,
+      cwd,
+      timestamp,
+      marker: pickupIdSearchLiteral(pickupId),
+      modifiedAtMs: nowMs,
+    });
 
     const stdout: string[] = [];
     const program = createCliProgram({
@@ -158,16 +160,20 @@ describe("agent session search scenarios", () => {
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 37);
     const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 38);
 
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(sessionId)),
-      `${codexTranscript({ sessionId, cwd, timestamp })}\n${pickupMarker}`,
-      nowMs,
-    );
-    fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
-      `${codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp })}\n${pickupMarker}`,
-      nowMs,
-    );
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId,
+      cwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: foreignSessionId,
+      cwd: foreignCwd,
+      timestamp,
+      marker: pickupMarker,
+      modifiedAtMs: nowMs,
+    });
 
     const stdout: string[] = [];
     const stderr: string[] = [];
