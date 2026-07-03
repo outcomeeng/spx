@@ -1,5 +1,7 @@
 # Plan: Source adapter boundary review
 
+> **Reconcile against `spx/PLAN.md` first.** This source-adapter boundary was opened by the backend restructuring. The corrected model renames "materialization" to `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, and requires additive migration. Source-entry vocabulary remains logical spec-tree foundation behavior; filesystem walking over tracked `spx/` files may move under the local backend. Where this note predates that model, the root plan governs.
+
 This coordination note records the source-adapter boundary question opened by the materialization restructure.
 
 ## Current role
