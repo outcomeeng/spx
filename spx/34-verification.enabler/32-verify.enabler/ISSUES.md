@@ -57,6 +57,26 @@ verbs resolve a run from its journal without gating on the input record. The
 hydration path is outside the terminal-projection slice's diff, so this is
 tracked here rather than fixed in that change.
 
+## `status` next-actions advertise `append-finding` for a future validator-less verification type
+
+`projectVerifyRun` (`src/domains/verify/verify.ts`) reports `UNSEALED_NEXT_ACTIONS` — a
+static list including `append-finding` — for every unsealed run, regardless of verification
+type. `append-finding` rejects a verification type that registers no finding validator
+(`evidence-append.md` — "`append-finding` rejects a verification type that registers no
+finding validator"), so a launcher that followed `status` for such a type would attempt an
+action the API rejects.
+
+Not a current defect: the verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains
+only `review`, which registers a finding validator, so `append-finding` is legal for every
+run that can currently be constructed and the advertised next actions are correct. The gap
+surfaces only when a second verification type without a finding validator is added — the
+extension point the finding-validator registry
+(`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`) exists to
+support. Filtering `nextActions` by validator registration now would guard a branch no run can
+reach. Settle it with the work that adds the second verification type: decide whether
+`status`/`render` next actions filter `append-finding` by the run type's validator
+registration, and add the covering assertion then. Surfaced by codex on PR #346.
+
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
 `projectVerifyRun` (`src/domains/verify/verify.ts`) folds `sealed` from the
