@@ -352,10 +352,10 @@ describe("agent resume scope mappings", () => {
       nowMs - 2,
     );
 
-    const resolveWorktreeRoot = async (candidateCwd: string): Promise<string | null> => {
+    const resolveWorktreeRoot = async (candidateCwd: string): Promise<string> => {
       if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
       if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
-      return null;
+      return candidateCwd;
     };
     const cases: readonly { readonly scope: AgentResumeScope; readonly expected: readonly string[] }[] = [
       { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther] },

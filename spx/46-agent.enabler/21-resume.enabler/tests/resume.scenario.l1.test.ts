@@ -81,7 +81,7 @@ describe("agent resume discovery scenarios", () => {
       resolveWorktreeRoot: async (cwd) => {
         if (isPathInsideOrEqual(worktreeRoot, cwd)) return worktreeRoot;
         if (isPathInsideOrEqual(siblingRoot, cwd)) return siblingRoot;
-        return null;
+        return cwd;
       },
     });
 

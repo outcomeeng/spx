@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/46-agent.enabler/32-search.enabler/tests/search.compliance.l1.test.ts": "passed",
+      "spx/46-agent.enabler/32-search.enabler/tests/search.mapping.l1.test.ts": "passed",
+      "spx/46-agent.enabler/32-search.enabler/tests/search.scenario.l1.test.ts": "passed"
+    }
+  }
+}

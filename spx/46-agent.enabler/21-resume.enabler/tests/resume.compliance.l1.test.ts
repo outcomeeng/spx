@@ -41,8 +41,8 @@ function jsonlName(sessionId: string): string {
   return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
 }
 
-function worktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string | null> {
-  return async (candidateCwd) => (isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null);
+function worktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string> {
+  return async (candidateCwd) => (isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd);
 }
 
 describe("agent resume per-agent display cap compliance", () => {
@@ -122,7 +122,7 @@ describe("agent resume scope-reference resolution compliance", () => {
       fs,
       resolveWorktreeRoot: async (candidateCwd) => {
         resolveCallCount += 1;
-        return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null;
+        return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd;
       },
     });
 
@@ -227,7 +227,7 @@ describe("agent resume deduplication compliance", () => {
       resolveWorktreeRoot: async (candidateCwd) => {
         if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
         if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
-        return null;
+        return candidateCwd;
       },
     });
 
