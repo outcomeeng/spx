@@ -52,6 +52,31 @@ export const COMMIT_SUBJECTS_TEXT_ENCODING = "utf8";
 export const COMMIT_SUBJECTS_BINARY_ENCODING = "base64";
 
 const CARRIAGE_RETURN = "\r";
+const MARKDOWN_HEADING_PREFIX = "#";
+const MARKDOWN_FENCE_BACKTICK_CHARACTER = "`";
+const MARKDOWN_FENCE_TILDE_CHARACTER = "~";
+export const MARKDOWN_FENCE_BACKTICK_MARKER = "```";
+export const MARKDOWN_FENCE_TILDE_MARKER = "~~~";
+export const MARKDOWN_BLOCKQUOTE_PREFIX = ">";
+const MARKDOWN_FENCE_MINIMUM_LENGTH = 3;
+const MARKDOWN_MAX_MARKER_INDENTATION = 3;
+const SPACE = " ";
+
+interface MarkdownFence {
+  readonly marker: string;
+  readonly length: number;
+  readonly hasOnlyWhitespaceTail: boolean;
+}
+
+interface MarkdownHeading {
+  readonly index: number;
+  readonly text: string;
+}
+
+interface MarkdownHeadingScan {
+  readonly activeFence: MarkdownFence | undefined;
+  readonly heading: MarkdownHeading | undefined;
+}
 
 /** The Keep a Changelog per-release section heading for a version. */
 export function changelogVersionHeading(version: string): string {
@@ -167,15 +192,16 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
     );
   }
   const versionHeading = changelogVersionHeading(version);
-  const versionLineIndex = lines.findIndex((line) => line.startsWith(versionHeading));
-  if (versionLineIndex === -1) {
+  const headingLines = markdownHeadingLines(lines);
+  const versionHeadingLine = headingLines.find((line) => line.text.startsWith(versionHeading));
+  if (versionHeadingLine === undefined) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
     );
   }
   const allowedGroupHeadings = new Set(CHANGELOG_CHANGE_GROUPS.map((group) => changelogGroupHeading(group)));
-  const hasChangeGroup = releaseSectionLines(lines, versionLineIndex).some((line) =>
-    allowedGroupHeadings.has(line.trimEnd())
+  const hasChangeGroup = releaseSectionHeadings(headingLines, versionHeadingLine.index).some((line) =>
+    allowedGroupHeadings.has(line.text.trimEnd())
   );
   if (!hasChangeGroup) {
     throw new ReleaseNotesError(
@@ -191,12 +217,121 @@ function normalizeLineEnding(line: string | undefined): string | undefined {
 }
 
 /**
- * The current release's section lines: the lines after the version heading up to
+ * Markdown ATX headings outside fenced code and blockquotes. Only these headings
+ * participate in Keep a Changelog section validation, so example headings inside
+ * quoted text or code blocks cannot satisfy the written artifact contract.
+ */
+function markdownHeadingLines(lines: readonly string[]): readonly MarkdownHeading[] {
+  const headings: MarkdownHeading[] = [];
+  let activeFence: MarkdownFence | undefined;
+  for (const [index, rawLine] of lines.entries()) {
+    const line = normalizeLineEnding(rawLine) ?? "";
+    const scan = scanMarkdownHeadingLine(index, line, activeFence);
+    activeFence = scan.activeFence;
+    if (scan.heading !== undefined) {
+      headings.push(scan.heading);
+    }
+  }
+  return headings;
+}
+
+function scanMarkdownHeadingLine(
+  index: number,
+  line: string,
+  activeFence: MarkdownFence | undefined,
+): MarkdownHeadingScan {
+  const markerContent = markdownMarkerContent(line);
+  const parsedFence = markerContent === undefined ? undefined : parseMarkdownFence(markerContent);
+  if (activeFence !== undefined) {
+    return {
+      activeFence: closesMarkdownFence(activeFence, parsedFence) ? undefined : activeFence,
+      heading: undefined,
+    };
+  }
+  if (parsedFence !== undefined) {
+    return { activeFence: parsedFence, heading: undefined };
+  }
+  if (markerContent === undefined || markerContent.startsWith(MARKDOWN_BLOCKQUOTE_PREFIX)) {
+    return { activeFence: undefined, heading: undefined };
+  }
+  return {
+    activeFence: undefined,
+    heading: markerContent.startsWith(MARKDOWN_HEADING_PREFIX) ? { index, text: markerContent } : undefined,
+  };
+}
+
+function closesMarkdownFence(activeFence: MarkdownFence, parsedFence: MarkdownFence | undefined): boolean {
+  return (
+    parsedFence !== undefined
+    && parsedFence.marker === activeFence.marker
+    && parsedFence.length >= activeFence.length
+    && parsedFence.hasOnlyWhitespaceTail
+  );
+}
+
+function parseMarkdownFence(line: string): MarkdownFence | undefined {
+  const marker = markdownFenceMarker(line);
+  if (marker === undefined) {
+    return undefined;
+  }
+  const length = countLeadingMarkerCharacters(line, marker);
+  if (length < MARKDOWN_FENCE_MINIMUM_LENGTH) {
+    return undefined;
+  }
+  const tail = line.slice(length);
+  return { marker, length, hasOnlyWhitespaceTail: tail.trim().length === 0 };
+}
+
+function markdownFenceMarker(line: string): string | undefined {
+  if (line.startsWith(MARKDOWN_FENCE_BACKTICK_MARKER)) {
+    return MARKDOWN_FENCE_BACKTICK_CHARACTER;
+  }
+  if (line.startsWith(MARKDOWN_FENCE_TILDE_MARKER)) {
+    return MARKDOWN_FENCE_TILDE_CHARACTER;
+  }
+  return undefined;
+}
+
+function markdownMarkerContent(line: string): string | undefined {
+  const leadingSpaces = countLeadingSpaces(line);
+  if (leadingSpaces > MARKDOWN_MAX_MARKER_INDENTATION) {
+    return undefined;
+  }
+  return line.slice(leadingSpaces);
+}
+
+function countLeadingSpaces(line: string): number {
+  let count = 0;
+  for (const character of line) {
+    if (character !== SPACE) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function countLeadingMarkerCharacters(line: string, marker: string): number {
+  let count = 0;
+  for (const character of line) {
+    if (character !== marker) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+/**
+ * The current release's heading lines: headings after the version heading up to
  * the next version section, so a prior section's change-group heading in an
  * accumulating changelog does not satisfy the current release's validation.
  */
-function releaseSectionLines(lines: readonly string[], versionLineIndex: number): readonly string[] {
-  const afterVersion = lines.slice(versionLineIndex + 1);
-  const nextSectionOffset = afterVersion.findIndex((line) => line.startsWith(CHANGELOG_VERSION_SECTION_PREFIX));
+function releaseSectionHeadings(
+  headings: readonly MarkdownHeading[],
+  versionLineIndex: number,
+): readonly MarkdownHeading[] {
+  const afterVersion = headings.filter((heading) => heading.index > versionLineIndex);
+  const nextSectionOffset = afterVersion.findIndex((line) => line.text.startsWith(CHANGELOG_VERSION_SECTION_PREFIX));
   return nextSectionOffset === -1 ? afterVersion : afterVersion.slice(0, nextSectionOffset);
 }
