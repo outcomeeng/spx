@@ -12,10 +12,6 @@ spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engin
 
 **Backend.** A concrete adapter implementing a persistence or delivery contract — a local filesystem-and-git store, a hosted artifact store with its platform API, or a future hosted service. Backend is the implementation-axis term, orthogonal to the persistence categories and to delivery.
 
-**State.** A node's evidence-derived lifecycle standing — declared, specified, failing, or passing — which changes in a moment. State is not persistence.
-
-**Status.** A backend-owned label mapped into product state, query, and selection semantics, staying backend-qualified when it belongs to one backend.
-
 ## Rationale
 
 Shared vocabulary lets backends, delivery targets, and surfaces map their private mechanics into one product model instead of redefining the model per storage format, projection target, command family, or agent workflow. Separating persistence, delivery, and backend keeps a retained artifact's category, its projection to an external surface, and the adapter implementing either from collapsing into one term. Reserving new methodology terms at the product-wide decision layer keeps lower nodes from treating local implementation labels as durable product semantics.
@@ -23,7 +19,7 @@ Shared vocabulary lets backends, delivery targets, and surfaces map their privat
 ## Product properties
 
 1. A methodology term has one owning product-wide definition before lower specs, backends, delivery targets, surfaces, or workflow notes use it as product vocabulary.
-2. Persistence, delivery, and backend are orthogonal: a spec addresses a persistence category (records, journals, or snapshots) or a delivery separately from the backend implementing that contract, and a backend-owned status label maps into shared state, query, and selection semantics while staying backend-qualified when it belongs to one backend.
+2. Persistence, delivery, and backend are orthogonal: a spec addresses a persistence category (records, journals, or snapshots) or a delivery separately from the backend implementing that contract, and a backend-owned status label maps into shared state, status, query, and selection semantics while staying backend-qualified when it belongs to one backend.
 3. `surface` is a reserved product concept until filename grammar, kind registry, validation, and naming-schema versioning admit `.surface` as a valid node suffix.
 
 ## Verification
