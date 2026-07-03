@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS } from "@/domains/agent/protocol";
+import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 const SAMPLE_SEED = 46_210;
@@ -17,6 +18,9 @@ const MAX_AGENT_LAUNCH_EXIT_CODE = 255;
 const OVER_CAP_EXTRA_MIN = 1;
 const OVER_CAP_EXTRA_MAX = 3;
 const BRANCH_SEGMENT_JOINER = "/";
+const AGENT_SEARCH_UNSAFE_LIMIT_PREFIX = "limit";
+const AGENT_SEARCH_PARTIAL_NUMERIC_LIMIT_PREFIX = "1";
+const DECIMAL_DIGIT_PATTERN = /^[0-9]+$/;
 
 export function sampleAgentResumeValue<T>(arbitrary: fc.Arbitrary<T>, seedOffset = 0): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED + seedOffset, numRuns: SAMPLE_RUN_COUNT });
@@ -61,4 +65,15 @@ export function arbitraryAgentResumeRecentOffsetMs(): fc.Arbitrary<number> {
 
 export function arbitraryAgentLaunchExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_AGENT_LAUNCH_EXIT_CODE, max: MAX_AGENT_LAUNCH_EXIT_CODE });
+}
+
+export function arbitraryUnsafeAgentSearchLimit(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral()
+    .map((literal) => `${AGENT_SEARCH_UNSAFE_LIMIT_PREFIX}${String.fromCodePoint(CONTROL_CHAR_UPPER_BOUND)}${literal}`);
+}
+
+export function arbitraryPartialNumericAgentSearchLimit(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral()
+    .filter((literal) => !DECIMAL_DIGIT_PATTERN.test(literal))
+    .map((literal) => `${AGENT_SEARCH_PARTIAL_NUMERIC_LIMIT_PREFIX}${literal}`);
 }

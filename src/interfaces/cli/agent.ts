@@ -1,20 +1,28 @@
 import { inspect } from "node:util";
 
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 
 import {
   type AgentResumeCommandDeps,
   type AgentResumeCommandOptions,
+  type AgentSearchCommandDeps,
   jsonAgentResumeSessions,
+  jsonAgentSearchSessions,
   listAgentResumeSessions,
+  listAgentSearchSessions,
   loadAgentResumeCandidates,
 } from "@/commands/agent";
 import {
   AGENT_RESUME_MODE,
   AGENT_RESUME_TEXT,
+  AGENT_SEARCH_DEFAULT_LIMIT,
+  AGENT_SESSION_KIND,
   type AgentResumeCandidate,
   type AgentResumeMode,
   type AgentResumeScope,
+  agentSearchQueryFromOptions,
+  type AgentSearchQueryOptions,
+  type AgentSessionKind,
   branchResumeScope,
   buildAgentResumeLaunchCommand,
   resolveAgentResumeMode,
@@ -23,6 +31,7 @@ import {
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
@@ -34,14 +43,26 @@ import {
 export const AGENT_CLI = {
   commandName: "agent",
   resumeCommandName: "resume",
+  searchCommandName: "search",
   flags: {
     latest: "--latest",
     list: "--list",
     json: "--json",
     branch: "--branch",
+    all: "--all",
+    pickupId: "--pickup-id",
+    contains: "--contains",
+    sessionId: "--session-id",
+    agent: "--agent",
+    limit: "--limit",
   },
   optionArgs: {
     branch: "--branch <name>",
+    pickupId: "--pickup-id <id>",
+    contains: "--contains <literal>",
+    sessionId: "--session-id <id>",
+    agent: "--agent <kind>",
+    limit: "--limit <count>",
   },
 } as const;
 
@@ -52,6 +73,7 @@ export const AGENT_CLI_EXIT = {
 
 export interface AgentCliDependencies {
   readonly resumeDeps?: AgentResumeCommandDeps;
+  readonly searchDeps?: AgentSearchCommandDeps;
   readonly isInteractiveTerminal: () => boolean;
   readonly pickCandidate: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
   readonly launchCandidate: (candidate: AgentResumeCandidate) => Promise<number>;
@@ -62,6 +84,17 @@ export interface AgentResumeCliOptions {
   readonly list?: boolean;
   readonly json?: boolean;
   readonly branch?: string;
+}
+
+export interface AgentSearchCliOptions {
+  readonly json?: boolean;
+  readonly pickupId?: string;
+  readonly contains?: string;
+  readonly sessionId?: string;
+  readonly branch?: string;
+  readonly agent?: AgentSessionKind;
+  readonly all?: boolean;
+  readonly limit: number;
 }
 
 const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
@@ -75,6 +108,8 @@ const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
     );
   },
 };
+
+const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 
 function writeOutput(invocation: CliInvocation, output: string): void {
   invocation.io.writeStdout(`${output}\n`);
@@ -92,6 +127,29 @@ function handleError(invocation: CliInvocation, error: unknown): never {
 
 function resumeScopeFromOptions(options: AgentResumeCliOptions): AgentResumeScope {
   return options.branch === undefined ? worktreeResumeScope() : branchResumeScope(options.branch);
+}
+
+function parseSearchLimit(value: string): number {
+  if (!POSITIVE_DECIMAL_INTEGER_PATTERN.test(value)) {
+    throw new Error(`agent search limit must be a positive integer: ${sanitizeCliArgument(value)}`);
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`agent search limit must be a positive integer: ${sanitizeCliArgument(value)}`);
+  }
+  return parsed;
+}
+
+function searchQueryFromOptions(options: AgentSearchCliOptions): AgentSearchQueryOptions {
+  return {
+    pickupId: options.pickupId,
+    contains: options.contains,
+    sessionId: options.sessionId,
+    branch: options.branch,
+    agent: options.agent,
+    all: options.all,
+    limit: options.limit,
+  };
 }
 
 async function dispatchInteractiveResume(
@@ -136,12 +194,14 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
           let requestedExitCode: number = AGENT_CLI_EXIT.SUCCESS;
           try {
             const mode = resolveAgentResumeMode(options);
+            const productContext = invocation.resolveProductContext();
             if (mode === AGENT_RESUME_MODE.PICK && !resolvedDeps.isInteractiveTerminal()) {
               writeError(invocation, AGENT_RESUME_TEXT.INTERACTIVE_REQUIRED);
               requestedExitCode = AGENT_CLI_EXIT.FAILURE;
             } else {
               const commandOptions: AgentResumeCommandOptions = {
-                cwd: invocation.resolveEffectiveInvocationDir(),
+                cwd: productContext.effectiveInvocationDir,
+                fallbackWorktreeRoot: productContext.productDir,
                 scope: resumeScopeFromOptions(options),
                 deps: resolvedDeps.resumeDeps,
               };
@@ -160,6 +220,37 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
             handleError(invocation, error);
           }
           return invocation.io.exit(requestedExitCode);
+        });
+      agentCmd
+        .command(AGENT_CLI.searchCommandName)
+        .description("Search Codex and Claude Code agent session transcripts for this product")
+        .option(AGENT_CLI.optionArgs.pickupId, "Search for an exact SPX pickup marker")
+        .option(AGENT_CLI.optionArgs.contains, "Search transcript content for a literal string")
+        .option(AGENT_CLI.optionArgs.sessionId, "Search for an agent session id")
+        .option(AGENT_CLI.optionArgs.branch, "Search for sessions started on the named branch")
+        .addOption(
+          new Option(AGENT_CLI.optionArgs.agent, "Search only one agent kind")
+            .choices([AGENT_SESSION_KIND.CODEX, AGENT_SESSION_KIND.CLAUDE_CODE]),
+        )
+        .option(AGENT_CLI.flags.all, "Include sessions outside the recent-session window")
+        .option(AGENT_CLI.optionArgs.limit, "Maximum number of results", parseSearchLimit, AGENT_SEARCH_DEFAULT_LIMIT)
+        .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
+        .action(async (options: AgentSearchCliOptions) => {
+          try {
+            const productContext = invocation.resolveProductContext();
+            const commandOptions = {
+              cwd: productContext.effectiveInvocationDir,
+              fallbackProductScopeRoot: productContext.productDir,
+              query: agentSearchQueryFromOptions(searchQueryFromOptions(options)),
+              deps: resolvedDeps.searchDeps,
+            };
+            const output = options.json === true
+              ? await jsonAgentSearchSessions(commandOptions)
+              : await listAgentSearchSessions(commandOptions);
+            writeOutput(invocation, output);
+          } catch (error) {
+            handleError(invocation, error);
+          }
         });
     },
   };

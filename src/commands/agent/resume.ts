@@ -17,11 +17,12 @@ export interface AgentResumeCommandDeps {
   readonly fs: AgentSessionFileSystem;
   readonly homeDir: () => string;
   readonly nowMs: () => number;
-  readonly resolveWorktreeRoot: (cwd: string) => Promise<string | null>;
+  readonly resolveWorktreeRoot: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
 }
 
 export interface AgentResumeCommandOptions {
   readonly cwd: string;
+  readonly fallbackWorktreeRoot: string;
   readonly scope: AgentResumeScope;
   readonly deps?: AgentResumeCommandDeps;
 }
@@ -55,9 +56,9 @@ export const defaultAgentResumeCommandDeps: AgentResumeCommandDeps = {
   fs: nodeAgentSessionFileSystem,
   homeDir: homedir,
   nowMs: Date.now,
-  resolveWorktreeRoot: async (cwd) => {
+  resolveWorktreeRoot: async (cwd, _fallbackWorktreeRoot) => {
     const result = await detectWorktreeProductRoot(cwd);
-    return result.isGitRepo ? result.productDir : null;
+    return result.productDir;
   },
 };
 
@@ -71,7 +72,7 @@ export async function loadAgentResumeCandidates(
     nowMs: deps.nowMs(),
     scope: options.scope,
     fs: deps.fs,
-    resolveWorktreeRoot: deps.resolveWorktreeRoot,
+    resolveWorktreeRoot: (cwd) => deps.resolveWorktreeRoot(cwd, options.fallbackWorktreeRoot),
   });
 }
 

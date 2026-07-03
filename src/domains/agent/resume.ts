@@ -382,7 +382,7 @@ function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean
   return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
 }
 
-function parseCodexHead(head: string): AgentSessionHead | null {
+export function parseCodexHead(head: string): AgentSessionHead | null {
   for (const line of head.split("\n")) {
     const row = parseJsonObject(line);
     if (row === null) {
@@ -439,7 +439,7 @@ function isCodexInteractive(originator: string | null, threadSource: string | nu
 // Claude Code records the working directory and session id on the opening rows
 // but the branch on a later row, so the metadata head is scanned for the first
 // non-null value of each field rather than read from a single row.
-function parseClaudeHead(head: string): AgentSessionHead | null {
+export function parseClaudeHead(head: string): AgentSessionHead | null {
   let sessionId: string | null = null;
   let cwd: string | null = null;
   let branch: string | null = null;
