@@ -10,7 +10,7 @@ Agents cannot reliably place work, and the failures are structural:
 
 - **Library vs surface is decided fresh each time.** Five domains independently arrived at the thin-CLI-wrapper pattern — `spx/16-config.enabler/21-config-cli.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/38-worktree.enabler/43-worktree-cli.enabler`, `spx/41-validation.enabler/21-validation-cli.enabler`, and `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` — each at a different index, under a different parent, with a different local name. The pattern works but is not structurally enforced, so nothing forces a new domain onto it.
 - **The catalyst that tried to fix this made it worse, and that is the anti-pattern to correct.** The verification-owned journal had no CLI-wrapper child; its spec declared seven verbs (`open`, `append`, `read`, `seal`, `render`, `list`, `read-set`) while its governing decision declared a five-verb invariant, framing the journal as substrate beneath `spx verify`. The catalyst slice "fixed" this by moving the whole journal node **wholesale** into `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/` — carrying its persistence logic (`src/domains/journal/`: run-state, run-scope, backend selection) and its substrate decision (`11-journal-channel.adr.md`) into the surface layer. That directly violates the surface contract (`spx/60-surfaces.enabler/surfaces.md`: *a surface node never owns product-library semantics*). The correct operation is to split a fused node **in place** and move only the thin wrapper up; a functional node is never moved wholesale.
-- **Logic that belongs in SPX is stop-gapped in plugin Python.** The plugin's `12-shipped-scripting.adr.md` decides that proven, test-bearing logic lives in the `spx` CLI, consumed as a trusted third party. The plugin's `project-run-journal` skill projection (`journal_projection.py` and siblings) is an explicit stop-gap "until review-specific validation moves into SPX." So the verification projection/validation/classification is SPX-destined; the CLI must own it.
+- **Logic that belongs in SPX is stop-gapped in plugin Python.** The plugin's `12-shipped-scripting.adr.md` decides that proven, test-bearing logic lives in SPX, consumed as a trusted third party through its command surface. The plugin's `project-run-journal` skill projection (`journal_projection.py` and siblings) is an explicit stop-gap "until review-specific validation moves into SPX." So verification projection, validation, and classification are SPX-destined library or use-case behavior; the CLI surface exposes that behavior without owning it.
 
 ## The corrected model
 
@@ -43,17 +43,18 @@ flowchart TB
     SNP["snapshots (derived)<br/>projections / latest views<br/>e.g. spx.status.json"]
   end
 
-  subgraph DeliveryLayer["delivery — projection to external surfaces (spx/21-...-result-delivery; ephemeral, not persisted for its own sake)"]
+  subgraph DeliveryLayer["delivery — projection output to external surfaces (spx/21-...-result-delivery; ephemeral, not persisted for its own sake)"]
     DLV["result-delivery<br/>terminal · PR comment · MR note · observability sink"]
   end
 
-  subgraph Backend["backend — adapter implementations of persistence & delivery (retires 'materialization')"]
+  subgraph Backend["backend — adapter implementations of persistence & delivery contracts (retires 'materialization')"]
     LOC["local: filesystem + git + .spx/"]
     GHB["github: artifact store · PR API · cache"]
     FUT["hosted / SQLite / … (future)"]
   end
 
   MECH["13-cli.enabler<br/>sanitization · process lifecycle"]
+  INFRA["21-infrastructure.enabler<br/>low-index substrate:<br/>runtime · Actions mechanics · process/tooling"]
 
   CLIwrap -->|"cross-library commands"| App
   CLIwrap -->|"most commands wrap one library directly"| Libraries
@@ -70,17 +71,18 @@ flowchart TB
   ST -.projects.-> DeliveryLayer
   VER -.projects.-> DeliveryLayer
 
-  Persistence --> Backend
-  DeliveryLayer --> Backend
+  Backend -->|"implements contract"| Persistence
+  Backend -->|"implements contract"| DeliveryLayer
+  Backend -->|"depends on substrate"| INFRA
 ```
 
 Three orthogonal concerns sit below the domain libraries. The catalyst's core mistake was conflating them:
 
 - **persistence** — retained product artifacts and their backend addressing, in three semantic categories: **records** (primary durable records with query / claim / status / retention — `changes`, `sessions`), **journals** (primary append-only event histories), and **snapshots** (durable views *derived* from another source — e.g. `spx.status.json`). Persistence survives until removed or garbage-collected — a GitHub artifact lives 90 days, a local run-journal until GC. It is **not** `state`: a node's lifecycle state (declared / specified / passing) flips in a moment. Persistence currently lives, mis-named, in `spx/18-state.enabler` — the rename target is `spx/18-persistence.enabler`.
-- **delivery** — projection of state to external, user-facing surfaces (terminal output, GitHub PR comment, GitLab MR note, observability sink). Ephemeral: it survives only in the external surface, never persisted for its own sake. It is `spx/21-infrastructure.enabler/21-result-delivery.enabler`.
-- **backend** — the concrete adapter implementing a persistence or delivery contract (local filesystem + git + `.spx/`; GitHub artifact store + PR API + cache; future hosted). `backend` is already reserved product vocabulary in `spx/11-methodology-vocabulary.pdr.md`; adopting it here retires `materialization`. It is orthogonal to the persistence categories and to delivery. (A future `impl` axis — distinct front-end implementations, e.g. one terminal-styling library versus another — is imaginable but not modeled now.)
+- **delivery** — projection output to external, user-facing surfaces (terminal output, GitHub PR comment, GitLab MR note, observability sink). Ephemeral: it survives only in the external surface, never persisted for its own sake. It is `spx/21-infrastructure.enabler/21-result-delivery.enabler`.
+- **backend** — the concrete adapter implementing a persistence or delivery contract (local filesystem + git + `.spx/`; GitHub artifact store + PR API + cache; future hosted). `backend` is already reserved product vocabulary in `spx/11-methodology-vocabulary.pdr.md`; adopting it here retires `materialization`. It is orthogonal to the persistence categories and to delivery. Backends consume their persistence or delivery contracts and consume low-index infrastructure substrate such as GitHub Actions mechanics; backend semantics are not owned by the infrastructure node that supplies the substrate. (A future `impl` axis — distinct front-end implementations, e.g. one terminal-styling library versus another — is imaginable but not modeled now.)
 
-**persistence × backend is a matrix.** A journal on the local backend is `spx/18-state.enabler/71-appendable-journal-store.enabler`; a journal on the github backend is `spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler`; the abstract append-only port is `spx/15-agent-run-journal.enabler`. `changes` (`.spx/changes/`) and `sessions` are **records**, not snapshots — primary durable records, each with its own backend addressing. `spx.status.json` is a **snapshot** (derived from test evidence), and snapshot-as-a-category is under-built today — the derived current-values are scattered with no unified snapshot store. The former `.spx/reviews/` thread-store is dead and not part of this. Note that `21-snapshot-adapter.enabler` currently does two jobs — persist a run to an Actions artifact (**persistence**) *and* render its projection to a PR comment (**delivery**); the delivery/persistence line runs straight through it, so the target splits it.
+**persistence × backend is a matrix.** A journal on the local backend is `spx/18-state.enabler/71-appendable-journal-store.enabler`; a journal on the GitHub backend currently sits at `spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler`, which is a current misplacement: it depends on GitHub infrastructure substrate and must move under the future persistence/backend owner. The abstract append-only port is `spx/15-agent-run-journal.enabler`. `changes` (`.spx/changes/`) and `sessions` are **records**, not snapshots — primary durable records, each with its own backend addressing. `spx.status.json` is a **snapshot** (derived from test evidence), and snapshot-as-a-category is under-built today — the derived current-values are scattered with no unified snapshot store. The former `.spx/reviews/` thread-store is dead and not part of this. Note that `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler` currently does two jobs — persist a run to an Actions artifact (**persistence**) *and* render its projection to a PR comment (**delivery**); the delivery/persistence line runs straight through it, so the target splits it and moves each backend half under the owner whose contract it implements.
 
 **Methodology vocabulary (`spx/11-methodology-vocabulary.pdr.md` update).** The restructuring retunes the reserved terms: `state` = node/evidence-derived product state; `status` = a backend or projection label mapped into product semantics; `persistence` = the retained-artifact model and backend addressing (records / journals / snapshots); `backend` = an implementation of a persistence or delivery contract; `delivery` = external presentation of a projection; `materialization` is removed or sharply narrowed. Amending that PDR is part of the foundation step, not this note.
 
@@ -122,13 +124,13 @@ The classification ("passing only when every linked reference passes; any unexec
 
 ## Migration policy: additive, never wholesale
 
-Build the target infrastructure first, migrate consumers (including plugin skills) onto it, then retire the old — always additive. Never move a functional, shared node wholesale; that bricks the skills mid-flight, as the catalyst did. The `.surface` node type — which the changes plan and the methodology vocabulary anticipate — is **deferred**: it is low value and highly disruptive (spec-tree filename grammar, kind registry, validation, naming-schema version), so it is not an early step. The surface layer stays `.enabler`-typed (`spx/60-surfaces.enabler`) until `.surface` earns its place.
+Build the target infrastructure first, migrate consumers (including plugin skills) onto it, then retire the old — always additive. Never move a functional, shared node wholesale; that bricks the skills mid-flight, as the catalyst did. The `.surface` node type — which the changes plan and the methodology vocabulary anticipate — is **deferred**: it is low value and highly disruptive (spec-tree filename grammar, kind registry, validation, naming-schema version), so it is not an early step. The surface layer stays `.enabler`-typed (`spx/60-surfaces.enabler`) until `.surface` is worth the migration cost.
 
 ## Delivery order
 
 1. **This plan + its descendant-PLAN updates merge first.** (This PR.)
 2. **The changes domain** — net-new, non-disruptive, the worked example. Build `change-store` + its worktree records backend + `.spx/changes/` scope addressing (`spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md` steps 3, 4, 6), deferring the `.surface` CLI. Touches no live journal / verify / skill infrastructure.
-3. **Persistence + verification foundation** (additive): name and lift `records` / `journals` / `snapshots` into a top-level persistence concern orthogonal to verification (rename `spx/18-state.enabler` → `spx/18-persistence.enabler`); finish `spx verify` (`spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler`) as the SPX projection/validation home; migrate the plugin skills off their Python stop-gap; then retire the journal's surface misplacement and split `21-snapshot-adapter.enabler` into its persistence and delivery halves.
+3. **Persistence + verification foundation** (additive): name and lift `records` / `journals` / `snapshots` into a top-level persistence concern orthogonal to verification (rename `spx/18-state.enabler` → `spx/18-persistence.enabler`); finish `spx verify` (`spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler`) as the SPX projection/validation home; migrate the plugin skills off their Python stop-gap; then retire the journal's surface misplacement, move GitHub persistence backend semantics out of `spx/21-infrastructure.enabler/43-github-ci.enabler`, and split `spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler` into its persistence and delivery halves.
 4. **Surface wrapper migration**: move the genuinely-thin CLI wrappers (config, session, validation, worktree) into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, one reviewable slice each; split `spec-cli-commands` and `verify` so only the thin binding moves and the use-case / library behavior stays.
 5. Index re-settlement, the `.surface` node type, and the `author-cli-domain` / `audit-cli-domain` skill pair, once their prerequisites exist.
 
@@ -168,7 +170,7 @@ Every node-local `PLAN.md`, so future syncs are a checklist. **R** = restructuri
 | `spx/17-file-inclusion.enabler/PLAN.md`                                                         | I    | file-inclusion path filters                                                                |
 | `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/PLAN.md`                          | I    | domain path filters                                                                        |
 | `spx/18-state.enabler/PLAN.md`                                                                  | R    | mis-named persistence home (rename → `spx/18-persistence.enabler`); persistence lifts here |
-| `spx/21-infrastructure.enabler/PLAN.md`                                                         | R    | infra parent (delivery + github-ci backends)                                               |
+| `spx/21-infrastructure.enabler/PLAN.md`                                                         | R    | low-index substrate; GitHub backend semantics move out                                     |
 | `spx/21-infrastructure.enabler/11-atomic-file-write.enabler/PLAN.md`                            | I    | atomic file write                                                                          |
 | `spx/21-infrastructure.enabler/21-result-delivery.enabler/PLAN.md`                              | R    | the `delivery` layer                                                                       |
 | `spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/PLAN.md`                        | I    | code-quality analysis                                                                      |
@@ -176,10 +178,10 @@ Every node-local `PLAN.md`, so future syncs are a checklist. **R** = restructuri
 | `spx/23-spec-tree.enabler/24-materialization.enabler/PLAN.md`                                   | R    | `backend` layer (rename); persistence/backend split                                        |
 | `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler/PLAN.md` | R    | local `backend`                                                                            |
 | `spx/23-spec-tree.enabler/24-materialization.enabler/32-executable-operations.enabler/PLAN.md`  | R    | executable operations under `backend`                                                      |
-| `spx/23-spec-tree.enabler/32-spec-tree-source.enabler/PLAN.md`                                  | I    | source records (mentions materialization in passing)                                       |
+| `spx/23-spec-tree.enabler/32-spec-tree-source.enabler/PLAN.md`                                  | R    | source adapter boundary opened by backend restructuring                                    |
 | `spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/PLAN.md`                          | I    | skill-conformance oracle                                                                   |
 | `spx/23-spec-tree.enabler/76-node-state-derivation.enabler/PLAN.md`                             | R    | node-state (volatile) vs persistence naming                                                |
-| `spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/PLAN.md`                              | I    | projection contract                                                                        |
+| `spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/PLAN.md`                              | R    | projection contract depends on state/backend boundaries                                    |
 | `spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md`                                          | R    | the exemplar and first build; `.surface` deferred                                          |
 | `spx/26-release.enabler/21-release-data.enabler/PLAN.md`                                        | I    | release data                                                                               |
 | `spx/26-release.enabler/32-release-notes.enabler/PLAN.md`                                       | I    | release notes                                                                              |

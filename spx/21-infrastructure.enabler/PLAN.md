@@ -1,6 +1,6 @@
 # Plan: Runtime decision relocation
 
-> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. This infra parent holds the `delivery` layer and the github-ci backends. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. Infrastructure is low-index substrate: it owns runtime, workflow, process, and GitHub Actions mechanics. GitHub persistence or delivery backend semantics currently under this subtree are current misplacements that depend on this substrate and move to the future backend owner. Where this note predates that model, the root plan governs.
 
 ## Harness vocabulary guard
 
