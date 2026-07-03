@@ -10,7 +10,7 @@ The graph slices are ordered by truth flow:
 
 | Slice               | Dependency role  | Reason                                                                                                     |
 | ------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| `21-spec.enabler`   | Provider         | The spec graph is durable product truth: nodes, decisions, assertions, and declared test links.            |
+| `21-spec.enabler`   | Provider         | The spec graph is durable product truth: nodes, decisions, assertions, and declared evidence links.        |
 | `32-test.enabler`   | Consumer of spec | Tests derive their meaning from spec assertions and evidence links.                                        |
 | `43-source.enabler` | Consumer of test | Source ownership is established from spec-linked tests plus language/provider facts.                       |
 | `change.enabler`    | Deferred         | Change graph placement needs a later decomposition against `spx/25-outcomeeng.enabler/31-changes.enabler`. |
@@ -27,7 +27,7 @@ The graph aggregate should own shared graph vocabulary and provider rules that m
 - provider fact normalization
 - garbage-collection candidate vocabulary
 
-Do not parse implementation source files in SPX. The tree-provider boundary supplies declared `[test](...)` link facts to the spec/test graph boundary, and the source graph consumes provider outputs for source, coverage, module, or import facts.
+Do not parse implementation source files in SPX. The tree-provider boundary supplies declared evidence-link facts to the spec graph boundary; the test graph consumes test evidence-link facts, and the source graph consumes provider outputs for source, coverage, module, or import facts.
 
 ## First Slice
 

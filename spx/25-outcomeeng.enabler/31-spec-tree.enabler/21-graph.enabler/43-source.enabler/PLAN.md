@@ -6,7 +6,7 @@
 
 Create the Outcome Engineering source graph slice: a graph over implementation source artifacts that explains which files are owned by durable product truth, which files are covered without ownership, which files are only reachable, and which files are unowned garbage-collection candidates.
 
-SPX must not parse implementation files in the source graph. The spec/test graph boundary supplies declared `[test](...)` link facts from product truth. Language-specific providers supply source facts from established tooling.
+SPX must not parse implementation files in the source graph. The spec/test graph boundary supplies declared test evidence-link facts from product truth. Language-specific providers supply source facts from established tooling.
 
 ## Decomposition
 
@@ -51,7 +51,7 @@ The first provider set should use established tools instead of SPX parsing imple
 Provider output is evidence, not ownership authority. Ownership authority is:
 
 ```text
-spec assertion -> declared test-link fact -> linked test file -> provider facts -> source ownership classification
+spec assertion -> declared test evidence-link fact -> linked test file -> provider facts -> source ownership classification
 ```
 
 ## Authoring Plan
@@ -70,7 +70,7 @@ After authoring produces the source graph assertions:
 
 1. Invoke `/apply spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler`.
 2. Use `/test` and the TypeScript testing skill to create the first deterministic evidence.
-3. Implement the first slice in TypeScript by consuming declared test-link facts and provider-style facts through injected provider fixtures.
+3. Implement the first slice in TypeScript by consuming declared test evidence-link facts and provider-style facts through injected provider fixtures.
 4. Keep language/tool provider implementation behind a registry-style contract that mirrors validation's explicit descriptor pattern.
 5. Run the TypeScript architecture, test, and code audit gates until APPROVED.
 6. Run changes-reviewer over the whole changeset because this work crosses graph, test, and provider boundaries.
@@ -80,7 +80,7 @@ After authoring produces the source graph assertions:
 ## Acceptance
 
 - Source ownership is explained through graph semantics under Outcome Engineering, not as a `spx/23-spec-tree.enabler` library detail.
-- Source graph operations consume declared `[test](...)` link facts and do not parse implementation source files.
+- Source graph operations consume declared test evidence-link facts and do not parse implementation source files.
 - Language-specific source facts enter through provider descriptors and normalized provider output.
 - TypeScript, Python, and Rust providers are independent peers that share the ownership model, provider contract, and normalization substrate.
 - Garbage-collection candidates are derived from the source graph, not from a language import graph alone.
