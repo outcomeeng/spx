@@ -1,17 +1,18 @@
 import * as fc from "fast-check";
 
-import {
-  CHANGELOG_CHANGE_GROUPS,
-  CHANGELOG_TITLE,
-  type ChangelogChangeGroup,
-  changelogGroupHeading,
-  changelogVersionHeading,
-} from "@/domains/release/release-notes";
-
 const LINE_SEPARATOR = "\n";
 const BLANK_LINE = "";
 const ENTRY_PREFIX = "- ";
 const EMPTY_CHANGELOG = "";
+const ORACLE_CHANGELOG_TITLE = "# Changelog";
+const ORACLE_CHANGELOG_VERSION_SECTION_PREFIX = "## [";
+const ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX = "]";
+const ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX = "### ";
+const ORACLE_CHANGELOG_CHANGE_GROUPS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
+const ORACLE_MARKDOWN_BLOCKQUOTE_PREFIX = ">";
+const ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER = "```";
+const ORACLE_MARKDOWN_FENCE_TILDE_MARKER = "~~~";
+const MALFORMED_FENCE_TAIL = "note";
 
 const CHANGELOG_DIR_PATTERN = /^[a-z][a-z0-9-]{2,8}$/;
 const CHANGELOG_BASENAME_PATTERN = /^[A-Z][A-Z0-9-]{2,10}$/;
@@ -21,6 +22,8 @@ const PARENT_DIRECTORY = "..";
 const ABSOLUTE_ROOT = "/";
 const BLANK_PATH_CHARACTER_MAX_COUNT = 16;
 const CURRENT_DIRECTORY = ".";
+
+type OracleChangelogChangeGroup = (typeof ORACLE_CHANGELOG_CHANGE_GROUPS)[number];
 
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
@@ -70,36 +73,44 @@ function formatEntries(subjects: readonly string[]): string {
 }
 
 function conformantChangelogWith(
-  group: ChangelogChangeGroup,
+  group: OracleChangelogChangeGroup,
   version: string,
   subjects: readonly string[],
 ): string {
   return [
-    CHANGELOG_TITLE,
+    ORACLE_CHANGELOG_TITLE,
     BLANK_LINE,
-    changelogVersionHeading(version),
-    changelogGroupHeading(group),
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(group),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
 }
 
+function oracleChangelogVersionHeading(version: string): string {
+  return `${ORACLE_CHANGELOG_VERSION_SECTION_PREFIX}${version}${ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX}`;
+}
+
+function oracleChangelogGroupHeading(group: OracleChangelogChangeGroup): string {
+  return `${ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX}${group}`;
+}
+
 /**
  * A conformant Keep a Changelog body for `version`: the title, a version section,
- * and the release's commit subjects grouped under a source-owned change group.
- * Draws the group from the source-owned set so a sample exercises any group.
+ * and the release's commit subjects grouped under a Keep a Changelog group.
+ * Draws the group from the independent oracle set so a sample exercises any group.
  */
 export function arbitraryConformantChangelog(
   version: string,
   subjects: readonly string[],
 ): fc.Arbitrary<string> {
   return fc
-    .constantFrom(...CHANGELOG_CHANGE_GROUPS)
+    .constantFrom(...ORACLE_CHANGELOG_CHANGE_GROUPS)
     .map((group) => conformantChangelogWith(group, version, subjects));
 }
 
-/** The source-owned change group the non-conformant cases use where a group heading must be present. */
-const SAMPLE_CHANGE_GROUP = CHANGELOG_CHANGE_GROUPS[0];
+/** The oracle change group the non-conformant cases use where a group heading must be present. */
+const SAMPLE_CHANGE_GROUP = ORACLE_CHANGELOG_CHANGE_GROUPS[0];
 
 /** A suffix that makes a prior release's version heading distinct from the current one's. */
 const PRIOR_VERSION_SUFFIX = "-prior";
@@ -113,6 +124,37 @@ const DEEPER_HEADING_HASH = "#";
 /** Extra title text, for the case where the first heading is not exactly the Keep a Changelog title. */
 const TITLE_SUFFIX = " (draft)";
 const TITLE_TRAILING_WHITESPACE = " ";
+const BLOCKQUOTE_SEPARATOR = " ";
+const INDENTED_CODE_PREFIX = "    ";
+
+function blockquoteLine(line: string): string {
+  return `${ORACLE_MARKDOWN_BLOCKQUOTE_PREFIX}${BLOCKQUOTE_SEPARATOR}${line}`;
+}
+
+function indentedCodeLine(line: string): string {
+  return `${INDENTED_CODE_PREFIX}${line}`;
+}
+
+/**
+ * A conformant Keep a Changelog body whose release section contains literal
+ * backtick-fence text as indented code before and after the real change-group
+ * heading. The literal lines must not alter heading recognition.
+ */
+export function conformantChangelogWithIndentedFenceText(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    indentedCodeLine(ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    indentedCodeLine(ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
 
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
@@ -133,8 +175,8 @@ export function nonConformantChangelogCases(
   subjects: readonly string[],
 ): readonly NonConformantChangelogCase[] {
   const entries = formatEntries(subjects);
-  const groupHeading = changelogGroupHeading(SAMPLE_CHANGE_GROUP);
-  const versionHeading = changelogVersionHeading(version);
+  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const versionHeading = oracleChangelogVersionHeading(version);
   return [
     {
       label: "is missing the title",
@@ -142,13 +184,19 @@ export function nonConformantChangelogCases(
     },
     {
       label: "appends extra text to the title heading",
-      content: [`${CHANGELOG_TITLE}${TITLE_SUFFIX}`, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE]
-        .join(LINE_SEPARATOR),
+      content: [
+        `${ORACLE_CHANGELOG_TITLE}${TITLE_SUFFIX}`,
+        BLANK_LINE,
+        versionHeading,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
     },
     {
       label: "appends trailing whitespace to the title heading",
       content: [
-        `${CHANGELOG_TITLE}${TITLE_TRAILING_WHITESPACE}`,
+        `${ORACLE_CHANGELOG_TITLE}${TITLE_TRAILING_WHITESPACE}`,
         BLANK_LINE,
         versionHeading,
         groupHeading,
@@ -162,7 +210,7 @@ export function nonConformantChangelogCases(
       content: [
         PREAMBLE_LINE,
         BLANK_LINE,
-        CHANGELOG_TITLE,
+        ORACLE_CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         groupHeading,
@@ -173,18 +221,41 @@ export function nonConformantChangelogCases(
     },
     {
       label: "opens with a blank line before the title",
-      content: [BLANK_LINE, CHANGELOG_TITLE, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE].join(
-        LINE_SEPARATOR,
-      ),
+      content: [BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE]
+        .join(LINE_SEPARATOR),
     },
     {
       label: "is missing the version section",
-      content: [CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+      content: [ORACLE_CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the version section inside a fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "quotes the version section as blockquote text",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        blockquoteLine(versionHeading),
+        blockquoteLine(groupHeading),
+        blockquoteLine(entries),
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
     },
     {
       label: "puts the version heading at the wrong level",
       content: [
-        CHANGELOG_TITLE,
+        ORACLE_CHANGELOG_TITLE,
         BLANK_LINE,
         `${DEEPER_HEADING_HASH}${versionHeading}`,
         groupHeading,
@@ -195,12 +266,64 @@ export function nonConformantChangelogCases(
     },
     {
       label: "is missing a change-group heading",
-      content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+      content: [ORACLE_CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading after a malformed backtick fence close inside a fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        `${ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER}${MALFORMED_FENCE_TAIL}`,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading after a malformed tilde fence close inside a fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
+        `${ORACLE_MARKDOWN_FENCE_TILDE_MARKER}${MALFORMED_FENCE_TAIL}`,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "quotes the change-group heading as blockquote text",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        blockquoteLine(groupHeading),
+        blockquoteLine(entries),
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
     },
     {
       label: "uses a heading one level too deep for the change group",
       content: [
-        CHANGELOG_TITLE,
+        ORACLE_CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         `${DEEPER_HEADING_HASH}${groupHeading}`,
@@ -212,12 +335,12 @@ export function nonConformantChangelogCases(
     {
       label: "groups a prior version's section but leaves the current release's ungrouped",
       content: [
-        CHANGELOG_TITLE,
+        ORACLE_CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         entries,
         BLANK_LINE,
-        changelogVersionHeading(`${version}${PRIOR_VERSION_SUFFIX}`),
+        oracleChangelogVersionHeading(`${version}${PRIOR_VERSION_SUFFIX}`),
         groupHeading,
         entries,
         BLANK_LINE,

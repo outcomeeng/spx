@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { composeReleaseNotes, ReleaseNotesError, resolveReleaseNotesPath } from "@/domains/release/release-notes";
-import { arbitraryConformantChangelog, nonConformantChangelogCases } from "@testing/generators/release/changelog";
+import {
+  arbitraryConformantChangelog,
+  conformantChangelogWithIndentedFenceText,
+  nonConformantChangelogCases,
+} from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
@@ -15,6 +19,19 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
       const config = {};
       const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
       const conformant = sampleReleaseTestValue(arbitraryConformantChangelog(releaseData.version, subjects));
+      const agentRunner = new RecordingWritingAgentRunner(resolvedPath, conformant);
+
+      await expect(
+        composeReleaseNotes({ releaseData, config, workingDirectory, agentRunner, readArtifact }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  it("accepts literal fence text indented as code inside a conformant release section", async () => {
+    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact }) => {
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const conformant = conformantChangelogWithIndentedFenceText(releaseData.version, subjects);
       const agentRunner = new RecordingWritingAgentRunner(resolvedPath, conformant);
 
       await expect(
