@@ -23,4 +23,4 @@ CAN persist each run's truth once as an event history and render it into PR comm
 - NEVER: an append to a sealed journal succeeds ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: a write to an already-consumed sequence number overwrites the persisted event ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - ALWAYS: the `runtime` config descriptor resolves an absent `eventNamespace` to its declared default and rejects a blank or non-string override ([test](tests/runtime-config.compliance.l1.test.ts))
-- ALWAYS: journal run and verify event types compose their CloudEvents `type` from the `runtime` config descriptor's `eventNamespace` default, never a hardcoded namespace literal ([audit])
+- ALWAYS: journal run and verify event types compose their CloudEvents `type` from the single `runtime` descriptor `eventNamespace` default declaration rather than each restating the namespace root ([audit])

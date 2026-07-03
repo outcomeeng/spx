@@ -1,9 +1,11 @@
 /**
- * Runtime config descriptor — the `runtime` section of `spx.config` carrying the
- * single reverse-DNS event-type namespace every CloudEvents `type` composes from.
- * The namespace root is declared once here as the descriptor default; journal run
- * and verify event types compose their `type` strings from it, so the root exists
- * in exactly one place rather than duplicated across each consumer's constants.
+ * Runtime config descriptor — declares the reverse-DNS event-type namespace root
+ * once as the `eventNamespace` default of the `runtime` config section. Journal
+ * run and verify event types compose their CloudEvents `type` from this single
+ * default declaration rather than each restating the root, so the namespace lives
+ * in one place. Registering the section makes the value a typed, validated config
+ * field; the event-type constants compose from the compile-time default and do not
+ * yet consume a config-file override.
  *
  * @module lib/agent-run-journal/config
  */
@@ -17,9 +19,9 @@ export const RUNTIME_CONFIG_FIELDS = {
 } as const;
 
 /**
- * The default reverse-DNS event-type namespace — the reverse of the product
- * domain `spx.sh`. This is the sole declaration of the namespace root; every
- * CloudEvents `type` in the product composes from it.
+ * The default reverse-DNS event-type namespace root — the reverse of the product
+ * domain `spx.sh`. The sole declaration of the root; journal run and verify event
+ * types compose their CloudEvents `type` from this default.
  */
 export const RUNTIME_EVENT_NAMESPACE_DEFAULT = "sh.spx";
 
