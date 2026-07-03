@@ -1,6 +1,6 @@
 # Methodology Vocabulary
 
-spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engineering work. Durable map, node type, dependency order, decision reach, assertion, evidence, state, status, persistence, records, journals, snapshots, delivery, backend, consumer, and surface have product-wide meanings before lower specs, backends, delivery targets, or interaction boundaries expose them.
+spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engineering work. Durable map, node type, dependency order, decision reach, assertion, evidence, state, status, persistence, records, journals, snapshots, delivery, backend, materialization, consumer, and surface have product-wide meanings before lower specs, backends, delivery targets, or interaction boundaries expose them.
 
 **Persistence.** Retained product artifacts and their backend addressing; a persisted artifact survives until removed or garbage-collected. Persistence has three semantic categories:
 
@@ -10,7 +10,9 @@ spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engin
 
 **Delivery.** Ephemeral projection of a result to an external, user-facing surface — a terminal, a pull-request comment, a merge-request note, or an observability sink. A delivered result survives only in that external surface; delivery persists nothing for its own sake.
 
-**Backend.** A concrete adapter implementing a persistence or delivery contract — a local filesystem-and-git store, a hosted artifact store with its platform API, or a future hosted service. Backend is the single reserved term for the implementation axis, orthogonal to the persistence categories and to delivery; `materialization` is not reserved product vocabulary.
+**Backend.** A concrete adapter implementing a persistence or delivery contract — a local filesystem-and-git store, a hosted artifact store with its platform API, or a future hosted service. Backend is the preferred term for the implementation axis, orthogonal to the persistence categories and to delivery.
+
+**Materialization.** The producing of a concrete artifact through a backend. `backend` is the preferred term for the adapter that performs it; specs and helpers that name materialization refer to this same implementation-axis concept.
 
 **State.** A node's evidence-derived lifecycle standing — declared, specified, failing, or passing — which changes in a moment. State is not persistence.
 
