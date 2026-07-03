@@ -5,7 +5,8 @@
       "overall": "passed",
       "spx/15-agent-run-journal.enabler/tests/agent-run-journal.compliance.l1.test.ts": "passed",
       "spx/15-agent-run-journal.enabler/tests/agent-run-journal.conformance.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal.property.l1.test.ts": "passed"
+      "spx/15-agent-run-journal.enabler/tests/agent-run-journal.property.l1.test.ts": "passed",
+      "spx/15-agent-run-journal.enabler/tests/runtime-config.compliance.l1.test.ts": "passed"
     }
   }
 }
