@@ -1,5 +1,24 @@
 # Issues: verify
 
+## Existing-run verbs address a run by token without matching the selector scope
+
+`resolveExistingRun` (`src/commands/verify/cli.ts`) resolves an existing run by
+`(branch, verification type, run token)` and parses `--scope` only for syntactic
+validity — it does not match the parsed base/head against the scope recorded at
+`start`. This is spec-compliant today: `verify.md` addresses existing-run verbs by
+`--run <run-token>`, the unique selector. But a caller that reuses a stale run token
+from an earlier changeset on the same branch and type, together with any valid current
+`--scope`, resolves and operates on that earlier run — `finish` would seal it — because
+the scope selector is never matched to the run.
+
+Cross-lifecycle: matching the selector scope to the recorded scope is a new requirement
+affecting all six existing-run verbs (`input`, `append-scope`, `append-finding`, `finish`,
+`status`, `render`), not the terminal-projection slice. It lives in the selector grammar the
+queued `spx verification run` surface refactor
+(`spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md`) reworks. Settle whether existing-run
+verbs reject a `--scope` that does not match the run's recorded scope (a new spec assertion +
+test) as part of that refactor. Surfaced by codex on PR #346.
+
 ## `finish` idempotent branch does not retry a failed seal
 
 `verifyFinishCommand` (`src/commands/verify/cli.ts`) appends the terminal event and then
