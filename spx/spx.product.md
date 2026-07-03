@@ -27,7 +27,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 - Code validation — configured source, formatting, test, dependency, documentation, and unused-code quality gates across product languages
 - Deterministic context ingestion — spec-tree context loading from product root, ancestor specs, decisions, lower-index siblings, tests, and escape hatches without LLM inference
-- Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting, and a typed `spx verify` lifecycle agents and launchers drive to record, stream, validate, resume, and render verification runs through the journal substrate
+- Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with persisted state for fast status reporting, and a typed `spx verification run` lifecycle agents and launchers drive to record, stream, validate, resume, and render verification runs through the journal substrate
 - Result delivery — kind-agnostic, idempotent publication of a rendered verification, validation, or test result to the environment-bound backend (a local output target, a GitHub pull-request comment, a GitLab merge-request note, or an observability sink), so consumers deliver results without holding backend-specific I/O
 - Harness environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills for agents
 - Agent session coordination — discovery and resume launch for Codex and Claude Code agent sessions from the SPX CLI, distinct from SPX handoff session files
@@ -42,7 +42,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - ALWAYS: ingest spec-tree context deterministically from the tracked `spx/` tree, root decisions, ancestor specs, lower-index siblings, co-located evidence links, and node-local escape hatches ([audit])
 - ALWAYS: govern spec-tree deterministic testing and validation through `spx.config.{toml,json,yaml}` rather than ad hoc files or command-local policy ([audit])
 - ALWAYS: persist spec-tree execution state so status commands can report last-run results and staleness without re-running the configured execution ([audit])
-- ALWAYS: provide a typed `spx verify` lifecycle agents and launchers drive to record and stream verification runs, persisting each run's append-only event journal under `.spx/branch/{branch-slug}/` and validating the run type, scope, and finding payload before recording durable evidence ([audit])
+- ALWAYS: provide a typed `spx verification run` lifecycle agents and launchers drive to record and stream verification runs, persisting each run's append-only event journal under `.spx/branch/{branch-slug}/` and validating the run type, scope, and finding payload before recording durable evidence ([audit])
 - ALWAYS: deliver a rendered verification, validation, or test result to the environment-bound backend, upserting one backend target per marker and naming no result kind, so consumers publish results without holding backend-specific I/O ([audit])
 - ALWAYS: manage harness environment configuration deterministically, including `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills for agents ([audit])
 - ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
