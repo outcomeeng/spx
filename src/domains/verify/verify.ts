@@ -4,6 +4,7 @@ import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
 import { isJournalRunStateStatus } from "@/domains/journal/run-state";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
+import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 
 export const VERIFY_SCOPE_TYPE = {
@@ -69,8 +70,8 @@ export interface ReviewFinding {
 
 /** The CloudEvents `type` each append verb records, distinguishing inspected scope from findings. */
 export const VERIFY_APPEND_EVENT_TYPE = {
-  SCOPE: "sh.spx.verify.scope",
-  FINDING: "sh.spx.verify.finding",
+  SCOPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.scope`,
+  FINDING: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.finding`,
 } as const;
 
 export type VerifyAppendEventType = (typeof VERIFY_APPEND_EVENT_TYPE)[keyof typeof VERIFY_APPEND_EVENT_TYPE];
@@ -339,7 +340,7 @@ export function buildAppendEvent(args: {
 }
 
 /** The CloudEvents `type` the verify terminal-completion event carries, distinguishing it from appends. */
-export const VERIFY_TERMINAL_EVENT_TYPE = "sh.spx.verify.terminal" as const;
+export const VERIFY_TERMINAL_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.terminal` as const;
 
 /** The `data` field the terminal-completion event records: the run's terminal status. */
 export const VERIFY_TERMINAL_EVENT_FIELD = {
