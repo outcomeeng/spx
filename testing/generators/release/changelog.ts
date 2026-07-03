@@ -19,6 +19,8 @@ const MARKDOWN_SUFFIX = ".md";
 const PATH_SEPARATOR = "/";
 const PARENT_DIRECTORY = "..";
 const ABSOLUTE_ROOT = "/";
+const BLANK_PATH_CHARACTER_MAX_COUNT = 16;
+const CURRENT_DIRECTORY = ".";
 
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
@@ -47,6 +49,20 @@ export function arbitraryEscapingChangelogPath(): fc.Arbitrary<string> {
     const file = `${basename}${MARKDOWN_SUFFIX}`;
     return fc.constantFrom(`${PARENT_DIRECTORY}${PATH_SEPARATOR}${file}`, `${ABSOLUTE_ROOT}${file}`);
   });
+}
+
+/** A blank configured changelog path — empty or whitespace-only — which path resolution must reject. */
+export function arbitraryBlankConfiguredChangelogPath(): fc.Arbitrary<string> {
+  return fc.string({ maxLength: BLANK_PATH_CHARACTER_MAX_COUNT }).filter((path) => path.trim().length === 0);
+}
+
+/** A configured changelog path that resolves to the working tree root rather than a file. */
+export function arbitraryRootResolvingChangelogPath(): fc.Arbitrary<string> {
+  return fc
+    .option(fc.stringMatching(CHANGELOG_DIR_PATTERN), { nil: undefined })
+    .map((directory) =>
+      directory === undefined ? CURRENT_DIRECTORY : `${directory}${PATH_SEPARATOR}${PARENT_DIRECTORY}`
+    );
 }
 
 function formatEntries(subjects: readonly string[]): string {
@@ -96,6 +112,7 @@ const DEEPER_HEADING_HASH = "#";
 
 /** Extra title text, for the case where the first heading is not exactly the Keep a Changelog title. */
 const TITLE_SUFFIX = " (draft)";
+const TITLE_TRAILING_WHITESPACE = " ";
 
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
@@ -129,6 +146,18 @@ export function nonConformantChangelogCases(
         .join(LINE_SEPARATOR),
     },
     {
+      label: "appends trailing whitespace to the title heading",
+      content: [
+        `${CHANGELOG_TITLE}${TITLE_TRAILING_WHITESPACE}`,
+        BLANK_LINE,
+        versionHeading,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ]
+        .join(LINE_SEPARATOR),
+    },
+    {
       label: "does not open with the title",
       content: [
         PREAMBLE_LINE,
@@ -141,6 +170,12 @@ export function nonConformantChangelogCases(
         BLANK_LINE,
       ]
         .join(LINE_SEPARATOR),
+    },
+    {
+      label: "opens with a blank line before the title",
+      content: [BLANK_LINE, CHANGELOG_TITLE, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE].join(
+        LINE_SEPARATOR,
+      ),
     },
     {
       label: "is missing the version section",
