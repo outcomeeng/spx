@@ -39,6 +39,21 @@ spx verification run finding add \
   they are data for a run, not separate command families.
 - `append` stays only in the journal surface (`spx journal append`), the event-journal surface.
 
+## Target hierarchy
+
+Materialize only the top of each not-yet-materialized tree first:
+
+| Planned path                                                                                     | Role                                                                                                        |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-command-surface-governance.enabler`           | Shared public command vocabulary and deterministic enforcement substrate for CLI command families.          |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/32-verification-command-family.enabler`           | Public verification-run command family that consumes command-surface governance.                            |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/32-verification-command-family.enabler/PLAN.md`   | Deferred child grouping for run lifecycle, run evidence, and run inspection after the family node exists.   |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-command-surface-governance.enabler/PLAN.md`    | Deferred child grouping for public command vocabulary and command-surface enforcement after the node exists. |
+
+Keep plugin skill content out of the SPX product tree. SPX owns the command contract and enforcement;
+the Outcome Engineering plugin repository owns `spx-command-standards`, `author-spx-command`, and
+`audit-spx-command` if those skills are created.
+
 ## Node that carries this — and the cascade
 
 The CLI verb grammar is owned by the surface, not the verify library

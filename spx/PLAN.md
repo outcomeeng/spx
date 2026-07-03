@@ -219,6 +219,8 @@ Every node-local `PLAN.md`, so future syncs are a checklist. **R** = restructuri
 | `spx/46-claude.outcome/PLAN.md`                                                                                                | I    | claude outcome                                                                                        |
 | `spx/46-claude.outcome/21-settings-consolidation.outcome/PLAN.md`                                                              | I    | settings consolidation                                                                                |
 | `spx/54-diagnose.enabler/PLAN.md`                                                                                              | I    | diagnose                                                                                              |
+| `spx/60-surfaces.enabler/PLAN.md`                                                                                              | R    | surface-layer pointers; CLI surface is the active concrete surface restructuring                       |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md`                                                                       | R    | CLI command-surface governance and verification command-family target structure                        |
 | `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/PLAN.md`                                                    | R    | catalyst misplacement; substrate splits back per delivery-order step 4                                |
 
 ## Superseded
