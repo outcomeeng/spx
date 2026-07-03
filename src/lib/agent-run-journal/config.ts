@@ -27,6 +27,13 @@ export const RUNTIME_EVENT_NAMESPACE_DEFAULT = "sh.spx";
 
 /** The resolved `runtime` section: the reverse-DNS event-type namespace root. */
 export interface RuntimeConfig {
+  /**
+   * The reverse-DNS event-type namespace root. A non-default override validates and resolves here,
+   * but the journal run and verify event-type constants compose from the compile-time
+   * `RUNTIME_EVENT_NAMESPACE_DEFAULT` and do not yet read this resolved value, so setting
+   * `runtime.eventNamespace` to a non-default value validates with no effect on stored event types.
+   * The deferred override-wiring scope is tracked in this node's `ISSUES.md`.
+   */
   readonly eventNamespace: string;
 }
 
@@ -47,6 +54,9 @@ function validate(value: unknown): Result<RuntimeConfig> {
       error: `${RUNTIME_SECTION}.${RUNTIME_CONFIG_FIELDS.EVENT_NAMESPACE} must be a non-empty string`,
     };
   }
+  // A non-default override validates and resolves here, but no consumer reads the resolved value
+  // yet (see RuntimeConfig and this node's ISSUES.md); event types compose from the compile-time
+  // RUNTIME_EVENT_NAMESPACE_DEFAULT, so a non-default value validates with no effect on stored types.
   return { ok: true, value: { eventNamespace: raw } };
 }
 
