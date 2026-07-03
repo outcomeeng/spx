@@ -14,7 +14,7 @@ spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engin
 
 **State.** A node's evidence-derived lifecycle standing — declared, specified, failing, or passing — which changes in a moment. State is not persistence.
 
-**Status.** A backend-owned or projection-owned label mapped into product state, query, and selection semantics, staying backend-qualified when it belongs to one backend.
+**Status.** A backend-owned label mapped into product state, query, and selection semantics, staying backend-qualified when it belongs to one backend.
 
 ## Rationale
 
