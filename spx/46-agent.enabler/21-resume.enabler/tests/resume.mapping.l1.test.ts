@@ -102,8 +102,8 @@ function createProgramForFixture(
           fs: fixture.fs,
           homeDir: () => fixture.homeDir,
           nowMs: () => fixture.nowMs,
-          resolveWorktreeRoot: async (candidateCwd) =>
-            isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : null,
+          resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
+            isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : fallbackWorktreeRoot,
         },
         pickCandidate: options.pickCandidate
           ?? (async (candidates) => {
@@ -181,7 +181,7 @@ describe("agent resume mode behavior mappings", () => {
     expect(launchedSessionIds).toEqual([fixture.newestSessionId]);
   });
 
-  it("default mode treats picker quit as a quiet exit without launching an agent", async () => {
+  it("default mode treats picker quit as a successful exit without launching an agent", async () => {
     const fixture = createResumeFixture();
     const stderr: string[] = [];
     const launchedSessionIds: string[] = [];
@@ -193,8 +193,8 @@ describe("agent resume mode behavior mappings", () => {
             fs: fixture.fs,
             homeDir: () => fixture.homeDir,
             nowMs: () => fixture.nowMs,
-            resolveWorktreeRoot: async (candidateCwd) =>
-              isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : null,
+            resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
+              isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : fallbackWorktreeRoot,
           },
           pickCandidate: async () => quitAgentResumePicker(),
           launchCandidate: async (candidate) => {
@@ -217,7 +217,7 @@ describe("agent resume mode behavior mappings", () => {
       }),
     ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.SUCCESS });
 
-    expect(stderr).toEqual([]);
+    expect(stderr.join("")).not.toContain(AGENT_RESUME_TEXT.NO_MATCHES);
     expect(launchedSessionIds).toEqual([]);
   });
 
@@ -407,8 +407,8 @@ describe("agent resume scope mappings", () => {
             fs,
             homeDir: () => homeDir,
             nowMs: () => nowMs,
-            resolveWorktreeRoot: async (candidateCwd) =>
-              isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : null,
+            resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
+              isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : fallbackWorktreeRoot,
           },
           launchCandidate: async () => {
             throw new Error("list mode should not launch an agent");

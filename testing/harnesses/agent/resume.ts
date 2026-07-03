@@ -97,6 +97,14 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
     return Buffer.from(file.content, "utf8").subarray(0, maxBytes).toString("utf8");
   }
 
+  async readText(path: string): Promise<string> {
+    const file = this.files.get(resolve(path));
+    if (file === undefined) {
+      throw new Error(`missing file: ${path}`);
+    }
+    return file.content;
+  }
+
   async stat(path: string): Promise<{ readonly mtimeMs: number }> {
     const file = this.files.get(resolve(path));
     if (file === undefined) {

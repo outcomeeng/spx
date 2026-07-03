@@ -1,0 +1,243 @@
+import { describe, expect, it } from "vitest";
+
+import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import {
+  AGENT_SEARCH_MATCH_REASON,
+  agentSearchQueryFromOptions,
+  pickupIdSearchLiteral,
+  searchAgentSessions,
+} from "@/domains/agent/search";
+import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import {
+  arbitraryAgentResumeNowMs,
+  arbitraryAgentSessionCwd,
+  arbitraryAgentSessionId,
+  arbitraryAgentWorktreeRoot,
+  arbitraryPartialNumericAgentSearchLimit,
+  arbitraryUnsafeAgentSearchLimit,
+  sampleAgentResumeValue,
+} from "@testing/generators/agent/resume";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  claudeCodeTranscript,
+  claudeProjectTranscriptPath,
+  claudeSubagentTranscriptPath,
+  codexTranscript,
+  codexTranscriptPath,
+  MemoryAgentSessionFileSystem,
+} from "@testing/harnesses/agent/resume";
+
+function jsonlName(sessionId: string): string {
+  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
+
+describe("agent session search scenarios", () => {
+  it("finds product-scoped top-level sessions by pickup marker", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
+    const productScopeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
+    const foreignProductRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 2);
+    const codexCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(productScopeRoot), 3);
+    const claudeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(productScopeRoot), 4);
+    const foreignCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(foreignProductRoot), 5);
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
+    const timestamp = new Date(nowMs).toISOString();
+    const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), 6);
+    const pickupMarker = pickupIdSearchLiteral(pickupId);
+    const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 7);
+    const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 8);
+    const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 9);
+    const subagentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10);
+
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
+      `${codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp })}\n${pickupMarker}`,
+      nowMs,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
+      `${claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp })}\n${pickupMarker}`,
+      nowMs - 1,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
+      `${codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp })}\n${pickupMarker}`,
+      nowMs,
+    );
+    fs.writeFile(
+      claudeSubagentTranscriptPath(homeDir, claudeCwd, jsonlName(subagentSessionId)),
+      `${claudeCodeTranscript({ sessionId: subagentSessionId, cwd: claudeCwd, timestamp })}\n${pickupMarker}`,
+      nowMs,
+    );
+
+    const results = await searchAgentSessions({
+      homeDir,
+      nowMs,
+      productScopeRoot,
+      fs,
+      query: agentSearchQueryFromOptions({ pickupId }),
+    });
+
+    expect(results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
+      [AGENT_SESSION_KIND.CODEX, codexSessionId, [AGENT_SEARCH_MATCH_REASON.PICKUP_ID]],
+      [AGENT_SESSION_KIND.CLAUDE_CODE, claudeSessionId, [AGENT_SEARCH_MATCH_REASON.PICKUP_ID]],
+    ]);
+  });
+
+  it("renders JSON records with session metadata and match reasons", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 20);
+    const productScopeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 21);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(productScopeRoot), 22);
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 23);
+    const timestamp = new Date(nowMs).toISOString();
+    const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), 24);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 25);
+    const sourcePath = codexTranscriptPath(homeDir, jsonlName(sessionId));
+
+    fs.writeFile(
+      sourcePath,
+      `${codexTranscript({ sessionId, cwd, timestamp })}\n${pickupIdSearchLiteral(pickupId)}`,
+      nowMs,
+    );
+
+    const stdout: string[] = [];
+    const program = createCliProgram({
+      domains: [
+        createAgentDomain({
+          searchDeps: {
+            fs,
+            homeDir: () => homeDir,
+            nowMs: () => nowMs,
+            resolveProductScopeRoot: async () => productScopeRoot,
+          },
+        }),
+      ],
+      processCwd: () => cwd,
+      writeStdout: (output) => stdout.push(output),
+    });
+
+    await program.parseAsync([
+      AGENT_CLI.commandName,
+      AGENT_CLI.searchCommandName,
+      AGENT_CLI.flags.pickupId,
+      pickupId,
+      AGENT_CLI.flags.json,
+    ], { from: SPX_COMMANDER_PARSE_SOURCE });
+
+    const parsed = JSON.parse(stdout.join("")) as readonly Record<string, unknown>[];
+
+    expect(parsed).toEqual([
+      {
+        agent: AGENT_SESSION_KIND.CODEX,
+        sessionId,
+        cwd,
+        sourcePath,
+        modifiedAtMs: nowMs,
+        updatedAt: timestamp,
+        branch: null,
+        matches: [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
+      },
+    ]);
+  });
+
+  it("warns and keeps fallback product scope when the invocation directory is outside git", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 30);
+    const fallbackProductScopeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 31);
+    const foreignProductRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 32);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fallbackProductScopeRoot), 33);
+    const foreignCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(foreignProductRoot), 34);
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 35);
+    const timestamp = new Date(nowMs).toISOString();
+    const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), 36);
+    const pickupMarker = pickupIdSearchLiteral(pickupId);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 37);
+    const foreignSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 38);
+
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(sessionId)),
+      `${codexTranscript({ sessionId, cwd, timestamp })}\n${pickupMarker}`,
+      nowMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, jsonlName(foreignSessionId)),
+      `${codexTranscript({ sessionId: foreignSessionId, cwd: foreignCwd, timestamp })}\n${pickupMarker}`,
+      nowMs,
+    );
+
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const program = createCliProgram({
+      domains: [
+        createAgentDomain({
+          searchDeps: {
+            fs,
+            homeDir: () => homeDir,
+            nowMs: () => nowMs,
+            resolveProductScopeRoot: async (_cwd, fallbackRoot) => fallbackRoot,
+          },
+        }),
+      ],
+      processCwd: () => fallbackProductScopeRoot,
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: (output) => stderr.push(output),
+    });
+
+    await program.parseAsync([
+      AGENT_CLI.commandName,
+      AGENT_CLI.searchCommandName,
+      AGENT_CLI.flags.pickupId,
+      pickupId,
+    ], { from: SPX_COMMANDER_PARSE_SOURCE });
+
+    expect(stderr.length).toBeGreaterThan(0);
+    expect(stdout.join("")).toContain(sessionId);
+    expect(stdout.join("")).not.toContain(foreignSessionId);
+  });
+
+  it("sanitizes invalid limit values before writing parser errors", async () => {
+    const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 40);
+    const unsafeLimit = sampleAgentResumeValue(arbitraryUnsafeAgentSearchLimit(), 41);
+    const stderr: string[] = [];
+    const program = createCliProgram({
+      domains: [createAgentDomain()],
+      processCwd: () => cwd,
+      writeStderr: (output) => stderr.push(output),
+    });
+    program.exitOverride();
+
+    await expect(
+      program.parseAsync([
+        AGENT_CLI.commandName,
+        AGENT_CLI.searchCommandName,
+        AGENT_CLI.flags.limit,
+        unsafeLimit,
+      ], { from: SPX_COMMANDER_PARSE_SOURCE }),
+    ).rejects.toThrow(sanitizeCliArgument(unsafeLimit));
+
+    expect(stderr.join("")).not.toContain(unsafeLimit);
+  });
+
+  it("rejects partially numeric limit values", async () => {
+    const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 42);
+    const partialNumericLimit = sampleAgentResumeValue(arbitraryPartialNumericAgentSearchLimit(), 43);
+    const program = createCliProgram({
+      domains: [createAgentDomain()],
+      processCwd: () => cwd,
+    });
+    program.exitOverride();
+
+    await expect(
+      program.parseAsync([
+        AGENT_CLI.commandName,
+        AGENT_CLI.searchCommandName,
+        AGENT_CLI.flags.limit,
+        partialNumericLimit,
+      ], { from: SPX_COMMANDER_PARSE_SOURCE }),
+    ).rejects.toThrow(sanitizeCliArgument(partialNumericLimit));
+  });
+});
