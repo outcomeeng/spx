@@ -10,9 +10,7 @@ spx uses one product-wide methodology vocabulary for Spec Tree and Outcome Engin
 
 **Delivery.** Ephemeral projection of a result to an external, user-facing surface — a terminal, a pull-request comment, a merge-request note, or an observability sink. A delivered result survives only in that external surface; delivery persists nothing for its own sake.
 
-**Backend.** A concrete adapter implementing a persistence or delivery contract — a local filesystem-and-git store, a hosted artifact store with its platform API, or a future hosted service. Backend is the preferred term for the implementation axis, orthogonal to the persistence categories and to delivery.
-
-**Materialization.** The producing of a concrete artifact through a backend. `backend` is the preferred term for the adapter that performs it; specs and helpers that name materialization refer to this same implementation-axis concept.
+**Backend.** A concrete adapter implementing a persistence or delivery contract — a local filesystem-and-git store, a hosted artifact store with its platform API, or a future hosted service. Backend is the implementation-axis term, orthogonal to the persistence categories and to delivery.
 
 **State.** A node's evidence-derived lifecycle standing — declared, specified, failing, or passing — which changes in a moment. State is not persistence.
 
