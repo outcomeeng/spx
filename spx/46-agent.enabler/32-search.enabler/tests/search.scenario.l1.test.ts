@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveAgentSearchProductScopeRoot } from "@/commands/agent/search";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_MATCH_REASON,
@@ -8,6 +9,7 @@ import {
   searchAgentSessions,
 } from "@/domains/agent/search";
 import { resolveProductDir } from "@/domains/config/root";
+import { GIT_COMMON_DIR_ARGS, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -30,6 +32,27 @@ import {
 } from "@testing/harnesses/agent/resume";
 
 describe("agent session search scenarios", () => {
+  it("resolves default product scope to the linked worktree root", async () => {
+    const linkedWorktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 60);
+    const commonCheckoutRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 61);
+    const fallbackProductScopeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 62);
+    const git: GitDependencies = {
+      execa: async (_command, args) => {
+        if (args.join(" ") === GIT_SHOW_TOPLEVEL_ARGS.join(" ")) {
+          return { exitCode: 0, stdout: linkedWorktreeRoot, stderr: "" };
+        }
+        if (args.join(" ") === GIT_COMMON_DIR_ARGS.join(" ")) {
+          throw new Error("agent search product scope must not read git common dir");
+        }
+        return { exitCode: 0, stdout: commonCheckoutRoot, stderr: "" };
+      },
+    };
+
+    await expect(
+      resolveAgentSearchProductScopeRoot(linkedWorktreeRoot, fallbackProductScopeRoot, git),
+    ).resolves.toBe(linkedWorktreeRoot);
+  });
+
   it("finds product-scoped top-level sessions by pickup marker", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());

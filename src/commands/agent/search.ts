@@ -11,7 +11,7 @@ import {
   renderAgentSearchList,
   searchAgentSessions,
 } from "@/domains/agent";
-import { detectGitCommonDirProductRoot } from "@/git/root";
+import { defaultGitDependencies, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
@@ -59,11 +59,17 @@ export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   fs: nodeAgentSearchFileSystem,
   homeDir: homedir,
   nowMs: Date.now,
-  resolveProductScopeRoot: async (cwd, _fallbackProductScopeRoot) => {
-    const result = await detectGitCommonDirProductRoot(cwd);
-    return result.productDir;
-  },
+  resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
 };
+
+export async function resolveAgentSearchProductScopeRoot(
+  cwd: string,
+  fallbackProductScopeRoot: string,
+  gitDeps: GitDependencies = defaultGitDependencies,
+): Promise<string> {
+  const result = await detectWorktreeProductRoot(cwd, gitDeps);
+  return result.isGitRepo ? result.productDir : fallbackProductScopeRoot;
+}
 
 export async function loadAgentSearchResults(
   options: AgentSearchCommandOptions,
