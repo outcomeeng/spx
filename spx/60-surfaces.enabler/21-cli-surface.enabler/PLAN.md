@@ -73,6 +73,17 @@ rewrites `verifyFinishCommand` and the append/finish verbs:
   Tracked in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`; the `finish` rewrite here should
   converge the physical seal marker on retry.
 
+- The selector option-placement mismatch (`src/interfaces/cli/verify.ts`) — the documented surface
+  places the `--verification-type`/`--scope-type`/`--scope`/`--run` selectors before the verb
+  (`13-verify-command-surface.pdr.md`, `verify.md`, and the node scenarios all write
+  `spx verify --verification-type … <verb>`), but every verb registers those selectors on its own
+  subcommand, so Commander parses them only after the verb (`spx verify <verb> --verification-type …`).
+  This spans all seven verbs, not just the terminal-projection slice, so its resolution is the coherent
+  surface redefinition this refactor performs: the noun-grouped `spx verification run <verb>` grammar
+  fixes the invocation shape, and the refactor adds the L2 CLI test that exercises the actual ordering
+  (the L1 handler tests bypass Commander parsing, so no current test covers the option placement).
+  Surfaced by codex on PR #346.
+
 ## Constraints
 
 - Decision-first PDR rewrite, audited by `pdr-auditor`, then `/apply` for the cascade.
