@@ -4,7 +4,6 @@ import {
   journalAppendCommand,
   journalOpenCommand,
   journalReadCommand,
-  journalRenderCommand,
   type JournalRunCliScope,
   journalSealCommand,
   type JournalStreamBinding,
@@ -806,21 +805,20 @@ export async function verifyRenderCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRun(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const rendered = await journalRenderCommand(run.value.journalScope, forwardDeps(deps));
-  if (rendered.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-    if (rendered.output === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+  const events = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!events.ok) {
+    if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
       return errorResult(existingRunNotFound(run.value, options));
     }
-    return errorResult(`${VERIFY_CLI_ERROR.RENDER_FAILED}: ${rendered.output}`);
+    return errorResult(`${VERIFY_CLI_ERROR.RENDER_FAILED}: ${events.error}`);
   }
-  const events = JSON.parse(rendered.output) as readonly JournalEvent[];
-  const projection = projectVerifyRun(events);
+  const projection = projectVerifyRun(events.value);
   const report: VerifyRenderReport = {
     runToken: run.value.runToken,
     findingCount: projection.findingCount,
     sealed: projection.sealed,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
-    events,
+    events: events.value,
   };
   return okResult(JSON.stringify(report));
 }
