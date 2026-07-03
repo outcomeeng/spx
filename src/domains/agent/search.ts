@@ -5,6 +5,7 @@ import {
   type AgentSessionFileSystem,
   type AgentSessionHead,
   type AgentStoreFile,
+  CLAUDE_PROJECT_ENCODED_SEPARATOR,
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
   claudeTranscriptFiles,
@@ -149,7 +150,8 @@ async function searchAgentStore(
 
 function claudeDirAcceptsProductScope(productScopeRoot: string): (dirName: string) => boolean {
   const projectPrefix = claudeProjectDirName(productScopeRoot);
-  return (dirName) => dirName === projectPrefix || dirName.startsWith(`${projectPrefix}-`);
+  return (dirName) =>
+    dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`);
 }
 
 async function collectMatchingSessions(

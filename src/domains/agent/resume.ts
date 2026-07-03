@@ -169,7 +169,7 @@ export function claudeCodeSessionStoreDir(homeDir: string): string {
 }
 
 const CLAUDE_PROJECT_PATH_SEPARATORS = /[/\\]/g;
-const CLAUDE_PROJECT_ENCODED_SEPARATOR = "-";
+export const CLAUDE_PROJECT_ENCODED_SEPARATOR = "-";
 
 // Claude Code names each project directory after the session's working
 // directory with every path separator — POSIX `/` or Windows `\` — rewritten
