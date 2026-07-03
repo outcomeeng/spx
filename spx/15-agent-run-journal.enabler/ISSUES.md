@@ -1,5 +1,35 @@
 # Issues: Agent Run Journal
 
+## FOLLOW-UP — the `runtime.eventNamespace` override is validated but not yet consumed
+
+`runtimeConfigDescriptor` (`src/lib/agent-run-journal/config.ts`) is registered in
+`productionRegistry`, and its `validate()` accepts and resolves a caller-supplied
+`runtime.eventNamespace` override. No consumer reads the resolved
+`RuntimeConfig.eventNamespace`: the journal run event types (`JOURNAL_RUN_EVENT.*`
+in `src/domains/journal/run-state.ts`) and the verify event types
+(`VERIFY_APPEND_EVENT_TYPE.*`, `VERIFY_TERMINAL_EVENT_TYPE` in
+`src/domains/verify/verify.ts`) are module-level constants composed from the
+compile-time `RUNTIME_EVENT_NAMESPACE_DEFAULT`. Setting `runtime.eventNamespace` to a
+non-default value therefore validates with no effect on stored event types.
+
+The descriptor's single declaration of the namespace root is the delivered scope:
+`RUNTIME_EVENT_NAMESPACE_DEFAULT` is the sole source, and every event type composes
+from it rather than restating the root. Wiring the override to take effect is a
+separate, larger change: it requires threading the resolved `RuntimeConfig` into the
+event-type construction, which converts the module-level `const` event types into
+config-derived values built where the resolved config is available. Settle whether the
+override should take effect (and where the resolved config is threaded) before
+implementing. The field-level and `validate`-site comments in `config.ts` make the
+current no-op discoverable at the config key in the meantime.
+
+When wiring the override, also normalize its input: `validate()` rejects a blank override via
+`raw.trim().length === 0` but stores the untrimmed `raw`, so a padded-but-non-blank value (e.g.
+`" sh.foo "`) resolves with surrounding whitespace. Because no consumer reads the resolved value
+yet, this has no runtime effect today. When the override becomes consumed, store `raw.trim()` (or
+reject an override whose trimmed form differs from `raw`) and add a whitespace-padded round-trip
+case to `tests/runtime-config.compliance.l1.test.ts` — `arbitraryDomainLiteral()` draws no
+whitespace, so the current round-trip case cannot reach it. Surfaced by changes-reviewer on PR #346.
+
 ## FOLLOW-UP — append re-reads the full history to derive the next sequence
 
 `createJournal().append()` calls `backend.readAll()` on every append to compute
