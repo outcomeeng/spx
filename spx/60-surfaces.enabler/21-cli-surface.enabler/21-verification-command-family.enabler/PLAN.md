@@ -12,4 +12,4 @@
 
 ## Lower-layer cascade
 
-The next implementation-bearing slice aligns the verification library specs and tests under `spx/34-verification.enabler/32-verify.enabler` from legacy `spx verify` verb names to interface-neutral lifecycle operations consumed by this CLI surface.
+The next implementation-bearing slice aligns the verification library tests and source under `spx/34-verification.enabler/32-verify.enabler` from legacy command names to the interface-neutral lifecycle operations consumed by this CLI surface.
