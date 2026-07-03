@@ -378,8 +378,10 @@ export async function finishRun(
 }
 
 /**
- * Prove a run is unsealed and finishable by finishing it with a fresh valid terminal status; the
- * throw on a non-success finish is the proof, since a sealed run rejects the terminal-event append.
+ * Prove a run is unsealed and finishable by finishing it with a freshly sampled terminal status: an
+ * unsealed run records that status, so the returned report carries it back unchanged. A run already
+ * finished returns its original terminal status through the idempotent `finish` projection, so the
+ * status mismatch below is the proof the run was unsealed.
  */
 export async function finishRecoversUnsealedRun(
   scenario: VerifyRunContextScenario,
