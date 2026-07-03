@@ -5,6 +5,7 @@ import {
 } from "@/config/primitives/path-filter";
 import type { Result } from "@/config/types";
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
+import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import type { JsonRecord } from "@/lib/state-store";
 
 /** The terminal statuses a journal run folds to. */
@@ -35,9 +36,9 @@ export const JOURNAL_RUN_STATE_INCOMPLETE_REASON = {
  */
 export const JOURNAL_RUN_EVENT = {
   SOURCE: "/spx/journal",
-  STARTED_TYPE: "sh.spx.journal.run.started",
-  PROGRESS_TYPE: "sh.spx.journal.run.progress",
-  COMPLETED_TYPE: "sh.spx.journal.run.completed",
+  STARTED_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.started`,
+  PROGRESS_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.progress`,
+  COMPLETED_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.completed`,
 } as const;
 
 export const JOURNAL_RUN_STATE_FIELDS = {
