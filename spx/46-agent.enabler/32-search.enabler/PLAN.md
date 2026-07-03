@@ -45,3 +45,4 @@ SPX searches product-scoped Codex and Claude Code agent-native transcript stores
 - `spx diagnose sessions` consumes the search library and joins SPX handoff session records, worktree claims, and agent-native transcript hits into a triage report.
 - PR-number search becomes a named selector after the transcript patterns for PR references are settled; until then, `--contains` covers literal forensic search without embedding one platform's wording.
 - Resume integration can use search results as input only after the search surface proves the result shape and bounds.
+- High-volume `--all --contains` search can switch to a two-pass scan that sorts head metadata first and reads full transcript content only for the bounded newest candidate set when operators report expensive stores.

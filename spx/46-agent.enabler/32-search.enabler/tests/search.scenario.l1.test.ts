@@ -107,10 +107,19 @@ describe("agent session search scenarios", () => {
       query: agentSearchQueryFromOptions({ pickupId }),
     });
 
-    expect(results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
-      [AGENT_SESSION_KIND.CODEX, codexSessionId, [AGENT_SEARCH_MATCH_REASON.PICKUP_ID]],
-      [AGENT_SESSION_KIND.CLAUDE_CODE, claudeSessionId, [AGENT_SEARCH_MATCH_REASON.PICKUP_ID]],
+    expect(results).toHaveLength(2);
+    expect(results.map((result) => result.sessionId)).toEqual([codexSessionId, claudeSessionId]);
+    expect(results.map((result) => result.agent)).toEqual([
+      AGENT_SESSION_KIND.CODEX,
+      AGENT_SESSION_KIND.CLAUDE_CODE,
     ]);
+    expect(results.map((result) => result.matches)).toEqual([
+      [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
+      [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
+    ]);
+    expect(results.map((result) => result.cwd)).toEqual([codexCwd, claudeCwd]);
+    expect(results.map((result) => result.sessionId)).not.toContain(foreignSessionId);
+    expect(results.map((result) => result.sessionId)).not.toContain(subagentSessionId);
   });
 
   it("renders JSON records with session metadata and match reasons", async () => {
@@ -156,18 +165,16 @@ describe("agent session search scenarios", () => {
 
     const parsed = JSON.parse(stdout.join("")) as readonly Record<string, unknown>[];
 
-    expect(parsed).toEqual([
-      {
-        agent: AGENT_SESSION_KIND.CODEX,
-        sessionId,
-        cwd,
-        sourcePath,
-        modifiedAtMs: nowMs,
-        updatedAt: timestamp,
-        branch: null,
-        matches: [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
-      },
-    ]);
+    expect(parsed).toHaveLength(1);
+    const [record] = parsed;
+    expect(record?.agent).toBe(AGENT_SESSION_KIND.CODEX);
+    expect(record?.sessionId).toBe(sessionId);
+    expect(record?.cwd).toBe(cwd);
+    expect(record?.sourcePath).toBe(sourcePath);
+    expect(record?.modifiedAtMs).toBe(nowMs);
+    expect(record?.updatedAt).toBe(timestamp);
+    expect(record?.branch).toBeNull();
+    expect(record?.matches).toEqual([AGENT_SEARCH_MATCH_REASON.PICKUP_ID]);
   });
 
   it("warns and keeps fallback product scope when the invocation directory is outside git", async () => {
@@ -251,17 +258,20 @@ describe("agent session search scenarios", () => {
         AGENT_CLI.flags.limit,
         unsafeLimit,
       ], { from: SPX_COMMANDER_PARSE_SOURCE }),
-    ).rejects.toThrow(sanitizeCliArgument(unsafeLimit));
+    ).rejects.toThrow();
 
+    expect(stderr.join("")).toContain(sanitizeCliArgument(unsafeLimit));
     expect(stderr.join("")).not.toContain(unsafeLimit);
   });
 
   it("rejects partially numeric limit values", async () => {
     const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 42);
     const partialNumericLimit = sampleAgentResumeValue(arbitraryPartialNumericAgentSearchLimit(), 43);
+    const stderr: string[] = [];
     const program = createCliProgram({
       domains: [createAgentDomain()],
       processCwd: () => cwd,
+      writeStderr: (output) => stderr.push(output),
     });
     program.exitOverride();
 
@@ -272,6 +282,32 @@ describe("agent session search scenarios", () => {
         AGENT_CLI.flags.limit,
         partialNumericLimit,
       ], { from: SPX_COMMANDER_PARSE_SOURCE }),
-    ).rejects.toThrow(sanitizeCliArgument(partialNumericLimit));
+    ).rejects.toThrow();
+
+    expect(stderr.join("")).toContain(sanitizeCliArgument(partialNumericLimit));
+  });
+
+  it("sanitizes invalid agent-kind values before writing parser errors", async () => {
+    const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 44);
+    const unsafeAgentKind = sampleAgentResumeValue(arbitraryUnsafeAgentSearchLimit(), 45);
+    const stderr: string[] = [];
+    const program = createCliProgram({
+      domains: [createAgentDomain()],
+      processCwd: () => cwd,
+      writeStderr: (output) => stderr.push(output),
+    });
+    program.exitOverride();
+
+    await expect(
+      program.parseAsync([
+        AGENT_CLI.commandName,
+        AGENT_CLI.searchCommandName,
+        AGENT_CLI.flags.agent,
+        unsafeAgentKind,
+      ], { from: SPX_COMMANDER_PARSE_SOURCE }),
+    ).rejects.toThrow();
+
+    expect(stderr.join("")).toContain(sanitizeCliArgument(unsafeAgentKind));
+    expect(stderr.join("")).not.toContain(unsafeAgentKind);
   });
 });

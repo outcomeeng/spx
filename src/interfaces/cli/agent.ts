@@ -1,6 +1,6 @@
 import { inspect } from "node:util";
 
-import { type Command, Option } from "commander";
+import { type Command } from "commander";
 
 import {
   type AgentResumeCommandDeps,
@@ -92,9 +92,9 @@ export interface AgentSearchCliOptions {
   readonly contains?: string;
   readonly sessionId?: string;
   readonly branch?: string;
-  readonly agent?: AgentSessionKind;
+  readonly agent?: string;
   readonly all?: boolean;
-  readonly limit: number;
+  readonly limit?: string;
 }
 
 const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
@@ -140,15 +140,22 @@ function parseSearchLimit(value: string): number {
   return parsed;
 }
 
+function parseSearchAgentKind(value: string): AgentSessionKind {
+  if (value === AGENT_SESSION_KIND.CODEX || value === AGENT_SESSION_KIND.CLAUDE_CODE) {
+    return value;
+  }
+  throw new Error(`agent search kind must be codex or claude-code: ${sanitizeCliArgument(value)}`);
+}
+
 function searchQueryFromOptions(options: AgentSearchCliOptions): AgentSearchQueryOptions {
   return {
     pickupId: options.pickupId,
     contains: options.contains,
     sessionId: options.sessionId,
     branch: options.branch,
-    agent: options.agent,
+    agent: options.agent === undefined ? undefined : parseSearchAgentKind(options.agent),
     all: options.all,
-    limit: options.limit,
+    limit: options.limit === undefined ? AGENT_SEARCH_DEFAULT_LIMIT : parseSearchLimit(options.limit),
   };
 }
 
@@ -228,12 +235,9 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         .option(AGENT_CLI.optionArgs.contains, "Search transcript content for a literal string")
         .option(AGENT_CLI.optionArgs.sessionId, "Search for an agent session id")
         .option(AGENT_CLI.optionArgs.branch, "Search for sessions started on the named branch")
-        .addOption(
-          new Option(AGENT_CLI.optionArgs.agent, "Search only one agent kind")
-            .choices([AGENT_SESSION_KIND.CODEX, AGENT_SESSION_KIND.CLAUDE_CODE]),
-        )
+        .option(AGENT_CLI.optionArgs.agent, "Search only one agent kind")
         .option(AGENT_CLI.flags.all, "Include sessions outside the recent-session window")
-        .option(AGENT_CLI.optionArgs.limit, "Maximum number of results", parseSearchLimit, AGENT_SEARCH_DEFAULT_LIMIT)
+        .option(AGENT_CLI.optionArgs.limit, "Maximum number of results")
         .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
         .action(async (options: AgentSearchCliOptions) => {
           try {

@@ -34,7 +34,7 @@ export interface AgentSessionFileSystem {
   stat(path: string): Promise<AgentSessionFileStat>;
 }
 
-export type AgentWorktreeRootResolver = (cwd: string) => Promise<string | null>;
+export type AgentWorktreeRootResolver = (cwd: string) => Promise<string>;
 
 export type AgentResumeScope =
   | { readonly kind: typeof AGENT_RESUME_SCOPE.WORKTREE }
@@ -231,9 +231,6 @@ async function resolveAgentResumeScopeContext(
     return { match: (core) => core.branch === target, claudeDirAccepts: () => true };
   }
   const invocationRoot = await options.resolveWorktreeRoot(options.invocationDir);
-  if (invocationRoot === null) {
-    return null;
-  }
   const projectPrefix = claudeProjectDirName(invocationRoot);
   return {
     match: (core) => isPathInsideOrEqual(invocationRoot, core.cwd),

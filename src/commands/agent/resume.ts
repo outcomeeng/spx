@@ -56,9 +56,9 @@ export const defaultAgentResumeCommandDeps: AgentResumeCommandDeps = {
   fs: nodeAgentSessionFileSystem,
   homeDir: homedir,
   nowMs: Date.now,
-  resolveWorktreeRoot: async (cwd, _fallbackWorktreeRoot) => {
+  resolveWorktreeRoot: async (cwd, fallbackWorktreeRoot) => {
     const result = await detectWorktreeProductRoot(cwd);
-    return result.productDir;
+    return result.isGitRepo ? result.productDir : fallbackWorktreeRoot;
   },
 };
 
