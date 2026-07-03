@@ -59,7 +59,7 @@ No surface shells out to another surface. A web frontend calls the use-case boun
 
 ## Existing plan: Spec-domain command refactor
 
-> Transitional: the section below describes `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` as it stands today, owning `spx spec` command binding, flags, and terminal rendering — its completed (`[x]`) items are the current state, not the target. Root `spx/PLAN.md` supersedes that ownership: the surface wrapper migration (delivery-order step 4) moves this CLI wrapper into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, leaving spec-domain the use-case layer per the "Ownership target" above.
+> Transitional: the section below describes `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler` as it stands today, owning `spx spec` command binding, flags, and terminal rendering — its completed (`[x]`) items are the current state, not the target. Root `spx/PLAN.md` supersedes that ownership: the surface wrapper migration (delivery-order step 5) moves this CLI wrapper into `spx/60-surfaces.enabler/21-cli-surface.enabler/`, leaving spec-domain the use-case layer per the "Ownership target" above.
 
 ## Purpose
 
