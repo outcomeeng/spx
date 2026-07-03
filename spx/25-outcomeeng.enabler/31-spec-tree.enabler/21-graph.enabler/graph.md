@@ -1,5 +1,3 @@
-# Graph
-
 PROVIDES ordered Outcome Engineering graph slices over Spec Tree represented artifacts
 SO THAT source ownership, garbage collection, changed-test planning, and change impact workflows
 CAN consume artifact relationships in truth-flow order without re-defining graph semantics per workflow

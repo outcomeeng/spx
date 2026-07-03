@@ -1,5 +1,3 @@
-# Test
-
 PROVIDES a graph of spec-linked test evidence relationships derived from the spec graph
 SO THAT source and change graph slices
 CAN distinguish tests that verify product truth from files that merely execute in a repository

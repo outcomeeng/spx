@@ -4,7 +4,7 @@
 
 ## Objective
 
-Create the Outcome Engineering source graph slice: a graph over implementation source artifacts that explains which files are owned by durable product truth, which files are only reachable, and which files are unowned garbage-collection candidates.
+Create the Outcome Engineering source graph slice: a graph over implementation source artifacts that explains which files are owned by durable product truth, which files are covered without ownership, which files are only reachable, and which files are unowned garbage-collection candidates.
 
 SPX must not parse implementation files in the source graph. The spec/test graph boundary supplies declared `[test](...)` link facts from product truth. Language-specific providers supply source facts from established tooling.
 

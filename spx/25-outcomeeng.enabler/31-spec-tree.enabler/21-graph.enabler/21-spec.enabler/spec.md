@@ -1,5 +1,3 @@
-# Spec
-
 PROVIDES a graph of durable product-truth relationships: nodes, decisions, assertions, and declared evidence links
 SO THAT test, source, and change graph slices
 CAN interpret downstream evidence and artifacts against the product truth they serve
