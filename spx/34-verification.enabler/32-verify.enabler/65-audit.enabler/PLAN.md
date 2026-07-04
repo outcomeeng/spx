@@ -1,6 +1,6 @@
 # Plan: audit verification type
 
-> Reconcile against `spx/34-verification.enabler/32-verify.enabler/PLAN.md` first. This placeholder records the `audit` verification type expansion from `/var/folders/vg/stx1n5ys4_lgr08v49lg6t880000gp/T/spx-audit-verification-run-contract.md`.
+> Reconcile against `spx/34-verification.enabler/32-verify.enabler/PLAN.md`, `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md`, and this node's spec and PDR first. This note coordinates remaining type-specific audit payload work.
 
 ## Scope
 
@@ -23,10 +23,10 @@ This node materializes `audit` as an independent verification type sibling of `r
 
 ## Implementation sequence
 
-1. Add an `audit` verification-type registration and a finding validator through the existing verify registry boundary.
-2. Add scope-payload validation for audit units if the parent lifecycle keeps generic scope payloads; otherwise add a type-specific scope validator registry parallel to finding validation.
-3. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` for `status` next actions when more than one verification type exists.
-4. Add tests for audit start, audit scope units, audit finding validation, audit terminal rollup, and render/status projection.
+1. Implement the audit scope, audit finding, audit rollup, and audit command-surface tests named by `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md`.
+2. Add an `audit` verification-type registration and a finding validator through the existing verify registry boundary.
+3. Add scope-payload validation for audit units if the parent lifecycle keeps generic scope payloads; otherwise add a type-specific scope validator registry parallel to finding validation.
+4. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` for `status` next actions when more than one verification type exists.
 5. Migrate audit orchestrator and leaf auditor plugin callers only after SPX validates and projects the audit payload shape.
 
 ## Sibling relationship
