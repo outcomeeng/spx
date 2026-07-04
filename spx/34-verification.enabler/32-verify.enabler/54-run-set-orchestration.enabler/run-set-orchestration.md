@@ -8,7 +8,7 @@ CAN restore prior-run context, classify active/resolved/reopened findings, expos
 
 ### Mappings
 
-- A run-set selector maps merge-period identity, verification type, scope type, and scope identity to prior runs and current scope for that run set ([test](tests/run-set-selector.mapping.l1.test.ts))
+- A run-set selector maps merge-period identity, verification type, scope type, and a merge-period-stable run-set scope key to prior runs and current scope for that run set while preserving each run's own scope identity as run evidence ([test](tests/run-set-selector.mapping.l1.test.ts))
 - Prior and current finding evidence maps to active, resolved, and reopened finding groups using stable finding identity ([test](tests/run-set-projection.mapping.l1.test.ts))
 - Prior and current scope evidence maps to coverage gaps without requiring each verification type to define its own merge-period envelope ([test](tests/run-set-projection.mapping.l1.test.ts))
 - Prior audit context maps through selectors for audit class, audit kind, producer identity, subject path, and changed-file partition before a producer receives context ([test](tests/run-set-projection.mapping.l1.test.ts))
