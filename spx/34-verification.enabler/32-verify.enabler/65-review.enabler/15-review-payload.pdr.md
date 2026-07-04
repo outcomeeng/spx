@@ -8,9 +8,9 @@ Formal review systems separate the review submission from inline comments. Prese
 
 ## Product properties
 
-1. A review envelope records provider identity when present, actor, state, body, submitted time, commit identity, and URL.
-2. A review comment records provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL, and SPX finding metadata when the comment is a finding.
-3. Reviewed scope units and review findings remain separate evidence: a reviewed scope unit records provider identity when present, path, optional line or position range, side, commit identity, coverage state, and URL; a reviewed unit can be clean, and a finding anchors to the reviewed unit it concerns.
+1. A review envelope records provider identity when present, actor, state, body, submitted time, commit identity, and URL when present.
+2. A review comment records provider identity when present, path, line or position, side, original commit identity, diff hunk, URL when present, body, and SPX finding metadata when the comment is a finding.
+3. Reviewed scope units and review findings remain separate evidence: a reviewed scope unit records provider identity when present, path, optional line or position range, side, commit identity, coverage state, and optional URL; a reviewed unit can be clean, and a finding anchors to the reviewed unit it concerns.
 
 ## Verification
 

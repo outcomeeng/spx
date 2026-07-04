@@ -12,12 +12,12 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 
 ### Mappings
 
-- Review envelope input maps provider identity when present, actor, state, body, submitted time, commit identity, and URL into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
-- Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
+- Review envelope input maps provider identity when present, actor, state, body, submitted time, commit identity, and URL when present into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
+- Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL when present, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
 
 ### Conformance
 
-- Review scope payloads conform to the platform-neutral reviewed-unit schema: provider identity when present, path, optional line or position range, side, commit identity, coverage state, and URL ([test](tests/review-payload.conformance.l1.test.ts))
+- Review scope payloads conform to the platform-neutral reviewed-unit schema: provider identity when present, path, optional line or position range, side, commit identity, coverage state, and optional URL ([test](tests/review-payload.conformance.l1.test.ts))
 - Review finding payloads conform to the platform-neutral review comment schema while accepting GitHub-shaped anchor fields as optional provider data and requiring SPX finding metadata when a review comment represents a finding ([test](tests/review-payload.conformance.l1.test.ts))
 
 ### Properties
@@ -27,5 +27,5 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 ### Compliance
 
 - NEVER: review command vocabulary exposes GitHub review subcommands or provider-specific review comment verbs; provider handling stays in payloads and backend projection ([test](tests/review-command-surface.compliance.l1.test.ts))
-- ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: review finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
 - ALWAYS: review payload projection consumes merge-period identity and finding identity from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
