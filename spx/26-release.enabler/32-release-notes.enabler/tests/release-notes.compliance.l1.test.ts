@@ -594,6 +594,53 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     );
   });
 
+  it("accepts a missing default changelog when the working directory has a trailing separator", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const config: ReleaseNotesConfig = {};
+        const trailingWorkingDirectory = `${workingDirectory}${sep}`;
+        const resolvedPath = resolveReleaseNotesPath(
+          trailingWorkingDirectory,
+          config,
+        );
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          resolvedPath,
+          conformant,
+        );
+
+        await composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory: trailingWorkingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        });
+
+        expect(agentRunner.requests).toHaveLength(1);
+        expect(
+          await readArtifact(resolvedPath, await canonicalizePath(resolvedPath)),
+        ).toBe(conformant);
+      },
+    );
+  });
+
   it("rejects an in-tree symlink retarget after the agent writes before reading", async () => {
     await withReleaseNotesEnv(
       async ({
