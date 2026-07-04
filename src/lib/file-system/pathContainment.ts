@@ -1,6 +1,8 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
-const PARENT_DIRECTORY = "..";
+export const PATH_CONTAINMENT_PARENT_DIRECTORY = "..";
+export const PATH_CONTAINMENT_ROOT_CANDIDATE = "";
+const WINDOWS_DRIVE_PATH_PATTERN = /^[a-zA-Z]:[\\/]/;
 
 /**
  * Whether `candidate` resolves within `root`. The candidate is resolved against
@@ -10,8 +12,22 @@ const PARENT_DIRECTORY = "..";
  * contained — only a `..` segment escapes.
  */
 export function isPathContained(root: string, candidate: string): boolean {
-  const relativeToRoot = relative(root, resolve(root, candidate));
-  return relativeToRoot !== PARENT_DIRECTORY
-    && !relativeToRoot.startsWith(`${PARENT_DIRECTORY}${sep}`)
-    && !isAbsolute(relativeToRoot);
+  if (WINDOWS_DRIVE_PATH_PATTERN.test(root) || WINDOWS_DRIVE_PATH_PATTERN.test(candidate)) {
+    return isResolvedPathContained(
+      win32.relative(root, win32.resolve(root, candidate)),
+      win32.sep,
+      win32.isAbsolute,
+    );
+  }
+  return isResolvedPathContained(relative(root, resolve(root, candidate)), sep, isAbsolute);
+}
+
+function isResolvedPathContained(
+  relativeToRoot: string,
+  pathSeparator: string,
+  isAbsolutePath: (path: string) => boolean,
+): boolean {
+  return relativeToRoot !== PATH_CONTAINMENT_PARENT_DIRECTORY
+    && !relativeToRoot.startsWith(`${PATH_CONTAINMENT_PARENT_DIRECTORY}${pathSeparator}`)
+    && !isAbsolutePath(relativeToRoot);
 }
