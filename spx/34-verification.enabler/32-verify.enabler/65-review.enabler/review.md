@@ -26,5 +26,6 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 
 ### Compliance
 
-- NEVER: review command vocabulary exposes GitHub review subcommands or provider-specific review comment verbs; provider handling stays in payloads and backend projection ([audit])
+- NEVER: review command vocabulary exposes GitHub review subcommands or provider-specific review comment verbs; provider handling stays in payloads and backend projection ([test](tests/review-command-surface.compliance.l1.test.ts))
 - ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: review payload projection consumes merge-period identity and finding identity from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
