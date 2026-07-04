@@ -1,6 +1,6 @@
 # Run Set Orchestration
 
-PROVIDES an internal merge-period run-set projection read port over repeated verification runs for one verification type and scope
+PROVIDES backend-neutral merge-period run-set context projection over repeated verification runs for one verification type and scope
 SO THAT review and audit verification-type payloads, agent harness workflows, and backend delivery projections
 CAN restore prior-run context, classify active/resolved/reopened findings, expose coverage gaps, and preserve expanding scope without reading rendered comments or raw journal logs
 
@@ -21,4 +21,4 @@ CAN restore prior-run context, classify active/resolved/reopened findings, expos
 
 - NEVER: verification producers parse rendered pull-request comments, terminal output, or raw journal-event envelopes to restore prior-run context ([test](tests/run-set-boundary.compliance.l1.test.ts))
 - ALWAYS: review and audit verification-type payload specs consume this node's merge-period identity and finding identity instead of redefining them locally ([audit])
-- ALWAYS: public CLI exposure for run-set context is specified under `spx/60-surfaces.enabler/21-cli-surface.enabler`, while this node exposes the internal read projection consumed by agent harness workflows and backend projections ([audit])
+- ALWAYS: public CLI exposure for run-set context is specified under `spx/60-surfaces.enabler/21-cli-surface.enabler`, while this node exposes the backend-neutral context projection consumed by agent harness workflows and backend projections ([audit])
