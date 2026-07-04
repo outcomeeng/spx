@@ -1,6 +1,6 @@
 # Evidence Append
 
-PROVIDES evidence-payload validation, verification-type finding validation, and caller-supplied idempotency for verification-run evidence operations
+PROVIDES evidence-payload validation, verification-type scope and finding validation, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
 CAN record inspected scope and typed findings exactly once per caller intent before terminal projection renders the run
 
@@ -8,9 +8,10 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 
 ### Compliance
 
+- ALWAYS: scope evidence validates the scope payload against the selected verification type before it appends a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
 - ALWAYS: finding evidence validates the finding payload against the selected verification type before it appends a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
-- ALWAYS: the `review` verification type validates finding payloads at the finding-evidence boundary so callers do not carry review-specific schema validation outside SPX ([test](tests/verify-finding.compliance.l1.test.ts))
-- ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](../21-run-context.enabler/tests/verify-start.compliance.l1.test.ts))
+- ALWAYS: the `review` verification type validates scope and finding payloads at the evidence boundary so callers do not carry review-specific schema validation outside SPX ([test](tests/verify-finding.compliance.l1.test.ts))
+- ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach evidence append and append unvalidated scope or finding evidence ([test](../21-run-context.enabler/tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence require an evidence payload source and reject reuse of the run input as an evidence payload channel ([test](tests/verify-payload.compliance.l1.test.ts))
 - ALWAYS: repeated evidence operations with the same caller-supplied idempotency key return the existing journal sequence instead of duplicating scope or finding evidence ([test](tests/verify-idempotency.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence require a caller-supplied idempotency key for every evidence payload ([test](tests/verify-idempotency.compliance.l1.test.ts))

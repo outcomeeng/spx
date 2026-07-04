@@ -13,14 +13,15 @@ CAN record complete audit coverage and findings under `--verification-type audit
 
 ### Mappings
 
-- Audit terminal rollup maps `audited`, `not-applicable`, `unsupported`, `missing-skill`, `skipped`, and `incomplete` coverage statuses plus finding severities into the journal terminal-status vocabulary ([test](tests/audit-rollup.mapping.l1.test.ts))
+- Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected` ([test](tests/audit-rollup.mapping.l1.test.ts))
 
 ### Conformance
 
-- Audit scope payloads conform to the audit unit schema: unit identity, optional parent unit identity, audit class, audit kind, subject, coverage status, and producer metadata ([test](tests/audit-scope.conformance.l1.test.ts))
-- Audit finding payloads conform to the audit finding schema: unit identity, audit class, audit kind, producer metadata, rule, severity, location, message, and observed-versus-expected evidence ([test](tests/audit-finding.conformance.l1.test.ts))
+- Audit scope payloads conform to the audit unit schema: unit identity, optional parent unit identity, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version ([test](tests/audit-scope.conformance.l1.test.ts))
+- Audit finding payloads conform to the audit finding schema: unit identity, audit class, audit kind, producer metadata, rule, severity `blocking` or `debt`, location, message, and observed-versus-expected evidence ([test](tests/audit-finding.conformance.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: `audit` is the public verification type for every audit run; audit class and audit kind stay inside payloads ([test](tests/audit-command-surface.compliance.l1.test.ts))
 - NEVER: audit payload handling introduces `spx audit` or audit subtype commands under `spx verification run` ([test](tests/audit-command-surface.compliance.l1.test.ts))
+- ALWAYS: audit scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])

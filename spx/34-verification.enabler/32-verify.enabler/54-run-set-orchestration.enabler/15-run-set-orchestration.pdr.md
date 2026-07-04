@@ -9,8 +9,8 @@ Agentic verification improves across repeated local and CI runs only when produc
 ## Product properties
 
 1. A run set is addressed by merge-period identity, verification type, scope type, and scope identity.
-2. A run-set projection contains prior runs, current scope, active findings, resolved findings, reopened findings, and coverage gaps in a backend-neutral shape.
-3. Finding identity is stable across line movement by combining verification type, producer identity, normalized subject, rule, and message or evidence fingerprint; line numbers are display metadata.
+2. A run-set projection is served through an internal verify-domain read port first, contains prior runs, current scope, active findings, resolved findings, reopened findings, and coverage gaps in a backend-neutral shape, and accepts type-specific filters before producer context is rendered.
+3. Finding identity is stable across line movement by combining verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint; line numbers are display metadata.
 
 ## Verification
 
@@ -18,9 +18,11 @@ Agentic verification improves across repeated local and CI runs only when produc
 
 - ALWAYS: run-set selection maps merge-period identity, verification type, scope type, and scope identity to the same backend-neutral run set across local and pull-request backends ([mapping])
 - ALWAYS: run-set projection maps prior run evidence and current run evidence into active, resolved, reopened, and coverage-gap groups ([mapping])
-- ALWAYS: finding identity remains stable when display-only line numbers change but verification type, producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([property])
+- ALWAYS: run-set context filters prior audit context by audit class, audit kind, producer identity, subject path, and changed-file partition before presenting context to a producer ([mapping])
+- ALWAYS: finding identity remains stable when display-only line numbers change but verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([property])
 - NEVER: prior-run context depends on parsing rendered pull-request comments, terminal output, or raw journal-event envelopes ([compliance])
 
 ### Audit
 
 - ALWAYS: specifications for review and audit verification types consume the run-set projection as shared verification context rather than redefining merge-period identity or finding identity ([audit])
+- ALWAYS: public command exposure for run-set context is governed by `spx/60-surfaces.enabler/21-cli-surface.enabler`, while this node owns the internal projection read contract ([audit])
