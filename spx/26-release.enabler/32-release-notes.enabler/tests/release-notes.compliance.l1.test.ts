@@ -438,6 +438,87 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     );
   });
 
+  it("rejects an ancestor directory swap during pre-agent revalidation without invoking the agent", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+      }) => {
+        await withTempDir(
+          RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
+          async (outsideDirectory) => {
+            const releaseData = sampleReleaseTestValue(
+              RELEASE_TEST_GENERATOR.releaseData(),
+            );
+            const subjects = releaseData.commits.map(
+              (commit) => commit.subject,
+            );
+            const [actualSegment, symlinkSegment] = sampleReleaseTestValue(
+              fc.tuple(arbitraryPathSegment(), arbitraryPathSegment())
+                .filter(([first, second]) => first !== second),
+            );
+            const actualDirectory = join(workingDirectory, actualSegment);
+            const symlinkPath = join(workingDirectory, symlinkSegment);
+            const changelogPath = join(symlinkSegment, DEFAULT_CHANGELOG_PATH);
+            const config = { changelogPath };
+            const resolvedPath = resolveReleaseNotesPath(
+              workingDirectory,
+              config,
+            );
+            const conformant = sampleReleaseTestValue(
+              arbitraryConformantChangelog(releaseData.version, subjects),
+            );
+            const agentRunner = new RecordingWritingAgentRunner(
+              workingDirectory,
+              resolvedPath,
+              conformant,
+            );
+            let symlinkParentCanonicalizations = 0;
+            await mkdir(actualDirectory);
+            await symlink(
+              actualDirectory,
+              symlinkPath,
+              RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+            );
+
+            await expect(
+              composeReleaseNotes({
+                releaseData,
+                config,
+                workingDirectory,
+                agentRunner,
+                readArtifact,
+                canonicalizePath: async (path) => {
+                  if (path === symlinkPath) {
+                    symlinkParentCanonicalizations += 1;
+                    if (symlinkParentCanonicalizations === 2) {
+                      await rm(symlinkPath);
+                      await symlink(
+                        outsideDirectory,
+                        symlinkPath,
+                        RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+                      );
+                    }
+                  }
+                  return await canonicalizePath(path);
+                },
+                isSymbolicLink,
+              }),
+            ).rejects.toThrow(ReleaseNotesError);
+
+            expect(agentRunner.requests).toHaveLength(0);
+            expect(await canonicalizePath(resolvedPath)).toBeUndefined();
+            expect(await canonicalizePath(symlinkPath)).toBe(
+              await canonicalizePath(outsideDirectory),
+            );
+          },
+        );
+      },
+    );
+  });
+
   it("rejects a checked canonical path swapped to a final symlink before read-back completes", async () => {
     await withReleaseNotesEnv(
       async ({
@@ -518,6 +599,95 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
             ).rejects.toThrow();
 
             expect(swappedReadCompleted).toBe(false);
+            expect(await canonicalizePath(canonicalArtifactPath)).toBe(
+              await canonicalizePath(outsideArtifactPath),
+            );
+          },
+        );
+      },
+    );
+  });
+
+  it("rejects an ancestor directory swap after read-back revalidation", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+      }) => {
+        await withTempDir(
+          RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
+          async (outsideDirectory) => {
+            const releaseData = sampleReleaseTestValue(
+              RELEASE_TEST_GENERATOR.releaseData(),
+            );
+            const subjects = releaseData.commits.map(
+              (commit) => commit.subject,
+            );
+            const [actualSegment, symlinkSegment] = sampleReleaseTestValue(
+              fc.tuple(arbitraryPathSegment(), arbitraryPathSegment())
+                .filter(([first, second]) => first !== second),
+            );
+            const actualDirectory = join(workingDirectory, actualSegment);
+            const symlinkPath = join(workingDirectory, symlinkSegment);
+            const changelogPath = join(symlinkSegment, DEFAULT_CHANGELOG_PATH);
+            const config = { changelogPath };
+            const resolvedPath = resolveReleaseNotesPath(
+              workingDirectory,
+              config,
+            );
+            const canonicalArtifactPath = join(
+              actualDirectory,
+              DEFAULT_CHANGELOG_PATH,
+            );
+            const outsideArtifactPath = join(
+              outsideDirectory,
+              DEFAULT_CHANGELOG_PATH,
+            );
+            const conformant = sampleReleaseTestValue(
+              arbitraryConformantChangelog(releaseData.version, subjects),
+            );
+            const outsideConformant = sampleReleaseTestValue(
+              arbitraryConformantChangelog(releaseData.version, subjects),
+            );
+            const agentRunner = new RecordingWritingAgentRunner(
+              workingDirectory,
+              resolvedPath,
+              conformant,
+            );
+            let ancestorSwapReadCompleted = false;
+            await mkdir(actualDirectory);
+            await symlink(
+              actualDirectory,
+              symlinkPath,
+              RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+            );
+            await writeFile(outsideArtifactPath, outsideConformant);
+
+            await expect(
+              composeReleaseNotes({
+                releaseData,
+                config,
+                workingDirectory,
+                agentRunner,
+                readArtifact: async (path) => {
+                  await rm(actualDirectory, { recursive: true });
+                  await symlink(
+                    outsideDirectory,
+                    actualDirectory,
+                    RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+                  );
+                  const content = await readArtifact(path);
+                  ancestorSwapReadCompleted = true;
+                  return content;
+                },
+                canonicalizePath,
+                isSymbolicLink,
+              }),
+            ).rejects.toThrow(ReleaseNotesError);
+
+            expect(ancestorSwapReadCompleted).toBe(true);
             expect(await canonicalizePath(canonicalArtifactPath)).toBe(
               await canonicalizePath(outsideArtifactPath),
             );
@@ -827,6 +997,54 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
           );
         },
       ),
+    );
+  });
+
+  it("rejects a configured changelog path whose symlink ancestor resolves to the working tree root", async () => {
+    const releaseData = sampleReleaseTestValue(
+      RELEASE_TEST_GENERATOR.releaseData(),
+    );
+    const subjects = releaseData.commits.map((commit) => commit.subject);
+    const conformant = sampleReleaseTestValue(
+      arbitraryConformantChangelog(releaseData.version, subjects),
+    );
+
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+      }) => {
+        const symlinkSegment = sampleReleaseTestValue(
+          arbitraryPathSegment(),
+        );
+        const symlinkPath = join(workingDirectory, symlinkSegment);
+        const changelogPath = join(symlinkSegment, DEFAULT_CHANGELOG_PATH);
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          join(workingDirectory, DEFAULT_CHANGELOG_PATH),
+          conformant,
+        );
+        await symlink(
+          workingDirectory,
+          symlinkPath,
+          RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+        );
+
+        await expect(
+          composeReleaseNotes({
+            releaseData,
+            config: { changelogPath },
+            workingDirectory,
+            agentRunner,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+          }),
+        ).rejects.toThrow(ReleaseNotesError);
+        expect(agentRunner.requests).toHaveLength(0);
+      },
     );
   });
 });

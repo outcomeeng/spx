@@ -49,6 +49,7 @@ export class ReleaseNotesError extends Error {
 
 /** The Keep a Changelog top-level heading every conformant changelog opens with. */
 export const CHANGELOG_TITLE = "# Changelog";
+export const CHANGELOG_TITLE_TEXT = "Changelog";
 
 /** The Keep a Changelog version-section prefix that every per-release heading opens with. */
 export const CHANGELOG_VERSION_SECTION_PREFIX = "## [";
@@ -79,6 +80,11 @@ export const COMMIT_SUBJECTS_BINARY_ENCODING = "base64";
 
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
+const MARKDOWN_ATX_CLOSING_SEQUENCE_PATTERN = /\s+#+\s*$/;
+const MARKDOWN_HEADING_MAX_LEVEL = 6;
+const MARKDOWN_HEADING_H1_LEVEL = 1;
+const MARKDOWN_HEADING_H2_LEVEL = 2;
+const MARKDOWN_HEADING_H3_LEVEL = 3;
 const MARKDOWN_FENCE_BACKTICK_CHARACTER = "`";
 const MARKDOWN_FENCE_TILDE_CHARACTER = "~";
 export const MARKDOWN_FENCE_BACKTICK_MARKER = "```";
@@ -91,6 +97,9 @@ const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/
 const MARKDOWN_HTML_BLOCK_CLOSE_PREFIX = "</";
 const MARKDOWN_HTML_BLOCK_TAG_CLOSE = ">";
 const MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX = "/>";
+const MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN = String.raw`\s*`;
+const MARKDOWN_HTML_BLOCK_CLOSE_LINE_START = "^";
+const MARKDOWN_HTML_BLOCK_CLOSE_LINE_END = "$";
 const MARKDOWN_HTML_COMMENT_OPEN = "<!--";
 const MARKDOWN_HTML_COMMENT_CLOSE = "-->";
 const MARKDOWN_PROCESSING_INSTRUCTION_OPEN = "<?";
@@ -109,6 +118,7 @@ interface MarkdownFence {
 
 interface MarkdownHeading {
   readonly index: number;
+  readonly level: number;
   readonly text: string;
 }
 
@@ -122,12 +132,17 @@ interface MarkdownHeadingScan {
 
 interface CanonicalPathCheck {
   readonly path: string;
+  readonly checkedPath: string;
   readonly isCandidate: boolean;
 }
 
 /** The Keep a Changelog per-release section heading for a version. */
 export function changelogVersionHeading(version: string): string {
   return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}]`;
+}
+
+function changelogVersionHeadingText(version: string): string {
+  return `[${version}]`;
 }
 
 /** The Keep a Changelog change-group heading for a group. */
@@ -212,16 +227,30 @@ export async function composeReleaseNotes(
     canonicalizePath,
     isSymbolicLink,
   );
-  const prompt = buildReleaseNotesPrompt(releaseData, changelogPath);
-  await agentRunner.run({ prompt, workingDirectory });
-  const canonicalChangelogPath = await assertCanonicalReleaseNotesPath(
+  await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
   );
-  const writtenNotes = await readArtifact(canonicalChangelogPath);
+  const prompt = buildReleaseNotesPrompt(releaseData, changelogPath);
+  await agentRunner.run({ prompt, workingDirectory });
+  await assertCanonicalReleaseNotesPath(
+    workingDirectory,
+    configuredPath,
+    changelogPath,
+    canonicalizePath,
+    isSymbolicLink,
+  );
+  const preOpenCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
+    workingDirectory,
+    configuredPath,
+    changelogPath,
+    canonicalizePath,
+    isSymbolicLink,
+  );
+  const writtenNotes = await readArtifact(preOpenCanonicalChangelogPath);
   await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
@@ -265,7 +294,10 @@ async function assertCanonicalReleaseNotesPath(
       `Configured changelog path cannot be canonicalized: ${changelogPath}`,
     );
   }
-  if (canonicalPath.isCandidate && canonicalPath.path === canonicalRoot) {
+  if (
+    canonicalPath.path === canonicalRoot
+    && (canonicalPath.isCandidate || canonicalPath.checkedPath !== workingDirectory)
+  ) {
     throw new ReleaseNotesError(
       `Configured changelog path resolves to the product working tree: ${changelogPath}`,
     );
@@ -299,7 +331,7 @@ async function nearestExistingCanonicalPath(
   for (;;) {
     const canonicalPath = await canonicalizePath(candidate);
     if (canonicalPath !== undefined) {
-      return { path: canonicalPath, isCandidate };
+      return { path: canonicalPath, checkedPath: candidate, isCandidate };
     }
     const parent = dirname(candidate);
     if (parent === candidate) {
@@ -385,26 +417,32 @@ function encodeJsonData(data: string | readonly string[]): string {
  */
 function assertConformsToKeepAChangelog(notes: string, version: string): void {
   const lines = notes.split("\n");
-  if (normalizeLineEnding(lines[0]) !== CHANGELOG_TITLE) {
+  const headingLines = markdownHeadingLines(lines);
+  const titleHeading = headingLines.at(0);
+  if (
+    normalizeLineEnding(lines[0]) !== CHANGELOG_TITLE
+    || titleHeading?.index !== 0
+    || titleHeading.level !== MARKDOWN_HEADING_H1_LEVEL
+    || titleHeading.text !== CHANGELOG_TITLE_TEXT
+  ) {
     throw new ReleaseNotesError(
       `Generated release notes do not open with the Keep a Changelog title "${CHANGELOG_TITLE}"`,
     );
   }
   const versionHeading = changelogVersionHeading(version);
-  const headingLines = markdownHeadingLines(lines);
-  const versionHeadingLine = headingLines.find((line) => line.text.startsWith(versionHeading));
+  const versionHeadingLine = headingLines.find((line) =>
+    line.level === MARKDOWN_HEADING_H2_LEVEL && line.text === changelogVersionHeadingText(version)
+  );
   if (versionHeadingLine === undefined) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
     );
   }
-  const allowedGroupHeadings = new Set(
-    CHANGELOG_CHANGE_GROUPS.map((group) => changelogGroupHeading(group)),
-  );
+  const allowedGroupHeadings: ReadonlySet<string> = new Set(CHANGELOG_CHANGE_GROUPS);
   const hasChangeGroup = releaseSectionHeadings(
     headingLines,
     versionHeadingLine.index,
-  ).some((line) => allowedGroupHeadings.has(line.text.trimEnd()));
+  ).some((line) => line.level === MARKDOWN_HEADING_H3_LEVEL && allowedGroupHeadings.has(line.text));
   if (!hasChangeGroup) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a Keep a Changelog change-group heading under "${versionHeading}" (one of: ${
@@ -603,10 +641,27 @@ function scanInactiveMarkdownLine(
     activeHtmlBlockTag: undefined,
     activeHtmlDeclarationClose: undefined,
     activeHtmlComment: false,
-    heading: markerContent.startsWith(MARKDOWN_HEADING_PREFIX)
-      ? { index, text: markerContent }
-      : undefined,
+    heading: parseMarkdownHeading(index, markerContent),
   };
+}
+
+function parseMarkdownHeading(index: number, markerContent: string): MarkdownHeading | undefined {
+  if (!markerContent.startsWith(MARKDOWN_HEADING_PREFIX)) {
+    return undefined;
+  }
+  const level = countLeadingMarkerCharacters(markerContent, MARKDOWN_HEADING_PREFIX);
+  if (level > MARKDOWN_HEADING_MAX_LEVEL) {
+    return undefined;
+  }
+  const content = markerContent.slice(level);
+  if (content.length > 0 && !content.startsWith(SPACE)) {
+    return undefined;
+  }
+  return { index, level, text: markdownHeadingText(content) };
+}
+
+function markdownHeadingText(content: string): string {
+  return content.trim().replace(MARKDOWN_ATX_CLOSING_SEQUENCE_PATTERN, "").trimEnd();
 }
 
 function closesMarkdownFence(
@@ -663,11 +718,15 @@ function closesMarkdownHtmlBlock(
   const trimmedLine = line.trimEnd();
   return (
     trimmedLine.endsWith(MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX)
-    || line
-      .toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE)
-      .includes(
-        `${MARKDOWN_HTML_BLOCK_CLOSE_PREFIX}${tagName}${MARKDOWN_HTML_BLOCK_TAG_CLOSE}`,
-      )
+    || markdownHtmlBlockClosePattern(tagName).test(
+      line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE),
+    )
+  );
+}
+
+function markdownHtmlBlockClosePattern(tagName: string): RegExp {
+  return new RegExp(
+    `${MARKDOWN_HTML_BLOCK_CLOSE_LINE_START}${MARKDOWN_HTML_BLOCK_CLOSE_PREFIX}${tagName}${MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN}${MARKDOWN_HTML_BLOCK_TAG_CLOSE}${MARKDOWN_HTML_BLOCK_CLOSE_LINE_END}`,
   );
 }
 
@@ -724,8 +783,8 @@ function countLeadingMarkerCharacters(line: string, marker: string): number {
 
 /**
  * The current release's heading lines: headings after the version heading up to
- * the next version section, so a prior section's change-group heading in an
- * accumulating changelog does not satisfy the current release's validation.
+ * the next H2 section boundary, so a prior or interstitial section's change-group
+ * heading does not satisfy the current release's validation.
  */
 function releaseSectionHeadings(
   headings: readonly MarkdownHeading[],
@@ -734,7 +793,7 @@ function releaseSectionHeadings(
   const afterVersion = headings.filter(
     (heading) => heading.index > versionLineIndex,
   );
-  const nextSectionOffset = afterVersion.findIndex((line) => line.text.startsWith(CHANGELOG_VERSION_SECTION_PREFIX));
+  const nextSectionOffset = afterVersion.findIndex((line) => line.level === MARKDOWN_HEADING_H2_LEVEL);
   return nextSectionOffset === -1
     ? afterVersion
     : afterVersion.slice(0, nextSectionOffset);
