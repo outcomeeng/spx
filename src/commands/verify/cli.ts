@@ -903,6 +903,9 @@ async function resolveExistingRunAddress(
   options: VerifyExistingRunSelector,
   deps: VerifyCliDeps,
 ): Promise<Result<VerifyExistingRunAddress>> {
+  if (!isVerifyVerificationType(options.verificationType)) {
+    return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
+  }
   if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
     return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
   }

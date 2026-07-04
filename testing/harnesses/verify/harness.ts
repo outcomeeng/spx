@@ -171,6 +171,24 @@ export function verifyGitDeps(scenario: VerifyRunContextScenario): GitDependenci
   };
 }
 
+export interface RecordingGitDeps {
+  readonly git: GitDependencies;
+  calls(): number;
+}
+
+export function createRecordingGitDeps(): RecordingGitDeps {
+  let count = 0;
+  return {
+    git: {
+      execa: async () => {
+        count += 1;
+        return GIT_UNEXPECTED_COMMAND;
+      },
+    },
+    calls: () => count,
+  };
+}
+
 export function verifyDeps(scenario: VerifyRunContextScenario, fs: VerifyStateStoreFileSystem): VerifyCliDeps {
   return {
     cwd: scenario.productDir,
