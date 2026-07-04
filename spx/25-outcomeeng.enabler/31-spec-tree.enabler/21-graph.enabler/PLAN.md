@@ -29,6 +29,16 @@ The graph aggregate should own shared graph vocabulary and provider rules that m
 
 Do not parse implementation source files in SPX. The tree-provider boundary supplies declared evidence-link facts to the spec graph boundary; the test graph consumes test evidence-link facts, and the source graph consumes provider outputs for source, coverage, module, or import facts.
 
+## Implementation Boundary
+
+The source graph implementation should be shaped as Outcome Engineering graph core, not as a command-domain library. Use a package boundary that can later move behind a Rust implementation without changing the graph contract:
+
+```text
+src/outcomeeng/spec-tree/graph/source/
+```
+
+The first TypeScript implementation is a host binding for the graph kernel: typed contracts, normalization, and provider descriptor orchestration. Keep command handlers and CLI adapters outside this path. A later Rust module should be able to own the same graph-kernel contract and expose the same normalized fact vocabulary to the TypeScript host.
+
 ## First Slice
 
 Proceed with:

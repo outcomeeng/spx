@@ -40,11 +40,31 @@ Ordering evidence:
 | `ownership-model`, `provider-contract`, `provider-fact-normalization`             | Shared substrate  | language source graph providers                                                     | Providers cannot produce comparable facts without shared identity, provenance, and normalization contracts. |
 | language source graph providers                                                   | Provider/consumer | `43-garbage-collection.enabler`                                                     | GC cannot classify unowned source without normalized provider facts.                                        |
 
+## Implementation Boundary
+
+Implement the source graph as Outcome Engineering graph core, not under a command-domain path. Target:
+
+```text
+src/outcomeeng/spec-tree/graph/source/
+```
+
+Use a host/kernel split:
+
+```text
+src/outcomeeng/spec-tree/graph/source/
+├── kernel/              # pure ownership model, classification, graph vocabulary
+├── providers/           # descriptor contracts and host-side provider adapters
+├── normalize/           # product-root-relative identity and provenance normalization
+└── gc/                  # candidate derivation from normalized classifications
+```
+
+The TypeScript code is the first host implementation. Keep the pure kernel free of Commander, process I/O, filesystem reads, git subprocesses, and TypeScript-only AST concerns. That keeps the graph contract movable to a future Rust module while TypeScript remains the CLI/package host.
+
 ## Provider Direction
 
 The first provider set should use established tools instead of SPX parsing implementation source:
 
-- TypeScript: Vitest/Vite coverage or module-graph facts.
+- TypeScript: Vitest/Vite coverage facts plus TypeScript compiler API or `ts-morph` module facts. The source graph consumes their outputs; it does not scan source text itself.
 - Python: coverage.py for executed coverage and grimp for static import graph facts.
 - Rust: cargo llvm-cov for executed coverage and rust-analyzer module graph facts.
 
@@ -72,10 +92,27 @@ After authoring produces the source graph assertions:
 2. Use `/test` and the TypeScript testing skill to create the first deterministic evidence.
 3. Implement the first slice in TypeScript by consuming declared test evidence-link facts and provider-style facts through injected provider fixtures.
 4. Keep language/tool provider implementation behind a registry-style contract that mirrors validation's explicit descriptor pattern.
-5. Run the TypeScript architecture, test, and code audit gates until APPROVED.
-6. Run changes-reviewer over the whole changeset because this work crosses graph, test, and provider boundaries.
-7. Run `pnpm run validate`, focused `spx test` for the changed node scope, and `pnpm run build` before opening or merging a PR.
-8. Invoke `/merge` and continue until the change reaches the default branch on origin or a lifecycle gate blocks.
+5. Build the first PR around injected provider facts only: ownership classification, provenance retention, provider normalization, and garbage-collection candidate derivation. Real tool adapters are subsequent language-node slices.
+6. Route changed-test planning toward this graph contract after the source graph owns test-to-source reachability; the existing changed-set related-test adapter is migration evidence, not the target architecture.
+7. Run the TypeScript architecture, test, and code audit gates until APPROVED.
+8. Run changes-reviewer over the whole changeset because this work crosses graph, test, and provider boundaries.
+9. Run `pnpm run validate`, focused `spx test` for the changed node scope, and `pnpm run build` before opening or merging a PR.
+10. Invoke `/merge` and continue until the change reaches the default branch on origin or a lifecycle gate blocks.
+
+## Test Plan
+
+Create the first tests under this node:
+
+- `tests/source.mapping.l1.test.ts` maps linked test evidence and provider facts to every ownership classification: `owned-covered`, `owned-reachable`, `covered-unowned`, `reachable-unowned`, and `unowned`.
+- `tests/source.compliance.l1.test.ts` verifies provider provenance retention, shared vocabulary across TypeScript/Python/Rust facts, the no-direct-source-parsing boundary, and garbage-collection candidate derivation from classifications.
+
+Create reusable generated inputs under:
+
+```text
+testing/generators/outcomeeng/source-graph.ts
+```
+
+The generator owns variable provider facts, source artifact paths, linked test evidence, language ids, provider ids, and classification inputs. Tests import source-owned vocabulary from the graph implementation and generate all variable domain inputs through the generator.
 
 ## Acceptance
 
