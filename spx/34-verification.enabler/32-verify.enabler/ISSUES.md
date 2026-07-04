@@ -1,23 +1,23 @@
 # Issues: verify
 
-## `status` next-actions advertise `finding add` for a future validator-less verification type
+## `status` next-actions advertise evidence actions without registered validators
 
 `projectVerifyRun` (`src/domains/verify/verify.ts`) reports `UNSEALED_NEXT_ACTIONS` — a
 static list including `finding add` — for every unsealed run, regardless of verification
-type. The public lifecycle rejects unsupported verification types at `start`, and the
-finding-add operation rejects a started run type that has no finding validator, so a launcher
-that followed `status` for such a type would attempt an action the API rejects.
+type. The public lifecycle rejects unsupported verification types at `start`, and evidence-add
+operations reject a started run type that has no registered validator for the requested evidence
+kind, so a launcher that followed `status` for such a type would attempt an action the API rejects.
 
-Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains
-only `review`, which registers a finding validator, so `finding add` is legal for every
-run that can currently be constructed and the advertised next actions are correct. The gap
-surfaces only when a second verification type without a finding validator is added — the
-extension point the finding-validator registry
-(`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`) exists to
-support. Filtering `nextActions` by validator registration now would guard a branch no run can
-reach. Settle it with the work that adds the second verification type: decide whether
-`status`/`render` next actions filter `finding add` by the run type's validator
-registration, and add the covering assertion then.
+Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains only `review`, whose
+implemented evidence boundary validates findings, so `finding add` is legal for every run that can
+currently be constructed and the advertised next actions are correct. The gap surfaces when
+additional verification types and the evidence-validator registry from
+`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md` introduce
+separate `scope` and `finding` validators keyed by verification type and evidence kind. Filtering
+`nextActions` by evidence-validator registration now would guard a branch no run can reach. Settle
+it with the work that adds the second implemented verification type: decide whether `status` and
+`render` next actions filter `scope add` and `finding add` by the run type's registered evidence
+validators, and add the covering assertion then.
 
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
