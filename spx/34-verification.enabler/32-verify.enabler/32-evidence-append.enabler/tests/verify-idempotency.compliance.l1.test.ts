@@ -24,6 +24,35 @@ import {
 const appendCommands = [verifyAppendScopeCommand, verifyAppendFindingCommand];
 
 describe("verify append idempotency compliance", () => {
+  it("rejects unsupported verification types before reading payloads for every append verb", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+    const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
+    const deps = {
+      ...createVerifyAppendScenario(scenario).deps,
+      readPayloadSource: async () => {
+        throw new Error("verify harness: payload reader must not run");
+      },
+    };
+
+    for (const command of appendCommands) {
+      const appended = await command(
+        {
+          ...verifyAppendOptions(scenario, {
+            run: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken()),
+            payload,
+            idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+          }),
+          verificationType: unsupportedType,
+        },
+        deps,
+      );
+
+      expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(appended.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    }
+  });
+
   it("requires --idempotency-key for every append verb", async () => {
     const scenario = createVerifyRunContextScenario();
     const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));

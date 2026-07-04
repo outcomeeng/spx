@@ -10,4 +10,4 @@ CAN expose user-intent nouns, verbs, options, help, diagnostics, and output cont
 
 - ALWAYS: public CLI command paths use noun groups for managed resources and user-intent verbs for caller actions ([audit])
 - ALWAYS: CLI command-family specs distinguish public surface vocabulary from implementation, storage, journal, event, backend, and adapter vocabulary ([audit])
-- ALWAYS: deterministic command-surface enforcement rejects public command paths that expose implementation or storage vocabulary outside an explicit storage surface ([audit])
+- ALWAYS: public command-surface governance treats implementation or storage vocabulary outside an explicit storage surface as non-public vocabulary ([audit])
