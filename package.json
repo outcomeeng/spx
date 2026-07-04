@@ -98,7 +98,7 @@
     "eslint-visitor-keys": "^5.0.1",
     "execa": "^9.6.1",
     "ink": "^7.0.6",
-    "markdownlint-cli2": "^0.22.1",
+    "markdownlint-cli2": "^0.23.0",
     "markdownlint-rule-relative-links": "^5.1.0",
     "react": "^19.2.7",
     "smol-toml": "^1.6.1",
