@@ -8,7 +8,7 @@ Outcome Engineering uses one methodology vocabulary for durable product maps. Th
 
 **Capability.** A stable reusable product capability consumed and composed by one or more domains, interfaces, or surfaces. A capability is specified by additive behavior and has meaning outside any one consuming domain.
 
-**Enabler.** A node type that owns reusable capability assertions and may contain only enabler-role children. The `.enabler` suffix assigns the enabler node type. Capability, domain, interface, and surface are methodology roles carried by product specs and decisions; the filename suffix alone does not assign those roles.
+**Enabler.** A node type that owns reusable capability assertions and may contain only enabler-role children. The `.enabler` suffix assigns the enabler node type. Substrate, capability, domain, interface, and surface are methodology roles carried by product specs and decisions; the filename suffix alone does not assign those roles.
 
 **Domain.** A bounded product semantic context with its own ubiquitous language, product rules, workflows, and outcome bets. A domain composes capabilities into behavior meaningful to product users or agents.
 
@@ -34,7 +34,7 @@ Outcome Engineering uses one methodology vocabulary for durable product maps. Th
 
 **Materialization.** The act of making a concrete product artifact available to consumers, such as a file, record, journal entry, snapshot, comment, rendered output, or hosted artifact.
 
-**Canonical suffix readiness.** A canonical suffix is recognized consistently only when product paths using it can be authored, validated, loaded into context, projected into status, rendered by product surfaces, and interpreted compatibly with the active naming schema. The `.enabler` and `.outcome` suffixes are admitted node types; `.substrate`, `.capability`, `.domain`, `.interface`, and `.surface` are reserved role suffixes and are not valid node types without this readiness.
+**Canonical suffix readiness.** A canonical suffix is recognized consistently only when product paths using it can be authored, validated, loaded into context, projected into status, rendered by product surfaces, and interpreted compatibly with the active naming schema. The `.enabler` and `.outcome` suffixes are admitted node types; `.substrate`, `.domain`, `.interface`, and `.surface` are reserved role suffixes and are not valid node types without this readiness. The `.capability` suffix is historical grammar vocabulary, not a reserved future node suffix.
 
 **State.** An evidence-derived lifecycle standing — for a node, declared, specified, failing, or passing; for another artifact carrying a lifecycle, a qualified standing such as a run's terminal state or a journal's sealed state. State is a lifecycle standing, not the persistence that stores it.
 

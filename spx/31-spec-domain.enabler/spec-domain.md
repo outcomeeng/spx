@@ -1,13 +1,15 @@
 # Spec Domain
 
-PROVIDES deterministic CLI commands that operate on the spec tree — reading tree state, finding work, and supporting the declare → spec → apply methodology
-SO THAT agents and developers working within a spec tree
-CAN navigate, inspect, and progress nodes through state transitions without hand-walking the filesystem
+PROVIDES intermediate composition operations that coordinate spec-tree library capabilities for navigation, status projection, next-work selection, and methodology progress
+SO THAT CLI, MCP, API, and UI surfaces
+CAN expose spec-tree workflows without owning traversal, state derivation, persistence, testing, or rendering-neutral orchestration semantics
 
 ## Assertions
 
 ### Compliance
 
-- ALWAYS: operate on tracked `spx/` files using worktree-local root per `spx/15-worktree-management.pdr.md` ([review](../15-worktree-management.pdr.md))
-- NEVER: modify files outside the product root ([review])
-- NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`) — spec-tree operations stay within the `spx/` tree ([review])
+- ALWAYS: compose lower-index spec-tree, testing, validation, and persistence capabilities through their public contracts before any surface renders the result ([audit])
+- ALWAYS: operate on tracked `spx/` files using worktree-local root per `spx/15-worktree-management.pdr.md` ([audit](../15-worktree-management.pdr.md))
+- NEVER: own spec-tree traversal, node-state derivation, persistence, testing, validation, or surface rendering semantics ([audit])
+- NEVER: modify files outside the product root ([audit])
+- NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`) — spec-tree operations stay within the `spx/` tree ([audit])

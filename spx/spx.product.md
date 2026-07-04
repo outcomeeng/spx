@@ -16,10 +16,13 @@ Outcome Engineering requires agents that follow the methodology — ingesting sp
 ## Surfaces
 
 - CLI — practitioners, coding agents, CI, and release automation invoke deterministic methodology operations.
+- MCP, web API, and UI — integration-facing and user-facing interaction boundaries expose SPX capabilities through protocol or visual contracts.
 
 ## Delivery Targets
 
+- Local output targets — terminal output and local files deliver deterministic command results to practitioners, agents, and automation.
 - GitHub pull-request comments, checks, and release workflow outputs — deliver verification, review, validation, and package-publication results.
+- GitLab merge-request notes and observability sinks — deliver verification, review, validation, and package-publication results to non-GitHub integration environments.
 
 ## Agent Adapters
 
@@ -94,3 +97,9 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
 - NEVER: require network access for core operations — offline-first for development environments ([audit])
 - NEVER: use LLM inference for operations that can be computed deterministically — tokens are for decisions, not file scanning ([audit])
+
+## Open decisions
+
+| Decision topic | Key question | Options | Triggers ADR/PDR? |
+| -------------- | ------------ | ------- | ----------------- |
+| None           | None         | None    | No                |
