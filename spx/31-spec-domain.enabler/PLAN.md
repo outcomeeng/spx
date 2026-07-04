@@ -1,6 +1,6 @@
 # Plan: Consumer boundary repair
 
-> **Reconcile against `spx/PLAN.md` first.** This is the use-case layer (cross-library orchestration only). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types that *consume* the journal, names `spx verify` the SPX projection/validation home, requires additive migration (never a wholesale move), and defers `.surface`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** This is the use-case layer (cross-library orchestration only). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types that *consume* the journal, names `spx verification run` the SPX projection/validation home, requires additive migration (never a wholesale move), and defers `.surface`. Where this note predates that model, the root plan governs.
 
 This coordination note preserves the spec-domain repair before durable specs and implementation are moved.
 
