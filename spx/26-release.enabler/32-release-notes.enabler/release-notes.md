@@ -17,7 +17,7 @@ CAN carry human-readable notes that describe and group the release's changes
 
 ### Compliance
 
-- ALWAYS: the release-notes prompt carries the release version, the commit subjects, and the resolved changelog path ([test](tests/release-notes.compliance.l1.test.ts))
+- ALWAYS: the release-notes prompt carries the release version, the commit subjects, and the checked canonical changelog path ([test](tests/release-notes.compliance.l1.test.ts))
 - ALWAYS: release-notes generation depends on no spec-tree or domain state — the prompt is assembled from nothing beyond the release data and the resolved configuration ([audit])
-- ALWAYS: the resolved changelog path is lexically and canonically contained within the product working tree, read-back uses the checked canonical artifact path through a no-follow artifact reader, final-path symlink swaps fail at read-back, ancestor-directory swaps fail before validation completes, and a configured changelog path that escapes through traversal, symlink resolution, or a final output-path symlink is rejected ([test](tests/release-notes.compliance.l1.test.ts))
+- ALWAYS: the resolved changelog path is lexically and canonically contained within the product working tree, read-back uses the checked canonical artifact path through a no-follow artifact reader, final-path symlink swaps fail at read-back, ancestor-directory swaps fail before validation completes, and a configured changelog path that escapes through traversal, symlink resolution, a final output-path symlink, an existing directory target, or an existing file ancestor is rejected ([test](tests/release-notes.compliance.l1.test.ts))
 - ALWAYS: generated release notes describe and group the release's changes faithfully to the underlying commits, introducing no claim absent from them ([audit])
