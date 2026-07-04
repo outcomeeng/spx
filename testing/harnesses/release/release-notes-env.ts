@@ -5,6 +5,7 @@ import { lstat, open, realpath, stat } from "node:fs/promises";
 import {
   type ArtifactReader,
   type PathCanonicalizer,
+  type PathFileDetector,
   type PathSymlinkDetector,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -12,6 +13,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-release-notes-";
 const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
+const NOT_DIRECTORY_ERROR_CODE = "ENOTDIR";
 const ARTIFACT_TEXT_ENCODING = "utf8";
 const ARTIFACT_READ_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
 const RETARGETED_ARTIFACT_ERROR = "Opened changelog path changed before read-back validation completed";
@@ -29,6 +31,8 @@ export interface ReleaseNotesEnv {
   readonly canonicalizePath: PathCanonicalizer;
   /** The injected symlink detector: a real filesystem `lstat` boundary over the temp tree. */
   readonly isSymbolicLink: PathSymlinkDetector;
+  /** The injected file detector: a real filesystem `lstat` boundary over the temp tree. */
+  readonly isFile: PathFileDetector;
 }
 
 /**
@@ -44,6 +48,7 @@ export async function withReleaseNotesEnv(callback: (env: ReleaseNotesEnv) => Pr
       readArtifact: readCanonicalArtifactWithoutFollowingFinalSymlink,
       canonicalizePath: canonicalizeExistingPath,
       isSymbolicLink: detectSymbolicLink,
+      isFile: detectFile,
     });
   });
 }
@@ -87,7 +92,7 @@ async function canonicalizeExistingPath(path: string): Promise<string | undefine
   try {
     return await realpath(path);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === FILE_NOT_FOUND_ERROR_CODE) {
+    if (isMissingPathError(error)) {
       return undefined;
     }
     throw error;
@@ -98,9 +103,26 @@ async function detectSymbolicLink(path: string): Promise<boolean> {
   try {
     return (await lstat(path)).isSymbolicLink();
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === FILE_NOT_FOUND_ERROR_CODE) {
+    if (isMissingPathError(error)) {
       return false;
     }
     throw error;
   }
+}
+
+async function detectFile(path: string): Promise<boolean> {
+  try {
+    return (await lstat(path)).isFile();
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return error instanceof Error
+    && "code" in error
+    && (error.code === FILE_NOT_FOUND_ERROR_CODE || error.code === NOT_DIRECTORY_ERROR_CODE);
 }

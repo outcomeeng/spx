@@ -39,7 +39,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
-    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink }) => {
+    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
       const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
       const subjects = releaseData.commits.map((commit) => commit.subject);
       const config = {};
@@ -57,6 +57,7 @@ describe("composeReleaseNotes writes the changelog at the resolved path", () => 
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       });
 
       const written = await readArtifact(resolvedPath);

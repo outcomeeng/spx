@@ -31,6 +31,13 @@ export type PathCanonicalizer = (path: string) => Promise<string | undefined>;
  */
 export type PathSymlinkDetector = (path: string) => Promise<boolean>;
 
+/**
+ * Checks whether an existing filesystem path is a regular file. Release-note
+ * composition injects this boundary so existing directory targets can be
+ * rejected before the agent writes, without direct filesystem access.
+ */
+export type PathFileDetector = (path: string) => Promise<boolean>;
+
 /** The release-notes child's resolved configuration — the changelog output path. */
 export interface ReleaseNotesConfig {
   /** The changelog path relative to the working tree; defaults to `CHANGELOG.md`. */
@@ -198,6 +205,8 @@ export interface ComposeReleaseNotesOptions {
   readonly canonicalizePath: PathCanonicalizer;
   /** The injected symlink detector used to reject final output-path symlinks. */
   readonly isSymbolicLink: PathSymlinkDetector;
+  /** The injected file detector used to reject directory output paths. */
+  readonly isFile: PathFileDetector;
 }
 
 /**
@@ -221,6 +230,7 @@ export async function composeReleaseNotes(
     readArtifact,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   } = options;
   const configuredPath = configuredChangelogPath(config);
   const changelogPath = resolveReleaseNotesPath(workingDirectory, config);
@@ -230,6 +240,7 @@ export async function composeReleaseNotes(
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   );
   await assertCanonicalReleaseNotesPath(
     workingDirectory,
@@ -237,6 +248,7 @@ export async function composeReleaseNotes(
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   );
   const prompt = buildReleaseNotesPrompt(releaseData, changelogPath);
   await agentRunner.run({ prompt, workingDirectory });
@@ -246,6 +258,7 @@ export async function composeReleaseNotes(
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   );
   const preOpenCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
@@ -253,6 +266,7 @@ export async function composeReleaseNotes(
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   );
   const writtenNotes = await readArtifact(
     preOpenCanonicalChangelogPath,
@@ -264,6 +278,7 @@ export async function composeReleaseNotes(
     changelogPath,
     canonicalizePath,
     isSymbolicLink,
+    isFile,
   );
   assertConformsToKeepAChangelog(writtenNotes, releaseData.version);
 }
@@ -278,6 +293,7 @@ async function assertCanonicalReleaseNotesPath(
   changelogPath: string,
   canonicalizePath: PathCanonicalizer,
   isSymbolicLink: PathSymlinkDetector,
+  isFile: PathFileDetector,
 ): Promise<string> {
   const canonicalRoot = await canonicalizePath(workingDirectory);
   if (canonicalRoot === undefined) {
@@ -312,6 +328,21 @@ async function assertCanonicalReleaseNotesPath(
   if (!isPathContained(canonicalRoot, canonicalPath.path)) {
     throw new ReleaseNotesError(
       `Configured changelog path escapes the product working tree: ${changelogPath}`,
+    );
+  }
+  const checkedPathIsFile = await isFile(canonicalPath.checkedPath);
+  if (canonicalPath.isCandidate && !checkedPathIsFile) {
+    throw new ReleaseNotesError(
+      `Configured changelog path is not a file: ${changelogPath}`,
+    );
+  }
+  if (
+    !canonicalPath.isCandidate
+    && canonicalPath.checkedPath !== workingDirectory
+    && await isFile(canonicalPath.path)
+  ) {
+    throw new ReleaseNotesError(
+      `Configured changelog path is not a file: ${changelogPath}`,
     );
   }
   return canonicalPath.path;

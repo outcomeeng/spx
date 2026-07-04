@@ -53,6 +53,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -81,6 +82,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         const prompt = agentRunner.lastPrompt;
@@ -129,6 +131,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = {
           ...sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData()),
@@ -154,6 +157,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         const prompt = agentRunner.lastPrompt;
@@ -180,6 +184,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseDataWithSubjects([
@@ -206,6 +211,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         const prompt = agentRunner.lastPrompt;
@@ -231,6 +237,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -261,6 +268,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         const prompt = agentRunner.lastPrompt;
@@ -304,6 +312,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -331,6 +340,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         expect(isPathContained(workingDirectory, resolvedPath)).toBe(true);
@@ -346,6 +356,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -373,10 +384,151 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
           readArtifact,
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         await expect(readArtifact(resolvedPath)).resolves.toBe(conformant);
         expect(agentRunner.requests).toHaveLength(1);
+      },
+    );
+  });
+
+  it("rejects a configured changelog path that already exists as a directory before invoking the agent", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const config = {};
+        const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          resolvedPath,
+          conformant,
+        );
+        await mkdir(resolvedPath);
+
+        await expect(
+          composeReleaseNotes({
+            releaseData,
+            config,
+            workingDirectory,
+            agentRunner,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+            isFile,
+          }),
+        ).rejects.toThrow(ReleaseNotesError);
+        expect(agentRunner.requests).toHaveLength(0);
+      },
+    );
+  });
+
+  it("rejects a configured changelog path below an existing file before invoking the agent", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const parentFileSegment = sampleReleaseTestValue(arbitraryPathSegment());
+        const changelogPath = join(parentFileSegment, DEFAULT_CHANGELOG_PATH);
+        const config = { changelogPath };
+        const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          resolvedPath,
+          conformant,
+        );
+        await writeFile(join(workingDirectory, parentFileSegment), conformant);
+
+        await expect(
+          composeReleaseNotes({
+            releaseData,
+            config,
+            workingDirectory,
+            agentRunner,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+            isFile,
+          }),
+        ).rejects.toThrow(ReleaseNotesError);
+        expect(agentRunner.requests).toHaveLength(0);
+      },
+    );
+  });
+
+  it("rejects a configured changelog path below a symlink to a file before invoking the agent", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const [actualFileSegment, symlinkSegment] = sampleReleaseTestValue(
+          fc.tuple(arbitraryPathSegment(), arbitraryPathSegment())
+            .filter(([first, second]) => first !== second),
+        );
+        const actualFilePath = join(workingDirectory, actualFileSegment);
+        const symlinkPath = join(workingDirectory, symlinkSegment);
+        const changelogPath = join(symlinkSegment, DEFAULT_CHANGELOG_PATH);
+        const config = { changelogPath };
+        const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          resolvedPath,
+          conformant,
+        );
+        await writeFile(actualFilePath, conformant);
+        await symlink(
+          actualFilePath,
+          symlinkPath,
+          RELEASE_NOTES_FILE_SYMLINK_TYPE,
+        );
+
+        await expect(
+          composeReleaseNotes({
+            releaseData,
+            config,
+            workingDirectory,
+            agentRunner,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+            isFile,
+          }),
+        ).rejects.toThrow(ReleaseNotesError);
+        expect(agentRunner.requests).toHaveLength(0);
       },
     );
   });
@@ -388,6 +540,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -429,6 +582,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
           },
           canonicalizePath,
           isSymbolicLink,
+          isFile,
         });
 
         expect(readBackPath).toBe(
@@ -446,6 +600,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -506,6 +661,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                   return await canonicalizePath(path);
                 },
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
 
@@ -527,6 +683,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -599,6 +756,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 },
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow();
 
@@ -619,6 +777,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -691,6 +850,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 },
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
 
@@ -711,6 +871,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const releaseData = sampleReleaseTestValue(
           RELEASE_TEST_GENERATOR.releaseData(),
@@ -738,6 +899,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
             readArtifact,
             canonicalizePath,
             isSymbolicLink,
+            isFile,
           }),
         ).rejects.toThrow(ReleaseNotesError);
         expect(agentRunner.requests).toHaveLength(0);
@@ -752,6 +914,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -790,6 +953,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 readArtifact,
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
             expect(agentRunner.requests).toHaveLength(0);
@@ -806,6 +970,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -848,6 +1013,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 readArtifact,
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
             expect(agentRunner.requests).toHaveLength(0);
@@ -864,6 +1030,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         await withTempDir(
           RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -906,6 +1073,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 readArtifact,
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
             expect(agentRunner.requests).toHaveLength(0);
@@ -933,6 +1101,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
             readArtifact,
             canonicalizePath,
             isSymbolicLink,
+            isFile,
           }) => {
             // The double would write if invoked; the blank path must be rejected before the agent runs.
             const agentRunner = new RecordingWritingAgentRunner(
@@ -950,6 +1119,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 readArtifact,
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
             expect(agentRunner.requests).toHaveLength(0);
@@ -978,6 +1148,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
             readArtifact,
             canonicalizePath,
             isSymbolicLink,
+            isFile,
           }) => {
             // The double would write if invoked; directory targets must be rejected before the agent runs.
             const agentRunner = new RecordingWritingAgentRunner(
@@ -995,6 +1166,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 readArtifact,
                 canonicalizePath,
                 isSymbolicLink,
+                isFile,
               }),
             ).rejects.toThrow(ReleaseNotesError);
             expect(agentRunner.requests).toHaveLength(0);
@@ -1020,6 +1192,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
         readArtifact,
         canonicalizePath,
         isSymbolicLink,
+        isFile,
       }) => {
         const symlinkSegment = sampleReleaseTestValue(
           arbitraryPathSegment(),
@@ -1046,6 +1219,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
             readArtifact,
             canonicalizePath,
             isSymbolicLink,
+            isFile,
           }),
         ).rejects.toThrow(ReleaseNotesError);
         expect(agentRunner.requests).toHaveLength(0);
