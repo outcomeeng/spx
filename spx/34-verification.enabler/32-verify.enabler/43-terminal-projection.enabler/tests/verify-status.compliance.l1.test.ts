@@ -18,6 +18,7 @@ import {
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
+  createRecordingGitDeps,
   createVerifyAppendScenario,
   createVerifyRunContextScenario,
   finishRun,
@@ -219,6 +220,29 @@ describe("verify status compliance", () => {
     expect(rendered.output).toContain(VERIFY_CLI_ERROR.RUN_NOT_FOUND);
     expect(status.output).toContain(verifyInputRecordFilePath(scenario, rawRun.runToken));
     expect(rendered.output).toContain(verifyInputRecordFilePath(scenario, rawRun.runToken));
+  });
+
+  it("rejects an unsupported verification type before resolving an existing run for status and render", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const { deps } = createVerifyAppendScenario(scenario);
+    const recorder = createRecordingGitDeps();
+    const recordingDeps = { ...deps, git: recorder.git };
+    const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+    const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+    const status = await verifyStatusCommand(
+      { ...verifyStatusOptions(scenario, runToken), verificationType: unsupportedType },
+      recordingDeps,
+    );
+    const rendered = await verifyRenderCommand(
+      { ...verifyRenderOptions(scenario, runToken), verificationType: unsupportedType },
+      recordingDeps,
+    );
+
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(status.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(rendered.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(recorder.calls()).toBe(0);
   });
 
   it("rejects status and render when the requested scope differs from the recorded run scope", async () => {

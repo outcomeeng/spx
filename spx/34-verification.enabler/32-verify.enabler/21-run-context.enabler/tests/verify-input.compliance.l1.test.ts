@@ -14,6 +14,7 @@ import { VERIFY_SCOPE_SEPARATOR, VERIFY_SCOPE_TYPE } from "@/domains/verify/veri
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import {
+  createRecordingGitDeps,
   createRecordingInputReader,
   createVerifyRunContextScenario,
   parseInputReport,
@@ -53,6 +54,24 @@ describe("verify input compliance", () => {
         expect(replayed.output).toBe(VERIFY_CLI_ERROR.RUN_REQUIRED);
       }),
     );
+  });
+
+  it("rejects an unsupported verification type before resolving an existing run", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createInMemoryStateStoreFileSystem();
+    const recorder = createRecordingGitDeps();
+    const deps: VerifyCliDeps = { ...verifyDeps(scenario, fs), git: recorder.git };
+    const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+    const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+
+    const replayed = await verifyInputCommand(
+      { ...verifyInputOptions(scenario, runToken), verificationType: unsupportedType },
+      deps,
+    );
+
+    expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(replayed.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(recorder.calls()).toBe(0);
   });
 
   it("names every run selector and searched target when the run cannot be located", async () => {

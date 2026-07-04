@@ -22,6 +22,7 @@ import { STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } from "@/lib/stat
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import {
+  createRecordingGitDeps,
   createVerifyAppendScenario,
   createVerifyRunContextScenario,
   finishRecoversUnsealedRun,
@@ -358,5 +359,24 @@ describe("verify finish compliance", () => {
     expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
     await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toThrow();
     await finishRecoversUnsealedRun(scenario, deps, runToken);
+  });
+
+  it("rejects an unsupported verification type before resolving an existing run to finish", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createInMemoryStateStoreFileSystem();
+    const recorder = createRecordingGitDeps();
+    const deps = { ...verifyDeps(scenario, fs), git: recorder.git };
+    const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+    const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+
+    const finished = await verifyFinishCommand(
+      { ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }), verificationType: unsupportedType },
+      deps,
+    );
+
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(finished.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(recorder.calls()).toBe(0);
   });
 });
