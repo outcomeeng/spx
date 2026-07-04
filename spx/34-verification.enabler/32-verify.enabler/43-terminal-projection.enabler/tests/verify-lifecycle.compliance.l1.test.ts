@@ -41,6 +41,7 @@ import {
 interface SealRetryFileSystem extends StateStoreFileSystem {
   failDirectoryListings(): void;
   failFirstSealWriteAt(path: string): void;
+  failSealMarkerReadsAt(path: string): void;
 }
 
 interface RawJournalOpenReport {
@@ -98,6 +99,7 @@ function createSealRetryFileSystem(): SealRetryFileSystem {
   const fs = createInMemoryStateStoreFileSystem();
   let blockedSealMarkerPath: string | undefined;
   let directoryListingsRejected = false;
+  let rejectedSealMarkerReadPath: string | undefined;
   let sealFailuresRemaining = 0;
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
@@ -108,9 +110,17 @@ function createSealRetryFileSystem(): SealRetryFileSystem {
       blockedSealMarkerPath = path;
       sealFailuresRemaining = 1;
     },
+    failSealMarkerReadsAt: (path: string) => {
+      rejectedSealMarkerReadPath = path;
+    },
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
-    readFile: (path, encoding) => fs.readFile(path, encoding),
+    readFile: (path, encoding) => {
+      if (path === rejectedSealMarkerReadPath) {
+        throw new Error("verify harness: seal marker read rejected");
+      }
+      return fs.readFile(path, encoding);
+    },
     readdir: async (path, options) => {
       if (directoryListingsRejected) {
         throw new Error("verify harness: directory listing rejected");
@@ -232,6 +242,33 @@ describe("verify finish compliance", () => {
     await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(
       APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
     );
+  });
+
+  it("returns the existing terminal projection when a repeated finish cannot read the seal marker", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createSealRetryFileSystem();
+    const deps = { ...createVerifyAppendScenario(scenario).deps, fs };
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    await finishRun(scenario, deps, startReport.runToken, terminalStatus);
+    fs.failSealMarkerReadsAt(appendableJournalSealMarkerPath(startReport.locator.runTarget));
+
+    const repeat = await verifyFinishCommand(
+      verifyFinishOptions(scenario, { run: startReport.runToken, terminalStatus }),
+      deps,
+    );
+
+    expect(repeat.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expectFinishReportMatchesJournal(
+      parseFinishReport(repeat.output),
+      await expectedTerminalProjectionFromJournal(scenario, fs, startReport.runToken, terminalStatus),
+    );
+    const terminalEvents = (await readVerifyRunEvents(scenario, startReport.runToken, fs)).filter(
+      (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
+    );
+    expect(terminalEvents).toHaveLength(1);
   });
 
   it("rejects an unterminal raw journal run without a recorded verification input", async () => {

@@ -1036,7 +1036,7 @@ async function retrySealForTerminalRun(
   deps: VerifyCliDeps,
 ): Promise<CliCommandResult | undefined> {
   const physicallySealed = await isJournalPhysicallySealed(run, deps);
-  if (!physicallySealed.ok) return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${physicallySealed.error}`);
+  if (!physicallySealed.ok) return undefined;
   if (physicallySealed.value) return undefined;
   return sealExistingRun(run, deps);
 }
