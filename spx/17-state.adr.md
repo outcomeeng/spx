@@ -41,5 +41,5 @@ An async scope resolver returns a result struct carrying the product-root `warni
 - NEVER: a scope-directory resolver that only joins an already-resolved product root wraps its return in `Result` — the `Result` shape is reserved for composition that validates an untrusted token or slug ([audit])
 - NEVER: thread the not-in-git `warning` through a scope resolver whose only consumer is presentation-free — the worktree-scope resolver returns a bare path for compact, which emits JSON or nothing, while resolvers feeding user-facing consumers return a struct carrying `warning` ([audit])
 - NEVER: the state module imports a consumer domain (release, spec, change, session, compact, testing, verification) ([audit])
-- NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the git or filesystem boundary — tests inject controlled git and filesystem implementations and exercise the real helper code paths ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the git or filesystem boundary — tests pass controlled git and filesystem implementations through the public injection API and exercise the real helper code paths ([audit])
 - NEVER: a consumer domain duplicates branch slugging ([audit])
