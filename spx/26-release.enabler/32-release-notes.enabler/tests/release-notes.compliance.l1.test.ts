@@ -35,6 +35,7 @@ import {
   oracleResolvedChangelogPath,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import {
   RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
@@ -582,14 +583,17 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 config,
                 workingDirectory,
                 agentRunner,
-                readArtifact: async (path) => {
+                readArtifact: async (path, expectedCanonicalPath) => {
                   await rm(path);
                   await symlink(
                     outsideArtifactPath,
                     path,
                     RELEASE_NOTES_FILE_SYMLINK_TYPE,
                   );
-                  const content = await readArtifact(path);
+                  const content = await readArtifact(
+                    path,
+                    expectedCanonicalPath,
+                  );
                   swappedReadCompleted = true;
                   return content;
                 },
@@ -608,7 +612,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     );
   });
 
-  it("rejects an ancestor directory swap after read-back revalidation", async () => {
+  it("rejects an ancestor directory swap before reading the opened artifact", async () => {
     await withReleaseNotesEnv(
       async ({
         workingDirectory,
@@ -671,14 +675,17 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 config,
                 workingDirectory,
                 agentRunner,
-                readArtifact: async (path) => {
+                readArtifact: async (path, expectedCanonicalPath) => {
                   await rm(actualDirectory, { recursive: true });
                   await symlink(
                     outsideDirectory,
                     actualDirectory,
                     RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
                   );
-                  const content = await readArtifact(path);
+                  const content = await readArtifact(
+                    path,
+                    expectedCanonicalPath,
+                  );
                   ancestorSwapReadCompleted = true;
                   return content;
                 },
@@ -687,7 +694,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
               }),
             ).rejects.toThrow(ReleaseNotesError);
 
-            expect(ancestorSwapReadCompleted).toBe(true);
+            expect(ancestorSwapReadCompleted).toBe(false);
             expect(await canonicalizePath(canonicalArtifactPath)).toBe(
               await canonicalizePath(outsideArtifactPath),
             );
@@ -917,40 +924,39 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       arbitraryConformantChangelog(releaseData.version, subjects),
     );
 
-    await fc.assert(
-      fc.asyncProperty(
-        arbitraryBlankConfiguredChangelogPath(),
-        async (changelogPath) => {
-          await withReleaseNotesEnv(
-            async ({
+    await assertProperty(
+      arbitraryBlankConfiguredChangelogPath(),
+      async (changelogPath) => {
+        await withReleaseNotesEnv(
+          async ({
+            workingDirectory,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+          }) => {
+            // The double would write if invoked; the blank path must be rejected before the agent runs.
+            const agentRunner = new RecordingWritingAgentRunner(
               workingDirectory,
-              readArtifact,
-              canonicalizePath,
-              isSymbolicLink,
-            }) => {
-              // The double would write if invoked; the blank path must be rejected before the agent runs.
-              const agentRunner = new RecordingWritingAgentRunner(
-                workingDirectory,
-                join(workingDirectory, DEFAULT_CHANGELOG_PATH),
-                conformant,
-              );
+              join(workingDirectory, DEFAULT_CHANGELOG_PATH),
+              conformant,
+            );
 
-              await expect(
-                composeReleaseNotes({
-                  releaseData,
-                  config: { changelogPath },
-                  workingDirectory,
-                  agentRunner,
-                  readArtifact,
-                  canonicalizePath,
-                  isSymbolicLink,
-                }),
-              ).rejects.toThrow(ReleaseNotesError);
-              expect(agentRunner.requests).toHaveLength(0);
-            },
-          );
-        },
-      ),
+            await expect(
+              composeReleaseNotes({
+                releaseData,
+                config: { changelogPath },
+                workingDirectory,
+                agentRunner,
+                readArtifact,
+                canonicalizePath,
+                isSymbolicLink,
+              }),
+            ).rejects.toThrow(ReleaseNotesError);
+            expect(agentRunner.requests).toHaveLength(0);
+          },
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -963,40 +969,39 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       arbitraryConformantChangelog(releaseData.version, subjects),
     );
 
-    await fc.assert(
-      fc.asyncProperty(
-        arbitraryRootResolvingChangelogPath(),
-        async (changelogPath) => {
-          await withReleaseNotesEnv(
-            async ({
+    await assertProperty(
+      arbitraryRootResolvingChangelogPath(),
+      async (changelogPath) => {
+        await withReleaseNotesEnv(
+          async ({
+            workingDirectory,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+          }) => {
+            // The double would write if invoked; directory targets must be rejected before the agent runs.
+            const agentRunner = new RecordingWritingAgentRunner(
               workingDirectory,
-              readArtifact,
-              canonicalizePath,
-              isSymbolicLink,
-            }) => {
-              // The double would write if invoked; directory targets must be rejected before the agent runs.
-              const agentRunner = new RecordingWritingAgentRunner(
-                workingDirectory,
-                join(workingDirectory, DEFAULT_CHANGELOG_PATH),
-                conformant,
-              );
+              join(workingDirectory, DEFAULT_CHANGELOG_PATH),
+              conformant,
+            );
 
-              await expect(
-                composeReleaseNotes({
-                  releaseData,
-                  config: { changelogPath },
-                  workingDirectory,
-                  agentRunner,
-                  readArtifact,
-                  canonicalizePath,
-                  isSymbolicLink,
-                }),
-              ).rejects.toThrow(ReleaseNotesError);
-              expect(agentRunner.requests).toHaveLength(0);
-            },
-          );
-        },
-      ),
+            await expect(
+              composeReleaseNotes({
+                releaseData,
+                config: { changelogPath },
+                workingDirectory,
+                agentRunner,
+                readArtifact,
+                canonicalizePath,
+                isSymbolicLink,
+              }),
+            ).rejects.toThrow(ReleaseNotesError);
+            expect(agentRunner.requests).toHaveLength(0);
+          },
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 

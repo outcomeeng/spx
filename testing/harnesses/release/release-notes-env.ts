@@ -1,13 +1,20 @@
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, realpath } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { lstat, open, realpath, stat } from "node:fs/promises";
 
-import type { ArtifactReader, PathCanonicalizer, PathSymlinkDetector } from "@/domains/release/release-notes";
+import {
+  type ArtifactReader,
+  type PathCanonicalizer,
+  type PathSymlinkDetector,
+  ReleaseNotesError,
+} from "@/domains/release/release-notes";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-release-notes-";
 const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
 const ARTIFACT_TEXT_ENCODING = "utf8";
 const ARTIFACT_READ_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
+const RETARGETED_ARTIFACT_ERROR = "Opened changelog path changed before read-back validation completed";
 export const RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE = "dir";
 export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
@@ -34,20 +41,46 @@ export async function withReleaseNotesEnv(callback: (env: ReleaseNotesEnv) => Pr
   await withTempDir(TEMP_DIR_PREFIX, async (workingDirectory) => {
     await callback({
       workingDirectory,
-      readArtifact: readArtifactWithoutFollowingFinalSymlink,
+      readArtifact: readCanonicalArtifactWithoutFollowingFinalSymlink,
       canonicalizePath: canonicalizeExistingPath,
       isSymbolicLink: detectSymbolicLink,
     });
   });
 }
 
-async function readArtifactWithoutFollowingFinalSymlink(path: string): Promise<string> {
-  const handle = await open(path, ARTIFACT_READ_FLAGS);
+async function readCanonicalArtifactWithoutFollowingFinalSymlink(
+  path: string,
+  expectedCanonicalPath?: string,
+): Promise<string> {
+  const canonicalPath = expectedCanonicalPath ?? await canonicalizeExistingPath(path);
+  if (canonicalPath === undefined) {
+    throw new ReleaseNotesError(
+      `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
+    );
+  }
+  const handle = await open(canonicalPath, ARTIFACT_READ_FLAGS);
   try {
+    const openedArtifact = await handle.stat();
+    const currentCanonicalPath = await canonicalizeExistingPath(path);
+    if (currentCanonicalPath !== canonicalPath) {
+      throw new ReleaseNotesError(
+        `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
+      );
+    }
+    const currentArtifact = await stat(canonicalPath);
+    if (!isSameArtifact(openedArtifact, currentArtifact)) {
+      throw new ReleaseNotesError(
+        `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
+      );
+    }
     return await handle.readFile({ encoding: ARTIFACT_TEXT_ENCODING });
   } finally {
     await handle.close();
   }
+}
+
+function isSameArtifact(openedArtifact: Stats, currentArtifact: Stats): boolean {
+  return openedArtifact.dev === currentArtifact.dev && openedArtifact.ino === currentArtifact.ino;
 }
 
 async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
