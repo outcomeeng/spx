@@ -594,6 +594,33 @@ interface PreparedAppend {
   readonly journalScope: JournalRunCliScope;
   readonly namespace: string;
   readonly backendIdentity: string;
+  readonly existingEvents: readonly JournalEvent[];
+}
+
+/** Read append history and reject terminal runs before mutable sidecar state is consulted. */
+async function readAppendExistingEvents(
+  options: VerifyAppendCliOptions,
+  deps: VerifyCliDeps,
+  journalScope: JournalRunCliScope,
+  backendIdentity: string,
+  namespace: string,
+): Promise<Result<readonly JournalEvent[]>> {
+  const existingEvents = await readRunJournalEvents(journalScope, deps);
+  if (!existingEvents.ok) {
+    // A missing run reports the addressable run locator; any other read failure (a backend,
+    // scope, or storage error) surfaces its real reason rather than masquerading as run-not-found.
+    if (existingEvents.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return {
+        ok: false,
+        error: appendRunNotFoundDiagnostic(options, backendIdentity, namespace),
+      };
+    }
+    return { ok: false, error: `${VERIFY_CLI_ERROR.APPEND_FAILED}: ${existingEvents.error}` };
+  }
+  if (findTerminalEvent(existingEvents.value) !== undefined) {
+    return { ok: false, error: VERIFY_CLI_ERROR.RUN_FINISHED };
+  }
+  return existingEvents;
 }
 
 /**
@@ -630,6 +657,19 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   };
   const namespace = verifyRunsDir(runScope);
   if (!namespace.ok) return namespace;
+  const journalScope: JournalRunCliScope = {
+    type: options.verificationType,
+    runToken: options.run,
+    branchSlug: resolved.value.branchSlug,
+  };
+  const existingEvents = await readAppendExistingEvents(
+    options,
+    deps,
+    journalScope,
+    resolved.value.backendIdentity,
+    namespace.value,
+  );
+  if (!existingEvents.ok) return existingEvents;
 
   // A started verify run persists a recorded input at `start`; its absence means the token names a
   // raw journal run rather than a started verification run, so reject the append the way `input` does.
@@ -660,9 +700,10 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
     value: {
       readPayload,
       binding,
-      journalScope: { type: options.verificationType, runToken: options.run, branchSlug: resolved.value.branchSlug },
+      journalScope,
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
+      existingEvents: existingEvents.value,
     },
   };
 }
@@ -734,24 +775,10 @@ async function verifyAppend(
 ): Promise<CliCommandResult> {
   const prepared = await prepareAppend(options, deps);
   if (!prepared.ok) return errorResult(prepared.error);
-  const { readPayload, binding, journalScope, namespace, backendIdentity } = prepared.value;
+  const { readPayload, binding, journalScope, existingEvents } = prepared.value;
   const eventType = appendEventType(verb);
 
-  const before = await readRunJournalEvents(journalScope, deps);
-  if (!before.ok) {
-    // A missing run reports the addressable run locator; any other read failure (a backend,
-    // scope, or storage error) surfaces its real reason rather than masquerading as run-not-found.
-    if (before.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
-      return errorResult(appendRunNotFoundDiagnostic(options, backendIdentity, namespace));
-    }
-    return errorResult(`${VERIFY_CLI_ERROR.APPEND_FAILED}: ${before.error}`);
-  }
-
-  // A run carrying a terminal-completion event is finished; it rejects further evidence whether or
-  // not its journal seal marker was written, so a projected sealed run never accepts a later append.
-  if (findTerminalEvent(before.value) !== undefined) return errorResult(VERIFY_CLI_ERROR.RUN_FINISHED);
-
-  const existing = findAppendedSequence(before.value, options.idempotencyKey, eventType);
+  const existing = findAppendedSequence(existingEvents, options.idempotencyKey, eventType);
   if (existing !== undefined) {
     const report: VerifyAppendReport = { sequence: existing, idempotent: true };
     return okResult(JSON.stringify(report));

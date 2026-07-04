@@ -6,7 +6,12 @@ import {
   verifyAppendFindingCommand,
   verifyAppendScopeCommand,
 } from "@/commands/verify/cli";
-import { VERIFY_APPEND_EVENT_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import {
+  VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_SCOPE_SEPARATOR,
+  VERIFY_SCOPE_TYPE,
+  VERIFY_VERIFICATION_TYPE,
+} from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
@@ -16,6 +21,7 @@ import {
   readVerifyRunEvents,
   startedRunToken,
   verifyAppendOptions,
+  verifyInputRecordFilePath,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
@@ -52,5 +58,58 @@ describe("verify append terminal-rejection compliance", () => {
     expect(
       eventsAfterReject.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING),
     ).toHaveLength(findings.length);
+  });
+
+  it("rejects append on a terminal run before requiring its recorded-input sidecar", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus()));
+    await fs.rm(verifyInputRecordFilePath(scenario, runToken), { force: true });
+
+    for (const append of appendCommands) {
+      const rejected = await append(
+        verifyAppendOptions(scenario, {
+          run: runToken,
+          payload: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload())),
+          idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+        }),
+        deps,
+      );
+      expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(rejected.output).toBe(VERIFY_CLI_ERROR.RUN_FINISHED);
+    }
+  });
+
+  it("rejects append on a terminal run before matching its recorded-input selectors", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus()));
+    await fs.writeFile(
+      verifyInputRecordFilePath(scenario, runToken),
+      JSON.stringify({
+        scopeIdentity: `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}`,
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        source: scenario.inputContent,
+        digest: runToken,
+        content: scenario.inputContent,
+      }),
+    );
+
+    for (const append of appendCommands) {
+      const rejected = await append(
+        verifyAppendOptions(scenario, {
+          run: runToken,
+          payload: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload())),
+          idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+        }),
+        deps,
+      );
+      expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(rejected.output).toBe(VERIFY_CLI_ERROR.RUN_FINISHED);
+    }
   });
 });
