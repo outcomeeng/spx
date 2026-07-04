@@ -13,7 +13,7 @@ This node materializes the run-set layer above individual `spx verification run`
 3. Implement the internal verify-domain run-set context read projection consumed by agent harness workflows and backend delivery projections.
 4. Keep any public run-set context command under `spx/60-surfaces.enabler/21-cli-surface.enabler`; this node supplies the internal projection contract first.
 5. Add the projection source that restores prior-run context from persisted verification runs without parsing rendered PR comments.
-6. Add prior-audit context selectors for audit class, audit kind, producer identity, subject path, and changed-file partition.
+6. Add the generic selector interface that lets verification-type consumer nodes supply type-specific prior-context filters.
 
 ## GitHub review shape input
 

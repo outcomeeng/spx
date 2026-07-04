@@ -20,6 +20,7 @@ Audit workflows inspect many subjects: instructions, specs, implementation code,
 - ALWAYS: audit scope payload validation accepts nestable units with unit identity, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version ([conformance])
 - ALWAYS: audit finding validation requires a referenced audit unit, producer metadata, rule, severity `blocking` or `debt`, message, and evidence payload ([conformance])
 - ALWAYS: audit terminal rollup maps complete clean required coverage to `approved`, and maps any required unit with coverage status `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding severity `blocking` or `debt`, to `rejected` before terminal completion is recorded ([mapping])
+- ALWAYS: prior audit context selectors filter by audit class, audit kind, producer identity, subject path, and changed-file partition ([mapping])
 - NEVER: audit class or audit kind appears as a public command path segment under `spx verification run` ([compliance])
 
 ### Audit

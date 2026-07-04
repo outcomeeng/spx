@@ -14,6 +14,7 @@ CAN record complete audit coverage and findings under `--verification-type audit
 ### Mappings
 
 - Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected` ([test](tests/audit-rollup.mapping.l1.test.ts))
+- Prior audit context selectors map audit class, audit kind, producer identity, subject path, and changed-file partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
 
 ### Conformance
 
@@ -24,5 +25,5 @@ CAN record complete audit coverage and findings under `--verification-type audit
 
 - ALWAYS: `audit` is the public verification type for every audit run; audit class and audit kind stay inside payloads ([test](tests/audit-command-surface.compliance.l1.test.ts))
 - NEVER: audit payload handling introduces `spx audit` or audit subtype commands under `spx verification run` ([test](tests/audit-command-surface.compliance.l1.test.ts))
-- ALWAYS: audit scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: audit finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
 - ALWAYS: audit payload projection consumes merge-period identity, finding identity, and prior-run context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
