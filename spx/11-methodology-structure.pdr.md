@@ -10,7 +10,7 @@ This structure gives products a stable architectural elevator from primitive mec
 
 1. Every non-outcome top-level product concern has one area role: substrate, capability, domain, interface, or surface; persistence, backend, and delivery concerns are classified by their semantic ownership instead of forming extra area roles; an outcome attaches to the area or semantic owner where the product bet is made, and a product-root outcome may carry a bet owned by the product root.
 2. Dependency order flows from substrate through capabilities, domains, interfaces, and surfaces; a consumer area consumes provider areas through contracts and does not move provider semantics upward because a surface exposes them.
-3. Area role and node suffix are separate: specs and decisions name area roles under the root methodology PDRs, `.enabler` and `.outcome` are valid product node suffixes, and `.substrate`, `.capability`, `.domain`, `.interface`, and `.surface` are reserved role suffixes governed by canonical suffix readiness.
+3. Area role and node suffix are separate: specs and decisions name area roles under the root methodology PDRs, `.enabler` and `.outcome` are valid product node suffixes, `.substrate`, `.domain`, `.interface`, and `.surface` are reserved role suffixes governed by canonical suffix readiness, and capability remains a suffix-less methodology role.
 
 ## Verification
 
