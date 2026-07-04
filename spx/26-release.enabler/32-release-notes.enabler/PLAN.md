@@ -7,4 +7,5 @@ Before applying this plan to agent-driven release-note composition or SDK-backed
 ## Coordination
 
 - Add the shared production `AgentRunner` when the `spx release` command consumes agent-authored artifacts. Reconcile the implementation against `spx/26-release.enabler/18-release-architecture.adr.md` and `spx/26-release.enabler/32-release-notes.enabler/21-release-notes-generation.adr.md`; use `@anthropic-ai/claude-agent-sdk` rather than `claude-code-sdk`.
+- Add the production release-notes filesystem boundaries — path canonicalizer, symlink detector, file detector, and no-follow artifact reader — when the `spx release` command consumes agent-authored artifacts.
 - Run the release-notes faithfulness audit against a generated changelog artifact when the production agent path is available.
