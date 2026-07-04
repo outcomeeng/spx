@@ -17,6 +17,7 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 
 ### Conformance
 
+- Review scope payloads conform to the platform-neutral reviewed-unit schema: provider identity when present, path, optional line or position range, side, commit identity, coverage state, and URL ([test](tests/review-payload.conformance.l1.test.ts))
 - Review finding payloads conform to the platform-neutral review comment schema while accepting GitHub-shaped anchor fields as optional provider data ([test](tests/review-payload.conformance.l1.test.ts))
 
 ### Properties
@@ -26,3 +27,4 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 ### Compliance
 
 - NEVER: review command vocabulary exposes GitHub review subcommands or provider-specific review comment verbs; provider handling stays in payloads and backend projection ([audit])
+- ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])

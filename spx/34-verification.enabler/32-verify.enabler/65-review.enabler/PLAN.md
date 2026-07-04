@@ -9,7 +9,7 @@ This node materializes `review` as a verification type-specific payload and proj
 ## Pending work
 
 1. Implement the review envelope, review comment, review scope, and review payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/review.md`.
-2. Replace the narrow review finding validator with a platform-neutral review comment schema that can carry GitHub formal-review comments without making GitHub the product model.
+2. Replace the narrow review finding validator with platform-neutral reviewed-unit and review-comment schemas registered through the shared verification-type evidence-validator registry for `scope` and `finding`.
 3. Decide the lifecycle event that carries the review envelope: start input, a typed summary/envelope event, or finish metadata. Record the decision in the owning spec or decision before implementation.
 4. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
 

@@ -10,8 +10,10 @@ This node materializes the run-set layer above individual `spx verification run`
 
 1. Implement the run-set selector, projection, and finding-identity tests named by `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md`.
 2. Implement backend-neutral merge-period identity for local and pull-request backends.
-3. Decide whether the public lifecycle grows a run-set/context command such as `spx verification context render`, or whether this remains an internal projection consumed by agent harness workflows first.
-4. Add the projection source that restores prior-run context from persisted verification runs without parsing rendered PR comments.
+3. Implement the internal verify-domain run-set context read projection consumed by agent harness workflows and backend delivery projections.
+4. Keep any public run-set context command under `spx/60-surfaces.enabler/21-cli-surface.enabler`; this node supplies the internal projection contract first.
+5. Add the projection source that restores prior-run context from persisted verification runs without parsing rendered PR comments.
+6. Add prior-audit context selectors for audit class, audit kind, producer identity, subject path, and changed-file partition.
 
 ## GitHub review shape input
 

@@ -16,18 +16,16 @@ This node materializes `audit` as an independent verification type sibling of `r
    - `audit_kind`: `skill`, `subagent`, `prompt`, `guide-template`, `spec`, `adr`, `pdr`, `code`, `tests`, `architecture`, `eval-evidence`, or `coverage-gap`
    - subject
    - coverage status
-   - producer metadata
-3. `finding add` records a unit-scoped audit finding with producer metadata, rule, severity, location, message, and observed-versus-expected evidence.
+   - producer metadata: producer kind, agent name, agent owning plugin name/version, skill name, skill owning plugin name/version, invocation role, and optional tool version
+3. `finding add` records a unit-scoped audit finding with producer metadata, rule, severity (`blocking` or `debt`), location, message, and observed-versus-expected evidence.
 4. Coverage statuses include `audited`, `not-applicable`, `unsupported`, `missing-skill`, `skipped`, and `incomplete`.
-5. Terminal rollup classifies required audited units and findings as `approved`, `rejected`, `incomplete`, or `unknown`, then settles how those audit rollup values map into the journal terminal-status vocabulary before `finish` records terminal completion.
+5. Terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding severity `blocking` or `debt`, maps to `rejected`.
 
 ## Implementation sequence
 
 1. Implement the audit scope, audit finding, audit rollup, and audit command-surface tests named by `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md`.
-2. Add an `audit` verification-type registration and a finding validator through the existing verify registry boundary.
-3. Add scope-payload validation for audit units if the parent lifecycle keeps generic scope payloads; otherwise add a type-specific scope validator registry parallel to finding validation.
-4. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` for `status` next actions when more than one verification type exists.
-5. Migrate audit orchestrator and leaf auditor plugin callers only after SPX validates and projects the audit payload shape.
+2. Add an `audit` verification-type registration and scope/finding validators through the shared verification-type evidence-validator registry.
+3. Migrate audit orchestrator and leaf auditor plugin callers only after SPX validates and projects the audit payload shape and exposes the run-set context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler`.
 
 ## Sibling relationship
 
