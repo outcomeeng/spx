@@ -977,7 +977,6 @@ async function readRecordedInputForProjection(
   }
   if (inputRecord.value === undefined) return { ok: true, value: undefined };
   if (!recordedSelectorMatches(inputRecord.value, options)) {
-    if (terminal !== undefined) return { ok: true, value: undefined };
     return { ok: false, error: existingRunSelectorMismatch(run, options) };
   }
   return { ok: true, value: inputRecord.value };
