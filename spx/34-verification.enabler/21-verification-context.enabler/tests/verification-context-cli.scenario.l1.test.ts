@@ -72,6 +72,7 @@ interface VerificationContextChangesetScenario {
 interface PersistedVerificationContextOutput {
   readonly digest: string;
   readonly contextPath: string;
+  readonly created: boolean;
 }
 
 function createFileScenario(): VerificationContextFileScenario {
@@ -226,7 +227,12 @@ describe("verification-context CLI", () => {
 
       expect(firstCreated.exitCode).toBe(VERIFICATION_CONTEXT_CLI_EXIT_CODE.OK);
       expect(secondCreated.exitCode).toBe(VERIFICATION_CONTEXT_CLI_EXIT_CODE.OK);
-      expect(parsePersistedOutput(secondCreated.output)).toEqual(parsePersistedOutput(firstCreated.output));
+      const firstResult = parsePersistedOutput(firstCreated.output);
+      const secondResult = parsePersistedOutput(secondCreated.output);
+      expect(secondResult.digest).toBe(firstResult.digest);
+      expect(secondResult.contextPath).toBe(firstResult.contextPath);
+      expect(firstResult.created).toBe(true);
+      expect(secondResult.created).toBe(false);
     });
   });
 

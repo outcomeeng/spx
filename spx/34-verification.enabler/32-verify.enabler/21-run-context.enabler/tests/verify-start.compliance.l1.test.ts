@@ -4,6 +4,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyInputCommand, verifyStartCommand } from "@/commands/verify/cli";
+import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import {
   createVerificationContextDocument,
   VERIFICATION_CONTEXT_PERSISTENCE,
@@ -11,12 +12,13 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
 import { verificationContextFilePath } from "@/domains/verification-context/path";
-import { VERIFY_INPUT_RECORD, verifyRunsDir } from "@/domains/verify/verify";
+import { VERIFY_INPUT_RECORD, VERIFY_SCOPE_TYPE, verifyRunsDir } from "@/domains/verify/verify";
 import type { ExecResult, GitDependencies } from "@/git/root";
 import { GIT_NAME_STATUS_FLAG } from "@/lib/git/name-status";
 import {
   ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,
+  runFileName,
   slugBranchIdentity,
   STATE_STORE_PATH,
   STATE_STORE_SCOPE_PATH,
@@ -50,8 +52,9 @@ function failChangedScopeGitDeps(base: GitDependencies): GitDependencies {
   };
 }
 
-function createInputPersistFailureFileSystem(): StateStoreFileSystem {
-  const fs = createInMemoryStateStoreFileSystem();
+function createInputPersistFailureFileSystem(
+  fs: StateStoreFileSystem = createInMemoryStateStoreFileSystem(),
+): StateStoreFileSystem {
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
     lstat: (path) => fs.lstat(path),
@@ -70,8 +73,9 @@ function createInputPersistFailureFileSystem(): StateStoreFileSystem {
   };
 }
 
-function createJournalOpenFailureFileSystem(): StateStoreFileSystem {
-  const fs = createInMemoryStateStoreFileSystem();
+function createJournalOpenFailureFileSystem(
+  fs: StateStoreFileSystem = createInMemoryStateStoreFileSystem(),
+): StateStoreFileSystem {
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
     lstat: (path) => fs.lstat(path),
@@ -224,6 +228,21 @@ describe("verify start compliance", () => {
     await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
   });
 
+  it("preserves a reused verification context when journal opening fails", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createInMemoryStateStoreFileSystem();
+    const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+    expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+
+    const started = await verifyStartCommand(
+      verifyStartOptions(scenario),
+      verifyDeps(scenario, createJournalOpenFailureFileSystem(fs)),
+    );
+
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+  });
+
   it("removes opened run artifacts when recorded-input persistence fails", async () => {
     const scenario = createVerifyRunContextScenario();
     const fs = createInputPersistFailureFileSystem();
@@ -237,14 +256,36 @@ describe("verify start compliance", () => {
     await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
   });
 
+  it("preserves a reused verification context when recorded-input persistence fails", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createInMemoryStateStoreFileSystem();
+    const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+    expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+
+    const started = await verifyStartCommand(
+      verifyStartOptions(scenario),
+      verifyDeps(scenario, createInputPersistFailureFileSystem(fs)),
+    );
+
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(started.output).toContain(VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED);
+    await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+  });
+
   it("records the verification input at start so the input verb replays it", async () => {
     const scenario = createVerifyRunContextScenario();
     const fs = createInMemoryStateStoreFileSystem();
-    const deps = verifyDeps(scenario, fs);
+    const laterInputContent = `${scenario.inputContent}${scenario.scope}`;
+    let currentInputContent = scenario.inputContent;
+    const deps = {
+      ...verifyDeps(scenario, fs),
+      readInputSource: async () => currentInputContent,
+    };
 
     const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
     expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
     const startReport = parseStartReport(started.output);
+    currentInputContent = laterInputContent;
 
     const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
 
@@ -259,18 +300,19 @@ describe("verify start compliance", () => {
     const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
 
     expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    const { locator } = parseStartReport(started.output);
-    const selectors = [
-      locator.runToken,
-      locator.verificationType,
-      locator.scopeType,
-      locator.scopeIdentity,
-      locator.backendIdentity,
-      locator.storageNamespace,
-      locator.runTarget,
-    ];
-    for (const selector of selectors) {
-      expect(selector.length).toBeGreaterThan(0);
-    }
+    const report = parseStartReport(started.output);
+    const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
+    const runFileEntries = runEntries.filter((entry) => entry.isFile() && entry.name === runFileName(report.runToken));
+    expect(runFileEntries).toHaveLength(1);
+    expect(report.locator).toEqual({
+      runToken: report.runToken,
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scopeIdentity: scenario.scope,
+      backendIdentity: JOURNAL_BACKEND.LOCAL,
+      storageNamespace: scenarioRunsDir(scenario),
+      runTarget: join(scenarioRunsDir(scenario), runFileEntries[0]?.name),
+    });
+    await expect(fs.lstat(report.locator.runTarget)).resolves.toMatchObject({});
   });
 });
