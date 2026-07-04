@@ -14,6 +14,7 @@ import {
   composeReleaseNotes,
   decodeReleaseNotesPromptData,
   DEFAULT_CHANGELOG_PATH,
+  type PathCanonicalizer,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   RELEASE_VERSION_DATA_BLOCK_OPEN,
   type ReleaseNotesConfig,
@@ -33,7 +34,6 @@ import {
   arbitraryEscapingChangelogPath,
   arbitraryNestedConfiguredChangelogPath,
   arbitraryRootResolvingChangelogPath,
-  oracleResolvedChangelogPath,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
@@ -47,7 +47,7 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
-  it("includes the release version, the commit subjects, and the resolved changelog path as prompt data", async () => {
+  it("includes the release version, the commit subjects, and the checked canonical changelog path as prompt data", async () => {
     await withReleaseNotesEnv(
       async ({
         workingDirectory,
@@ -62,9 +62,10 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         const subjects = releaseData.commits.map((commit) => commit.subject);
         const config: ReleaseNotesConfig = {};
         const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
-        const expectedResolvedPath = oracleResolvedChangelogPath(
+        const expectedCanonicalPath = await expectedCanonicalChangelogPath(
           workingDirectory,
-          config.changelogPath,
+          config.changelogPath ?? DEFAULT_CHANGELOG_PATH,
+          canonicalizePath,
         );
         const conformant = sampleReleaseTestValue(
           arbitraryConformantChangelog(releaseData.version, subjects),
@@ -114,13 +115,98 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         const decodedPathBlock = decodeReleaseNotesPromptData(delimitedPathBlock);
         expect(decodedPathBlock).toBe(
           JSON.stringify(
-            expectedResolvedPath,
+            expectedCanonicalPath,
             null,
             COMMIT_SUBJECTS_JSON_INDENT,
           ),
         );
         expect(prompt).not.toContain(`version ${releaseData.version}`);
         expect(prompt).not.toContain(`at ${resolvedPath}`);
+      },
+    );
+  });
+
+  it("uses the checked canonical changelog path in the prompt when a symlink ancestor is followed by parent traversal", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const [actualSegment, childSegment, symlinkSegment] = sampleReleaseTestValue(
+          fc.tuple(
+            arbitraryPathSegment(),
+            arbitraryPathSegment(),
+            arbitraryPathSegment(),
+          ).filter((segments) => new Set(segments).size === segments.length),
+        );
+        const actualDirectory = join(workingDirectory, actualSegment);
+        const actualChildDirectory = join(actualDirectory, childSegment);
+        const symlinkPath = join(workingDirectory, symlinkSegment);
+        const changelogPath =
+          `${symlinkSegment}${sep}${PATH_CONTAINMENT_PARENT_DIRECTORY}${sep}${DEFAULT_CHANGELOG_PATH}`;
+        const config = { changelogPath };
+        const lexicalResolvedPath = resolveReleaseNotesPath(
+          workingDirectory,
+          config,
+        );
+        const canonicalArtifactPath = join(
+          actualDirectory,
+          DEFAULT_CHANGELOG_PATH,
+        );
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          canonicalArtifactPath,
+          conformant,
+        );
+        await mkdir(actualChildDirectory, { recursive: true });
+        await symlink(
+          actualChildDirectory,
+          symlinkPath,
+          RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+        );
+
+        await composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        });
+
+        const delimitedPathBlock = promptDataBlock(
+          agentRunner.lastPrompt,
+          CHANGELOG_PATH_DATA_BLOCK_OPEN,
+          CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+        );
+        expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
+          JSON.stringify(
+            await canonicalizePath(canonicalArtifactPath),
+            null,
+            COMMIT_SUBJECTS_JSON_INDENT,
+          ),
+        );
+        expect(await canonicalizePath(canonicalArtifactPath)).not.toBe(
+          lexicalResolvedPath,
+        );
+        expect(
+          await readArtifact(
+            canonicalArtifactPath,
+            await canonicalizePath(canonicalArtifactPath),
+          ),
+        ).toBe(conformant);
       },
     );
   });
@@ -248,9 +334,10 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         const resolvedPath = resolveReleaseNotesPath(workingDirectory, {
           changelogPath,
         });
-        const expectedResolvedPath = oracleResolvedChangelogPath(
+        const expectedCanonicalPath = await expectedCanonicalChangelogPath(
           workingDirectory,
           changelogPath,
+          canonicalizePath,
         );
         const conformant = sampleReleaseTestValue(
           arbitraryConformantChangelog(releaseData.version, subjects),
@@ -283,7 +370,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         );
         expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
           JSON.stringify(
-            expectedResolvedPath,
+            expectedCanonicalPath,
             null,
             COMMIT_SUBJECTS_JSON_INDENT,
           ),
@@ -303,6 +390,18 @@ function promptDataBlock(
   expect(blockStart).toBeGreaterThan(-1);
   expect(blockEnd).toBeGreaterThan(blockStart);
   return prompt.slice(blockStart + openMarker.length, blockEnd).trim();
+}
+
+async function expectedCanonicalChangelogPath(
+  workingDirectory: string,
+  configuredPath: string,
+  canonicalizePath: PathCanonicalizer,
+): Promise<string> {
+  const canonicalWorkingDirectory = await canonicalizePath(workingDirectory);
+  if (canonicalWorkingDirectory === undefined) {
+    throw new Error("Release-notes test working directory cannot be canonicalized");
+  }
+  return join(canonicalWorkingDirectory, configuredPath);
 }
 
 describe("composeReleaseNotes keeps the changelog path within the product working tree", () => {
