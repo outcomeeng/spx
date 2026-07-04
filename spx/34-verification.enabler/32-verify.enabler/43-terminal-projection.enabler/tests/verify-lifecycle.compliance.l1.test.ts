@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { journalOpenCommand } from "@/commands/journal/cli";
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyFinishCommand, verifyStartCommand } from "@/commands/verify/cli";
 import {
   findTerminalEvent,
@@ -32,6 +33,14 @@ import {
 
 interface SealRetryFileSystem extends StateStoreFileSystem {
   failFirstSealWriteAt(path: string): void;
+}
+
+interface RawJournalOpenReport {
+  readonly runToken: string;
+}
+
+function parseRawJournalOpenReport(output: string): RawJournalOpenReport {
+  return JSON.parse(output) as RawJournalOpenReport;
 }
 
 function createSealRetryFileSystem(): SealRetryFileSystem {
@@ -149,6 +158,25 @@ describe("verify finish compliance", () => {
     await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(
       APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
     );
+  });
+
+  it("rejects an unterminal raw journal run without a recorded verification input", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const { fs, deps } = createVerifyAppendScenario(scenario);
+    const opened = await journalOpenCommand({ type: scenario.verificationType }, deps);
+    expect(opened.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const rawRun = parseRawJournalOpenReport(opened.output);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+
+    const finished = await verifyFinishCommand(
+      verifyFinishOptions(scenario, { run: rawRun.runToken, terminalStatus }),
+      deps,
+    );
+
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(finished.output).toContain(rawRun.runToken);
+    expect(finished.output).toContain(verifyInputRecordFilePath(scenario, rawRun.runToken));
+    expect(findTerminalEvent(await readVerifyRunEvents(scenario, rawRun.runToken, fs))).toBeUndefined();
   });
 
   it("returns the first terminal projection when a second finish supplies a different terminal status", async () => {

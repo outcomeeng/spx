@@ -322,6 +322,27 @@ async function persistInputRecord(
   }
 }
 
+async function readStartInputContent(
+  source: string,
+  deps: VerifyCliDeps,
+): Promise<Result<string>> {
+  try {
+    return { ok: true, value: await deps.readInputSource(source) };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.INPUT_READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+async function removeOpenedRunFile(runFile: string, deps: VerifyCliDeps): Promise<Result<void>> {
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  try {
+    await fs.rm(runFile, { force: true });
+    return { ok: true, value: undefined };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED}: rollback failed: ${toMessage(error)}` };
+  }
+}
+
 function isStoredRecordedInput(value: unknown): value is RecordedInput {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Partial<RecordedInput>;
@@ -397,8 +418,9 @@ export async function verifyStartCommand(
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return errorResult(resolved.error);
 
-  const inputContent = await deps.readInputSource(options.input);
-  const inputDigest = digestRunInput(options.input, inputContent);
+  const inputContent = await readStartInputContent(options.input, deps);
+  if (!inputContent.ok) return errorResult(inputContent.error);
+  const inputDigest = digestRunInput(options.input, inputContent.value);
   if (!inputDigest.ok) return errorResult(inputDigest.error);
 
   const changedScope = await resolveChangedScope(scope.value, deps);
@@ -435,10 +457,13 @@ export async function verifyStartCommand(
     scopeType: options.scopeType,
     source: options.input,
     digest: inputDigest.value,
-    content: inputContent,
+    content: inputContent.value,
   };
   const persisted = await persistInputRecord(runScope, recorded, deps);
-  if (!persisted.ok) return errorResult(persisted.error);
+  if (!persisted.ok) {
+    const rollback = await removeOpenedRunFile(runFile, deps);
+    return errorResult(rollback.ok ? persisted.error : `${persisted.error}; ${rollback.error}`);
+  }
 
   const namespace = verifyRunsDir(runScope);
   if (!namespace.ok) return errorResult(namespace.error);
@@ -818,18 +843,18 @@ async function resolveExistingRun(
   return { ok: true, value: run };
 }
 
-async function ensureRecordedSelectorMatchesWhenPresent(
+async function readRecordedInputWhenPresent(
   run: VerifyExistingRunAddress,
   options: VerifyExistingRunSelector,
   deps: VerifyCliDeps,
-): Promise<Result<void>> {
+): Promise<Result<RecordedInput | undefined>> {
   const inputRecord = await readExistingRecordedInput(run, deps);
   if (!inputRecord.ok) return inputRecord;
   if (inputRecord.value === undefined) return { ok: true, value: undefined };
   if (!recordedSelectorMatches(inputRecord.value, options)) {
     return { ok: false, error: existingRunSelectorMismatch(run, options) };
   }
-  return { ok: true, value: undefined };
+  return { ok: true, value: inputRecord.value };
 }
 
 /** Assemble the terminal projection report a `finish` returns from a run's folded event history. */
@@ -911,8 +936,8 @@ export async function verifyFinishCommand(
   if (!isVerifyTerminalStatus(options.terminalStatus)) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID);
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const selector = await ensureRecordedSelectorMatchesWhenPresent(run.value, options, deps);
-  if (!selector.ok) return errorResult(selector.error);
+  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
 
   const before = await readRunJournalEvents(run.value.journalScope, deps);
   if (!before.ok) {
@@ -923,6 +948,9 @@ export async function verifyFinishCommand(
   if (findTerminalEvent(before.value) !== undefined) {
     const retrySeal = await retrySealForTerminalRun(run.value, deps);
     return retrySeal ?? finishProjectionResult(run.value, deps);
+  }
+  if (inputRecord.value === undefined) {
+    return errorResult(existingRunNotFound(run.value, options));
   }
 
   // Only the append-and-seal path consumes the journal binding.
@@ -951,7 +979,7 @@ export async function verifyStatusCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const selector = await ensureRecordedSelectorMatchesWhenPresent(run.value, options, deps);
+  const selector = await readRecordedInputWhenPresent(run.value, options, deps);
   if (!selector.ok) return errorResult(selector.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
@@ -981,7 +1009,7 @@ export async function verifyRenderCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const selector = await ensureRecordedSelectorMatchesWhenPresent(run.value, options, deps);
+  const selector = await readRecordedInputWhenPresent(run.value, options, deps);
   if (!selector.ok) return errorResult(selector.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
