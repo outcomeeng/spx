@@ -23,7 +23,11 @@ Outcome Engineering requires agents that follow the methodology — ingesting sp
 
 ## Agent Adapters
 
-- Codex and Claude Code adapters — launch, resume, configuration, plugin, and skill behavior connects supported agents to the harness.
+- Codex and Claude Code adapters — launch, resume, observe, and communicate with supported coding agents.
+
+## Agent Harness Inputs
+
+- Agent configuration, instruction files, plugin marketplaces, plugins, skills, invocation policy, and isolated execution state equip supported coding agents.
 
 ## Durable Product Artifacts
 
