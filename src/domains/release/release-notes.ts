@@ -242,7 +242,10 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   );
-  const prompt = buildReleaseNotesPrompt(releaseData, changelogPath);
+  const prompt = buildReleaseNotesPrompt(
+    releaseData,
+    preAgentCanonicalChangelogPath,
+  );
   await agentRunner.run({ prompt, workingDirectory });
   const postAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
@@ -323,6 +326,7 @@ async function assertCanonicalReleaseNotesPath(
       `Configured changelog path resolves to the product working tree: ${changelogPath}`,
     );
   }
+  const canonicalChangelogPath = canonicalTargetPath(canonicalPath, candidatePath);
   if (!isPathContained(canonicalRoot, canonicalPath.path)) {
     throw new ReleaseNotesError(
       `Configured changelog path escapes the product working tree: ${changelogPath}`,
@@ -343,7 +347,7 @@ async function assertCanonicalReleaseNotesPath(
       `Configured changelog path is not a file: ${changelogPath}`,
     );
   }
-  return canonicalTargetPath(canonicalPath, candidatePath);
+  return canonicalChangelogPath;
 }
 
 function canonicalTargetPath(
