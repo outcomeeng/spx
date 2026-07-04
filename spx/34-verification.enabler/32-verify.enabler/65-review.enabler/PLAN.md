@@ -1,6 +1,6 @@
 # Plan: review verification type
 
-> Reconcile against `spx/34-verification.enabler/32-verify.enabler/PLAN.md` first. This placeholder records the type-specific review payload work; the shared lifecycle remains in the parent node.
+> Reconcile against `spx/34-verification.enabler/32-verify.enabler/PLAN.md`, `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md`, and this node's spec and PDR first. This note coordinates remaining type-specific review payload work; the shared lifecycle remains in the parent node.
 
 ## Scope
 
@@ -8,11 +8,10 @@ This node materializes `review` as a verification type-specific payload and proj
 
 ## Pending work
 
-1. Replace the narrow review finding validator with a platform-neutral review comment schema that can carry GitHub formal-review comments without making GitHub the product model.
-2. Model a review envelope separately from inline comments: provider ids, actor, state, body, submitted time, commit id, and URL belong to the envelope; path, line or position, side, diff hunk, body, and URL belong to comments.
-3. Keep `scope add` for reviewed units and `finding add` for anchored review comments or findings, so a clean reviewed file can be represented without inventing a finding.
-4. Decide the lifecycle event that carries the review envelope: start input, a typed summary/envelope event, or finish metadata. Record the decision in the owning spec or decision before implementation.
-5. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
+1. Implement the review envelope, review comment, review scope, and review payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/review.md`.
+2. Replace the narrow review finding validator with a platform-neutral review comment schema that can carry GitHub formal-review comments without making GitHub the product model.
+3. Decide the lifecycle event that carries the review envelope: start input, a typed summary/envelope event, or finish metadata. Record the decision in the owning spec or decision before implementation.
+4. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
 
 ## Sibling relationship
 

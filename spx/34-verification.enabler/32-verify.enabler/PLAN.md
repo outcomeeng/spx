@@ -1,6 +1,6 @@
 # Plan: verification-run lifecycle
 
-> Reconcile against `spx/PLAN.md` and `spx/34-verification.enabler/PLAN.md` first. This note coordinates pending work under the materialized `spx/34-verification.enabler/32-verify.enabler` lifecycle node; it does not declare product truth.
+> Reconcile against `spx/34-verification.enabler/verification.md`, `spx/34-verification.enabler/PLAN.md`, and affected child node specs and decisions first. This note coordinates pending work under the materialized `spx/34-verification.enabler/32-verify.enabler` lifecycle node; it does not declare product truth.
 
 ## Existing lifecycle slice
 
