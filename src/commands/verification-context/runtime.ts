@@ -26,6 +26,7 @@ export interface PersistVerificationContextOptions {
 export interface PersistedVerificationContext {
   readonly digest: string;
   readonly contextPath: string;
+  readonly created: boolean;
 }
 
 export async function persistVerificationContext(
@@ -44,13 +45,13 @@ export async function persistVerificationContext(
       const existing = await readExistingContext(fs, contextPath.value);
       if (!existing.ok) return existing;
       if (existing.value === document.canonicalJson) {
-        return { ok: true, value: { digest: document.digest, contextPath: contextPath.value } };
+        return { ok: true, value: { digest: document.digest, contextPath: contextPath.value, created: false } };
       }
       return { ok: false, error: VERIFICATION_CONTEXT_RUNTIME_ERROR.CONTENT_MISMATCH };
     }
     return { ok: false, error: `${VERIFICATION_CONTEXT_RUNTIME_ERROR.WRITE_FAILED}: ${toMessage(error)}` };
   }
-  return { ok: true, value: { digest: document.digest, contextPath: contextPath.value } };
+  return { ok: true, value: { digest: document.digest, contextPath: contextPath.value, created: true } };
 }
 
 async function readExistingContext(fs: StateStoreFileSystem, contextPath: string): Promise<Result<string>> {

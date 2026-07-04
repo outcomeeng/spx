@@ -354,16 +354,18 @@ async function removeStartedRunArtifact(
 }
 
 async function removeStartedRunArtifacts(
-  artifacts: { readonly contextPath: string; readonly runFile?: string },
+  artifacts: { readonly contextPath?: string; readonly runFile?: string },
   deps: VerifyCliDeps,
 ): Promise<Result<void>> {
   const rollbackErrors: string[] = [];
-  const contextRollback = await removeStartedRunArtifact(
-    artifacts.contextPath,
-    VERIFY_START_ROLLBACK_ARTIFACT.CONTEXT_FILE,
-    deps,
-  );
-  if (!contextRollback.ok) rollbackErrors.push(contextRollback.error);
+  if (artifacts.contextPath !== undefined) {
+    const contextRollback = await removeStartedRunArtifact(
+      artifacts.contextPath,
+      VERIFY_START_ROLLBACK_ARTIFACT.CONTEXT_FILE,
+      deps,
+    );
+    if (!contextRollback.ok) rollbackErrors.push(contextRollback.error);
+  }
   if (artifacts.runFile !== undefined) {
     const runRollback = await removeStartedRunArtifact(
       artifacts.runFile,
@@ -442,6 +444,7 @@ interface CompleteVerifyStartArgs {
   readonly inputContent: string;
   readonly contextDigest: string;
   readonly contextPath: string;
+  readonly contextCreated: boolean;
 }
 
 async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promise<CliCommandResult> {
@@ -451,7 +454,10 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     forwardDeps(deps),
   );
   if (opened.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-    const rollback = await removeStartedRunArtifacts({ contextPath: args.contextPath }, deps);
+    const rollback = await removeStartedRunArtifacts(
+      { ...(args.contextCreated ? { contextPath: args.contextPath } : {}) },
+      deps,
+    );
     return errorResult(rollback.ok ? opened.output : `${opened.output}; ${rollback.error}`);
   }
   const { runToken, runFile } = JSON.parse(opened.output) as { readonly runToken: string; readonly runFile: string };
@@ -471,7 +477,10 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   };
   const persisted = await persistInputRecord(runScope, recorded, deps);
   if (!persisted.ok) {
-    const rollback = await removeStartedRunArtifacts({ contextPath: args.contextPath, runFile }, deps);
+    const rollback = await removeStartedRunArtifacts(
+      { ...(args.contextCreated ? { contextPath: args.contextPath } : {}), runFile },
+      deps,
+    );
     return errorResult(rollback.ok ? persisted.error : `${persisted.error}; ${rollback.error}`);
   }
 
@@ -536,9 +545,10 @@ export async function verifyStartCommand(
     forwardDeps(deps),
   );
   if (context.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return errorResult(context.output);
-  const { digest: contextDigest, contextPath } = JSON.parse(context.output) as {
+  const { digest: contextDigest, contextPath, created: contextCreated } = JSON.parse(context.output) as {
     readonly digest: string;
     readonly contextPath: string;
+    readonly created: boolean;
   };
 
   return completeVerifyStartCommand({
@@ -552,6 +562,7 @@ export async function verifyStartCommand(
     inputContent: inputContent.value,
     contextDigest,
     contextPath,
+    contextCreated,
   });
 }
 
