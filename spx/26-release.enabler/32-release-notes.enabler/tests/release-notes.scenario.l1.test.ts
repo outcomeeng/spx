@@ -2,14 +2,14 @@ import { isAbsolute } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-  changelogVersionHeading,
-  composeReleaseNotes,
-  DEFAULT_CHANGELOG_PATH,
-  resolveReleaseNotesPath,
-} from "@/domains/release/release-notes";
+import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { arbitraryConfiguredChangelogPath, arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import {
+  arbitraryConfiguredChangelogPath,
+  arbitraryConformantChangelog,
+  oracleChangelogVersionHeading,
+  oracleResolvedChangelogPath,
+} from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
@@ -21,7 +21,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 
       expect(isAbsolute(resolved)).toBe(true);
       expect(isPathContained(workingDirectory, resolved)).toBe(true);
-      expect(resolved.endsWith(DEFAULT_CHANGELOG_PATH)).toBe(true);
+      expect(resolved).toBe(oracleResolvedChangelogPath(workingDirectory, undefined));
     });
   });
 
@@ -32,14 +32,14 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
       const resolved = resolveReleaseNotesPath(workingDirectory, { changelogPath });
 
       expect(isPathContained(workingDirectory, resolved)).toBe(true);
-      expect(resolved.endsWith(changelogPath)).toBe(true);
+      expect(resolved).toBe(oracleResolvedChangelogPath(workingDirectory, changelogPath));
     });
   });
 });
 
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
-    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact }) => {
+    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink }) => {
       const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
       const subjects = releaseData.commits.map((commit) => commit.subject);
       const config = {};
@@ -47,12 +47,20 @@ describe("composeReleaseNotes writes the changelog at the resolved path", () => 
       const changelogContent = sampleReleaseTestValue(
         arbitraryConformantChangelog(releaseData.version, subjects),
       );
-      const agentRunner = new RecordingWritingAgentRunner(resolvedPath, changelogContent);
+      const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, changelogContent);
 
-      await composeReleaseNotes({ releaseData, config, workingDirectory, agentRunner, readArtifact });
+      await composeReleaseNotes({
+        releaseData,
+        config,
+        workingDirectory,
+        agentRunner,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+      });
 
       const written = await readArtifact(resolvedPath);
-      expect(written).toContain(changelogVersionHeading(releaseData.version));
+      expect(written).toContain(oracleChangelogVersionHeading(releaseData.version));
     });
   });
 });

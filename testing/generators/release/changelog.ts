@@ -1,4 +1,5 @@
 import * as fc from "fast-check";
+import { resolve } from "node:path";
 
 const LINE_SEPARATOR = "\n";
 const BLANK_LINE = "";
@@ -9,9 +10,23 @@ const ORACLE_CHANGELOG_VERSION_SECTION_PREFIX = "## [";
 const ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX = "]";
 const ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX = "### ";
 const ORACLE_CHANGELOG_CHANGE_GROUPS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
+const ORACLE_DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
 const ORACLE_MARKDOWN_BLOCKQUOTE_PREFIX = ">";
 const ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER = "```";
 const ORACLE_MARKDOWN_FENCE_TILDE_MARKER = "~~~";
+const ORACLE_MARKDOWN_FENCE_INFO_STRING = "ts";
+const ORACLE_MARKDOWN_HTML_BLOCK_OPEN = "<div>";
+const ORACLE_MARKDOWN_HTML_BLOCK_CLOSE = "</div>";
+const ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_OPEN = "<DIV>";
+const ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_CLOSE = "</div>";
+const ORACLE_MARKDOWN_HTML_COMMENT_OPEN = "<!--";
+const ORACLE_MARKDOWN_HTML_COMMENT_CLOSE = "-->";
+const ORACLE_MARKDOWN_PROCESSING_INSTRUCTION_OPEN = "<?release-notes";
+const ORACLE_MARKDOWN_PROCESSING_INSTRUCTION_CLOSE = "?>";
+const ORACLE_MARKDOWN_DECLARATION_OPEN = "<!DOCTYPE changelog [";
+const ORACLE_MARKDOWN_DECLARATION_CLOSE = "]>";
+const ORACLE_MARKDOWN_CDATA_OPEN = "<![CDATA[";
+const ORACLE_MARKDOWN_CDATA_CLOSE = "]]>";
 const MALFORMED_FENCE_TAIL = "note";
 
 const CHANGELOG_DIR_PATTERN = /^[a-z][a-z0-9-]{2,8}$/;
@@ -40,6 +55,12 @@ export function arbitraryConfiguredChangelogPath(): fc.Arbitrary<string> {
       const file = `${basename}${MARKDOWN_SUFFIX}`;
       return directory === undefined ? file : `${directory}${PATH_SEPARATOR}${file}`;
     });
+}
+
+export function arbitraryNestedConfiguredChangelogPath(): fc.Arbitrary<string> {
+  return fc
+    .tuple(fc.stringMatching(CHANGELOG_DIR_PATTERN), fc.stringMatching(CHANGELOG_BASENAME_PATTERN))
+    .map(([directory, basename]) => `${directory}${PATH_SEPARATOR}${basename}${MARKDOWN_SUFFIX}`);
 }
 
 /**
@@ -87,12 +108,16 @@ function conformantChangelogWith(
   ].join(LINE_SEPARATOR);
 }
 
-function oracleChangelogVersionHeading(version: string): string {
+export function oracleChangelogVersionHeading(version: string): string {
   return `${ORACLE_CHANGELOG_VERSION_SECTION_PREFIX}${version}${ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX}`;
 }
 
 function oracleChangelogGroupHeading(group: OracleChangelogChangeGroup): string {
   return `${ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX}${group}`;
+}
+
+export function oracleResolvedChangelogPath(workingDirectory: string, changelogPath: string | undefined): string {
+  return resolve(workingDirectory, changelogPath ?? ORACLE_DEFAULT_CHANGELOG_PATH);
 }
 
 /**
@@ -152,6 +177,24 @@ export function conformantChangelogWithIndentedFenceText(
     oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     indentedCodeLine(ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+export function conformantChangelogWithCdataText(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    ORACLE_MARKDOWN_CDATA_OPEN,
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    ORACLE_MARKDOWN_CDATA_CLOSE,
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
 }
@@ -242,6 +285,19 @@ export function nonConformantChangelogCases(
       ].join(LINE_SEPARATOR),
     },
     {
+      label: "puts the version section inside an info-string fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        `${ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER}${ORACLE_MARKDOWN_FENCE_INFO_STRING}`,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
       label: "quotes the version section as blockquote text",
       content: [
         ORACLE_CHANGELOG_TITLE,
@@ -249,6 +305,58 @@ export function nonConformantChangelogCases(
         blockquoteLine(versionHeading),
         blockquoteLine(groupHeading),
         blockquoteLine(entries),
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the version section inside a raw HTML block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the version section inside a mixed-case raw HTML block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_OPEN,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the version section inside a raw HTML comment",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_HTML_COMMENT_OPEN,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_HTML_COMMENT_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the version section inside a raw HTML processing instruction",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_PROCESSING_INSTRUCTION_OPEN,
+        versionHeading,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_PROCESSING_INSTRUCTION_CLOSE,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },
@@ -278,6 +386,19 @@ export function nonConformantChangelogCases(
         groupHeading,
         entries,
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside an info-string fenced code block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        `${ORACLE_MARKDOWN_FENCE_TILDE_MARKER}${ORACLE_MARKDOWN_FENCE_INFO_STRING}`,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },
@@ -317,6 +438,58 @@ export function nonConformantChangelogCases(
         versionHeading,
         blockquoteLine(groupHeading),
         blockquoteLine(entries),
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a raw HTML block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a raw HTML comment",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_HTML_COMMENT_OPEN,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_HTML_COMMENT_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a raw HTML declaration",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_DECLARATION_OPEN,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_DECLARATION_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a CDATA block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_CDATA_OPEN,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_CDATA_CLOSE,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },

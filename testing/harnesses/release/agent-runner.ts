@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 
@@ -11,20 +11,25 @@ import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
  * assembly, and read-back validation are exercised at l1 by injecting this double
  * for the agent alone. It records every request so a test can inspect the prompt
  * the composition assembled (Stage 5 observability), and it writes a predetermined
- * changelog body to a fixed output path, modelling the artifact the real agent
- * would write so the composition's injected reader performs a real filesystem
- * read-back rather than reading from a double.
+ * changelog body to a fixed output path after checking the request's working
+ * directory, modelling the artifact the real agent would write so the
+ * composition's injected reader performs a real filesystem read-back rather
+ * than reading from a double.
  */
 export class RecordingWritingAgentRunner implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
   constructor(
+    private readonly expectedWorkingDirectory: string,
     private readonly outputPath: string,
     private readonly changelogContent: string,
   ) {}
 
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
+    if (resolve(request.workingDirectory) !== resolve(this.expectedWorkingDirectory)) {
+      throw new Error("Agent runner double received the wrong working directory");
+    }
     await mkdir(dirname(this.outputPath), { recursive: true });
     await writeFile(this.outputPath, this.changelogContent);
   }
