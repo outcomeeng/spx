@@ -1,10 +1,13 @@
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { lstat, open, realpath } from "node:fs/promises";
 
 import type { ArtifactReader, PathCanonicalizer, PathSymlinkDetector } from "@/domains/release/release-notes";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-release-notes-";
 const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
+const ARTIFACT_TEXT_ENCODING = "utf8";
+const ARTIFACT_READ_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
 export const RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE = "dir";
 export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
@@ -31,11 +34,20 @@ export async function withReleaseNotesEnv(callback: (env: ReleaseNotesEnv) => Pr
   await withTempDir(TEMP_DIR_PREFIX, async (workingDirectory) => {
     await callback({
       workingDirectory,
-      readArtifact: (path) => readFile(path, "utf8"),
+      readArtifact: readArtifactWithoutFollowingFinalSymlink,
       canonicalizePath: canonicalizeExistingPath,
       isSymbolicLink: detectSymbolicLink,
     });
   });
+}
+
+async function readArtifactWithoutFollowingFinalSymlink(path: string): Promise<string> {
+  const handle = await open(path, ARTIFACT_READ_FLAGS);
+  try {
+    return await handle.readFile({ encoding: ARTIFACT_TEXT_ENCODING });
+  } finally {
+    await handle.close();
+  }
 }
 
 async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
