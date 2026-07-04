@@ -25,7 +25,8 @@ This node materializes `audit` as an independent verification type sibling of `r
 
 1. Implement the audit scope, audit finding, audit rollup, and audit command-surface tests named by `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md`.
 2. Add an `audit` verification-type registration and scope/finding validators through the shared verification-type evidence-validator registry.
-3. Migrate audit orchestrator and leaf auditor plugin callers only after SPX validates and projects the audit payload shape and exposes the run-set context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler`.
+3. Add the shared lifecycle terminal rollup or terminal-status validator that maps audit coverage and finding severity to the recorded terminal result before callers can finish audit runs.
+4. Migrate audit orchestrator and leaf auditor plugin callers only after SPX validates and projects the audit payload shape and exposes the run-set context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler`.
 
 ## Sibling relationship
 

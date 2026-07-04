@@ -5,10 +5,11 @@
 ## Existing lifecycle slice
 
 1. Finish applying the parent cross-lifecycle assertions in `spx/34-verification.enabler/32-verify.enabler/verify.md`: operation mapping, journal-event construction boundary, uniform existing-run validation, and CLI descriptor wiring for stdin and Commander behavior.
-2. Implement the evidence-validator registry from `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`: registry keys include verification type and evidence kind, and both `scope add` and `finding add` validate through it before appending evidence.
-3. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering in the shared lifecycle before additional verification types rely on `status` or `render`: legal actions derive from terminal state and registered evidence validators for the run's verification type.
-4. Remove `spx/34-verification.enabler/32-verify.enabler` from `spx/EXCLUDE` when the parent and child lifecycle tests pass.
-5. Keep CLI command vocabulary under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
+2. Extend the current finding-validator registry into a shared evidence-validator registry: update `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`, `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md`, implementation, and tests together so registry keys include verification type and evidence kind, and both `scope add` and `finding add` validate through it before appending evidence.
+3. Add type-specific terminal rollup or terminal-status validation before registering verification types whose payload semantics derive the terminal result, including `audit`.
+4. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering in the shared lifecycle before additional verification types rely on `status` or `render`: legal actions derive from terminal state and registered evidence validators for the run's verification type.
+5. Remove `spx/34-verification.enabler/32-verify.enabler` from `spx/EXCLUDE` when the parent and child lifecycle tests pass.
+6. Keep CLI command vocabulary under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
 
 ## Expansion structure
 

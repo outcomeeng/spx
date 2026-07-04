@@ -11,9 +11,8 @@ kind, so a launcher that followed `status` for such a type would attempt an acti
 Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains only `review`, whose
 implemented evidence boundary validates findings, so `finding add` is legal for every run that can
 currently be constructed and the advertised next actions are correct. The gap surfaces when
-additional verification types and the evidence-validator registry from
-`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md` introduce
-separate `scope` and `finding` validators keyed by verification type and evidence kind. Filtering
+additional verification types extend the current finding-validator registry into an evidence-validator
+registry with separate `scope` and `finding` validators keyed by verification type and evidence kind. Filtering
 `nextActions` by evidence-validator registration now would guard a branch no run can reach. Settle
 it with the work that adds the second implemented verification type: decide whether `status` and
 `render` next actions filter `scope add` and `finding add` by the run type's registered evidence
