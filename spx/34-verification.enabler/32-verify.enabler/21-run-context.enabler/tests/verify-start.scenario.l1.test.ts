@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE, verifyStartCommand } from "@/commands/verify/cli";
+import { DESCRIPTOR_DIGEST_HEX_ENCODING, DESCRIPTOR_DIGEST_SHA256_ALGORITHM } from "@/config/descriptor-digest";
 import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { pathsFromNameStatus } from "@/lib/git/name-status";
 import { STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
@@ -11,6 +14,12 @@ import {
   verifyDeps,
   verifyStartOptions,
 } from "@testing/harnesses/verify/harness";
+
+function expectedRunInputDigest(source: string, content: string): string {
+  return createHash(DESCRIPTOR_DIGEST_SHA256_ALGORITHM)
+    .update(JSON.stringify({ content, source }))
+    .digest(DESCRIPTOR_DIGEST_HEX_ENCODING);
+}
 
 describe("verify start run context", () => {
   it("creates a context, opens a run journal, and reports the run token, digest, changed scope, input, and locator", async () => {
@@ -25,7 +34,7 @@ describe("verify start run context", () => {
     expect(report.contextDigest.length).toBeGreaterThan(0);
     expect(report.changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
     expect(report.input.source).toBe(VERIFY_INPUT_SOURCE.STDIN);
-    expect(report.input.digest.length).toBeGreaterThan(0);
+    expect(report.input.digest).toBe(expectedRunInputDigest(VERIFY_INPUT_SOURCE.STDIN, scenario.inputContent));
     expect(report.locator.runToken).toBe(report.runToken);
     expect(report.locator.verificationType).toBe(scenario.verificationType);
     expect(report.locator.scopeType).toBe(VERIFY_SCOPE_TYPE.CHANGESET);

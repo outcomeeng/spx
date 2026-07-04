@@ -2,12 +2,11 @@ import * as fc from "fast-check";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { REVIEW_FINDING_DISPOSITION, type ReviewFinding, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
-
-const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
+const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
@@ -62,7 +61,7 @@ export function formatNameStatusZ(paths: readonly string[]): string {
 }
 
 export const VERIFY_TEST_GENERATOR = {
-  verificationType: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
   changesetRef: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
     fc

@@ -26,21 +26,21 @@ export const VERIFY_VERB = {
 
 export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];
 
-/** The mutating lifecycle verbs a run still admits; a run's projection reports which remain legal. */
+/** The public lifecycle actions a run still admits; a run's projection reports which remain legal. */
 export const VERIFY_LIFECYCLE_ACTION = {
-  APPEND_SCOPE: VERIFY_VERB.APPEND_SCOPE,
-  APPEND_FINDING: VERIFY_VERB.APPEND_FINDING,
+  SCOPE_ADD: "scope add",
+  FINDING_ADD: "finding add",
   FINISH: VERIFY_VERB.FINISH,
 } as const;
 
 const UNSEALED_NEXT_ACTIONS: readonly string[] = [
-  VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE,
-  VERIFY_LIFECYCLE_ACTION.APPEND_FINDING,
+  VERIFY_LIFECYCLE_ACTION.SCOPE_ADD,
+  VERIFY_LIFECYCLE_ACTION.FINDING_ADD,
   VERIFY_LIFECYCLE_ACTION.FINISH,
 ];
 
 /**
- * The verification types whose finding payloads `spx verify append-finding` validates. Each
+ * The verification types whose finding payloads `spx verification run finding add` validates. Each
  * type registers a finding validator (see `FINDING_VALIDATORS`); dispatch is a registry lookup
  * keyed by this vocabulary, never verification-type-name branching.
  */
@@ -49,6 +49,13 @@ export const VERIFY_VERIFICATION_TYPE = {
 } as const;
 
 export type VerifyVerificationType = (typeof VERIFY_VERIFICATION_TYPE)[keyof typeof VERIFY_VERIFICATION_TYPE];
+
+const VERIFY_VERIFICATION_TYPES: ReadonlySet<string> = new Set(Object.values(VERIFY_VERIFICATION_TYPE));
+
+/** Whether the caller named a verification type whose run lifecycle SPX can validate. */
+export function isVerifyVerificationType(value: string): value is VerifyVerificationType {
+  return VERIFY_VERIFICATION_TYPES.has(value);
+}
 
 /** The receiver-action classes a review finding carries, per the merge lifecycle's finding disposition. */
 export const REVIEW_FINDING_DISPOSITION = {
@@ -60,7 +67,7 @@ export type ReviewFindingDisposition = (typeof REVIEW_FINDING_DISPOSITION)[keyof
 
 /**
  * A validated `review` verification finding: the receiver-action disposition and the finding
- * summary. `spx verify append-finding` validates this shape at the boundary so callers do not
+ * summary. `spx verification run finding add` validates this shape at the boundary so callers do not
  * carry review-specific schema validation outside SPX.
  */
 export interface ReviewFinding {
@@ -76,7 +83,7 @@ export const VERIFY_APPEND_EVENT_TYPE = {
 
 export type VerifyAppendEventType = (typeof VERIFY_APPEND_EVENT_TYPE)[keyof typeof VERIFY_APPEND_EVENT_TYPE];
 
-/** The CloudEvents `source` every `spx verify` append event carries. */
+/** The CloudEvents `source` every verification-run evidence append event carries. */
 export const VERIFY_EVENT_SOURCE = "/spx/verify" as const;
 
 /** The `data` fields an append event records: the caller idempotency key and the appended payload. */
@@ -197,6 +204,8 @@ export interface VerifyRunScope {
 
 /** A recorded run input persisted at start and replayed by the `input` verb. */
 export interface RecordedInput {
+  readonly scopeIdentity: string;
+  readonly scopeType: string;
   readonly source: string;
   readonly digest: string;
   readonly content: string;

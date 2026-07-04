@@ -14,6 +14,7 @@ function createNoopStateStoreFileSystem(): StateStoreFileSystem {
     readdir: () => Promise.resolve([]),
     lstat: () =>
       Promise.resolve({ birthtimeMs: 0, isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
+    rename: () => Promise.resolve(),
     rm: () => Promise.resolve(),
   };
 }

@@ -16,9 +16,9 @@ export type DescriptorSectionDigest = {
 };
 
 const DEFAULT_DESCRIPTOR_PATH = "descriptor section";
-const SHA256_ALGORITHM = "sha256";
+export const DESCRIPTOR_DIGEST_SHA256_ALGORITHM = "sha256";
 const UTF8_ENCODING = "utf8";
-const HEX_ENCODING = "hex";
+export const DESCRIPTOR_DIGEST_HEX_ENCODING = "hex";
 
 type JsonRecord = { readonly [key: string]: DescriptorJsonValue };
 
@@ -39,9 +39,9 @@ export function digestDescriptorSection(
   const canonical = canonicalDescriptorJson(value, path);
   if (!canonical.ok) return canonical;
 
-  const sha256 = createHash(SHA256_ALGORITHM)
+  const sha256 = createHash(DESCRIPTOR_DIGEST_SHA256_ALGORITHM)
     .update(Buffer.from(canonical.value, UTF8_ENCODING))
-    .digest(HEX_ENCODING);
+    .digest(DESCRIPTOR_DIGEST_HEX_ENCODING);
 
   return {
     ok: true,

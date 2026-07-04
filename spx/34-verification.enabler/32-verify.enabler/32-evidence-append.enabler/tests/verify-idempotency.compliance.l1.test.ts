@@ -85,7 +85,7 @@ describe("verify append idempotency compliance", () => {
     expect(await readVerifyRunEvents(scenario, runToken, fs)).toHaveLength(2);
   });
 
-  it("deduplicates a repeated append-finding by idempotency key", async () => {
+  it("deduplicates repeated finding evidence by idempotency key", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );

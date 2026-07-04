@@ -5,6 +5,7 @@ import {
   mkdir as nodeMkdir,
   open as nodeOpen,
   readdir as nodeReaddir,
+  rename as nodeRename,
   rm as nodeRm,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -88,6 +89,7 @@ export interface StateStoreFileSystem {
   readFile(path: string, encoding: "utf8"): Promise<string>;
   readdir(path: string, options: { readonly withFileTypes: true }): Promise<readonly StateStoreFileEntry[]>;
   lstat(path: string): Promise<StateStorePathStats>;
+  rename(from: string, to: string): Promise<void>;
   rm(path: string, options?: { readonly force?: boolean }): Promise<void>;
 }
 
@@ -200,6 +202,9 @@ const defaultFileSystem: StateStoreFileSystem = {
   },
   readdir: nodeReaddir,
   lstat: nodeLstat,
+  rename: async (from, to) => {
+    await nodeRename(from, to);
+  },
   rm: async (path, options) => {
     await nodeRm(path, options);
   },

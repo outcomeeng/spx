@@ -21,7 +21,12 @@ import {
   type VerifyStatusCliOptions,
   type VerifyStatusReport,
 } from "@/commands/verify/cli";
-import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_SEPARATOR, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
+import {
+  VERIFY_INPUT_SOURCE,
+  VERIFY_SCOPE_SEPARATOR,
+  VERIFY_SCOPE_TYPE,
+  verifyInputRecordPath,
+} from "@/domains/verify/verify";
 import {
   type ExecResult,
   GIT_COMMON_DIR_ARGS,
@@ -33,6 +38,7 @@ import {
 } from "@/git/root";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { GIT_NAME_STATUS_FLAG } from "@/lib/git/name-status";
+import { resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
   type FindingWithKey,
@@ -129,6 +135,22 @@ export function verifyInputOptions(scenario: VerifyRunContextScenario, runToken:
     scope: scenario.scope,
     run: runToken,
   };
+}
+
+/** Resolve the recorded-input file path for a started verify run, using the source-owned scope path helper. */
+export function verifyInputRecordFilePath(scenario: VerifyRunContextScenario, runToken: string): string {
+  const branchSlug = slugBranchIdentity(resolveBranchIdentity({
+    branchName: scenario.branchIdentity,
+    headSha: scenario.headSha,
+  }));
+  const inputPath = verifyInputRecordPath({
+    productDir: scenario.productDir,
+    branchSlug,
+    type: scenario.verificationType,
+    runToken,
+  });
+  if (!inputPath.ok) throw new Error(`verify harness: input record path failed: ${inputPath.error}`);
+  return inputPath.value;
 }
 
 function gitSuccess(stdout: string): ExecResult {
@@ -357,7 +379,7 @@ export async function appendFindingBatch(
       deps,
     );
     if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-      throw new Error(`verify append-finding failed in harness: ${appended.output}`);
+      throw new Error(`verify finding add failed in harness: ${appended.output}`);
     }
   }
   return findings;

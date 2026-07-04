@@ -74,6 +74,21 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     return content;
   }
 
+  async rename(from: string, to: string): Promise<void> {
+    const content = this.files.get(from);
+    if (content === undefined) throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
+    if (!this.directories.has(parentDirectory(to))) {
+      throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
+    }
+    this.files.delete(from);
+    const birthtimeMs = this.fileBirthtimes.get(from);
+    this.fileBirthtimes.delete(from);
+    if (birthtimeMs !== undefined) {
+      this.fileBirthtimes.set(to, birthtimeMs);
+    }
+    this.files.set(to, content);
+  }
+
   async rm(path: string, options?: { readonly force?: boolean }): Promise<void> {
     if (this.files.delete(path)) {
       this.fileBirthtimes.delete(path);

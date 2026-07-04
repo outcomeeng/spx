@@ -22,7 +22,7 @@ import {
 const appendCommands = [verifyAppendScopeCommand, verifyAppendFindingCommand];
 
 describe("verify append terminal-rejection compliance", () => {
-  it("rejects append-scope and append-finding on a run carrying a terminal-completion event", async () => {
+  it("rejects scope and finding evidence additions on a run carrying a terminal-completion event", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );
