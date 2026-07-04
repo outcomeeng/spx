@@ -289,13 +289,17 @@ async function assertCanonicalReleaseNotesPath(
   isSymbolicLink: PathSymlinkDetector,
   isFile: PathFileDetector,
 ): Promise<string> {
+  const normalizedWorkingDirectory = resolve(workingDirectory);
   const canonicalRoot = await canonicalizePath(workingDirectory);
   if (canonicalRoot === undefined) {
     throw new ReleaseNotesError(
       `Product working tree cannot be canonicalized: ${workingDirectory}`,
     );
   }
-  const candidatePath = canonicalCheckPath(workingDirectory, configuredPath);
+  const candidatePath = canonicalCheckPath(
+    normalizedWorkingDirectory,
+    configuredPath,
+  );
   if (await isSymbolicLink(candidatePath)) {
     throw new ReleaseNotesError(
       `Configured changelog path is a symbolic link: ${changelogPath}`,
@@ -312,7 +316,8 @@ async function assertCanonicalReleaseNotesPath(
   }
   if (
     canonicalPath.path === canonicalRoot
-    && (canonicalPath.isCandidate || canonicalPath.checkedPath !== workingDirectory)
+    && (canonicalPath.isCandidate
+      || canonicalPath.checkedPath !== normalizedWorkingDirectory)
   ) {
     throw new ReleaseNotesError(
       `Configured changelog path resolves to the product working tree: ${changelogPath}`,
