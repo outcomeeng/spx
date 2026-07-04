@@ -109,6 +109,11 @@ export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
   TARGET: "target=",
 } as const;
 
+const VERIFY_START_ROLLBACK_ARTIFACT = {
+  CONTEXT_FILE: "verification context file",
+  RUN_FILE: "journal run file",
+} as const;
+
 export interface VerifyCliDeps {
   readonly cwd?: string;
   readonly git?: GitDependencies;
@@ -331,14 +336,44 @@ async function readStartInputContent(
   }
 }
 
-async function removeOpenedRunFile(runFile: string, deps: VerifyCliDeps): Promise<Result<void>> {
+async function removeStartedRunArtifact(
+  path: string,
+  label: (typeof VERIFY_START_ROLLBACK_ARTIFACT)[keyof typeof VERIFY_START_ROLLBACK_ARTIFACT],
+  deps: VerifyCliDeps,
+): Promise<Result<void>> {
   const fs = deps.fs ?? defaultStateStoreFileSystem;
   try {
-    await fs.rm(runFile, { force: true });
+    await fs.rm(path, { force: true });
     return { ok: true, value: undefined };
   } catch (error) {
-    return { ok: false, error: `${VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED}: rollback failed: ${toMessage(error)}` };
+    return {
+      ok: false,
+      error: `${VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED}: rollback failed for ${label}: ${toMessage(error)}`,
+    };
   }
+}
+
+async function removeStartedRunArtifacts(
+  artifacts: { readonly contextPath: string; readonly runFile?: string },
+  deps: VerifyCliDeps,
+): Promise<Result<void>> {
+  const rollbackErrors: string[] = [];
+  const contextRollback = await removeStartedRunArtifact(
+    artifacts.contextPath,
+    VERIFY_START_ROLLBACK_ARTIFACT.CONTEXT_FILE,
+    deps,
+  );
+  if (!contextRollback.ok) rollbackErrors.push(contextRollback.error);
+  if (artifacts.runFile !== undefined) {
+    const runRollback = await removeStartedRunArtifact(
+      artifacts.runFile,
+      VERIFY_START_ROLLBACK_ARTIFACT.RUN_FILE,
+      deps,
+    );
+    if (!runRollback.ok) rollbackErrors.push(runRollback.error);
+  }
+  if (rollbackErrors.length > 0) return { ok: false, error: rollbackErrors.join("; ") };
+  return { ok: true, value: undefined };
 }
 
 function isStoredRecordedInput(value: unknown): value is RecordedInput {
@@ -396,6 +431,72 @@ function verifyRunNotFoundDiagnostic(context: VerifyRunNotFoundContext): string 
   return verifyRunLocatorDiagnostic(VERIFY_CLI_ERROR.RUN_NOT_FOUND, context);
 }
 
+interface CompleteVerifyStartArgs {
+  readonly options: VerifyStartCliOptions;
+  readonly deps: VerifyCliDeps;
+  readonly productDir: string;
+  readonly branchSlug: string;
+  readonly backendIdentity: string;
+  readonly changedScope: readonly string[];
+  readonly inputDigest: string;
+  readonly inputContent: string;
+  readonly contextDigest: string;
+  readonly contextPath: string;
+}
+
+async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promise<CliCommandResult> {
+  const { options, deps } = args;
+  const opened = await journalOpenCommand(
+    { type: options.verificationType, branchSlug: args.branchSlug },
+    forwardDeps(deps),
+  );
+  if (opened.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    const rollback = await removeStartedRunArtifacts({ contextPath: args.contextPath }, deps);
+    return errorResult(rollback.ok ? opened.output : `${opened.output}; ${rollback.error}`);
+  }
+  const { runToken, runFile } = JSON.parse(opened.output) as { readonly runToken: string; readonly runFile: string };
+
+  const runScope: VerifyRunScope = {
+    productDir: args.productDir,
+    branchSlug: args.branchSlug,
+    type: options.verificationType,
+    runToken,
+  };
+  const recorded: RecordedInput = {
+    scopeIdentity: options.scope,
+    scopeType: options.scopeType,
+    source: options.input,
+    digest: args.inputDigest,
+    content: args.inputContent,
+  };
+  const persisted = await persistInputRecord(runScope, recorded, deps);
+  if (!persisted.ok) {
+    const rollback = await removeStartedRunArtifacts({ contextPath: args.contextPath, runFile }, deps);
+    return errorResult(rollback.ok ? persisted.error : `${persisted.error}; ${rollback.error}`);
+  }
+
+  const namespace = verifyRunsDir(runScope);
+  if (!namespace.ok) return errorResult(namespace.error);
+
+  const locator = buildRunLocator({
+    runToken,
+    verificationType: options.verificationType,
+    scopeType: options.scopeType,
+    scopeIdentity: options.scope,
+    backendIdentity: args.backendIdentity,
+    storageNamespace: namespace.value,
+    runTarget: runFile,
+  });
+  const report: VerifyStartReport = {
+    runToken,
+    contextDigest: args.contextDigest,
+    changedScope: args.changedScope,
+    input: { source: options.input, digest: args.inputDigest },
+    locator,
+  };
+  return okResult(JSON.stringify(report));
+}
+
 /**
  * Start a changeset-scoped verification run: derive the changed-file scope, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
@@ -435,54 +536,23 @@ export async function verifyStartCommand(
     forwardDeps(deps),
   );
   if (context.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return errorResult(context.output);
-  const contextDigest = (JSON.parse(context.output) as { readonly digest: string }).digest;
+  const { digest: contextDigest, contextPath } = JSON.parse(context.output) as {
+    readonly digest: string;
+    readonly contextPath: string;
+  };
 
-  const opened = await journalOpenCommand(
-    { type: options.verificationType, branchSlug: resolved.value.branchSlug },
-    forwardDeps(deps),
-  );
-  if (opened.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return errorResult(opened.output);
-  const { runToken, runFile } = JSON.parse(opened.output) as { readonly runToken: string; readonly runFile: string };
-
-  const runScope: VerifyRunScope = {
+  return completeVerifyStartCommand({
+    options,
+    deps,
     productDir: resolved.value.productDir,
     branchSlug: resolved.value.branchSlug,
-    type: options.verificationType,
-    runToken,
-  };
-  const recorded: RecordedInput = {
-    scopeIdentity: options.scope,
-    scopeType: options.scopeType,
-    source: options.input,
-    digest: inputDigest.value,
-    content: inputContent.value,
-  };
-  const persisted = await persistInputRecord(runScope, recorded, deps);
-  if (!persisted.ok) {
-    const rollback = await removeOpenedRunFile(runFile, deps);
-    return errorResult(rollback.ok ? persisted.error : `${persisted.error}; ${rollback.error}`);
-  }
-
-  const namespace = verifyRunsDir(runScope);
-  if (!namespace.ok) return errorResult(namespace.error);
-
-  const locator = buildRunLocator({
-    runToken,
-    verificationType: options.verificationType,
-    scopeType: options.scopeType,
-    scopeIdentity: options.scope,
     backendIdentity: resolved.value.backendIdentity,
-    storageNamespace: namespace.value,
-    runTarget: runFile,
-  });
-  const report: VerifyStartReport = {
-    runToken,
-    contextDigest,
     changedScope: changedScope.value,
-    input: { source: options.input, digest: inputDigest.value },
-    locator,
-  };
-  return okResult(JSON.stringify(report));
+    inputDigest: inputDigest.value,
+    inputContent: inputContent.value,
+    contextDigest,
+    contextPath,
+  });
 }
 
 /**
@@ -539,6 +609,11 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (options.idempotencyKey.trim().length === 0) {
     return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
   }
+  if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
+    return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
+  }
+  const scope = parseChangesetScope(options.scope);
+  if (!scope.ok) return scope;
 
   const readPayload = deps.readPayloadSource;
   const binding = deps.journalBinding;
@@ -864,6 +939,7 @@ async function readRecordedInputForProjection(
   }
   if (inputRecord.value === undefined) return { ok: true, value: undefined };
   if (!recordedSelectorMatches(inputRecord.value, options)) {
+    if (terminal !== undefined) return { ok: true, value: undefined };
     return { ok: false, error: existingRunSelectorMismatch(run, options) };
   }
   return { ok: true, value: inputRecord.value };

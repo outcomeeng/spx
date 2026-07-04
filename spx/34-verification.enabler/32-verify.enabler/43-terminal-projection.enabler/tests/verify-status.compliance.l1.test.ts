@@ -171,6 +171,38 @@ describe("verify status compliance", () => {
     expect(renderReport.terminalStatus).toBe(terminalStatus);
   });
 
+  it("projects status and render from the journal when a terminal run has mismatched recorded-input selectors", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const findings = await appendFindingBatch(scenario, deps, runToken);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    await finishRun(scenario, deps, runToken, terminalStatus);
+    await fs.writeFile(
+      verifyInputRecordFilePath(scenario, runToken),
+      JSON.stringify({
+        scopeIdentity: `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}`,
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        source: scenario.inputContent,
+        digest: runToken,
+        content: scenario.inputContent,
+      }),
+    );
+
+    const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+    const rendered = await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps);
+
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const statusReport = parseStatusReport(status.output);
+    const renderReport = parseRenderReport(rendered.output);
+    expect(statusReport.findingCount).toBe(findings.length);
+    expect(renderReport.findingCount).toBe(findings.length);
+    expect(statusReport.terminalStatus).toBe(terminalStatus);
+    expect(renderReport.terminalStatus).toBe(terminalStatus);
+  });
+
   it("rejects status and render for an unterminal raw journal run without a recorded verification input", async () => {
     const { scenario, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),

@@ -8,7 +8,7 @@ import {
   verifyAppendScopeCommand,
   verifyStartCommand,
 } from "@/commands/verify/cli";
-import { VERIFY_APPEND_EVENT_TYPE } from "@/domains/verify/verify";
+import { VERIFY_APPEND_EVENT_TYPE, VERIFY_SCOPE_ERROR, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   createRecordingInputReader,
@@ -43,6 +43,72 @@ describe("verify append payload compliance", () => {
           },
         ),
       );
+    }
+  });
+
+  it("rejects unsupported scope types for every append verb before reading payloads", async () => {
+    const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+    const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
+    const deps = {
+      ...baseDeps,
+      readPayloadSource: async () => {
+        throw new Error(payload);
+      },
+    };
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const { runToken } = parseStartReport(started.output);
+    const eventsBeforeRejectedAppends = await readVerifyRunEvents(scenario, runToken, fs);
+
+    for (const command of appendCommands) {
+      const appended = await command(
+        {
+          ...verifyAppendOptions(scenario, {
+            run: runToken,
+            payload,
+            idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+          }),
+          scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE,
+        },
+        deps,
+      );
+
+      expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(appended.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
+      expect(await readVerifyRunEvents(scenario, runToken, fs)).toStrictEqual(eventsBeforeRejectedAppends);
+    }
+  });
+
+  it("rejects malformed changeset scopes for every append verb before reading payloads", async () => {
+    const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+    const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
+    const deps = {
+      ...baseDeps,
+      readPayloadSource: async () => {
+        throw new Error(payload);
+      },
+    };
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const { runToken } = parseStartReport(started.output);
+    const eventsBeforeRejectedAppends = await readVerifyRunEvents(scenario, runToken, fs);
+
+    for (const command of appendCommands) {
+      const appended = await command(
+        {
+          ...verifyAppendOptions(scenario, {
+            run: runToken,
+            payload,
+            idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+          }),
+          scope: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.malformedChangesetScope()),
+        },
+        deps,
+      );
+
+      expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(appended.output).toBe(VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET);
+      expect(await readVerifyRunEvents(scenario, runToken, fs)).toStrictEqual(eventsBeforeRejectedAppends);
     }
   });
 
