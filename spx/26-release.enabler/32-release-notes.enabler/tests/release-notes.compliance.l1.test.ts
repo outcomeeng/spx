@@ -4,6 +4,7 @@ import { join, sep, win32 } from "node:path";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import type { AgentRunRequest } from "@/agent/agent-runner";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
@@ -593,6 +594,101 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     );
   });
 
+  it("rejects an in-tree symlink retarget after the agent writes before reading", async () => {
+    await withReleaseNotesEnv(
+      async ({
+        workingDirectory,
+        readArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      }) => {
+        const releaseData = sampleReleaseTestValue(
+          RELEASE_TEST_GENERATOR.releaseData(),
+        );
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const [actualSegment, symlinkSegment, replacementSegment] = sampleReleaseTestValue(
+          fc.tuple(
+            arbitraryPathSegment(),
+            arbitraryPathSegment(),
+            arbitraryPathSegment(),
+          ).filter((segments) => new Set(segments).size === segments.length),
+        );
+        const actualDirectory = join(workingDirectory, actualSegment);
+        const symlinkPath = join(workingDirectory, symlinkSegment);
+        const replacementDirectory = join(workingDirectory, replacementSegment);
+        const changelogPath = join(symlinkSegment, DEFAULT_CHANGELOG_PATH);
+        const config = { changelogPath };
+        const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+        const actualArtifactPath = join(
+          actualDirectory,
+          DEFAULT_CHANGELOG_PATH,
+        );
+        const replacementArtifactPath = join(
+          replacementDirectory,
+          DEFAULT_CHANGELOG_PATH,
+        );
+        const conformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const replacementConformant = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const writingAgentRunner = new RecordingWritingAgentRunner(
+          workingDirectory,
+          resolvedPath,
+          conformant,
+        );
+        const agentRunner = {
+          async run(request: AgentRunRequest): Promise<void> {
+            await writingAgentRunner.run(request);
+            await rm(symlinkPath);
+            await symlink(
+              replacementDirectory,
+              symlinkPath,
+              RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+            );
+          },
+        };
+        await mkdir(actualDirectory);
+        await mkdir(replacementDirectory);
+        await symlink(
+          actualDirectory,
+          symlinkPath,
+          RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+        );
+        await writeFile(replacementArtifactPath, replacementConformant);
+
+        await expect(
+          composeReleaseNotes({
+            releaseData,
+            config,
+            workingDirectory,
+            agentRunner,
+            readArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+            isFile,
+          }),
+        ).rejects.toThrow(ReleaseNotesError);
+
+        expect(writingAgentRunner.requests).toHaveLength(1);
+        expect(
+          await readArtifact(
+            actualArtifactPath,
+            await canonicalizePath(actualArtifactPath),
+          ),
+        ).toBe(conformant);
+        expect(
+          await readArtifact(
+            replacementArtifactPath,
+            await canonicalizePath(replacementArtifactPath),
+          ),
+        ).toBe(replacementConformant);
+      },
+    );
+  });
+
   it("rejects an ancestor directory swap during pre-agent revalidation without invoking the agent", async () => {
     await withReleaseNotesEnv(
       async ({
@@ -649,7 +745,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
                 canonicalizePath: async (path) => {
                   if (path === symlinkPath) {
                     symlinkParentCanonicalizations += 1;
-                    if (symlinkParentCanonicalizations === 2) {
+                    if (symlinkParentCanonicalizations === 1) {
                       await rm(symlinkPath);
                       await symlink(
                         outsideDirectory,
