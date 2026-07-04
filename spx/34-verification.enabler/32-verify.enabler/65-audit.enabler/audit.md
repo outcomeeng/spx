@@ -18,7 +18,7 @@ CAN record complete audit coverage and findings under `--verification-type audit
 ### Conformance
 
 - Audit scope payloads conform to the audit unit schema: unit identity, optional parent unit identity, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version ([test](tests/audit-scope.conformance.l1.test.ts))
-- Audit finding payloads conform to the audit finding schema: unit identity, audit class, audit kind, producer metadata, rule, severity `blocking` or `debt`, location, message, and observed-versus-expected evidence ([test](tests/audit-finding.conformance.l1.test.ts))
+- Audit finding payloads conform to the audit finding schema: unit identity, producer metadata, rule, severity `blocking` or `debt`, location, message, and observed-versus-expected evidence ([test](tests/audit-finding.conformance.l1.test.ts))
 
 ### Compliance
 
