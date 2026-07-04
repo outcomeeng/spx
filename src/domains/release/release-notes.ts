@@ -7,11 +7,15 @@ import { isPathContained } from "@/lib/file-system/pathContainment";
 /**
  * The injected read-back dependency. After the agent writes the changelog, the
  * composition reads it back through this reader to validate it, so the composition
- * performs no direct filesystem access. Implementations must open the final
- * artifact path without following a final symlink; tests inject a reader over
- * the temp working tree with the same final-path safety contract.
+ * performs no direct filesystem access. Implementations receive the requested
+ * artifact path plus the expected canonical path from the composition's
+ * pre-open validation, and must verify the opened file is still bound to that
+ * canonical path before reading, without following a final symlink.
  */
-export type ArtifactReader = (path: string) => Promise<string>;
+export type ArtifactReader = (
+  path: string,
+  expectedCanonicalPath?: string,
+) => Promise<string>;
 
 /**
  * Canonicalizes an existing filesystem path and returns `undefined` when the
@@ -250,7 +254,10 @@ export async function composeReleaseNotes(
     canonicalizePath,
     isSymbolicLink,
   );
-  const writtenNotes = await readArtifact(preOpenCanonicalChangelogPath);
+  const writtenNotes = await readArtifact(
+    preOpenCanonicalChangelogPath,
+    preOpenCanonicalChangelogPath,
+  );
   await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
