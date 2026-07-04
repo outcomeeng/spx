@@ -32,6 +32,7 @@ import {
 } from "@testing/harnesses/verify/harness";
 
 interface SealRetryFileSystem extends StateStoreFileSystem {
+  failDirectoryListings(): void;
   failFirstSealWriteAt(path: string): void;
 }
 
@@ -46,9 +47,13 @@ function parseRawJournalOpenReport(output: string): RawJournalOpenReport {
 function createSealRetryFileSystem(): SealRetryFileSystem {
   const fs = createInMemoryStateStoreFileSystem();
   let blockedSealMarkerPath: string | undefined;
+  let directoryListingsRejected = false;
   let sealFailuresRemaining = 0;
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
+    failDirectoryListings: () => {
+      directoryListingsRejected = true;
+    },
     failFirstSealWriteAt: (path: string) => {
       blockedSealMarkerPath = path;
       sealFailuresRemaining = 1;
@@ -56,7 +61,12 @@ function createSealRetryFileSystem(): SealRetryFileSystem {
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
     readFile: (path, encoding) => fs.readFile(path, encoding),
-    readdir: (path, options) => fs.readdir(path, options),
+    readdir: async (path, options) => {
+      if (directoryListingsRejected) {
+        throw new Error("verify harness: directory listing rejected");
+      }
+      return fs.readdir(path, options);
+    },
     rename: (from, to) => fs.rename(from, to),
     rm: (path, options) => fs.rm(path, options),
     writeFile: async (path, data, options) => {
@@ -72,7 +82,11 @@ function createSealRetryFileSystem(): SealRetryFileSystem {
 describe("verify finish compliance", () => {
   it("rejects a blank terminal status without recording completion or sealing", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
-    const runToken = await startedRunToken(scenario, deps);
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const runToken = startReport.runToken;
+    const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
 
     await fc.assert(
       fc.asyncProperty(VERIFY_TEST_GENERATOR.blankTerminalStatus(), async (blankStatus) => {
@@ -86,13 +100,18 @@ describe("verify finish compliance", () => {
     );
 
     expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
-    // The rejected finishes neither recorded completion nor sealed: a valid finish still succeeds.
+    await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toThrow();
+    // The rejected finishes neither record terminal completion nor seal: a valid finish still succeeds.
     await finishRecoversUnsealedRun(scenario, deps, runToken);
   });
 
   it("rejects a terminal status outside the journal terminal-status vocabulary", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
-    const runToken = await startedRunToken(scenario, deps);
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const runToken = startReport.runToken;
+    const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
 
     await fc.assert(
       fc.asyncProperty(VERIFY_TEST_GENERATOR.invalidTerminalStatus(), async (invalidStatus) => {
@@ -106,7 +125,8 @@ describe("verify finish compliance", () => {
     );
 
     expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
-    // The rejected finishes neither recorded completion nor sealed: a valid finish still succeeds.
+    await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toThrow();
+    // The rejected finishes neither record terminal completion nor seal: a valid finish still succeeds.
     await finishRecoversUnsealedRun(scenario, deps, runToken);
   });
 
@@ -127,7 +147,7 @@ describe("verify finish compliance", () => {
     expect(terminalEvents).toHaveLength(1);
   });
 
-  it("retries the physical journal seal when repeated finish finds terminal completion unsealed", async () => {
+  it("retries the physical journal seal without listing sibling runs when repeated finish finds terminal completion unsealed", async () => {
     const scenario = createVerifyRunContextScenario();
     const fs = createSealRetryFileSystem();
     const deps = createVerifyAppendScenario(scenario).deps;
@@ -147,6 +167,7 @@ describe("verify finish compliance", () => {
     expect(first.output).toContain(VERIFY_CLI_ERROR.SEAL_FAILED);
     expect(findTerminalEvent(await readVerifyRunEvents(scenario, startReport.runToken, fs))).toBeDefined();
     await fs.rm(verifyInputRecordFilePath(scenario, startReport.runToken), { force: true });
+    fs.failDirectoryListings();
 
     const repeat = await verifyFinishCommand(
       verifyFinishOptions(scenario, { run: startReport.runToken, terminalStatus }),
@@ -202,8 +223,12 @@ describe("verify finish compliance", () => {
     const runToken = await startedRunToken(scenario, deps);
     const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
     const first = await finishRun(scenario, deps, runToken, terminalStatus);
+    await fs.writeFile(
+      verifyInputRecordFilePath(scenario, runToken),
+      JSON.stringify({ source: terminalStatus, digest: runToken, content: scenario.inputContent }),
+    );
 
-    // The idempotent return is read-only, so a finish with no journal binding still returns it.
+    // The idempotent return is read-only, so journal history still projects without binding or sidecar.
     const readOnlyDeps = verifyDeps(scenario, fs);
     const repeat = await verifyFinishCommand(
       verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
@@ -215,7 +240,11 @@ describe("verify finish compliance", () => {
 
   it("rejects an unsupported scope type or a malformed changeset scope before mutating the run", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
-    const runToken = await startedRunToken(scenario, deps);
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const runToken = startReport.runToken;
+    const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
     const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
 
     const unsupportedType = await verifyFinishCommand(
@@ -238,7 +267,9 @@ describe("verify finish compliance", () => {
     expect(malformedScope.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(malformedScope.output).toBe(VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET);
 
-    // A rejected finish never records terminal completion.
+    // Rejected finishes neither record terminal completion nor seal: a valid finish still succeeds.
     expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
+    await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).rejects.toThrow();
+    await finishRecoversUnsealedRun(scenario, deps, runToken);
   });
 });
