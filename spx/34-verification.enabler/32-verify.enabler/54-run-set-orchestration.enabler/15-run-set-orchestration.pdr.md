@@ -9,7 +9,7 @@ Agentic verification improves across repeated local and CI runs only when produc
 ## Product properties
 
 1. A run set is addressed by merge-period identity, verification type, scope type, and a merge-period-stable run-set scope key; individual run scope identity remains run evidence and does not partition repeated runs inside the same merge period.
-2. A run-set projection is served through an internal verify-domain read port first, contains prior runs, current scope, active findings, resolved findings, reopened findings, and coverage gaps in a backend-neutral shape, and accepts type-specific filters before producer context is rendered.
+2. A run-set projection exposes prior runs, current scope, active findings, resolved findings, reopened findings, and coverage gaps in a backend-neutral shape, and accepts type-specific filters before producer context is rendered.
 3. Finding identity is stable across line movement by combining verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint; line numbers are display metadata.
 
 ## Verification
@@ -25,4 +25,4 @@ Agentic verification improves across repeated local and CI runs only when produc
 ### Audit
 
 - ALWAYS: specifications for review and audit verification types consume the run-set projection as shared verification context rather than redefining merge-period identity or finding identity ([audit])
-- ALWAYS: public command exposure for run-set context is governed by `spx/60-surfaces.enabler/21-cli-surface.enabler`, while this node owns the internal projection read contract ([audit])
+- ALWAYS: public command exposure for run-set context is governed by `spx/60-surfaces.enabler/21-cli-surface.enabler`, while this node owns the backend-neutral context projection contract ([audit])
