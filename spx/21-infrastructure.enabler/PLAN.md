@@ -29,7 +29,7 @@ Do not lose product-wide reach accidentally. If runtime remains a product-wide g
 ## Next steps
 
 1. Let `/decompose spx/` settle whether the top-level runtime ADR moves, splits, or stays.
-2. Keep runtime mechanics out of `spx/11-methodology-vocabulary.pdr.md` except for vocabulary needed by every later node.
+2. Keep runtime mechanics out of `spx/09-methodology-vocabulary.pdr.md` except for vocabulary needed by every later node.
 3. Align package, CI, and release assertions after the runtime decision is relocated.
 
 ---

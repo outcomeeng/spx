@@ -15,7 +15,7 @@ This coordination note preserves the spec-tree foundation repair before `/decomp
 - projection contracts
 - logical operations over nodes, evidence, and materialization state
 
-The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library use-case operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md`) renders or adapts results per interface.
+The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library composition operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md`) renders or adapts results per interface.
 
 ## New structure to decompose
 
@@ -55,7 +55,7 @@ Keep these outside this node:
 
 ## Immediate next steps
 
-1. Amend `spx/11-methodology-vocabulary.pdr.md` only if the repair surfaces a vocabulary term it lacks — it already exists and owns the methodology vocabulary; do not author a second methodology PDR — before changing this node's durable spec.
+1. Amend `spx/09-methodology-vocabulary.pdr.md` only if the repair surfaces a vocabulary term it lacks — it already exists and owns the methodology vocabulary; do not author a second methodology PDR — before changing this node's durable spec.
 2. Run `/decompose spx/23-spec-tree.enabler` using the root `spx/PLAN.md` ownership model.
 3. Create specs for the materialization and backend placeholder nodes.
 4. Amend existing source, state, and projection nodes after the materialization boundary is settled.

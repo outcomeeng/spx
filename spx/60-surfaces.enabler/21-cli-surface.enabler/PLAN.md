@@ -2,7 +2,7 @@
 
 > Reconcile against `spx/60-surfaces.enabler/PLAN.md` and `spx/PLAN.md` first. This note carries CLI-surface coordination only. Product truth lives in specs and decisions.
 
-`spx/60-surfaces.enabler/21-cli-surface.enabler` owns the SPX CLI public contract: command groups, command-family nouns, verbs, options, help, output modes, terminal rendering, machine-readable output, bounded defaults, color behavior, and invocation diagnostics. CLI nodes do not own storage, state, verification, use-case, backend, delivery, or library semantics.
+`spx/60-surfaces.enabler/21-cli-surface.enabler` owns the SPX CLI public contract: command groups, command-family nouns, verbs, options, help, output modes, terminal rendering, machine-readable output, bounded defaults, color behavior, and invocation diagnostics. CLI nodes do not own storage, state, verification, composition operations, backend, delivery, or library semantics.
 
 ## Materialized command-surface nodes
 

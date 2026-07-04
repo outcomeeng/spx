@@ -14,7 +14,7 @@ This coordination note tracks the remaining structure and implementation work fo
 
 ### Durable decisions
 
-- `spx/11-methodology-vocabulary.pdr.md` owns the product-wide methodology vocabulary, including reserved `surface` terminology.
+- `spx/09-methodology-vocabulary.pdr.md` owns the product-wide methodology vocabulary, including reserved `surface` terminology.
 - `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md` owns the backend-neutral change model, dependency and priority semantics, worktree status vocabulary, and session boundary.
 
 ### Pending structure work
