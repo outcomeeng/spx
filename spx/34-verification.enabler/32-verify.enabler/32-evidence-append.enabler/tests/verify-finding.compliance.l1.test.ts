@@ -33,6 +33,7 @@ describe("verify finding evidence compliance", () => {
     expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
     const { runToken } = parseStartReport(started.output);
     const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+    const eventsBeforeInvalidFindings = await readVerifyRunEvents(scenario, runToken, fs);
 
     await fc.assert(
       fc.asyncProperty(VERIFY_TEST_GENERATOR.invalidReviewFinding(), async (invalidFinding) => {
@@ -49,8 +50,7 @@ describe("verify finding evidence compliance", () => {
       }),
     );
 
-    const events = await readVerifyRunEvents(scenario, runToken, fs);
-    expect(events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
+    expect(await readVerifyRunEvents(scenario, runToken, fs)).toStrictEqual(eventsBeforeInvalidFindings);
   });
 
   it("records a valid review finding at the finding-evidence boundary so callers carry no review schema", async () => {
@@ -79,7 +79,7 @@ describe("verify finding evidence compliance", () => {
   });
 
   it("rejects finding evidence when the requested scope differs from the recorded run scope", async () => {
-    const { scenario, deps } = createVerifyAppendScenario(
+    const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );
 
@@ -87,6 +87,7 @@ describe("verify finding evidence compliance", () => {
     const { runToken } = parseStartReport(started.output);
     const finding = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFinding());
     const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+    const eventsBeforeRejectedAppend = await readVerifyRunEvents(scenario, runToken, fs);
 
     const appended = await verifyAppendFindingCommand(
       {
@@ -100,5 +101,6 @@ describe("verify finding evidence compliance", () => {
     expect(appended.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
     expect(appended.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
     expect(appended.output).toContain(verifyInputRecordFilePath(scenario, runToken));
+    expect(await readVerifyRunEvents(scenario, runToken, fs)).toStrictEqual(eventsBeforeRejectedAppend);
   });
 });

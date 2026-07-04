@@ -31,7 +31,7 @@ describe("verify append idempotency compliance", () => {
     const deps = {
       ...createVerifyAppendScenario(scenario).deps,
       readPayloadSource: async () => {
-        throw new Error("verify harness: payload reader must not run");
+        throw new Error(payload);
       },
     };
 
