@@ -10,7 +10,7 @@ import {
   type JournalStreamBinding,
   readJournalCliEnvironment,
 } from "@/commands/journal/cli";
-import { JOURNAL_RUNTIME_ERROR, listJournalRuns } from "@/commands/journal/runtime";
+import { isJournalRunSealed, JOURNAL_RUNTIME_ERROR } from "@/commands/journal/runtime";
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { CliCommandResult, Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
@@ -73,8 +73,6 @@ export const VERIFY_CLI_EXIT_CODE = {
 export const VERIFY_CLI_ENV = {
   BRANCH: SPX_VERIFY_ENV.BRANCH,
 } as const;
-
-const VERIFY_RUN_LOOKUP_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export const VERIFY_CLI_ERROR = {
   INPUT_REQUIRED: "spx verification run start requires --input <input-source>",
@@ -843,13 +841,24 @@ async function resolveExistingRun(
   return { ok: true, value: run };
 }
 
-async function readRecordedInputWhenPresent(
+function isRecordedInputReadFailure(error: string): boolean {
+  return error.startsWith(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+}
+
+async function readRecordedInputForProjection(
   run: VerifyExistingRunAddress,
   options: VerifyExistingRunSelector,
+  events: readonly JournalEvent[],
   deps: VerifyCliDeps,
 ): Promise<Result<RecordedInput | undefined>> {
+  const terminal = findTerminalEvent(events);
   const inputRecord = await readExistingRecordedInput(run, deps);
-  if (!inputRecord.ok) return inputRecord;
+  if (!inputRecord.ok) {
+    if (terminal !== undefined && isRecordedInputReadFailure(inputRecord.error)) {
+      return { ok: true, value: undefined };
+    }
+    return inputRecord;
+  }
   if (inputRecord.value === undefined) return { ok: true, value: undefined };
   if (!recordedSelectorMatches(inputRecord.value, options)) {
     return { ok: false, error: existingRunSelectorMismatch(run, options) };
@@ -869,18 +878,10 @@ function verifyFinishReport(runToken: string, projection: VerifyRunProjection): 
 }
 
 async function isJournalPhysicallySealed(run: VerifyExistingRunAddress, deps: VerifyCliDeps): Promise<Result<boolean>> {
-  const runs = await listJournalRuns(
-    {
-      productDir: run.productDir,
-      branchSlug: run.journalScope.branchSlug,
-      type: run.journalScope.type,
-      limit: VERIFY_RUN_LOOKUP_LIMIT,
-    },
+  return isJournalRunSealed(
+    { ...run.journalScope, productDir: run.productDir },
     { ...(deps.fs === undefined ? {} : { fs: deps.fs }) },
   );
-  if (!runs.ok) return runs;
-  const metadata = runs.value.find((entry) => entry.runToken === run.runToken);
-  return { ok: true, value: metadata?.sealed ?? false };
 }
 
 async function sealExistingRun(
@@ -936,13 +937,13 @@ export async function verifyFinishCommand(
   if (!isVerifyTerminalStatus(options.terminalStatus)) return errorResult(VERIFY_CLI_ERROR.TERMINAL_STATUS_INVALID);
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
-  if (!inputRecord.ok) return errorResult(inputRecord.error);
 
   const before = await readRunJournalEvents(run.value.journalScope, deps);
   if (!before.ok) {
     return finishReadFailure(run.value, options, before.error);
   }
+  const inputRecord = await readRecordedInputForProjection(run.value, options, before.value, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
   // A run already carrying its terminal event is finished; retry the physical seal when an earlier
   // finish recorded terminal completion but failed to persist the seal marker.
   if (findTerminalEvent(before.value) !== undefined) {
@@ -979,8 +980,6 @@ export async function verifyStatusCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
-  if (!inputRecord.ok) return errorResult(inputRecord.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
     if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
@@ -988,6 +987,8 @@ export async function verifyStatusCommand(
     }
     return errorResult(`${VERIFY_CLI_ERROR.STATUS_FAILED}: ${events.error}`);
   }
+  const inputRecord = await readRecordedInputForProjection(run.value, options, events.value, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
   if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
@@ -1012,8 +1013,6 @@ export async function verifyRenderCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
-  if (!inputRecord.ok) return errorResult(inputRecord.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
     if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
@@ -1021,6 +1020,8 @@ export async function verifyRenderCommand(
     }
     return errorResult(`${VERIFY_CLI_ERROR.RENDER_FAILED}: ${events.error}`);
   }
+  const inputRecord = await readRecordedInputForProjection(run.value, options, events.value, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
   if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }

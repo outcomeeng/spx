@@ -417,6 +417,25 @@ export async function sealJournalRun(
   }
 }
 
+/** Report a run's physical seal-marker state without reading sibling runs. */
+export async function isJournalRunSealed(
+  ref: JournalRunRef,
+  options: JournalVerbOptions = {},
+): Promise<Result<boolean>> {
+  const runFilePath = bindRunFilePath(ref);
+  if (!runFilePath.ok) return runFilePath;
+  const fs = options.fs ?? defaultStateStoreFileSystem;
+  if (!(await runFileExists(fs, runFilePath.value))) {
+    return { ok: false, error: JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND };
+  }
+  const store = createAppendableJournalStore({ runFilePath: runFilePath.value, fs });
+  try {
+    return { ok: true, value: await store.isSealed() };
+  } catch (error) {
+    return { ok: false, error: `${JOURNAL_RUNTIME_ERROR.READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
 /** Render a projection over a run's event prefix by replaying its history. */
 export async function renderJournalRun<T>(
   ref: JournalRunRef,
