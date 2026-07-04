@@ -18,7 +18,7 @@ CAN persist formal-review-shaped evidence under `--verification-type review` wit
 ### Conformance
 
 - Review scope payloads conform to the platform-neutral reviewed-unit schema: provider identity when present, path, optional line or position range, side, commit identity, coverage state, and URL ([test](tests/review-payload.conformance.l1.test.ts))
-- Review finding payloads conform to the platform-neutral review comment schema while accepting GitHub-shaped anchor fields as optional provider data ([test](tests/review-payload.conformance.l1.test.ts))
+- Review finding payloads conform to the platform-neutral review comment schema while accepting GitHub-shaped anchor fields as optional provider data and requiring SPX finding metadata when a review comment represents a finding ([test](tests/review-payload.conformance.l1.test.ts))
 
 ### Properties
 
