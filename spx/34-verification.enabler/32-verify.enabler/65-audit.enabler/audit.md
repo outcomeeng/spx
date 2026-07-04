@@ -25,3 +25,4 @@ CAN record complete audit coverage and findings under `--verification-type audit
 - ALWAYS: `audit` is the public verification type for every audit run; audit class and audit kind stay inside payloads ([test](tests/audit-command-surface.compliance.l1.test.ts))
 - NEVER: audit payload handling introduces `spx audit` or audit subtype commands under `spx verification run` ([test](tests/audit-command-surface.compliance.l1.test.ts))
 - ALWAYS: audit scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: audit payload projection consumes merge-period identity, finding identity, and prior-run context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
