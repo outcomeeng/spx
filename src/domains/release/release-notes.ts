@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { AgentRunner } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
@@ -234,15 +234,7 @@ export async function composeReleaseNotes(
   } = options;
   const configuredPath = configuredChangelogPath(config);
   const changelogPath = resolveReleaseNotesPath(workingDirectory, config);
-  await assertCanonicalReleaseNotesPath(
-    workingDirectory,
-    configuredPath,
-    changelogPath,
-    canonicalizePath,
-    isSymbolicLink,
-    isFile,
-  );
-  await assertCanonicalReleaseNotesPath(
+  const preAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
     changelogPath,
@@ -252,7 +244,7 @@ export async function composeReleaseNotes(
   );
   const prompt = buildReleaseNotesPrompt(releaseData, changelogPath);
   await agentRunner.run({ prompt, workingDirectory });
-  await assertCanonicalReleaseNotesPath(
+  const postAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
     changelogPath,
@@ -260,19 +252,16 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   );
-  const preOpenCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
-    workingDirectory,
-    configuredPath,
-    changelogPath,
-    canonicalizePath,
-    isSymbolicLink,
-    isFile,
-  );
+  if (postAgentCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
+    throw new ReleaseNotesError(
+      `Configured changelog path changed after agent write: ${changelogPath}`,
+    );
+  }
   const writtenNotes = await readArtifact(
-    preOpenCanonicalChangelogPath,
-    preOpenCanonicalChangelogPath,
+    preAgentCanonicalChangelogPath,
+    preAgentCanonicalChangelogPath,
   );
-  await assertCanonicalReleaseNotesPath(
+  const postReadCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
     changelogPath,
@@ -280,6 +269,11 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   );
+  if (postReadCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
+    throw new ReleaseNotesError(
+      `Configured changelog path changed after agent write: ${changelogPath}`,
+    );
+  }
   assertConformsToKeepAChangelog(writtenNotes, releaseData.version);
 }
 
@@ -301,15 +295,14 @@ async function assertCanonicalReleaseNotesPath(
       `Product working tree cannot be canonicalized: ${workingDirectory}`,
     );
   }
-  if (
-    await isSymbolicLink(canonicalCheckPath(workingDirectory, configuredPath))
-  ) {
+  const candidatePath = canonicalCheckPath(workingDirectory, configuredPath);
+  if (await isSymbolicLink(candidatePath)) {
     throw new ReleaseNotesError(
       `Configured changelog path is a symbolic link: ${changelogPath}`,
     );
   }
   const canonicalPath = await nearestExistingCanonicalPath(
-    canonicalCheckPath(workingDirectory, configuredPath),
+    candidatePath,
     canonicalizePath,
   );
   if (canonicalPath === undefined) {
@@ -345,7 +338,20 @@ async function assertCanonicalReleaseNotesPath(
       `Configured changelog path is not a file: ${changelogPath}`,
     );
   }
-  return canonicalPath.path;
+  return canonicalTargetPath(canonicalPath, candidatePath);
+}
+
+function canonicalTargetPath(
+  canonicalPath: CanonicalPathCheck,
+  candidatePath: string,
+): string {
+  if (canonicalPath.isCandidate) {
+    return canonicalPath.path;
+  }
+  return resolve(
+    canonicalPath.path,
+    relative(canonicalPath.checkedPath, candidatePath),
+  );
 }
 
 function canonicalCheckPath(
