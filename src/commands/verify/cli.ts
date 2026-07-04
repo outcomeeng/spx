@@ -979,14 +979,17 @@ export async function verifyStatusCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const selector = await readRecordedInputWhenPresent(run.value, options, deps);
-  if (!selector.ok) return errorResult(selector.error);
+  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
     if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
       return errorResult(existingRunNotFound(run.value, options));
     }
     return errorResult(`${VERIFY_CLI_ERROR.STATUS_FAILED}: ${events.error}`);
+  }
+  if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
+    return errorResult(existingRunNotFound(run.value, options));
   }
   const projection = projectVerifyRun(events.value);
   const report: VerifyStatusReport = {
@@ -1009,14 +1012,17 @@ export async function verifyRenderCommand(
 ): Promise<CliCommandResult> {
   const run = await resolveExistingRunAddress(options, deps);
   if (!run.ok) return errorResult(run.error);
-  const selector = await readRecordedInputWhenPresent(run.value, options, deps);
-  if (!selector.ok) return errorResult(selector.error);
+  const inputRecord = await readRecordedInputWhenPresent(run.value, options, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
   const events = await readRunJournalEvents(run.value.journalScope, deps);
   if (!events.ok) {
     if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
       return errorResult(existingRunNotFound(run.value, options));
     }
     return errorResult(`${VERIFY_CLI_ERROR.RENDER_FAILED}: ${events.error}`);
+  }
+  if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
+    return errorResult(existingRunNotFound(run.value, options));
   }
   const projection = projectVerifyRun(events.value);
   const report: VerifyRenderReport = {
