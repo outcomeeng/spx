@@ -18,6 +18,7 @@ import {
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
+export const APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT = "";
 const LINE_SEPARATOR = "\n";
 
 export interface AppendableJournalStoreOptions {
@@ -74,7 +75,7 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
 
     async seal(): Promise<void> {
       await fs.mkdir(dirname(sealMarkerPath), { recursive: true });
-      await fs.writeFile(sealMarkerPath, "");
+      await fs.writeFile(sealMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
     },
 
     async isSealed(): Promise<boolean> {

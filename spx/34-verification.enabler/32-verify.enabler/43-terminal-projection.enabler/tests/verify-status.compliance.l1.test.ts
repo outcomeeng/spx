@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
+  VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD,
   verifyAppendScopeCommand,
   verifyRenderCommand,
   verifyStatusCommand,
 } from "@/commands/verify/cli";
-import { VERIFY_LIFECYCLE_ACTION, VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import {
+  VERIFY_LIFECYCLE_ACTION,
+  VERIFY_SCOPE_SEPARATOR,
+  VERIFY_SCOPE_TYPE,
+  VERIFY_VERIFICATION_TYPE,
+} from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
@@ -18,6 +25,7 @@ import {
   readVerifyRunEvents,
   startedRunToken,
   verifyAppendOptions,
+  verifyInputRecordFilePath,
   verifyRenderOptions,
   verifyStatusOptions,
   withVerificationType,
@@ -52,8 +60,8 @@ describe("verify status compliance", () => {
     // Exact set equality plus cardinality, not membership: an unintended UNSEALED_NEXT_ACTIONS
     // entry (a new action or a duplicate) must fail here.
     const expectedUnsealedActions = [
-      VERIFY_LIFECYCLE_ACTION.APPEND_SCOPE,
-      VERIFY_LIFECYCLE_ACTION.APPEND_FINDING,
+      VERIFY_LIFECYCLE_ACTION.SCOPE_ADD,
+      VERIFY_LIFECYCLE_ACTION.FINDING_ADD,
       VERIFY_LIFECYCLE_ACTION.FINISH,
     ];
     expect(new Set(report.nextActions)).toEqual(new Set(expectedUnsealedActions));
@@ -101,5 +109,56 @@ describe("verify status compliance", () => {
     expect(finishReport.runToken).toBe(runToken);
     expect(statusReport.runToken).toBe(runToken);
     expect(renderReport.runToken).toBe(runToken);
+  });
+
+  it("projects status and render from the journal when a hydrated run has no recorded input file", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const findings = await appendFindingBatch(scenario, deps, runToken);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    await finishRun(scenario, deps, runToken, terminalStatus);
+    await fs.rm(verifyInputRecordFilePath(scenario, runToken), { force: true });
+
+    const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+    const rendered = await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps);
+
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const statusReport = parseStatusReport(status.output);
+    const renderReport = parseRenderReport(rendered.output);
+    expect(statusReport.runToken).toBe(runToken);
+    expect(renderReport.runToken).toBe(runToken);
+    expect(statusReport.findingCount).toBe(findings.length);
+    expect(renderReport.findingCount).toBe(findings.length);
+    expect(statusReport.terminalStatus).toBe(terminalStatus);
+    expect(renderReport.terminalStatus).toBe(terminalStatus);
+  });
+
+  it("rejects status and render when the requested scope differs from the recorded run scope", async () => {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const mismatchedScope = `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}`;
+
+    const status = await verifyStatusCommand(
+      { ...verifyStatusOptions(scenario, runToken), scope: mismatchedScope },
+      deps,
+    );
+    const rendered = await verifyRenderCommand(
+      { ...verifyRenderOptions(scenario, runToken), scope: mismatchedScope },
+      deps,
+    );
+
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(status.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    expect(rendered.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    expect(status.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+    expect(rendered.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+    expect(status.output).toContain(verifyInputRecordFilePath(scenario, runToken));
+    expect(rendered.output).toContain(verifyInputRecordFilePath(scenario, runToken));
   });
 });

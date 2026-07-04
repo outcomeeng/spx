@@ -71,6 +71,31 @@ describe("in-memory StateStoreFileSystem double — writes", () => {
 });
 
 describe("in-memory StateStoreFileSystem double — removal and stat", () => {
+  it("renames a present file into an existing parent and rejects absent sources or missing target parents", async () => {
+    const fs = createInMemoryStateStoreFileSystem();
+    const [sourceDir, targetDir, orphanParent, file, targetFile, absent] = distinctSegments(6);
+    const initial = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const replacement = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const sourcePath = `/${sourceDir}/${file}`;
+    const targetPath = `/${targetDir}/${targetFile}`;
+    await fs.mkdir(`/${sourceDir}`, { recursive: true });
+    await fs.mkdir(`/${targetDir}`, { recursive: true });
+    await fs.writeFile(sourcePath, initial, { flag: EXCLUSIVE_CREATE_FLAG });
+
+    await fs.rename(sourcePath, targetPath);
+
+    await expectErrorCode(fs.readFile(sourcePath, STATE_STORE_TEXT_ENCODING), ERROR_CODE_NOT_FOUND);
+    expect(await fs.readFile(targetPath, STATE_STORE_TEXT_ENCODING)).toBe(initial);
+
+    await fs.writeFile(sourcePath, replacement, { flag: EXCLUSIVE_CREATE_FLAG });
+    await fs.rename(sourcePath, targetPath);
+    expect(await fs.readFile(targetPath, STATE_STORE_TEXT_ENCODING)).toBe(replacement);
+
+    await expectErrorCode(fs.rename(`/${sourceDir}/${absent}`, targetPath), ERROR_CODE_NOT_FOUND);
+    await fs.writeFile(sourcePath, initial, { flag: EXCLUSIVE_CREATE_FLAG });
+    await expectErrorCode(fs.rename(sourcePath, `/${orphanParent}/${file}`), ERROR_CODE_NOT_FOUND);
+  });
+
   it("removes files and directories, forces past an absent path, and classifies a path via lstat", async () => {
     const fs = createInMemoryStateStoreFileSystem();
     const [dir, nestedDir, file, absent] = distinctSegments(4);

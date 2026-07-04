@@ -6,4 +6,14 @@ validation:
   literal:
     values:
       include:
+        - --idempotency-key <key>
+        - --payload <payload-source>
+        - append-finding
+        - append-scope
+        - event
+        - finding
+        - journal
         - node_modules
+        - scope
+        - verification
+        - verify

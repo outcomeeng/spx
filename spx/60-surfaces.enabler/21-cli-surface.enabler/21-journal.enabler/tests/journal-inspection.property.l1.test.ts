@@ -39,6 +39,10 @@ class FailingPersistedRunInspectionFileSystem implements StateStoreFileSystem {
     return Promise.reject(new Error());
   }
 
+  rename(): Promise<never> {
+    return Promise.reject(new Error());
+  }
+
   rm(): Promise<never> {
     return Promise.reject(new Error());
   }

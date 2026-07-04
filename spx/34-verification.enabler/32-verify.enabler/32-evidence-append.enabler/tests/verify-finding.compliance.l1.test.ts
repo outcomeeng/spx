@@ -4,10 +4,11 @@ import { describe, expect, it } from "vitest";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
+  VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD,
   verifyAppendFindingCommand,
   verifyStartCommand,
 } from "@/commands/verify/cli";
-import { VERIFY_APPEND_EVENT_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_APPEND_EVENT_TYPE, VERIFY_SCOPE_SEPARATOR, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE } from "@/lib/agent-run-journal";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
@@ -17,11 +18,12 @@ import {
   parseStartReport,
   readVerifyRunEvents,
   verifyAppendOptions,
+  verifyInputRecordFilePath,
   verifyStartOptions,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
-describe("verify append-finding compliance", () => {
+describe("verify finding evidence compliance", () => {
   it("rejects a review finding payload that fails verification-type validation before appending an event", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
@@ -51,7 +53,7 @@ describe("verify append-finding compliance", () => {
     expect(events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
   });
 
-  it("records a valid review finding at the append-finding boundary so callers carry no review schema", async () => {
+  it("records a valid review finding at the finding-evidence boundary so callers carry no review schema", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );
@@ -76,10 +78,9 @@ describe("verify append-finding compliance", () => {
     expect(JSON.stringify(findingEvents[0]?.data)).toContain(finding.summary);
   });
 
-  it("rejects append-finding when the verification type registers no finding validator", async () => {
-    const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+  it("rejects finding evidence when the requested scope differs from the recorded run scope", async () => {
     const { scenario, deps } = createVerifyAppendScenario(
-      withVerificationType(createVerifyRunContextScenario(), unsupportedType),
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );
 
     const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
@@ -88,11 +89,16 @@ describe("verify append-finding compliance", () => {
     const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
 
     const appended = await verifyAppendFindingCommand(
-      verifyAppendOptions(scenario, { run: runToken, payload: JSON.stringify(finding), idempotencyKey: key }),
+      {
+        ...verifyAppendOptions(scenario, { run: runToken, payload: JSON.stringify(finding), idempotencyKey: key }),
+        scope: `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}`,
+      },
       deps,
     );
 
     expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(appended.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(appended.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    expect(appended.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+    expect(appended.output).toContain(verifyInputRecordFilePath(scenario, runToken));
   });
 });

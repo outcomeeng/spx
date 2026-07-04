@@ -1,25 +1,64 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyFinishCommand } from "@/commands/verify/cli";
+import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyFinishCommand, verifyStartCommand } from "@/commands/verify/cli";
 import {
   findTerminalEvent,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
   VERIFY_TERMINAL_EVENT_TYPE,
 } from "@/domains/verify/verify";
+import {
+  APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+  appendableJournalSealMarkerPath,
+} from "@/lib/appendable-journal-store";
+import { STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import {
   createVerifyAppendScenario,
   createVerifyRunContextScenario,
   finishRecoversUnsealedRun,
   finishRun,
   parseFinishReport,
+  parseStartReport,
   readVerifyRunEvents,
   startedRunToken,
   verifyDeps,
   verifyFinishOptions,
+  verifyInputRecordFilePath,
+  verifyStartOptions,
 } from "@testing/harnesses/verify/harness";
+
+interface SealRetryFileSystem extends StateStoreFileSystem {
+  failFirstSealWriteAt(path: string): void;
+}
+
+function createSealRetryFileSystem(): SealRetryFileSystem {
+  const fs = createInMemoryStateStoreFileSystem();
+  let blockedSealMarkerPath: string | undefined;
+  let sealFailuresRemaining = 0;
+  return {
+    appendFile: (path, data) => fs.appendFile(path, data),
+    failFirstSealWriteAt: (path: string) => {
+      blockedSealMarkerPath = path;
+      sealFailuresRemaining = 1;
+    },
+    lstat: (path) => fs.lstat(path),
+    mkdir: (path, options) => fs.mkdir(path, options),
+    readFile: (path, encoding) => fs.readFile(path, encoding),
+    readdir: (path, options) => fs.readdir(path, options),
+    rename: (from, to) => fs.rename(from, to),
+    rm: (path, options) => fs.rm(path, options),
+    writeFile: async (path, data, options) => {
+      if (path === blockedSealMarkerPath && sealFailuresRemaining > 0) {
+        sealFailuresRemaining -= 1;
+        throw new Error("verify harness: first seal write rejected");
+      }
+      await fs.writeFile(path, data, options);
+    },
+  };
+}
 
 describe("verify finish compliance", () => {
   it("rejects a blank terminal status without recording completion or sealing", async () => {
@@ -77,6 +116,39 @@ describe("verify finish compliance", () => {
       (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
     );
     expect(terminalEvents).toHaveLength(1);
+  });
+
+  it("retries the physical journal seal when repeated finish finds terminal completion unsealed", async () => {
+    const scenario = createVerifyRunContextScenario();
+    const fs = createSealRetryFileSystem();
+    const deps = createVerifyAppendScenario(scenario).deps;
+    const retryDeps = { ...deps, fs };
+    const started = await verifyStartCommand(verifyStartOptions(scenario), retryDeps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
+    fs.failFirstSealWriteAt(sealMarkerPath);
+
+    const first = await verifyFinishCommand(
+      verifyFinishOptions(scenario, { run: startReport.runToken, terminalStatus }),
+      retryDeps,
+    );
+    expect(first.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(first.output).toContain(VERIFY_CLI_ERROR.SEAL_FAILED);
+    expect(findTerminalEvent(await readVerifyRunEvents(scenario, startReport.runToken, fs))).toBeDefined();
+    await fs.rm(verifyInputRecordFilePath(scenario, startReport.runToken), { force: true });
+
+    const repeat = await verifyFinishCommand(
+      verifyFinishOptions(scenario, { run: startReport.runToken, terminalStatus }),
+      retryDeps,
+    );
+
+    expect(repeat.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(parseFinishReport(repeat.output).terminalStatus).toBe(terminalStatus);
+    await expect(fs.readFile(sealMarkerPath, STATE_STORE_TEXT_ENCODING)).resolves.toBe(
+      APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+    );
   });
 
   it("returns the first terminal projection when a second finish supplies a different terminal status", async () => {
