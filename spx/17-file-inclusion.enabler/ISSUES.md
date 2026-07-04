@@ -21,7 +21,7 @@ Governing artifacts:
 Checklist for each `spx validation` or `spx test` consumer that walks files or passes file-scope arguments:
 
 - Identify whether the consumer participates in validate or test work.
-- For review, audit, and evaluate changeset verification, confirm scope derives from `spx verify --scope-type changeset` base/head paths rather than automatic file-inclusion walks.
+- For review, audit, and evaluate changeset verification, confirm scope derives from `spx verification run --scope-type changeset` base/head paths rather than automatic file-inclusion walks.
 - Identify the owning descriptor section for its domain path filter, if any.
 - Confirm the descriptor consumes `PathFilterConfig` from `src/config/primitives/path-filter.ts` rather than defining a duplicate include/exclude shape.
 - Confirm the command resolves its domain config through the config module before scope resolution.
