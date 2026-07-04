@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { journalOpenCommand } from "@/commands/journal/cli";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
@@ -30,6 +31,14 @@ import {
   verifyStatusOptions,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
+
+interface RawJournalOpenReport {
+  readonly runToken: string;
+}
+
+function parseRawJournalOpenReport(output: string): RawJournalOpenReport {
+  return JSON.parse(output) as RawJournalOpenReport;
+}
 
 describe("verify status compliance", () => {
   it("reports run token, verification type, scope type, unsealed state, last sequence, and next legal actions for a started run", async () => {
@@ -134,6 +143,25 @@ describe("verify status compliance", () => {
     expect(renderReport.findingCount).toBe(findings.length);
     expect(statusReport.terminalStatus).toBe(terminalStatus);
     expect(renderReport.terminalStatus).toBe(terminalStatus);
+  });
+
+  it("rejects status and render for an unterminal raw journal run without a recorded verification input", async () => {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const opened = await journalOpenCommand({ type: scenario.verificationType }, deps);
+    expect(opened.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const rawRun = parseRawJournalOpenReport(opened.output);
+
+    const status = await verifyStatusCommand(verifyStatusOptions(scenario, rawRun.runToken), deps);
+    const rendered = await verifyRenderCommand(verifyRenderOptions(scenario, rawRun.runToken), deps);
+
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(status.output).toContain(VERIFY_CLI_ERROR.RUN_NOT_FOUND);
+    expect(rendered.output).toContain(VERIFY_CLI_ERROR.RUN_NOT_FOUND);
+    expect(status.output).toContain(verifyInputRecordFilePath(scenario, rawRun.runToken));
+    expect(rendered.output).toContain(verifyInputRecordFilePath(scenario, rawRun.runToken));
   });
 
   it("rejects status and render when the requested scope differs from the recorded run scope", async () => {
