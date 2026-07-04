@@ -5,10 +5,15 @@ import { journalOpenCommand } from "@/commands/journal/cli";
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyFinishCommand, verifyStartCommand } from "@/commands/verify/cli";
 import {
   findTerminalEvent,
+  VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_INPUT_SOURCE,
   VERIFY_SCOPE_ERROR,
+  VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_TERMINAL_EVENT_TYPE,
+  type VerifyAppendEventType,
 } from "@/domains/verify/verify";
+import type { JournalEvent } from "@/lib/agent-run-journal";
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
   appendableJournalSealMarkerPath,
@@ -29,6 +34,7 @@ import {
   verifyFinishOptions,
   verifyInputRecordFilePath,
   verifyStartOptions,
+  type VerifyStateStoreFileSystem,
 } from "@testing/harnesses/verify/harness";
 
 interface SealRetryFileSystem extends StateStoreFileSystem {
@@ -40,8 +46,51 @@ interface RawJournalOpenReport {
   readonly runToken: string;
 }
 
+interface ExpectedTerminalProjection {
+  readonly runToken: string;
+  readonly terminalStatus: string;
+  readonly sealed: true;
+  readonly findingCount: number;
+  readonly lastSequence: number;
+}
+
 function parseRawJournalOpenReport(output: string): RawJournalOpenReport {
   return JSON.parse(output) as RawJournalOpenReport;
+}
+
+function countEventsOfType(events: readonly JournalEvent[], eventType: VerifyAppendEventType): number {
+  return events.filter((event) => event.type === eventType).length;
+}
+
+function lastObservedSequence(events: readonly JournalEvent[]): number {
+  return Math.max(...events.map((event) => event.seq));
+}
+
+async function expectedTerminalProjectionFromJournal(
+  scenario: ReturnType<typeof createVerifyRunContextScenario>,
+  fs: VerifyStateStoreFileSystem,
+  runToken: string,
+  terminalStatus: string,
+): Promise<ExpectedTerminalProjection> {
+  const events = await readVerifyRunEvents(scenario, runToken, fs);
+  return {
+    runToken,
+    terminalStatus,
+    sealed: true,
+    findingCount: countEventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING),
+    lastSequence: lastObservedSequence(events),
+  };
+}
+
+function expectFinishReportMatchesJournal(
+  report: ReturnType<typeof parseFinishReport>,
+  expected: ExpectedTerminalProjection,
+): void {
+  expect(report.runToken).toBe(expected.runToken);
+  expect(report.terminalStatus).toBe(expected.terminalStatus);
+  expect(report.sealed).toBe(expected.sealed);
+  expect(report.findingCount).toBe(expected.findingCount);
+  expect(report.lastSequence).toBe(expected.lastSequence);
 }
 
 function createSealRetryFileSystem(): SealRetryFileSystem {
@@ -140,7 +189,10 @@ describe("verify finish compliance", () => {
     const repeat = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
     expect(repeat.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
 
-    expect(parseFinishReport(repeat.output)).toEqual(parseFinishReport(first.output));
+    expectFinishReportMatchesJournal(
+      parseFinishReport(repeat.output),
+      await expectedTerminalProjectionFromJournal(scenario, fs, runToken, terminalStatus),
+    );
     const terminalEvents = (await readVerifyRunEvents(scenario, runToken, fs)).filter(
       (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
     );
@@ -205,12 +257,15 @@ describe("verify finish compliance", () => {
     const runToken = await startedRunToken(scenario, deps);
     const statuses = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.distinctTerminalStatuses());
 
-    const first = await finishRun(scenario, deps, runToken, statuses.first);
+    await finishRun(scenario, deps, runToken, statuses.first);
     const second = await finishRun(scenario, deps, runToken, statuses.second);
 
     // First status wins: the second finish returns the recorded projection, not the new status.
     expect(second.terminalStatus).toBe(statuses.first);
-    expect(second).toEqual(first);
+    expectFinishReportMatchesJournal(
+      second,
+      await expectedTerminalProjectionFromJournal(scenario, fs, runToken, statuses.first),
+    );
     const terminalEvents = (await readVerifyRunEvents(scenario, runToken, fs)).filter(
       (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
     );
@@ -222,7 +277,7 @@ describe("verify finish compliance", () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
     const runToken = await startedRunToken(scenario, deps);
     const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
-    const first = await finishRun(scenario, deps, runToken, terminalStatus);
+    await finishRun(scenario, deps, runToken, terminalStatus);
     await fs.writeFile(
       verifyInputRecordFilePath(scenario, runToken),
       JSON.stringify({ source: terminalStatus, digest: runToken, content: scenario.inputContent }),
@@ -235,7 +290,39 @@ describe("verify finish compliance", () => {
       readOnlyDeps,
     );
     expect(repeat.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    expect(parseFinishReport(repeat.output)).toEqual(first);
+    expectFinishReportMatchesJournal(
+      parseFinishReport(repeat.output),
+      await expectedTerminalProjectionFromJournal(scenario, fs, runToken, terminalStatus),
+    );
+  });
+
+  it("rejects repeated finish when the recorded input selector differs from the requested scope", async () => {
+    const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+    const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const startReport = parseStartReport(started.output);
+    const runToken = startReport.runToken;
+    const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+    await finishRun(scenario, deps, runToken, terminalStatus);
+    await fs.writeFile(
+      verifyInputRecordFilePath(scenario, runToken),
+      JSON.stringify({
+        scopeIdentity: `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}`,
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        source: VERIFY_INPUT_SOURCE.STDIN,
+        digest: startReport.input.digest,
+        content: scenario.inputContent,
+      }),
+    );
+
+    const repeat = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
+
+    expect(repeat.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(repeat.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    const terminalEvents = (await readVerifyRunEvents(scenario, runToken, fs)).filter(
+      (event) => event.type === VERIFY_TERMINAL_EVENT_TYPE,
+    );
+    expect(terminalEvents).toHaveLength(1);
   });
 
   it("rejects an unsupported scope type or a malformed changeset scope before mutating the run", async () => {

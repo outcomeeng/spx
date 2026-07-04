@@ -171,12 +171,11 @@ describe("verify status compliance", () => {
     expect(renderReport.terminalStatus).toBe(terminalStatus);
   });
 
-  it("projects status and render from the journal when a terminal run has mismatched recorded-input selectors", async () => {
+  it("rejects status and render when a terminal run has mismatched recorded-input selectors", async () => {
     const { scenario, fs, deps } = createVerifyAppendScenario(
       withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
     );
     const runToken = await startedRunToken(scenario, deps);
-    const findings = await appendFindingBatch(scenario, deps, runToken);
     const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
     await finishRun(scenario, deps, runToken, terminalStatus);
     await fs.writeFile(
@@ -193,14 +192,14 @@ describe("verify status compliance", () => {
     const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
     const rendered = await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps);
 
-    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    const statusReport = parseStatusReport(status.output);
-    const renderReport = parseRenderReport(rendered.output);
-    expect(statusReport.findingCount).toBe(findings.length);
-    expect(renderReport.findingCount).toBe(findings.length);
-    expect(statusReport.terminalStatus).toBe(terminalStatus);
-    expect(renderReport.terminalStatus).toBe(terminalStatus);
+    expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(rendered.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(status.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    expect(rendered.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+    expect(status.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+    expect(rendered.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+    expect(status.output).toContain(verifyInputRecordFilePath(scenario, runToken));
+    expect(rendered.output).toContain(verifyInputRecordFilePath(scenario, runToken));
   });
 
   it("rejects status and render for an unterminal raw journal run without a recorded verification input", async () => {
