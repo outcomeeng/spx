@@ -11,7 +11,7 @@ import { SOURCE_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import { TYPESCRIPT_TEST_FILE_SUFFIXES, typescriptTestingLanguage } from "@/test/languages/typescript";
 import type { TestRunState } from "@/test/run-state";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import {
@@ -29,16 +29,23 @@ import {
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
-const TYPESCRIPT_JSX_TEST_SUFFIX = ".test.tsx";
-const TYPESCRIPT_TEST_SUFFIX = ".test.ts";
 
-function commandFixturePaths(paths: ChangedSetFixturePaths): ChangedSetFixturePaths {
+function commandFixturePaths(paths: ChangedSetFixturePaths, testSuffix: string): ChangedSetFixturePaths {
   return {
     ...paths,
-    testPath: paths.testPath.replace(TYPESCRIPT_JSX_TEST_SUFFIX, TYPESCRIPT_TEST_SUFFIX),
-    selectedTestPath: paths.selectedTestPath.replace(TYPESCRIPT_JSX_TEST_SUFFIX, TYPESCRIPT_TEST_SUFFIX),
-    untouchedTestPath: paths.untouchedTestPath.replace(TYPESCRIPT_JSX_TEST_SUFFIX, TYPESCRIPT_TEST_SUFFIX),
+    testPath: withTestSuffix(paths.testPath, testSuffix),
+    selectedTestPath: withTestSuffix(paths.selectedTestPath, testSuffix),
+    untouchedTestPath: withTestSuffix(paths.untouchedTestPath, testSuffix),
   };
+}
+
+function withTestSuffix(path: string, testSuffix: string): string {
+  const suffix = TYPESCRIPT_TEST_FILE_SUFFIXES.find((candidate) => path.endsWith(candidate));
+  expect(suffix).toBeDefined();
+  if (suffix === undefined) {
+    throw new Error(`fixture test path does not use a TypeScript test suffix: ${path}`);
+  }
+  return `${path.slice(0, -suffix.length)}${testSuffix}`;
 }
 
 async function writeFileFixture(productDir: string, path: string, content: string): Promise<void> {
@@ -145,29 +152,32 @@ async function runChangedSetCommand(productDir: string) {
 }
 
 async function expectChangedSetCommandRunsAffectedTests(): Promise<void> {
-  const paths = commandFixturePaths(sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths()));
+  const sampledPaths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
 
-  await withTestingTempProductDir(async (productDir) => {
-    const selectedTestContent = await writeChangedSetCommandFixture(productDir, paths);
-    await initializeChangedSetCommandRepo(productDir);
-    await writeFileFixture(
-      productDir,
-      paths.sourcePath,
-      changedSetSourceFixture(changedSetContent.afterSourceValue),
-    );
+  for (const testSuffix of TYPESCRIPT_TEST_FILE_SUFFIXES) {
+    const paths = commandFixturePaths(sampledPaths, testSuffix);
+    await withTestingTempProductDir(async (productDir) => {
+      const selectedTestContent = await writeChangedSetCommandFixture(productDir, paths);
+      await initializeChangedSetCommandRepo(productDir);
+      await writeFileFixture(
+        productDir,
+        paths.sourcePath,
+        changedSetSourceFixture(changedSetContent.afterSourceValue),
+      );
 
-    const result = await runChangedSetCommand(productDir);
+      const result = await runChangedSetCommand(productDir);
 
-    expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(SUCCESS_EXIT_CODE);
-    const recorded = await readRecordedState(result.stdout);
-    const coveredPaths = recorded.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
-    expect(coveredPaths).toEqual([paths.selectedTestPath]);
-    expect(coveredPaths).not.toContain(paths.untouchedTestPath);
-    expect(recorded.discoveredTestPathsDigest).toBe(expectedCoveredPathsDigest([paths.selectedTestPath]));
-    expect(recorded.discoveredTestContentDigest).toBe(
-      expectedCoveredContentDigest(paths.selectedTestPath, selectedTestContent),
-    );
-  });
+      expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(SUCCESS_EXIT_CODE);
+      const recorded = await readRecordedState(result.stdout);
+      const coveredPaths = recorded.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
+      expect(coveredPaths).toEqual([paths.selectedTestPath]);
+      expect(coveredPaths).not.toContain(paths.untouchedTestPath);
+      expect(recorded.discoveredTestPathsDigest).toBe(expectedCoveredPathsDigest([paths.selectedTestPath]));
+      expect(recorded.discoveredTestContentDigest).toBe(
+        expectedCoveredContentDigest(paths.selectedTestPath, selectedTestContent),
+      );
+    });
+  }
 }
 
 export function registerChangedSetPlanningCommandTests(): void {

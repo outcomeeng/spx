@@ -113,6 +113,7 @@ const MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX = "/>";
 const MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN = String.raw`\s*`;
 const MARKDOWN_HTML_BLOCK_CLOSE_LINE_START = "^";
 const MARKDOWN_HTML_BLOCK_CLOSE_LINE_END = "$";
+const MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS = new Set(["pre", "script", "style", "textarea"]);
 const MARKDOWN_HTML_COMMENT_OPEN = "<!--";
 const MARKDOWN_HTML_COMMENT_CLOSE = "-->";
 const MARKDOWN_PROCESSING_INSTRUCTION_OPEN = "<?";
@@ -319,17 +320,13 @@ async function assertCanonicalReleaseNotesPath(
       `Configured changelog path cannot be canonicalized: ${changelogPath}`,
     );
   }
-  if (
-    canonicalPath.path === canonicalRoot
-    && (canonicalPath.isCandidate
-      || canonicalPath.checkedPath !== normalizedWorkingDirectory)
-  ) {
+  const canonicalChangelogPath = canonicalTargetPath(canonicalPath, candidatePath);
+  if (canonicalChangelogPath === canonicalRoot) {
     throw new ReleaseNotesError(
       `Configured changelog path resolves to the product working tree: ${changelogPath}`,
     );
   }
-  const canonicalChangelogPath = canonicalTargetPath(canonicalPath, candidatePath);
-  if (!isPathContained(canonicalRoot, canonicalPath.path)) {
+  if (!isPathContained(canonicalRoot, canonicalChangelogPath)) {
     throw new ReleaseNotesError(
       `Configured changelog path escapes the product working tree: ${changelogPath}`,
     );
@@ -342,7 +339,7 @@ async function assertCanonicalReleaseNotesPath(
   }
   if (
     !canonicalPath.isCandidate
-    && canonicalPath.checkedPath !== workingDirectory
+    && canonicalPath.checkedPath !== normalizedWorkingDirectory
     && await isFile(canonicalPath.path)
   ) {
     throw new ReleaseNotesError(
@@ -772,6 +769,17 @@ function closesMarkdownHtmlBlock(
   line: string | undefined,
   rawLine = line ?? "",
 ): boolean {
+  if (MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)) {
+    return (
+      line !== undefined
+      && (
+        line.trimEnd().endsWith(MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX)
+        || markdownHtmlBlockClosePattern(tagName).test(
+          line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE),
+        )
+      )
+    );
+  }
   if (rawLine.trim().length === 0) {
     return true;
   }

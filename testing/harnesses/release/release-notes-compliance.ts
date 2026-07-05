@@ -1152,7 +1152,7 @@ export function registerReleaseNotesComplianceTests(): void {
       );
     });
 
-    it("rejects a configured changelog path whose symlink ancestor resolves to the working tree root", async () => {
+    it("allows a configured changelog path whose symlink ancestor resolves to the working tree root", async () => {
       const { releaseData, conformant } = sampleReleaseNotesCompositionFixture();
 
       await withReleaseNotesEnv(
@@ -1180,8 +1180,8 @@ export function registerReleaseNotesComplianceTests(): void {
               config: { changelogPath },
               agentRunner,
             }),
-          ).rejects.toThrow(ReleaseNotesError);
-          expect(agentRunner.requests).toHaveLength(0);
+          ).resolves.toBeUndefined();
+          expect(agentRunner.requests).toHaveLength(1);
         },
       );
     });
