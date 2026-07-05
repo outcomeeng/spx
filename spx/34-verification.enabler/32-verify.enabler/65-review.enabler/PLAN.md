@@ -8,7 +8,8 @@ This node materializes `review` as a verification type-specific aggregate bounda
 
 ## Child work
 
-- Review evidence schema, validation, and projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/PLAN.md`.
+- Review evidence schema and validation: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/PLAN.md`.
+- Review envelope, comment, and run-set projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/PLAN.md`.
 
 ## Sibling relationship
 

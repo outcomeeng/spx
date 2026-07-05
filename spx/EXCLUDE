@@ -17,6 +17,7 @@
 34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
+34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler
