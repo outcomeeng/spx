@@ -8,8 +8,8 @@ Audit workflows inspect many subjects: instructions, specs, implementation code,
 
 ## Product properties
 
-1. Every audit run uses `--verification-type audit`; audit class and audit kind are payload fields.
-2. Audit scope evidence records nestable units with `unit_id`, optional `parent_unit_id`, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version.
+1. Every audit run uses `--verification-type audit`; audit class and audit kind are payload fields. Audit class values are `instructions`, `spec`, and `implementation`; audit kind values are `skill`, `subagent`, `prompt`, `guide-template`, `spec`, `adr`, `pdr`, `code`, `tests`, `architecture`, `eval-evidence`, and `coverage-gap`.
+2. Audit scope evidence records nestable units with `unit_id`, optional `parent_unit_id`, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version. Coverage status values are `audited`, `not-applicable`, `unsupported`, `missing-skill`, `skipped`, and `incomplete`.
 3. Audit finding evidence records the inspected unit, the same producer metadata, rule, severity (`blocking` or `debt`), location, message, and observed-versus-expected evidence; terminal rollup approves only complete clean coverage and rejects any required uncovered unit or any finding.
 
 ## Verification
@@ -17,7 +17,7 @@ Audit workflows inspect many subjects: instructions, specs, implementation code,
 ### Testing
 
 - ALWAYS: audit verification-type registration accepts `audit` as a supported verification type without adding audit subtype commands ([compliance])
-- ALWAYS: audit scope payload validation accepts nestable units with unit identity, audit class, audit kind, subject, coverage status, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version ([conformance])
+- ALWAYS: audit scope payload validation accepts nestable units with unit identity, audit class `instructions`, `spec`, or `implementation`, audit kind `skill`, `subagent`, `prompt`, `guide-template`, `spec`, `adr`, `pdr`, `code`, `tests`, `architecture`, `eval-evidence`, or `coverage-gap`, subject, coverage status `audited`, `not-applicable`, `unsupported`, `missing-skill`, `skipped`, or `incomplete`, and producer metadata containing producer kind, agent name, agent owning plugin name and version, skill name, skill owning plugin name and version, invocation role, and optional tool version ([conformance])
 - ALWAYS: audit finding validation requires a referenced audit unit, producer metadata, rule, severity `blocking` or `debt`, message, and evidence payload ([conformance])
 - ALWAYS: audit terminal rollup maps complete clean required coverage to `approved`, and maps any required unit with coverage status `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding severity `blocking` or `debt`, to `rejected` before terminal completion is recorded ([mapping])
 - ALWAYS: prior audit context selectors filter by audit class, audit kind, producer identity, subject path, and changed-file partition ([mapping])
