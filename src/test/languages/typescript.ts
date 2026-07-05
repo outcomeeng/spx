@@ -25,7 +25,7 @@ import { detectTypeScript, TYPESCRIPT_MARKER } from "@/validation/discovery/lang
 
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
 const TYPESCRIPT_TEST_FILE_PATTERNS = ["*.test.ts", "*.test.tsx"] as const;
-const TYPESCRIPT_TEST_FILE_SUFFIXES = [".test.ts", ".test.tsx"] as const;
+export const TYPESCRIPT_TEST_FILE_SUFFIXES = [".test.ts", ".test.tsx"] as const;
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
   "pnpm-lock.yaml",

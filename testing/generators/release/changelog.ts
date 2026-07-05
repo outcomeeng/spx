@@ -26,6 +26,10 @@ const ORACLE_MARKDOWN_FENCE_TILDE_MARKER = "~~~";
 const ORACLE_MARKDOWN_FENCE_INFO_STRING = "ts";
 const ORACLE_MARKDOWN_HTML_BLOCK_OPEN = "<div>";
 const ORACLE_MARKDOWN_HTML_BLOCK_CLOSE = "</div>";
+const ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN = "<script>";
+const ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE = "</script>";
+const ORACLE_MARKDOWN_TEXTAREA_BLOCK_OPEN = "<textarea>";
+const ORACLE_MARKDOWN_TEXTAREA_BLOCK_CLOSE = "</textarea>";
 const ORACLE_MARKDOWN_HTML_BLOCK_SUFFIX_LOOKALIKE_CLOSE = "</divish>";
 const ORACLE_MARKDOWN_HTML_BLOCK_EMBEDDED_CLOSE = "text </div> text";
 const ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_OPEN = "<DIV>";
@@ -615,6 +619,34 @@ export function nonConformantChangelogCases(
         groupHeading,
         entries,
         ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a script HTML block with a blank line before close",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a textarea HTML block with a blank line before close",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_TEXTAREA_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_TEXTAREA_BLOCK_CLOSE,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },
