@@ -4,6 +4,6 @@
 
 ## Pending work
 
-1. Implement the review scope and review payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md`.
-2. Replace the narrow review finding validator with platform-neutral reviewed-unit and review-comment schemas registered through the shared verification-type evidence-validator registry for `scope` and `finding`.
+1. Implement the review envelope, review scope, and review payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md`.
+2. Replace the narrow review finding validator with platform-neutral review-envelope, reviewed-unit, and review-comment schemas registered through the shared verification-type evidence-validator registry for `scope` and `finding`.
 3. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
