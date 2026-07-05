@@ -1,10 +1,15 @@
 # Audit Run Projection
 
-PROVIDES audit terminal rollup and prior-context selector projection over validated audit evidence
+PROVIDES audit scope projection, terminal rollup, and prior-context selector projection over validated audit evidence from `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler`
 SO THAT audit orchestrators, merge workflows, and renderers
 CAN finish audit runs from coverage evidence and restore relevant prior audit context from run sets
 
 ## Assertions
+
+### Scenarios
+
+- Given an audit changeset unit with child spec and implementation units, when audit scope evidence is recorded, then the run projection preserves the unit nesting and producer metadata ([test](tests/audit-scope.scenario.l1.test.ts))
+- Given an audit unit with no finding, when audit scope evidence records `audited`, then the run projection represents clean coverage without adding a finding ([test](tests/audit-scope.scenario.l1.test.ts))
 
 ### Mappings
 
