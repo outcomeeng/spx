@@ -1,6 +1,6 @@
 # Review Evidence Model
 
-PROVIDES review evidence validation and projection over platform-neutral review envelopes, reviewed units, and anchored review comments
+PROVIDES review evidence validation over platform-neutral reviewed units and anchored review comments
 SO THAT review producers, GitHub backends, local renderers, and other delivery surfaces
 CAN record clean reviewed units and validated review findings without requiring provider-specific command vocabulary
 
@@ -9,11 +9,6 @@ CAN record clean reviewed units and validated review findings without requiring 
 ### Scenarios
 
 - Given a reviewed file with no finding, when review scope evidence is recorded, then the run projection includes the reviewed unit without adding a finding ([test](tests/review-scope.scenario.l1.test.ts))
-
-### Mappings
-
-- Review envelope input maps provider identity when present, actor, state, body, submitted time, commit identity, and URL when present into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
-- Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL when present, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
 
 ### Conformance
 
