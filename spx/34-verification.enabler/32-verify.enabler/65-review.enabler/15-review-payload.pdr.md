@@ -16,7 +16,7 @@ Formal review systems separate the review submission from inline comments. Prese
 
 ### Testing
 
-- ALWAYS: review envelope validation accepts platform-neutral review envelope payloads carrying provider identity without requiring GitHub-specific command vocabulary ([conformance])
+- ALWAYS: review envelope validation accepts platform-neutral review envelope payloads with or without provider identity and without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review finding validation accepts platform-neutral review comment payloads carrying GitHub-shaped anchors without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review scope validation accepts platform-neutral reviewed-unit payloads carrying GitHub-shaped anchors without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review projection maps review envelopes and review comments into separate structured fields ([mapping])
