@@ -80,6 +80,8 @@ function headingsAfterVersionUntilNextReleaseSection(
   versionHeadingIndex: number,
 ): readonly ParsedMarkdownHeading[] {
   const afterVersion = headings.filter((heading) => heading.index > versionHeadingIndex);
-  const nextReleaseSectionOffset = afterVersion.findIndex((heading) => heading.tag === MARKDOWN_TOKEN.h2);
+  const nextReleaseSectionOffset = afterVersion.findIndex(
+    (heading) => heading.tag === MARKDOWN_TOKEN.h1 || heading.tag === MARKDOWN_TOKEN.h2,
+  );
   return nextReleaseSectionOffset === -1 ? afterVersion : afterVersion.slice(0, nextReleaseSectionOffset);
 }
