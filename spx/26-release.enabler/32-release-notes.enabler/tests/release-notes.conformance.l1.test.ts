@@ -5,6 +5,7 @@ import {
   sampleAtxClosingHashesReleaseNotesChangelogCase,
   sampleCdataReleaseNotesChangelogCase,
   sampleConformantReleaseNotesChangelogCase,
+  sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase,
   sampleIndentedFenceReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
 } from "@testing/generators/release/changelog";
@@ -93,6 +94,32 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
 
   it("accepts literal CDATA text inside a conformant release section", async () => {
     const { releaseData, content } = sampleCdataReleaseNotesChangelogCase();
+
+    await withReleaseNotesEnv(async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, content);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).resolves.toBeUndefined();
+      await expect(readArtifact(resolvedPath)).resolves.toSatisfy(
+        (notes) => independentKeepAChangelogConformance(notes, releaseData.version),
+      );
+    });
+  });
+
+  it("accepts a raw HTML block terminated by a blank line before the release section", async () => {
+    const { releaseData, content } = sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase();
 
     await withReleaseNotesEnv(async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
       const config = {};

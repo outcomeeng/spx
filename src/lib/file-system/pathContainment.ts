@@ -12,7 +12,7 @@ const WINDOWS_DRIVE_PATH_PATTERN = /^[a-zA-Z]:[\\/]/;
  * contained — only a `..` segment escapes.
  */
 export function isPathContained(root: string, candidate: string): boolean {
-  if (WINDOWS_DRIVE_PATH_PATTERN.test(root) || WINDOWS_DRIVE_PATH_PATTERN.test(candidate)) {
+  if (WINDOWS_DRIVE_PATH_PATTERN.test(root)) {
     return isResolvedPathContained(
       win32.relative(root, win32.resolve(root, candidate)),
       win32.sep,

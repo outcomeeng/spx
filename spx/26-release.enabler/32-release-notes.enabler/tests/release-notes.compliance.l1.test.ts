@@ -1500,4 +1500,12 @@ describe("isPathContained verifies release path containment edge cases directly"
 
     expect(isPathContained(root, candidate)).toBe(false);
   });
+
+  it("treats a Windows-drive-shaped candidate under a POSIX root as a contained filename", async () => {
+    await withReleaseNotesEnv(async ({ workingDirectory }) => {
+      const candidate = win32.join("D:\\", DEFAULT_CHANGELOG_PATH);
+
+      expect(isPathContained(workingDirectory, candidate)).toBe(true);
+    });
+  });
 });
