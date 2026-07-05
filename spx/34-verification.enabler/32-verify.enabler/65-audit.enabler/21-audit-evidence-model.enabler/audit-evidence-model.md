@@ -13,4 +13,4 @@ CAN record complete audit coverage and findings under `--verification-type audit
 
 ### Compliance
 
-- ALWAYS: audit scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: audit finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
