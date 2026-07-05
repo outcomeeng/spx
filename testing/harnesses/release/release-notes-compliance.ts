@@ -5,7 +5,6 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import type { AgentRunRequest } from "@/agent/agent-runner";
-import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
@@ -15,7 +14,6 @@ import {
   composeReleaseNotes,
   decodeReleaseNotesPromptData,
   DEFAULT_CHANGELOG_PATH,
-  type PathCanonicalizer,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   RELEASE_VERSION_DATA_BLOCK_OPEN,
   type ReleaseNotesConfig,
@@ -39,76 +37,21 @@ import {
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
-import { assertReleaseNotesPromptPreservesExistingSections } from "@testing/harnesses/release/release-notes-assertions";
+import {
+  assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
+  assertReleaseNotesPromptPreservesExistingSections,
+  composeReleaseNotesInEnv,
+  expectedCanonicalRelativeChangelogPath,
+  recordingReleaseNotesAgent,
+  sampleReleaseNotesCompositionFixture,
+} from "@testing/harnesses/release/release-notes-assertions";
 import {
   RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
   RELEASE_NOTES_FILE_SYMLINK_TYPE,
   RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
-  type ReleaseNotesEnv,
   withReleaseNotesEnv,
 } from "@testing/harnesses/release/release-notes-env";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
-
-type ReleaseNotesAgentRunner = Parameters<typeof composeReleaseNotes>[0]["agentRunner"];
-
-interface ReleaseNotesCompositionFixture {
-  readonly releaseData: ReleaseData;
-  readonly subjects: readonly string[];
-  readonly conformant: string;
-}
-
-interface ComposeReleaseNotesInEnvOptions {
-  readonly releaseData: ReleaseData;
-  readonly config: ReleaseNotesConfig;
-  readonly agentRunner: ReleaseNotesAgentRunner;
-  readonly workingDirectory?: string;
-  readonly readArtifact?: ReleaseNotesEnv["readArtifact"];
-  readonly canonicalizePath?: PathCanonicalizer;
-}
-
-function sampleReleaseNotesCompositionFixture(
-  releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData()),
-): ReleaseNotesCompositionFixture {
-  const subjects = releaseData.commits.map((commit) => commit.subject);
-  return {
-    releaseData,
-    subjects,
-    conformant: sampleReleaseTestValue(
-      arbitraryConformantChangelog(releaseData.version, subjects),
-    ),
-  };
-}
-
-async function composeReleaseNotesInEnv(
-  env: ReleaseNotesEnv,
-  {
-    releaseData,
-    config,
-    agentRunner,
-    workingDirectory = env.workingDirectory,
-    readArtifact = env.readArtifact,
-    canonicalizePath = env.canonicalizePath,
-  }: ComposeReleaseNotesInEnvOptions,
-): Promise<void> {
-  await composeReleaseNotes({
-    releaseData,
-    config,
-    workingDirectory,
-    agentRunner,
-    readArtifact,
-    canonicalizePath,
-    isSymbolicLink: env.isSymbolicLink,
-    isFile: env.isFile,
-  });
-}
-
-function recordingReleaseNotesAgent(
-  workingDirectory: string,
-  targetPath: string,
-  content: string,
-): RecordingWritingAgentRunner {
-  return new RecordingWritingAgentRunner(workingDirectory, targetPath, content);
-}
 
 export function registerReleaseNotesComplianceTests(): void {
   describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -119,7 +62,7 @@ export function registerReleaseNotesComplianceTests(): void {
           const { releaseData, subjects, conformant } = sampleReleaseNotesCompositionFixture();
           const config: ReleaseNotesConfig = {};
           const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
-          const expectedCanonicalPath = await expectedCanonicalChangelogPath(
+          const expectedCanonicalPath = await expectedCanonicalRelativeChangelogPath(
             workingDirectory,
             config.changelogPath ?? DEFAULT_CHANGELOG_PATH,
             canonicalizePath,
@@ -354,7 +297,7 @@ export function registerReleaseNotesComplianceTests(): void {
           const resolvedPath = resolveReleaseNotesPath(workingDirectory, {
             changelogPath,
           });
-          const expectedCanonicalPath = await expectedCanonicalChangelogPath(
+          const expectedCanonicalPath = await expectedCanonicalRelativeChangelogPath(
             workingDirectory,
             changelogPath,
             canonicalizePath,
@@ -390,6 +333,11 @@ export function registerReleaseNotesComplianceTests(): void {
         },
       );
     });
+
+    it(
+      "uses the checked canonical path for an absolute in-tree configured changelog",
+      assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
+    );
   });
 
   function promptDataBlock(
@@ -402,18 +350,6 @@ export function registerReleaseNotesComplianceTests(): void {
     expect(blockStart).toBeGreaterThan(-1);
     expect(blockEnd).toBeGreaterThan(blockStart);
     return prompt.slice(blockStart + openMarker.length, blockEnd).trim();
-  }
-
-  async function expectedCanonicalChangelogPath(
-    workingDirectory: string,
-    configuredPath: string,
-    canonicalizePath: PathCanonicalizer,
-  ): Promise<string> {
-    const canonicalWorkingDirectory = await canonicalizePath(workingDirectory);
-    if (canonicalWorkingDirectory === undefined) {
-      throw new Error("Release-notes test working directory cannot be canonicalized");
-    }
-    return join(canonicalWorkingDirectory, configuredPath);
   }
 
   describe("composeReleaseNotes keeps the changelog path within the product working tree", () => {
