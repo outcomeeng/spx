@@ -18,4 +18,4 @@ CAN validate review payloads without requiring provider-specific command vocabul
 
 ### Compliance
 
-- ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append, while review-envelope validation binds to the envelope carrier defined by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler` ([audit])
+- ALWAYS: review finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
