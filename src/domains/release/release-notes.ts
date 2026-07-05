@@ -784,16 +784,7 @@ function closesMarkdownHtmlBlock(
   if (rawLine.trim().length === 0) {
     return true;
   }
-  if (line === undefined) {
-    return false;
-  }
-  const trimmedLine = line.trimEnd();
-  return (
-    trimmedLine.endsWith(MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX)
-    || markdownHtmlBlockClosePattern(tagName).test(
-      line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE),
-    )
-  );
+  return false;
 }
 
 function markdownHtmlBlockClosePattern(tagName: string): RegExp {

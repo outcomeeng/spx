@@ -650,6 +650,20 @@ export function nonConformantChangelogCases(
       ].join(LINE_SEPARATOR),
     },
     {
+      label: "puts the change-group heading after a raw HTML close before a blank line",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
+        entries,
+        ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
       label: "puts the change-group heading inside a script HTML block with a blank line before close",
       content: [
         ORACLE_CHANGELOG_TITLE,
