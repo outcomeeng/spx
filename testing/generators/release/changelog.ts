@@ -18,6 +18,7 @@ const ORACLE_DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
 const ORACLE_CHANGELOG_VERSION_HEADING_SUFFIX = " - unreleased";
 const ORACLE_MARKDOWN_VERSION_CLOSING_HASHES = "##";
 const ORACLE_MARKDOWN_CHANGE_GROUP_CLOSING_HASHES = "###";
+const ORACLE_MARKDOWN_INTERSTITIAL_H1 = "# Notes";
 const ORACLE_MARKDOWN_INTERSTITIAL_H2 = "## Notes";
 const ORACLE_MARKDOWN_BLOCKQUOTE_PREFIX = ">";
 const ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER = "```";
@@ -113,6 +114,18 @@ export function arbitraryRootResolvingChangelogPath(): fc.Arbitrary<string> {
 
 function formatEntries(subjects: readonly string[]): string {
   return subjects.map((subject) => `${ENTRY_PREFIX}${subject}`).join(LINE_SEPARATOR);
+}
+
+function h1BoundaryChangelog(version: string, subjects: readonly string[]): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    ORACLE_MARKDOWN_INTERSTITIAL_H1,
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
 }
 
 function conformantChangelogWith(
@@ -308,6 +321,14 @@ export function sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase():
       releaseData.version,
       subjects,
     ),
+  };
+}
+
+export function sampleH1BoundaryReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: h1BoundaryChangelog(releaseData.version, subjects),
   };
 }
 
