@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 
+import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
@@ -69,8 +70,18 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
 }
 
 export async function rejectChangelogWithH1BoundaryBeforeChangeGroup(): Promise<void> {
-  const { releaseData, content } = sampleH1BoundaryReleaseNotesChangelogCase();
+  await expectRejectedReleaseNotesReadBack(
+    sampleH1BoundaryReleaseNotesChangelogCase(),
+  );
+}
 
+export async function expectRejectedReleaseNotesReadBack({
+  releaseData,
+  content,
+}: {
+  readonly releaseData: ReleaseData;
+  readonly content: string;
+}): Promise<void> {
   await withReleaseNotesEnv(
     async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
       const config = {};
