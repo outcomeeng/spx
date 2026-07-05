@@ -94,6 +94,7 @@ export const CHANGELOG_PRESERVATION_INSTRUCTION =
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
 const MARKDOWN_ATX_CLOSING_SEQUENCE_PATTERN = /\s+#+\s*$/;
+const MARKDOWN_HEADING_SEPARATOR_PATTERN = /^[ \t]/u;
 const MARKDOWN_HEADING_MAX_LEVEL = 6;
 const MARKDOWN_HEADING_H1_LEVEL = 1;
 const MARKDOWN_HEADING_H2_LEVEL = 2;
@@ -710,7 +711,7 @@ function parseMarkdownHeading(index: number, markerContent: string): MarkdownHea
     return undefined;
   }
   const content = markerContent.slice(level);
-  if (content.length > 0 && !content.startsWith(SPACE)) {
+  if (content.length > 0 && !MARKDOWN_HEADING_SEPARATOR_PATTERN.test(content)) {
     return undefined;
   }
   return { index, level, text: markdownHeadingText(content) };

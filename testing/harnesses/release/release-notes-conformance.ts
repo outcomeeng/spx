@@ -9,6 +9,7 @@ import {
   sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase,
   sampleIndentedFenceReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
+  sampleTabbedHeadingReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
@@ -65,6 +66,10 @@ export function registerReleaseNotesConformanceTests(): void {
 
     it("accepts legal ATX closing hashes on release and change-group headings", async () => {
       await expectConformantReadBack(sampleAtxClosingHashesReleaseNotesChangelogCase());
+    });
+
+    it("accepts tab-separated release and change-group headings", async () => {
+      await expectConformantReadBack(sampleTabbedHeadingReleaseNotesChangelogCase());
     });
 
     it("accepts literal CDATA text inside a conformant release section", async () => {
