@@ -2,13 +2,9 @@
 
 PROVIDES review evidence validation over platform-neutral review envelopes, reviewed units, and anchored review comments
 SO THAT review producers, GitHub backends, local renderers, and other delivery surfaces
-CAN record clean reviewed units and validated review findings without requiring provider-specific command vocabulary
+CAN validate review payloads without requiring provider-specific command vocabulary
 
 ## Assertions
-
-### Scenarios
-
-- Given a reviewed file with no finding, when review scope evidence is recorded, then the run projection includes the reviewed unit without adding a finding ([test](tests/review-scope.scenario.l1.test.ts))
 
 ### Conformance
 
@@ -22,4 +18,4 @@ CAN record clean reviewed units and validated review findings without requiring 
 
 ### Compliance
 
-- ALWAYS: review finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
+- ALWAYS: review envelope, scope, and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])

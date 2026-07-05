@@ -1,10 +1,14 @@
 # Review Run Projection
 
-PROVIDES review envelope and comment projection over validated review evidence and run-set identity
+PROVIDES review envelope, reviewed-unit, and comment projection over validated review evidence from `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler` and run-set identity
 SO THAT review producers, GitHub backends, local renderers, and other delivery surfaces
 CAN render formal-review-shaped evidence without redefining merge-period finding identity
 
 ## Assertions
+
+### Scenarios
+
+- Given a reviewed file with no finding, when review scope evidence is recorded, then the run projection includes the reviewed unit without adding a finding ([test](tests/review-scope.scenario.l1.test.ts))
 
 ### Mappings
 
