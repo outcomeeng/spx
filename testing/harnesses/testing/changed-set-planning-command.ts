@@ -159,6 +159,9 @@ async function expectChangedSetCommandRunsAffectedTests(): Promise<void> {
     await withTestingTempProductDir(async (productDir) => {
       const selectedTestContent = await writeChangedSetCommandFixture(productDir, paths);
       await initializeChangedSetCommandRepo(productDir);
+      const expectedHeadSha = (
+        await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
+      ).stdout;
       await writeFileFixture(
         productDir,
         paths.sourcePath,
@@ -172,6 +175,7 @@ async function expectChangedSetCommandRunsAffectedTests(): Promise<void> {
       const coveredPaths = recorded.runnerOutcomes.flatMap((outcome) => outcome.testPaths);
       expect(coveredPaths).toEqual([paths.selectedTestPath]);
       expect(coveredPaths).not.toContain(paths.untouchedTestPath);
+      expect(recorded.headSha).toBe(expectedHeadSha);
       expect(recorded.discoveredTestPathsDigest).toBe(expectedCoveredPathsDigest([paths.selectedTestPath]));
       expect(recorded.discoveredTestContentDigest).toBe(
         expectedCoveredContentDigest(paths.selectedTestPath, selectedTestContent),

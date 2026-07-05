@@ -109,10 +109,12 @@ function defaultGitCommandResult(
   if (lastArg === defaultBaseRef) {
     return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
   }
+  if (lastArg === GIT_ROOT_COMMAND.HEAD && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
+    return { exitCode: 0, stdout: headSha, stderr: "" };
+  }
   if (
     resolveExplicitBase
     && lastArg !== undefined
-    && lastArg !== headSha
     && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)
   ) {
     return { exitCode: 0, stdout: explicitBaseSha, stderr: "" };
@@ -738,11 +740,11 @@ helper;
 
     it("defaults the changed base to origin of the default branch and honors an explicit base ref", async () => {
       const git = recordingGitRunner([]);
-      await planChangedTestSelection(
+      const defaultBasePlan = await planChangedTestSelection(
         { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
         { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
       );
-      await planChangedTestSelection(
+      const explicitBasePlan = await planChangedTestSelection(
         { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), baseRef: defaultBranchName },
         { git: git.git, registry: registry([]), relatedDepsFor: () => relatedDeps() },
       );
@@ -753,6 +755,10 @@ helper;
 
       expect(revParseRefs).toContain(defaultBaseRef);
       expect(revParseRefs).toContain(defaultBranchName);
+      expect(defaultBasePlan.baseSha).toBe(defaultBaseSha);
+      expect(defaultBasePlan.headSha).toBe(headSha);
+      expect(explicitBasePlan.baseSha).toBe(explicitBaseSha);
+      expect(explicitBasePlan.headSha).toBe(headSha);
     });
 
     it("uses the empty tree as the HEAD base when a repository has no commits", async () => {
