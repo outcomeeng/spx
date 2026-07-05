@@ -16,7 +16,10 @@
 34-verification.enabler/32-verify.enabler
 34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler
+34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler
+34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler
+34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 25-outcomeeng.enabler/31-spec-tree.enabler
 25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler

@@ -4,14 +4,11 @@
 
 ## Scope
 
-This node materializes `review` as a verification type-specific payload and projection owner. It keeps `--verification-type review` as the public type value and defines the review finding schema SPX validates at `spx verification run finding add`.
+This node materializes `review` as a verification type-specific aggregate boundary. It keeps `--verification-type review` as the public type value and routes concrete review evidence work to child nodes.
 
-## Pending work
+## Child work
 
-1. Implement the review envelope, review comment, review scope, and review payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/review.md`.
-2. Replace the narrow review finding validator with platform-neutral reviewed-unit and review-comment schemas registered through the shared verification-type evidence-validator registry for `scope` and `finding`.
-3. Decide the lifecycle event that carries the review envelope: start input, a typed summary/envelope event, or finish metadata. Record the decision in the owning spec or decision before implementation.
-4. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
+- Review evidence schema, validation, and projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/PLAN.md`.
 
 ## Sibling relationship
 
