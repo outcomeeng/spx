@@ -10,7 +10,8 @@ import { isPathContained } from "@/lib/file-system/pathContainment";
  * performs no direct filesystem access. Implementations receive the requested
  * artifact path plus the expected canonical path from the composition's
  * pre-open validation, and must verify the opened file is still bound to that
- * canonical path before reading, without following a final symlink.
+ * canonical path before and after reading the bytes it returns, without
+ * following a final symlink.
  */
 export type ArtifactReader = (
   path: string,

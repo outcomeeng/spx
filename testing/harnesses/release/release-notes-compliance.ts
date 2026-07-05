@@ -877,6 +877,40 @@ export function registerReleaseNotesComplianceTests(): void {
       );
     });
 
+    it("rejects an in-place changelog rewrite before read-back content is returned", async () => {
+      const { releaseData, conformant } = sampleReleaseNotesCompositionFixture();
+      let rewriteCompleted = false;
+
+      await withReleaseNotesEnv(
+        async (env) => {
+          const { workingDirectory } = env;
+          const config = {};
+          const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+          const agentRunner = recordingReleaseNotesAgent(
+            workingDirectory,
+            resolvedPath,
+            conformant,
+          );
+
+          await expect(
+            composeReleaseNotesInEnv(env, {
+              releaseData,
+              config,
+              agentRunner,
+            }),
+          ).rejects.toThrow(ReleaseNotesError);
+
+          expect(rewriteCompleted).toBe(true);
+        },
+        {
+          beforeArtifactRead: async (path) => {
+            rewriteCompleted = true;
+            await writeFile(path, `${conformant}${conformant}`);
+          },
+        },
+      );
+    });
+
     it("rejects a configured changelog path that escapes the working tree without invoking the agent", async () => {
       await withReleaseNotesEnv(
         async (env) => {

@@ -21,6 +21,10 @@ export const RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE = "dir";
 export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
 
+interface ReleaseNotesEnvOptions {
+  readonly beforeArtifactRead?: (path: string) => Promise<void>;
+}
+
 /** A real temp working tree plus the production-shaped filesystem reader for release-notes composition tests. */
 export interface ReleaseNotesEnv {
   /** The product working tree the changelog is resolved and written within. */
@@ -41,11 +45,19 @@ export interface ReleaseNotesEnv {
  * production-shaped dependency the composition reads its written notes back through,
  * so the read-back is exercised against a real file the agent double wrote.
  */
-export async function withReleaseNotesEnv(callback: (env: ReleaseNotesEnv) => Promise<void>): Promise<void> {
+export async function withReleaseNotesEnv(
+  callback: (env: ReleaseNotesEnv) => Promise<void>,
+  options: ReleaseNotesEnvOptions = {},
+): Promise<void> {
   await withTempDir(TEMP_DIR_PREFIX, async (workingDirectory) => {
     await callback({
       workingDirectory,
-      readArtifact: readCanonicalArtifactWithoutFollowingFinalSymlink,
+      readArtifact: (path, expectedCanonicalPath) =>
+        readCanonicalArtifactWithoutFollowingFinalSymlink(
+          path,
+          expectedCanonicalPath,
+          options.beforeArtifactRead,
+        ),
       canonicalizePath: canonicalizeExistingPath,
       isSymbolicLink: detectSymbolicLink,
       isFile: detectFile,
@@ -56,6 +68,7 @@ export async function withReleaseNotesEnv(callback: (env: ReleaseNotesEnv) => Pr
 async function readCanonicalArtifactWithoutFollowingFinalSymlink(
   path: string,
   expectedCanonicalPath?: string,
+  beforeArtifactRead?: (path: string) => Promise<void>,
 ): Promise<string> {
   const canonicalPath = expectedCanonicalPath ?? await canonicalizeExistingPath(path);
   if (canonicalPath === undefined) {
@@ -78,14 +91,32 @@ async function readCanonicalArtifactWithoutFollowingFinalSymlink(
         `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
       );
     }
-    return await handle.readFile({ encoding: ARTIFACT_TEXT_ENCODING });
+    await beforeArtifactRead?.(canonicalPath);
+    const content = await handle.readFile({ encoding: ARTIFACT_TEXT_ENCODING });
+    const postReadCanonicalPath = await canonicalizeExistingPath(path);
+    if (postReadCanonicalPath !== canonicalPath) {
+      throw new ReleaseNotesError(
+        `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
+      );
+    }
+    const postReadArtifact = await stat(canonicalPath);
+    if (!isSameArtifact(openedArtifact, postReadArtifact)) {
+      throw new ReleaseNotesError(
+        `${RETARGETED_ARTIFACT_ERROR}: ${path}`,
+      );
+    }
+    return content;
   } finally {
     await handle.close();
   }
 }
 
 function isSameArtifact(openedArtifact: Stats, currentArtifact: Stats): boolean {
-  return openedArtifact.dev === currentArtifact.dev && openedArtifact.ino === currentArtifact.ino;
+  return openedArtifact.dev === currentArtifact.dev
+    && openedArtifact.ino === currentArtifact.ino
+    && openedArtifact.size === currentArtifact.size
+    && openedArtifact.mtimeMs === currentArtifact.mtimeMs
+    && openedArtifact.ctimeMs === currentArtifact.ctimeMs;
 }
 
 async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
