@@ -560,6 +560,7 @@ function scanMarkdownHeadingLine(
     activeHtmlBlockTag,
     activeHtmlDeclarationClose,
     activeHtmlComment,
+    line,
     markerContent,
     parsedFence,
   );
@@ -573,6 +574,7 @@ function scanActiveMarkdownBlock(
   activeHtmlBlockTag: string | undefined,
   activeHtmlDeclarationClose: string | undefined,
   activeHtmlComment: boolean,
+  rawLine: string,
   markerContent: string | undefined,
   parsedFence: MarkdownFence | undefined,
 ): MarkdownHeadingScan | undefined {
@@ -593,6 +595,7 @@ function scanActiveMarkdownBlock(
       activeHtmlBlockTag: closesMarkdownHtmlBlock(
           activeHtmlBlockTag,
           markerContent,
+          rawLine,
         )
         ? undefined
         : activeHtmlBlockTag,
@@ -764,7 +767,11 @@ function parseMarkdownHtmlDeclarationClose(line: string): string | undefined {
 function closesMarkdownHtmlBlock(
   tagName: string,
   line: string | undefined,
+  rawLine = line ?? "",
 ): boolean {
+  if (rawLine.trim().length === 0) {
+    return true;
+  }
   if (line === undefined) {
     return false;
   }

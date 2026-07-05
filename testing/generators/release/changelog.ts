@@ -235,6 +235,22 @@ export function conformantChangelogWithAtxClosingHashes(
   ].join(LINE_SEPARATOR);
 }
 
+export function conformantChangelogWithHtmlBlockTerminatedByBlankLine(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    `${ORACLE_MARKDOWN_HTML_BLOCK_OPEN}note${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}`,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -281,6 +297,17 @@ export function sampleCdataReleaseNotesChangelogCase(): ReleaseNotesChangelogCas
   return {
     releaseData,
     content: conformantChangelogWithCdataText(releaseData.version, subjects),
+  };
+}
+
+export function sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: conformantChangelogWithHtmlBlockTerminatedByBlankLine(
+      releaseData.version,
+      subjects,
+    ),
   };
 }
 
