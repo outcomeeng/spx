@@ -1,6 +1,6 @@
 # Review Evidence Model
 
-PROVIDES review evidence validation over platform-neutral reviewed units and anchored review comments
+PROVIDES review evidence validation over platform-neutral review envelopes, reviewed units, and anchored review comments
 SO THAT review producers, GitHub backends, local renderers, and other delivery surfaces
 CAN record clean reviewed units and validated review findings without requiring provider-specific command vocabulary
 
@@ -12,6 +12,7 @@ CAN record clean reviewed units and validated review findings without requiring 
 
 ### Conformance
 
+- Review envelope payloads conform to the platform-neutral review envelope schema: provider identity when present, actor, state, body, submitted time, commit identity, and optional URL ([test](tests/review-payload.conformance.l1.test.ts))
 - Review scope payloads conform to the platform-neutral reviewed-unit schema: provider identity when present, path, optional line or position range, side, commit identity, coverage state, and optional URL ([test](tests/review-payload.conformance.l1.test.ts))
 - Review finding payloads conform to the platform-neutral review comment schema while accepting GitHub-shaped anchor fields as optional provider data and requiring SPX finding metadata when a review comment represents a finding ([test](tests/review-payload.conformance.l1.test.ts))
 
