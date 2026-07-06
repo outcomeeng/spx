@@ -86,9 +86,7 @@ export const RELEASE_VERSION_DATA_BLOCK_CLOSE = "</release-version>";
 export const CHANGELOG_PATH_DATA_BLOCK_OPEN = "<changelog-path>";
 export const CHANGELOG_PATH_DATA_BLOCK_CLOSE = "</changelog-path>";
 export const COMMIT_SUBJECTS_JSON_INDENT = 2;
-export const COMMIT_SUBJECTS_DATA_ENCODING = "base64-json";
-export const COMMIT_SUBJECTS_TEXT_ENCODING = "utf8";
-export const COMMIT_SUBJECTS_BINARY_ENCODING = "base64";
+export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
 
@@ -109,11 +107,14 @@ const MARKDOWN_MAX_MARKER_INDENTATION = 3;
 const SPACE = " ";
 const TAB = "\t";
 const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/;
+const MARKDOWN_HTML_BLOCK_CLOSE_PATTERN = /^<\/([A-Za-z][A-Za-z0-9-]*)(?:\s*>|>)/;
+const MARKDOWN_HTML_BLOCK_STANDALONE_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s[^>]*)?\/?>\s*$/;
 const MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN = /^<\/([A-Za-z][A-Za-z0-9-]*)\s*>\s*$/;
 const MARKDOWN_HTML_BLOCK_CLOSE_PREFIX = "</";
 const MARKDOWN_HTML_BLOCK_TAG_CLOSE = ">";
 const MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX = "/>";
 const MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS = new Set(["pre", "script", "style", "textarea"]);
+const MARKDOWN_HTML_INLINE_VOID_TAGS = new Set(["area", "br", "embed", "img", "input", "meta", "source", "wbr"]);
 const MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS = new Set([
   "address",
   "article",
@@ -187,6 +188,13 @@ const MARKDOWN_DECLARATION_CLOSE = ">";
 const MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const MARKDOWN_CDATA_CLOSE = "]]>";
 const MARKDOWN_HTML_TAG_LOCALE = "en-US";
+const JSON_PROMPT_ESCAPE_PATTERN = /[<>&`]/gu;
+const JSON_PROMPT_ESCAPES: Readonly<Record<string, string>> = {
+  "&": String.raw`\u0026`,
+  "<": String.raw`\u003c`,
+  ">": String.raw`\u003e`,
+  "`": String.raw`\u0060`,
+};
 
 interface MarkdownFence {
   readonly marker: string;
@@ -198,6 +206,11 @@ interface MarkdownHeading {
   readonly index: number;
   readonly level: number;
   readonly text: string;
+}
+
+interface ChangelogSection {
+  readonly heading: MarkdownHeading;
+  readonly content: string;
 }
 
 interface MarkdownHeadingScan {
@@ -309,6 +322,11 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   );
+  const existingNotes = await readExistingReleaseNotes(
+    preAgentCanonicalChangelogPath,
+    readArtifact,
+    isFile,
+  );
   const prompt = buildReleaseNotesPrompt(
     releaseData,
     preAgentCanonicalChangelogPath,
@@ -344,7 +362,18 @@ export async function composeReleaseNotes(
       `Configured changelog path changed after agent write: ${changelogPath}`,
     );
   }
-  assertConformsToKeepAChangelog(writtenNotes, releaseData.version);
+  assertConformsToKeepAChangelog(writtenNotes, releaseData.version, existingNotes);
+}
+
+async function readExistingReleaseNotes(
+  canonicalChangelogPath: string,
+  readArtifact: ArtifactReader,
+  isFile: PathFileDetector,
+): Promise<string | undefined> {
+  if (!await isFile(canonicalChangelogPath)) {
+    return undefined;
+  }
+  return await readArtifact(canonicalChangelogPath, canonicalChangelogPath);
 }
 
 function configuredChangelogPath(config: ReleaseNotesConfig): string {
@@ -472,7 +501,7 @@ function buildReleaseNotesPrompt(
     formatReleaseVersionDataBlock(releaseData.version),
     `Write the notes to the changelog path in this ${COMMIT_SUBJECTS_DATA_ENCODING} data block:`,
     formatChangelogPathDataBlock(changelogPath),
-    `Follow the Keep a Changelog format: open the file with "${CHANGELOG_TITLE}", add a version section using the encoded release-version data, and group its entries under headings drawn from ${
+    `Follow the Keep a Changelog format: open the file with "${CHANGELOG_TITLE}", add a version section using the release-version JSON data, and group its entries under headings drawn from ${
       CHANGELOG_CHANGE_GROUPS.join(
         ", ",
       )
@@ -514,17 +543,11 @@ export function encodeCommitSubjects(
   return encodeJsonData(commitSubjects);
 }
 
-export function decodeReleaseNotesPromptData(encodedData: string): string {
-  return Buffer.from(encodedData, COMMIT_SUBJECTS_BINARY_ENCODING).toString(
-    COMMIT_SUBJECTS_TEXT_ENCODING,
-  );
-}
-
 function encodeJsonData(data: string | readonly string[]): string {
-  return Buffer.from(
-    JSON.stringify(data, null, COMMIT_SUBJECTS_JSON_INDENT),
-    COMMIT_SUBJECTS_TEXT_ENCODING,
-  ).toString(COMMIT_SUBJECTS_BINARY_ENCODING);
+  return JSON.stringify(data, null, COMMIT_SUBJECTS_JSON_INDENT).replace(
+    JSON_PROMPT_ESCAPE_PATTERN,
+    (character) => JSON_PROMPT_ESCAPES[character] ?? character,
+  );
 }
 
 /**
@@ -532,7 +555,11 @@ function encodeJsonData(data: string | readonly string[]): string {
  * the title, a section for the release version, and at least one change-group
  * heading grouping that section's entries. Throws when any is absent.
  */
-function assertConformsToKeepAChangelog(notes: string, version: string): void {
+function assertConformsToKeepAChangelog(
+  notes: string,
+  version: string,
+  existingNotes: string | undefined,
+): void {
   const lines = notes.split("\n");
   const headingLines = markdownHeadingLines(lines);
   const titleHeading = headingLines.at(0);
@@ -547,14 +574,25 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
     );
   }
   const versionHeading = changelogVersionHeading(version);
-  const versionHeadingLine = headingLines.find((line) =>
+  const changelogSectionHeadings = markdownSectionHeadings(
+    headingLines,
+    titleHeading.index,
+    MARKDOWN_HEADING_H1_LEVEL,
+  );
+  const versionHeadingLines = changelogSectionHeadings.filter((line) =>
     line.level === MARKDOWN_HEADING_H2_LEVEL && line.text === changelogVersionHeadingText(version)
   );
-  if (versionHeadingLine === undefined) {
+  if (versionHeadingLines.length === 0) {
     throw new ReleaseNotesError(
       `Generated release notes are missing a section for version ${version}: "${versionHeading}"`,
     );
   }
+  if (versionHeadingLines.length > 1) {
+    throw new ReleaseNotesError(
+      `Generated release notes contain more than one section for version ${version}: "${versionHeading}"`,
+    );
+  }
+  const versionHeadingLine = versionHeadingLines[0];
   const allowedGroupHeadings: ReadonlySet<string> = new Set(CHANGELOG_CHANGE_GROUPS);
   const hasChangeGroup = releaseSectionHeadings(
     headingLines,
@@ -569,6 +607,7 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
       })`,
     );
   }
+  assertPreservesExistingChangelogSections(notes, version, existingNotes);
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
@@ -836,19 +875,33 @@ function parseMarkdownFence(line: string): MarkdownFence | undefined {
 function parseMarkdownHtmlBlockTag(line: string): string | undefined {
   const openTagMatch = MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line);
   if (openTagMatch !== null) {
-    return knownMarkdownHtmlBlockTag(openTagMatch[1]);
+    return markdownHtmlBlockTag(
+      openTagMatch[1],
+      MARKDOWN_HTML_BLOCK_STANDALONE_OPEN_PATTERN.test(line),
+    );
   }
-  const standaloneCloseTagMatch = MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.exec(line);
-  if (standaloneCloseTagMatch === null) {
-    return undefined;
+  const closeTagMatch = MARKDOWN_HTML_BLOCK_CLOSE_PATTERN.exec(line);
+  if (closeTagMatch !== null) {
+    return markdownHtmlBlockTag(
+      closeTagMatch[1],
+      MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.test(line),
+    );
   }
-  return knownMarkdownHtmlBlockTag(standaloneCloseTagMatch[1]);
+  return undefined;
 }
 
-function knownMarkdownHtmlBlockTag(matchedTagName: string): string | undefined {
+function markdownHtmlBlockTag(
+  matchedTagName: string,
+  isStandaloneTag: boolean,
+): string | undefined {
   const tagName = matchedTagName.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
+  if (MARKDOWN_HTML_INLINE_VOID_TAGS.has(tagName)) {
+    return undefined;
+  }
   return MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
       || MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS.has(tagName)
+    ? tagName
+    : isStandaloneTag
     ? tagName
     : undefined;
 }
@@ -974,13 +1027,85 @@ function releaseSectionHeadings(
   headings: readonly MarkdownHeading[],
   versionLineIndex: number,
 ): readonly MarkdownHeading[] {
+  return markdownSectionHeadings(
+    headings,
+    versionLineIndex,
+    MARKDOWN_HEADING_H2_LEVEL,
+  );
+}
+
+function markdownSectionHeadings(
+  headings: readonly MarkdownHeading[],
+  sectionLineIndex: number,
+  boundaryLevel: number,
+): readonly MarkdownHeading[] {
   const afterVersion = headings.filter(
-    (heading) => heading.index > versionLineIndex,
+    (heading) => heading.index > sectionLineIndex,
   );
   const nextSectionOffset = afterVersion.findIndex(
-    (line) => line.level <= MARKDOWN_HEADING_H2_LEVEL,
+    (line) => line.level <= boundaryLevel,
   );
   return nextSectionOffset === -1
     ? afterVersion
     : afterVersion.slice(0, nextSectionOffset);
+}
+
+function assertPreservesExistingChangelogSections(
+  notes: string,
+  version: string,
+  existingNotes: string | undefined,
+): void {
+  if (existingNotes === undefined) {
+    return;
+  }
+  const currentVersionHeadingText = changelogVersionHeadingText(version);
+  const preservedSections = changelogVersionSections(existingNotes).filter(
+    (section) => section.heading.text !== currentVersionHeadingText,
+  );
+  const writtenSections = changelogVersionSections(notes);
+  const missingSection = preservedSections.find(
+    (section) =>
+      !writtenSections.some(
+        (writtenSection) =>
+          writtenSection.heading.text === section.heading.text
+          && writtenSection.content === section.content,
+      ),
+  );
+  if (missingSection !== undefined) {
+    throw new ReleaseNotesError(
+      `Generated release notes do not preserve existing changelog section "${missingSection.heading.text}"`,
+    );
+  }
+}
+
+function changelogVersionSections(notes: string): readonly ChangelogSection[] {
+  const lines = notes.split("\n");
+  const headings = markdownHeadingLines(lines);
+  const titleHeading = headings.at(0);
+  if (titleHeading === undefined) {
+    return [];
+  }
+  const changelogHeadings = markdownSectionHeadings(
+    headings,
+    titleHeading.index,
+    MARKDOWN_HEADING_H1_LEVEL,
+  );
+  return changelogHeadings
+    .filter((heading) => heading.level === MARKDOWN_HEADING_H2_LEVEL)
+    .map((heading): ChangelogSection => ({
+      heading,
+      content: lines.slice(heading.index, nextSectionLineIndex(headings, heading.index)).join("\n"),
+    }));
+}
+
+function nextSectionLineIndex(
+  headings: readonly MarkdownHeading[],
+  sectionLineIndex: number,
+): number {
+  const laterSection = headings.find(
+    (heading) =>
+      heading.index > sectionLineIndex
+      && heading.level <= MARKDOWN_HEADING_H2_LEVEL,
+  );
+  return laterSection?.index ?? Number.POSITIVE_INFINITY;
 }

@@ -33,8 +33,15 @@ const ORACLE_MARKDOWN_HTML_BLOCK_CLOSE = "</div>";
 const ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG = "<br/>";
 const ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN = "<script>";
 const ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE = "</script>";
+const ORACLE_MARKDOWN_PRE_BLOCK_OPEN = "<pre>";
+const ORACLE_MARKDOWN_PRE_BLOCK_CLOSE = "</pre>";
+const ORACLE_MARKDOWN_STYLE_BLOCK_OPEN = "<style>";
+const ORACLE_MARKDOWN_STYLE_BLOCK_CLOSE = "</style>";
 const ORACLE_MARKDOWN_TEXTAREA_BLOCK_OPEN = "<textarea>";
 const ORACLE_MARKDOWN_TEXTAREA_BLOCK_CLOSE = "</textarea>";
+const ORACLE_MARKDOWN_CUSTOM_BLOCK_OPEN = "<custom-element>";
+const ORACLE_MARKDOWN_CUSTOM_BLOCK_CLOSE = "</custom-element>";
+const ORACLE_MARKDOWN_CUSTOM_INLINE_TAG = "<custom-element>note";
 const ORACLE_MARKDOWN_HTML_BLOCK_SUFFIX_LOOKALIKE_CLOSE = "</divish>";
 const ORACLE_MARKDOWN_HTML_BLOCK_EMBEDDED_CLOSE = "text </div> text";
 const ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_OPEN = "<DIV>";
@@ -137,6 +144,38 @@ function h1BoundaryChangelog(version: string, subjects: readonly string[]): stri
   ].join(LINE_SEPARATOR);
 }
 
+function h1BoundaryBeforeVersionChangelog(version: string, subjects: readonly string[]): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ORACLE_MARKDOWN_INTERSTITIAL_H1,
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithDuplicateCurrentVersionSections(
+  version: string,
+  subjects: readonly string[],
+): string {
+  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const entries = formatEntries(subjects);
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    groupHeading,
+    entries,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    groupHeading,
+    entries,
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 function conformantChangelogWith(
   group: OracleChangelogChangeGroup,
   version: string,
@@ -194,6 +233,7 @@ const DEEPER_HEADING_HASH = "#";
 const TITLE_SUFFIX = " (draft)";
 const TITLE_TRAILING_WHITESPACE = " ";
 const RAW_HTML_CLOSE_TRAILING_WHITESPACE = "   ";
+const RAW_HTML_CLOSE_TRAILING_TEXT = " text";
 const BLOCKQUOTE_SEPARATOR = " ";
 const INDENTED_CODE_PREFIX = "    ";
 
@@ -319,6 +359,21 @@ export function conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
   ].join(LINE_SEPARATOR);
 }
 
+export function conformantChangelogWithCustomInlineHtmlBeforeReleaseHeading(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ORACLE_MARKDOWN_CUSTOM_INLINE_TAG,
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -409,11 +464,38 @@ export function sampleStandaloneInlineHtmlReleaseNotesChangelogCase(): ReleaseNo
   };
 }
 
+export function sampleCustomInlineHtmlReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: conformantChangelogWithCustomInlineHtmlBeforeReleaseHeading(
+      releaseData.version,
+      subjects,
+    ),
+  };
+}
+
 export function sampleH1BoundaryReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
   const { releaseData, subjects } = sampleReleaseNotesFixture();
   return {
     releaseData,
     content: h1BoundaryChangelog(releaseData.version, subjects),
+  };
+}
+
+export function sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: h1BoundaryBeforeVersionChangelog(releaseData.version, subjects),
+  };
+}
+
+export function sampleDuplicateCurrentVersionReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: changelogWithDuplicateCurrentVersionSections(releaseData.version, subjects),
   };
 }
 
@@ -730,6 +812,18 @@ export function nonConformantChangelogCases(
       ].join(LINE_SEPARATOR),
     },
     {
+      label: "puts the change-group heading after a raw HTML close with trailing text before a blank line",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        `${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}${RAW_HTML_CLOSE_TRAILING_TEXT}`,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
       label: "puts the change-group heading inside a script HTML block with a blank line before close",
       content: [
         ORACLE_CHANGELOG_TITLE,
@@ -744,6 +838,34 @@ export function nonConformantChangelogCases(
       ].join(LINE_SEPARATOR),
     },
     {
+      label: "puts the change-group heading inside a pre HTML block with a blank line before close",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_PRE_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_PRE_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a style HTML block with a blank line before close",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_STYLE_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+        ORACLE_MARKDOWN_STYLE_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
       label: "puts the change-group heading inside a textarea HTML block with a blank line before close",
       content: [
         ORACLE_CHANGELOG_TITLE,
@@ -754,6 +876,19 @@ export function nonConformantChangelogCases(
         entries,
         BLANK_LINE,
         ORACLE_MARKDOWN_TEXTAREA_BLOCK_CLOSE,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a custom raw HTML block",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_CUSTOM_BLOCK_OPEN,
+        groupHeading,
+        entries,
+        ORACLE_MARKDOWN_CUSTOM_BLOCK_CLOSE,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },

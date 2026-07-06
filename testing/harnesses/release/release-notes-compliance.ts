@@ -12,7 +12,6 @@ import {
   COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
   COMMIT_SUBJECTS_JSON_INDENT,
   composeReleaseNotes,
-  decodeReleaseNotesPromptData,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   RELEASE_VERSION_DATA_BLOCK_OPEN,
@@ -40,6 +39,8 @@ import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-ru
 import {
   assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
   assertReleaseNotesPromptPreservesExistingSections,
+  assertReleaseNotesValidationRejectsDeletedExistingSection,
+  assertReleaseNotesValidationRejectsFencedExistingSection,
   composeReleaseNotesInEnv,
   expectedCanonicalRelativeChangelogPath,
   recordingReleaseNotesAgent,
@@ -67,6 +68,14 @@ function promptDataBlock(
   expect(blockStart).toBeGreaterThan(-1);
   expect(blockEnd).toBeGreaterThan(blockStart);
   return prompt.slice(blockStart + openMarker.length, blockEnd).trim();
+}
+
+function parsedPromptJsonBlock(prompt: string, openMarker: string, closeMarker: string): string {
+  return JSON.stringify(
+    JSON.parse(promptDataBlock(prompt, openMarker, closeMarker)) as string | readonly string[],
+    null,
+    COMMIT_SUBJECTS_JSON_INDENT,
+  );
 }
 
 interface SymlinkedReleaseNotesFixture {
@@ -185,32 +194,28 @@ export function registerReleaseNotesComplianceTests(): void {
           });
 
           const prompt = agentRunner.lastPrompt;
-          const delimitedVersionBlock = promptDataBlock(
+          const parsedVersionBlock = parsedPromptJsonBlock(
             prompt,
             RELEASE_VERSION_DATA_BLOCK_OPEN,
             RELEASE_VERSION_DATA_BLOCK_CLOSE,
           );
-          expect(decodeReleaseNotesPromptData(delimitedVersionBlock)).toBe(
+          expect(parsedVersionBlock).toBe(
             JSON.stringify(releaseData.version, null, COMMIT_SUBJECTS_JSON_INDENT),
           );
-          const delimitedSubjectBlock = promptDataBlock(
+          const parsedSubjectBlock = parsedPromptJsonBlock(
             prompt,
             COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
             COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
           );
-          const decodedSubjectBlock = decodeReleaseNotesPromptData(
-            delimitedSubjectBlock,
-          );
-          expect(decodedSubjectBlock).toBe(
+          expect(parsedSubjectBlock).toBe(
             JSON.stringify(subjects, null, COMMIT_SUBJECTS_JSON_INDENT),
           );
-          const delimitedPathBlock = promptDataBlock(
+          const parsedPathBlock = parsedPromptJsonBlock(
             prompt,
             CHANGELOG_PATH_DATA_BLOCK_OPEN,
             CHANGELOG_PATH_DATA_BLOCK_CLOSE,
           );
-          const decodedPathBlock = decodeReleaseNotesPromptData(delimitedPathBlock);
-          expect(decodedPathBlock).toBe(
+          expect(parsedPathBlock).toBe(
             JSON.stringify(
               expectedCanonicalPath,
               null,
@@ -226,6 +231,16 @@ export function registerReleaseNotesComplianceTests(): void {
     it(
       "instructs the agent to preserve existing changelog sections",
       assertReleaseNotesPromptPreservesExistingSections,
+    );
+
+    it(
+      "rejects generated notes that delete an existing version section",
+      assertReleaseNotesValidationRejectsDeletedExistingSection,
+    );
+
+    it(
+      "rejects generated notes that copy an existing version section into a code fence",
+      assertReleaseNotesValidationRejectsFencedExistingSection,
     );
 
     it("uses the checked canonical changelog path in the prompt when a symlink ancestor is followed by parent traversal", async () => {
@@ -288,12 +303,12 @@ export function registerReleaseNotesComplianceTests(): void {
             isFile,
           });
 
-          const delimitedPathBlock = promptDataBlock(
+          const parsedPathBlock = parsedPromptJsonBlock(
             agentRunner.lastPrompt,
             CHANGELOG_PATH_DATA_BLOCK_OPEN,
             CHANGELOG_PATH_DATA_BLOCK_CLOSE,
           );
-          expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
+          expect(parsedPathBlock).toBe(
             JSON.stringify(
               await canonicalizePath(canonicalArtifactPath),
               null,
@@ -345,7 +360,11 @@ export function registerReleaseNotesComplianceTests(): void {
           expect(delimitedVersionBlock).not.toContain(
             RELEASE_VERSION_DATA_BLOCK_CLOSE,
           );
-          expect(decodeReleaseNotesPromptData(delimitedVersionBlock)).toBe(
+          expect(parsedPromptJsonBlock(
+            prompt,
+            RELEASE_VERSION_DATA_BLOCK_OPEN,
+            RELEASE_VERSION_DATA_BLOCK_CLOSE,
+          )).toBe(
             JSON.stringify(releaseData.version, null, COMMIT_SUBJECTS_JSON_INDENT),
           );
           expect(prompt).not.toContain(`version ${releaseData.version}`);
@@ -386,7 +405,11 @@ export function registerReleaseNotesComplianceTests(): void {
           expect(delimitedSubjectBlock).not.toContain(
             COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
           );
-          expect(decodeReleaseNotesPromptData(delimitedSubjectBlock)).toBe(
+          expect(parsedPromptJsonBlock(
+            prompt,
+            COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+            COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+          )).toBe(
             JSON.stringify(subjects, null, COMMIT_SUBJECTS_JSON_INDENT),
           );
         },
@@ -428,7 +451,11 @@ export function registerReleaseNotesComplianceTests(): void {
           expect(delimitedPathBlock).not.toContain(
             CHANGELOG_PATH_DATA_BLOCK_CLOSE,
           );
-          expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
+          expect(parsedPromptJsonBlock(
+            prompt,
+            CHANGELOG_PATH_DATA_BLOCK_OPEN,
+            CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+          )).toBe(
             JSON.stringify(
               expectedCanonicalPath,
               null,

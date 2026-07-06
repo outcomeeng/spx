@@ -34,7 +34,12 @@ export function independentKeepAChangelogConformance(notes: string, version: str
   if (title?.tag !== MARKDOWN_TOKEN.h1 || title.text !== oracleChangelogTitleText()) {
     return false;
   }
-  const versionHeading = headings.find(
+  const changelogSectionHeadings = headingsAfterVersionUntilNextReleaseSection(
+    headings,
+    title.index,
+    MARKDOWN_TOKEN.h1,
+  );
+  const versionHeading = changelogSectionHeadings.find(
     (heading) => heading.tag === MARKDOWN_TOKEN.h2 && heading.text === `[${version}]`,
   );
   if (versionHeading === undefined) {
@@ -90,10 +95,11 @@ function normalizeStandaloneInlineHtmlTags(notes: string): string {
 function headingsAfterVersionUntilNextReleaseSection(
   headings: readonly ParsedMarkdownHeading[],
   versionHeadingIndex: number,
+  boundaryTag: string = MARKDOWN_TOKEN.h2,
 ): readonly ParsedMarkdownHeading[] {
   const afterVersion = headings.filter((heading) => heading.index > versionHeadingIndex);
   const nextReleaseSectionOffset = afterVersion.findIndex(
-    (heading) => heading.tag === MARKDOWN_TOKEN.h1 || heading.tag === MARKDOWN_TOKEN.h2,
+    (heading) => heading.tag === MARKDOWN_TOKEN.h1 || heading.tag === boundaryTag,
   );
   return nextReleaseSectionOffset === -1 ? afterVersion : afterVersion.slice(0, nextReleaseSectionOffset);
 }
