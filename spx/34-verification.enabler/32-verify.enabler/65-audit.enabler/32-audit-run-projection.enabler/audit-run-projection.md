@@ -8,13 +8,13 @@ CAN finish audit runs from coverage evidence and restore relevant prior audit co
 
 ### Scenarios
 
-- Given an audit changeset unit with child spec and implementation units, when audit scope evidence is recorded, then the run projection preserves the unit nesting and producer metadata ([test](tests/audit-scope.scenario.l1.test.ts))
+- Given an audit changeset unit with child spec and implementation units, when audit scope evidence is recorded, then the run projection preserves the unit nesting, stable producer identity, and producer provenance ([test](tests/audit-scope.scenario.l1.test.ts))
 - Given an audit unit with no finding, when audit scope evidence records `audited`, then the run projection represents clean coverage without adding a finding ([test](tests/audit-scope.scenario.l1.test.ts))
 
 ### Mappings
 
-- Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected` ([test](tests/audit-rollup.mapping.l1.test.ts))
-- Prior audit context selectors map audit class, audit kind, producer identity, subject path, and changed-file partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
+- Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected`; optional uncovered units remain coverage gaps without determining the terminal status ([test](tests/audit-rollup.mapping.l1.test.ts))
+- Prior audit context selectors map audit class, audit kind, stable producer identity, subject path, changed-file partition, language partition, and concern partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
 
 ### Compliance
 
