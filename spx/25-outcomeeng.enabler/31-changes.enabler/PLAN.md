@@ -1,6 +1,6 @@
 # PLAN
 
-> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar for durable change records: build `change-store` + its worktree records backend + `.spx/changes/` scope addressing before the `.surface` CLI, which is deferred until SPX supports configured node kinds, methodology context injection, and target suffix readiness. The corrected model separates `persistence` (records / journals / snapshots) from `backend` and `delivery`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar for durable change records: build `change-store` + its worktree records backend + `.spx/changes/` scope addressing before the `.surface` CLI, which is deferred until SPX supports configured node kinds, methodology context injection, and target suffix readiness. Treat durable records as persistence-capability inventory until a reviewed receiver and ordering evidence settle its final shape. Where this note predates the root plan, the root plan governs.
 
 ## Harness vocabulary guard
 

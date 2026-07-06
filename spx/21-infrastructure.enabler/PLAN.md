@@ -1,6 +1,6 @@
 # Plan: Runtime decision relocation
 
-> **Reconcile against `spx/PLAN.md` first.** The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`, makes verification the five types, requires additive migration (never a wholesale move), and defers `.surface`. Infrastructure is low-index substrate: it owns runtime, workflow, process, and GitHub Actions mechanics. GitHub persistence or delivery backend semantics currently under this subtree are current misplacements that depend on this substrate and move to the future backend owner. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** The root plan treats current paths as inventory, projects substrate / capability / domain / interface / surface area roles, parks target suffix migration until SPX supports configured node kinds and methodology context injection, and uses active migration rows for executable work. Infrastructure inventory belongs to the substrate role where it owns runtime, workflow, process, package, and GitHub Actions mechanics. Where this note predates the root plan, the root plan governs.
 
 ## Harness vocabulary guard
 

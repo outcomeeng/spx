@@ -1,6 +1,6 @@
 # Plan: State model expansion
 
-> **Reconcile against `spx/PLAN.md` first.** "state" here is the *volatile node-lifecycle* state (declared / specified / passing), deliberately distinct from durable `persistence` (records / journals / snapshots) — a node-state flips in a moment, a GitHub artifact lives 90 days. "materialization" is renamed `backend`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** The root plan treats current paths as inventory, projects substrate / capability / domain / interface / surface area roles, parks target suffix migration until SPX supports configured node kinds and methodology context injection, and uses active migration rows for executable work. Preserve the local distinction between volatile node-lifecycle state and durable persistence concerns when this node is projected into the target capability structure. Where this note predates the root plan, the root plan governs.
 
 This coordination note records state-model work opened by the methodology and materialization restructure.
 
