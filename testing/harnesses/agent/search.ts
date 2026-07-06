@@ -833,6 +833,12 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(transcriptCommandRow(`echo ${branch}`), branch)).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
+    transcriptCommandRow(
+      `echo ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+    ),
+    branch,
+  )).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(
     failedTranscriptCommandRow(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
     ),

@@ -117,7 +117,7 @@ function parseBranchAssociatedWorktreeRoots(stdout: string, branch: string): rea
     const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
     const branchLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX));
     if (rootLine === undefined || branchLine === undefined) continue;
-    if (branchLine.slice(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX.length) !== branch) continue;
+    if (branchLine !== `${GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX}${branch}`) continue;
     const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
     if (root.length > 0) roots.push(root);
   }
