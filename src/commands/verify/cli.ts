@@ -1058,11 +1058,15 @@ function validateTerminalMetadata(
   verificationType: string,
   terminalStatus: string,
   metadata: JsonValue | undefined,
+  events: readonly JournalEvent[],
 ): Result<JsonValue | undefined> {
-  if (metadata === undefined) return { ok: true, value: undefined };
   const validator = terminalMetadataValidatorFor(verificationType);
-  if (validator === undefined) return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
-  const validated = validator({ terminalStatus, metadata });
+  if (validator === undefined) {
+    return metadata === undefined
+      ? { ok: true, value: undefined }
+      : { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
+  }
+  const validated = validator({ terminalStatus, metadata, events });
   if (validated.ok) return { ok: true, value: validated.value };
   return {
     ok: false,
@@ -1125,6 +1129,7 @@ export async function verifyFinishCommand(
     options.verificationType,
     options.terminalStatus,
     rawTerminalMetadata.value,
+    before.value,
   );
   if (!terminalMetadata.ok) return errorResult(terminalMetadata.error);
 

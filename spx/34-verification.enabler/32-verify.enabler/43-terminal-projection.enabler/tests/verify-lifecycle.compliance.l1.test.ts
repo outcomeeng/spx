@@ -12,6 +12,8 @@ import {
   assertRepeatedFinishRejectsRecordedInputSelectorMismatch,
   assertRepeatedFinishRetriesPhysicalSeal,
   assertRepeatedFinishReturnsExistingProjection,
+  assertReviewFindingScopeRejectsApprovedTerminalStatus,
+  assertReviewFindingsRejectApprovedTerminalStatus,
   assertReviewTerminalMetadataConflictRejectsWithoutSealing,
   assertSecondFinishKeepsFirstProjection,
 } from "@testing/harnesses/verify/harness";
@@ -31,6 +33,14 @@ describe("verify finish compliance", () => {
 
   it("rejects terminal metadata whose review state conflicts with the supplied terminal status", async () => {
     await assertReviewTerminalMetadataConflictRejectsWithoutSealing();
+  });
+
+  it("rejects approved review terminal status and metadata when finding evidence exists", async () => {
+    await assertReviewFindingsRejectApprovedTerminalStatus();
+  });
+
+  it("rejects approved review terminal status and metadata when scope coverage reports a finding", async () => {
+    await assertReviewFindingScopeRejectsApprovedTerminalStatus();
   });
 
   it("returns the existing terminal projection for a repeated finish without appending a second terminal event", async () => {

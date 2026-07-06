@@ -1,5 +1,6 @@
 import { basename, join } from "node:path";
 
+import type { Command } from "commander";
 import * as fc from "fast-check";
 
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
@@ -29,8 +30,10 @@ import {
   verifyStatusCommand,
   type VerifyStatusReport,
 } from "@/commands/verify/cli";
+import type { CliCommandResult } from "@/config/types";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import type { Domain } from "@/domains/types";
 import {
   createVerificationContextDocument,
   VERIFICATION_CONTEXT_PERSISTENCE,
@@ -40,6 +43,7 @@ import {
 import { verificationContextFilePath } from "@/domains/verification-context/path";
 import {
   findTerminalEvent,
+  REVIEW_SCOPE_COVERAGE_STATE,
   TERMINAL_METADATA_VALIDATION_ERROR,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
@@ -64,6 +68,15 @@ import {
   GIT_SHOW_TOPLEVEL_ARGS,
   type GitDependencies,
 } from "@/git/root";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
+import { CLI_DOMAINS } from "@/interfaces/cli/registry";
+import {
+  registerVerifyCommands,
+  VERIFICATION_RUN_CLI_SURFACE,
+  VERIFY_CLI,
+  type VerifyCliHandlers,
+} from "@/interfaces/cli/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
@@ -80,6 +93,7 @@ import {
   STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
+import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
   type FindingWithKey,
@@ -111,12 +125,368 @@ interface ExpectedTerminalProjection {
   readonly lastSequence: number;
 }
 
+interface VerifyCliRecording {
+  readonly appendFindingOptions: readonly VerifyAppendCliOptions[];
+  readonly appendScopeOptions: readonly VerifyAppendCliOptions[];
+  readonly finishOptions: readonly VerifyFinishCliOptions[];
+  readonly inputOptions: readonly VerifyInputCliOptions[];
+  readonly renderOptions: readonly VerifyRenderCliOptions[];
+  readonly startOptions: readonly VerifyStartCliOptions[];
+  readonly statusOptions: readonly VerifyStatusCliOptions[];
+  readonly handlers: VerifyCliHandlers;
+}
+
 export type VerifyStateStoreFileSystem = ReturnType<typeof createInMemoryStateStoreFileSystem>;
 
 export interface SealRetryFileSystem extends StateStoreFileSystem {
   failDirectoryListings(): void;
   failFirstSealWriteAt(path: string): void;
   failSealMarkerReadsAt(path: string): void;
+}
+
+function commandTokens(command: Command): readonly string[] {
+  return [command.name(), ...command.aliases()];
+}
+
+function collectCommandTokens(command: Command): readonly string[] {
+  return [
+    ...commandTokens(command),
+    ...command.commands.flatMap((childCommand) => collectCommandTokens(childCommand)),
+  ];
+}
+
+function requiredOptionFlags(command: Command | undefined): readonly string[] {
+  return command?.options.filter((option) => option.required).map((option) => option.flags) ?? [];
+}
+
+function okCliResult(): CliCommandResult {
+  return { exitCode: VERIFY_CLI_EXIT_CODE.OK, output: JSON.stringify({}) };
+}
+
+function createRecordingVerifyHandlers(): VerifyCliRecording {
+  const appendFindingOptions: VerifyAppendCliOptions[] = [];
+  const appendScopeOptions: VerifyAppendCliOptions[] = [];
+  const finishOptions: VerifyFinishCliOptions[] = [];
+  const inputOptions: VerifyInputCliOptions[] = [];
+  const renderOptions: VerifyRenderCliOptions[] = [];
+  const startOptions: VerifyStartCliOptions[] = [];
+  const statusOptions: VerifyStatusCliOptions[] = [];
+
+  return {
+    appendFindingOptions,
+    appendScopeOptions,
+    finishOptions,
+    inputOptions,
+    renderOptions,
+    startOptions,
+    statusOptions,
+    handlers: {
+      appendFinding: (options) => {
+        appendFindingOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      appendScope: (options) => {
+        appendScopeOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      finish: (options) => {
+        finishOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      input: (options) => {
+        inputOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      render: (options) => {
+        renderOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      start: (options) => {
+        startOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      status: (options) => {
+        statusOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+    },
+  };
+}
+
+function createRecordingVerifyProgram(recording: VerifyCliRecording, productDir: string): Command {
+  const recordingDomain: Domain = {
+    name: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+    description: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+    register: (program, invocation) => {
+      registerVerifyCommands(program, invocation, recording.handlers);
+    },
+  };
+  return createCliProgram({
+    domains: [recordingDomain],
+    processCwd: () => productDir,
+    setExitCode: () => undefined,
+    writeStderr: () => undefined,
+    writeStdout: () => undefined,
+  });
+}
+
+function verificationRunArgs(commandPath: readonly string[], options: readonly string[]): readonly string[] {
+  return [
+    VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+    VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+    ...commandPath,
+    ...options,
+  ];
+}
+
+function requiredFlag(optionExpression: string): string {
+  const [flag] = optionExpression.split(" ");
+  return flag;
+}
+
+function requiredOptionDescription(command: Command | undefined, optionExpression: string): string | undefined {
+  return command?.options.find((option) => option.flags === optionExpression)?.description;
+}
+
+export function assertVerificationRunNounGroupExposed(): void {
+  const program = createCliProgram();
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+
+  expect(verificationCommand).toBeDefined();
+  expect(verificationCommand?.commands.map((command) => command.name())).toContain(
+    VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+  );
+}
+
+export function assertVerificationEvidenceAdditionsAreNounLocal(): void {
+  const verifyDomain = CLI_DOMAINS.find((domain) => domain.name === VERIFICATION_RUN_CLI_SURFACE.rootCommandName);
+  expect(verifyDomain).toBeDefined();
+  if (verifyDomain === undefined) throw new Error("verification-run domain missing from the CLI registry");
+
+  const program = createCliProgram({ domains: [verifyDomain] });
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+  const runCommand = verificationCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+  );
+  const scopeCommand = runCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
+  );
+  const findingCommand = runCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
+  );
+  expect(runCommand).toBeDefined();
+  expect(scopeCommand).toBeDefined();
+  expect(findingCommand).toBeDefined();
+
+  const scopeAddCommand = scopeCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.addCommandName,
+  );
+  const findingAddCommand = findingCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.addCommandName,
+  );
+  expect(scopeAddCommand).toBeDefined();
+  expect(findingAddCommand).toBeDefined();
+  expect(requiredOptionFlags(scopeAddCommand)).toEqual(
+    expect.arrayContaining([
+      VERIFY_CLI.payloadOption,
+      VERIFY_CLI.idempotencyKeyOption,
+    ]),
+  );
+  expect(requiredOptionFlags(findingAddCommand)).toEqual(
+    expect.arrayContaining([
+      VERIFY_CLI.payloadOption,
+      VERIFY_CLI.idempotencyKeyOption,
+    ]),
+  );
+  expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.payloadOption)).toBe(
+    VERIFY_CLI.payloadOptionDescription,
+  );
+  expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.payloadOption)).toBe(
+    VERIFY_CLI.payloadOptionDescription,
+  );
+  expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.idempotencyKeyOption)).toBe(
+    VERIFY_CLI.idempotencyKeyOptionDescription,
+  );
+  expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.idempotencyKeyOption)).toBe(
+    VERIFY_CLI.idempotencyKeyOptionDescription,
+  );
+  for (const forbiddenHelpTerm of VERIFICATION_RUN_CLI_SURFACE.forbiddenRunHelpTerms) {
+    expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.payloadOption)).not.toContain(
+      forbiddenHelpTerm,
+    );
+    expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.payloadOption)).not.toContain(
+      forbiddenHelpTerm,
+    );
+  }
+}
+
+export function assertVerificationRunPathsHideJournalMechanics(): void {
+  const program = createCliProgram();
+  const commandNames = program.commands.flatMap((command) => commandTokens(command));
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+  const runCommand = verificationCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+  );
+  const runCommandNames = runCommand === undefined ? [] : collectCommandTokens(runCommand);
+
+  expect(commandNames).not.toContain(VERIFICATION_RUN_CLI_SURFACE.forbiddenRootCommandName);
+  for (const forbiddenRunCommandName of VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames) {
+    expect(runCommandNames).not.toContain(forbiddenRunCommandName);
+  }
+}
+
+export async function assertVerificationRunOptionsReachHandlers(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const recording = createRecordingVerifyHandlers();
+  const program = createRecordingVerifyProgram(recording, scenario.productDir);
+  const inputSource = sampleLiteralTestValue(arbitrarySourceFilePath());
+  const scopePayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+  const findingPayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalMetadataSource = sampleLiteralTestValue(arbitrarySourceFilePath());
+  const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+  const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const sharedExistingRunOptions = [
+    requiredFlag(VERIFY_CLI.verificationTypeOption),
+    scenario.verificationType,
+    requiredFlag(VERIFY_CLI.scopeTypeOption),
+    VERIFY_SCOPE_TYPE.CHANGESET,
+    requiredFlag(VERIFY_CLI.scopeOption),
+    scenario.scope,
+    requiredFlag(VERIFY_CLI.runOption),
+    runToken,
+  ];
+
+  await program.parseAsync(
+    verificationRunArgs([VERIFY_CLI.startCommandName], [
+      requiredFlag(VERIFY_CLI.verificationTypeOption),
+      scenario.verificationType,
+      requiredFlag(VERIFY_CLI.scopeTypeOption),
+      VERIFY_SCOPE_TYPE.CHANGESET,
+      requiredFlag(VERIFY_CLI.scopeOption),
+      scenario.scope,
+      requiredFlag(VERIFY_CLI.inputOption),
+      inputSource,
+    ]),
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  await program.parseAsync(
+    verificationRunArgs(
+      [VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
+      [
+        ...sharedExistingRunOptions,
+        requiredFlag(VERIFY_CLI.payloadOption),
+        scopePayloadSource,
+        requiredFlag(VERIFY_CLI.idempotencyKeyOption),
+        idempotencyKeys.first,
+      ],
+    ),
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  await program.parseAsync(
+    verificationRunArgs(
+      [VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
+      [
+        ...sharedExistingRunOptions,
+        requiredFlag(VERIFY_CLI.payloadOption),
+        findingPayloadSource,
+        requiredFlag(VERIFY_CLI.idempotencyKeyOption),
+        idempotencyKeys.second,
+      ],
+    ),
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  await program.parseAsync(
+    verificationRunArgs(
+      [VERIFY_CLI.finishCommandName],
+      [
+        ...sharedExistingRunOptions,
+        requiredFlag(VERIFY_CLI.terminalStatusOption),
+        terminalStatus,
+        requiredFlag(VERIFY_CLI.terminalMetadataOption),
+        terminalMetadataSource,
+      ],
+    ),
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  await program.parseAsync(verificationRunArgs([VERIFY_CLI.inputCommandName], sharedExistingRunOptions), {
+    from: SPX_COMMANDER_PARSE_SOURCE,
+  });
+  await program.parseAsync(verificationRunArgs([VERIFY_CLI.statusCommandName], sharedExistingRunOptions), {
+    from: SPX_COMMANDER_PARSE_SOURCE,
+  });
+  await program.parseAsync(verificationRunArgs([VERIFY_CLI.renderCommandName], sharedExistingRunOptions), {
+    from: SPX_COMMANDER_PARSE_SOURCE,
+  });
+
+  expect(recording.startOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      input: inputSource,
+    },
+  ]);
+  expect(recording.appendScopeOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+      payload: scopePayloadSource,
+      idempotencyKey: idempotencyKeys.first,
+    },
+  ]);
+  expect(recording.appendFindingOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+      payload: findingPayloadSource,
+      idempotencyKey: idempotencyKeys.second,
+    },
+  ]);
+  expect(recording.finishOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+      terminalStatus,
+      terminalMetadata: terminalMetadataSource,
+    },
+  ]);
+  expect(recording.inputOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+    },
+  ]);
+  expect(recording.statusOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+    },
+  ]);
+  expect(recording.renderOptions).toEqual([
+    {
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scope: scenario.scope,
+      run: runToken,
+    },
+  ]);
 }
 
 export function createSealRetryFileSystem(): SealRetryFileSystem {
@@ -882,6 +1252,72 @@ export async function assertReviewTerminalMetadataConflictRejectsWithoutSealing(
   await finishRecoversUnsealedRun(scenario, deps, startReport.runToken);
 }
 
+export async function assertReviewFindingsRejectApprovedTerminalStatus(): Promise<void> {
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+  const runToken = startReport.runToken;
+  await appendFindingBatch(scenario, deps, runToken);
+  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+  const finished = await verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+  expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
+  await expect(
+    fs.readFile(appendableJournalSealMarkerPath(startReport.locator.runTarget), STATE_STORE_TEXT_ENCODING),
+  ).rejects.toThrow();
+  await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
+}
+
+export async function assertReviewFindingScopeRejectsApprovedTerminalStatus(): Promise<void> {
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+  const runToken = startReport.runToken;
+  const scope = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewScopeUnit()),
+    coverageState: REVIEW_SCOPE_COVERAGE_STATE.FINDING,
+  };
+  const appended = await verifyAppendScopeCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(scope),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const eventsAfterScope = await readVerifyRunEvents(scenario, runToken, fs);
+  expect(eventsAfterScope.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
+  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+  const finished = await verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+  expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
+  await expect(
+    fs.readFile(appendableJournalSealMarkerPath(startReport.locator.runTarget), STATE_STORE_TEXT_ENCODING),
+  ).rejects.toThrow();
+  await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
+}
+
 export async function assertBlankTerminalStatusRejectedWithoutCompletion(): Promise<void> {
   const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
@@ -1410,7 +1846,7 @@ export async function assertAppendRejectsEvidenceAfterTerminalCompletion(): Prom
   );
   const runToken = await startedRunToken(scenario, deps);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus()));
+  await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
   const eventsBeforeReject = await readVerifyRunEvents(scenario, runToken, fs);
 
   for (const append of APPEND_COMMANDS) {
@@ -1499,7 +1935,7 @@ export async function assertFinishRecordsTerminalCompletionAndRejectsFurtherEvid
   );
   expect(scopeAppend.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   const finished = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
   expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
 
@@ -1526,7 +1962,7 @@ export async function assertRenderSealedRunProjectionReadOnly(): Promise<void> {
   );
   const runToken = await startedRunToken(scenario, deps);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   await finishRun(scenario, deps, runToken, terminalStatus);
 
   const eventsBeforeRender = await readVerifyRunEvents(scenario, runToken, fs);
@@ -1624,7 +2060,7 @@ export async function assertFinishStatusAndRenderShareFindingProjection(): Promi
   );
   const runToken = await startedRunToken(scenario, deps);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   const finishReport = await finishRun(scenario, deps, runToken, terminalStatus);
   const statusReport = parseStatusReport(
     (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
@@ -1676,7 +2112,7 @@ export async function assertStatusAndRenderHydrateWithoutRecordedInput(): Promis
   );
   const runToken = await startedRunToken(scenario, deps);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   await finishRun(scenario, deps, runToken, terminalStatus);
   await fs.rm(verifyInputRecordFilePath(scenario, runToken), { force: true });
   const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
@@ -1699,7 +2135,7 @@ export async function assertStatusAndRenderHydrateWithMalformedRecordedInput(): 
   );
   const runToken = await startedRunToken(scenario, deps);
   const findings = await appendFindingBatch(scenario, deps, runToken);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   await finishRun(scenario, deps, runToken, terminalStatus);
   await fs.writeFile(
     verifyInputRecordFilePath(scenario, runToken),
