@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 
 const PATH_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
@@ -69,6 +69,15 @@ export interface ChangedSetAmbiguousCandidateFixture {
   readonly tsconfigPaths: Readonly<Record<string, readonly string[]>>;
 }
 
+export interface ChangedSetRenameFixture {
+  readonly changedPaths: readonly string[];
+  readonly parentTestPath: string;
+  readonly childTestPath: string;
+  readonly changedNoTestNode: string;
+  readonly removedNoTestNode: string;
+  readonly removedParentNode: string;
+}
+
 export interface ChangedSetFixtureContent {
   readonly emptyTsconfig: string;
   readonly malformedTsconfig: string;
@@ -98,6 +107,7 @@ export const CHANGED_SET_PLANNING_GENERATOR = {
   fixturePaths: arbitraryFixturePaths,
   harnessConsumersFixture: arbitraryHarnessConsumersFixture,
   ambiguousCandidateFixture: arbitraryAmbiguousCandidateFixture,
+  renameFixture: arbitraryRenameFixture,
   content: fixtureContent,
 } as const;
 
@@ -374,6 +384,39 @@ function arbitraryAmbiguousCandidateFixture(): fc.Arbitrary<ChangedSetAmbiguousC
     });
 }
 
+function arbitraryRenameFixture(): fc.Arbitrary<ChangedSetRenameFixture> {
+  return fc
+    .uniqueArray(TEST_DISPATCH_GENERATOR.nodePath(), {
+      minLength: 2,
+      maxLength: 2,
+    })
+    .map(([changedParentNode, removedParentNode]) => {
+      const changedNoTestNode = `${changedParentNode}${PATH_SEPARATOR}21-instructions.enabler`;
+      const changedChildNode = `${changedParentNode}${PATH_SEPARATOR}32-tested-child.enabler`;
+      const removedNoTestNode = `${removedParentNode}${PATH_SEPARATOR}21-instructions.enabler`;
+      return {
+        changedPaths: [
+          specFileUnder(removedParentNode),
+          specFileUnder(removedNoTestNode),
+          specFileUnder(changedParentNode),
+          specFileUnder(changedNoTestNode),
+          specFileUnder(changedChildNode),
+        ],
+        parentTestPath: sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(
+          typescriptTestingLanguage,
+          changedParentNode,
+        )),
+        childTestPath: sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(
+          typescriptTestingLanguage,
+          changedChildNode,
+        )),
+        changedNoTestNode: nodeOperand(changedNoTestNode),
+        removedNoTestNode: nodeOperand(removedNoTestNode),
+        removedParentNode: nodeOperand(removedParentNode),
+      };
+    });
+}
+
 function harnessAliasFixtureFromSlug(slug: string): ChangedSetAliasFixture {
   const harnessPath = [TESTING_ROOT, "harnesses", `${slug}${TYPESCRIPT_EXTENSION}`].join(PATH_SEPARATOR);
   return {
@@ -417,4 +460,10 @@ function sourceFilePath(root: string, slug: string): string {
 
 function nodeTestsDirectory(nodePath: string): string {
   return ["spx", nodePath, "tests"].join(PATH_SEPARATOR);
+}
+
+function specFileUnder(nodePath: string): string {
+  const nodeSegment = nodePath.split(PATH_SEPARATOR).at(-1) ?? "";
+  const specSlug = nodeSegment.replace(/^\d+-/, "").replace(/\.(?:enabler|outcome)$/, "");
+  return [nodeOperand(nodePath), `${specSlug}.md`].join(PATH_SEPARATOR);
 }

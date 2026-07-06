@@ -16,6 +16,8 @@ const MARKDOWN_TOKEN = {
   h3: "h3",
 } as const;
 const CARRIAGE_RETURN = "\r";
+const LINE_SEPARATOR = "\n";
+const STANDALONE_INLINE_HTML_TAG_PATTERN = /^<(?:area|br|embed|img|input|meta|source|wbr)(?:\s[^>]*)?\/?>\s*$/iu;
 
 interface ParsedMarkdownHeading {
   readonly tag: string;
@@ -51,7 +53,7 @@ function normalizeLineEnding(line: string | undefined): string | undefined {
 
 function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[] {
   const parser = new MarkdownIt({ html: true });
-  const tokens = parser.parse(notes, {});
+  const tokens = parser.parse(normalizeStandaloneInlineHtmlTags(notes), {});
   const headings: ParsedMarkdownHeading[] = [];
   let blockquoteDepth = 0;
   tokens.forEach((token, index) => {
@@ -73,6 +75,13 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
     headings.push({ tag: token.tag, text: inline.content, index });
   });
   return headings;
+}
+
+function normalizeStandaloneInlineHtmlTags(notes: string): string {
+  return notes
+    .split(LINE_SEPARATOR)
+    .map((line) => (STANDALONE_INLINE_HTML_TAG_PATTERN.test(line) ? "" : line))
+    .join(LINE_SEPARATOR);
 }
 
 function headingsAfterVersionUntilNextReleaseSection(
