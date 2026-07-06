@@ -9,6 +9,7 @@ import {
   sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase,
   sampleIndentedFenceReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
+  sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase,
   sampleStandaloneInlineHtmlReleaseNotesChangelogCase,
   sampleTabbedHeadingReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
@@ -79,6 +80,10 @@ export function registerReleaseNotesConformanceTests(): void {
 
     it("accepts a raw HTML block terminated by a blank line before the release section", async () => {
       await expectConformantReadBack(sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase());
+    });
+
+    it("accepts a same-line explicit HTML block before the release section", async () => {
+      await expectConformantReadBack(sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase());
     });
 
     it("accepts a standalone inline HTML tag before the release section", async () => {
