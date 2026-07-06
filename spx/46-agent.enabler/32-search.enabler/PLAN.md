@@ -40,7 +40,7 @@ SPX searches product-scoped Codex and Claude Code agent-native transcript stores
 - Run `spx test spx/46-agent.enabler/32-search.enabler`, `pnpm run validate`, and `pnpm run build`.
 - Run the TypeScript test-evidence and implementation audit gates before merge.
 
-## Next slice: enhanced branch-associated search
+## Shipped enhanced branch-associated search
 
 ### Observable path
 
@@ -50,15 +50,15 @@ An operator in a product worktree can run:
 spx agent search --branch <branch-name> --json
 ```
 
-SPX returns top-level Codex and Claude Code agent-native sessions associated with the requested branch, extending the shipped transcript-metadata branch filter to cover sessions whose opening transcript metadata names another branch or omits branch metadata.
+SPX returns top-level Codex and Claude Code agent-native sessions associated with the requested branch, including sessions whose opening transcript metadata names another branch or omits branch metadata.
 
 ### Product behavior
 
-- `--branch <name>` searches by **branch association**, extending the shipped transcript metadata match with additional association signals.
+- `--branch <name>` searches by **branch association**, extending transcript metadata with additional association signals.
 - A top-level session matches the branch when any accepted signal associates the session with the branch:
   - the parsed agent-native transcript head records the requested branch;
   - the session `cwd` is inside a worktree currently checked out on the requested branch within the same product worktree pool;
-  - the top-level transcript contains a successful branch creation or branch switch command sequence for the requested branch, such as `git switch <branch>`, `git switch -c <branch>`, `git checkout <branch>`, `git checkout -b <branch>`, or a worktree-add sequence that creates or checks out that branch.
+  - the top-level transcript contains an accepted branch creation or branch switch command for the requested branch, such as `git switch <branch>`, `git switch -c <branch>`, `git checkout <branch>`, `git checkout -b <branch>`, or `git worktree add <path> <branch>`.
 - Branch existence alone is not enough to return a session; the branch must be associated with a session through metadata, worktree location, or parsed command evidence.
 - Subagent transcripts remain excluded as returned sessions. A subagent transcript can inform a future lineage feature only after the spec declares how subagent evidence maps back to a top-level session.
 - The result keeps the existing JSON shape and uses `branch` in `matches` when any branch-association signal matched.
@@ -68,31 +68,11 @@ SPX returns top-level Codex and Claude Code agent-native sessions associated wit
 
 Command-sequence search is feasible when it is treated as bounded forensic evidence rather than free-text inference. Codex transcripts store tool calls and tool outputs as structured JSONL rows, and Claude Code transcripts carry command-related rows with session metadata. The implementation should parse structured rows where possible and accept only command executions that name the requested branch and have successful or non-failing evidence. Plain prose mentions of a branch name do not count as branch association.
 
-### Architecture
+### Verification
 
-- Split the current pure search domain before adding branch association so `src/domains/agent/search.ts` does not grow into a large mixed-concern module.
-- Keep a public `src/domains/agent/search/index.ts` export boundary.
-- Move query construction and constants to `src/domains/agent/search/query.ts`.
-- Move result collection, selector matching, and sorting to `src/domains/agent/search/results.ts`.
-- Move JSON and text rendering to `src/domains/agent/search/render.ts`.
-- Add `src/domains/agent/search/branch-association.ts` for pure branch-association inputs and predicates.
-- Keep Git and worktree discovery in `src/commands/agent/search.ts`; it resolves branch-associated worktree roots and passes them into the pure domain as data.
-- Add transcript command-evidence parsing in the pure search domain behind an injected transcript reader, reusing existing full-transcript reads only when a branch query needs command evidence.
-
-### First implementation slice
-
-1. Refactor the search domain into the module boundary above without changing observable behavior.
-2. Add a failing scenario in `spx/46-agent.enabler/32-search.enabler/tests/search.scenario.l1.test.ts`: a top-level session has `cwd` inside a worktree root associated with the requested branch while transcript metadata records `main` or `null`; `spx agent search --branch <branch-name> --json` returns that session with `matches: ["branch"]`.
-3. Extend `src/commands/agent/search.ts` to resolve worktree roots currently checked out on the requested branch in the same product worktree pool.
-4. Pass the resolved branch-association roots into the pure search domain and match sessions whose `cwd` is inside those roots.
-5. Run `spx test spx/46-agent.enabler/32-search.enabler`, `pnpm run validate`, and `pnpm run build`.
-6. Run the TypeScript test-evidence and implementation audit gates before merge.
-
-### Later implementation slices
-
-- Add command-sequence branch evidence after worktree-root association ships. This slice covers transcripts where the branch was created or switched during the session but no associated worktree remains checked out.
-- Add parser fixtures for Codex and Claude Code command rows only after real transcript samples define the source-owned row shapes.
-- Add lineage-based subagent association only after the spec declares how subagent transcripts map to top-level sessions without returning subagent rows as sessions.
+- Co-located tests cover worktree-root branch association, metadata branch association, accepted command evidence, branch-existence-only exclusion, and subagent exclusion.
+- `spx test spx/46-agent.enabler/32-search.enabler`, `pnpm run validate`, and `pnpm run build` pass on the shipped branch.
+- TypeScript test-evidence and implementation audit gates approve the shipped branch.
 
 ## Later slices
 
@@ -100,3 +80,4 @@ Command-sequence search is feasible when it is treated as bounded forensic evide
 - PR-number search becomes a named selector after the transcript patterns for PR references are settled; until then, `--contains` covers literal forensic search without embedding one platform's wording.
 - Resume integration can use search results as input only after the search surface proves the result shape and bounds.
 - High-volume `--all --contains` search can switch to a two-pass scan that sorts head metadata first and reads full transcript content only for the bounded newest candidate set when operators report expensive stores.
+- Lineage-based subagent association requires a spec that declares how subagent transcripts map back to top-level sessions without returning subagent rows as sessions.
