@@ -1,7 +1,7 @@
 # Audit Run Projection
 
 PROVIDES audit scope projection, terminal rollup, and prior-context selector projection over validated audit evidence from `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler`
-SO THAT audit orchestrators, merge workflows, and renderers
+SO THAT audit run drivers, leaf skill producers, merge workflows, and renderers
 CAN finish audit runs from coverage evidence and restore relevant prior audit context from run sets
 
 ## Assertions
