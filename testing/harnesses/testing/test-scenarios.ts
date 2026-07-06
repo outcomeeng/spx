@@ -59,6 +59,10 @@ function invokedArgs(
 }
 
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
+const EMPTY_TESTING_CONFIG = `${TESTING_SECTION}: {}\n`;
+
+type TestCommandRequest = Parameters<typeof runTestsCommand>[0];
+type TestCommandDependencies = Parameters<typeof runTestsCommand>[1];
 
 function recordedPassingRun(productDir: string, run: TestDispatchResult): RecordedTestRun {
   return {
@@ -152,6 +156,84 @@ function stagedConfigChangeGit(
       return { exitCode: 0, stdout: "", stderr: "" };
     },
   };
+}
+
+function successfulRelatedTestDeps(): NonNullable<TestCommandDependencies["relatedDepsFor"]> {
+  return () => ({
+    isLanguagePresent: () => true,
+    readFile: async () => "",
+    runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+  });
+}
+
+function stagedChangedCommandDeps(
+  runner: ReturnType<typeof createRecordingCommandRunner>,
+  git: GitDependencies,
+): TestCommandDependencies {
+  return {
+    registry: testingRegistry,
+    runnerDepsFor: () => runner,
+    relatedDepsFor: successfulRelatedTestDeps(),
+    git,
+  };
+}
+
+async function runStagedChangedTestCommand(
+  request: Omit<TestCommandRequest, "changed">,
+  runner: ReturnType<typeof createRecordingCommandRunner>,
+  git: GitDependencies,
+): Promise<Awaited<ReturnType<typeof runTestsCommand>>> {
+  return await runTestsCommand(
+    {
+      ...request,
+      changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
+    },
+    stagedChangedCommandDeps(runner, git),
+  );
+}
+
+async function expectStagedDirtySelectionRejection({
+  runner,
+  headSha,
+  stagedTestingConfig = EMPTY_TESTING_CONFIG,
+  changedPath,
+  dirtyWorktreePaths,
+  untrackedWorktreePaths = [],
+  targets,
+  fixturePaths,
+}: {
+  readonly runner: ReturnType<typeof createRecordingCommandRunner>;
+  readonly headSha: string;
+  readonly stagedTestingConfig?: string;
+  readonly changedPath: string;
+  readonly dirtyWorktreePaths: readonly string[];
+  readonly untrackedWorktreePaths?: readonly string[];
+  readonly targets?: TestCommandRequest["targets"];
+  readonly fixturePaths: readonly string[];
+}): Promise<void> {
+  await withTestingTempProductDir(async (productDir) => {
+    await Promise.all(fixturePaths.map((path) => writeTestFileFixture(productDir, path)));
+
+    await expect(
+      runStagedChangedTestCommand(
+        {
+          productDir,
+          passing: false,
+          ...(targets === undefined ? {} : { targets }),
+        },
+        runner,
+        stagedConfigChangeGit(
+          headSha,
+          stagedTestingConfig,
+          changedPath,
+          dirtyWorktreePaths,
+          untrackedWorktreePaths,
+        ),
+      ),
+    ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
+
+    expect(invokedArgs(runner)).toEqual([]);
+  });
 }
 
 export function registerTestScenarioTests(): void {
@@ -310,11 +392,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
+            relatedDepsFor: successfulRelatedTestDeps(),
             git: stagedConfigChangeGit(
               headSha,
               changedSetContent.emptyTsconfig,
@@ -390,11 +468,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
+            relatedDepsFor: successfulRelatedTestDeps(),
             git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.json),
           },
         );
@@ -427,22 +501,13 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, excludedTestPath);
         await writeTestFileFixture(productDir, includedTestPath);
 
-        const run = await runTestsCommand(
+        const run = await runStagedChangedTestCommand(
           {
             productDir,
             passing: true,
-            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
           },
-          {
-            registry: testingRegistry,
-            runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
-            git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.json, [excludedTestPath]),
-          },
+          runner,
+          stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.json, [excludedTestPath]),
         );
 
         expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
@@ -454,78 +519,40 @@ export function registerTestScenarioTests(): void {
     it("rejects staged changed selection when a staged path has unstaged tracked changes", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, testPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [testPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: testPath,
+        dirtyWorktreePaths: [testPath],
+        fixturePaths: [testPath],
       });
     });
 
     it("rejects staged path-selected changed sets when an untracked node test input is dirty", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const untrackedPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.supportFileUnder(typescriptTestingLanguage, nodePath),
       );
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, testPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [], [untrackedPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: testPath,
+        dirtyWorktreePaths: [],
+        untrackedWorktreePaths: [untrackedPath],
+        fixturePaths: [testPath],
       });
     });
 
     it("runs staged changed selection when unrelated worktree paths are dirty", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const dirtyPath = sampleLiteralTestValue(arbitrarySourceFilePath());
@@ -533,22 +560,13 @@ export function registerTestScenarioTests(): void {
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, testPath);
 
-        const run = await runTestsCommand(
+        const run = await runStagedChangedTestCommand(
           {
             productDir,
             passing: false,
-            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
           },
-          {
-            registry: testingRegistry,
-            runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
-            git: stagedConfigChangeGit(headSha, stagedTestingConfig, testPath, [dirtyPath]),
-          },
+          runner,
+          stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, testPath, [dirtyPath]),
         );
 
         expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
@@ -559,42 +577,22 @@ export function registerTestScenarioTests(): void {
     it("rejects staged product-input selection when a spec-tree test file is dirty", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const dirtyPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, testPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.yaml, [dirtyPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: CONFIG_FILENAMES.yaml,
+        dirtyWorktreePaths: [dirtyPath],
+        fixturePaths: [testPath],
       });
     });
 
     it("runs staged product-input selection when unrelated source files are dirty", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const dirtyPath = sampleLiteralTestValue(arbitrarySourceFilePath());
@@ -602,22 +600,13 @@ export function registerTestScenarioTests(): void {
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, testPath);
 
-        const run = await runTestsCommand(
+        const run = await runStagedChangedTestCommand(
           {
             productDir,
             passing: false,
-            changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
           },
-          {
-            registry: testingRegistry,
-            runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-            }),
-            git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.yaml, [dirtyPath]),
-          },
+          runner,
+          stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, CONFIG_FILENAMES.yaml, [dirtyPath]),
         );
 
         expect(run.dispatch.exitCode).toBe(SUCCESS_EXIT_CODE);
@@ -628,7 +617,6 @@ export function registerTestScenarioTests(): void {
     it("rejects staged changed selection when an explicit target has dirty test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const [changedNodePath, explicitNodePath] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
       const changedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, changedNodePath),
@@ -637,39 +625,19 @@ export function registerTestScenarioTests(): void {
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, explicitNodePath),
       );
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, changedTestPath);
-        await writeTestFileFixture(productDir, explicitTestPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [nodeOperand(explicitNodePath)], recursive: false },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, changedTestPath, [explicitTestPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: changedTestPath,
+        dirtyWorktreePaths: [explicitTestPath],
+        targets: { operands: [nodeOperand(explicitNodePath)], recursive: false },
+        fixturePaths: [changedTestPath, explicitTestPath],
       });
     });
 
     it("rejects staged changed selection when a trailing-slash explicit target has dirty test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const [changedNodePath, explicitNodePath] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
       const changedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, changedNodePath),
@@ -678,39 +646,19 @@ export function registerTestScenarioTests(): void {
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, explicitNodePath),
       );
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, changedTestPath);
-        await writeTestFileFixture(productDir, explicitTestPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [`${nodeOperand(explicitNodePath)}/`], recursive: false },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, changedTestPath, [explicitTestPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: changedTestPath,
+        dirtyWorktreePaths: [explicitTestPath],
+        targets: { operands: [`${nodeOperand(explicitNodePath)}/`], recursive: false },
+        fixturePaths: [changedTestPath, explicitTestPath],
       });
     });
 
     it("rejects staged changed selection when a current-directory explicit target has dirty test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const [changedNodePath, explicitNodePath] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
       const changedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, changedNodePath),
@@ -720,74 +668,35 @@ export function registerTestScenarioTests(): void {
       );
       const explicitOperand = [".", nodeOperand(explicitNodePath)].join("/");
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, changedTestPath);
-        await writeTestFileFixture(productDir, explicitTestPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [explicitOperand], recursive: false },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, changedTestPath, [explicitTestPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: changedTestPath,
+        dirtyWorktreePaths: [explicitTestPath],
+        targets: { operands: [explicitOperand], recursive: false },
+        fixturePaths: [changedTestPath, explicitTestPath],
       });
     });
 
     it("rejects staged changed selection when a product-directory explicit target has dirty test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, testPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: ["."], recursive: false },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.yaml, [testPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: CONFIG_FILENAMES.yaml,
+        dirtyWorktreePaths: [testPath],
+        targets: { operands: ["."], recursive: false },
+        fixturePaths: [testPath],
       });
     });
 
     it("rejects staged changed selection when a backslash explicit target has dirty test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const [changedNodePath, explicitNodePath] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
       const changedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, changedNodePath),
@@ -797,39 +706,19 @@ export function registerTestScenarioTests(): void {
       );
       const explicitOperand = nodeOperand(explicitNodePath).replaceAll("/", "\\");
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, changedTestPath);
-        await writeTestFileFixture(productDir, explicitTestPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [explicitOperand], recursive: false },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, changedTestPath, [explicitTestPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: changedTestPath,
+        dirtyWorktreePaths: [explicitTestPath],
+        targets: { operands: [explicitOperand], recursive: false },
+        fixturePaths: [changedTestPath, explicitTestPath],
       });
     });
 
     it("rejects staged changed selection when a recursive explicit target has dirty descendant test files", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const stagedTestingConfig = `${TESTING_SECTION}: {}\n`;
       const [parentNodePath, descendantNodePath] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
       const changedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parentNodePath),
@@ -838,32 +727,13 @@ export function registerTestScenarioTests(): void {
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendantNodePath),
       );
 
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, changedTestPath);
-        await writeTestFileFixture(productDir, dirtyDescendantTestPath);
-
-        await expect(
-          runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [nodeOperand(parentNodePath)], recursive: true },
-              changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-            },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
-              }),
-              git: stagedConfigChangeGit(headSha, stagedTestingConfig, changedTestPath, [dirtyDescendantTestPath]),
-            },
-          ),
-        ).rejects.toThrow(CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR);
-
-        expect(invokedArgs(runner)).toEqual([]);
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: changedTestPath,
+        dirtyWorktreePaths: [dirtyDescendantTestPath],
+        targets: { operands: [nodeOperand(parentNodePath)], recursive: true },
+        fixturePaths: [changedTestPath, dirtyDescendantTestPath],
       });
     });
 
@@ -885,7 +755,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            git: stagedConfigChangeGit(headSha, `${TESTING_SECTION}: {}\n`, testPath),
+            git: stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, testPath),
           },
         );
 
@@ -910,7 +780,7 @@ export function registerTestScenarioTests(): void {
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
-              git: stagedConfigChangeGit(headSha, `${TESTING_SECTION}: {}\n`, changedSourcePath),
+              git: stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, changedSourcePath),
             },
           ),
         ).rejects.toThrow(CHANGED_TEST_RELATED_DEPS_ERROR);

@@ -538,8 +538,7 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
   const titleHeading = headingLines.at(0);
   if (
     normalizeLineEnding(lines[0]) !== CHANGELOG_TITLE
-    || titleHeading === undefined
-    || titleHeading.index !== 0
+    || titleHeading?.index !== 0
     || titleHeading.level !== MARKDOWN_HEADING_H1_LEVEL
     || titleHeading.text !== CHANGELOG_TITLE_TEXT
   ) {
@@ -815,8 +814,7 @@ function closesMarkdownFence(
   parsedFence: MarkdownFence | undefined,
 ): boolean {
   return (
-    parsedFence !== undefined
-    && parsedFence.marker === activeFence.marker
+    parsedFence?.marker === activeFence.marker
     && parsedFence.length >= activeFence.length
     && parsedFence.hasOnlyWhitespaceTail
   );
