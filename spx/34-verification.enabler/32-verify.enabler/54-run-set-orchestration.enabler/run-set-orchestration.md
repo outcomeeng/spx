@@ -15,7 +15,7 @@ CAN restore prior-run context, classify active/resolved/reopened findings, expos
 
 ### Properties
 
-- Finding identity is stable across display-only line movement when verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([test](tests/finding-identity.property.l1.test.ts))
+- Finding identity is stable across display-only line movement and producer releases when verification type, stable producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([test](tests/finding-identity.property.l1.test.ts))
 
 ### Compliance
 

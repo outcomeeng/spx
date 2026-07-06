@@ -10,7 +10,7 @@ Agentic verification improves across repeated local and CI runs only when produc
 
 1. A run set is addressed by merge-period identity, verification type, scope type, and a merge-period-stable run-set scope key; individual run scope identity remains run evidence and does not partition repeated runs inside the same merge period.
 2. A run-set projection exposes prior runs, current scope, active findings, resolved findings, reopened findings, and coverage gaps in a backend-neutral shape, and accepts type-specific filters before producer context is rendered.
-3. Finding identity is stable across line movement by combining verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint; line numbers are display metadata.
+3. Finding identity is stable across line movement and producer releases by combining verification type, stable producer identity, normalized subject, rule, and message or evidence fingerprint; line numbers and producer provenance are display metadata.
 
 ## Verification
 
@@ -19,7 +19,7 @@ Agentic verification improves across repeated local and CI runs only when produc
 - ALWAYS: run-set selection maps merge-period identity, verification type, scope type, and a merge-period-stable run-set scope key to the same backend-neutral run set across local and pull-request backends, while individual run scope identity remains run evidence ([mapping])
 - ALWAYS: run-set projection maps prior run evidence and current run evidence into active, resolved, reopened, and coverage-gap groups ([mapping])
 - ALWAYS: run-set context filters prior context by verification-type-provided selectors before presenting context to a producer ([mapping])
-- ALWAYS: finding identity remains stable when display-only line numbers change but verification type, structured producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([property])
+- ALWAYS: finding identity remains stable when display-only line numbers or producer provenance change but verification type, stable producer identity, normalized subject, rule, and message or evidence fingerprint remain unchanged ([property])
 - NEVER: prior-run context depends on parsing rendered pull-request comments, terminal output, or raw journal-event envelopes ([compliance])
 
 ### Audit
