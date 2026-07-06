@@ -288,11 +288,10 @@ export function transcriptHasAcceptedBranchCommand(content: string, branch: stri
 
 function gitCommandAssociatesBranch(command: string, branch: string): boolean {
   const words = shellWords(command);
-  const gitIndex = words.indexOf(AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE);
-  if (gitIndex < 0) {
+  if (words[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE) {
     return false;
   }
-  const args = words.slice(gitIndex + 1);
+  const args = words.slice(1);
   return gitSwitchCommandAssociatesBranch(args, branch)
     || gitCheckoutCommandAssociatesBranch(args, branch)
     || gitWorktreeAddCommandAssociatesBranch(args, branch);
