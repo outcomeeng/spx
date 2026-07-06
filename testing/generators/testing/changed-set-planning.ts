@@ -6,6 +6,7 @@ import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generator
 
 const PATH_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
+const PARENT_DIRECTORY_PREFIX = "..";
 const TSCONFIG_WILDCARD = "*";
 const SOURCE_ROOT = "src";
 const TESTING_ROOT = "testing";
@@ -59,6 +60,15 @@ export interface ChangedSetHarnessConsumersFixture {
   readonly tsconfigPaths: Readonly<Record<string, readonly string[]>>;
 }
 
+export interface ChangedSetAmbiguousCandidateFixture {
+  readonly directSourcePath: string;
+  readonly downstreamSourcePath: string;
+  readonly helperPath: string;
+  readonly importSpecifier: string;
+  readonly downstreamImportSpecifier: string;
+  readonly tsconfigPaths: Readonly<Record<string, readonly string[]>>;
+}
+
 export interface ChangedSetFixtureContent {
   readonly emptyTsconfig: string;
   readonly malformedTsconfig: string;
@@ -87,6 +97,7 @@ export const CHANGED_SET_PLANNING_GENERATOR = {
   readFailureFixture: arbitraryReadFailureFixture,
   fixturePaths: arbitraryFixturePaths,
   harnessConsumersFixture: arbitraryHarnessConsumersFixture,
+  ambiguousCandidateFixture: arbitraryAmbiguousCandidateFixture,
   content: fixtureContent,
 } as const;
 
@@ -329,6 +340,35 @@ function arbitraryHarnessConsumersFixture(): fc.Arbitrary<ChangedSetHarnessConsu
         tsconfigPaths: {
           ...first.tsconfigPaths,
           ...second.tsconfigPaths,
+        },
+      };
+    });
+}
+
+function arbitraryAmbiguousCandidateFixture(): fc.Arbitrary<ChangedSetAmbiguousCandidateFixture> {
+  return fc
+    .uniqueArray(arbitraryDomainLiteral(), {
+      minLength: 2,
+      maxLength: 2,
+    })
+    .map(([directSlug, downstreamSlug]) => {
+      const aliasRoot = aliasRootFor(directSlug);
+      return {
+        directSourcePath: sourceFilePath(SOURCE_ROOT, directSlug),
+        downstreamSourcePath: sourceFilePath(SOURCE_ROOT, downstreamSlug),
+        helperPath: [TESTING_ROOT, "harnesses", `${directSlug}${TYPESCRIPT_EXTENSION}`].join(PATH_SEPARATOR),
+        importSpecifier: `${aliasRoot}${PATH_SEPARATOR}${directSlug}`,
+        downstreamImportSpecifier: [
+          PARENT_DIRECTORY_PREFIX,
+          PARENT_DIRECTORY_PREFIX,
+          SOURCE_ROOT,
+          downstreamSlug,
+        ].join(PATH_SEPARATOR),
+        tsconfigPaths: {
+          [`${aliasRoot}${PATH_SEPARATOR}${TSCONFIG_WILDCARD}`]: [
+            `${CURRENT_DIRECTORY_PREFIX}${PATH_SEPARATOR}${SOURCE_ROOT}${PATH_SEPARATOR}${TSCONFIG_WILDCARD}`,
+            `${CURRENT_DIRECTORY_PREFIX}${PATH_SEPARATOR}${TESTING_ROOT}${PATH_SEPARATOR}harnesses${PATH_SEPARATOR}${TSCONFIG_WILDCARD}`,
+          ],
         },
       };
     });

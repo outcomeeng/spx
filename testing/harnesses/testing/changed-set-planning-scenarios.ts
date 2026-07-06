@@ -630,6 +630,33 @@ helper;
       expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 
+    it("keeps traversing alternate candidates after a direct source match", async () => {
+      const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.ambiguousCandidateFixture());
+      const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+      const git = stagedSourceCandidatesGitRunner(
+        [fixture.directSourcePath, fixture.downstreamSourcePath],
+        new Map([
+          [
+            paths.testPath,
+            changedSetImportStatement(fixture.importSpecifier),
+          ],
+          [
+            fixture.helperPath,
+            changedSetImportStatement(fixture.downstreamImportSpecifier),
+          ],
+        ]),
+        tsconfigWithPaths(fixture.tsconfigPaths),
+      );
+
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    });
+
     it("resolves tsconfig alias directory imports to changed source index modules", async () => {
       const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.indexAliasFixture());
       const { paths, plan } = await planStagedAliasFixture(fixture);
