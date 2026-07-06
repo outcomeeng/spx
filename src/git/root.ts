@@ -197,6 +197,7 @@ export const GIT_WORKTREE_LIST_PORCELAIN_ARGS = [
 ] as const;
 
 export const GIT_WORKTREE_PORCELAIN_ROOT_PREFIX = "worktree ";
+export const GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX = "branch refs/heads/";
 export const GIT_WORKTREE_PORCELAIN_BARE_LINE = "bare";
 export const GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE = "prunable";
 export const GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX = `${GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE} `;
@@ -474,7 +475,7 @@ export function repositoryName(originUrl: string | null): string | null {
   return name.length === 0 ? null : name;
 }
 
-function normalizeGitPath(path: string): string {
+export function normalizeGitPath(path: string): string {
   return stripTrailingPathSeparators(path.trim());
 }
 

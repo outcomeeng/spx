@@ -65,6 +65,10 @@ export const AGENT_SESSION_JSON_FIELDS = {
   TIMESTAMP: "timestamp",
   TYPE: "type",
   CWD: "cwd",
+  COMMAND: "command",
+  EXIT_CODE: "exitCode",
+  STATUS: "status",
+  SUCCESS: "success",
   ORIGINATOR: "originator",
   SOURCE: "source",
   SESSION_ID: "session_id",
@@ -75,6 +79,24 @@ export const AGENT_SESSION_JSON_FIELDS = {
   BRANCH: "branch",
   GIT_BRANCH: "gitBranch",
   THREAD_SOURCE: "thread_source",
+} as const;
+
+export const AGENT_TRANSCRIPT_COMMAND_STATUS = {
+  FAILED: "failed",
+  FAILURE: "failure",
+  ERROR: "error",
+} as const;
+
+export const AGENT_TRANSCRIPT_GIT_COMMAND = {
+  EXECUTABLE: "git",
+  SWITCH: "switch",
+  CHECKOUT: "checkout",
+  WORKTREE: "worktree",
+  ADD: "add",
+  CREATE_BRANCH_SHORT: "-b",
+  CREATE_BRANCH_LONG: "-c",
+  DETACH: "--detach",
+  ORPHAN: "--orphan",
 } as const;
 
 export const AGENT_SESSION_ROW_TYPE = {
