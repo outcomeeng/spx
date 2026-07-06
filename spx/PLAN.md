@@ -26,6 +26,15 @@ The target model has five top-level area roles, ordered by target dependency rea
 | 4     | Interfaces   | Stable consumption contracts over domains or capabilities.                                  | Interface-neutral parts of `spx/31-spec-domain.enabler`, verification-run contracts, future API/MCP contracts.                                            |
 | 5     | Surfaces     | Concrete CLI, MCP, web API, and UI interaction boundaries.                                  | `spx/60-surfaces.enabler`, CLI wrapper children currently scattered under domain nodes.                                                                   |
 
+### Ordering Evidence
+
+| Provider     | Consumer     | Basis                   | Evidence                                                                                                                        | Consequence if absent                                                                                            | Verdict |
+| ------------ | ------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------- |
+| Substrate    | Capabilities | Shared substrate        | `spx/spx.product.md` defines SPX as a deterministic harness over local commands, repository files, `.spx/` files, and CI.       | Reusable product behavior cannot execute repeatably without runtime, process, filesystem, Git, and CI mechanics. | Ordered |
+| Capabilities | Domains      | Provider/consumer       | The target vocabulary classifies domains as semantically composed product workflows and rules over capabilities.                | Domain workflows would own reusable lower-level behavior themselves, recreating the fused-node problem.          | Ordered |
+| Domains      | Interfaces   | Provider/consumer       | `spx/spx.product.md` names CLI, MCP, web API, UI, and verification participants as consumers of deterministic product behavior. | Stable API or protocol contracts would have no governed workflow behavior to expose.                             | Ordered |
+| Interfaces   | Surfaces     | Vertical-slice delivery | CLI, MCP, web API, and UI surfaces are concrete consumption boundaries; the target model keeps reusable contracts below them.   | Surface nodes would own reusable contracts and product semantics instead of binding concrete interactions.       | Ordered |
+
 No new suffix is valid merely because this projection names an area role. SPX must support configured node kinds and methodology context injection before any target suffix migration begins.
 
 ## Active Migration Rows
