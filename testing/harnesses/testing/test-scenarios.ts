@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import {
   CHANGED_TEST_RELATED_DEPS_ERROR,
@@ -1075,3 +1075,5 @@ export function registerTestScenarioTests(): void {
     });
   });
 }
+
+export const testScenarioCases = collectHarnessTestCases(registerTestScenarioTests);

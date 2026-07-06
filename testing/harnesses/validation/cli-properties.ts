@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { VALIDATION_CLI_GENERATOR, VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -32,3 +32,5 @@ export function registerValidationCliPropertyTests(): void {
     );
   });
 }
+
+export const validationCliPropertyCases = collectHarnessTestCases(registerValidationCliPropertyTests);

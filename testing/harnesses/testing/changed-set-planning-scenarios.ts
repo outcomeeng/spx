@@ -1,5 +1,5 @@
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
 
 import {
   CHANGED_TEST_DIFF_CACHED_FLAG,
@@ -909,3 +909,5 @@ helper;
     });
   });
 }
+
+export const changedSetPlanningScenarioCases = collectHarnessTestCases(registerChangedSetPlanningScenarioTests);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import type { ReleaseData } from "@/domains/release/release-data";
 import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
@@ -97,3 +97,5 @@ export function registerReleaseNotesConformanceTests(): void {
     }
   });
 }
+
+export const releaseNotesConformanceCases = collectHarnessTestCases(registerReleaseNotesConformanceTests);

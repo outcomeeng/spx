@@ -1,5 +1,5 @@
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
 
 import { mergeChangedSetOperands, partitionChangedPaths } from "@/domains/test/changed-set-planning";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";
@@ -104,3 +104,5 @@ export function registerChangedSetPlanningPropertyTests(): void {
     });
   });
 }
+
+export const changedSetPlanningPropertyCases = collectHarnessTestCases(registerChangedSetPlanningPropertyTests);

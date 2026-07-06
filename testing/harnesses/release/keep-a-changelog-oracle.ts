@@ -48,7 +48,10 @@ export function independentKeepAChangelogConformance(notes: string, version: str
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
-  return line?.endsWith(CARRIAGE_RETURN) === true ? line.slice(0, -1) : line;
+  if (line === undefined) {
+    return undefined;
+  }
+  return line.endsWith(CARRIAGE_RETURN) ? line.slice(0, -1) : line;
 }
 
 function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[] {
