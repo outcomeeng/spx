@@ -59,6 +59,7 @@ export interface ChangedTestSelectionOptions {
 export interface ChangedTestSelection {
   readonly targets: TargetSelection;
   readonly dirtyTargets: TargetSelection;
+  readonly fullTreeSelected: boolean;
   readonly baseRef: string;
   readonly baseSha: string;
   readonly headSha: string;
@@ -247,6 +248,7 @@ export async function planChangedTestSelection(
       operands: partition.productInputChanged ? [SPEC_ROOT_OPERAND] : dirtyOperands,
       recursive: partition.productInputChanged || partition.operands.length > 0,
     },
+    fullTreeSelected: partition.productInputChanged,
     baseRef,
     baseSha,
     headSha,
