@@ -30,6 +30,7 @@ const ORACLE_MARKDOWN_FENCE_TILDE_MARKER = "~~~";
 const ORACLE_MARKDOWN_FENCE_INFO_STRING = "ts";
 const ORACLE_MARKDOWN_HTML_BLOCK_OPEN = "<div>";
 const ORACLE_MARKDOWN_HTML_BLOCK_CLOSE = "</div>";
+const ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG = "<br/>";
 const ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN = "<script>";
 const ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE = "</script>";
 const ORACLE_MARKDOWN_TEXTAREA_BLOCK_OPEN = "<textarea>";
@@ -288,6 +289,21 @@ export function conformantChangelogWithHtmlBlockTerminatedByBlankLine(
   ].join(LINE_SEPARATOR);
 }
 
+export function conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG,
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 /** A non-conformant changelog body paired with the structural defect it carries. */
 export interface NonConformantChangelogCase {
   /** A description of the defect, for the test title. */
@@ -350,6 +366,17 @@ export function sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase():
   return {
     releaseData,
     content: conformantChangelogWithHtmlBlockTerminatedByBlankLine(
+      releaseData.version,
+      subjects,
+    ),
+  };
+}
+
+export function sampleStandaloneInlineHtmlReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
       releaseData.version,
       subjects,
     ),

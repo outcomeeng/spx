@@ -117,6 +117,70 @@ const MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN = String.raw`\s*`;
 const MARKDOWN_HTML_BLOCK_CLOSE_LINE_START = "^";
 const MARKDOWN_HTML_BLOCK_CLOSE_LINE_END = "$";
 const MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS = new Set(["pre", "script", "style", "textarea"]);
+const MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS = new Set([
+  "address",
+  "article",
+  "aside",
+  "base",
+  "basefont",
+  "blockquote",
+  "body",
+  "caption",
+  "center",
+  "col",
+  "colgroup",
+  "dd",
+  "details",
+  "dialog",
+  "dir",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "frame",
+  "frameset",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "head",
+  "header",
+  "hr",
+  "html",
+  "iframe",
+  "legend",
+  "li",
+  "link",
+  "main",
+  "menu",
+  "menuitem",
+  "nav",
+  "noframes",
+  "ol",
+  "optgroup",
+  "option",
+  "p",
+  "param",
+  "search",
+  "section",
+  "summary",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "title",
+  "tr",
+  "track",
+  "ul",
+]);
 const MARKDOWN_HTML_COMMENT_OPEN = "<!--";
 const MARKDOWN_HTML_COMMENT_CLOSE = "-->";
 const MARKDOWN_PROCESSING_INSTRUCTION_OPEN = "<?";
@@ -749,10 +813,17 @@ function parseMarkdownFence(line: string): MarkdownFence | undefined {
 }
 
 function parseMarkdownHtmlBlockTag(line: string): string | undefined {
-  return (
+  const tagName = (
     MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line)?.[1]
       ?? MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.exec(line)?.[1]
   )?.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
+  if (tagName === undefined) {
+    return undefined;
+  }
+  return MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
+      || MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS.has(tagName)
+    ? tagName
+    : undefined;
 }
 
 function parseMarkdownHtmlDeclarationClose(line: string): string | undefined {

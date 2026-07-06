@@ -42,6 +42,7 @@ import {
   type ChangedSetAliasFixture,
   type ChangedSetFixturePaths,
   changedSetImportStatement,
+  type ChangedSetRenameFixture,
   sampleChangedSetPlanningValue,
   tsconfigWithPaths,
 } from "@testing/generators/testing/changed-set-planning";
@@ -478,24 +479,14 @@ export function registerChangedSetPlanningScenarioTests(): void {
     });
 
     it("selects descendant evidence for changed nodes without forwarding no-test node operands", async () => {
-      const changedParentNode = "spx/33-renamed-target.enabler";
-      const changedNoTestNode = `${changedParentNode}/21-instructions.enabler`;
-      const changedChildNode = `${changedParentNode}/32-tested-child.enabler`;
-      const removedParentNode = "spx/33-renamed-source.enabler";
-      const removedNoTestNode = `${removedParentNode}/21-instructions.enabler`;
-      const parentTestPath = `${changedParentNode}/tests/renamed-target.compliance.l1.test.ts`;
-      const childTestPath = `${changedChildNode}/tests/tested-child.scenario.l1.test.ts`;
-      const git = recordingGitRunner([
-        `${removedParentNode}/renamed-source.md`,
-        `${removedNoTestNode}/agent-instructions.md`,
-        `${changedParentNode}/renamed-target.md`,
-        `${changedNoTestNode}/agent-instructions.md`,
-        `${changedChildNode}/tested-child.md`,
-      ]);
+      const fixture: ChangedSetRenameFixture = sampleChangedSetPlanningValue(
+        CHANGED_SET_PLANNING_GENERATOR.renameFixture(),
+      );
+      const git = recordingGitRunner(fixture.changedPaths);
 
       await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, parentTestPath);
-        await writeTestFileFixture(productDir, childTestPath);
+        await writeTestFileFixture(productDir, fixture.parentTestPath);
+        await writeTestFileFixture(productDir, fixture.childTestPath);
 
         const plan = await planChangedTestSelection(
           { productDir },
@@ -503,12 +494,12 @@ export function registerChangedSetPlanningScenarioTests(): void {
         );
 
         expect(plan.targets).toEqual({
-          operands: nativeStringOrder([parentTestPath, childTestPath]),
+          operands: nativeStringOrder([fixture.parentTestPath, fixture.childTestPath]),
           recursive: false,
         });
-        expect(plan.targets.operands).not.toContain(changedNoTestNode);
-        expect(plan.targets.operands).not.toContain(removedNoTestNode);
-        expect(plan.targets.operands).not.toContain(removedParentNode);
+        expect(plan.targets.operands).not.toContain(fixture.changedNoTestNode);
+        expect(plan.targets.operands).not.toContain(fixture.removedNoTestNode);
+        expect(plan.targets.operands).not.toContain(fixture.removedParentNode);
       });
     });
 
