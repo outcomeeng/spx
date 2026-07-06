@@ -41,6 +41,7 @@ import { verificationContextFilePath } from "@/domains/verification-context/path
 import {
   findTerminalEvent,
   TERMINAL_METADATA_VALIDATION_ERROR,
+  VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_INPUT_RECORD,
   VERIFY_INPUT_SOURCE,
@@ -1264,10 +1265,10 @@ export async function assertAppendPayloadChannelDoesNotReuseRunInput(): Promise<
     (event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE,
   );
   expect(scopeEvents).toHaveLength(1);
-  const recordedEvent = JSON.stringify(scopeEvents[0]?.data);
-  for (const value of Object.values(scopePayload)) {
-    expect(recordedEvent).toContain(value);
-  }
+  expect(scopeEvents[0]?.data).toEqual({
+    [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: key,
+    [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: scopePayload,
+  });
 }
 
 export async function assertAppendIdempotencyKeyRequiredForEveryAppendVerb(): Promise<void> {
@@ -1644,7 +1645,10 @@ export async function assertFinishStatusAndRenderProjectTerminalMetadata(): Prom
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
   const runToken = await startedRunToken(scenario, deps);
-  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+  const terminalMetadata = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata()),
+    body: "",
+  };
   const terminalMetadataPayload = { ...terminalMetadata, ignored: scenario.inputContent };
   const finish = await verifyFinishCommand(
     {

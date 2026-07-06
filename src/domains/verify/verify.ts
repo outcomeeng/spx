@@ -348,20 +348,53 @@ function readRequiredString(
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function readOptionalString(
+function readRequiredStringValue(
   record: { readonly [key: string]: JsonValue },
   field: string,
 ): string | undefined {
   const value = record[field];
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+const OPTIONAL_FIELD_STATE = {
+  ABSENT: "absent",
+  INVALID: "invalid",
+  PRESENT: "present",
+} as const;
+
+type OptionalField<T> =
+  | { readonly state: typeof OPTIONAL_FIELD_STATE.ABSENT }
+  | { readonly state: typeof OPTIONAL_FIELD_STATE.INVALID }
+  | { readonly state: typeof OPTIONAL_FIELD_STATE.PRESENT; readonly value: T };
+
+function readOptionalString(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): OptionalField<string> {
+  if (!(field in record)) return { state: OPTIONAL_FIELD_STATE.ABSENT };
+  const value = record[field];
+  return typeof value === "string" && value.length > 0
+    ? { state: OPTIONAL_FIELD_STATE.PRESENT, value }
+    : { state: OPTIONAL_FIELD_STATE.INVALID };
 }
 
 function readOptionalPositiveInteger(
   record: { readonly [key: string]: JsonValue },
   field: string,
-): number | undefined {
+): OptionalField<number> {
+  if (!(field in record)) return { state: OPTIONAL_FIELD_STATE.ABSENT };
   const value = record[field];
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? { state: OPTIONAL_FIELD_STATE.PRESENT, value }
+    : { state: OPTIONAL_FIELD_STATE.INVALID };
+}
+
+function optionalFieldValue<T>(field: OptionalField<T>): T | undefined {
+  return field.state === OPTIONAL_FIELD_STATE.PRESENT ? field.value : undefined;
+}
+
+function hasInvalidOptionalField(...fields: readonly OptionalField<unknown>[]): boolean {
+  return fields.some((field) => field.state === OPTIONAL_FIELD_STATE.INVALID);
 }
 
 function isReviewFindingDisposition(
@@ -424,9 +457,14 @@ export function validateReviewFinding(
   if (finding === undefined) return undefined;
   const line = readOptionalPositiveInteger(payload, "line");
   const position = readOptionalPositiveInteger(payload, "position");
-  if (line === undefined && position === undefined) return undefined;
   const providerIdentity = readOptionalString(payload, "providerIdentity");
   const url = readOptionalString(payload, "url");
+  if (hasInvalidOptionalField(line, position, providerIdentity, url)) return undefined;
+  const lineValue = optionalFieldValue(line);
+  const positionValue = optionalFieldValue(position);
+  if (lineValue === undefined && positionValue === undefined) return undefined;
+  const providerIdentityValue = optionalFieldValue(providerIdentity);
+  const urlValue = optionalFieldValue(url);
   return {
     path,
     side,
@@ -434,10 +472,10 @@ export function validateReviewFinding(
     diffHunk,
     body,
     finding,
-    ...(providerIdentity === undefined ? {} : { providerIdentity }),
-    ...(line === undefined ? {} : { line }),
-    ...(position === undefined ? {} : { position }),
-    ...(url === undefined ? {} : { url }),
+    ...(providerIdentityValue === undefined ? {} : { providerIdentity: providerIdentityValue }),
+    ...(lineValue === undefined ? {} : { line: lineValue }),
+    ...(positionValue === undefined ? {} : { position: positionValue }),
+    ...(urlValue === undefined ? {} : { url: urlValue }),
   };
 }
 
@@ -453,22 +491,27 @@ export function validateReviewScope(payload: JsonValue): ReviewScopeUnit | undef
   const position = readOptionalPositiveInteger(payload, "position");
   const providerIdentity = readOptionalString(payload, "providerIdentity");
   const url = readOptionalString(payload, "url");
+  if (hasInvalidOptionalField(line, position, providerIdentity, url)) return undefined;
+  const lineValue = optionalFieldValue(line);
+  const positionValue = optionalFieldValue(position);
+  const providerIdentityValue = optionalFieldValue(providerIdentity);
+  const urlValue = optionalFieldValue(url);
   return {
     path,
     side,
     commit,
     coverageState,
-    ...(providerIdentity === undefined ? {} : { providerIdentity }),
-    ...(line === undefined ? {} : { line }),
-    ...(position === undefined ? {} : { position }),
-    ...(url === undefined ? {} : { url }),
+    ...(providerIdentityValue === undefined ? {} : { providerIdentity: providerIdentityValue }),
+    ...(lineValue === undefined ? {} : { line: lineValue }),
+    ...(positionValue === undefined ? {} : { position: positionValue }),
+    ...(urlValue === undefined ? {} : { url: urlValue }),
   };
 }
 
 export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTerminalMetadata | undefined {
   if (!isJsonRecord(payload)) return undefined;
   const actor = readRequiredString(payload, "actor");
-  const body = readRequiredString(payload, "body");
+  const body = readRequiredStringValue(payload, "body");
   const submittedAt = readRequiredString(payload, "submittedAt");
   const commit = readRequiredString(payload, "commit");
   const { state } = payload;
@@ -476,14 +519,17 @@ export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTermin
   if (!isReviewTerminalState(state)) return undefined;
   const providerIdentity = readOptionalString(payload, "providerIdentity");
   const url = readOptionalString(payload, "url");
+  if (hasInvalidOptionalField(providerIdentity, url)) return undefined;
+  const providerIdentityValue = optionalFieldValue(providerIdentity);
+  const urlValue = optionalFieldValue(url);
   return {
     actor,
     state,
     body,
     submittedAt,
     commit,
-    ...(providerIdentity === undefined ? {} : { providerIdentity }),
-    ...(url === undefined ? {} : { url }),
+    ...(providerIdentityValue === undefined ? {} : { providerIdentity: providerIdentityValue }),
+    ...(urlValue === undefined ? {} : { url: urlValue }),
   };
 }
 
