@@ -6,15 +6,15 @@
 
 Before applying this plan to agent-run journal generators, hook/session helpers, or agent-facing infrastructure, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep test harness and Node runtime wording distinct from the agent harness vocabulary.
 
-This coordination note records the infrastructure part of the top-level methodology repair.
+This coordination note records the infrastructure part of the root migration plan.
 
 ## Ownership target
 
-Infrastructure should own runtime and operational mechanics. The top-level record should define methodology vocabulary, while infrastructure owns how the product enforces runtime choices.
+Infrastructure should own runtime and operational mechanics. External Outcome Engineering methodology owns shared methodology vocabulary; SPX will consume that vocabulary through structured configuration and context injection once that support exists.
 
 ## Candidate move
 
-Move or re-author the mechanics currently in `spx/12-node-runtime.adr.md` under infrastructure if `/decompose` confirms the top-level methodology PDR covers the product-wide vocabulary reach.
+Move or re-author the mechanics currently in `spx/12-node-runtime.adr.md` under infrastructure if `/decompose` confirms the product-wide vocabulary reach is preserved through the configured methodology source or another valid product decision.
 
 Candidate homes:
 
@@ -24,7 +24,7 @@ Candidate homes:
 
 ## Rule for the move
 
-Do not lose product-wide reach accidentally. If runtime remains a product-wide guarantee, preserve it through the top-level methodology PDR or another top-level product decision while moving implementation mechanics under infrastructure.
+Do not lose product-wide reach accidentally. If runtime remains a product-wide guarantee, preserve it through the configured methodology source or another valid product decision while moving implementation mechanics under infrastructure.
 
 ## Next steps
 

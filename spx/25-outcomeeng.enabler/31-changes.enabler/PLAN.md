@@ -1,6 +1,6 @@
 # PLAN
 
-> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar and the first domain build, after the vocabulary reservation (root `spx/PLAN.md` delivery-order step 2) that the change-store's durable `records` consumers require — build `change-store` + its worktree records backend + `.spx/changes/` scope addressing (steps 3, 4, 6 below) before the `.surface` CLI, which is deferred (low value, disruptive). The corrected model separates `persistence` (records / journals / snapshots) from `backend` (was "materialization") and `delivery`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar for durable change records: build `change-store` + its worktree records backend + `.spx/changes/` scope addressing before the `.surface` CLI, which is deferred until SPX supports configured node kinds, methodology context injection, and target suffix readiness. The corrected model separates `persistence` (records / journals / snapshots) from `backend` and `delivery`. Where this note predates that model, the root plan governs.
 
 ## Harness vocabulary guard
 
@@ -29,15 +29,20 @@ Session-domain cleanup stays under `spx/36-session.enabler/PLAN.md` until a late
 
 ### First implementation slice
 
-> Sequencing per the root `spx/PLAN.md` and the reconciliation header above: `.surface` is deferred, so do steps 3, 4, 6 (scope addressing, the worktree records backend, the change-store) first; steps 1, 2, 5, 7 (the `.surface` node kind and its CLI surface) come later.
+Sequencing per the root `spx/PLAN.md` and the reconciliation header above: `.surface` is deferred. The first executable slice is:
+
+1. Extend `spx/18-state.enabler/32-scope-addressing.enabler` with `.spx/changes/` shared scope addressing before implementing the worktree backend.
+2. Create `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler`.
+3. Implement the change-store fields and query semantics governed by `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md`.
+
+### Parked surface slice
+
+Re-enter this slice only after SPX supports configured node kinds, methodology context injection, and target suffix readiness:
 
 1. Update the spec-tree filename grammar, kind registry, validation model, and naming-schema version so `.surface` is a recognized canonical node suffix.
-2. Add the `surface` node type to the spec-tree methodology after the grammar can recognize it.
-3. Extend `spx/18-state.enabler/32-scope-addressing.enabler` with `.spx/changes/` shared scope addressing before implementing the worktree backend.
-4. Create `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler`.
-5. Create `spx/45-cli.surface/28-changes-cli.surface`.
-6. Implement the change-store fields and query semantics governed by `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md`.
-7. Expose change records through JSON and text surfaces after the CLI surface exists.
+2. Add the `surface` node type to the configured methodology after the grammar can recognize it.
+3. Create the future CLI surface node for `spx change` commands.
+4. Expose change records through JSON and text surfaces after the CLI surface exists.
 
 ### Open structure questions
 
