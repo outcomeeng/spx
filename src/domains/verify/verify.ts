@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
-import { isJournalRunStateStatus } from "@/domains/journal/run-state";
+import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
@@ -65,15 +65,95 @@ export const REVIEW_FINDING_DISPOSITION = {
 
 export type ReviewFindingDisposition = (typeof REVIEW_FINDING_DISPOSITION)[keyof typeof REVIEW_FINDING_DISPOSITION];
 
-/**
- * A validated `review` verification finding: the receiver-action disposition and the finding
- * summary. `spx verification run finding add` validates this shape at the boundary so callers do not
- * carry review-specific schema validation outside SPX.
- */
-export interface ReviewFinding {
+export interface ReviewFindingMetadata {
   readonly disposition: ReviewFindingDisposition;
   readonly summary: string;
 }
+
+/**
+ * A validated `review` verification finding: a platform-neutral anchored review comment plus the
+ * SPX receiver-action metadata that makes the comment a finding.
+ */
+export interface ReviewFinding {
+  readonly path: string;
+  readonly side: ReviewAnchorSide;
+  readonly originalCommit: string;
+  readonly diffHunk: string;
+  readonly body: string;
+  readonly finding: ReviewFindingMetadata;
+  readonly providerIdentity?: string;
+  readonly line?: number;
+  readonly position?: number;
+  readonly url?: string;
+}
+
+export const REVIEW_SCOPE_COVERAGE_STATE = {
+  CLEAN: "clean",
+  FINDING: "finding",
+} as const;
+
+export type ReviewScopeCoverageState = (typeof REVIEW_SCOPE_COVERAGE_STATE)[keyof typeof REVIEW_SCOPE_COVERAGE_STATE];
+
+export const REVIEW_ANCHOR_SIDE = {
+  LEFT: "LEFT",
+  RIGHT: "RIGHT",
+} as const;
+
+export type ReviewAnchorSide = (typeof REVIEW_ANCHOR_SIDE)[keyof typeof REVIEW_ANCHOR_SIDE];
+
+export const REVIEW_TERMINAL_STATE = {
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  COMMENTED: "commented",
+} as const;
+
+export type ReviewTerminalState = (typeof REVIEW_TERMINAL_STATE)[keyof typeof REVIEW_TERMINAL_STATE];
+
+export interface ReviewScopeUnit {
+  readonly path: string;
+  readonly side: ReviewAnchorSide;
+  readonly commit: string;
+  readonly coverageState: ReviewScopeCoverageState;
+  readonly providerIdentity?: string;
+  readonly line?: number;
+  readonly position?: number;
+  readonly url?: string;
+}
+
+export interface ReviewTerminalMetadata {
+  readonly actor: string;
+  readonly state: ReviewTerminalState;
+  readonly body: string;
+  readonly submittedAt: string;
+  readonly commit: string;
+  readonly providerIdentity?: string;
+  readonly url?: string;
+}
+
+export interface TerminalValidationInput {
+  readonly terminalStatus: string;
+  readonly metadata: JsonValue;
+}
+
+export const TERMINAL_METADATA_VALIDATION_ERROR = {
+  METADATA_INVALID: "metadata-invalid",
+  STATUS_CONFLICT: "status-conflict",
+} as const;
+
+export type TerminalMetadataValidationError =
+  (typeof TERMINAL_METADATA_VALIDATION_ERROR)[keyof typeof TERMINAL_METADATA_VALIDATION_ERROR];
+
+export type TerminalMetadataValidationResult =
+  | { readonly ok: true; readonly value: JsonValue }
+  | { readonly ok: false; readonly error: TerminalMetadataValidationError };
+
+export const VERIFY_EVIDENCE_KIND = {
+  SCOPE: "scope",
+  FINDING: "finding",
+  TERMINAL_METADATA: "terminal-metadata",
+} as const;
+
+export type VerifyEvidenceKind = (typeof VERIFY_EVIDENCE_KIND)[keyof typeof VERIFY_EVIDENCE_KIND];
 
 /** The CloudEvents `type` each append verb records, distinguishing inspected scope from findings. */
 export const VERIFY_APPEND_EVENT_TYPE = {
@@ -260,6 +340,30 @@ function isJsonRecord(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function readRequiredString(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readOptionalString(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): string | undefined {
+  const value = record[field];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readOptionalPositiveInteger(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): number | undefined {
+  const value = record[field];
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
 function isReviewFindingDisposition(
   value: JsonValue | undefined,
 ): value is ReviewFindingDisposition {
@@ -268,19 +372,33 @@ function isReviewFindingDisposition(
   ).includes(value as string);
 }
 
-/** A verification type's finding-payload validator: returns the typed finding, or `undefined` when invalid. */
-export type FindingValidator = (
-  payload: JsonValue,
-) => ReviewFinding | undefined;
+function isReviewScopeCoverageState(
+  value: JsonValue | undefined,
+): value is ReviewScopeCoverageState {
+  return (
+    typeof value === "string"
+    && (Object.values(REVIEW_SCOPE_COVERAGE_STATE) as readonly string[]).includes(value)
+  );
+}
 
-/**
- * Validate a `review` finding payload: it must be an object carrying a known receiver-action
- * disposition and a non-empty summary. Any other shape is rejected so callers do not carry
- * review-specific schema validation outside SPX.
- */
-export function validateReviewFinding(
-  payload: JsonValue,
-): ReviewFinding | undefined {
+function isReviewAnchorSide(value: JsonValue | undefined): value is ReviewAnchorSide {
+  return (
+    typeof value === "string"
+    && (Object.values(REVIEW_ANCHOR_SIDE) as readonly string[]).includes(value)
+  );
+}
+
+function isReviewTerminalState(value: JsonValue | undefined): value is ReviewTerminalState {
+  return (
+    typeof value === "string"
+    && (Object.values(REVIEW_TERMINAL_STATE) as readonly string[]).includes(value)
+  );
+}
+
+export type EvidenceValidator = (payload: JsonValue) => unknown | undefined;
+export type TerminalMetadataValidator = (input: TerminalValidationInput) => TerminalMetadataValidationResult;
+
+function readReviewFindingMetadata(payload: JsonValue | undefined): ReviewFindingMetadata | undefined {
   if (!isJsonRecord(payload)) return undefined;
   const { disposition, summary } = payload;
   if (!isReviewFindingDisposition(disposition)) return undefined;
@@ -288,23 +406,149 @@ export function validateReviewFinding(
   return { disposition, summary };
 }
 
+/** Validate a `review` finding payload as a platform-neutral anchored review comment. */
+export function validateReviewFinding(
+  payload: JsonValue,
+): ReviewFinding | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const path = readRequiredString(payload, "path");
+  const originalCommit = readRequiredString(payload, "originalCommit");
+  const diffHunk = readRequiredString(payload, "diffHunk");
+  const body = readRequiredString(payload, "body");
+  const { side } = payload;
+  const finding = readReviewFindingMetadata(payload.finding);
+  if (path === undefined || originalCommit === undefined || diffHunk === undefined || body === undefined) {
+    return undefined;
+  }
+  if (!isReviewAnchorSide(side)) return undefined;
+  if (finding === undefined) return undefined;
+  const line = readOptionalPositiveInteger(payload, "line");
+  const position = readOptionalPositiveInteger(payload, "position");
+  if (line === undefined && position === undefined) return undefined;
+  const providerIdentity = readOptionalString(payload, "providerIdentity");
+  const url = readOptionalString(payload, "url");
+  return {
+    path,
+    side,
+    originalCommit,
+    diffHunk,
+    body,
+    finding,
+    ...(providerIdentity === undefined ? {} : { providerIdentity }),
+    ...(line === undefined ? {} : { line }),
+    ...(position === undefined ? {} : { position }),
+    ...(url === undefined ? {} : { url }),
+  };
+}
+
+export function validateReviewScope(payload: JsonValue): ReviewScopeUnit | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const path = readRequiredString(payload, "path");
+  const commit = readRequiredString(payload, "commit");
+  const { side, coverageState } = payload;
+  if (path === undefined || commit === undefined) return undefined;
+  if (!isReviewAnchorSide(side)) return undefined;
+  if (!isReviewScopeCoverageState(coverageState)) return undefined;
+  const line = readOptionalPositiveInteger(payload, "line");
+  const position = readOptionalPositiveInteger(payload, "position");
+  const providerIdentity = readOptionalString(payload, "providerIdentity");
+  const url = readOptionalString(payload, "url");
+  return {
+    path,
+    side,
+    commit,
+    coverageState,
+    ...(providerIdentity === undefined ? {} : { providerIdentity }),
+    ...(line === undefined ? {} : { line }),
+    ...(position === undefined ? {} : { position }),
+    ...(url === undefined ? {} : { url }),
+  };
+}
+
+export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTerminalMetadata | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const actor = readRequiredString(payload, "actor");
+  const body = readRequiredString(payload, "body");
+  const submittedAt = readRequiredString(payload, "submittedAt");
+  const commit = readRequiredString(payload, "commit");
+  const { state } = payload;
+  if (actor === undefined || body === undefined || submittedAt === undefined || commit === undefined) return undefined;
+  if (!isReviewTerminalState(state)) return undefined;
+  const providerIdentity = readOptionalString(payload, "providerIdentity");
+  const url = readOptionalString(payload, "url");
+  return {
+    actor,
+    state,
+    body,
+    submittedAt,
+    commit,
+    ...(providerIdentity === undefined ? {} : { providerIdentity }),
+    ...(url === undefined ? {} : { url }),
+  };
+}
+
+export function validateReviewTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
+  const validated = validateReviewTerminalMetadata(input.metadata);
+  if (validated === undefined) return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+  const expectedStatus = expectedTerminalStatusForReview(validated);
+  if (expectedStatus !== undefined && input.terminalStatus !== expectedStatus) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+  }
+  return {
+    ok: true,
+    value: {
+      actor: validated.actor,
+      state: validated.state,
+      body: validated.body,
+      submittedAt: validated.submittedAt,
+      commit: validated.commit,
+      ...(validated.providerIdentity === undefined ? {} : { providerIdentity: validated.providerIdentity }),
+      ...(validated.url === undefined ? {} : { url: validated.url }),
+    },
+  };
+}
+
 /**
- * The finding-validator registry keyed by verification type. Dispatch is a registry lookup, not
- * verification-type-name branching; a new verification type registers a validator here.
+ * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
+ * registry lookup, not verification-type-name branching; a new verification type registers
+ * validators here.
  */
-const FINDING_VALIDATORS: Readonly<
-  Record<VerifyVerificationType, FindingValidator>
+const EVIDENCE_VALIDATORS: Readonly<
+  Record<
+    VerifyVerificationType,
+    Readonly<{
+      readonly [VERIFY_EVIDENCE_KIND.SCOPE]: EvidenceValidator | undefined;
+      readonly [VERIFY_EVIDENCE_KIND.FINDING]: EvidenceValidator | undefined;
+      readonly [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: TerminalMetadataValidator | undefined;
+    }>
+  >
 > = {
-  [VERIFY_VERIFICATION_TYPE.REVIEW]: validateReviewFinding,
+  [VERIFY_VERIFICATION_TYPE.REVIEW]: {
+    [VERIFY_EVIDENCE_KIND.SCOPE]: validateReviewScope,
+    [VERIFY_EVIDENCE_KIND.FINDING]: validateReviewFinding,
+    [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateReviewTerminal,
+  },
 };
 
-/** Look up the finding validator for a verification type, or `undefined` when the type registers none. */
-export function findingValidatorFor(
+export function evidenceValidatorFor(
   verificationType: string,
-): FindingValidator | undefined {
+  evidenceKind: typeof VERIFY_EVIDENCE_KIND.SCOPE | typeof VERIFY_EVIDENCE_KIND.FINDING,
+): EvidenceValidator | undefined {
   return (
-    FINDING_VALIDATORS as Readonly<Record<string, FindingValidator | undefined>>
-  )[verificationType];
+    EVIDENCE_VALIDATORS as Readonly<Record<string, typeof EVIDENCE_VALIDATORS[VerifyVerificationType] | undefined>>
+  )[verificationType]?.[evidenceKind];
+}
+
+export function terminalMetadataValidatorFor(verificationType: string): TerminalMetadataValidator | undefined {
+  return (
+    EVIDENCE_VALIDATORS as Readonly<Record<string, typeof EVIDENCE_VALIDATORS[VerifyVerificationType] | undefined>>
+  )[verificationType]?.[VERIFY_EVIDENCE_KIND.TERMINAL_METADATA];
+}
+
+export function expectedTerminalStatusForReview(metadata: ReviewTerminalMetadata): string | undefined {
+  if (metadata.state === REVIEW_TERMINAL_STATE.APPROVED) return JOURNAL_RUN_STATE_STATUS.APPROVED;
+  if (metadata.state === REVIEW_TERMINAL_STATE.CHANGES_REQUESTED) return JOURNAL_RUN_STATE_STATUS.REJECTED;
+  return undefined;
 }
 
 /**
@@ -353,6 +597,7 @@ export const VERIFY_TERMINAL_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.ve
 
 /** The `data` field the terminal-completion event records: the run's terminal status. */
 export const VERIFY_TERMINAL_EVENT_FIELD = {
+  TERMINAL_METADATA: "terminalMetadata",
   TERMINAL_STATUS: "terminalStatus",
 } as const;
 
@@ -371,6 +616,7 @@ export function isVerifyTerminalStatus(value: string): boolean {
 export function buildTerminalEvent(args: {
   readonly runToken: string;
   readonly terminalStatus: string;
+  readonly terminalMetadata?: JsonValue;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -381,6 +627,9 @@ export function buildTerminalEvent(args: {
     attempt: VERIFY_APPEND_ATTEMPT,
     data: {
       [VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS]: args.terminalStatus,
+      ...(args.terminalMetadata === undefined
+        ? {}
+        : { [VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_METADATA]: args.terminalMetadata }),
     },
   };
 }
@@ -389,6 +638,7 @@ export function buildTerminalEvent(args: {
 export interface VerifyRunProjection {
   readonly sealed: boolean;
   readonly terminalStatus?: string;
+  readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
   readonly lastSequence: number;
   readonly nextActions: readonly string[];
@@ -408,6 +658,11 @@ function terminalStatusOf(event: JournalEvent | undefined): string | undefined {
   if (event === undefined || !isJsonRecord(event.data)) return undefined;
   const status = event.data[VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_STATUS];
   return typeof status === "string" ? status : undefined;
+}
+
+function terminalMetadataOf(event: JournalEvent | undefined): JsonValue | undefined {
+  if (event === undefined || !isJsonRecord(event.data)) return undefined;
+  return event.data[VERIFY_TERMINAL_EVENT_FIELD.TERMINAL_METADATA];
 }
 
 /** The authoritative finding count from the event history: the number of recorded finding events. */
@@ -434,10 +689,12 @@ export function projectVerifyRun(
 ): VerifyRunProjection {
   const terminal = findTerminalEvent(events);
   const terminalStatus = terminalStatusOf(terminal);
+  const terminalMetadata = terminalMetadataOf(terminal);
   const sealed = terminal !== undefined;
   return {
     sealed,
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
+    ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),
     lastSequence: lastSequenceOf(events),
     nextActions: sealed ? [] : UNSEALED_NEXT_ACTIONS,
