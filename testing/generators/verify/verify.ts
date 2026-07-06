@@ -21,6 +21,7 @@ const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
+const EMPTY_REVIEW_BODY = "";
 
 /** A string outside the valid review-finding disposition set — an invalid `disposition` value. */
 function arbitraryNonDisposition(): fc.Arbitrary<string> {
@@ -66,20 +67,32 @@ function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
 }
 
 function arbitraryReviewScopeUnit(): fc.Arbitrary<ReviewScopeUnit> {
-  return fc.record({
+  const base = {
     path: arbitrarySourceFilePath(),
     side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
     commit: STATE_STORE_TEST_GENERATOR.headSha(),
     coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
-    line: fc.integer({ min: 1 }),
-  });
+  };
+  return fc.oneof(
+    fc.record({
+      ...base,
+      line: fc.integer({ min: 1 }),
+    }),
+    fc.record({
+      ...base,
+      position: fc.integer({ min: 1 }),
+      providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record(base),
+  );
 }
 
 function arbitraryReviewTerminalMetadata(state: string): fc.Arbitrary<ReviewTerminalMetadata> {
   return fc.record({
     actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
     state: fc.constant(state),
-    body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    body: fc.oneof(STATE_STORE_TEST_GENERATOR.scopeToken(), fc.constant(EMPTY_REVIEW_BODY)),
     submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
     commit: STATE_STORE_TEST_GENERATOR.headSha(),
   }) as fc.Arbitrary<ReviewTerminalMetadata>;
@@ -225,6 +238,45 @@ export const VERIFY_TEST_GENERATOR = {
         body: STATE_STORE_TEST_GENERATOR.scopeToken(),
         finding: arbitraryReviewFindingMetadata(),
       }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: arbitraryReviewFindingMetadata(),
+        line: fc.constant(0),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: arbitraryReviewFindingMetadata(),
+        line: fc.integer({ min: 1 }),
+        providerIdentity: fc.integer(),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: arbitraryReviewFindingMetadata(),
+        line: fc.integer({ min: 1 }),
+        providerIdentity: fc.constant(EMPTY_REVIEW_BODY),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: arbitraryReviewFindingMetadata(),
+        line: fc.integer({ min: 1 }),
+        url: fc.constant(EMPTY_REVIEW_BODY),
+      }),
     ),
   reviewScopeUnit: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
   invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>
@@ -240,6 +292,34 @@ export const VERIFY_TEST_GENERATOR = {
         coverageState: STATE_STORE_TEST_GENERATOR.scopeToken().filter(
           (value) => !(REVIEW_SCOPE_COVERAGE_STATES as readonly string[]).includes(value),
         ),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
+        position: fc.constant(0),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
+        providerIdentity: fc.integer(),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
+        providerIdentity: fc.constant(EMPTY_REVIEW_BODY),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
+        url: fc.constant(EMPTY_REVIEW_BODY),
       }),
     ),
   reviewApprovedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
@@ -260,6 +340,30 @@ export const VERIFY_TEST_GENERATOR = {
         body: STATE_STORE_TEST_GENERATOR.scopeToken(),
         submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
         commit: STATE_STORE_TEST_GENERATOR.headSha(),
+      }),
+      fc.record({
+        actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        state: fc.constantFrom(...Object.values(REVIEW_TERMINAL_STATE)),
+        body: fc.constant(EMPTY_REVIEW_BODY),
+        submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        url: fc.integer(),
+      }),
+      fc.record({
+        actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        state: fc.constantFrom(...Object.values(REVIEW_TERMINAL_STATE)),
+        body: fc.constant(EMPTY_REVIEW_BODY),
+        submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        providerIdentity: fc.constant(EMPTY_REVIEW_BODY),
+      }),
+      fc.record({
+        actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        state: fc.constantFrom(...Object.values(REVIEW_TERMINAL_STATE)),
+        body: fc.constant(EMPTY_REVIEW_BODY),
+        submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        url: fc.constant(EMPTY_REVIEW_BODY),
       }),
     ),
   scopePayload: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
