@@ -540,7 +540,9 @@ export async function runTestsCommand(
       registry: deps.registry,
       passingScope,
       targets: selectedTargets,
-      unresolvedChangedSourceFiles: changedSelection?.unresolvedSourceFiles,
+      unresolvedChangedSourceFiles: changedSelection?.fullTreeSelected === true
+        ? []
+        : changedSelection?.unresolvedSourceFiles,
     },
     { runnerDepsFor: deps.runnerDepsFor },
   );

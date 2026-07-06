@@ -768,6 +768,7 @@ helper;
       const plan = await planProductInputChange(CONFIG_FILENAMES.yaml);
 
       expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
+      expect(plan.fullTreeSelected).toBe(true);
     });
 
     it.each(typescriptTestingLanguage.productInputPaths)(
@@ -776,6 +777,7 @@ helper;
         const plan = await planProductInputChange(productInputPath, [typescriptTestingLanguage]);
 
         expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
+        expect(plan.fullTreeSelected).toBe(true);
         expect(plan.unresolvedSourceFiles).toEqual([]);
       },
     );
@@ -786,6 +788,7 @@ helper;
         const plan = await planProductInputChange(productInputPath, [typescriptTestingLanguage]);
 
         expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
+        expect(plan.fullTreeSelected).toBe(true);
         expect(plan.unresolvedSourceFiles).toEqual([]);
       },
     );
