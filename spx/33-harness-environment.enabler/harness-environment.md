@@ -8,7 +8,7 @@ CAN run with configured methodology context, instructions, agents, plugin market
 
 ### Compliance
 
-- ALWAYS: harness environment management treats `AGENTS.md`, Claude Code configuration, Codex configuration, plugin marketplaces, plugins, and skills as agent inputs ([audit])
+- ALWAYS: harness environment management treats methodology context, `AGENTS.md`, Claude Code configuration, Codex configuration, plugin marketplaces, plugins, and skills as agent inputs ([audit])
 - ALWAYS: the `harnessEnvironment` descriptor resolves methodology context, instruction, agent, marketplace, plugin, and skill configuration through the static config registry ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: each agent carries hook policy at `hooks.sessionStart.compactStdout`, with Codex defaulting compact `SessionStart` stdout off and Claude Code defaulting it on ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
