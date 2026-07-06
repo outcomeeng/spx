@@ -10,6 +10,7 @@ export const AGENT = {
 export type Agent = (typeof AGENT)[keyof typeof AGENT];
 
 export const HARNESS_ENVIRONMENT_CONFIG_FIELDS = {
+  METHODOLOGY: "methodology",
   INSTRUCTIONS: "instructions",
   AGENTS: "agents",
   PLUGIN_BOOTSTRAP: "pluginBootstrap",
@@ -29,6 +30,14 @@ export const HARNESS_ENVIRONMENT_CONFIG_FIELDS = {
   VERSION: "version",
   MARKETPLACE: "marketplace",
 } as const;
+
+export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/spec-tree";
+export const DEFAULT_METHODOLOGY_VERSION = "installed";
+
+export interface MethodologyConfig {
+  readonly source: string;
+  readonly version: string;
+}
 
 export interface AgentInstructionFileConfig {
   readonly path: string;
@@ -69,6 +78,7 @@ export interface AgentSkillConfig {
 }
 
 export interface HarnessEnvironmentConfig {
+  readonly methodology: MethodologyConfig;
   readonly instructions: {
     readonly files: readonly AgentInstructionFileConfig[];
   };
@@ -89,6 +99,10 @@ const DEFAULT_AGENT_INSTRUCTION_TARGET_AGENTS = [
 export const DEFAULT_AGENT_INSTRUCTION_FILE_PATH = "AGENTS.md";
 
 export const DEFAULT_HARNESS_ENVIRONMENT_CONFIG: HarnessEnvironmentConfig = {
+  methodology: {
+    source: DEFAULT_METHODOLOGY_SOURCE,
+    version: DEFAULT_METHODOLOGY_VERSION,
+  },
   instructions: {
     files: [
       {
@@ -123,9 +137,15 @@ export const DEFAULT_HARNESS_ENVIRONMENT_CONFIG: HarnessEnvironmentConfig = {
 };
 
 const HARNESS_ENVIRONMENT_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+]);
+
+const HARNESS_ENVIRONMENT_METHODOLOGY_ALLOWED_FIELDS = new Set([
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION,
 ]);
 
 const HARNESS_ENVIRONMENT_INSTRUCTIONS_ALLOWED_FIELDS = new Set([
@@ -207,6 +227,30 @@ function validateBoolean(path: string, value: unknown): Result<boolean> {
     return { ok: false, error: `${path} must be a boolean` };
   }
   return { ok: true, value };
+}
+
+function validateMethodology(raw: unknown): Result<MethodologyConfig> {
+  const sectionPath = `${HARNESS_ENVIRONMENT_SECTION}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY}`;
+  if (!isRecord(raw)) {
+    return { ok: false, error: `${sectionPath} must be an object` };
+  }
+
+  const unknown = rejectUnknownFields(sectionPath, raw, HARNESS_ENVIRONMENT_METHODOLOGY_ALLOWED_FIELDS);
+  if (!unknown.ok) return unknown;
+
+  const sourceRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE];
+  const source = sourceRaw === undefined
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.methodology.source }
+    : validateNonEmptyString(`${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE}`, sourceRaw);
+  if (!source.ok) return source;
+
+  const versionRaw = raw[HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION];
+  const version = versionRaw === undefined
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.methodology.version }
+    : validateNonEmptyString(`${sectionPath}.${HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION}`, versionRaw);
+  if (!version.ok) return version;
+
+  return { ok: true, value: { source: source.value, version: version.value } };
 }
 
 function validateAgent(path: string, value: unknown): Result<Agent> {
@@ -697,6 +741,12 @@ function validate(value: unknown): Result<HarnessEnvironmentConfig> {
   );
   if (!unknown.ok) return unknown;
 
+  const methodologyRaw = value[HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY];
+  const methodology = methodologyRaw === undefined
+    ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.methodology }
+    : validateMethodology(methodologyRaw);
+  if (!methodology.ok) return methodology;
+
   const instructionsRaw = value[HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS];
   const instructions = instructionsRaw === undefined
     ? { ok: true as const, value: DEFAULT_HARNESS_ENVIRONMENT_CONFIG.instructions }
@@ -718,6 +768,7 @@ function validate(value: unknown): Result<HarnessEnvironmentConfig> {
   return {
     ok: true,
     value: {
+      methodology: methodology.value,
       instructions: instructions.value,
       agents: agents.value,
       pluginBootstrap: pluginBootstrap.value,
