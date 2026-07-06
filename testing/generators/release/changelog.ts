@@ -289,6 +289,21 @@ export function conformantChangelogWithHtmlBlockTerminatedByBlankLine(
   ].join(LINE_SEPARATOR);
 }
 
+export function conformantChangelogWithSameLineExplicitHtmlBlock(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    `${ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN}note${ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE}`,
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 export function conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
   version: string,
   subjects: readonly string[],
@@ -366,6 +381,17 @@ export function sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase():
   return {
     releaseData,
     content: conformantChangelogWithHtmlBlockTerminatedByBlankLine(
+      releaseData.version,
+      subjects,
+    ),
+  };
+}
+
+export function sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: conformantChangelogWithSameLineExplicitHtmlBlock(
       releaseData.version,
       subjects,
     ),

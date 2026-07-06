@@ -876,7 +876,7 @@ function closesMarkdownHtmlBlock(
       line !== undefined
       && (
         line.trimEnd().endsWith(MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX)
-        || isMarkdownHtmlBlockClose(tagName, line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE))
+        || containsMarkdownHtmlBlockClose(tagName, line.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE))
       )
     );
   }
@@ -886,14 +886,32 @@ function closesMarkdownHtmlBlock(
   return false;
 }
 
-function isMarkdownHtmlBlockClose(tagName: string, line: string): boolean {
-  if (!line.startsWith(MARKDOWN_HTML_BLOCK_CLOSE_PREFIX) || !line.endsWith(MARKDOWN_HTML_BLOCK_TAG_CLOSE)) {
-    return false;
+function containsMarkdownHtmlBlockClose(tagName: string, line: string): boolean {
+  const closePrefix = `${MARKDOWN_HTML_BLOCK_CLOSE_PREFIX}${tagName}`;
+  let searchStart = 0;
+  while (searchStart < line.length) {
+    const closeStart = line.indexOf(closePrefix, searchStart);
+    if (closeStart < 0) {
+      return false;
+    }
+    const tagEnd = closeStart + closePrefix.length;
+    if (isMarkdownHtmlBlockCloseTagEnd(line, tagEnd)) {
+      return true;
+    }
+    searchStart = closeStart + MARKDOWN_HTML_BLOCK_CLOSE_PREFIX.length;
   }
-  const tagContent = line
-    .slice(MARKDOWN_HTML_BLOCK_CLOSE_PREFIX.length, -MARKDOWN_HTML_BLOCK_TAG_CLOSE.length)
-    .trimEnd();
-  return tagContent === tagName;
+  return false;
+}
+
+function isMarkdownHtmlBlockCloseTagEnd(line: string, tagEnd: number): boolean {
+  if (line.charAt(tagEnd) === MARKDOWN_HTML_BLOCK_TAG_CLOSE) {
+    return true;
+  }
+  let tailIndex = tagEnd;
+  while (tailIndex < line.length && isMarkdownInlineWhitespace(line.charAt(tailIndex))) {
+    tailIndex += 1;
+  }
+  return tailIndex > tagEnd && line.charAt(tailIndex) === MARKDOWN_HTML_BLOCK_TAG_CLOSE;
 }
 
 function closesMarkdownHtmlComment(line: string | undefined): boolean {
