@@ -272,10 +272,7 @@ async function changedSourcesReachableFromText(
   for (const specifier of importSpecifiers(importerText, importerPath)) {
     const candidates = candidateImportPaths(importerPath, specifier, mappings).filter(isProductRelativePath);
     const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
-    if (directMatches.length > 0) {
-      for (const candidate of directMatches) matched.add(candidate);
-      continue;
-    }
+    for (const candidate of directMatches) matched.add(candidate);
     for (const candidate of candidates) {
       if (!isConcreteSourcePath(candidate) || !isTraversableModulePath(candidate)) continue;
       for (
