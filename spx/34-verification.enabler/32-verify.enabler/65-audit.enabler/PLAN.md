@@ -4,7 +4,7 @@
 
 ## Scope
 
-This node materializes `audit` as an independent verification type sibling of `review`. Every audit run uses `--verification-type audit`; audit class, audit kind, stable producer identity, producer provenance, unit nesting, coverage requirement, coverage status, and prior-context partitions are payload fields rather than command-surface subtypes.
+This node materializes `audit` as an independent verification type sibling of `review`. Every audit run uses `--verification-type audit`; audit class, audit kind, deterministic unit identity, recorded-by identity, expected producer identity, producer provenance, unit nesting, coverage requirement, coverage status, and prior-context partitions are payload fields rather than command-surface subtypes.
 
 ## Child work
 

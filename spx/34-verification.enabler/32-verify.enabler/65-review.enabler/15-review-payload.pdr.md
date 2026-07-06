@@ -1,6 +1,6 @@
 # Review Payload
 
-Review verification runs store a platform-neutral review envelope and anchored review comments. GitHub formal reviews are an external shape SPX can ingest or project, while the product model stays provider-neutral: review envelope data records submission identity and state, and comment data records anchored human-readable findings.
+Review verification runs store a platform-neutral review envelope and anchored review comments. GitHub formal reviews are an external shape SPX can ingest or project, while the product model stays provider-neutral: review terminal metadata records submission identity and state, and comment data records anchored human-readable findings.
 
 ## Rationale
 
@@ -8,7 +8,7 @@ Formal review systems separate the review submission from inline comments. Prese
 
 ## Product properties
 
-1. A review envelope records provider identity when present, actor, state, body, submitted time, commit identity, and URL when present.
+1. Review `finish` records the review envelope as verification-type terminal metadata with provider identity when present, actor, state, body, submitted time, commit identity, and URL when present.
 2. A review comment records provider identity when present, path, line or position, side, original commit identity, diff hunk, URL when present, body, and SPX finding metadata when the comment is a finding.
 3. Reviewed scope units and review findings remain separate evidence: a reviewed scope unit records provider identity when present, path, optional line or position range, side, commit identity, coverage state, and optional URL; a reviewed unit can be clean, and a finding anchors to the reviewed unit it concerns.
 
@@ -16,7 +16,7 @@ Formal review systems separate the review submission from inline comments. Prese
 
 ### Testing
 
-- ALWAYS: review envelope validation accepts platform-neutral review envelope payloads with or without provider identity and without requiring GitHub-specific command vocabulary ([conformance])
+- ALWAYS: review terminal metadata validation accepts platform-neutral review envelope payloads with or without provider identity and without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review finding validation accepts platform-neutral review comment payloads carrying GitHub-shaped anchors without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review scope validation accepts platform-neutral reviewed-unit payloads carrying GitHub-shaped anchors without requiring GitHub-specific command vocabulary ([conformance])
 - ALWAYS: review projection maps review envelopes and review comments into separate structured fields ([mapping])
