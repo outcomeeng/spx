@@ -13,3 +13,8 @@ enabled = true
 
 [plugins."spec-tree@outcomeeng"]
 enabled = true
+
+# Present in .claude/settings.json. Effective after the Claude-official
+# SonarQube plugin is installed for Codex.
+[plugins."sonarqube@claude-plugins-official"]
+enabled = true
