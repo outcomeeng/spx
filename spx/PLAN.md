@@ -16,7 +16,7 @@ Machine-read facts for skills and commands belong in structured files, not Markd
 
 ## Target Area Projection
 
-The target model has five top-level area roles, ordered by dependency reach:
+The target model has five top-level area roles, ordered by target dependency reach. The holding paths in the inventory column are unordered examples of current behavior locations; their current numeric indices do not define target bands or receiver order.
 
 | Order | Area role    | Owns                                                                                        | Current holding paths to inspect as inventory                                                                                                             |
 | ----- | ------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
