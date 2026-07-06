@@ -1,6 +1,6 @@
 # Plan: Logical foundation ownership repair
 
-> **Reconcile against `spx/PLAN.md` first.** The corrected model renames "materialization" → `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, makes verification the five types that *consume* the journal (never contain it), names `spx verification run` the SPX projection/validation home, requires additive migration (never a wholesale move), defers `.surface`, and builds the changes domain first. Read every "materialization" below as `backend`. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** The root plan treats current paths as inventory, projects substrate / capability / domain / interface / surface area roles, parks target suffix migration until SPX supports configured node kinds and methodology context injection, and uses active migration rows for executable work. Treat this spec-tree node as current inventory for target capability projection until a reviewed receiver and ordering evidence settle its final shape. Where this note predates the root plan, the root plan governs.
 
 This coordination note preserves the spec-tree foundation repair before `/decompose` and `/author` produce durable specs and decisions.
 
