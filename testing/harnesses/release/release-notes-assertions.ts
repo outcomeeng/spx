@@ -19,6 +19,10 @@ import {
 import {
   arbitraryConformantChangelog,
   arbitraryNestedConfiguredChangelogPath,
+  changelogWithFencedReferenceDefinition,
+  changelogWithFooterReferences,
+  changelogWithPrependedReleaseAndFooterReferences,
+  changelogWithTruncatedFencedReferenceDefinitionSection,
   sampleDuplicateCurrentVersionReleaseNotesChangelogCase,
   sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase,
   sampleH1BoundaryReleaseNotesChangelogCase,
@@ -266,6 +270,91 @@ export async function assertReleaseNotesValidationRejectsFencedExistingSection()
         workingDirectory,
         resolvedPath,
         fencedExistingNotes,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).rejects.toThrow(ReleaseNotesError);
+    },
+  );
+}
+
+export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = changelogWithFooterReferences(priorVersion, subjects);
+      const generatedNotes = changelogWithPrependedReleaseAndFooterReferences(
+        releaseData.version,
+        priorVersion,
+        subjects,
+      );
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        generatedNotes,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).resolves.toBeUndefined();
+      await expect(readArtifact(resolvedPath)).resolves.toBe(generatedNotes);
+    },
+  );
+}
+
+export async function assertReleaseNotesValidationRejectsTruncatedFencedReferenceSection(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = changelogWithFencedReferenceDefinition(priorVersion, subjects);
+      const generatedNotes = changelogWithTruncatedFencedReferenceDefinitionSection(
+        releaseData.version,
+        priorVersion,
+        subjects,
+      );
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        generatedNotes,
       );
       await writeFile(resolvedPath, existingNotes);
 

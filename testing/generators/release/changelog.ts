@@ -17,6 +17,9 @@ const ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX = "### ";
 const ORACLE_CHANGELOG_CHANGE_GROUPS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
 const ORACLE_DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
 const ORACLE_CHANGELOG_VERSION_HEADING_SUFFIX = " - unreleased";
+const ORACLE_CHANGELOG_REFERENCE_DEFINITION_PREFIX = "[";
+const ORACLE_CHANGELOG_REFERENCE_DEFINITION_SEPARATOR = "]: ";
+const ORACLE_CHANGELOG_RELEASE_URL = "https://example.com/releases/";
 const ORACLE_MARKDOWN_H2_MARKER = "##";
 const ORACLE_MARKDOWN_H3_MARKER = "###";
 const ORACLE_MARKDOWN_VERSION_CLOSING_HASHES = "##";
@@ -187,6 +190,82 @@ function conformantChangelogWith(
     oracleChangelogVersionHeading(version),
     oracleChangelogGroupHeading(group),
     formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+function changelogVersionSection(
+  version: string,
+  subjects: readonly string[],
+): readonly string[] {
+  return [
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ];
+}
+
+function changelogReferenceDefinition(version: string): string {
+  return `${ORACLE_CHANGELOG_REFERENCE_DEFINITION_PREFIX}${version}${ORACLE_CHANGELOG_REFERENCE_DEFINITION_SEPARATOR}${ORACLE_CHANGELOG_RELEASE_URL}${version}`;
+}
+
+export function changelogWithFooterReferences(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(version, subjects),
+    changelogReferenceDefinition(version),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithPrependedReleaseAndFooterReferences(
+  currentVersion: string,
+  priorVersion: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(currentVersion, subjects),
+    ...changelogVersionSection(priorVersion, subjects),
+    changelogReferenceDefinition(currentVersion),
+    changelogReferenceDefinition(priorVersion),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithFencedReferenceDefinition(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(version, subjects),
+    ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+    changelogReferenceDefinition(version),
+    ...changelogVersionSection(`${version}${PRIOR_VERSION_SUFFIX}`, subjects),
+    ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithTruncatedFencedReferenceDefinitionSection(
+  currentVersion: string,
+  priorVersion: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(currentVersion, subjects),
+    ...changelogVersionSection(priorVersion, subjects),
+    ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
 }
