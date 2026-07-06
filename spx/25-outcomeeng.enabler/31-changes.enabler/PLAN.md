@@ -14,7 +14,7 @@ This coordination note tracks the remaining structure and implementation work fo
 
 ### Durable decisions
 
-- `spx/09-methodology-vocabulary.pdr.md` owns the product-wide methodology vocabulary, including reserved `surface` terminology.
+- External Outcome Engineering methodology owns methodology vocabulary, and root `spx/PLAN.md` coordinates when SPX consumes that vocabulary locally.
 - `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md` owns the backend-neutral change model, dependency and priority semantics, worktree status vocabulary, and session boundary.
 
 ### Pending structure work

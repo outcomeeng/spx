@@ -55,7 +55,7 @@ Keep these outside this node:
 
 ## Immediate next steps
 
-1. Amend `spx/09-methodology-vocabulary.pdr.md` only if the repair surfaces a vocabulary term it lacks — it already exists and owns the methodology vocabulary; do not author a second methodology PDR — before changing this node's durable spec.
+1. If the repair surfaces a methodology vocabulary term SPX lacks, record it in the external methodology work and root coordination first; do not author a product-local methodology PDR before SPX can inject configured methodology context.
 2. Run `/decompose spx/23-spec-tree.enabler` using the root `spx/PLAN.md` ownership model.
 3. Create specs for the materialization and backend placeholder nodes.
 4. Amend existing source, state, and projection nodes after the materialization boundary is settled.
