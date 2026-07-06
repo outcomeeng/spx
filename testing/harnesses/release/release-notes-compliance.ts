@@ -1188,6 +1188,45 @@ export function registerReleaseNotesComplianceTests(): void {
       expect(isPathContained(root, candidate)).toBe(false);
     });
 
+    it("rejects a Windows UNC candidate outside the share root", () => {
+      const root = win32.join(
+        String.raw`\\release-host\product`,
+        sampleReleaseTestValue(arbitraryPathSegment()),
+      );
+      const candidate = win32.join(
+        String.raw`\\outside-host\product`,
+        DEFAULT_CHANGELOG_PATH,
+      );
+
+      expect(isPathContained(root, candidate)).toBe(false);
+    });
+
+    it("rejects a Windows extended-length drive candidate outside the root", () => {
+      const root = win32.join(
+        `${String.raw`\\?\C:`}${win32.sep}`,
+        sampleReleaseTestValue(arbitraryPathSegment()),
+      );
+      const candidate = win32.join(
+        `${String.raw`\\?\D:`}${win32.sep}`,
+        DEFAULT_CHANGELOG_PATH,
+      );
+
+      expect(isPathContained(root, candidate)).toBe(false);
+    });
+
+    it("rejects a Windows extended-length UNC candidate outside the share root", () => {
+      const root = win32.join(
+        String.raw`\\?\UNC\release-host\product`,
+        sampleReleaseTestValue(arbitraryPathSegment()),
+      );
+      const candidate = win32.join(
+        String.raw`\\?\UNC\outside-host\product`,
+        DEFAULT_CHANGELOG_PATH,
+      );
+
+      expect(isPathContained(root, candidate)).toBe(false);
+    });
+
     it("treats a Windows-drive-shaped candidate under a POSIX root as a contained filename", async () => {
       await withReleaseNotesEnv(async ({ workingDirectory }) => {
         const candidate = win32.join("D:\\", DEFAULT_CHANGELOG_PATH);
