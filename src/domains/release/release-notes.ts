@@ -188,6 +188,7 @@ const MARKDOWN_DECLARATION_CLOSE = ">";
 const MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const MARKDOWN_CDATA_CLOSE = "]]>";
 const MARKDOWN_HTML_TAG_LOCALE = "en-US";
+const MARKDOWN_REFERENCE_DEFINITION_PATTERN = /^\[[^\]\n]+\]:/u;
 const JSON_PROMPT_ESCAPE_PATTERN = /[<>&`]/gu;
 const JSON_PROMPT_ESCAPES: Readonly<Record<string, string>> = {
   "&": String.raw`\u0026`,
@@ -651,6 +652,45 @@ function markdownHeadingLines(
   return headings;
 }
 
+function markdownReferenceDefinitionLineIndexes(
+  lines: readonly string[],
+): readonly number[] {
+  const indexes: number[] = [];
+  let activeFence: MarkdownFence | undefined;
+  let activeHtmlBlockTag: string | undefined;
+  let activeHtmlDeclarationClose: string | undefined;
+  let activeHtmlComment = false;
+  for (const [index, rawLine] of lines.entries()) {
+    const line = normalizeLineEnding(rawLine) ?? "";
+    const markerContent = markdownMarkerContent(line);
+    const wasInactive = activeFence === undefined
+      && activeHtmlBlockTag === undefined
+      && activeHtmlDeclarationClose === undefined
+      && !activeHtmlComment;
+    const scan = scanMarkdownHeadingLine(
+      index,
+      line,
+      activeFence,
+      activeHtmlBlockTag,
+      activeHtmlDeclarationClose,
+      activeHtmlComment,
+    );
+    if (
+      wasInactive
+      && markerContent !== undefined
+      && !markerContent.startsWith(MARKDOWN_BLOCKQUOTE_PREFIX)
+      && isMarkdownReferenceDefinition(markerContent)
+    ) {
+      indexes.push(index);
+    }
+    activeFence = scan.activeFence;
+    activeHtmlBlockTag = scan.activeHtmlBlockTag;
+    activeHtmlDeclarationClose = scan.activeHtmlDeclarationClose;
+    activeHtmlComment = scan.activeHtmlComment;
+  }
+  return indexes;
+}
+
 function scanMarkdownHeadingLine(
   index: number,
   line: string,
@@ -1081,6 +1121,7 @@ function assertPreservesExistingChangelogSections(
 function changelogVersionSections(notes: string): readonly ChangelogSection[] {
   const lines = notes.split("\n");
   const headings = markdownHeadingLines(lines);
+  const referenceDefinitions = markdownReferenceDefinitionLineIndexes(lines);
   const titleHeading = headings.at(0);
   if (titleHeading === undefined) {
     return [];
@@ -1094,8 +1135,25 @@ function changelogVersionSections(notes: string): readonly ChangelogSection[] {
     .filter((heading) => heading.level === MARKDOWN_HEADING_H2_LEVEL)
     .map((heading): ChangelogSection => ({
       heading,
-      content: lines.slice(heading.index, nextSectionLineIndex(headings, heading.index)).join("\n"),
+      content: lines.slice(
+        heading.index,
+        nextVersionSectionBoundaryLineIndex(referenceDefinitions, headings, heading.index),
+      ).join("\n"),
     }));
+}
+
+function nextVersionSectionBoundaryLineIndex(
+  referenceDefinitions: readonly number[],
+  headings: readonly MarkdownHeading[],
+  sectionLineIndex: number,
+): number {
+  const nextHeadingIndex = nextSectionLineIndex(headings, sectionLineIndex);
+  const footerIndex = referenceDefinitions.find(
+    (index) =>
+      index > sectionLineIndex
+      && index < nextHeadingIndex,
+  );
+  return footerIndex ?? nextHeadingIndex;
 }
 
 function nextSectionLineIndex(
@@ -1108,4 +1166,8 @@ function nextSectionLineIndex(
       && heading.level <= MARKDOWN_HEADING_H2_LEVEL,
   );
   return laterSection?.index ?? Number.POSITIVE_INFINITY;
+}
+
+function isMarkdownReferenceDefinition(line: string): boolean {
+  return MARKDOWN_REFERENCE_DEFINITION_PATTERN.test(line);
 }

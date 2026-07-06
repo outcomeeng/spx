@@ -39,8 +39,10 @@ import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-ru
 import {
   assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
   assertReleaseNotesPromptPreservesExistingSections,
+  assertReleaseNotesValidationAcceptsUpdatedFooterReferences,
   assertReleaseNotesValidationRejectsDeletedExistingSection,
   assertReleaseNotesValidationRejectsFencedExistingSection,
+  assertReleaseNotesValidationRejectsTruncatedFencedReferenceSection,
   composeReleaseNotesInEnv,
   expectedCanonicalRelativeChangelogPath,
   recordingReleaseNotesAgent,
@@ -241,6 +243,16 @@ export function registerReleaseNotesComplianceTests(): void {
     it(
       "rejects generated notes that copy an existing version section into a code fence",
       assertReleaseNotesValidationRejectsFencedExistingSection,
+    );
+
+    it(
+      "accepts generated notes that preserve existing sections while updating footer references",
+      assertReleaseNotesValidationAcceptsUpdatedFooterReferences,
+    );
+
+    it(
+      "rejects generated notes that truncate an existing fenced reference-definition section",
+      assertReleaseNotesValidationRejectsTruncatedFencedReferenceSection,
     );
 
     it("uses the checked canonical changelog path in the prompt when a symlink ancestor is followed by parent traversal", async () => {
