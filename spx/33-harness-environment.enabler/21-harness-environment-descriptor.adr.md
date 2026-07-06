@@ -22,7 +22,7 @@ Rejected: separate config sections for methodology context, instructions, agents
 - The hook CLI transport resolves `hooks.sessionStart.compactStdout` from the descriptor as part of one hook execution context and passes hook infrastructure a primitive policy value; hook event runners do not import the harness-environment descriptor.
 - Compact stdout agent policy selection and `session-start` session identity are separate concerns: `CODEX_THREAD_ID` selects Codex for compact stdout before `CLAUDE_SESSION_ID`, `CLAUDE_SESSION_ID` selects Claude Code when the Codex marker is absent, and `CLAUDE_ENV_FILE` selects Claude Code only when both session markers are absent.
 - The instruction-reconciliation child validates concrete instruction paths before writing files, and the plugin-bootstrap child validates marketplace source formats before resolving external inputs.
-- Marketplace `source` values and skill `source` values are different semantic fields even though they share the same config field name.
+- Methodology `source` values, marketplace `source` values, and skill `source` values are different semantic fields even though they share the same config field name.
 - An omitted `instructions.files` keeps the default `AGENTS.md`; an explicit empty list disables instruction-file management.
 - Instruction targets may name disabled agents — descriptor validation requires only registered agent ids, not enabled ones; agent enablement governs downstream participation.
 - Adding an agent does not make it an implicit instruction target; each instruction file's target agents are explicit.
