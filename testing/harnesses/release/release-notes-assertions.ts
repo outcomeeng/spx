@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { expect } from "vitest";
@@ -10,7 +10,7 @@ import {
   CHANGELOG_PRESERVATION_INSTRUCTION,
   COMMIT_SUBJECTS_JSON_INDENT,
   composeReleaseNotes,
-  decodeReleaseNotesPromptData,
+  MARKDOWN_FENCE_BACKTICK_MARKER,
   type PathCanonicalizer,
   type ReleaseNotesConfig,
   ReleaseNotesError,
@@ -19,6 +19,8 @@ import {
 import {
   arbitraryConformantChangelog,
   arbitraryNestedConfiguredChangelogPath,
+  sampleDuplicateCurrentVersionReleaseNotesChangelogCase,
+  sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase,
   sampleH1BoundaryReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
@@ -136,7 +138,7 @@ export async function assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonica
         CHANGELOG_PATH_DATA_BLOCK_OPEN,
         CHANGELOG_PATH_DATA_BLOCK_CLOSE,
       );
-      expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
+      expect(parsePromptJsonBlock(delimitedPathBlock)).toBe(
         JSON.stringify(
           expectedCanonicalPath,
           null,
@@ -190,7 +192,7 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
         CHANGELOG_PATH_DATA_BLOCK_OPEN,
         CHANGELOG_PATH_DATA_BLOCK_CLOSE,
       );
-      expect(decodeReleaseNotesPromptData(delimitedPathBlock)).toBe(
+      expect(parsePromptJsonBlock(delimitedPathBlock)).toBe(
         JSON.stringify(expectedCanonicalPath, null, COMMIT_SUBJECTS_JSON_INDENT),
       );
       expect(agentRunner.lastPrompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
@@ -198,9 +200,124 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
   );
 }
 
+export async function assertReleaseNotesValidationRejectsDeletedExistingSection(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects, conformant } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = sampleReleaseTestValue(
+        arbitraryConformantChangelog(priorVersion, subjects),
+      );
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        conformant,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).rejects.toThrow(ReleaseNotesError);
+      await expect(readArtifact(resolvedPath)).resolves.toBe(conformant);
+    },
+  );
+}
+
+export async function assertReleaseNotesValidationRejectsFencedExistingSection(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects, conformant } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = sampleReleaseTestValue(
+        arbitraryConformantChangelog(priorVersion, subjects),
+      );
+      const fencedExistingNotes = [
+        conformant,
+        MARKDOWN_FENCE_BACKTICK_MARKER,
+        existingNotes,
+        MARKDOWN_FENCE_BACKTICK_MARKER,
+      ].join("\n");
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        fencedExistingNotes,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).rejects.toThrow(ReleaseNotesError);
+    },
+  );
+}
+
 export async function rejectChangelogWithH1BoundaryBeforeChangeGroup(): Promise<void> {
   await expectRejectedReleaseNotesReadBack(
     sampleH1BoundaryReleaseNotesChangelogCase(),
+  );
+}
+
+export async function rejectChangelogWithH1BoundaryBeforeVersion(): Promise<void> {
+  await expectRejectedReleaseNotesReadBack(
+    sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase(),
+  );
+}
+
+export async function rejectChangelogWithDuplicateCurrentVersion(): Promise<void> {
+  const { releaseData, content } = sampleDuplicateCurrentVersionReleaseNotesChangelogCase();
+  await withReleaseNotesEnv(
+    async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, content);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).rejects.toThrow(ReleaseNotesError);
+    },
   );
 }
 
@@ -250,4 +367,12 @@ function promptDataBlock(prompt: string, open: string, close: string): string {
   const start = prompt.indexOf(open);
   const end = prompt.indexOf(close);
   return prompt.slice(start + open.length, end).trim();
+}
+
+function parsePromptJsonBlock(block: string): string {
+  return JSON.stringify(
+    JSON.parse(block) as string | readonly string[],
+    null,
+    COMMIT_SUBJECTS_JSON_INDENT,
+  );
 }

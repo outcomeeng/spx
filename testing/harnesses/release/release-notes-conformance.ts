@@ -6,6 +6,7 @@ import {
   sampleAtxClosingHashesReleaseNotesChangelogCase,
   sampleCdataReleaseNotesChangelogCase,
   sampleConformantReleaseNotesChangelogCase,
+  sampleCustomInlineHtmlReleaseNotesChangelogCase,
   sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase,
   sampleIndentedFenceReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
@@ -17,7 +18,9 @@ import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-ru
 import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   expectRejectedReleaseNotesReadBack,
+  rejectChangelogWithDuplicateCurrentVersion,
   rejectChangelogWithH1BoundaryBeforeChangeGroup,
+  rejectChangelogWithH1BoundaryBeforeVersion,
 } from "@testing/harnesses/release/release-notes-assertions";
 import { type ReleaseNotesEnv, withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
 
@@ -90,9 +93,23 @@ export function registerReleaseNotesConformanceTests(): void {
       await expectConformantReadBack(sampleStandaloneInlineHtmlReleaseNotesChangelogCase());
     });
 
+    it("accepts a non-standalone custom HTML tag before the release section", async () => {
+      await expectConformantReadBack(sampleCustomInlineHtmlReleaseNotesChangelogCase());
+    });
+
     it(
       "rejects a changelog whose change group is in a later H1 section",
       rejectChangelogWithH1BoundaryBeforeChangeGroup,
+    );
+
+    it(
+      "rejects a changelog whose version section is in a later H1 section",
+      rejectChangelogWithH1BoundaryBeforeVersion,
+    );
+
+    it(
+      "rejects a changelog with duplicate sections for the current version",
+      rejectChangelogWithDuplicateCurrentVersion,
     );
 
     for (const { releaseData, content, label } of sampleNonConformantReleaseNotesChangelogCases()) {
