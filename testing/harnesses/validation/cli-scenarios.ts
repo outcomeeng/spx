@@ -1,7 +1,7 @@
 import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
 import {
@@ -229,3 +229,5 @@ export function registerValidationCliScenarioTests(): void {
     it("circular command rejects the full-pipeline circular skip flag", expectCircularCommandRejectsCircularSkipFlag);
   });
 }
+
+export const validationCliScenarioCases = collectHarnessTestCases(registerValidationCliScenarioTests);

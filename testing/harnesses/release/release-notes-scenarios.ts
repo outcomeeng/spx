@@ -1,6 +1,6 @@
 import { isAbsolute } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -69,3 +69,5 @@ export function registerReleaseNotesScenarioTests(): void {
     });
   });
 }
+
+export const releaseNotesScenarioCases = collectHarnessTestCases(registerReleaseNotesScenarioTests);

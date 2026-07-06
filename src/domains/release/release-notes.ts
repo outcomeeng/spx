@@ -94,7 +94,6 @@ export const CHANGELOG_PRESERVATION_INSTRUCTION =
 
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
-const MARKDOWN_ATX_CLOSING_SEQUENCE_PATTERN = /\s+#+\s*$/;
 const MARKDOWN_HEADING_SEPARATOR_PATTERN = /^[ \t]/u;
 const MARKDOWN_HEADING_MAX_LEVEL = 6;
 const MARKDOWN_HEADING_H1_LEVEL = 1;
@@ -108,14 +107,12 @@ export const MARKDOWN_BLOCKQUOTE_PREFIX = ">";
 const MARKDOWN_FENCE_MINIMUM_LENGTH = 3;
 const MARKDOWN_MAX_MARKER_INDENTATION = 3;
 const SPACE = " ";
+const TAB = "\t";
 const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/;
 const MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN = /^<\/([A-Za-z][A-Za-z0-9-]*)\s*>\s*$/;
 const MARKDOWN_HTML_BLOCK_CLOSE_PREFIX = "</";
 const MARKDOWN_HTML_BLOCK_TAG_CLOSE = ">";
 const MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX = "/>";
-const MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN = String.raw`\s*`;
-const MARKDOWN_HTML_BLOCK_CLOSE_LINE_START = "^";
-const MARKDOWN_HTML_BLOCK_CLOSE_LINE_END = "$";
 const MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS = new Set(["pre", "script", "style", "textarea"]);
 const MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS = new Set([
   "address",
@@ -541,7 +538,8 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
   const titleHeading = headingLines.at(0);
   if (
     normalizeLineEnding(lines[0]) !== CHANGELOG_TITLE
-    || titleHeading?.index !== 0
+    || titleHeading === undefined
+    || titleHeading.index !== 0
     || titleHeading.level !== MARKDOWN_HEADING_H1_LEVEL
     || titleHeading.text !== CHANGELOG_TITLE_TEXT
   ) {
@@ -575,7 +573,10 @@ function assertConformsToKeepAChangelog(notes: string, version: string): void {
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
-  return line?.endsWith(CARRIAGE_RETURN) === true ? line.slice(0, -1) : line;
+  if (line === undefined) {
+    return undefined;
+  }
+  return line.endsWith(CARRIAGE_RETURN) ? line.slice(0, -1) : line;
 }
 
 /**
@@ -784,7 +785,29 @@ function parseMarkdownHeading(index: number, markerContent: string): MarkdownHea
 }
 
 function markdownHeadingText(content: string): string {
-  return content.trim().replace(MARKDOWN_ATX_CLOSING_SEQUENCE_PATTERN, "").trimEnd();
+  return withoutMarkdownAtxClosingSequence(content.trim()).trimEnd();
+}
+
+function withoutMarkdownAtxClosingSequence(content: string): string {
+  let markerStart = content.length;
+  while (markerStart > 0 && content.charAt(markerStart - 1) === MARKDOWN_HEADING_PREFIX) {
+    markerStart -= 1;
+  }
+  if (markerStart === content.length || markerStart === 0) {
+    return content;
+  }
+  if (!isMarkdownInlineWhitespace(content.charAt(markerStart - 1))) {
+    return content;
+  }
+  let textEnd = markerStart - 1;
+  while (textEnd > 0 && isMarkdownInlineWhitespace(content.charAt(textEnd - 1))) {
+    textEnd -= 1;
+  }
+  return content.slice(0, textEnd);
+}
+
+function isMarkdownInlineWhitespace(character: string): boolean {
+  return character === SPACE || character === TAB;
 }
 
 function closesMarkdownFence(
@@ -813,13 +836,19 @@ function parseMarkdownFence(line: string): MarkdownFence | undefined {
 }
 
 function parseMarkdownHtmlBlockTag(line: string): string | undefined {
-  const tagName = (
-    MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line)?.[1]
-      ?? MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.exec(line)?.[1]
-  )?.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
-  if (tagName === undefined) {
+  const openTagMatch = MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line);
+  if (openTagMatch !== null) {
+    return knownMarkdownHtmlBlockTag(openTagMatch[1]);
+  }
+  const standaloneCloseTagMatch = MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.exec(line);
+  if (standaloneCloseTagMatch === null) {
     return undefined;
   }
+  return knownMarkdownHtmlBlockTag(standaloneCloseTagMatch[1]);
+}
+
+function knownMarkdownHtmlBlockTag(matchedTagName: string): string | undefined {
+  const tagName = matchedTagName.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
   return MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
       || MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS.has(tagName)
     ? tagName
@@ -849,9 +878,7 @@ function closesMarkdownHtmlBlock(
       line !== undefined
       && (
         line.trimEnd().endsWith(MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX)
-        || markdownHtmlBlockClosePattern(tagName).test(
-          line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE),
-        )
+        || isMarkdownHtmlBlockClose(tagName, line.trim().toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE))
       )
     );
   }
@@ -861,21 +888,25 @@ function closesMarkdownHtmlBlock(
   return false;
 }
 
-function markdownHtmlBlockClosePattern(tagName: string): RegExp {
-  return new RegExp(
-    `${MARKDOWN_HTML_BLOCK_CLOSE_LINE_START}${MARKDOWN_HTML_BLOCK_CLOSE_PREFIX}${tagName}${MARKDOWN_HTML_BLOCK_CLOSE_TAG_SPACING_PATTERN}${MARKDOWN_HTML_BLOCK_TAG_CLOSE}${MARKDOWN_HTML_BLOCK_CLOSE_LINE_END}`,
-  );
+function isMarkdownHtmlBlockClose(tagName: string, line: string): boolean {
+  if (!line.startsWith(MARKDOWN_HTML_BLOCK_CLOSE_PREFIX) || !line.endsWith(MARKDOWN_HTML_BLOCK_TAG_CLOSE)) {
+    return false;
+  }
+  const tagContent = line
+    .slice(MARKDOWN_HTML_BLOCK_CLOSE_PREFIX.length, -MARKDOWN_HTML_BLOCK_TAG_CLOSE.length)
+    .trimEnd();
+  return tagContent === tagName;
 }
 
 function closesMarkdownHtmlComment(line: string | undefined): boolean {
-  return line?.includes(MARKDOWN_HTML_COMMENT_CLOSE) === true;
+  return line !== undefined && line.includes(MARKDOWN_HTML_COMMENT_CLOSE);
 }
 
 function closesMarkdownHtmlDeclaration(
   closeMarker: string,
   line: string | undefined,
 ): boolean {
-  return line?.includes(closeMarker) === true;
+  return line !== undefined && line.includes(closeMarker);
 }
 
 function markdownFenceMarker(line: string): string | undefined {

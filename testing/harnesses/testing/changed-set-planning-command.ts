@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
 
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { GIT_ROOT_COMMAND } from "@/git/root";
@@ -192,3 +192,5 @@ export function registerChangedSetPlanningCommandTests(): void {
     );
   });
 }
+
+export const changedSetPlanningCommandCases = collectHarnessTestCases(registerChangedSetPlanningCommandTests);

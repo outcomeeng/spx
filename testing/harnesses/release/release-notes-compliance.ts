@@ -1,8 +1,8 @@
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join, sep, win32 } from "node:path";
 
+import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
 
 import type { AgentRunRequest } from "@/agent/agent-runner";
 import {
@@ -52,6 +52,21 @@ import {
   withReleaseNotesEnv,
 } from "@testing/harnesses/release/release-notes-env";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const WIN32_EXTENDED_LENGTH_C_DRIVE_ROOT = String.raw`\\?\C:` + win32.sep;
+const WIN32_EXTENDED_LENGTH_D_DRIVE_ROOT = String.raw`\\?\D:` + win32.sep;
+
+function promptDataBlock(
+  prompt: string,
+  openMarker: string,
+  closeMarker: string,
+): string {
+  const blockStart = prompt.indexOf(openMarker);
+  const blockEnd = prompt.indexOf(closeMarker);
+  expect(blockStart).toBeGreaterThan(-1);
+  expect(blockEnd).toBeGreaterThan(blockStart);
+  return prompt.slice(blockStart + openMarker.length, blockEnd).trim();
+}
 
 export function registerReleaseNotesComplianceTests(): void {
   describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -339,18 +354,6 @@ export function registerReleaseNotesComplianceTests(): void {
       assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
     );
   });
-
-  function promptDataBlock(
-    prompt: string,
-    openMarker: string,
-    closeMarker: string,
-  ): string {
-    const blockStart = prompt.indexOf(openMarker);
-    const blockEnd = prompt.indexOf(closeMarker);
-    expect(blockStart).toBeGreaterThan(-1);
-    expect(blockEnd).toBeGreaterThan(blockStart);
-    return prompt.slice(blockStart + openMarker.length, blockEnd).trim();
-  }
 
   describe("composeReleaseNotes keeps the changelog path within the product working tree", () => {
     it("resolves a configured path inside the working tree and runs the agent there", async () => {
@@ -1203,11 +1206,11 @@ export function registerReleaseNotesComplianceTests(): void {
 
     it("rejects a Windows extended-length drive candidate outside the root", () => {
       const root = win32.join(
-        `${String.raw`\\?\C:`}${win32.sep}`,
+        WIN32_EXTENDED_LENGTH_C_DRIVE_ROOT,
         sampleReleaseTestValue(arbitraryPathSegment()),
       );
       const candidate = win32.join(
-        `${String.raw`\\?\D:`}${win32.sep}`,
+        WIN32_EXTENDED_LENGTH_D_DRIVE_ROOT,
         DEFAULT_CHANGELOG_PATH,
       );
 
@@ -1236,3 +1239,5 @@ export function registerReleaseNotesComplianceTests(): void {
     });
   });
 }
+
+export const releaseNotesComplianceCases = collectHarnessTestCases(registerReleaseNotesComplianceTests);
