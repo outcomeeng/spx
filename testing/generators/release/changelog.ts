@@ -192,6 +192,7 @@ const DEEPER_HEADING_HASH = "#";
 /** Extra title text, for the case where the first heading is not exactly the Keep a Changelog title. */
 const TITLE_SUFFIX = " (draft)";
 const TITLE_TRAILING_WHITESPACE = " ";
+const RAW_HTML_CLOSE_TRAILING_WHITESPACE = "   ";
 const BLOCKQUOTE_SEPARATOR = " ";
 const INDENTED_CODE_PREFIX = "    ";
 
@@ -658,6 +659,18 @@ export function nonConformantChangelogCases(
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
         entries,
         ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        groupHeading,
+        entries,
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading after a standalone raw HTML close before a blank line",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        `${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}${RAW_HTML_CLOSE_TRAILING_WHITESPACE}`,
         groupHeading,
         entries,
         BLANK_LINE,
