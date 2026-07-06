@@ -109,6 +109,7 @@ const MARKDOWN_FENCE_MINIMUM_LENGTH = 3;
 const MARKDOWN_MAX_MARKER_INDENTATION = 3;
 const SPACE = " ";
 const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/;
+const MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN = /^<\/([A-Za-z][A-Za-z0-9-]*)\s*>\s*$/;
 const MARKDOWN_HTML_BLOCK_CLOSE_PREFIX = "</";
 const MARKDOWN_HTML_BLOCK_TAG_CLOSE = ">";
 const MARKDOWN_HTML_BLOCK_SELF_CLOSING_SUFFIX = "/>";
@@ -748,9 +749,10 @@ function parseMarkdownFence(line: string): MarkdownFence | undefined {
 }
 
 function parseMarkdownHtmlBlockTag(line: string): string | undefined {
-  return MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line)?.[1]?.toLocaleLowerCase(
-    MARKDOWN_HTML_TAG_LOCALE,
-  );
+  return (
+    MARKDOWN_HTML_BLOCK_OPEN_PATTERN.exec(line)?.[1]
+      ?? MARKDOWN_HTML_BLOCK_STANDALONE_CLOSE_PATTERN.exec(line)?.[1]
+  )?.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
 }
 
 function parseMarkdownHtmlDeclarationClose(line: string): string | undefined {
