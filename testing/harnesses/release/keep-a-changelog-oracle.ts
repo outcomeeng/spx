@@ -31,7 +31,7 @@ export function independentKeepAChangelogConformance(notes: string, version: str
   }
   const headings = parseMarkdownItHeadings(notes);
   const title = headings.at(0);
-  if (title === undefined || title.tag !== MARKDOWN_TOKEN.h1 || title.text !== oracleChangelogTitleText()) {
+  if (title?.tag !== MARKDOWN_TOKEN.h1 || title.text !== oracleChangelogTitleText()) {
     return false;
   }
   const versionHeading = headings.find(
