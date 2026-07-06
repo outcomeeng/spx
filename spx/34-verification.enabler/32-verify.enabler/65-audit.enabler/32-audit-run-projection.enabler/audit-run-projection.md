@@ -8,15 +8,14 @@ CAN finish audit runs from coverage evidence and restore relevant prior audit co
 
 ### Scenarios
 
-- Given an audit changeset unit with child spec and implementation units, when audit scope evidence is recorded, then the run projection preserves deterministic unit identity, unit nesting, recorded-by identity, expected producer identity, and producer provenance when present ([test](tests/audit-scope.scenario.l1.test.ts))
+- Given an audit changeset unit with child spec and implementation units, when audit scope evidence is recorded, then the run projection preserves the unit nesting, stable producer identity, and producer provenance ([test](tests/audit-scope.scenario.l1.test.ts))
 - Given an audit unit with no finding, when audit scope evidence records `audited`, then the run projection represents clean coverage without adding a finding ([test](tests/audit-scope.scenario.l1.test.ts))
 
 ### Mappings
 
 - Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected`; optional uncovered units remain coverage gaps without determining the terminal status ([test](tests/audit-rollup.mapping.l1.test.ts))
-- Prior audit context selectors map audit class, audit kind, expected producer identity when present, finding producer identity for findings, subject path, changed-file partition, language partition, and concern partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
+- Prior audit context selectors map audit class, audit kind, stable producer identity, subject path, changed-file partition, language partition, and concern partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: audit payload projection consumes merge-period identity, finding identity, and prior-run context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
-- ALWAYS: audit terminal projection rejects a supplied terminal status that conflicts with the terminal rollup before terminal completion is recorded ([audit])

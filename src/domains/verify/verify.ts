@@ -132,7 +132,8 @@ export interface ReviewTerminalMetadata {
 
 export interface TerminalValidationInput {
   readonly terminalStatus: string;
-  readonly metadata: JsonValue;
+  readonly metadata?: JsonValue;
+  readonly events: readonly JournalEvent[];
 }
 
 export const TERMINAL_METADATA_VALIDATION_ERROR = {
@@ -144,7 +145,7 @@ export type TerminalMetadataValidationError =
   (typeof TERMINAL_METADATA_VALIDATION_ERROR)[keyof typeof TERMINAL_METADATA_VALIDATION_ERROR];
 
 export type TerminalMetadataValidationResult =
-  | { readonly ok: true; readonly value: JsonValue }
+  | { readonly ok: true; readonly value: JsonValue | undefined }
   | { readonly ok: false; readonly error: TerminalMetadataValidationError };
 
 export const VERIFY_EVIDENCE_KIND = {
@@ -534,12 +535,20 @@ export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTermin
 }
 
 export function validateReviewTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
-  const validated = validateReviewTerminalMetadata(input.metadata);
-  if (validated === undefined) return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
-  const expectedStatus = expectedTerminalStatusForReview(validated);
+  const validated = input.metadata === undefined ? undefined : validateReviewTerminalMetadata(input.metadata);
+  if (input.metadata !== undefined && validated === undefined) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+  }
+  const evidenceStatus = expectedReviewEvidenceTerminalStatus(input.events);
+  const metadataStatus = expectedReviewMetadataTerminalStatus(validated);
+  if (evidenceStatus !== undefined && metadataStatus !== undefined && evidenceStatus !== metadataStatus) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+  }
+  const expectedStatus = evidenceStatus ?? metadataStatus;
   if (expectedStatus !== undefined && input.terminalStatus !== expectedStatus) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
   }
+  if (validated === undefined) return { ok: true, value: undefined };
   return {
     ok: true,
     value: {
@@ -591,9 +600,23 @@ export function terminalMetadataValidatorFor(verificationType: string): Terminal
   )[verificationType]?.[VERIFY_EVIDENCE_KIND.TERMINAL_METADATA];
 }
 
-export function expectedTerminalStatusForReview(metadata: ReviewTerminalMetadata): string | undefined {
-  if (metadata.state === REVIEW_TERMINAL_STATE.APPROVED) return JOURNAL_RUN_STATE_STATUS.APPROVED;
-  if (metadata.state === REVIEW_TERMINAL_STATE.CHANGES_REQUESTED) return JOURNAL_RUN_STATE_STATUS.REJECTED;
+export function expectedTerminalStatusForReview(
+  events: readonly JournalEvent[],
+  metadata?: ReviewTerminalMetadata,
+): string | undefined {
+  return expectedReviewEvidenceTerminalStatus(events) ?? expectedReviewMetadataTerminalStatus(metadata);
+}
+
+function expectedReviewEvidenceTerminalStatus(events: readonly JournalEvent[]): string | undefined {
+  if (countVerifyFindings(events) > 0 || countReviewScopeFindingUnits(events) > 0) {
+    return JOURNAL_RUN_STATE_STATUS.REJECTED;
+  }
+  return undefined;
+}
+
+function expectedReviewMetadataTerminalStatus(metadata?: ReviewTerminalMetadata): string | undefined {
+  if (metadata?.state === REVIEW_TERMINAL_STATE.APPROVED) return JOURNAL_RUN_STATE_STATUS.APPROVED;
+  if (metadata?.state === REVIEW_TERMINAL_STATE.CHANGES_REQUESTED) return JOURNAL_RUN_STATE_STATUS.REJECTED;
   return undefined;
 }
 
@@ -716,6 +739,14 @@ export function countVerifyFindings(events: readonly JournalEvent[]): number {
   return events.filter(
     (event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING,
   ).length;
+}
+
+function countReviewScopeFindingUnits(events: readonly JournalEvent[]): number {
+  return events.filter((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
+    const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
+    return isJsonRecord(payload) && payload.coverageState === REVIEW_SCOPE_COVERAGE_STATE.FINDING;
+  }).length;
 }
 
 function lastSequenceOf(events: readonly JournalEvent[]): number {
