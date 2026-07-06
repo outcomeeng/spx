@@ -2,7 +2,10 @@ import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
 export const PATH_CONTAINMENT_PARENT_DIRECTORY = "..";
 export const PATH_CONTAINMENT_ROOT_CANDIDATE = "";
-const WINDOWS_DRIVE_PATH_PATTERN = /^[a-zA-Z]:[\\/]/;
+const WINDOWS_DRIVE_ROOT_PATTERN = /^[a-zA-Z]:[\\/]/;
+const WINDOWS_UNC_ROOT_PATTERN = /^[/\\]{2}(?![.?][\\/])[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/;
+const WINDOWS_EXTENDED_LENGTH_ROOT_PATTERN =
+  /^[/\\]{2}\?[\\/](?:[a-zA-Z]:[\\/]|UNC[\\/][^\\/]+[\\/][^\\/]+(?:[\\/]|$))/;
 
 /**
  * Whether `candidate` resolves within `root`. The candidate is resolved against
@@ -12,7 +15,7 @@ const WINDOWS_DRIVE_PATH_PATTERN = /^[a-zA-Z]:[\\/]/;
  * contained — only a `..` segment escapes.
  */
 export function isPathContained(root: string, candidate: string): boolean {
-  if (WINDOWS_DRIVE_PATH_PATTERN.test(root)) {
+  if (usesWindowsPathSemantics(root)) {
     return isResolvedPathContained(
       win32.relative(root, win32.resolve(root, candidate)),
       win32.sep,
@@ -20,6 +23,12 @@ export function isPathContained(root: string, candidate: string): boolean {
     );
   }
   return isResolvedPathContained(relative(root, resolve(root, candidate)), sep, isAbsolute);
+}
+
+function usesWindowsPathSemantics(root: string): boolean {
+  return WINDOWS_DRIVE_ROOT_PATTERN.test(root)
+    || WINDOWS_UNC_ROOT_PATTERN.test(root)
+    || WINDOWS_EXTENDED_LENGTH_ROOT_PATTERN.test(root);
 }
 
 function isResolvedPathContained(
