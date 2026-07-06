@@ -1,13 +1,24 @@
 import * as fc from "fast-check";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import { REVIEW_FINDING_DISPOSITION, type ReviewFinding, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import {
+  REVIEW_ANCHOR_SIDE,
+  REVIEW_FINDING_DISPOSITION,
+  REVIEW_SCOPE_COVERAGE_STATE,
+  REVIEW_TERMINAL_STATE,
+  type ReviewFinding,
+  type ReviewScopeUnit,
+  type ReviewTerminalMetadata,
+  VERIFY_VERIFICATION_TYPE,
+} from "@/domains/verify/verify";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
+const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
+const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
 
@@ -16,12 +27,62 @@ function arbitraryNonDisposition(): fc.Arbitrary<string> {
   return fc.string().filter((value) => !(REVIEW_FINDING_DISPOSITIONS as readonly string[]).includes(value));
 }
 
-/** A valid review finding: a known disposition and a non-empty summary. */
-function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
+function arbitraryReviewFindingMetadata(): fc.Arbitrary<ReviewFinding["finding"]> {
   return fc.record({
     disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
     summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
   });
+}
+
+/** A valid review finding: an anchored review comment with SPX finding metadata. */
+function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  const base = {
+    path: arbitrarySourceFilePath(),
+    side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+    originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+    diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    finding: arbitraryReviewFindingMetadata(),
+  };
+  return fc.oneof(
+    fc.record({
+      ...base,
+      line: fc.integer({ min: 1 }),
+    }),
+    fc.record({
+      ...base,
+      position: fc.integer({ min: 1 }),
+      providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record({
+      ...base,
+      line: fc.integer({ min: 1 }),
+      position: fc.integer({ min: 1 }),
+      providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  );
+}
+
+function arbitraryReviewScopeUnit(): fc.Arbitrary<ReviewScopeUnit> {
+  return fc.record({
+    path: arbitrarySourceFilePath(),
+    side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+    commit: STATE_STORE_TEST_GENERATOR.headSha(),
+    coverageState: fc.constantFrom(...REVIEW_SCOPE_COVERAGE_STATES),
+    line: fc.integer({ min: 1 }),
+  });
+}
+
+function arbitraryReviewTerminalMetadata(state: string): fc.Arbitrary<ReviewTerminalMetadata> {
+  return fc.record({
+    actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    state: fc.constant(state),
+    body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+    commit: STATE_STORE_TEST_GENERATOR.headSha(),
+  }) as fc.Arbitrary<ReviewTerminalMetadata>;
 }
 
 const SAMPLE_SEED = 0x5645524659;
@@ -123,16 +184,85 @@ export const VERIFY_TEST_GENERATOR = {
       fc.constant(null),
       fc.integer(),
       fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
-      fc.record({ disposition: arbitraryNonDisposition(), summary: STATE_STORE_TEST_GENERATOR.scopeToken() }),
-      fc.record({ summary: STATE_STORE_TEST_GENERATOR.scopeToken() }),
-      fc.record({ disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS), summary: fc.constant(EMPTY_SUMMARY) }),
-      fc.record({ disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS) }),
+      fc.record({ path: arbitrarySourceFilePath(), body: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        line: fc.integer({ min: 1 }),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: fc.record({
+          disposition: arbitraryNonDisposition(),
+          summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        }),
+        line: fc.integer({ min: 1 }),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: fc.record({
+          disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
+          summary: fc.constant(EMPTY_SUMMARY),
+        }),
+        line: fc.integer({ min: 1 }),
+      }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+        diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        finding: arbitraryReviewFindingMetadata(),
+      }),
     ),
-  scopePayload: (): fc.Arbitrary<Record<string, string>> =>
-    fc.dictionary(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken(), {
-      minKeys: 1,
-      maxKeys: 4,
-    }),
+  reviewScopeUnit: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
+  invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>
+    fc.oneof(
+      fc.constant(null),
+      fc.integer(),
+      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
+      fc.record({ path: arbitrarySourceFilePath(), commit: STATE_STORE_TEST_GENERATOR.headSha() }),
+      fc.record({
+        path: arbitrarySourceFilePath(),
+        side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+        coverageState: STATE_STORE_TEST_GENERATOR.scopeToken().filter(
+          (value) => !(REVIEW_SCOPE_COVERAGE_STATES as readonly string[]).includes(value),
+        ),
+      }),
+    ),
+  reviewApprovedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
+    arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.APPROVED),
+  reviewChangesRequestedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
+    arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.CHANGES_REQUESTED),
+  invalidReviewTerminalMetadata: (): fc.Arbitrary<unknown> =>
+    fc.oneof(
+      fc.constant(null),
+      fc.integer(),
+      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
+      fc.record({ actor: STATE_STORE_TEST_GENERATOR.scopeToken(), body: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({
+        actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        state: STATE_STORE_TEST_GENERATOR.scopeToken().filter(
+          (value) => !(Object.values(REVIEW_TERMINAL_STATE) as readonly string[]).includes(value),
+        ),
+        body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+        commit: STATE_STORE_TEST_GENERATOR.headSha(),
+      }),
+    ),
+  scopePayload: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
   unsupportedVerificationType: (): fc.Arbitrary<string> =>
     STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
 } as const;

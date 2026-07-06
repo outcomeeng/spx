@@ -22,8 +22,8 @@ import {
   buildTerminalEvent,
   type ChangesetScope,
   digestRunInput,
+  evidenceValidatorFor,
   findAppendedSequence,
-  findingValidatorFor,
   findTerminalEvent,
   type InputDescriptor,
   isVerifyTerminalStatus,
@@ -33,7 +33,10 @@ import {
   projectVerifyRun,
   type RecordedInput,
   type RunLocator,
+  TERMINAL_METADATA_VALIDATION_ERROR,
+  terminalMetadataValidatorFor,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
@@ -87,12 +90,16 @@ export const VERIFY_CLI_ERROR = {
   PAYLOAD_READ_FAILED: "spx verification run could not read the evidence payload",
   PAYLOAD_INVALID: "spx verification run evidence payload is not valid JSON",
   RUN_FINISHED: "spx verification run cannot add evidence to a finished run",
+  SCOPE_INVALID: "spx verification run scope add payload failed verification-type validation",
   FINDING_INVALID: "spx verification run finding add payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
   APPEND_FAILED: "spx verification run could not append the evidence event",
   TERMINAL_STATUS_REQUIRED: "spx verification run finish requires --terminal-status <status>",
   TERMINAL_STATUS_INVALID:
     "spx verification run finish requires a terminal status in the journal terminal-status vocabulary",
+  TERMINAL_METADATA_INVALID: "spx verification run terminal metadata failed verification-type validation",
+  TERMINAL_STATUS_CONFLICT:
+    "spx verification run terminal status conflicts with verification-type terminal metadata: status-conflict",
   FINISH_FAILED: "spx verification run could not record terminal completion",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
@@ -176,6 +183,7 @@ export interface VerifyFinishCliOptions {
   readonly scope: string;
   readonly run: string;
   readonly terminalStatus: string;
+  readonly terminalMetadata?: string;
 }
 
 export interface VerifyStatusCliOptions {
@@ -195,6 +203,7 @@ export interface VerifyRenderCliOptions {
 export interface VerifyFinishReport {
   readonly runToken: string;
   readonly terminalStatus?: string;
+  readonly terminalMetadata?: JsonValue;
   readonly sealed: boolean;
   readonly findingCount: number;
   readonly lastSequence: number;
@@ -207,6 +216,7 @@ export interface VerifyStatusReport {
   readonly sealed: boolean;
   readonly lastSequence: number;
   readonly terminalStatus?: string;
+  readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
   readonly nextActions: readonly string[];
 }
@@ -216,6 +226,7 @@ export interface VerifyRenderReport {
   readonly findingCount: number;
   readonly sealed: boolean;
   readonly terminalStatus?: string;
+  readonly terminalMetadata?: JsonValue;
   readonly events: readonly JournalEvent[];
 }
 
@@ -755,17 +766,17 @@ function appendRunSelectorMismatchDiagnostic(
   });
 }
 
-/** Validate a finding payload against its verification type, returning the CLI error when invalid. */
-function validateAppendFinding(
+/** Validate an evidence payload against its verification type and kind, returning the CLI error when invalid. */
+function validateAppendEvidence(
   verb: VerifyAppendVerb,
   verificationType: string,
   payload: JsonValue,
 ): string | undefined {
-  if (verb !== VERIFY_VERB.APPEND_FINDING) return undefined;
-  const validator = findingValidatorFor(verificationType);
+  const evidenceKind = verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_EVIDENCE_KIND.FINDING : VERIFY_EVIDENCE_KIND.SCOPE;
+  const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE;
-  if (validator(payload) === undefined) return VERIFY_CLI_ERROR.FINDING_INVALID;
-  return undefined;
+  if (validator(payload) !== undefined) return undefined;
+  return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID;
 }
 
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
@@ -803,8 +814,8 @@ async function verifyAppend(
   }
   const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
-  const findingError = validateAppendFinding(verb, options.verificationType, parsed);
-  if (findingError !== undefined) return errorResult(findingError);
+  const evidenceError = validateAppendEvidence(verb, options.verificationType, parsed);
+  if (evidenceError !== undefined) return errorResult(evidenceError);
 
   const event = buildAppendEvent({
     eventType,
@@ -990,6 +1001,7 @@ function verifyFinishReport(runToken: string, projection: VerifyRunProjection): 
   return {
     runToken,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     sealed: projection.sealed,
     findingCount: projection.findingCount,
     lastSequence: projection.lastSequence,
@@ -1023,6 +1035,41 @@ function finishReadFailure(
     return errorResult(existingRunNotFound(run, options));
   }
   return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${error}`);
+}
+
+async function readTerminalMetadata(
+  options: VerifyFinishCliOptions,
+  deps: VerifyCliDeps,
+): Promise<Result<JsonValue | undefined>> {
+  if (options.terminalMetadata === undefined) return { ok: true, value: undefined };
+  const readPayload = deps.readPayloadSource;
+  if (readPayload === undefined) return { ok: false, error: VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID };
+  try {
+    const rawMetadata = await readPayload(options.terminalMetadata);
+    const parsed = parseAppendPayload(rawMetadata);
+    if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
+    return { ok: true, value: parsed };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+function validateTerminalMetadata(
+  verificationType: string,
+  terminalStatus: string,
+  metadata: JsonValue | undefined,
+): Result<JsonValue | undefined> {
+  if (metadata === undefined) return { ok: true, value: undefined };
+  const validator = terminalMetadataValidatorFor(verificationType);
+  if (validator === undefined) return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
+  const validated = validator({ terminalStatus, metadata });
+  if (validated.ok) return { ok: true, value: validated.value };
+  return {
+    ok: false,
+    error: validated.error === TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT
+      ? VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT
+      : VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID,
+  };
 }
 
 async function finishProjectionResult(run: VerifyExistingRunAddress, deps: VerifyCliDeps): Promise<CliCommandResult> {
@@ -1072,6 +1119,14 @@ export async function verifyFinishCommand(
   if (inputRecord.value === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
+  const rawTerminalMetadata = await readTerminalMetadata(options, deps);
+  if (!rawTerminalMetadata.ok) return errorResult(rawTerminalMetadata.error);
+  const terminalMetadata = validateTerminalMetadata(
+    options.verificationType,
+    options.terminalStatus,
+    rawTerminalMetadata.value,
+  );
+  if (!terminalMetadata.ok) return errorResult(terminalMetadata.error);
 
   // Only the append-and-seal path consumes the journal binding.
   const binding = deps.journalBinding;
@@ -1080,6 +1135,7 @@ export async function verifyFinishCommand(
   const event = buildTerminalEvent({
     runToken: run.value.runToken,
     terminalStatus: options.terminalStatus,
+    ...(terminalMetadata.value === undefined ? {} : { terminalMetadata: terminalMetadata.value }),
     at: deps.now?.() ?? new Date(),
   });
   const appended = await journalAppendCommand(run.value.journalScope, event, binding, forwardDeps(deps));
@@ -1119,6 +1175,7 @@ export async function verifyStatusCommand(
     sealed: projection.sealed,
     lastSequence: projection.lastSequence,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     findingCount: projection.findingCount,
     nextActions: projection.nextActions,
   };
@@ -1150,6 +1207,7 @@ export async function verifyRenderCommand(
     findingCount: projection.findingCount,
     sealed: projection.sealed,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
+    ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     events: events.value,
   };
   return okResult(JSON.stringify(report));

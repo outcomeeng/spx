@@ -8,9 +8,9 @@ Verification runs share lifecycle, scope, finding, idempotency, status, and rend
 
 ## Product properties
 
-1. `spx verification run <command-path> --verification-type <type> --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>]` is the public lifecycle for changeset-scoped verification runs such as review, audit, and any verification type that records durable run evidence; `start` reports the run locator a caller persists, and every existing-run command path either resolves that same run identity or returns a diagnostic naming the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, and searched target.
+1. `spx verification run <command-path> --verification-type <type> --scope-type changeset --scope <base>..<head> [--input <input-source>] [--run <run-token>] [--payload <payload-source>] [--idempotency-key <key>] [--terminal-status <status>] [--terminal-metadata <payload-source>]` is the public lifecycle for changeset-scoped verification runs such as review, audit, and any verification type that records durable run evidence; `finish` accepts optional terminal metadata for verification-type terminal projection, `start` reports the run locator a caller persists, and every existing-run command path either resolves that same run identity or returns a diagnostic naming the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, and searched target.
 2. `spx validation` and `spx test` remain the top-level deterministic execution surfaces that run their own work directly.
-3. The public verification-run lifecycle validates type, scope, payload, and finding inputs before it records durable evidence.
+3. The public verification-run lifecycle validates type, scope, payload, finding, terminal status, and terminal metadata inputs before it records durable evidence.
 
 ## Verification
 
@@ -23,7 +23,7 @@ Verification runs share lifecycle, scope, finding, idempotency, status, and rend
 - ALWAYS: every `spx verification run` command path that operates on an existing run requires an explicit `--run <run-token>` selector, while `start` creates and reports that token with its run locator ([compliance])
 - NEVER: an existing-run command path reads a fresh `--input <input-source>` value instead of replaying the input recorded at `start` ([compliance])
 - ALWAYS: `scope add` and `finding add` require `--payload <payload-source>` and `--idempotency-key <key>`, keeping verification input replay separate from evidence payloads ([compliance])
-- ALWAYS: `finish` requires `--terminal-status <status>` and records that status in the terminal completion event before sealing the journal ([compliance])
+- ALWAYS: `finish` requires `--terminal-status <status>`, accepts optional `--terminal-metadata <payload-source>`, and records the terminal status plus accepted terminal metadata in the terminal completion event before sealing the journal ([compliance])
 - ALWAYS: an existing-run lookup failure names the run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and the selector inputs that would address the run ([compliance])
 - ALWAYS: a sealed review run reports the run token and authoritative finding count from the journal projection, with rendered finding details as an optional projection ([compliance])
 - NEVER: expose a `spx verification run` scope type whose subject cannot be reconstructed from the selector values reported by the command ([compliance])

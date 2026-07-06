@@ -58,6 +58,7 @@ export const VERIFY_CLI = {
   payloadOptionDescription: "Evidence payload source; stdin or a file path",
   idempotencyKeyOption: "--idempotency-key <key>",
   idempotencyKeyOptionDescription: "Caller-supplied idempotency key for the evidence add",
+  terminalMetadataOption: "--terminal-metadata <payload-source>",
   terminalStatusOption: "--terminal-status <status>",
 } as const;
 
@@ -86,6 +87,7 @@ interface VerifyAppendActionOptions extends VerifySharedCliOptions {
 interface VerifyFinishActionOptions extends VerifySharedCliOptions {
   readonly run: string;
   readonly terminalStatus: string;
+  readonly terminalMetadata?: string;
 }
 
 interface VerifyRunActionOptions extends VerifySharedCliOptions {
@@ -214,6 +216,7 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .requiredOption(VERIFY_CLI.terminalStatusOption, "Terminal status recorded before sealing")
+    .option(VERIFY_CLI.terminalMetadataOption, "Verification-type terminal metadata source; stdin or a file path")
     .action(async (options: VerifyFinishActionOptions) => {
       reportCliResult(await handlers.finish(options, deps()), invocation.io);
     });
