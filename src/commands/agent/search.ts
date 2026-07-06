@@ -12,13 +12,26 @@ import {
   resolveAgentHomeDirs,
   searchAgentSessions,
 } from "@/domains/agent";
-import { defaultGitDependencies, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
+import {
+  defaultGitDependencies,
+  detectWorktreeProductRoot,
+  GIT_ROOT_COMMAND,
+  GIT_WORKTREE_LIST_PORCELAIN_ARGS,
+  GIT_WORKTREE_PORCELAIN_BARE_LINE,
+  GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX,
+  GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE,
+  GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
+  type GitDependencies,
+  normalizeGitPath,
+} from "@/git/root";
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
   readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
   readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<string>;
+  readonly resolveBranchAssociatedWorktreeRoots: (cwd: string, branch: string) => Promise<readonly string[]>;
 }
 
 export interface AgentSearchCommandOptions {
@@ -61,7 +74,10 @@ export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
+  resolveBranchAssociatedWorktreeRoots: resolveAgentSearchBranchAssociatedWorktreeRoots,
 };
+
+const GIT_WORKTREE_PORCELAIN_RECORD_SEPARATOR = /\n\n+/;
 
 export async function resolveAgentSearchProductScopeRoot(
   cwd: string,
@@ -72,14 +88,54 @@ export async function resolveAgentSearchProductScopeRoot(
   return result.isGitRepo ? result.productDir : fallbackProductScopeRoot;
 }
 
+export async function resolveAgentSearchBranchAssociatedWorktreeRoots(
+  cwd: string,
+  branch: string,
+  gitDeps: GitDependencies = defaultGitDependencies,
+): Promise<readonly string[]> {
+  const result = await gitDeps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [...GIT_WORKTREE_LIST_PORCELAIN_ARGS],
+    { cwd, reject: false },
+  ).catch(() => null);
+  if (result === null) return [];
+  if (result.exitCode !== 0) return [];
+  return parseBranchAssociatedWorktreeRoots(result.stdout, branch);
+}
+
+function parseBranchAssociatedWorktreeRoots(stdout: string, branch: string): readonly string[] {
+  const roots: string[] = [];
+  for (const record of stdout.split(GIT_WORKTREE_PORCELAIN_RECORD_SEPARATOR)) {
+    const lines = record.split("\n");
+    if (
+      lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)
+      || lines.includes(GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE)
+      || lines.some((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX))
+    ) {
+      continue;
+    }
+    const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
+    const branchLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX));
+    if (rootLine === undefined || branchLine === undefined) continue;
+    if (branchLine.slice(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX.length) !== branch) continue;
+    const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
+    if (root.length > 0) roots.push(root);
+  }
+  return roots;
+}
+
 export async function loadAgentSearchResults(
   options: AgentSearchCommandOptions,
 ): Promise<AgentSearchResult[]> {
   const deps = options.deps ?? defaultAgentSearchCommandDeps;
+  const productScopeRoot = await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot);
   return searchAgentSessions({
     agentHomeDirs: deps.agentHomeDirs(),
     nowMs: deps.nowMs(),
-    productScopeRoot: await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot),
+    productScopeRoot,
+    branchAssociatedWorktreeRoots: options.query.branch === null
+      ? []
+      : await deps.resolveBranchAssociatedWorktreeRoots(options.cwd, options.query.branch),
     fs: deps.fs,
     query: options.query,
   });

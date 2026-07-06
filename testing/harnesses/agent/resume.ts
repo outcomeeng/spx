@@ -1160,6 +1160,7 @@ export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void>
       agentHomeDirs: () => fixture.agentHomeDirs,
       nowMs: () => fixture.nowMs,
       resolveProductScopeRoot: async () => fixture.worktreeRoot,
+      resolveBranchAssociatedWorktreeRoots: async () => [],
     },
   });
 
