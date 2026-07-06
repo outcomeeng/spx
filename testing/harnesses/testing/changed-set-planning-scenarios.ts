@@ -596,6 +596,40 @@ helper;
       expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 
+    it("keeps traversing through directly changed helper modules", async () => {
+      const helperFixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.harnessAliasFixture());
+      const downstreamFixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixture());
+      const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+      const git = stagedSourceCandidatesGitRunner(
+        [downstreamFixture.sourcePath, helperFixture.sourcePath],
+        new Map([
+          [
+            paths.testPath,
+            `import { helper } from "${helperFixture.importSpecifier}";
+
+helper;
+`,
+          ],
+          [
+            helperFixture.sourcePath,
+            changedSetImportStatement(downstreamFixture.importSpecifier),
+          ],
+        ]),
+        tsconfigWithPaths({
+          ...helperFixture.tsconfigPaths,
+          ...downstreamFixture.tsconfigPaths,
+        }),
+      );
+
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+      );
+
+      expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    });
+
     it("resolves tsconfig alias directory imports to changed source index modules", async () => {
       const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.indexAliasFixture());
       const { paths, plan } = await planStagedAliasFixture(fixture);
