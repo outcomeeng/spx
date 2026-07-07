@@ -116,6 +116,12 @@ export function collectHarnessTestCases(registerTests: () => void): readonly Har
   return collected;
 }
 
+export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]): void {
+  for (const testCase of testCases) {
+    registerHarnessTestCase(testCase.title, () => runHarnessTestCase(testCase), testCase.timeout);
+  }
+}
+
 export async function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
   await testCase.run();
 }
