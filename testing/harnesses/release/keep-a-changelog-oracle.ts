@@ -11,6 +11,8 @@ const MARKDOWN_TOKEN = {
   inline: "inline",
   blockquoteOpen: "blockquote_open",
   blockquoteClose: "blockquote_close",
+  listItemOpen: "list_item_open",
+  listItemClose: "list_item_close",
   h1: "h1",
   h2: "h2",
   h3: "h3",
@@ -64,6 +66,7 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
   const tokens = parser.parse(normalizeStandaloneInlineHtmlTags(notes), {});
   const headings: ParsedMarkdownHeading[] = [];
   let blockquoteDepth = 0;
+  let listItemDepth = 0;
   tokens.forEach((token, index) => {
     if (token.type === MARKDOWN_TOKEN.blockquoteOpen) {
       blockquoteDepth += 1;
@@ -73,7 +76,19 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
       blockquoteDepth -= 1;
       return;
     }
-    if (blockquoteDepth > 0 || token.type !== MARKDOWN_TOKEN.headingOpen) {
+    if (token.type === MARKDOWN_TOKEN.listItemOpen) {
+      listItemDepth += 1;
+      return;
+    }
+    if (token.type === MARKDOWN_TOKEN.listItemClose) {
+      listItemDepth -= 1;
+      return;
+    }
+    if (
+      blockquoteDepth > 0
+      || listItemDepth > 0
+      || token.type !== MARKDOWN_TOKEN.headingOpen
+    ) {
       return;
     }
     const inline = tokens.at(index + 1);

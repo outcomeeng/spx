@@ -58,6 +58,8 @@ const ORACLE_MARKDOWN_DECLARATION_CLOSE = "]>";
 const ORACLE_MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const ORACLE_MARKDOWN_CDATA_CLOSE = "]]>";
 const MALFORMED_FENCE_TAIL = "note";
+const ORACLE_MARKDOWN_LIST_ITEM = "- release summary";
+const ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT = "  ";
 
 const CHANGELOG_DIR_PATTERN = /^[a-z][a-z0-9-]{2,8}$/;
 const CHANGELOG_BASENAME_PATTERN = /^[A-Z][A-Z0-9-]{2,10}$/;
@@ -848,6 +850,18 @@ export function nonConformantChangelogCases(
         versionHeading,
         blockquoteLine(groupHeading),
         blockquoteLine(entries),
+        BLANK_LINE,
+      ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "puts the change-group heading inside a list item",
+      content: [
+        ORACLE_CHANGELOG_TITLE,
+        BLANK_LINE,
+        versionHeading,
+        ORACLE_MARKDOWN_LIST_ITEM,
+        `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${groupHeading}`,
+        entries,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
     },
