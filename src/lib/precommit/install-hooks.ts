@@ -106,13 +106,13 @@ call_lefthook()
 {
   if [ -n "$LEFTHOOK_BIN" ]; then
     "$LEFTHOOK_BIN" run "$hook_name" "$@"
-  elif command -v lefthook >/dev/null 2>&1; then
-    lefthook run "$hook_name" "$@"
   else
     worktree_root="$(find_worktree_root)"
     worktree_lefthook="$worktree_root/${PORTABLE_HOOK_TOKENS.WORKTREE_BINARY}"
     if [ -x "$worktree_lefthook" ]; then
       "$worktree_lefthook" run "$hook_name" "$@"
+    elif command -v lefthook >/dev/null 2>&1; then
+      lefthook run "$hook_name" "$@"
     elif command -v pnpm >/dev/null 2>&1; then
       (cd "$worktree_root" && ${PORTABLE_HOOK_TOKENS.NON_INTERACTIVE_ENV} ${PORTABLE_HOOK_TOKENS.FROZEN_INSTALL} ${PORTABLE_HOOK_TOKENS.FALLBACK_WORKTREE_RUN} "$hook_name" "$@")
     else

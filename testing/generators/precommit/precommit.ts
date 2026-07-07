@@ -1,6 +1,5 @@
 import * as fc from "fast-check";
 
-import { PRECOMMIT_DEFAULTS, type PrecommitConfig } from "@/lib/precommit/config";
 import { BRANCH_CHECKOUT_FLAG } from "@/lib/precommit/deps-install-gate";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
@@ -10,7 +9,6 @@ const ZERO_HEX_DIGIT = "0";
 const HEX_CHECKOUT_REF_PATTERN = new RegExp(`^[0-9a-f]{1,${MAX_GIT_OID_HEX_LENGTH}}$`);
 
 export const PRECOMMIT_TEST_GENERATOR = {
-  config: arbitraryPrecommitConfig,
   exitCode: arbitraryNonSuccessExitCode,
   fileList: arbitraryFileList,
   fileContent: arbitraryFileContent,
@@ -19,8 +17,6 @@ export const PRECOMMIT_TEST_GENERATOR = {
   pathFragment: arbitraryPathFragment,
   posixDirectoryPrefix: arbitraryPosixDirectoryPrefix,
   windowsDirectoryPrefix: arbitraryWindowsDirectoryPrefix,
-  sourcePath: arbitrarySourcePath,
-  testPath: arbitraryTestPath,
   otherPath: arbitraryOtherPath,
   nullCheckoutRef: arbitraryNullCheckoutRef,
   realCheckoutRef: arbitraryRealCheckoutRef,
@@ -56,51 +52,16 @@ function arbitraryWindowsDirectoryPrefix(): fc.Arbitrary<string> {
     .map((segments) => `C:\\${segments.join("\\")}`);
 }
 
-function arbitraryPrecommitConfig(): fc.Arbitrary<PrecommitConfig> {
-  return fc
-    .record({
-      sourceDirs: fc.uniqueArray(
-        arbitraryPathSegment().map((seg) => `${seg}/`),
-        { minLength: 1, maxLength: 3 },
-      ),
-      testPattern: arbitraryPathSegment().map((seg) => `.${seg}.ts`),
-    })
-    .filter(({ sourceDirs, testPattern }) =>
-      sourceDirs.every((dir) => !dir.includes(testPattern) && !testPattern.includes(dir))
-    );
+function arbitraryOtherPath(): fc.Arbitrary<string> {
+  return arbitraryPathSegment().map((slug) => `${slug}.md`);
 }
 
-function arbitrarySourcePath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string> {
-  return fc
-    .record({
-      dir: fc.constantFrom(...config.sourceDirs),
-      slug: arbitraryPathSegment(),
-    })
-    .map(({ dir, slug }) => `${dir}${slug}.ts`)
-    .filter((path) => !path.includes(config.testPattern));
+function arbitraryPath(): fc.Arbitrary<string> {
+  return fc.oneof(arbitraryOtherPath(), arbitraryPathFragment());
 }
 
-function arbitraryTestPath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string> {
-  return arbitraryPathSegment().map((slug) => `spx/${slug}.enabler/tests/${slug}${config.testPattern}`);
-}
-
-function arbitraryOtherPath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string> {
-  return arbitraryPathSegment()
-    .map((slug) => `${slug}.md`)
-    .filter((path) => !path.includes(config.testPattern) && !config.sourceDirs.some((d) => path.startsWith(d)));
-}
-
-function arbitraryPath(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string> {
-  return fc.oneof(
-    arbitrarySourcePath(config),
-    arbitraryTestPath(config),
-    arbitraryOtherPath(config),
-    arbitraryPathFragment(),
-  );
-}
-
-function arbitraryFileList(config: PrecommitConfig = PRECOMMIT_DEFAULTS): fc.Arbitrary<string[]> {
-  return fc.array(arbitraryPath(config));
+function arbitraryFileList(): fc.Arbitrary<string[]> {
+  return fc.array(arbitraryPath());
 }
 
 function arbitraryNonSuccessExitCode(): fc.Arbitrary<number> {
