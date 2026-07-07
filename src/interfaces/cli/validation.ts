@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { existsSync, realpathSync } from "node:fs";
-import { basename, dirname, relative, resolve } from "node:path";
+import { relative, resolve } from "node:path";
 
 import {
   allCommand,
@@ -16,7 +16,7 @@ import {
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { isPathContained } from "@/lib/file-system/pathContainment";
+import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
@@ -243,14 +243,14 @@ function addCommonOptions(cmd: Command): Command {
     .option("--json", "Output results as JSON");
 }
 
-function normalizeProductPathOperand(
+async function normalizeProductPathOperand(
   productDir: string,
   effectiveInvocationDir: string,
   operand: string,
-): string | undefined {
-  const resolvedProductDir = canonicalPathThroughExistingAncestor(resolve(productDir));
-  const resolvedInvocationDir = canonicalPathThroughExistingAncestor(resolve(effectiveInvocationDir));
-  const absoluteOperand = canonicalPathThroughExistingAncestor(resolve(resolvedInvocationDir, operand));
+): Promise<string | undefined> {
+  const resolvedProductDir = await canonicalPathThroughExistingAncestor(resolve(productDir));
+  const resolvedInvocationDir = await canonicalPathThroughExistingAncestor(resolve(effectiveInvocationDir));
+  const absoluteOperand = await canonicalPathThroughExistingAncestor(resolve(resolvedInvocationDir, operand));
   if (!isPathContained(resolvedProductDir, absoluteOperand)) {
     return undefined;
   }
@@ -258,39 +258,45 @@ function normalizeProductPathOperand(
   return relativeOperand.length > 0 ? relativeOperand.replaceAll("\\", "/") : ".";
 }
 
-function canonicalPathThroughExistingAncestor(path: string): string {
-  if (existsSync(path)) return realpathSync.native(path);
-  const parent = dirname(path);
-  if (parent === path) return path;
-  return resolve(canonicalPathThroughExistingAncestor(parent), basename(path));
+async function canonicalPathThroughExistingAncestor(path: string): Promise<string> {
+  const nearest = await nearestExistingCanonicalPath(
+    path,
+    (candidate) => existsSync(candidate) ? realpathSync.native(candidate) : undefined,
+  );
+  return nearest === undefined ? path : canonicalTargetPath(nearest, path);
 }
 
-function normalizePathOperands(
+async function normalizePathOperands(
   productDir: string,
   effectiveInvocationDir: string,
   pathOperands: readonly string[],
-): string[] | undefined {
+): Promise<string[] | undefined> {
   if (pathOperands.length === 0) return undefined;
   const normalized: string[] = [];
   for (const operand of pathOperands) {
-    const path = normalizeProductPathOperand(productDir, effectiveInvocationDir, operand);
+    const path = await normalizeProductPathOperand(productDir, effectiveInvocationDir, operand);
     if (path === undefined) return undefined;
     normalized.push(path);
   }
   return normalized;
 }
 
-function resolveValidationPaths(invocation: CliInvocation, pathOperands: readonly string[]): {
+async function resolveValidationPaths(invocation: CliInvocation, pathOperands: readonly string[]): Promise<{
   readonly productDir: string;
   readonly files: string[] | undefined;
-} {
+}> {
   const context = invocation.resolveProductContext();
-  const files = normalizePathOperands(context.productDir, context.effectiveInvocationDir, pathOperands);
+  const files = await normalizePathOperands(context.productDir, context.effectiveInvocationDir, pathOperands);
   if (pathOperands.length > 0 && files === undefined) {
     const { invalidPathOperand } = validationCliDefinition.diagnostics;
-    const invalidOperand = pathOperands.find((operand) =>
-      normalizeProductPathOperand(context.productDir, context.effectiveInvocationDir, operand) === undefined
-    );
+    let invalidOperand: string | undefined;
+    for (const operand of pathOperands) {
+      const path = await normalizeProductPathOperand(context.productDir, context.effectiveInvocationDir, operand);
+      if (path === undefined) {
+        invalidOperand = operand;
+        break;
+      }
+    }
     invocation.io.writeStderr(
       `spx ${validationCliDefinition.domain.commandName}: ${invalidPathOperand.messageLabel}: `
         + `${sanitizeCliArgument(invalidOperand)} (${invalidPathOperand.reason})\n`,
@@ -327,7 +333,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (pathOperands: string[], options: CommonOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await typescriptCommand({
         cwd: paths.productDir,
         scope: options.scope,
@@ -343,7 +349,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const lintCmd = addValidationSubcommand(validationCmd, subcommands.lint)
     .option("--fix", "Auto-fix issues")
     .action(async (pathOperands: string[], options: LintOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await lintCommand({
         cwd: paths.productDir,
         scope: options.scope,
@@ -359,7 +365,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // circular command
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (pathOperands: string[], options: CommonOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await circularCommand({
         cwd: paths.productDir,
         scope: options.scope,
@@ -374,7 +380,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // knip command
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (pathOperands: string[], options: CommonOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await knipCommand({
         cwd: paths.productDir,
         scope: options.scope,
@@ -405,7 +411,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         + "in spx.config.* to skip during migration.",
     )
     .action(async (pathOperands: string[], options: LiteralOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       if (options.allowlistExisting) {
         const result = await allowlistExisting({ productDir: paths.productDir });
         emitValidationResult(result, invocation.io);
@@ -445,7 +451,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         + "child-node markdown remains in scope.",
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await markdownCommand({
         cwd: paths.productDir,
         files: paths.files,
@@ -458,7 +464,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   // format command
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (pathOperands: string[], options: CommonOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await formattingCommand({
         cwd: paths.productDir,
         files: paths.files,
@@ -474,7 +480,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (pathOperands: string[], options: AllOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
+      const paths = await resolveValidationPaths(invocation, pathOperands);
       const result = await allCommand({
         cwd: paths.productDir,
         scope: options.scope,

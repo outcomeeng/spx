@@ -1,8 +1,8 @@
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, resolve, sep } from "node:path";
 
 import type { AgentRunner } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
-import { isPathContained } from "@/lib/file-system/pathContainment";
+import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 
 /**
  * The injected read-back dependency. After the agent writes the staged artifact,
@@ -244,12 +244,6 @@ interface MarkdownHeadingScan {
   readonly heading: MarkdownHeading | undefined;
 }
 
-interface CanonicalPathCheck {
-  readonly path: string;
-  readonly checkedPath: string;
-  readonly isCandidate: boolean;
-}
-
 /** The Keep a Changelog per-release section heading for a version. */
 export function changelogVersionHeading(version: string): string {
   return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}]`;
@@ -486,19 +480,6 @@ async function assertCanonicalReleaseNotesPath(
   return canonicalChangelogPath;
 }
 
-function canonicalTargetPath(
-  canonicalPath: CanonicalPathCheck,
-  candidatePath: string,
-): string {
-  if (canonicalPath.isCandidate) {
-    return canonicalPath.path;
-  }
-  return resolve(
-    canonicalPath.path,
-    relative(canonicalPath.checkedPath, candidatePath),
-  );
-}
-
 function canonicalCheckPath(
   workingDirectory: string,
   configuredPath: string,
@@ -509,26 +490,6 @@ function canonicalCheckPath(
   return workingDirectory.endsWith(sep)
     ? `${workingDirectory}${configuredPath}`
     : `${workingDirectory}${sep}${configuredPath}`;
-}
-
-async function nearestExistingCanonicalPath(
-  path: string,
-  canonicalizePath: PathCanonicalizer,
-): Promise<CanonicalPathCheck | undefined> {
-  let candidate = path;
-  let isCandidate = true;
-  for (;;) {
-    const canonicalPath = await canonicalizePath(candidate);
-    if (canonicalPath !== undefined) {
-      return { path: canonicalPath, checkedPath: candidate, isCandidate };
-    }
-    const parent = dirname(candidate);
-    if (parent === candidate) {
-      return undefined;
-    }
-    candidate = parent;
-    isCandidate = false;
-  }
 }
 
 /**
