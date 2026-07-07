@@ -23,6 +23,7 @@ const OBSERVED_VERSION = "0.74.2";
 const DIFFERENT_VERSION = "0.74.1";
 const HIGHER_VERSION = "0.74.10";
 const NON_VERSION_DIRECTORY = "999x";
+const EXACT_NON_VERSION_DIRECTORY = "stable";
 const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
 const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
 const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
@@ -315,5 +316,32 @@ export async function assertMethodologyProbePrefersConfiguredExactVersion(): Pro
     });
     const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
     expect(observed.version).toBe(DIFFERENT_VERSION);
+  });
+}
+
+export async function assertMethodologyProbeUsesExactNonVersionDirectory(): Promise<void> {
+  const methodology = generatedMethodology(EXACT_NON_VERSION_DIRECTORY);
+  await withTempDir("spx-methodology-probe-", async (codexHome) => {
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), EXACT_NON_VERSION_DIRECTORY), {
+      recursive: true,
+    });
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+      recursive: true,
+    });
+    const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
+    expect(observed.version).toBe(EXACT_NON_VERSION_DIRECTORY);
+  });
+}
+
+export async function assertMethodologyProbeReadsSupportedAgentCaches(): Promise<void> {
+  const methodology = generatedMethodology();
+  await withTempDir("spx-methodology-probe-codex-", async (codexHome) => {
+    await withTempDir("spx-methodology-probe-claude-", async (claudeHome) => {
+      await mkdir(join(claudeHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+        recursive: true,
+      });
+      const observed = await createMethodologyContextProbe(codexHome, claudeHome).probe(methodology);
+      expect(observed.version).toBe(HIGHER_VERSION);
+    });
   });
 }

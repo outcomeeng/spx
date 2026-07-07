@@ -55,7 +55,9 @@ export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
 const CODEX_HOME_ENV = "CODEX_HOME";
+const CLAUDE_HOME_ENV = "CLAUDE_CONFIG_DIR";
 const DEFAULT_CODEX_HOME_DIR = ".codex";
+const DEFAULT_CLAUDE_HOME_DIR = ".claude";
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const VERSION_PART_RADIX = 10;
 const VERSION_PART_SEPARATOR = ".";
@@ -470,26 +472,29 @@ interface LatestDirectoryReading {
   readonly version: string | null;
 }
 
+interface VersionDirectoriesReading {
+  readonly errored: boolean;
+  readonly versions: readonly string[];
+}
+
 function isNodeErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error
     && "code" in error
     && (error as { readonly code?: unknown }).code === code;
 }
 
-async function latestDirectory(path: string): Promise<LatestDirectoryReading> {
+async function versionDirectories(path: string): Promise<VersionDirectoriesReading> {
   try {
     const entries = await readdir(path, { withFileTypes: true });
-    const names = entries
+    const versions = entries
       .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter(isVersionDirectoryName)
-      .sort(compareVersionDirectoryNames);
-    return { errored: false, version: names.at(-1) ?? null };
+      .map((entry) => entry.name);
+    return { errored: false, versions };
   } catch (error) {
     if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE)) {
-      return { errored: false, version: null };
+      return { errored: false, versions: [] };
     }
-    return { errored: true, version: null };
+    return { errored: true, versions: [] };
   }
 }
 
@@ -511,30 +516,42 @@ function compareVersionDirectoryNames(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-async function configuredVersionDirectory(path: string, config: MethodologyConfig): Promise<LatestDirectoryReading> {
+function selectConfiguredVersion(
+  readings: readonly VersionDirectoriesReading[],
+  config: MethodologyConfig,
+): LatestDirectoryReading {
+  const versions = readings.flatMap((reading) => reading.versions);
+  let version: string | null;
   if (config.version === DEFAULT_METHODOLOGY_VERSION) {
-    return latestDirectory(path);
+    const validVersions = versions
+      .filter(isVersionDirectoryName)
+      .sort(compareVersionDirectoryNames);
+    version = validVersions.at(-1) ?? null;
+  } else {
+    version = versions.find((candidate) => candidate === config.version) ?? null;
   }
-  if (!isVersionDirectoryName(config.version)) {
-    return { errored: false, version: null };
-  }
-  try {
-    const entries = await readdir(path, { withFileTypes: true });
-    const configured = entries.find((entry) => entry.isDirectory() && entry.name === config.version);
-    return { errored: false, version: configured?.name ?? null };
-  } catch (error) {
-    if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE)) {
-      return { errored: false, version: null };
-    }
-    return { errored: true, version: null };
-  }
+  return {
+    errored: version === null && readings.some((reading) => reading.errored),
+    version,
+  };
 }
 
-export function createMethodologyContextProbe(codexHomeDir: string): MethodologyContextProbe {
+async function configuredVersionDirectory(
+  paths: readonly string[],
+  config: MethodologyConfig,
+): Promise<LatestDirectoryReading> {
+  return selectConfiguredVersion(
+    await Promise.all(paths.map((path) => versionDirectories(path))),
+    config,
+  );
+}
+
+export function createMethodologyContextProbe(...agentHomeDirs: readonly string[]): MethodologyContextProbe {
+  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [codexHome(), claudeHome()];
   return {
     async probe(config): Promise<MethodologyContextObservation> {
-      const sourcePath = join(codexHomeDir, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
-      const reading = await configuredVersionDirectory(sourcePath, config);
+      const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
+      const reading = await configuredVersionDirectory(sourcePaths, config);
       if (reading.version === null) {
         return { source: null, version: null, errored: reading.errored };
       }
@@ -547,10 +564,15 @@ export function createMethodologyContextProbe(codexHomeDir: string): Methodology
   };
 }
 
+function claudeHome(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  return env[CLAUDE_HOME_ENV] ?? join(homedir(), DEFAULT_CLAUDE_HOME_DIR);
+}
+
 export const defaultMethodologyContextProbe: MethodologyContextProbe = {
   async probe(config): Promise<MethodologyContextObservation> {
-    const sourcePath = join(codexHome(), ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
-    const reading = await configuredVersionDirectory(sourcePath, config);
+    const sourcePaths = [codexHome(), claudeHome()]
+      .map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
+    const reading = await configuredVersionDirectory(sourcePaths, config);
     if (reading.version === null) {
       return { source: null, version: null, errored: reading.errored };
     }

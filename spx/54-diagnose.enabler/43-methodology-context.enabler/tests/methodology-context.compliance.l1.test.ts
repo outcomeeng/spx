@@ -5,6 +5,8 @@ import {
   assertMethodologyManifestWithoutFactsRejects,
   assertMethodologyProbeIgnoresNonVersionDirectories,
   assertMethodologyProbePrefersConfiguredExactVersion,
+  assertMethodologyProbeReadsSupportedAgentCaches,
+  assertMethodologyProbeUsesExactNonVersionDirectory,
   assertMethodologyProbeUsesNumericVersionOrder,
 } from "@testing/harnesses/diagnose/methodology-context";
 
@@ -27,5 +29,13 @@ describe("methodology-context diagnose compliance", () => {
 
   it("prefers the configured exact methodology version when installed", async () => {
     await assertMethodologyProbePrefersConfiguredExactVersion();
+  });
+
+  it("accepts configured exact methodology versions with non-version directory names", async () => {
+    await assertMethodologyProbeUsesExactNonVersionDirectory();
+  });
+
+  it("reads supported local agent methodology caches", async () => {
+    await assertMethodologyProbeReadsSupportedAgentCaches();
   });
 });

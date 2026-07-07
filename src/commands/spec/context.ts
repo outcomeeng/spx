@@ -51,6 +51,7 @@ export interface SpecContextSiblingSummary {
 
 export interface SpecContextManifest {
   readonly methodology: MethodologyIdentity;
+  readonly productDir: string;
   readonly target: string;
   readonly documents: readonly SpecContextDocument[];
   readonly siblings: SpecContextSiblingSummary;
@@ -68,6 +69,7 @@ const SPEC_TREE_ROOT_PREFIX = "spx/";
 
 export const SPEC_CONTEXT_TEXT_LABEL = {
   TARGET: "Target",
+  PRODUCT_ROOT: "Product root",
   METHODOLOGY: "Methodology",
   DOCUMENTS: "Documents",
   SAME_INDEX_SIBLINGS: "Same-index siblings",
@@ -242,6 +244,7 @@ async function buildManifest(
 
   return {
     methodology,
+    productDir,
     target: fullSpecPath(target.id),
     documents,
     siblings: {
@@ -283,6 +286,7 @@ function appendList(lines: string[], label: string, values: readonly string[]): 
 export function renderSpecContextText(manifest: SpecContextManifest): string {
   const lines = [
     `${SPEC_CONTEXT_TEXT_LABEL.TARGET}: ${manifest.target}`,
+    `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
     `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
   ];
   appendList(

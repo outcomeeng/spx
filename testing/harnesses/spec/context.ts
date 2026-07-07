@@ -73,6 +73,7 @@ export async function assertSpecContextManifestIncludesMethodology(): Promise<vo
     const target = snapshot.allNodes[0];
     const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
     expect(manifest.target).toBe(`spx/${target.id}`);
+    expect(manifest.productDir).toBe(env.productDir);
     expect(manifest.methodology).toMatchObject({
       source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
       version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
@@ -158,6 +159,7 @@ export async function assertSpecContextTextIncludesContext(): Promise<void> {
     const target = snapshot.allNodes[0];
     const output = await contextTextCommand({ target: target.id, cwd: env.productDir });
     expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGET}: spx/${target.id}`);
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
     expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
     expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS}:`);
   });
