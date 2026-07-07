@@ -4,6 +4,4 @@
 
 ## Pending work
 
-1. Implement the review terminal metadata, clean reviewed-unit, and review comment projection tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md`.
-2. Register review terminal metadata validation through the shared verification-type evidence-validator registry before review producers persist formal-review envelopes.
-3. Consume merge-period identity and finding identity from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` before migrating review producers to run-set context.
+1. Consume merge-period identity and finding identity from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` before migrating review producers to run-set context.

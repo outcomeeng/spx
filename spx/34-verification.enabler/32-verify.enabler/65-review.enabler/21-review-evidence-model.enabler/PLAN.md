@@ -5,6 +5,5 @@
 ## Pending work
 
 1. Implement the review envelope, reviewed-unit, and review-comment payload tests named by `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/review-evidence-model.md`.
-2. After `spx/34-verification.enabler/32-verify.enabler/PLAN.md` widens the current finding-validator registry into the shared evidence-validator registry, register platform-neutral reviewed-unit scope and review-comment finding schemas through it.
-3. Keep review-envelope carrier and schema-validation placement pending with the parent verification-run lifecycle; do not assign envelope validation to `scope`, `finding`, or the projection consumer until that lifecycle event is specified.
-4. Migrate the plugin `review-changes` runner to call `spx verification run` after SPX accepts the richer review payload and exposes the run locator needed for inspection.
+2. Add co-located evidence-model status for the already-registered platform-neutral reviewed-unit scope and review-comment finding schemas.
+3. Migrate the plugin `review-changes` runner to `spx verification run` for individual review runs; prior-run convergence waits for `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md`.

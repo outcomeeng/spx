@@ -18,4 +18,4 @@ CAN validate review payloads without requiring provider-specific command vocabul
 
 ### Compliance
 
-- ALWAYS: review finding payloads validate through the shared verification-type finding-validator registry before journal events append ([audit])
+- ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])

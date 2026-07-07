@@ -1,8 +1,8 @@
 # Review Run Projection
 
-PROVIDES review envelope, reviewed-unit, and comment projection over validated review terminal metadata, review evidence from `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler`, and run-set identity
+PROVIDES review envelope, reviewed-unit, and comment projection over validated review terminal metadata and review evidence from `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler`
 SO THAT review producers, GitHub backends, local renderers, and other delivery surfaces
-CAN render formal-review-shaped evidence without redefining merge-period finding identity
+CAN render formal-review-shaped evidence from individual verification runs without parsing rendered review text
 
 ## Assertions
 
@@ -17,4 +17,4 @@ CAN render formal-review-shaped evidence without redefining merge-period finding
 
 ### Compliance
 
-- ALWAYS: review payload projection consumes merge-period identity and finding identity from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
+- ALWAYS: review payload projection preserves provider identity and SPX finding metadata as structured fields rather than deriving review identity from rendered text ([audit])
