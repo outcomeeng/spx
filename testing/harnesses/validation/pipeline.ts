@@ -21,8 +21,37 @@ const __dirname = dirname(__filename);
 const VALIDATION_ROOT = resolve(__dirname, "../../../spx/41-validation.enabler");
 
 export function describeValidationPipelineComposition(): void {
+  describeSelectedValidationPipelineComposition([
+    VALIDATION_PIPELINE_SCENARIO_KIND.CLEAN_PROJECT,
+    VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_IDENTIFIES_STEP,
+    VALIDATION_PIPELINE_SCENARIO_KIND.PRODUCTION_SCOPE,
+    VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE,
+    VALIDATION_PIPELINE_SCENARIO_KIND.PATH_FILE_SCOPE,
+    VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER,
+  ]);
+}
+
+export function describeValidationPipelineProperties(): void {
+  describeSelectedValidationPipelineComposition([
+    VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT,
+    VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS,
+  ]);
+}
+
+export function describeValidationPipelineCompliance(): void {
+  describeSelectedValidationPipelineComposition([
+    VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR,
+    VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_LITERAL,
+    VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
+    VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
+    VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
+  ]);
+}
+
+function describeSelectedValidationPipelineComposition(kinds: readonly string[]): void {
+  const selectedKinds = new Set(kinds);
   describe("validation pipeline composition", () => {
-    for (const scenario of validationPipelineScenarios()) {
+    for (const scenario of validationPipelineScenarios().filter((candidate) => selectedKinds.has(candidate.kind))) {
       it(
         scenario.title,
         { timeout: scenario.timeout },

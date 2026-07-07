@@ -1,5 +1,6 @@
 import { describe, it } from "vitest";
 
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import {
   assertCircularCommandRejectsFullPipelineCircularSkipFlag,
   assertControlCharactersAreEscaped,
@@ -14,10 +15,16 @@ import {
   assertUnicodeArgumentsArePreserved,
   assertUnknownSubcommandReportsSanitizedDiagnostic,
   assertValidationAllHelpListsSkipFlags,
+  assertValidationAllRunsAgainstProductTree,
 } from "@testing/harnesses/validation/cli";
 
 describe("spx validation dispatch - observable scenarios", () => {
   it("registered subcommand runs its handler without dispatch failure", assertRegisteredSubcommandRunsHandler);
+  it(
+    "validation all runs against the product tree without dispatch failure",
+    assertValidationAllRunsAgainstProductTree,
+    VALIDATION_PIPELINE_DATA.allTimeout,
+  );
   it(
     "registered subcommand propagates a non-zero handler exit code",
     assertRegisteredSubcommandPropagatesHandlerExitCode,

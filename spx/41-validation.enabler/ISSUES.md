@@ -119,7 +119,6 @@ rg --files spx/41-validation.enabler | rg '(integration|e2e)\.test\.ts$'
 ```text
 spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.integration.test.ts
 spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.e2e.test.ts
-spx/41-validation.enabler/tests/validation.integration.test.ts
 spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts
 spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts
 ```
