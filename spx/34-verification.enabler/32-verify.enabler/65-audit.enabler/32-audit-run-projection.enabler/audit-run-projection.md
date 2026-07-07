@@ -14,7 +14,7 @@ CAN finish individual audit runs from coverage evidence and produce selector inp
 ### Mappings
 
 - Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected`; optional uncovered units remain coverage gaps without determining the terminal status ([test](tests/audit-rollup.mapping.l1.test.ts))
-- Prior audit context selectors map audit class, audit kind, stable producer identity, subject path, changed-file partition, language partition, and concern partition to selector input consumed by run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
+- Prior audit context selectors map audit class, audit kind, expected producer identity, stable producer identity, subject path, changed-file partition, language partition, and concern partition to selector input consumed by run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
 
 ### Compliance
 

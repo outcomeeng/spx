@@ -1238,6 +1238,58 @@ export async function assertAuditFindingPayloadsConformToSchema(): Promise<void>
   });
 }
 
+export async function assertInvalidAuditScopeRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await auditAppendScenario();
+  const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const eventsBeforeInvalidScope = await readVerifyRunEvents(scenario, runToken, fs);
+
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.invalidAuditScopeUnit(), async (invalidScope) => {
+    const appended = await verifyAppendScopeCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(invalidScope),
+        idempotencyKey: key,
+      }),
+      deps,
+    );
+    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.SCOPE_INVALID) {
+      throw new Error(`expected invalid audit scope rejection, received ${appended.output}`);
+    }
+  });
+
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidScope,
+    "invalid audit scope append mutated journal events",
+  );
+}
+
+export async function assertInvalidAuditFindingRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await auditAppendScenario();
+  const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
+
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.invalidAuditFinding(), async (invalidFinding) => {
+    const appended = await verifyAppendFindingCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(invalidFinding),
+        idempotencyKey: key,
+      }),
+      deps,
+    );
+    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.FINDING_INVALID) {
+      throw new Error(`expected invalid audit finding rejection, received ${appended.output}`);
+    }
+  });
+
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidFinding,
+    "invalid audit finding append mutated journal events",
+  );
+}
+
 async function appendAuditScope(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,
@@ -1396,12 +1448,12 @@ export async function assertAuditPriorContextSelectorsFilterScopeUnits(): Promis
     },
     currentWithoutProducerProvenance,
     current,
-  ], selector)).toEqual([current]);
+  ], selector)).toEqual([currentWithoutProducerProvenance, current]);
 
   const planned = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnitWithoutOptionalFields());
   const plannedSelector = auditPriorContextSelectorForScopeUnit(planned);
 
-  expect(plannedSelector.producerIdentity).toBeUndefined();
+  expect(plannedSelector.producerIdentity).toEqual(planned.recordedByRunDriver);
   expect(filterAuditScopeUnitsForPriorContext([planned], plannedSelector)).toEqual([planned]);
 }
 
@@ -1802,6 +1854,74 @@ export async function assertReviewCommentedTerminalMetadataAcceptsCallerTerminal
     expect(report.terminalStatus).toBe(terminalStatus);
     expect(report.terminalMetadata).toEqual(terminalMetadata);
   }
+}
+
+export async function assertReviewTerminalMetadataStateMapsTerminalStatus(): Promise<void> {
+  {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+    const finished = await verifyFinishCommand(
+      {
+        ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+        terminalMetadata: JSON.stringify(terminalMetadata),
+      },
+      deps,
+    );
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(parseFinishReport(finished.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.APPROVED);
+  }
+  {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+    const finished = await verifyFinishCommand(
+      {
+        ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED }),
+        terminalMetadata: JSON.stringify(terminalMetadata),
+      },
+      deps,
+    );
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  }
+  {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewChangesRequestedTerminalMetadata());
+    const finished = await verifyFinishCommand(
+      {
+        ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED }),
+        terminalMetadata: JSON.stringify(terminalMetadata),
+      },
+      deps,
+    );
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(parseFinishReport(finished.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.REJECTED);
+  }
+  {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewChangesRequestedTerminalMetadata());
+    const finished = await verifyFinishCommand(
+      {
+        ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+        terminalMetadata: JSON.stringify(terminalMetadata),
+      },
+      deps,
+    );
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  }
+  await assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus();
 }
 
 export async function assertBlankTerminalStatusRejectedWithoutCompletion(): Promise<void> {
