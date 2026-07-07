@@ -790,6 +790,7 @@ export function assertAgentSearchOptionMappings(): void {
 
 export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
+  const impliedWorktreeBranch = branch.split("/").at(-1) ?? branch;
   expect(transcriptHasAcceptedBranchCommand(
     codexExecCommandRows(`${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`),
     branch,
@@ -809,6 +810,12 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   expect(transcriptHasAcceptedBranchCommand(
     codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
+    ),
+    branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} origin/${branch}`,
     ),
     branch,
   )).toBe(true);
@@ -1045,6 +1052,12 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ../${impliedWorktreeBranch}`,
+    ),
+    impliedWorktreeBranch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
     codexExecCommandRows(
