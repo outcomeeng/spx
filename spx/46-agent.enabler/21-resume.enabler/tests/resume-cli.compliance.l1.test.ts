@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_RESUME_TEXT } from "@/domains/agent/protocol";
 import { resolveProductDir } from "@/domains/config/root";
-import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { AGENT_CLI } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
 import { arbitraryAgentWorktreeRoot, sampleAgentResumeValue } from "@testing/generators/agent/resume";
-import { ImmediateExit } from "@testing/harnesses/agent/resume";
+import { createNonInteractiveResumeProgram, ImmediateExit } from "@testing/harnesses/agent/resume";
 
 describe("agent resume non-interactive compliance", () => {
   it("refuses the default interactive picker without writing stdout", async () => {
@@ -18,29 +17,8 @@ describe("agent resume non-interactive compliance", () => {
     const stdout: string[] = [];
     const stderr: string[] = [];
     const exitCodes: number[] = [];
-    const program = createCliProgram({
-      domains: [
-        createAgentDomain({
-          isInteractiveTerminal: () => false,
-          resumeDeps: {
-            fs: {
-              readDir: async () => {
-                throw new Error("discovery should not run for non-interactive refusal");
-              },
-              readHead: async () => {
-                throw new Error("discovery should not run for non-interactive refusal");
-              },
-              stat: async () => {
-                throw new Error("discovery should not run for non-interactive refusal");
-              },
-            },
-            homeDir: () => productDir,
-            nowMs: () => Date.now(),
-            resolveWorktreeRoot: async () => productDir,
-          },
-        }),
-      ],
-      processCwd: () => productDir,
+    const program = createNonInteractiveResumeProgram({
+      productDir,
       writeStdout: (output) => stdout.push(output),
       writeStderr: (output) => stderr.push(output),
       exit: (exitCode) => {

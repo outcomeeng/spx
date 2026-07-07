@@ -1,7 +1,5 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-export { isPathInsideOrEqual } from "@/domains/agent/resume";
-
 import {
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
@@ -15,14 +13,26 @@ import {
   type AgentSessionDirEntry,
   type AgentSessionFileSystem,
   claudeProjectDirName,
+  isPathInsideOrEqual,
 } from "@/domains/agent/resume";
+import { createAgentDomain } from "@/interfaces/cli/agent";
 import {
+  type AgentResumePickerResult,
+  quitAgentResumePicker,
+  selectedAgentResumeCandidate,
+} from "@/interfaces/cli/agent/resume/run-picker";
+import { createCliProgram } from "@/interfaces/cli/program";
+import {
+  arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
+  arbitraryAgentResumeRecentOffsetMs,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+
+export { isPathInsideOrEqual };
 
 export interface TranscriptInput {
   readonly sessionId: string;
@@ -38,6 +48,17 @@ export class ImmediateExit extends Error {
   constructor(readonly exitCode: number) {
     super();
   }
+}
+
+export interface ResumeFixture {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly homeDir: string;
+  readonly worktreeRoot: string;
+  readonly cwd: string;
+  readonly nowMs: number;
+  readonly newestSessionId: string;
+  readonly olderSessionId: string;
+  readonly olderModifiedAtMs: number;
 }
 
 interface MemoryFile {
@@ -59,6 +80,7 @@ const CANDIDATE_SAMPLE = {
 export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
+  private readonly tailReadBytes = new Map<string, number>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -66,6 +88,10 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
 
   maxHeadReadBytes(path: string): number {
     return this.headReadBytes.get(resolve(path)) ?? 0;
+  }
+
+  maxTailReadBytes(path: string): number {
+    return this.tailReadBytes.get(resolve(path)) ?? 0;
   }
 
   async readDir(path: string): Promise<readonly AgentSessionDirEntry[]> {
@@ -95,6 +121,18 @@ export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
       throw new Error(`missing file: ${path}`);
     }
     return Buffer.from(file.content, "utf8").subarray(0, maxBytes).toString("utf8");
+  }
+
+  async readTail(path: string, maxBytes: number): Promise<string> {
+    const resolved = resolve(path);
+    this.tailReadBytes.set(resolved, Math.max(this.maxTailReadBytes(resolved), maxBytes));
+    const file = this.files.get(resolved);
+    if (file === undefined) {
+      throw new Error(`missing file: ${path}`);
+    }
+    const content = Buffer.from(file.content, "utf8");
+    const start = Math.max(0, content.length - maxBytes);
+    return content.subarray(start).toString("utf8");
   }
 
   async readText(path: string): Promise<string> {
@@ -148,6 +186,36 @@ export function codexSubagentTranscript(input: TranscriptInput): string {
 
 export function agentSessionJsonlName(sessionId: string): string {
   return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
+
+export function agentResumeWorktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string> {
+  return async (candidateCwd) => (isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd);
+}
+
+export function agentResumeFixedWorktreeRootResolver(worktreeRoot: string): () => Promise<string> {
+  return async () => worktreeRoot;
+}
+
+export function agentResumeMultiRootResolver(...worktreeRoots: readonly string[]): (cwd: string) => Promise<string> {
+  return async (candidateCwd) => worktreeRoots.find((root) => isPathInsideOrEqual(root, candidateCwd)) ?? candidateCwd;
+}
+
+export interface RecordingAgentResumeWorktreeRootResolver {
+  readonly resolve: (cwd: string) => Promise<string>;
+  readonly callCount: () => number;
+}
+
+export function recordingAgentResumeWorktreeRootResolver(
+  worktreeRoot: string,
+): RecordingAgentResumeWorktreeRootResolver {
+  let calls = 0;
+  return {
+    resolve: async (candidateCwd) => {
+      calls += 1;
+      return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd;
+    },
+    callCount: () => calls,
+  };
 }
 
 export function codexTranscriptPath(homeDir: string, fileName: string): string {
@@ -217,6 +285,10 @@ export function claudeCodeTranscript(input: TranscriptInput): string {
   return withTranscriptPadding(row, input.padToBytes);
 }
 
+export function agentTranscriptActivityRow(timestamp: string): string {
+  return JSON.stringify({ [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp });
+}
+
 export function claudeProjectTranscriptPath(homeDir: string, cwd: string, fileName: string): string {
   return join(
     homeDir,
@@ -279,8 +351,155 @@ export function agentResumeCandidate(overrides: Partial<AgentResumeCandidate> = 
     cwd,
     sourcePath: codexTranscriptPath(sourceHomeDir, `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
     modifiedAtMs,
+    lastActivityAtMs: modifiedAtMs,
     updatedAt: new Date(modifiedAtMs).toISOString(),
     branch: null,
     ...overrides,
   };
+}
+
+export function createResumeFixture(): ResumeFixture {
+  const fs = new MemoryAgentSessionFileSystem();
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 2);
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
+  const timestamp = new Date(nowMs).toISOString();
+  const newestSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 3);
+  const olderSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 4);
+  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 5);
+  const olderTimestamp = new Date(olderModifiedAtMs).toISOString();
+
+  fs.writeFile(
+    codexTranscriptPath(homeDir, agentSessionJsonlName(newestSessionId)),
+    codexTranscript({ sessionId: newestSessionId, cwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    codexTranscriptPath(homeDir, agentSessionJsonlName(olderSessionId)),
+    codexTranscript({ sessionId: olderSessionId, cwd, timestamp: olderTimestamp }),
+    olderModifiedAtMs,
+  );
+
+  return { fs, homeDir, worktreeRoot, cwd, nowMs, newestSessionId, olderSessionId, olderModifiedAtMs };
+}
+
+export function createProgramForResumeFixture(
+  fixture: ResumeFixture,
+  options: {
+    readonly pickCandidate?: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
+    readonly launchCandidate?: (candidate: AgentResumeCandidate) => Promise<number>;
+    readonly writeStdout?: (output: string) => void;
+    readonly writeStderr?: (output: string) => void;
+    readonly setExitCode?: (exitCode: number) => void;
+    readonly exit?: (exitCode: number) => never;
+    readonly resolveWorktreeRoot?: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
+  } = {},
+): ReturnType<typeof createCliProgram> {
+  return createCliProgram({
+    domains: [
+      createAgentDomain({
+        isInteractiveTerminal: () => true,
+        resumeDeps: {
+          fs: fixture.fs,
+          homeDir: () => fixture.homeDir,
+          nowMs: () => fixture.nowMs,
+          resolveWorktreeRoot: options.resolveWorktreeRoot
+            ?? (async (candidateCwd, fallbackWorktreeRoot) =>
+              isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd)
+                ? fixture.worktreeRoot
+                : fallbackWorktreeRoot),
+        },
+        pickCandidate: options.pickCandidate
+          ?? (async (candidates) => {
+            const candidate = candidates.at(0);
+            return candidate === undefined ? quitAgentResumePicker() : selectedAgentResumeCandidate(candidate);
+          }),
+        launchCandidate: options.launchCandidate
+          ?? (async () => sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 6)),
+      }),
+    ],
+    processCwd: () => fixture.cwd,
+    writeStdout: options.writeStdout,
+    writeStderr: options.writeStderr,
+    setExitCode: options.setExitCode,
+    exit: options.exit ?? ((exitCode) => {
+      throw new ImmediateExit(exitCode);
+    }),
+  });
+}
+
+export function createInteractiveResumeProgram(input: {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly homeDir: string;
+  readonly cwd: string;
+  readonly nowMs: number;
+  readonly resolveWorktreeRoot: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
+  readonly pickCandidate?: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
+  readonly launchCandidate?: (candidate: AgentResumeCandidate) => Promise<number>;
+  readonly writeStdout?: (output: string) => void;
+  readonly writeStderr?: (output: string) => void;
+  readonly setExitCode?: (exitCode: number) => void;
+  readonly exit?: (exitCode: number) => never;
+}): ReturnType<typeof createCliProgram> {
+  return createCliProgram({
+    domains: [
+      createAgentDomain({
+        isInteractiveTerminal: () => true,
+        resumeDeps: {
+          fs: input.fs,
+          homeDir: () => input.homeDir,
+          nowMs: () => input.nowMs,
+          resolveWorktreeRoot: input.resolveWorktreeRoot,
+        },
+        pickCandidate: input.pickCandidate,
+        launchCandidate: input.launchCandidate,
+      }),
+    ],
+    processCwd: () => input.cwd,
+    writeStdout: input.writeStdout,
+    writeStderr: input.writeStderr,
+    setExitCode: input.setExitCode,
+    exit: input.exit,
+  });
+}
+
+export function createNonInteractiveResumeProgram(input: {
+  readonly productDir: string;
+  readonly writeStdout: (output: string) => void;
+  readonly writeStderr: (output: string) => void;
+  readonly exit: (exitCode: number) => never;
+}): ReturnType<typeof createCliProgram> {
+  const refusalOnlyFs: AgentSessionFileSystem = {
+    readDir: async () => {
+      throw new Error("discovery should not run for non-interactive refusal");
+    },
+    readHead: async () => {
+      throw new Error("discovery should not run for non-interactive refusal");
+    },
+    readTail: async () => {
+      throw new Error("discovery should not run for non-interactive refusal");
+    },
+    stat: async () => {
+      throw new Error("discovery should not run for non-interactive refusal");
+    },
+  };
+
+  return createCliProgram({
+    domains: [
+      createAgentDomain({
+        isInteractiveTerminal: () => false,
+        resumeDeps: {
+          fs: refusalOnlyFs,
+          homeDir: () => input.productDir,
+          nowMs: () => Date.now(),
+          resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(input.productDir),
+        },
+      }),
+    ],
+    processCwd: () => input.productDir,
+    writeStdout: input.writeStdout,
+    writeStderr: input.writeStderr,
+    exit: input.exit,
+  });
 }
