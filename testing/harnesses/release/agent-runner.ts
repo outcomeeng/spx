@@ -2,6 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { CHANGELOG_PATH_DATA_BLOCK_CLOSE, CHANGELOG_PATH_DATA_BLOCK_OPEN } from "@/domains/release/release-notes";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 
 /**
  * A recording + writing AgentRunner double for release-notes composition tests.
@@ -11,8 +13,8 @@ import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
  * assembly, and read-back validation are exercised at l1 by injecting this double
  * for the agent alone. It records every request so a test can inspect the prompt
  * the composition assembled (Stage 5 observability), and it writes a predetermined
- * changelog body to a fixed output path after checking the request's working
- * directory, modelling the artifact the real agent would write so the
+ * changelog body to the prompt's staged output path after checking the request's
+ * working directory, modelling the artifact the real agent would write so the
  * composition's injected reader performs a real filesystem read-back rather
  * than reading from a double.
  */
@@ -27,11 +29,12 @@ export class RecordingWritingAgentRunner implements AgentRunner {
 
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
-    if (resolve(request.workingDirectory) !== resolve(this.expectedWorkingDirectory)) {
+    if (!isInsideOrEqual(this.expectedWorkingDirectory, request.workingDirectory)) {
       throw new Error("Agent runner double received the wrong working directory");
     }
-    await mkdir(dirname(this.outputPath), { recursive: true });
-    await writeFile(this.outputPath, this.changelogContent);
+    const outputPath = promptChangelogPath(request.prompt) ?? this.outputPath;
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, this.changelogContent);
   }
 
   /** The prompt of the most recent request, for inspecting what the composition assembled. */
@@ -42,4 +45,23 @@ export class RecordingWritingAgentRunner implements AgentRunner {
     }
     return last.prompt;
   }
+}
+
+function promptChangelogPath(prompt: string): string | undefined {
+  const openIndex = prompt.indexOf(CHANGELOG_PATH_DATA_BLOCK_OPEN);
+  if (openIndex === -1) {
+    return undefined;
+  }
+  const valueStart = openIndex + CHANGELOG_PATH_DATA_BLOCK_OPEN.length;
+  const closeIndex = prompt.indexOf(CHANGELOG_PATH_DATA_BLOCK_CLOSE, valueStart);
+  if (closeIndex === -1) {
+    return undefined;
+  }
+  const rawJson = prompt.slice(valueStart, closeIndex).trim();
+  const parsed = JSON.parse(rawJson) as unknown;
+  return typeof parsed === "string" ? parsed : undefined;
+}
+
+function isInsideOrEqual(parent: string, child: string): boolean {
+  return isPathContained(resolve(parent), resolve(child));
 }

@@ -59,6 +59,7 @@ const ORACLE_MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const ORACLE_MARKDOWN_CDATA_CLOSE = "]]>";
 const MALFORMED_FENCE_TAIL = "note";
 const ORACLE_MARKDOWN_LIST_ITEM = "- release summary";
+const ORACLE_MARKDOWN_TAB_PADDED_LIST_ITEM = `-${ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR}release summary`;
 const ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT = "  ";
 
 const CHANGELOG_DIR_PATTERN = /^[a-z][a-z0-9-]{2,8}$/;
@@ -394,6 +395,21 @@ export function conformantChangelogWithTabbedHeadings(
   ].join(LINE_SEPARATOR);
 }
 
+export function conformantChangelogWithTabPaddedListBeforeChangeGroup(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    ORACLE_MARKDOWN_TAB_PADDED_LIST_ITEM,
+    `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP)}`,
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
 export function conformantChangelogWithHtmlBlockTerminatedByBlankLine(
   version: string,
   subjects: readonly string[],
@@ -501,6 +517,17 @@ export function sampleTabbedHeadingReleaseNotesChangelogCase(): ReleaseNotesChan
   return {
     releaseData,
     content: conformantChangelogWithTabbedHeadings(releaseData.version, subjects),
+  };
+}
+
+export function sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  return {
+    releaseData,
+    content: conformantChangelogWithTabPaddedListBeforeChangeGroup(
+      releaseData.version,
+      subjects,
+    ),
   };
 }
 
