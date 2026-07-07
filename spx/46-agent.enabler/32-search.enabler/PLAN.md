@@ -60,7 +60,7 @@ SPX returns top-level Codex and Claude Code agent-native sessions associated wit
   - the session `cwd` is inside a worktree currently checked out on the requested branch within the same product worktree pool;
   - the top-level transcript contains an accepted branch creation or branch switch command for the requested branch, such as `git switch <branch>`, `git switch -c <branch>`, `git checkout <branch>`, `git checkout -b <branch>`, or `git worktree add <path> <branch>`.
 - Branch existence alone is not enough to return a session; the branch must be associated with a session through metadata, worktree location, or parsed command evidence.
-- Subagent transcripts remain excluded as returned sessions. A subagent transcript can inform a future lineage feature only after the spec declares how subagent evidence maps back to a top-level session.
+- Subagent transcripts remain excluded as returned sessions. Codex subagent transcript branch evidence can associate the parent top-level session with the requested branch when the parent session exists; the result uses the parent session id and the branch-evidence current working directory rather than returning the subagent transcript as a row.
 - The result keeps the existing JSON shape and uses `branch` in `matches` when any branch-association signal matched.
 - Text output remains bounded by `--limit`; `--all` continues to widen the recent-session time bound.
 
