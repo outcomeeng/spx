@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 
+import { contextCommand } from "@/commands/spec/context";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -13,6 +14,7 @@ export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
   STATUS_COMMAND: "status",
   NEXT_COMMAND: "next",
+  CONTEXT_COMMAND: "context",
   JSON_OPTION: "--json",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
@@ -82,6 +84,23 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
 function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void {
   const productDir = (): string => invocation.resolveProductContext().productDir;
   const onWarning = (warning: string | undefined): void => writeInvocationWarning(invocation.io, warning);
+
+  specCmd
+    .command(SPEC_DOMAIN_CLI.CONTEXT_COMMAND)
+    .description("Load deterministic context for a spec-tree node")
+    .argument("<target>", "Spec-tree node path")
+    .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
+    .action(async (target: string, options: { json?: boolean }) => {
+      try {
+        if (options.json !== true) {
+          throw new Error("spx spec context currently requires --json");
+        }
+        const output = await contextCommand({ target, cwd: productDir(), onWarning });
+        writeOutput(invocation.io, output);
+      } catch (error) {
+        handleCommandError(invocation.io, error);
+      }
+    });
 
   specCmd
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)

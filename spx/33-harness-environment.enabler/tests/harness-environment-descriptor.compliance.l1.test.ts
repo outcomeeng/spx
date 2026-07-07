@@ -5,8 +5,6 @@ import { productionRegistry } from "@/config/registry";
 import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
-  DEFAULT_METHODOLOGY_SOURCE,
-  DEFAULT_METHODOLOGY_VERSION,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
@@ -47,46 +45,6 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         expect(assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION])).toEqual(
           harnessEnvironmentConfigDescriptor.defaults,
         );
-      });
-    });
-
-    it("resolves methodology defaults for an explicit empty methodology section", async () => {
-      const productConfig: Config = {
-        [HARNESS_ENVIRONMENT_SECTION]: {
-          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {},
-        },
-      };
-
-      await withTestEnv(productConfig, async ({ productDir }) => {
-        const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
-
-        expect(harnessEnvironment.methodology).toEqual({
-          source: DEFAULT_METHODOLOGY_SOURCE,
-          version: DEFAULT_METHODOLOGY_VERSION,
-        });
-      });
-    });
-
-    it("resolves explicit methodology source and version", async () => {
-      const source = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-      const version = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-      const productConfig: Config = {
-        [HARNESS_ENVIRONMENT_SECTION]: {
-          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {
-            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: source,
-            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION]: version,
-          },
-        },
-      };
-
-      await withTestEnv(productConfig, async ({ productDir }) => {
-        const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
-
-        expect(harnessEnvironment.methodology).toEqual({ source, version });
       });
     });
 
@@ -207,14 +165,6 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         {
           productConfig: {
             [HARNESS_ENVIRONMENT_SECTION]: {
-              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: sampleUnknownHarnessEnvironmentValue(),
-            },
-          },
-          expectedErrorPath: harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY),
-        },
-        {
-          productConfig: {
-            [HARNESS_ENVIRONMENT_SECTION]: {
               [HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: sampleUnknownHarnessEnvironmentValue(),
             },
           },
@@ -249,32 +199,6 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
     it("rejects malformed subsection field values", async () => {
       const malformedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
-        {
-          productConfig: {
-            [HARNESS_ENVIRONMENT_SECTION]: {
-              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {
-                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: "",
-              },
-            },
-          },
-          expectedErrorPath: harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE,
-          ),
-        },
-        {
-          productConfig: {
-            [HARNESS_ENVIRONMENT_SECTION]: {
-              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {
-                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION]: true,
-              },
-            },
-          },
-          expectedErrorPath: harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION,
-          ),
-        },
         {
           productConfig: {
             [HARNESS_ENVIRONMENT_SECTION]: {
@@ -1014,16 +938,6 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       const unknownField = sampleUnknownHarnessEnvironmentField();
       const unknownValue = sampleUnknownHarnessEnvironmentValue();
       const nestedSections: readonly { readonly productConfig: Config; readonly expectedErrorPath: string }[] = [
-        {
-          productConfig: {
-            [HARNESS_ENVIRONMENT_SECTION]: {
-              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {
-                [unknownField]: unknownValue,
-              },
-            },
-          },
-          expectedErrorPath: harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY, unknownField),
-        },
         {
           productConfig: {
             [HARNESS_ENVIRONMENT_SECTION]: {

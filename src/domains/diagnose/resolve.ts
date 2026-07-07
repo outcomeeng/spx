@@ -10,6 +10,7 @@
  * @module domains/diagnose/resolve
  */
 
+import type { MethodologyConfig } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import type { DiagnoseConfig } from "@/domains/diagnose/config";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
@@ -31,6 +32,7 @@ function isCheckName(value: string): value is CheckName {
 export function resolveDiagnoseFacts(options: {
   readonly manifest?: DiagnoseManifest;
   readonly config: DiagnoseConfig;
+  readonly methodology?: MethodologyConfig;
   readonly availableChecks: readonly CheckName[];
 }): Result<DiagnoseManifest> {
   if (options.manifest !== undefined) {
@@ -61,6 +63,7 @@ export function resolveDiagnoseFacts(options: {
       spxFloor: config.spxFloor,
       marketplace: config.marketplace,
       expectedPlugins: config.expectedPlugins,
+      methodology: options.methodology,
     },
   };
 }

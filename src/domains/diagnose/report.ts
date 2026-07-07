@@ -13,6 +13,10 @@ import {
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
+  METHODOLOGY_CONTEXT_VERDICT,
+  type MethodologyContextVerdict,
+} from "@/domains/diagnose/checks/methodology-context";
+import {
   SESSION_ENVIRONMENT_VERDICT,
   type SessionEnvironmentVerdict,
 } from "@/domains/diagnose/checks/session-environment";
@@ -59,6 +63,9 @@ export interface DiagnoseHumanText {
 export const DIAGNOSE_TEXT_LABEL = {
   FIX: "Fix",
   INSTALLED: "Installed",
+  CONFIGURED_SOURCE: "Configured source",
+  CONFIGURED_VERSION: "Configured version",
+  OBSERVED_VERSION: "Observed version",
   PATH: "Path",
   PROBLEM: "Problem",
   REQUIRED_VERSION: "Required version",
@@ -77,6 +84,12 @@ export const DIAGNOSE_TEXT_HEADER = {
   MARKETPLACE_DRIFT: "plugin installation drift",
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
   MARKETPLACE_UNKNOWN: "plugin marketplace state unknown",
+  METHODOLOGY_CONFIGURED: "methodology context configured",
+  METHODOLOGY_RESOLVED: "methodology context resolved",
+  METHODOLOGY_SOURCE_MISMATCH: "methodology source mismatch",
+  METHODOLOGY_UNAVAILABLE: "methodology context unavailable",
+  METHODOLOGY_UNKNOWN: "methodology context unknown",
+  METHODOLOGY_VERSION_MISMATCH: "methodology version mismatch",
   RENDERING_UNAVAILABLE: "diagnosis detail unavailable",
   SESSION_START_NO_OP: "SessionStart hook did not establish a session",
   SESSION_STORE_CLEAN: "session store clean",
@@ -98,6 +111,11 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
+  METHODOLOGY_CONFIGURED: "Methodology context is configured, but no installed version was observed locally.",
+  METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
+  METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
+  METHODOLOGY_VERSION_MISMATCH_FIX:
+    "Install the configured methodology version or change top-level methodology.version.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_CLEAN: "No stale doing sessions found.",
@@ -150,6 +168,70 @@ export function renderReportJson(report: DiagnoseReport): string {
     null,
     2,
   );
+}
+
+function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
+  const configuredSource = reading(check, "configuredSource");
+  const configuredVersion = reading(check, "configuredVersion");
+  const observedVersion = reading(check, "observedVersion");
+  switch (check.verdict as MethodologyContextVerdict) {
+    case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED,
+        details: [
+          DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED,
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
+          `${DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION}: ${observedVersion}`,
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.CONFIGURED:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_CONFIGURED,
+        details: [
+          DIAGNOSE_TEXT_DETAIL.METHODOLOGY_CONFIGURED,
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${configuredVersion}`,
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.SOURCE_MISMATCH:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_SOURCE_MISMATCH,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX}`,
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${configuredVersion}`,
+          `${DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION}: ${observedVersion}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX}`,
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${configuredVersion}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX}`,
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_CONFIGURED,
+        details: [DIAGNOSE_TEXT_DETAIL.METHODOLOGY_CONFIGURED],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN,
+        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+      };
+    default:
+      return fallbackText(check);
+  }
 }
 
 function reading(check: CheckRecord, key: string): string | undefined {
@@ -368,6 +450,8 @@ function humanText(check: CheckRecord): DiagnoseHumanText {
       return sessionStoreText(check);
     case CHECK_NAME.MARKETPLACE_INSTALL:
       return marketplaceInstallText(check);
+    case CHECK_NAME.METHODOLOGY_CONTEXT:
+      return methodologyContextText(check);
     default:
       return fallbackText(check);
   }

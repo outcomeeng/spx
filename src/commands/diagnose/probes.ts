@@ -9,7 +9,9 @@
  * @module commands/diagnose/probes
  */
 
-import { basename, dirname } from "node:path";
+import { readdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 
@@ -17,6 +19,10 @@ import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
 } from "@/domains/diagnose/checks/marketplace-install";
+import type {
+  MethodologyContextObservation,
+  MethodologyContextProbe,
+} from "@/domains/diagnose/checks/methodology-context";
 import type { SessionEnvironmentProbe, SessionEnvironmentReading } from "@/domains/diagnose/checks/session-environment";
 import {
   doingSessionBackedByClaim,
@@ -46,6 +52,12 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
+
+const CODEX_HOME_ENV = "CODEX_HOME";
+const DEFAULT_CODEX_HOME_DIR = ".codex";
+const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+const VERSION_PART_RADIX = 10;
+const VERSION_PART_SEPARATOR = ".";
 
 export interface WorktreePoolSnapshotEntry {
   readonly root: string;
@@ -443,5 +455,68 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
       };
     }
     return reading;
+  },
+};
+
+function codexHome(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  return env[CODEX_HOME_ENV] ?? join(homedir(), DEFAULT_CODEX_HOME_DIR);
+}
+
+async function latestDirectory(path: string): Promise<string | null> {
+  try {
+    const entries = await readdir(path, { withFileTypes: true });
+    const names = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort(compareVersionDirectoryNames);
+    return names.at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function compareVersionDirectoryNames(left: string, right: string): number {
+  const leftParts = left.split(VERSION_PART_SEPARATOR).map((part) => Number.parseInt(part, VERSION_PART_RADIX));
+  const rightParts = right.split(VERSION_PART_SEPARATOR).map((part) => Number.parseInt(part, VERSION_PART_RADIX));
+  const sharedLength = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+  return left.localeCompare(right);
+}
+
+export function createMethodologyContextProbe(codexHomeDir: string): MethodologyContextProbe {
+  return {
+    async probe(config): Promise<MethodologyContextObservation> {
+      const sourcePath = join(codexHomeDir, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
+      const version = await latestDirectory(sourcePath);
+      if (version === null) {
+        return { source: null, version: null, errored: false };
+      }
+      return {
+        source: config.source,
+        version,
+        errored: false,
+      };
+    },
+  };
+}
+
+export const defaultMethodologyContextProbe: MethodologyContextProbe = {
+  async probe(config): Promise<MethodologyContextObservation> {
+    const sourcePath = join(codexHome(), ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
+    const version = await latestDirectory(sourcePath);
+    if (version === null) {
+      return { source: null, version: null, errored: false };
+    }
+    return {
+      source: config.source,
+      version,
+      errored: false,
+    };
   },
 };

@@ -48,7 +48,6 @@ export function expectRejectedConfig(
 }
 
 export function assertHarnessEnvironmentConfig(value: unknown): HarnessEnvironmentConfig {
-  expect(value).toHaveProperty(HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY);
   expect(value).toHaveProperty(HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS);
   expect(value).toHaveProperty(HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS);
   expect(value).toHaveProperty(HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP);

@@ -9,6 +9,7 @@
  * @module domains/diagnose/manifest
  */
 
+import type { MethodologyConfig } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import {
   isNonEmptyString,
@@ -25,6 +26,7 @@ export const CHECK_NAME = {
   WORKTREE_POOL: "worktree-pool",
   SESSION_STORE: "session-store",
   MARKETPLACE_INSTALL: "marketplace-install",
+  METHODOLOGY_CONTEXT: "methodology-context",
 } as const;
 
 export type CheckName = (typeof CHECK_NAME)[keyof typeof CHECK_NAME];
@@ -39,6 +41,8 @@ export interface DiagnoseManifest {
   readonly expectedPlugins?: readonly string[];
   /** The check set the pipeline runs, in order. */
   readonly checks: readonly CheckName[];
+  /** The configured methodology source/version; present on config-driven runs. */
+  readonly methodology?: MethodologyConfig;
 }
 
 function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<readonly CheckName[]> {

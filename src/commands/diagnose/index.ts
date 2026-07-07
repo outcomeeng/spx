@@ -12,6 +12,7 @@
  */
 
 import { resolveConfig } from "@/config/index";
+import { type MethodologyConfig, methodologyConfigDescriptor } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
@@ -41,10 +42,21 @@ export interface DiagnoseCommandOptions {
 }
 
 /** Resolves the `spx.config` diagnose section from the product directory. */
-async function resolveDiagnoseConfig(productDir: string): Promise<Result<DiagnoseConfig>> {
-  const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
+async function resolveDiagnoseConfig(productDir: string): Promise<
+  Result<{
+    readonly diagnose: DiagnoseConfig;
+    readonly methodology: MethodologyConfig;
+  }>
+> {
+  const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor, methodologyConfigDescriptor]);
   if (!loaded.ok) return loaded;
-  return { ok: true, value: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig };
+  return {
+    ok: true,
+    value: {
+      diagnose: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig,
+      methodology: loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig,
+    },
+  };
 }
 
 export interface DiagnoseCommandResult {
@@ -79,14 +91,16 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
 
   // A supplied manifest takes precedence over configuration (the PDR's precedence rule), so config
   // is resolved only on the no-manifest path — a malformed diagnose config never derails a manifest run.
-  const config: Result<DiagnoseConfig> = manifest === undefined
-    ? await resolveDiagnoseConfig(options.productDir)
-    : { ok: true, value: {} };
+  const config: Result<{ readonly diagnose?: DiagnoseConfig; readonly methodology?: MethodologyConfig }> =
+    manifest === undefined
+      ? await resolveDiagnoseConfig(options.productDir)
+      : { ok: true, value: {} };
   if (!config.ok) return config;
 
   const resolved = resolveDiagnoseFacts({
     manifest: manifest?.value,
-    config: config.value,
+    config: config.value.diagnose ?? {},
+    methodology: config.value.methodology,
     availableChecks,
   });
   if (!resolved.ok) return resolved;
