@@ -41,7 +41,17 @@ export function registerReleaseNotesScenarioTests(): void {
   describe("composeReleaseNotes writes the changelog at the resolved path", () => {
     it("writes the changelog carrying a section for the release version", async () => {
       await withReleaseNotesEnv(
-        async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
+        async (
+          {
+            workingDirectory,
+            readArtifact,
+            createArtifactStage,
+            promoteArtifact,
+            canonicalizePath,
+            isSymbolicLink,
+            isFile,
+          },
+        ) => {
           const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
           const subjects = releaseData.commits.map((commit) => commit.subject);
           const config = {};
@@ -57,6 +67,8 @@ export function registerReleaseNotesScenarioTests(): void {
             workingDirectory,
             agentRunner,
             readArtifact,
+            createArtifactStage,
+            promoteArtifact,
             canonicalizePath,
             isSymbolicLink,
             isFile,

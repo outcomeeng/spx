@@ -8,7 +8,6 @@ import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   CHANGELOG_PRESERVATION_INSTRUCTION,
-  COMMIT_SUBJECTS_JSON_INDENT,
   composeReleaseNotes,
   MARKDOWN_FENCE_BACKTICK_MARKER,
   type PathCanonicalizer,
@@ -16,6 +15,7 @@ import {
   ReleaseNotesError,
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConformantChangelog,
   arbitraryNestedConfiguredChangelogPath,
@@ -47,6 +47,8 @@ interface ComposeReleaseNotesInEnvOptions {
   readonly workingDirectory?: string;
   readonly readArtifact?: ReleaseNotesEnv["readArtifact"];
   readonly canonicalizePath?: PathCanonicalizer;
+  readonly createArtifactStage?: ReleaseNotesEnv["createArtifactStage"];
+  readonly promoteArtifact?: ReleaseNotesEnv["promoteArtifact"];
 }
 
 export function sampleReleaseNotesCompositionFixture(
@@ -71,6 +73,8 @@ export async function composeReleaseNotesInEnv(
     workingDirectory = env.workingDirectory,
     readArtifact = env.readArtifact,
     canonicalizePath = env.canonicalizePath,
+    createArtifactStage = env.createArtifactStage,
+    promoteArtifact = env.promoteArtifact,
   }: ComposeReleaseNotesInEnvOptions,
 ): Promise<void> {
   await composeReleaseNotes({
@@ -79,6 +83,8 @@ export async function composeReleaseNotesInEnv(
     workingDirectory,
     agentRunner,
     readArtifact,
+    createArtifactStage,
+    promoteArtifact,
     canonicalizePath,
     isSymbolicLink: env.isSymbolicLink,
     isFile: env.isFile,
@@ -142,13 +148,9 @@ export async function assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonica
         CHANGELOG_PATH_DATA_BLOCK_OPEN,
         CHANGELOG_PATH_DATA_BLOCK_CLOSE,
       );
-      expect(parsePromptJsonBlock(delimitedPathBlock)).toBe(
-        JSON.stringify(
-          expectedCanonicalPath,
-          null,
-          COMMIT_SUBJECTS_JSON_INDENT,
-        ),
-      );
+      const stagedPromptPath = parsePromptPathBlock(delimitedPathBlock);
+      expect(stagedPromptPath).not.toBe(expectedCanonicalPath);
+      expect(isPathContained(agentRunner.requests[0].workingDirectory, stagedPromptPath)).toBe(true);
       expect(readBackPath).toBe(expectedCanonicalPath);
       await expect(readArtifact(expectedCanonicalPath)).resolves.toBe(conformant);
     },
@@ -160,6 +162,8 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
     async ({
       workingDirectory,
       readArtifact,
+      createArtifactStage,
+      promoteArtifact,
       canonicalizePath,
       isSymbolicLink,
       isFile,
@@ -185,6 +189,8 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
         workingDirectory,
         agentRunner,
         readArtifact,
+        createArtifactStage,
+        promoteArtifact,
         canonicalizePath,
         isSymbolicLink,
         isFile,
@@ -196,9 +202,9 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
         CHANGELOG_PATH_DATA_BLOCK_OPEN,
         CHANGELOG_PATH_DATA_BLOCK_CLOSE,
       );
-      expect(parsePromptJsonBlock(delimitedPathBlock)).toBe(
-        JSON.stringify(expectedCanonicalPath, null, COMMIT_SUBJECTS_JSON_INDENT),
-      );
+      const stagedPromptPath = parsePromptPathBlock(delimitedPathBlock);
+      expect(stagedPromptPath).not.toBe(expectedCanonicalPath);
+      expect(isPathContained(agentRunner.requests[0].workingDirectory, stagedPromptPath)).toBe(true);
       expect(agentRunner.lastPrompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
     },
   );
@@ -209,6 +215,8 @@ export async function assertReleaseNotesValidationRejectsDeletedExistingSection(
     async ({
       workingDirectory,
       readArtifact,
+      createArtifactStage,
+      promoteArtifact,
       canonicalizePath,
       isSymbolicLink,
       isFile,
@@ -220,11 +228,25 @@ export async function assertReleaseNotesValidationRejectsDeletedExistingSection(
       );
       const config = {};
       const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
-      const agentRunner = new RecordingWritingAgentRunner(
+      const writingAgentRunner = new RecordingWritingAgentRunner(
         workingDirectory,
         resolvedPath,
         conformant,
       );
+      let stagedInput: string | undefined;
+      const agentRunner: ReleaseNotesAgentRunner = {
+        async run(request) {
+          const stagedPath = parsePromptPathBlock(
+            promptDataBlock(
+              request.prompt,
+              CHANGELOG_PATH_DATA_BLOCK_OPEN,
+              CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+            ),
+          );
+          stagedInput = await readArtifact(stagedPath, stagedPath);
+          await writingAgentRunner.run(request);
+        },
+      };
       await writeFile(resolvedPath, existingNotes);
 
       await expect(
@@ -234,12 +256,15 @@ export async function assertReleaseNotesValidationRejectsDeletedExistingSection(
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
         }),
       ).rejects.toThrow(ReleaseNotesError);
-      await expect(readArtifact(resolvedPath)).resolves.toBe(conformant);
+      expect(stagedInput).toBe(existingNotes);
+      await expect(readArtifact(resolvedPath)).resolves.toBe(existingNotes);
     },
   );
 }
@@ -249,6 +274,8 @@ export async function assertReleaseNotesValidationRejectsFencedExistingSection()
     async ({
       workingDirectory,
       readArtifact,
+      createArtifactStage,
+      promoteArtifact,
       canonicalizePath,
       isSymbolicLink,
       isFile,
@@ -280,6 +307,8 @@ export async function assertReleaseNotesValidationRejectsFencedExistingSection()
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -294,6 +323,8 @@ export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences
     async ({
       workingDirectory,
       readArtifact,
+      createArtifactStage,
+      promoteArtifact,
       canonicalizePath,
       isSymbolicLink,
       isFile,
@@ -322,6 +353,8 @@ export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -337,6 +370,8 @@ export async function assertReleaseNotesValidationRejectsTruncatedFencedReferenc
     async ({
       workingDirectory,
       readArtifact,
+      createArtifactStage,
+      promoteArtifact,
       canonicalizePath,
       isSymbolicLink,
       isFile,
@@ -365,6 +400,8 @@ export async function assertReleaseNotesValidationRejectsTruncatedFencedReferenc
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -389,7 +426,17 @@ export async function rejectChangelogWithH1BoundaryBeforeVersion(): Promise<void
 export async function rejectChangelogWithDuplicateCurrentVersion(): Promise<void> {
   const { releaseData, content } = sampleDuplicateCurrentVersionReleaseNotesChangelogCase();
   await withReleaseNotesEnv(
-    async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
+    async (
+      {
+        workingDirectory,
+        readArtifact,
+        createArtifactStage,
+        promoteArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      },
+    ) => {
       const config = {};
       const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
       const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, content);
@@ -401,6 +448,8 @@ export async function rejectChangelogWithDuplicateCurrentVersion(): Promise<void
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -418,7 +467,17 @@ export async function expectRejectedReleaseNotesReadBack({
   readonly content: string;
 }): Promise<void> {
   await withReleaseNotesEnv(
-    async ({ workingDirectory, readArtifact, canonicalizePath, isSymbolicLink, isFile }) => {
+    async (
+      {
+        workingDirectory,
+        readArtifact,
+        createArtifactStage,
+        promoteArtifact,
+        canonicalizePath,
+        isSymbolicLink,
+        isFile,
+      },
+    ) => {
       const config = {};
       const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
       const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, content);
@@ -431,6 +490,8 @@ export async function expectRejectedReleaseNotesReadBack({
           workingDirectory,
           agentRunner,
           readArtifact,
+          createArtifactStage,
+          promoteArtifact,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -458,10 +519,6 @@ function promptDataBlock(prompt: string, open: string, close: string): string {
   return prompt.slice(start + open.length, end).trim();
 }
 
-function parsePromptJsonBlock(block: string): string {
-  return JSON.stringify(
-    JSON.parse(block) as string | readonly string[],
-    null,
-    COMMIT_SUBJECTS_JSON_INDENT,
-  );
+function parsePromptPathBlock(block: string): string {
+  return JSON.parse(block) as string;
 }

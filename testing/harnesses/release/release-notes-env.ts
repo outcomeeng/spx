@@ -1,9 +1,14 @@
 import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
-import { lstat, open, realpath, stat } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import { lstat, mkdir, open, realpath, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import {
+  type ArtifactPromoter,
   type ArtifactReader,
+  type ArtifactStage,
+  type ArtifactStager,
   type PathCanonicalizer,
   type PathFileDetector,
   type PathSymlinkDetector,
@@ -16,7 +21,11 @@ const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
 const NOT_DIRECTORY_ERROR_CODE = "ENOTDIR";
 const ARTIFACT_TEXT_ENCODING = "utf8";
 const ARTIFACT_READ_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW;
+const ARTIFACT_WRITE_FLAGS = fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW;
 const RETARGETED_ARTIFACT_ERROR = "Opened changelog path changed before read-back validation completed";
+const RETARGETED_PROMOTION_ERROR = "Changelog promotion target changed before final write";
+const STAGING_DIRECTORY_NAME = ".release-notes-stage";
+const STAGING_FILE_NAME = "CHANGELOG.md";
 export const RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE = "dir";
 export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
@@ -31,6 +40,10 @@ export interface ReleaseNotesEnv {
   readonly workingDirectory: string;
   /** The injected read-back dependency: a real filesystem reader over the working tree. */
   readonly readArtifact: ArtifactReader;
+  /** The injected staging dependency: a real temp path the agent writes before promotion. */
+  readonly createArtifactStage: ArtifactStager;
+  /** The injected promotion dependency: a real filesystem final-path writer. */
+  readonly promoteArtifact: ArtifactPromoter;
   /** The injected canonicalizer: a real filesystem `realpath` boundary over the temp tree. */
   readonly canonicalizePath: PathCanonicalizer;
   /** The injected symlink detector: a real filesystem `lstat` boundary over the temp tree. */
@@ -40,29 +53,109 @@ export interface ReleaseNotesEnv {
 }
 
 /**
- * Provisions a real temp working tree and a real filesystem artifact reader, runs
- * the callback against them, and removes the directory afterward. The reader is the
- * production-shaped dependency the composition reads its written notes back through,
- * so the read-back is exercised against a real file the agent double wrote.
+ * Provisions a real temp working tree and real filesystem staging, promotion, and
+ * artifact-reader boundaries, runs the callback against them, and removes the
+ * directory afterward. The read-back is exercised against real files the agent
+ * double wrote and the promoter wrote.
  */
 export async function withReleaseNotesEnv(
   callback: (env: ReleaseNotesEnv) => Promise<void>,
   options: ReleaseNotesEnvOptions = {},
 ): Promise<void> {
   await withTempDir(TEMP_DIR_PREFIX, async (workingDirectory) => {
+    const canonicalWorkingDirectory = await canonicalizeExistingPath(workingDirectory);
+    if (canonicalWorkingDirectory === undefined) {
+      throw new ReleaseNotesError(
+        `Release-notes working directory cannot be canonicalized: ${workingDirectory}`,
+      );
+    }
+    let stageCounter = 0;
     await callback({
-      workingDirectory,
+      workingDirectory: canonicalWorkingDirectory,
       readArtifact: (path, expectedCanonicalPath) =>
         readCanonicalArtifactWithoutFollowingFinalSymlink(
           path,
           expectedCanonicalPath,
           options.beforeArtifactRead,
         ),
+      createArtifactStage: async (_targetCanonicalPath, existingContent) => {
+        stageCounter += 1;
+        return await createReleaseNotesArtifactStage(
+          canonicalWorkingDirectory,
+          stageCounter,
+          existingContent,
+        );
+      },
+      promoteArtifact: promoteReleaseNotesArtifact,
       canonicalizePath: canonicalizeExistingPath,
       isSymbolicLink: detectSymbolicLink,
       isFile: detectFile,
     });
   });
+}
+
+async function createReleaseNotesArtifactStage(
+  workingDirectory: string,
+  stageCounter: number,
+  existingContent?: string,
+): Promise<ArtifactStage> {
+  const stageWorkingDirectory = join(
+    workingDirectory,
+    STAGING_DIRECTORY_NAME,
+    String(stageCounter),
+  );
+  await mkdir(stageWorkingDirectory, { recursive: true });
+  const canonicalStageDirectory = await canonicalizeExistingPath(stageWorkingDirectory);
+  if (canonicalStageDirectory === undefined) {
+    throw new ReleaseNotesError(
+      `Release-notes staging directory cannot be canonicalized: ${stageWorkingDirectory}`,
+    );
+  }
+  const stagePath = join(canonicalStageDirectory, STAGING_FILE_NAME);
+  if (existingContent !== undefined) {
+    await writeFile(stagePath, existingContent);
+  }
+  return {
+    workingDirectory: canonicalStageDirectory,
+    path: stagePath,
+  };
+}
+
+async function promoteReleaseNotesArtifact(
+  _stagedCanonicalPath: string,
+  targetCanonicalPath: string,
+  content: string,
+): Promise<void> {
+  const targetDirectory = dirname(targetCanonicalPath);
+  await mkdir(targetDirectory, { recursive: true });
+  const canonicalTargetDirectory = await canonicalizeExistingPath(targetDirectory);
+  if (canonicalTargetDirectory !== targetDirectory) {
+    throw new ReleaseNotesError(
+      `${RETARGETED_PROMOTION_ERROR}: ${targetCanonicalPath}`,
+    );
+  }
+  const handle = await openPromotedArtifact(targetCanonicalPath);
+  try {
+    await handle.writeFile(content, { encoding: ARTIFACT_TEXT_ENCODING });
+  } finally {
+    await handle.close();
+  }
+  const promotedCanonicalPath = await canonicalizeExistingPath(targetCanonicalPath);
+  if (promotedCanonicalPath !== targetCanonicalPath) {
+    throw new ReleaseNotesError(
+      `${RETARGETED_PROMOTION_ERROR}: ${targetCanonicalPath}`,
+    );
+  }
+}
+
+async function openPromotedArtifact(targetCanonicalPath: string): Promise<FileHandle> {
+  try {
+    return await open(targetCanonicalPath, ARTIFACT_WRITE_FLAGS);
+  } catch {
+    throw new ReleaseNotesError(
+      `${RETARGETED_PROMOTION_ERROR}: ${targetCanonicalPath}`,
+    );
+  }
 }
 
 async function readCanonicalArtifactWithoutFollowingFinalSymlink(

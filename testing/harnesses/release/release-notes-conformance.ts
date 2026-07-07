@@ -13,6 +13,7 @@ import {
   sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase,
   sampleStandaloneInlineHtmlReleaseNotesChangelogCase,
   sampleTabbedHeadingReleaseNotesChangelogCase,
+  sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
@@ -51,6 +52,8 @@ async function composeCase(env: ReleaseNotesEnv, { releaseData, content }: Relea
       workingDirectory: env.workingDirectory,
       agentRunner,
       readArtifact: env.readArtifact,
+      createArtifactStage: env.createArtifactStage,
+      promoteArtifact: env.promoteArtifact,
       canonicalizePath: env.canonicalizePath,
       isSymbolicLink: env.isSymbolicLink,
       isFile: env.isFile,
@@ -75,6 +78,10 @@ export function registerReleaseNotesConformanceTests(): void {
 
     it("accepts tab-separated release and change-group headings", async () => {
       await expectConformantReadBack(sampleTabbedHeadingReleaseNotesChangelogCase());
+    });
+
+    it("accepts a change-group heading after a tab-padded list item", async () => {
+      await expectConformantReadBack(sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase());
     });
 
     it("accepts literal CDATA text inside a conformant release section", async () => {

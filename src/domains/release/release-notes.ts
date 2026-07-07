@@ -5,18 +5,36 @@ import type { ReleaseData } from "@/domains/release/release-data";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 
 /**
- * The injected read-back dependency. After the agent writes the changelog, the
- * composition reads it back through this reader to validate it, so the composition
- * performs no direct filesystem access. Implementations receive the requested
- * artifact path plus the expected canonical path from the composition's
- * pre-open validation, and must verify the opened file is still bound to that
- * canonical path before and after reading the bytes it returns, without
- * following a final symlink.
+ * The injected read-back dependency. After the agent writes the staged artifact,
+ * and after validated notes are promoted, the composition reads through this
+ * reader to validate the artifact while performing no direct filesystem access.
+ * Implementations receive the requested artifact path plus the expected canonical
+ * path from the composition's pre-open validation, and must verify the opened
+ * file is still bound to that canonical path before and after reading the bytes
+ * it returns, without following a final symlink.
  */
 export type ArtifactReader = (
   path: string,
   expectedCanonicalPath?: string,
 ) => Promise<string>;
+
+export interface ArtifactStage {
+  /** The directory the agent's file tools are scoped to for the staged artifact. */
+  readonly workingDirectory: string;
+  /** The checked canonical artifact path the agent writes before promotion. */
+  readonly path: string;
+}
+
+export type ArtifactStager = (
+  targetCanonicalPath: string,
+  existingContent?: string,
+) => Promise<ArtifactStage>;
+
+export type ArtifactPromoter = (
+  stagedCanonicalPath: string,
+  targetCanonicalPath: string,
+  content: string,
+) => Promise<void>;
 
 /**
  * Canonicalizes an existing filesystem path and returns `undefined` when the
@@ -107,6 +125,7 @@ const MARKDOWN_MAX_MARKER_INDENTATION = 3;
 const MARKDOWN_ORDERED_LIST_MAX_DIGITS = 9;
 const MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING = 1;
 const MARKDOWN_LIST_CONTINUATION_MAX_EXPLICIT_PADDING = 4;
+const MARKDOWN_TAB_STOP_WIDTH = 4;
 const SPACE = " ";
 const TAB = "\t";
 const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/;
@@ -285,6 +304,10 @@ export interface ComposeReleaseNotesOptions {
   readonly agentRunner: AgentRunner;
   /** The injected reader the written notes are read back through. */
   readonly readArtifact: ArtifactReader;
+  /** The injected staging boundary that gives the agent a non-final artifact path. */
+  readonly createArtifactStage: ArtifactStager;
+  /** The injected promotion boundary that writes validated notes to the final path. */
+  readonly promoteArtifact: ArtifactPromoter;
   /** The injected canonicalizer used to reject symlink escapes. */
   readonly canonicalizePath: PathCanonicalizer;
   /** The injected symlink detector used to reject final output-path symlinks. */
@@ -296,12 +319,12 @@ export interface ComposeReleaseNotesOptions {
 /**
  * Generates the release notes: resolves the changelog path within the working
  * tree, assembles a prompt from the release data and resolved configuration only,
- * invokes the injected agent runner to write the changelog, reads the artifact
- * back through the injected reader, and validates its Keep a Changelog structure
- * and a section for the release version before resolving. Rejects when the
- * configured path escapes the working tree or the written notes fail validation.
- * A pure function of its inputs and injected dependencies — no direct filesystem
- * or process access.
+ * invokes the injected agent runner to write a staged artifact, validates that
+ * staged artifact, promotes validated notes to the checked changelog path, and
+ * reads the promoted artifact back before resolving. Rejects when the configured
+ * path escapes the working tree or the generated notes fail validation. A pure
+ * function of its inputs and injected dependencies: no direct filesystem or
+ * process access.
  */
 export async function composeReleaseNotes(
   options: ComposeReleaseNotesOptions,
@@ -312,6 +335,8 @@ export async function composeReleaseNotes(
     workingDirectory,
     agentRunner,
     readArtifact,
+    createArtifactStage,
+    promoteArtifact,
     canonicalizePath,
     isSymbolicLink,
     isFile,
@@ -331,11 +356,15 @@ export async function composeReleaseNotes(
     readArtifact,
     isFile,
   );
+  const stage = await createArtifactStage(
+    preAgentCanonicalChangelogPath,
+    existingNotes,
+  );
   const prompt = buildReleaseNotesPrompt(
     releaseData,
-    preAgentCanonicalChangelogPath,
+    stage.path,
   );
-  await agentRunner.run({ prompt, workingDirectory });
+  await agentRunner.run({ prompt, workingDirectory: stage.workingDirectory });
   const postAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
@@ -349,10 +378,7 @@ export async function composeReleaseNotes(
       `Configured changelog path changed after agent write: ${changelogPath}`,
     );
   }
-  const writtenNotes = await readArtifact(
-    preAgentCanonicalChangelogPath,
-    preAgentCanonicalChangelogPath,
-  );
+  const stagedNotes = await readArtifact(stage.path, stage.path);
   const postReadCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
     workingDirectory,
     configuredPath,
@@ -366,7 +392,21 @@ export async function composeReleaseNotes(
       `Configured changelog path changed after agent write: ${changelogPath}`,
     );
   }
-  assertConformsToKeepAChangelog(writtenNotes, releaseData.version, existingNotes);
+  assertConformsToKeepAChangelog(stagedNotes, releaseData.version, existingNotes);
+  await promoteArtifact(
+    stage.path,
+    preAgentCanonicalChangelogPath,
+    stagedNotes,
+  );
+  const promotedNotes = await readArtifact(
+    preAgentCanonicalChangelogPath,
+    preAgentCanonicalChangelogPath,
+  );
+  if (promotedNotes !== stagedNotes) {
+    throw new ReleaseNotesError(
+      `Promoted changelog content differs from staged release notes: ${changelogPath}`,
+    );
+  }
 }
 
 async function readExistingReleaseNotes(
@@ -1068,7 +1108,10 @@ function markdownListContinuationIndent(line: string): number | undefined {
   if (markerLength === undefined) {
     return undefined;
   }
-  const padding = markdownListMarkerPadding(content.slice(markerLength));
+  const padding = markdownListMarkerPadding(
+    content.slice(markerLength),
+    leadingSpaces + markerLength,
+  );
   if (padding === undefined) {
     return undefined;
   }
@@ -1092,25 +1135,32 @@ function markdownListMarkerLength(content: string): number | undefined {
   return marker === "." || marker === ")" ? digitCount + 1 : undefined;
 }
 
-function markdownListMarkerPadding(markerTail: string): number | undefined {
+function markdownListMarkerPadding(
+  markerTail: string,
+  markerColumn: number,
+): number | undefined {
   if (!markerTail.startsWith(SPACE) && !markerTail.startsWith(TAB)) {
     return undefined;
   }
-  let padding = 0;
+  let column = markerColumn;
+  let sawTab = false;
   for (const character of markerTail) {
     if (character === SPACE) {
-      padding += 1;
+      column += 1;
       continue;
     }
     if (character === TAB) {
-      return MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING;
+      sawTab = true;
+      column += MARKDOWN_TAB_STOP_WIDTH - column % MARKDOWN_TAB_STOP_WIDTH;
+      continue;
     }
     break;
   }
+  const padding = column - markerColumn;
   if (padding === 0) {
     return MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING;
   }
-  return padding > MARKDOWN_LIST_CONTINUATION_MAX_EXPLICIT_PADDING
+  return !sawTab && padding > MARKDOWN_LIST_CONTINUATION_MAX_EXPLICIT_PADDING
     ? MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING
     : padding;
 }
