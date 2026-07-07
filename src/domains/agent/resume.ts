@@ -31,8 +31,11 @@ export interface AgentSessionFileStat {
 export interface AgentSessionFileSystem {
   readDir(path: string): Promise<readonly AgentSessionDirEntry[]>;
   readHead(path: string, maxBytes: number): Promise<string>;
-  readTail(path: string, maxBytes: number): Promise<string>;
   stat(path: string): Promise<AgentSessionFileStat>;
+}
+
+export interface AgentResumeSessionFileSystem extends AgentSessionFileSystem {
+  readTail(path: string, maxBytes: number): Promise<string>;
 }
 
 export type AgentWorktreeRootResolver = (cwd: string) => Promise<string>;
@@ -71,7 +74,7 @@ export interface DiscoverAgentResumeCandidatesOptions {
   readonly homeDir: string;
   readonly nowMs: number;
   readonly scope: AgentResumeScope;
-  readonly fs: AgentSessionFileSystem;
+  readonly fs: AgentResumeSessionFileSystem;
   readonly resolveWorktreeRoot: AgentWorktreeRootResolver;
 }
 
@@ -337,7 +340,7 @@ export async function claudeTranscriptFiles(
 async function collectAgentCandidates(
   agent: AgentSessionKind,
   files: readonly AgentStoreFile[],
-  fs: AgentSessionFileSystem,
+  fs: AgentResumeSessionFileSystem,
   cap: number,
   match: (core: AgentSessionHead) => boolean,
   parseHead: (head: string) => AgentSessionHead | null,
