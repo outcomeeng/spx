@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.compliance.l1.test.ts": "passed",
+      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.mapping.l1.test.ts": "passed",
+      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.scenario.l1.test.ts": "passed"
+    }
+  }
+}

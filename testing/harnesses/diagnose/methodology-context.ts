@@ -26,7 +26,10 @@ const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
 
 function generatedMethodology(version = "installed"): MethodologyConfig {
   return {
-    source: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    source: [
+      sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+      sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    ].join("/"),
     version,
   };
 }
@@ -91,6 +94,27 @@ async function runText(
   return output;
 }
 
+async function runManifestTextWithoutMethodology(): Promise<string> {
+  let output: string | undefined;
+  await withTestEnv({}, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      manifestPath: "diagnose.json",
+      format: DIAGNOSE_FORMAT.TEXT,
+      color: false,
+      registry: registryFor({ source: null, version: null, errored: false }),
+      fs: {
+        readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    output = result.value.output;
+  });
+  if (output === undefined) throw new Error("diagnose command produced no output");
+  return output;
+}
+
 function firstCheck(report: Record<string, unknown>): Record<string, unknown> {
   const checks = report.checks;
   expect(Array.isArray(checks)).toBe(true);
@@ -138,6 +162,18 @@ export async function assertUnavailableMethodologyDiagnose(): Promise<void> {
   expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
 }
 
+export async function assertUnknownMethodologyDiagnose(): Promise<void> {
+  const methodology = generatedMethodology();
+  const report = await runJson(methodology, {
+    source: null,
+    version: null,
+    errored: true,
+  });
+  const check = firstCheck(report);
+  expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+  expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
+}
+
 export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
   const methodology = generatedMethodology();
   const output = await runText(methodology, {
@@ -147,6 +183,12 @@ export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
   });
   expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
   expect(output).toContain(OBSERVED_VERSION);
+}
+
+export async function assertMethodologyNotApplicableTextRenders(): Promise<void> {
+  const output = await runManifestTextWithoutMethodology();
+  expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_NOT_CONFIGURED);
+  expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_CONFIGURED);
 }
 
 export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<void> {

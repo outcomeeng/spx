@@ -24,9 +24,16 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function generatedMethodologySection(): Record<string, unknown> {
   return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
   };
+}
+
+function generatedMethodologySource(): string {
+  return [
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  ].join("/");
 }
 
 function expectMethodology(value: unknown): void {
@@ -74,17 +81,19 @@ export function assertMethodologyConfigFormatsResolveEquivalently(): void {
 }
 
 export async function assertMalformedMethodologyConfigRejects(): Promise<void> {
-  await withTestEnv({
-    [METHODOLOGY_SECTION]: {
-      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: "",
-    },
-  }, async ({ productDir }) => {
-    const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`);
-    }
-  });
+  for (const source of ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"]) {
+    await withTestEnv({
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+      },
+    }, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`);
+      }
+    });
+  }
 }
 
 export async function assertHarnessEnvironmentMethodologyRejects(): Promise<void> {
