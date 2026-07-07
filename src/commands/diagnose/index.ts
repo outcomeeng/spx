@@ -17,7 +17,7 @@ import type { Result } from "@/config/types";
 import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
-import { type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
+import { CHECK_NAME, type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
 import { type DiagnoseFormat, renderReport } from "@/domains/diagnose/report";
 import { resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
 
@@ -43,20 +43,17 @@ export interface DiagnoseCommandOptions {
 
 /** Resolves the `spx.config` diagnose section from the product directory. */
 async function resolveDiagnoseConfig(productDir: string): Promise<
-  Result<{
-    readonly diagnose: DiagnoseConfig;
-    readonly methodology: MethodologyConfig;
-  }>
+  Result<DiagnoseConfig>
 > {
-  const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor, methodologyConfigDescriptor]);
+  const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
   if (!loaded.ok) return loaded;
-  return {
-    ok: true,
-    value: {
-      diagnose: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig,
-      methodology: loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig,
-    },
-  };
+  return { ok: true, value: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig };
+}
+
+async function resolveMethodologyConfig(productDir: string): Promise<Result<MethodologyConfig>> {
+  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+  if (!loaded.ok) return loaded;
+  return { ok: true, value: loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig };
 }
 
 export interface DiagnoseCommandResult {
@@ -89,23 +86,32 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     : await readManifest(options.fs, options.manifestPath, availableChecks);
   if (manifest !== undefined && !manifest.ok) return manifest;
 
-  // A supplied manifest takes precedence over configuration (the PDR's precedence rule), so config
-  // is resolved only on the no-manifest path — a malformed diagnose config never derails a manifest run.
-  const config: Result<{ readonly diagnose?: DiagnoseConfig; readonly methodology?: MethodologyConfig }> =
-    manifest === undefined
-      ? await resolveDiagnoseConfig(options.productDir)
-      : { ok: true, value: {} };
+  // A supplied manifest takes precedence over configuration. On the config path,
+  // diagnose.checks resolves before methodology config is read so unrelated
+  // methodology config defects do not derail checks that do not consume it.
+  const config: Result<DiagnoseConfig | undefined> = manifest === undefined
+    ? await resolveDiagnoseConfig(options.productDir)
+    : { ok: true, value: undefined };
   if (!config.ok) return config;
 
   const resolved = resolveDiagnoseFacts({
     manifest: manifest?.value,
-    config: config.value.diagnose ?? {},
-    methodology: config.value.methodology,
+    config: config.value ?? {},
     availableChecks,
   });
   if (!resolved.ok) return resolved;
 
-  const report = await runDiagnose(resolved.value, options.registry);
+  let methodology: MethodologyConfig | undefined;
+  if (manifest === undefined && resolved.value.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
+    const methodologyConfig = await resolveMethodologyConfig(options.productDir);
+    if (!methodologyConfig.ok) return methodologyConfig;
+    methodology = methodologyConfig.value;
+  }
+
+  const reportManifest = methodology === undefined
+    ? resolved.value
+    : { ...resolved.value, methodology };
+  const report = await runDiagnose(reportManifest, options.registry);
   if (!report.ok) return report;
 
   return {
