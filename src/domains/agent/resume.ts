@@ -1,4 +1,6 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
+
+import { isPathContained } from "@/lib/file-system/pathContainment";
 
 import type { AgentHomeDirs } from "./home";
 import {
@@ -576,11 +578,8 @@ function compareCodeUnits(left: string, right: string): number {
   return 0;
 }
 
-// Whether `child` is `parent` itself or nested beneath it, by normalized path.
-// An absolute `relative()` result (a different Windows drive) is never inside.
 export function isPathInsideOrEqual(parent: string, child: string): boolean {
-  const rel = relative(resolve(parent), resolve(child));
-  return rel.length === 0 || (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`));
+  return isPathContained(resolve(parent), resolve(child));
 }
 
 export async function mapWithConcurrency<T, U>(

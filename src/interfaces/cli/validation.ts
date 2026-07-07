@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { existsSync, realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { relative, resolve } from "node:path";
 
 import {
   allCommand,
@@ -16,6 +16,7 @@ import {
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
@@ -250,10 +251,10 @@ function normalizeProductPathOperand(
   const resolvedProductDir = canonicalExistingPath(resolve(productDir));
   const resolvedInvocationDir = canonicalExistingPath(resolve(effectiveInvocationDir));
   const absoluteOperand = canonicalExistingPath(resolve(resolvedInvocationDir, operand));
-  const relativeOperand = relative(resolvedProductDir, absoluteOperand);
-  if (relativeOperand === ".." || relativeOperand.startsWith(`..${sep}`) || isAbsolute(relativeOperand)) {
+  if (!isPathContained(resolvedProductDir, absoluteOperand)) {
     return undefined;
   }
+  const relativeOperand = relative(resolvedProductDir, absoluteOperand);
   return relativeOperand.length > 0 ? relativeOperand.replaceAll("\\", "/") : ".";
 }
 
