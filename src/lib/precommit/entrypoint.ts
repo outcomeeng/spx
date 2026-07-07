@@ -4,10 +4,6 @@ export type PrecommitEntrypoint = {
 };
 
 export const PRECOMMIT_ENTRYPOINT = {
-  RUN: {
-    sourceSuffix: "/run.ts",
-    argvFragment: "precommit/run",
-  },
   MAIN_CHECKOUT_GATE: {
     sourceSuffix: "/main-checkout-gate.ts",
     argvFragment: "precommit/main-checkout-gate",

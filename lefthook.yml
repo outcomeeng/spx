@@ -1,9 +1,8 @@
 # Lefthook configuration for pre-commit and post-merge/post-rewrite hooks.
 # Keeps local hook behavior aligned with the product's hook machinery.
 #
-# Pre-commit hook runs tests on modified files using the TypeScript
-# orchestration script. Uses tsx to run TypeScript directly, ensuring
-# the hook always uses the latest source code without needing a build step.
+# Pre-commit stays intentionally small. Deterministic build, validation, and
+# test gates run in CI or through explicit operator and agent commands.
 #
 # Post-merge and post-rewrite hooks rebuild dist/ after a pull (merge or
 # rebase) so a published or pnpm-linked `spx` (which resolves to ./dist)
@@ -13,9 +12,6 @@
 pre-commit:
   parallel: true
   commands:
-    tests:
-      glob: "*.{ts,tsx,js,jsx}"
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/precommit/run.ts
     # Blocks a commit whose .sonarcloud.properties sonar.exclusions list has drifted
     # from the tracked testing/fixtures tree. Fires when the properties file or any
     # fixture changes.

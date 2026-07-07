@@ -267,7 +267,7 @@ export const VALIDATION_ESLINT_FILES = {
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
   configCwdModule: "src/domains/config/cwd.ts",
   gitRoot: "src/git/root.ts",
-  precommitRunner: "src/lib/precommit/run.ts",
+  precommitGate: "src/lib/precommit/main-checkout-gate.ts",
   domainRunner: "src/some-domain/runner.ts",
   domainTypes: "src/some-domain/types.ts",
   sessionCommandExample: "src/commands/session/example.ts",
@@ -369,7 +369,7 @@ export function noAsyncSpawnOutsideLifecycleCases(): ValidationGeneratedRuleTest
       {
         name: "synchronous spawnSync outside lifecycle is exempt",
         code: VALIDATION_ESLINT_SNIPPETS.importSpawnSync,
-        filename: VALIDATION_ESLINT_FILES.precommitRunner,
+        filename: VALIDATION_ESLINT_FILES.precommitGate,
       },
       {
         name: "non-spawn child_process imports outside lifecycle are exempt",

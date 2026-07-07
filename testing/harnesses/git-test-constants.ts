@@ -57,7 +57,7 @@ export const GIT_TEST_EXECUTABLE = {
 } as const;
 
 export const LEFTHOOK_TEST_OUTPUT = {
-  SKIP_NO_MATCHING_STAGED_FILES: "tests (skip) no matching staged files",
+  SKIP_NO_MATCHING_STAGED_FILES: "sonarqube-cloud-exclusions (skip) no matching staged files",
 } as const;
 
 export const GIT_TEST_CONFIG = {
