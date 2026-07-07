@@ -1,11 +1,12 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
+import { SPEC_CONTEXT_DOCUMENT_ROLE } from "@/commands/spec/context";
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { SPEC_DOMAIN_CLI, SPEC_STATUS_FORMAT_MESSAGE } from "@/interfaces/cli/spec";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
@@ -60,6 +61,29 @@ describe("spx spec process contract", () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain(SPEC_NEXT_MESSAGE.HEADING);
       expect(stdout).toContain(env.fixture.root.slug);
+    });
+  });
+
+  it("routes context through the development CLI entry point", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+
+      const { stdout, exitCode } = await runCli(
+        env.productDir,
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+        target,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      );
+
+      const manifest = JSON.parse(stdout) as {
+        readonly target: string;
+        readonly documents: readonly { readonly role: string }[];
+      };
+      expect(exitCode).toBe(0);
+      expect(manifest.target).toBe(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target}`);
+      expect(manifest.documents.some((document) => document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT)).toBe(true);
     });
   });
 

@@ -9,7 +9,9 @@ import {
   resolveMethodologyIdentity,
 } from "@/config/methodology";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { defaultGitDependencies } from "@/git/root";
 import type { GitDependencies } from "@/git/root";
+import { createTrackedPathInclusion, listTrackedPaths } from "@/git/tracked-paths";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
@@ -119,6 +121,29 @@ function siblingsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly
     .filter((node) => node.parentId === target.parentId && node.id !== target.id);
 }
 
+function lowerIndexSiblingsForContextNodes(
+  snapshot: SpecTreeSnapshot,
+  contextNodes: readonly SpecTreeNode[],
+): readonly SpecTreeNode[] {
+  const nodesById = new Map(snapshot.allNodes.map((node) => [node.id, node]));
+  const seen = new Set<string>();
+  const lowerSiblings: SpecTreeNode[] = [];
+  for (const contextNode of contextNodes) {
+    for (const sibling of siblingsFor(snapshot, contextNode)) {
+      if (sibling.order >= contextNode.order || seen.has(sibling.id)) continue;
+      lowerSiblings.push(sibling);
+      seen.add(sibling.id);
+    }
+  }
+  return lowerSiblings.sort((left, right) => {
+    const parentComparison = (left.parentId ?? "").localeCompare(right.parentId ?? "");
+    if (parentComparison !== 0) return parentComparison;
+    const orderComparison = left.order - right.order;
+    if (orderComparison !== 0) return orderComparison;
+    return left.id.localeCompare(right.id);
+  }).filter((node) => nodesById.has(node.id));
+}
+
 function decisionsFor(
   snapshot: SpecTreeSnapshot,
   contextNodes: readonly SpecTreeNode[],
@@ -140,8 +165,13 @@ function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly
   );
 }
 
-async function optionalFile(productDir: string, relativePath: string): Promise<string | undefined> {
+async function optionalFile(
+  productDir: string,
+  relativePath: string,
+  includePath: (path: string) => boolean | Promise<boolean>,
+): Promise<string | undefined> {
   const specTreePath = fullSpecPath(relativePath);
+  if (!await includePath(specTreePath)) return undefined;
   try {
     await access(join(productDir, specTreePath));
     return specTreePath;
@@ -150,10 +180,14 @@ async function optionalFile(productDir: string, relativePath: string): Promise<s
   }
 }
 
-async function coordinationDocuments(productDir: string, target: SpecTreeNode): Promise<readonly string[]> {
+async function coordinationDocuments(
+  productDir: string,
+  target: SpecTreeNode,
+  includePath: (path: string) => boolean | Promise<boolean>,
+): Promise<readonly string[]> {
   return [
-    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN)),
-    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES)),
+    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN), includePath),
+    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES), includePath),
   ].filter((path): path is string => path !== undefined);
 }
 
@@ -169,11 +203,12 @@ async function buildManifest(
   productDir: string,
   snapshot: SpecTreeSnapshot,
   target: SpecTreeNode,
+  includePath: (path: string) => boolean | Promise<boolean>,
 ): Promise<SpecContextManifest> {
   const ancestors = ancestorsFor(snapshot, target);
   const contextNodes = [...ancestors, target];
   const siblings = siblingsFor(snapshot, target);
-  const lowerSiblings = siblings.filter((node) => node.order < target.order);
+  const lowerSiblings = lowerIndexSiblingsForContextNodes(snapshot, contextNodes);
   const sameIndex = sortPaths(
     siblings.filter((node) => node.order === target.order).map((node) => fullSpecPath(node.id)),
   );
@@ -197,7 +232,7 @@ async function buildManifest(
   for (const evidence of evidenceFor(snapshot, target)) {
     pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE, refPath(evidence.ref));
   }
-  for (const path of await coordinationDocuments(productDir, target)) {
+  for (const path of await coordinationDocuments(productDir, target, includePath)) {
     pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION, path);
   }
 
@@ -213,17 +248,25 @@ async function buildManifest(
 }
 
 async function contextManifest(options: ContextOptions): Promise<SpecContextManifest> {
+  const gitDependencies = options.gitDependencies ?? defaultGitDependencies;
   const productDir = await resolveSpecProductDir(
     options.cwd ?? CONFIG_PROCESS_CWD.read(),
-    options.gitDependencies,
+    gitDependencies,
     options.onWarning,
   );
-  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  const trackedPaths = await listTrackedPaths(productDir, gitDependencies);
+  const includePath = createTrackedPathInclusion(trackedPaths);
+  const snapshot = await readSpecTree({
+    source: createFilesystemSpecTreeSource({
+      productDir,
+      includePath,
+    }),
+  });
   const target = findNode(snapshot, options.target);
   if (target === undefined) {
     throw new Error(`Spec context target not found: ${options.target}`);
   }
-  return buildManifest(productDir, snapshot, target);
+  return buildManifest(productDir, snapshot, target, includePath);
 }
 
 function appendList(lines: string[], label: string, values: readonly string[]): void {
