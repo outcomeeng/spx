@@ -8,7 +8,7 @@ CAN close a scoped verification run with a terminal status and optional terminal
 
 ### Scenarios
 
-- Given a started run with recorded scope and findings, when finish records an approved terminal status, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
+- Given a started run with recorded scope and findings, when finish records a rejected terminal status, then it records terminal completion, seals the journal, and renders a terminal projection from the event history ([test](tests/verify-lifecycle.scenario.l1.test.ts))
 - Given a sealed review run with terminal completion, when render is requested, then it renders the journal projection including the authoritative finding count from the event history without appending journal events ([test](tests/verify-render.scenario.l1.test.ts))
 
 ### Compliance
