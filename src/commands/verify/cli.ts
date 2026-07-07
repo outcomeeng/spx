@@ -17,6 +17,7 @@ import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import {
+  auditFindingReferencesRecordedScope,
   buildAppendEvent,
   buildRunLocator,
   buildTerminalEvent,
@@ -35,11 +36,13 @@ import {
   type RunLocator,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
+  validateAuditFinding,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
+  VERIFY_VERIFICATION_TYPE,
   type VerifyAppendEventType,
   verifyInputRecordPath,
   type VerifyRunProjection,
@@ -771,12 +774,22 @@ function validateAppendEvidence(
   verb: VerifyAppendVerb,
   verificationType: string,
   payload: JsonValue,
+  events: readonly JournalEvent[],
 ): string | undefined {
   const evidenceKind = verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_EVIDENCE_KIND.FINDING : VERIFY_EVIDENCE_KIND.SCOPE;
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE;
-  if (validator(payload) !== undefined) return undefined;
-  return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID;
+  const validated = validator(payload);
+  if (validated === undefined) {
+    return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID;
+  }
+  if (verificationType === VERIFY_VERIFICATION_TYPE.AUDIT && verb === VERIFY_VERB.APPEND_FINDING) {
+    const finding = validateAuditFinding(payload);
+    if (finding === undefined || !auditFindingReferencesRecordedScope(events, finding)) {
+      return VERIFY_CLI_ERROR.FINDING_INVALID;
+    }
+  }
+  return undefined;
 }
 
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
@@ -814,7 +827,7 @@ async function verifyAppend(
   }
   const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
-  const evidenceError = validateAppendEvidence(verb, options.verificationType, parsed);
+  const evidenceError = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents);
   if (evidenceError !== undefined) return errorResult(evidenceError);
 
   const event = buildAppendEvent({

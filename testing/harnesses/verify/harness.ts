@@ -1290,6 +1290,35 @@ export async function assertInvalidAuditFindingRejectedBeforeAppend(): Promise<v
   );
 }
 
+export async function assertAuditFindingUnknownUnitRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await auditAppendScenario();
+  const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
+  const finding = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    unitId: selectAlternateString(scope.unitId, [
+      sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+      sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken()),
+    ]),
+  };
+  await appendAuditScope(scenario, deps, runToken, scope);
+  const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
+  const appended = await verifyAppendFindingCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(finding),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(appended.output).toBe(VERIFY_CLI_ERROR.FINDING_INVALID);
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidFinding,
+    "unknown-unit audit finding append mutated journal events",
+  );
+}
+
 async function appendAuditScope(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,
@@ -1495,6 +1524,15 @@ export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promis
     coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
     coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
   };
+  const { producerProvenance: _requiredCoverageGapProvenance, ...requiredCoverageGapBase } = sampleVerifyTestValue(
+    VERIFY_TEST_GENERATOR.auditScopeUnit(),
+  );
+  const requiredCoverageGap = {
+    ...requiredCoverageGapBase,
+    auditKind: AUDIT_KIND.COVERAGE_GAP,
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
+  };
 
   const cleanScenario = await auditAppendScenario();
   const cleanScopeKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
@@ -1577,6 +1615,31 @@ export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promis
     ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
   }
 
+  const gapScenario = await auditAppendScenario();
+  await appendAuditScope(
+    gapScenario.scenario,
+    gapScenario.deps,
+    gapScenario.runToken,
+    requiredCoverageGap,
+  );
+  const gapRejected = await verifyFinishCommand(
+    verifyFinishOptions(gapScenario.scenario, {
+      run: gapScenario.runToken,
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+    }),
+    gapScenario.deps,
+  );
+  expect(gapRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(gapRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(
+    await finishRun(
+      gapScenario.scenario,
+      gapScenario.deps,
+      gapScenario.runToken,
+      JOURNAL_RUN_STATE_STATUS.REJECTED,
+    ),
+  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
+
   for (const severity of Object.values(AUDIT_FINDING_SEVERITY)) {
     const findingScenario = await auditAppendScenario();
     await appendAuditScope(findingScenario.scenario, findingScenario.deps, findingScenario.runToken, requiredClean);
@@ -1586,6 +1649,7 @@ export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promis
       findingScenario.runToken,
       {
         ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+        unitId: requiredClean.unitId,
         severity,
       },
     );
