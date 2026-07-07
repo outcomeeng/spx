@@ -6,6 +6,10 @@
 
 This node materializes the run-set layer above individual `spx verification run` tokens. It groups repeated local and CI runs for the same merge period, preserves expanding scope, and gives verification producers read-only prior-run context without requiring them to parse rendered comments or raw journal logs.
 
+## Current surface boundary
+
+`spx verification run` exposes individual-run lifecycle commands only. It does not expose run-set or prior-context projection. `spx journal read-set` reads sealed raw journal runs by branch and type scope; it is the storage substrate, not the backend-neutral run-set projection producers consume.
+
 ## Remaining work
 
 1. Implement the run-set selector, projection, and finding-identity tests named by `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/run-set-orchestration.md`.

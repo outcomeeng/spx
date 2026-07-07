@@ -2,7 +2,7 @@
 
 PROVIDES audit scope projection, terminal rollup, and prior-context selector projection over validated audit evidence from `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler`
 SO THAT audit run drivers, leaf skill producers, merge workflows, and renderers
-CAN finish audit runs from coverage evidence and restore relevant prior audit context from run sets
+CAN finish individual audit runs from coverage evidence and produce selector inputs for run-set context
 
 ## Assertions
 
@@ -14,8 +14,8 @@ CAN finish audit runs from coverage evidence and restore relevant prior audit co
 ### Mappings
 
 - Audit terminal rollup maps every required unit covered by `audited` or `not-applicable` and no findings to `approved`; any required unit covered by `unsupported`, `missing-skill`, `skipped`, or `incomplete`, or any finding with severity `blocking` or `debt`, maps to `rejected`; optional uncovered units remain coverage gaps without determining the terminal status ([test](tests/audit-rollup.mapping.l1.test.ts))
-- Prior audit context selectors map audit class, audit kind, stable producer identity, subject path, changed-file partition, language partition, and concern partition to run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
+- Prior audit context selectors map audit class, audit kind, stable producer identity, subject path, changed-file partition, language partition, and concern partition to selector input consumed by run-set context filtering ([test](tests/audit-context-selectors.mapping.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: audit payload projection consumes merge-period identity, finding identity, and prior-run context selectors from `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` rather than redefining run-set identity locally ([audit])
+- ALWAYS: audit payload projection preserves prior-context selector fields rather than parsing rendered audit output or raw journal-event envelopes for run-set context ([audit])

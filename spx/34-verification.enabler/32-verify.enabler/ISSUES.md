@@ -8,15 +8,13 @@ type. The public lifecycle rejects unsupported verification types at `start`, an
 operations reject a started run type that has no registered validator for the requested evidence
 kind, so a launcher that followed `status` for such a type would attempt an action the API rejects.
 
-Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains only `review`, whose
-implemented evidence boundary validates findings, so `finding add` is legal for every run that can
-currently be constructed and the advertised next actions are correct. The gap surfaces when
-additional verification types extend the current finding-validator registry into an evidence-validator
-registry with separate `scope` and `finding` validators keyed by verification type and evidence kind. Filtering
-`nextActions` by evidence-validator registration now would guard a branch no run can reach. Settle
-it with the work that adds the second implemented verification type: decide whether `status` and
-`render` next actions filter `scope add` and `finding add` by the run type's registered evidence
-validators, and add the covering assertion then.
+Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains `review` and `audit`.
+Both implemented evidence boundaries register `scope` and `finding` validators, so `scope add` and
+`finding add` are legal for every constructible run and the advertised next
+actions are correct. The gap surfaces when an additional verification type registers only part of
+the evidence-action surface. Decide whether `status` and `render` next actions filter `scope add`
+and `finding add` by the run type's registered evidence validators before adding such a type, and
+add the covering assertion then.
 
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 

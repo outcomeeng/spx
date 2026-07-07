@@ -2,14 +2,18 @@
 
 > Reconcile against `spx/34-verification.enabler/verification.md`, `spx/34-verification.enabler/PLAN.md`, and affected child node specs and decisions first. This note coordinates pending work under the materialized `spx/34-verification.enabler/32-verify.enabler` lifecycle node; it does not declare product truth.
 
-## Existing lifecycle slice
+## Delivered lifecycle slice
 
-1. Finish applying the parent cross-lifecycle assertions in `spx/34-verification.enabler/32-verify.enabler/verify.md`: operation mapping, journal-event construction boundary, uniform existing-run validation, and CLI descriptor wiring for stdin and Commander behavior.
-2. Extend the current finding-validator registry into a shared evidence-validator registry: update `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`, `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md`, implementation, and tests together so registry keys include verification type and evidence kind, and both `scope add` and `finding add` validate through it before appending evidence.
-3. Add type-specific terminal rollup or terminal-status validation before registering verification types whose payload semantics derive the terminal result, including `audit`.
-4. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering in the shared lifecycle before additional verification types rely on `status` or `render`: legal actions derive from terminal state and registered evidence validators for the run's verification type.
-5. Remove `spx/34-verification.enabler/32-verify.enabler` from `spx/EXCLUDE` when the parent and child lifecycle tests pass.
-6. Keep CLI command vocabulary under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
+1. `spx verification run` owns the individual verification-run lifecycle: `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render`.
+2. Scope, finding, and terminal metadata validation dispatch through the shared evidence-validator registry keyed by verification type and evidence kind.
+3. Registered verification types are `review` and `audit`; both validate scope and finding payloads, and both participate in terminal-status validation.
+4. CLI command vocabulary stays under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
+
+## Remaining lifecycle work
+
+1. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering before a verification type can register only part of the evidence-action surface.
+2. Keep run-set context projection out of the individual-run lifecycle until `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md` is implemented.
+3. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection once the run-set node provides it.
 
 ## Expansion structure
 
