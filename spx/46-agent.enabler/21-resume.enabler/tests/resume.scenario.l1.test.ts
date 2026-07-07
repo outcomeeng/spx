@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   branchResumeScope,
@@ -8,12 +8,11 @@ import {
   discoverAgentResumeCandidates,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
-import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { AGENT_CLI } from "@/interfaces/cli/agent";
 import { launchAgentResume } from "@/interfaces/cli/agent/resume/launch-agent-resume";
 import { selectedAgentResumeCandidate } from "@/interfaces/cli/agent/resume/run-picker";
 import { FOREGROUND_LAUNCH_STDIO } from "@/interfaces/cli/foreground-launch";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
 import {
   arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
@@ -26,19 +25,18 @@ import {
 import { renderAgentResumePickerView } from "@testing/harnesses/agent/picker";
 import {
   agentResumeCandidate,
+  agentResumeFixedWorktreeRootResolver,
+  agentResumeMultiRootResolver,
+  agentSessionJsonlName,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
+  createInteractiveResumeProgram,
   ImmediateExit,
-  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
 import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
-
-function jsonlName(sessionId: string): string {
-  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
-}
 
 describe("agent resume discovery scenarios", () => {
   it("includes sessions recorded inside the invocation worktree and excludes sibling worktrees", async () => {
@@ -57,17 +55,17 @@ describe("agent resume discovery scenarios", () => {
     const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 9);
 
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexSessionId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexSessionId)),
       codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp: sessionTimestamp }),
       nowMs,
     );
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, claudeCwd, jsonlName(claudeSessionId)),
+      claudeProjectTranscriptPath(homeDir, claudeCwd, agentSessionJsonlName(claudeSessionId)),
       claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp: sessionTimestamp }),
       nowMs - 1,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(siblingSessionId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(siblingSessionId)),
       codexTranscript({ sessionId: siblingSessionId, cwd: siblingCwd, timestamp: sessionTimestamp }),
       nowMs,
     );
@@ -78,11 +76,7 @@ describe("agent resume discovery scenarios", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: async (cwd) => {
-        if (isPathInsideOrEqual(worktreeRoot, cwd)) return worktreeRoot;
-        if (isPathInsideOrEqual(siblingRoot, cwd)) return siblingRoot;
-        return cwd;
-      },
+      resolveWorktreeRoot: agentResumeMultiRootResolver(worktreeRoot, siblingRoot),
     });
 
     expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId])).toEqual([
@@ -108,17 +102,17 @@ describe("agent resume discovery scenarios", () => {
     const codexOtherBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
 
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexOnBranch)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexOnBranch)),
       codexTranscript({ sessionId: codexOnBranch, cwd: cwdA, timestamp, branch: targetBranch }),
       nowMs,
     );
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, cwdB, jsonlName(claudeOnBranch)),
+      claudeProjectTranscriptPath(homeDir, cwdB, agentSessionJsonlName(claudeOnBranch)),
       claudeCodeTranscript({ sessionId: claudeOnBranch, cwd: cwdB, timestamp, branch: targetBranch }),
       nowMs - 1,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(codexOtherBranch)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexOtherBranch)),
       codexTranscript({ sessionId: codexOtherBranch, cwd: cwdA, timestamp, branch: otherBranch }),
       nowMs,
     );
@@ -129,7 +123,7 @@ describe("agent resume discovery scenarios", () => {
       nowMs,
       scope: branchResumeScope(targetBranch),
       fs,
-      resolveWorktreeRoot: async () => worktreeRootA,
+      resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(worktreeRootA),
     });
 
     expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(
@@ -141,7 +135,7 @@ describe("agent resume discovery scenarios", () => {
     const fs = new MemoryAgentSessionFileSystem();
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 10);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 13);
-    const sourcePath = codexTranscriptPath(homeDir, jsonlName(sessionId));
+    const sourcePath = codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId));
     const chosen = agentResumeCandidate({
       cwd: sampleAgentResumeValue(
         arbitraryAgentSessionCwd(sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 11)),
@@ -163,30 +157,23 @@ describe("agent resume discovery scenarios", () => {
       chosen.modifiedAtMs,
     );
 
-    const program = createCliProgram({
-      domains: [
-        createAgentDomain({
-          isInteractiveTerminal: () => true,
-          resumeDeps: {
-            fs,
-            homeDir: () => homeDir,
-            nowMs: () => chosen.modifiedAtMs,
-            resolveWorktreeRoot: async () => chosen.cwd,
-          },
-          pickCandidate: async (candidates) => {
-            const candidate = candidates.at(0);
-            if (candidate === undefined) {
-              throw new Error("expected matching agent resume candidate");
-            }
-            return selectedAgentResumeCandidate(candidate);
-          },
-          launchCandidate: async (candidate) => {
-            launched.push(candidate);
-            return launchExitCode;
-          },
-        }),
-      ],
-      processCwd: () => chosen.cwd,
+    const program = createInteractiveResumeProgram({
+      fs,
+      homeDir,
+      cwd: chosen.cwd,
+      nowMs: chosen.modifiedAtMs,
+      resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(chosen.cwd),
+      pickCandidate: async (candidates) => {
+        const candidate = candidates.at(0);
+        if (candidate === undefined) {
+          throw new Error("expected matching agent resume candidate");
+        }
+        return selectedAgentResumeCandidate(candidate);
+      },
+      launchCandidate: async (candidate) => {
+        launched.push(candidate);
+        return launchExitCode;
+      },
       setExitCode: (exitCode) => exitCodes.push(exitCode),
       exit: (exitCode) => {
         exitCodes.push(exitCode);

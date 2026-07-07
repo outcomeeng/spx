@@ -46,6 +46,19 @@ export const nodeAgentSessionFileSystem: AgentSessionFileSystem = {
       await handle.close();
     }
   },
+  async readTail(path, maxBytes) {
+    const fileStat = await stat(path);
+    const bytesToRead = Math.min(maxBytes, fileStat.size);
+    const start = Math.max(0, fileStat.size - bytesToRead);
+    const handle = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(bytesToRead);
+      const { bytesRead } = await handle.read(buffer, 0, bytesToRead, start);
+      return buffer.toString(AGENT_SESSION_STORE.TEXT_ENCODING, 0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  },
   async stat(path) {
     const result = await stat(path);
     return { mtimeMs: result.mtimeMs };

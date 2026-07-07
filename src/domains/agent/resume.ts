@@ -31,6 +31,7 @@ export interface AgentSessionFileStat {
 export interface AgentSessionFileSystem {
   readDir(path: string): Promise<readonly AgentSessionDirEntry[]>;
   readHead(path: string, maxBytes: number): Promise<string>;
+  readTail(path: string, maxBytes: number): Promise<string>;
   stat(path: string): Promise<AgentSessionFileStat>;
 }
 
@@ -54,6 +55,7 @@ export interface AgentResumeCandidate {
   readonly cwd: string;
   readonly sourcePath: string;
   readonly modifiedAtMs: number;
+  readonly lastActivityAtMs: number;
   readonly updatedAt: string | null;
   readonly branch: string | null;
 }
@@ -259,7 +261,7 @@ export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[
     return AGENT_RESUME_TEXT.NO_MATCHES;
   }
   return candidates.map((candidate) => {
-    const updatedAt = candidate.updatedAt ?? new Date(candidate.modifiedAtMs).toISOString();
+    const updatedAt = new Date(candidate.lastActivityAtMs).toISOString();
     return `${updatedAt} ${AGENT_SESSION_LABEL[candidate.agent]} ${candidate.sessionId} ${candidate.cwd}`;
   }).join("\n");
 }
@@ -320,11 +322,12 @@ export async function claudeTranscriptFiles(
   return perDir.flat();
 }
 
-// Scans candidate files newest first, reading only each transcript's metadata
-// head, and collects the newest scope-matching sessions per agent up to the cap.
+// Scans recent candidate files, reading each transcript's metadata head and
+// bounded activity tail, then collects the newest scope-matching sessions per
+// agent up to the cap.
 // A session id is claimed only by a scope-matching source, so an out-of-scope
 // newer transcript never suppresses an in-scope older one; among matching
-// sources the newest (first seen) wins and later duplicates are skipped.
+// sources the newest transcript activity wins and later duplicates are skipped.
 async function collectAgentCandidates(
   agent: AgentSessionKind,
   files: readonly AgentStoreFile[],
@@ -333,32 +336,40 @@ async function collectAgentCandidates(
   match: (core: AgentSessionHead) => boolean,
   parseHead: (head: string) => AgentSessionHead | null,
 ): Promise<AgentResumeCandidate[]> {
-  const seen = new Set<string>();
-  const candidates: AgentResumeCandidate[] = [];
+  const bySessionId = new Map<string, AgentResumeCandidate>();
   for (const file of files) {
-    if (candidates.length >= cap) {
-      break;
-    }
     const head = await fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
     if (head === null) {
       continue;
     }
     const core = parseHead(head);
-    if (core === null || !core.interactive || !match(core) || seen.has(core.sessionId)) {
+    if (core === null || !core.interactive || !match(core)) {
       continue;
     }
-    seen.add(core.sessionId);
-    candidates.push({
+    const tail = await fs.readTail(file.path, AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES).catch(() => null);
+    if (tail === null) {
+      continue;
+    }
+    const lastActivityAtMs = latestTranscriptTimestampMs(tail) ?? parseTimestampMs(core.updatedAt);
+    if (lastActivityAtMs === null) {
+      continue;
+    }
+    const candidate: AgentResumeCandidate = {
       agent,
       sessionId: core.sessionId,
       cwd: core.cwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
+      lastActivityAtMs,
       updatedAt: core.updatedAt,
       branch: core.branch,
-    });
+    };
+    const existing = bySessionId.get(core.sessionId);
+    if (existing === undefined || compareCandidates(candidate, existing) < 0) {
+      bySessionId.set(core.sessionId, candidate);
+    }
   }
-  return candidates;
+  return [...bySessionId.values()].sort(compareCandidates).slice(0, cap);
 }
 
 export async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem): Promise<string[]> {
@@ -481,6 +492,29 @@ function parseJsonObject(line: string): Record<string, unknown> | null {
   }
 }
 
+function latestTranscriptTimestampMs(transcriptSlice: string): number | null {
+  let latest: number | null = null;
+  for (const line of transcriptSlice.split("\n")) {
+    const row = parseJsonObject(line);
+    if (row === null) {
+      continue;
+    }
+    const timestampMs = parseTimestampMs(firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]));
+    if (timestampMs !== null && (latest === null || timestampMs > latest)) {
+      latest = timestampMs;
+    }
+  }
+  return latest;
+}
+
+function parseTimestampMs(timestamp: string | null): number | null {
+  if (timestamp === null) {
+    return null;
+  }
+  const timestampMs = Date.parse(timestamp);
+  return Number.isNaN(timestampMs) ? null : timestampMs;
+}
+
 function firstString(row: Record<string, unknown>, paths: readonly (readonly string[])[]): string | null {
   for (const path of paths) {
     const value = valueAtPath(row, path);
@@ -507,6 +541,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandidate): number {
+  const activityDiff = right.lastActivityAtMs - left.lastActivityAtMs;
+  if (activityDiff !== 0) {
+    return activityDiff;
+  }
   const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
   if (modifiedDiff !== 0) {
     return modifiedDiff;

@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { listAgentResumeSessions } from "@/commands/agent/resume";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_RECENT_WINDOW_MS,
@@ -21,31 +22,72 @@ import {
   arbitraryAgentBranch,
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeOverCapCount,
+  arbitraryAgentResumeRecentOffsetMs,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 import {
+  agentResumeMultiRootResolver,
+  agentResumeWorktreeRootResolver,
+  agentSessionJsonlName,
+  agentTranscriptActivityRow,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   claudeSubagentTranscriptPath,
   codexSubagentTranscript,
   codexTranscript,
   codexTranscriptPath,
-  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
+  recordingAgentResumeWorktreeRootResolver,
 } from "@testing/harnesses/agent/resume";
 
-function jsonlName(sessionId: string): string {
-  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
-}
-
-function worktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string> {
-  return async (candidateCwd) => (isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd);
-}
-
 describe("agent resume per-agent display cap compliance", () => {
+  it("orders and renders list candidates by transcript activity across Codex and Claude Code", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 230);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 231);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 232);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 233);
+    const newestSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 234);
+    const olderSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 235);
+    const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 236);
+    const staleOpeningTimestamp = new Date(olderModifiedAtMs).toISOString();
+    const newestActivityTimestamp = new Date(nowMs).toISOString();
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(newestSessionId)),
+      [
+        claudeCodeTranscript({ sessionId: newestSessionId, cwd, timestamp: staleOpeningTimestamp }),
+        agentTranscriptActivityRow(newestActivityTimestamp),
+      ].join("\n"),
+      olderModifiedAtMs,
+    );
+    fs.writeFile(
+      codexTranscriptPath(homeDir, agentSessionJsonlName(olderSessionId)),
+      codexTranscript({ sessionId: olderSessionId, cwd, timestamp: staleOpeningTimestamp }),
+      nowMs,
+    );
+
+    const output = await listAgentResumeSessions({
+      cwd,
+      fallbackWorktreeRoot: worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs,
+        homeDir: () => homeDir,
+        nowMs: () => nowMs,
+        resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+      },
+    });
+
+    const [firstLine, secondLine] = output.split("\n");
+    expect(firstLine).toContain(newestActivityTimestamp);
+    expect(firstLine).toContain(newestSessionId);
+    expect(secondLine).toContain(staleOpeningTimestamp);
+    expect(secondLine).toContain(olderSessionId);
+  });
+
   it("keeps only the newest sessions per agent within the active scope, newest first", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
@@ -61,7 +103,7 @@ describe("agent resume per-agent display cap compliance", () => {
       const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10 + index);
       codexIds.push(sessionId);
       fs.writeFile(
-        codexTranscriptPath(homeDir, jsonlName(sessionId)),
+        codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId)),
         codexTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
         nowMs - index,
       );
@@ -71,7 +113,7 @@ describe("agent resume per-agent display cap compliance", () => {
       const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 40 + index);
       claudeIds.push(sessionId);
       fs.writeFile(
-        claudeProjectTranscriptPath(homeDir, cwd, jsonlName(sessionId)),
+        claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(sessionId)),
         claudeCodeTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
         nowMs - index,
       );
@@ -83,15 +125,15 @@ describe("agent resume per-agent display cap compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     const codexResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX);
     const claudeResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE);
     expect(codexResult.map((candidate) => candidate.sessionId)).toEqual(codexIds.slice(0, cap));
     expect(claudeResult.map((candidate) => candidate.sessionId)).toEqual(claudeIds.slice(0, cap));
-    expect(candidates.map((candidate) => candidate.modifiedAtMs)).toEqual(
-      [...candidates].map((candidate) => candidate.modifiedAtMs).sort((left, right) => right - left),
+    expect(candidates.map((candidate) => candidate.lastActivityAtMs)).toEqual(
+      [...candidates].map((candidate) => candidate.lastActivityAtMs).sort((left, right) => right - left),
     );
   });
 });
@@ -107,12 +149,12 @@ describe("agent resume scope-reference resolution compliance", () => {
     for (let index = 0; index < sessionCount; index += 1) {
       const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 80 + index);
       fs.writeFile(
-        codexTranscriptPath(homeDir, jsonlName(sessionId)),
+        codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId)),
         codexTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
         nowMs - index,
       );
     }
-    let resolveCallCount = 0;
+    const resolver = recordingAgentResumeWorktreeRootResolver(worktreeRoot);
 
     await discoverAgentResumeCandidates({
       invocationDir: cwd,
@@ -120,25 +162,22 @@ describe("agent resume scope-reference resolution compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: async (candidateCwd) => {
-        resolveCallCount += 1;
-        return isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : candidateCwd;
-      },
+      resolveWorktreeRoot: resolver.resolve,
     });
 
-    expect(resolveCallCount).toBe(1);
+    expect(resolver.callCount()).toBe(1);
   });
 });
 
 describe("agent resume bounded-read compliance", () => {
-  it("identifies a candidate from a bounded metadata head without reading the whole transcript", async () => {
+  it("identifies a candidate from bounded metadata head and activity tail windows", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 90);
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 91);
     const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 92);
     const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 93);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 94);
-    const transcriptPath = codexTranscriptPath(homeDir, jsonlName(sessionId));
+    const transcriptPath = codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId));
     const oversizeBytes = AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES * 2;
     fs.writeFile(
       transcriptPath,
@@ -152,16 +191,17 @@ describe("agent resume bounded-read compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
     expect(fs.maxHeadReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES);
+    expect(fs.maxTailReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES);
   });
 });
 
 describe("agent resume deduplication compliance", () => {
-  it("collapses sessions that share one session id to the most recently modified source", async () => {
+  it("collapses sessions that share one session id to the source with the newest transcript activity", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 110);
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 111);
@@ -169,14 +209,15 @@ describe("agent resume deduplication compliance", () => {
     const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 113);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 114);
     const rolloutCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 115);
-    let newestMtimeMs = 0;
+    let newestActivityAtMs = 0;
     for (let index = 0; index < rolloutCount; index += 1) {
       const rolloutId = sampleAgentResumeValue(arbitraryAgentSessionId(), 120 + index);
       const mtimeMs = nowMs - index;
-      newestMtimeMs = Math.max(newestMtimeMs, mtimeMs);
+      const activityAtMs = nowMs - rolloutCount + index;
+      newestActivityAtMs = Math.max(newestActivityAtMs, activityAtMs);
       fs.writeFile(
-        codexTranscriptPath(homeDir, jsonlName(rolloutId)),
-        codexTranscript({ sessionId, cwd, timestamp: new Date(mtimeMs).toISOString() }),
+        codexTranscriptPath(homeDir, agentSessionJsonlName(rolloutId)),
+        codexTranscript({ sessionId, cwd, timestamp: new Date(activityAtMs).toISOString() }),
         mtimeMs,
       );
     }
@@ -187,11 +228,11 @@ describe("agent resume deduplication compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
-    expect(candidates.map((candidate) => [candidate.sessionId, candidate.modifiedAtMs])).toEqual([
-      [sessionId, newestMtimeMs],
+    expect(candidates.map((candidate) => [candidate.sessionId, candidate.lastActivityAtMs])).toEqual([
+      [sessionId, newestActivityAtMs],
     ]);
   });
 
@@ -208,12 +249,12 @@ describe("agent resume deduplication compliance", () => {
     const newerFile = sampleAgentResumeValue(arbitraryAgentSessionId(), 227);
     const olderFile = sampleAgentResumeValue(arbitraryAgentSessionId(), 228);
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(newerFile)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(newerFile)),
       codexTranscript({ sessionId, cwd: outOfScopeCwd, timestamp }),
       nowMs,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(olderFile)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(olderFile)),
       codexTranscript({ sessionId, cwd: inScopeCwd, timestamp }),
       nowMs - 1,
     );
@@ -224,11 +265,7 @@ describe("agent resume deduplication compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: async (candidateCwd) => {
-        if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
-        if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
-        return candidateCwd;
-      },
+      resolveWorktreeRoot: agentResumeMultiRootResolver(worktreeRoot, siblingRoot),
     });
 
     expect(candidates.map((candidate) => [candidate.sessionId, candidate.cwd])).toEqual([[sessionId, inScopeCwd]]);
@@ -247,17 +284,17 @@ describe("agent resume subagent-exclusion compliance", () => {
     const execId = sampleAgentResumeValue(arbitraryAgentSessionId(), 145);
     const subagentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 146);
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(interactiveId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(interactiveId)),
       codexTranscript({ sessionId: interactiveId, cwd, timestamp }),
       nowMs,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(execId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(execId)),
       codexTranscript({ sessionId: execId, cwd, timestamp, originator: CODEX_SESSION_ORIGINATOR.EXEC }),
       nowMs - 1,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(subagentId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(subagentId)),
       codexSubagentTranscript({ sessionId: subagentId, cwd, timestamp }),
       nowMs - 2,
     );
@@ -268,7 +305,7 @@ describe("agent resume subagent-exclusion compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([interactiveId]);
@@ -284,12 +321,12 @@ describe("agent resume subagent-exclusion compliance", () => {
     const topLevelId = sampleAgentResumeValue(arbitraryAgentSessionId(), 164);
     const subagentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 165);
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, cwd, jsonlName(topLevelId)),
+      claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(topLevelId)),
       claudeCodeTranscript({ sessionId: topLevelId, cwd, timestamp }),
       nowMs,
     );
     fs.writeFile(
-      claudeSubagentTranscriptPath(homeDir, cwd, jsonlName(subagentId)),
+      claudeSubagentTranscriptPath(homeDir, cwd, agentSessionJsonlName(subagentId)),
       claudeCodeTranscript({ sessionId: subagentId, cwd, timestamp }),
       nowMs - 1,
     );
@@ -300,7 +337,7 @@ describe("agent resume subagent-exclusion compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([topLevelId]);
@@ -315,7 +352,7 @@ describe("agent resume subagent-exclusion compliance", () => {
     const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 253);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 254);
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(sessionId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId)),
       codexTranscript({ sessionId, cwd, timestamp, originator: CODEX_SESSION_ORIGINATOR.VSCODE }),
       nowMs,
     );
@@ -326,7 +363,7 @@ describe("agent resume subagent-exclusion compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
@@ -344,12 +381,13 @@ describe("agent resume recency-window compliance", () => {
     const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 184);
     const staleId = sampleAgentResumeValue(arbitraryAgentSessionId(), 185);
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(recentId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(recentId)),
       codexTranscript({ sessionId: recentId, cwd, timestamp }),
       nowMs,
     );
+    const staleTranscriptPath = codexTranscriptPath(homeDir, agentSessionJsonlName(staleId));
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(staleId)),
+      staleTranscriptPath,
       codexTranscript({ sessionId: staleId, cwd, timestamp }),
       nowMs - AGENT_RESUME_RECENT_WINDOW_MS - 1,
     );
@@ -360,10 +398,11 @@ describe("agent resume recency-window compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
+    expect(fs.maxTailReadBytes(staleTranscriptPath)).toBe(0);
   });
 
   it("excludes sessions carrying a future modification time", async () => {
@@ -376,11 +415,11 @@ describe("agent resume recency-window compliance", () => {
     const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 214);
     const futureId = sampleAgentResumeValue(arbitraryAgentSessionId(), 215);
     fs.writeFile(
-      codexTranscriptPath(homeDir, jsonlName(recentId)),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(recentId)),
       codexTranscript({ sessionId: recentId, cwd, timestamp }),
       nowMs,
     );
-    const futureTranscriptPath = codexTranscriptPath(homeDir, jsonlName(futureId));
+    const futureTranscriptPath = codexTranscriptPath(homeDir, agentSessionJsonlName(futureId));
     fs.writeFile(
       futureTranscriptPath,
       codexTranscript({ sessionId: futureId, cwd, timestamp }),
@@ -393,11 +432,12 @@ describe("agent resume recency-window compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
     expect(fs.maxHeadReadBytes(futureTranscriptPath)).toBe(0);
+    expect(fs.maxTailReadBytes(futureTranscriptPath)).toBe(0);
   });
 });
 
@@ -414,11 +454,11 @@ describe("agent resume Claude project-prefix compliance", () => {
     const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 205);
     const siblingId = sampleAgentResumeValue(arbitraryAgentSessionId(), 206);
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, invocationCwd, jsonlName(insideId)),
+      claudeProjectTranscriptPath(homeDir, invocationCwd, agentSessionJsonlName(insideId)),
       claudeCodeTranscript({ sessionId: insideId, cwd: invocationCwd, timestamp }),
       nowMs,
     );
-    const siblingTranscriptPath = claudeProjectTranscriptPath(homeDir, siblingCwd, jsonlName(siblingId));
+    const siblingTranscriptPath = claudeProjectTranscriptPath(homeDir, siblingCwd, agentSessionJsonlName(siblingId));
     fs.writeFile(
       siblingTranscriptPath,
       claudeCodeTranscript({ sessionId: siblingId, cwd: siblingCwd, timestamp }),
@@ -431,7 +471,7 @@ describe("agent resume Claude project-prefix compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([insideId]);
@@ -451,7 +491,7 @@ describe("agent resume tie-break compliance", () => {
     const written: { readonly sessionId: string; readonly path: string }[] = [];
     for (let index = 0; index < total; index += 1) {
       const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 270 + index);
-      const path = codexTranscriptPath(homeDir, jsonlName(sessionId));
+      const path = codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId));
       written.push({ sessionId, path });
       fs.writeFile(path, codexTranscript({ sessionId, cwd, timestamp }), nowMs);
     }
@@ -466,7 +506,7 @@ describe("agent resume tie-break compliance", () => {
       nowMs,
       scope: worktreeResumeScope(),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(new Set(expected));
@@ -484,7 +524,7 @@ describe("agent resume Claude branch-scan compliance", () => {
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 244);
     const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 245);
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, cwd, jsonlName(sessionId)),
+      claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(sessionId)),
       [
         claudeCodeTranscript({ sessionId, cwd, timestamp }),
         claudeCodeTranscript({ sessionId, cwd, timestamp, branch: targetBranch }),
@@ -498,7 +538,7 @@ describe("agent resume Claude branch-scan compliance", () => {
       nowMs,
       scope: branchResumeScope(targetBranch),
       fs,
-      resolveWorktreeRoot: worktreeRootResolver(worktreeRoot),
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     });
 
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);

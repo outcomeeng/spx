@@ -5,7 +5,6 @@ import {
   AGENT_RESUME_MODE,
   AGENT_RESUME_TEXT,
   AGENT_SESSION_KIND,
-  AGENT_SESSION_STORE,
 } from "@/domains/agent/protocol";
 import {
   AGENT_RESUME_PICKER_ACTION,
@@ -19,19 +18,13 @@ import {
   resolveAgentResumePickerAction,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
-import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
-import {
-  type AgentResumePickerResult,
-  quitAgentResumePicker,
-  selectedAgentResumeCandidate,
-} from "@/interfaces/cli/agent/resume/run-picker";
+import { AGENT_CLI, AGENT_CLI_EXIT } from "@/interfaces/cli/agent";
+import { quitAgentResumePicker, selectedAgentResumeCandidate } from "@/interfaces/cli/agent/resume/run-picker";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
 import {
   arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
-  arbitraryAgentResumeRecentOffsetMs,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
@@ -39,87 +32,19 @@ import {
 } from "@testing/generators/agent/resume";
 import {
   agentResumeCandidate,
+  agentResumeMultiRootResolver,
+  agentResumeWorktreeRootResolver,
+  agentSessionJsonlName,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
+  createInteractiveResumeProgram,
+  createProgramForResumeFixture,
+  createResumeFixture,
   ImmediateExit,
-  isPathInsideOrEqual,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-
-interface ResumeFixture {
-  readonly fs: MemoryAgentSessionFileSystem;
-  readonly homeDir: string;
-  readonly worktreeRoot: string;
-  readonly cwd: string;
-  readonly nowMs: number;
-  readonly newestSessionId: string;
-  readonly olderSessionId: string;
-}
-
-function createResumeFixture(): ResumeFixture {
-  const fs = new MemoryAgentSessionFileSystem();
-  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
-  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
-  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 2);
-  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
-  const timestamp = new Date(nowMs).toISOString();
-  const newestSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 3);
-  const olderSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 4);
-  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 5);
-  const olderTimestamp = new Date(olderModifiedAtMs).toISOString();
-
-  fs.writeFile(
-    codexTranscriptPath(homeDir, `${newestSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-    codexTranscript({ sessionId: newestSessionId, cwd, timestamp }),
-    nowMs,
-  );
-  fs.writeFile(
-    codexTranscriptPath(homeDir, `${olderSessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
-    codexTranscript({ sessionId: olderSessionId, cwd, timestamp: olderTimestamp }),
-    olderModifiedAtMs,
-  );
-
-  return { fs, homeDir, worktreeRoot, cwd, nowMs, newestSessionId, olderSessionId };
-}
-
-function createProgramForFixture(
-  fixture: ResumeFixture,
-  options: {
-    readonly pickCandidate?: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
-    readonly launchCandidate?: (candidate: AgentResumeCandidate) => Promise<number>;
-    readonly writeStdout?: (output: string) => void;
-    readonly writeStderr?: (output: string) => void;
-    readonly exit?: (exitCode: number) => never;
-  } = {},
-) {
-  return createCliProgram({
-    domains: [
-      createAgentDomain({
-        isInteractiveTerminal: () => true,
-        resumeDeps: {
-          fs: fixture.fs,
-          homeDir: () => fixture.homeDir,
-          nowMs: () => fixture.nowMs,
-          resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
-            isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : fallbackWorktreeRoot,
-        },
-        pickCandidate: options.pickCandidate
-          ?? (async (candidates) => {
-            const candidate = candidates.at(0);
-            return candidate === undefined ? quitAgentResumePicker() : selectedAgentResumeCandidate(candidate);
-          }),
-        launchCandidate: options.launchCandidate
-          ?? (async () => sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 6)),
-      }),
-    ],
-    processCwd: () => fixture.cwd,
-    writeStdout: options.writeStdout,
-    writeStderr: options.writeStderr,
-    exit: options.exit,
-  });
-}
 
 describe("agent resume mode behavior mappings", () => {
   it("default mode opens the interactive picker and launches the chosen session", async () => {
@@ -127,7 +52,7 @@ describe("agent resume mode behavior mappings", () => {
     const launchExitCode = sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 7);
     const pickedSessionIds: string[] = [];
     const launchedSessionIds: string[] = [];
-    const program = createProgramForFixture(fixture, {
+    const program = createProgramForResumeFixture(fixture, {
       pickCandidate: async (candidates) => {
         const chosen = candidates.at(1);
         if (chosen === undefined) {
@@ -158,7 +83,7 @@ describe("agent resume mode behavior mappings", () => {
     const fixture = createResumeFixture();
     const launchExitCode = sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 8);
     const launchedSessionIds: string[] = [];
-    const program = createProgramForFixture(fixture, {
+    const program = createProgramForResumeFixture(fixture, {
       pickCandidate: async () => {
         throw new Error("latest mode should not open the picker");
       },
@@ -185,26 +110,13 @@ describe("agent resume mode behavior mappings", () => {
     const fixture = createResumeFixture();
     const stderr: string[] = [];
     const launchedSessionIds: string[] = [];
-    const program = createCliProgram({
-      domains: [
-        createAgentDomain({
-          isInteractiveTerminal: () => true,
-          resumeDeps: {
-            fs: fixture.fs,
-            homeDir: () => fixture.homeDir,
-            nowMs: () => fixture.nowMs,
-            resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
-              isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : fallbackWorktreeRoot,
-          },
-          pickCandidate: async () => quitAgentResumePicker(),
-          launchCandidate: async (candidate) => {
-            launchedSessionIds.push(candidate.sessionId);
-            return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 9);
-          },
-        }),
-      ],
-      processCwd: () => fixture.cwd,
+    const program = createProgramForResumeFixture(fixture, {
       writeStderr: (output) => stderr.push(output),
+      pickCandidate: async () => quitAgentResumePicker(),
+      launchCandidate: async (candidate) => {
+        launchedSessionIds.push(candidate.sessionId);
+        return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 9);
+      },
       exit: (exitCode) => {
         throw new ImmediateExit(exitCode);
       },
@@ -224,7 +136,7 @@ describe("agent resume mode behavior mappings", () => {
   it("list mode prints matching sessions without launching an agent", async () => {
     const fixture = createResumeFixture();
     const stdout: string[] = [];
-    const program = createProgramForFixture(fixture, {
+    const program = createProgramForResumeFixture(fixture, {
       writeStdout: (output) => stdout.push(output),
       launchCandidate: async () => {
         throw new Error("list mode should not launch an agent");
@@ -244,7 +156,7 @@ describe("agent resume mode behavior mappings", () => {
   it("json mode prints matching sessions as parseable JSON without launching an agent", async () => {
     const fixture = createResumeFixture();
     const stdout: string[] = [];
-    const program = createProgramForFixture(fixture, {
+    const program = createProgramForResumeFixture(fixture, {
       writeStdout: (output) => stdout.push(output),
       launchCandidate: async () => {
         throw new Error("json mode should not launch an agent");
@@ -257,6 +169,10 @@ describe("agent resume mode behavior mappings", () => {
 
     const parsed = JSON.parse(stdout.join("")) as readonly AgentResumeCandidate[];
     expect(parsed.map((candidate) => candidate.sessionId)).toEqual([fixture.newestSessionId, fixture.olderSessionId]);
+    expect(parsed.map((candidate) => candidate.lastActivityAtMs)).toEqual([
+      fixture.nowMs,
+      fixture.olderModifiedAtMs,
+    ]);
   });
 
   it.each(
@@ -275,7 +191,7 @@ describe("agent resume mode behavior mappings", () => {
       const fixture = createResumeFixture();
       const stderr: string[] = [];
       const launchedSessionIds: string[] = [];
-      const program = createProgramForFixture(fixture, {
+      const program = createProgramForResumeFixture(fixture, {
         launchCandidate: async (candidate) => {
           launchedSessionIds.push(candidate.sessionId);
           return sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 10);
@@ -337,26 +253,22 @@ describe("agent resume scope mappings", () => {
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 60);
 
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${worktreeOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
       codexTranscript({ sessionId: worktreeOnTarget, cwd: cwdInWorktree, timestamp, branch: targetBranch }),
       nowMs,
     );
     fs.writeFile(
-      claudeProjectTranscriptPath(homeDir, cwdInSibling, `${siblingOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      claudeProjectTranscriptPath(homeDir, cwdInSibling, agentSessionJsonlName(siblingOnTarget)),
       claudeCodeTranscript({ sessionId: siblingOnTarget, cwd: cwdInSibling, timestamp, branch: targetBranch }),
       nowMs - 1,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${worktreeOnOther}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
       codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
       nowMs - 2,
     );
 
-    const resolveWorktreeRoot = async (candidateCwd: string): Promise<string> => {
-      if (isPathInsideOrEqual(worktreeRoot, candidateCwd)) return worktreeRoot;
-      if (isPathInsideOrEqual(siblingRoot, candidateCwd)) return siblingRoot;
-      return candidateCwd;
-    };
+    const resolveWorktreeRoot = agentResumeMultiRootResolver(worktreeRoot, siblingRoot);
     const cases: readonly { readonly scope: AgentResumeScope; readonly expected: readonly string[] }[] = [
       { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther] },
       { scope: branchResumeScope(targetBranch), expected: [worktreeOnTarget, siblingOnTarget] },
@@ -389,33 +301,25 @@ describe("agent resume scope mappings", () => {
     const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 69);
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 70);
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${siblingOnTarget}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(siblingOnTarget)),
       codexTranscript({ sessionId: siblingOnTarget, cwd: siblingCwd, timestamp, branch: targetBranch }),
       nowMs,
     );
     fs.writeFile(
-      codexTranscriptPath(homeDir, `${worktreeOnOther}${AGENT_SESSION_STORE.JSONL_EXTENSION}`),
+      codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
       codexTranscript({ sessionId: worktreeOnOther, cwd: invocationCwd, timestamp, branch: otherBranch }),
       nowMs - 1,
     );
     const stdout: string[] = [];
-    const program = createCliProgram({
-      domains: [
-        createAgentDomain({
-          isInteractiveTerminal: () => true,
-          resumeDeps: {
-            fs,
-            homeDir: () => homeDir,
-            nowMs: () => nowMs,
-            resolveWorktreeRoot: async (candidateCwd, fallbackWorktreeRoot) =>
-              isPathInsideOrEqual(worktreeRoot, candidateCwd) ? worktreeRoot : fallbackWorktreeRoot,
-          },
-          launchCandidate: async () => {
-            throw new Error("list mode should not launch an agent");
-          },
-        }),
-      ],
-      processCwd: () => invocationCwd,
+    const program = createInteractiveResumeProgram({
+      fs,
+      homeDir,
+      cwd: invocationCwd,
+      nowMs,
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+      launchCandidate: async () => {
+        throw new Error("list mode should not launch an agent");
+      },
       writeStdout: (output) => stdout.push(output),
     });
 
