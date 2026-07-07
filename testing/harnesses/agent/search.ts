@@ -574,9 +574,12 @@ export async function assertAgentSearchFindsSessionByBranchAssociatedWorktreeRoo
     modifiedAtMs: nowMs - 2,
   });
   const git: GitDependencies = {
-    execa: async (command, args) => {
+    execa: async (command, args, options) => {
       if (command !== GIT_ROOT_COMMAND.EXECUTABLE || args.join(" ") !== GIT_WORKTREE_LIST_PORCELAIN_ARGS.join(" ")) {
         throw new Error("agent search branch-associated fixture only supports git worktree list");
+      }
+      if (options?.cwd !== productScopeRoot) {
+        throw new Error("agent search branch-associated fixture must resolve roots from product scope");
       }
       return {
         exitCode: 0,
@@ -604,7 +607,7 @@ export async function assertAgentSearchFindsSessionByBranchAssociatedWorktreeRoo
   };
 
   const output = await jsonAgentSearchSessions({
-    cwd: productScopeRoot,
+    cwd: unassociatedRoot,
     fallbackProductScopeRoot: productScopeRoot,
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
     deps: {
