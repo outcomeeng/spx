@@ -6,6 +6,7 @@ import { expect } from "vitest";
 import { diagnoseCommand } from "@/commands/diagnose";
 import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/domains/agent-environment/config";
 import {
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextObservation,
@@ -275,6 +276,29 @@ export async function assertMethodologyManifestWithoutFactsRejects(): Promise<vo
   const error = await runManifestWithoutMethodology();
   expect(error).toContain(CHECK_NAME.METHODOLOGY_CONTEXT);
   expect(error).toContain(METHODOLOGY_SECTION);
+}
+
+export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig(): Promise<void> {
+  let error: string | undefined;
+  await withTestEnv({
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodology(),
+    },
+  }, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      format: DIAGNOSE_FORMAT.TEXT,
+      color: false,
+      registry: registryFor({ source: null, version: null, errored: false }),
+      fs: { readFile: () => Promise.resolve("") },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      error = result.error;
+    }
+  });
+  if (error === undefined) throw new Error("diagnose command produced no error");
+  expect(error).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
 }
 
 export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<void> {
