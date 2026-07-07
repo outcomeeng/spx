@@ -66,9 +66,20 @@ export const AGENT_SESSION_JSON_FIELDS = {
   TYPE: "type",
   CWD: "cwd",
   COMMAND: "command",
+  CMD: "cmd",
+  ARGS: "args",
+  ARGUMENTS: "arguments",
+  NAME: "name",
+  CALL_ID: "call_id",
   EXIT_CODE: "exitCode",
   STATUS: "status",
   SUCCESS: "success",
+  OUTPUT: "output",
+  MESSAGE: "message",
+  CONTENT: "content",
+  INPUT: "input",
+  TOOL_USE_ID: "tool_use_id",
+  IS_ERROR: "is_error",
   ORIGINATOR: "originator",
   SOURCE: "source",
   SESSION_ID: "session_id",
@@ -81,18 +92,17 @@ export const AGENT_SESSION_JSON_FIELDS = {
   THREAD_SOURCE: "thread_source",
 } as const;
 
-export const AGENT_TRANSCRIPT_COMMAND_STATUS = {
-  FAILED: "failed",
-  FAILURE: "failure",
-  ERROR: "error",
-} as const;
-
 export const AGENT_TRANSCRIPT_GIT_COMMAND = {
   EXECUTABLE: "git",
   SWITCH: "switch",
   CHECKOUT: "checkout",
   WORKTREE: "worktree",
   ADD: "add",
+  TRACK: "--track",
+  FORCE: "--force",
+  FORCE_SHORT: "-f",
+  REASON: "--reason",
+  PATHSPEC_SEPARATOR: "--",
   CREATE_BRANCH_SHORT: "-b",
   CREATE_BRANCH_LONG: "-c",
   CREATE_BRANCH_RESET_SHORT: "-B",
@@ -105,6 +115,28 @@ export const AGENT_TRANSCRIPT_GIT_COMMAND = {
 
 export const AGENT_SESSION_ROW_TYPE = {
   CODEX_SESSION_META: "session_meta",
+  CODEX_RESPONSE_ITEM: "response_item",
+  CLAUDE_ASSISTANT: "assistant",
+  CLAUDE_USER: "user",
+} as const;
+
+export const AGENT_TRANSCRIPT_PAYLOAD_TYPE = {
+  FUNCTION_CALL: "function_call",
+  FUNCTION_CALL_OUTPUT: "function_call_output",
+} as const;
+
+export const AGENT_TRANSCRIPT_TOOL_NAME = {
+  CODEX_EXEC_COMMAND: "exec_command",
+  CLAUDE_BASH: "Bash",
+} as const;
+
+export const AGENT_TRANSCRIPT_CONTENT_TYPE = {
+  TOOL_USE: "tool_use",
+  TOOL_RESULT: "tool_result",
+} as const;
+
+export const AGENT_TRANSCRIPT_CODEX_OUTPUT = {
+  PROCESS_EXITED_WITH_CODE: "Process exited with code",
 } as const;
 
 export const CODEX_SESSION_ORIGINATOR = {

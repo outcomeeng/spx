@@ -5,8 +5,12 @@ import {
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_LABEL,
-  AGENT_TRANSCRIPT_COMMAND_STATUS,
+  AGENT_SESSION_ROW_TYPE,
+  AGENT_TRANSCRIPT_CODEX_OUTPUT,
+  AGENT_TRANSCRIPT_CONTENT_TYPE,
   AGENT_TRANSCRIPT_GIT_COMMAND,
+  AGENT_TRANSCRIPT_PAYLOAD_TYPE,
+  AGENT_TRANSCRIPT_TOOL_NAME,
   type AgentSessionKind,
 } from "./protocol";
 import {
@@ -26,6 +30,7 @@ import {
   parseClaudeHead,
   parseCodexHead,
 } from "./resume";
+import { firstString, isRecord, parseJsonObject, valueAtPath } from "./transcript-json";
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
@@ -40,11 +45,6 @@ export const AGENT_SEARCH_MATCH_REASON = {
   SESSION_ID: "session-id",
   AGENT: "agent",
   BRANCH: "branch",
-} as const;
-
-export const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
-  START_POINT: "origin/main",
-  WORKTREE_ADD_PATH: "../branch-worktree",
 } as const;
 
 export type AgentSearchMatchReason = (typeof AGENT_SEARCH_MATCH_REASON)[keyof typeof AGENT_SEARCH_MATCH_REASON];
@@ -294,18 +294,185 @@ function branchTranscriptCommandMatchReasons(
 }
 
 export function transcriptHasAcceptedBranchCommand(content: string, branch: string): boolean {
-  return content.split("\n").some((line) => {
-    const row = parseJsonObject(line);
-    if (row === null || transcriptRowIsFailingCommand(row)) {
-      return false;
-    }
-    const command = firstString(row, TRANSCRIPT_COMMAND_PATHS);
-    return command !== null && gitCommandAssociatesBranch(command, branch);
-  });
+  return transcriptBranchCommandEvidence(content).some((evidence) =>
+    !evidence.failed && gitCommandAssociatesBranch(evidence.words, branch)
+  );
 }
 
-function gitCommandAssociatesBranch(command: string, branch: string): boolean {
-  const words = shellWords(command);
+interface TranscriptBranchCommandEvidence {
+  readonly words: readonly string[];
+  failed: boolean;
+}
+
+function transcriptBranchCommandEvidence(content: string): readonly TranscriptBranchCommandEvidence[] {
+  const evidence: TranscriptBranchCommandEvidence[] = [];
+  const codexCalls = new Map<string, TranscriptBranchCommandEvidence>();
+  const claudeToolUses = new Map<string, TranscriptBranchCommandEvidence>();
+  const failedCodexCallIds = new Set<string>();
+  const failedClaudeToolUseIds = new Set<string>();
+  for (const line of content.split("\n")) {
+    const row = parseJsonObject(line);
+    if (row === null) {
+      continue;
+    }
+    collectCodexCommandEvidence(row, evidence, codexCalls, failedCodexCallIds);
+    collectClaudeCommandEvidence(row, evidence, claudeToolUses, failedClaudeToolUseIds);
+  }
+  return evidence;
+}
+
+function collectCodexCommandEvidence(
+  row: Record<string, unknown>,
+  evidence: TranscriptBranchCommandEvidence[],
+  calls: Map<string, TranscriptBranchCommandEvidence>,
+  failedCallIds: Set<string>,
+): void {
+  if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_RESPONSE_ITEM) {
+    return;
+  }
+  const payload = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.PAYLOAD]);
+  if (!isRecord(payload)) {
+    return;
+  }
+  const payloadType = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.TYPE]]);
+  if (payloadType === AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL) {
+    const command = codexFunctionCallWords(payload);
+    if (command === null) {
+      return;
+    }
+    const rowEvidence: TranscriptBranchCommandEvidence = {
+      words: command,
+      failed: false,
+    };
+    const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
+    if (callId !== null) {
+      rowEvidence.failed = failedCallIds.has(callId);
+      calls.set(callId, rowEvidence);
+    }
+    evidence.push(rowEvidence);
+    return;
+  }
+  if (payloadType !== AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL_OUTPUT) {
+    return;
+  }
+  const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
+  if (callId === null || !codexFunctionCallOutputFailed(payload)) {
+    return;
+  }
+  failedCallIds.add(callId);
+  const command = calls.get(callId);
+  if (command !== undefined) {
+    command.failed = true;
+  }
+}
+
+function codexFunctionCallWords(payload: Record<string, unknown>): readonly string[] | null {
+  const toolName = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.NAME]]);
+  if (toolName !== AGENT_TRANSCRIPT_TOOL_NAME.CODEX_EXEC_COMMAND) {
+    return null;
+  }
+  const rawArguments = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.ARGUMENTS]]);
+  if (rawArguments === null) {
+    return null;
+  }
+  const args = parseJsonObject(rawArguments);
+  if (args === null) {
+    return null;
+  }
+  const command = firstString(args, [
+    [AGENT_SESSION_JSON_FIELDS.CMD],
+    [AGENT_SESSION_JSON_FIELDS.COMMAND],
+  ]);
+  if (command !== null) {
+    return shellWords(command);
+  }
+  const commandArgs = valueAtPath(args, [AGENT_SESSION_JSON_FIELDS.ARGS]);
+  return stringArray(commandArgs);
+}
+
+const CODEX_OUTPUT_EXIT_CODE_PATTERN = new RegExp(
+  String.raw`${AGENT_TRANSCRIPT_CODEX_OUTPUT.PROCESS_EXITED_WITH_CODE}\s+(\d+)`,
+  "u",
+);
+
+function codexFunctionCallOutputFailed(payload: Record<string, unknown>): boolean {
+  const output = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.OUTPUT]]);
+  if (output === null) {
+    return false;
+  }
+  const match = CODEX_OUTPUT_EXIT_CODE_PATTERN.exec(output);
+  return match !== null && Number(match[1]) !== 0;
+}
+
+function collectClaudeCommandEvidence(
+  row: Record<string, unknown>,
+  evidence: TranscriptBranchCommandEvidence[],
+  toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  failedToolUseIds: Set<string>,
+): void {
+  const content = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.MESSAGE, AGENT_SESSION_JSON_FIELDS.CONTENT]);
+  if (!Array.isArray(content)) {
+    return;
+  }
+  for (const item of content) {
+    if (!isRecord(item)) {
+      continue;
+    }
+    const itemType = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TYPE]]);
+    if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_USE) {
+      collectClaudeToolUse(item, evidence, toolUses, failedToolUseIds);
+    } else if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_RESULT) {
+      collectClaudeToolResult(item, toolUses, failedToolUseIds);
+    }
+  }
+}
+
+function collectClaudeToolUse(
+  item: Record<string, unknown>,
+  evidence: TranscriptBranchCommandEvidence[],
+  toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  failedToolUseIds: Set<string>,
+): void {
+  const toolName = firstString(item, [[AGENT_SESSION_JSON_FIELDS.NAME]]);
+  if (toolName !== AGENT_TRANSCRIPT_TOOL_NAME.CLAUDE_BASH) {
+    return;
+  }
+  const command = firstString(item, [[AGENT_SESSION_JSON_FIELDS.INPUT, AGENT_SESSION_JSON_FIELDS.COMMAND]]);
+  if (command === null) {
+    return;
+  }
+  const rowEvidence: TranscriptBranchCommandEvidence = {
+    words: shellWords(command),
+    failed: false,
+  };
+  const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.ID]]);
+  if (toolUseId !== null) {
+    rowEvidence.failed = failedToolUseIds.has(toolUseId);
+    toolUses.set(toolUseId, rowEvidence);
+  }
+  evidence.push(rowEvidence);
+}
+
+function collectClaudeToolResult(
+  item: Record<string, unknown>,
+  toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  failedToolUseIds: Set<string>,
+): void {
+  if (valueAtPath(item, [AGENT_SESSION_JSON_FIELDS.IS_ERROR]) !== true) {
+    return;
+  }
+  const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TOOL_USE_ID]]);
+  if (toolUseId === null) {
+    return;
+  }
+  failedToolUseIds.add(toolUseId);
+  const command = toolUses.get(toolUseId);
+  if (command !== undefined) {
+    command.failed = true;
+  }
+}
+
+function gitCommandAssociatesBranch(words: readonly string[], branch: string): boolean {
   if (words[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE) {
     return false;
   }
@@ -319,32 +486,28 @@ function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: strin
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH) {
     return false;
   }
-  if (args.length === 2 && args[1] === branch) {
-    return true;
+  const parsed = parseGitBranchArgs(args.slice(1), SWITCH_CREATE_FLAGS, SWITCH_ALLOWED_FLAGS);
+  if (parsed.invalid) {
+    return false;
   }
-  return (
-    args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG
-    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT
-    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG
-    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG
-  )
-    && args[2] === branch
-    && hasOptionalStartPoint(args, 3);
+  if (parsed.createdBranch !== null) {
+    return parsed.createdBranch === branch && parsed.positionals.length <= 1;
+  }
+  return parsed.positionals.length === 1 && parsed.positionals[0] === branch;
 }
 
 function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT) {
     return false;
   }
-  if (args.length === 2 && args[1] === branch) {
-    return true;
+  const parsed = parseGitBranchArgs(args.slice(1), CHECKOUT_CREATE_FLAGS, EMPTY_ALLOWED_FLAGS);
+  if (parsed.invalid) {
+    return false;
   }
-  return (
-    args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT
-    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT
-  )
-    && args[2] === branch
-    && hasOptionalStartPoint(args, 3);
+  if (parsed.createdBranch !== null) {
+    return parsed.createdBranch === branch && parsed.positionals.length <= 1;
+  }
+  return parsed.positionals.length === 1 && parsed.positionals[0] === branch;
 }
 
 function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -354,123 +517,97 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   ) {
     return false;
   }
-  return args.length === 4 && !args[2].startsWith("-") && args[3] === branch
-    || (
-      args.length >= 5
-      && (
-        args[2] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT
-        || args[2] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT
-      )
-      && args[3] === branch
-      && !args[4].startsWith("-")
-      && hasOptionalStartPoint(args, 5)
-    );
-}
-
-function hasOptionalStartPoint(args: readonly string[], baseLength: number): boolean {
-  if (args.length === baseLength) {
-    return true;
-  }
-  if (args.length !== baseLength + 1) {
+  const parsed = parseGitBranchArgs(args.slice(2), WORKTREE_CREATE_FLAGS, WORKTREE_ALLOWED_FLAGS);
+  if (parsed.invalid) {
     return false;
   }
-  const startPoint = args[baseLength];
-  return !startPoint.startsWith("-");
+  if (parsed.createdBranch !== null) {
+    return parsed.createdBranch === branch && parsed.positionals.length >= 1 && parsed.positionals.length <= 2;
+  }
+  return parsed.positionals.length === 2 && parsed.positionals[1] === branch;
 }
 
-const TRANSCRIPT_COMMAND_PATHS = [
-  [AGENT_SESSION_JSON_FIELDS.COMMAND],
-  [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.COMMAND],
+interface ParsedGitBranchArgs {
+  readonly createdBranch: string | null;
+  readonly positionals: readonly string[];
+  readonly invalid: boolean;
+}
+
+const SWITCH_CREATE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG,
 ] as const;
 
-const TRANSCRIPT_STATUS_PATHS = [
-  [AGENT_SESSION_JSON_FIELDS.STATUS],
-  [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.STATUS],
+const CHECKOUT_CREATE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT,
 ] as const;
 
-const TRANSCRIPT_EXIT_CODE_PATHS = [
-  [AGENT_SESSION_JSON_FIELDS.EXIT_CODE],
-  [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.EXIT_CODE],
+const WORKTREE_CREATE_FLAGS = CHECKOUT_CREATE_FLAGS;
+
+const EMPTY_ALLOWED_FLAGS = [] as const;
+
+const SWITCH_ALLOWED_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
 ] as const;
 
-const TRANSCRIPT_SUCCESS_PATHS = [
-  [AGENT_SESSION_JSON_FIELDS.SUCCESS],
-  [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.SUCCESS],
+const WORKTREE_ALLOWED_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
 ] as const;
 
-function transcriptRowIsFailingCommand(row: Record<string, unknown>): boolean {
-  const status = firstString(row, TRANSCRIPT_STATUS_PATHS);
-  if (
-    status === AGENT_TRANSCRIPT_COMMAND_STATUS.FAILED
-    || status === AGENT_TRANSCRIPT_COMMAND_STATUS.FAILURE
-    || status === AGENT_TRANSCRIPT_COMMAND_STATUS.ERROR
-  ) {
-    return true;
-  }
-  const exitCode = firstNumber(row, TRANSCRIPT_EXIT_CODE_PATHS);
-  if (exitCode !== null && exitCode !== 0) {
-    return true;
-  }
-  const success = firstBoolean(row, TRANSCRIPT_SUCCESS_PATHS);
-  return success === false;
-}
+const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.DETACH,
+  AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN,
+  AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR,
+] as const;
 
-function parseJsonObject(line: string): Record<string, unknown> | null {
-  const trimmed = line.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
+const GIT_OPTION_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.REASON,
+] as const;
 
-function firstString(row: Record<string, unknown>, paths: readonly (readonly string[])[]): string | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "string" && value.length > 0) {
-      return value;
+function parseGitBranchArgs(
+  args: readonly string[],
+  createFlags: readonly string[],
+  allowedFlags: readonly string[],
+): ParsedGitBranchArgs {
+  const positionals: string[] = [];
+  let createdBranch: string | null = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (tupleIncludes(DISALLOWED_BRANCH_ASSOCIATION_FLAGS, arg)) {
+      return { createdBranch, positionals, invalid: true };
+    }
+    if (tupleIncludes(createFlags, arg)) {
+      const branch = args.at(index + 1);
+      if (branch === undefined || branch.startsWith("-")) {
+        return { createdBranch, positionals, invalid: true };
+      }
+      createdBranch = branch;
+      index += 1;
+    } else if (tupleIncludes(GIT_OPTION_VALUE_FLAGS, arg)) {
+      index += 1;
+    } else if (tupleIncludes(allowedFlags, arg)) {
+      continue;
+    } else if (arg.startsWith("-")) {
+      return { createdBranch, positionals, invalid: true };
+    } else {
+      positionals.push(arg);
     }
   }
-  return null;
+  return { createdBranch, positionals, invalid: false };
 }
 
-function firstNumber(row: Record<string, unknown>, paths: readonly (readonly string[])[]): number | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "number") {
-      return value;
-    }
-  }
-  return null;
+function stringArray(value: unknown): readonly string[] | null {
+  return Array.isArray(value) && value.every((item): item is string => typeof item === "string" && item.length > 0)
+    ? value
+    : null;
 }
 
-function firstBoolean(row: Record<string, unknown>, paths: readonly (readonly string[])[]): boolean | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "boolean") {
-      return value;
-    }
-  }
-  return null;
-}
-
-function valueAtPath(row: Record<string, unknown>, path: readonly string[]): unknown {
-  let current: unknown = row;
-  for (const segment of path) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    current = current[segment];
-  }
-  return current;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function tupleIncludes(values: readonly string[], value: string): boolean {
+  return values.includes(value);
 }
 
 const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\S+)/gu;
