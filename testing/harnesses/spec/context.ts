@@ -8,7 +8,7 @@ import {
   type SpecContextManifest,
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_RESOLUTION, METHODOLOGY_SECTION } from "@/config/methodology";
-import { HARNESS_ENVIRONMENT_SECTION } from "@/domains/agent-environment/config";
+import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/git/tracked-paths";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
@@ -149,6 +149,27 @@ export async function assertSpecContextManifestIgnoresUntrackedScratchNodes(): P
   });
 }
 
+export async function assertSpecContextManifestOmitsMissingNodeSpecs(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const missingChild = `${target.id}/21-metadata-only.enabler`;
+    await env.writeRaw(`spx/${missingChild}/spx.status.json`, "{}");
+
+    const manifest = parseContextManifest(await contextCommand({ target: missingChild, cwd: env.productDir }));
+
+    expect(manifest.target).toBe(`spx/${missingChild}`);
+    expect(manifest.documents.map((document) => document.path)).not.toContain(
+      `spx/${missingChild}/metadata-only.md`,
+    );
+  });
+}
+
 export async function assertSpecContextTextIncludesContext(): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
@@ -189,7 +210,7 @@ export async function assertSpecContextRejectsHarnessMethodologyConfig(): Promis
     [SPEC_TREE_CONFIG.SECTION]: {
       [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
     },
-    [HARNESS_ENVIRONMENT_SECTION]: {
+    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
       [METHODOLOGY_SECTION]: generatedMethodologySection(),
     },
   }, async (env) => {
@@ -197,7 +218,30 @@ export async function assertSpecContextRejectsHarnessMethodologyConfig(): Promis
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes[0];
     await expect(contextCommand({ target: target.id, cwd: env.productDir })).rejects.toThrow(
-      `${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`,
+      `${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`,
     );
+  });
+}
+
+export async function assertSpecContextIgnoresUnrelatedHarnessConfigDefects(): Promise<void> {
+  const methodology = generatedMethodologySection();
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+    [METHODOLOGY_SECTION]: methodology,
+    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+      unrelated: generatedMethodologySection(),
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
+    expect(manifest.methodology).toMatchObject({
+      source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+      version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+      resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
+    });
   });
 }

@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects,
   assertMethodologyDiagnoseRejectsHarnessMethodologyConfig,
   assertMethodologyDiagnoseTextRenders,
   assertMethodologyManifestWithoutFactsRejects,
@@ -23,6 +24,10 @@ describe("methodology-context diagnose compliance", () => {
 
   it("rejects stale harness methodology config before probing", async () => {
     await assertMethodologyDiagnoseRejectsHarnessMethodologyConfig();
+  });
+
+  it("ignores unrelated harness config defects before probing", async () => {
+    await assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects();
   });
 
   it("orders observed methodology versions numerically", async () => {

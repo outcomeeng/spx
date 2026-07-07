@@ -6,7 +6,7 @@ import { expect } from "vitest";
 import { diagnoseCommand } from "@/commands/diagnose";
 import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
-import { HARNESS_ENVIRONMENT_SECTION } from "@/domains/agent-environment/config";
+import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import {
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextObservation,
@@ -281,7 +281,7 @@ export async function assertMethodologyManifestWithoutFactsRejects(): Promise<vo
 export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig(): Promise<void> {
   let error: string | undefined;
   await withTestEnv({
-    [HARNESS_ENVIRONMENT_SECTION]: {
+    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
       [METHODOLOGY_SECTION]: generatedMethodology(),
     },
   }, async ({ productDir }) => {
@@ -298,7 +298,37 @@ export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig()
     }
   });
   if (error === undefined) throw new Error("diagnose command produced no error");
-  expect(error).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
+  expect(error).toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+}
+
+export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects(): Promise<void> {
+  const methodology = generatedMethodology();
+  const observation = {
+    source: methodology.source,
+    version: OBSERVED_VERSION,
+    errored: false,
+  };
+  await withTestEnv({
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
+    },
+    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+      unrelated: generatedMethodology(),
+    },
+  }, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      format: DIAGNOSE_FORMAT.JSON,
+      color: false,
+      registry: registryFor(observation),
+      fs: { readFile: () => Promise.resolve("") },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    const report = JSON.parse(result.value.output) as Record<string, unknown>;
+    expect(firstCheck(report).verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
+  });
 }
 
 export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<void> {

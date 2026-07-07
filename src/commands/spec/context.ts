@@ -1,14 +1,8 @@
 import { access } from "node:fs/promises";
 import { join } from "node:path";
 
-import { resolveConfig } from "@/config/index";
-import {
-  type MethodologyConfig,
-  methodologyConfigDescriptor,
-  type MethodologyIdentity,
-  resolveMethodologyIdentity,
-} from "@/config/methodology";
-import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { type MethodologyIdentity, resolveMethodologyIdentity } from "@/config/methodology";
+import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { defaultGitDependencies } from "@/git/root";
 import type { GitDependencies } from "@/git/root";
@@ -105,6 +99,19 @@ function pushDocument(documents: SpecContextDocument[], role: string, path: stri
   }
 }
 
+async function pushExistingDocument(
+  documents: SpecContextDocument[],
+  role: string,
+  productDir: string,
+  path: string | undefined,
+  includePath: (path: string) => boolean | Promise<boolean>,
+): Promise<void> {
+  if (path === undefined || !await optionalSpecTreeFile(productDir, path, includePath)) {
+    return;
+  }
+  documents.push({ role, path });
+}
+
 function findNode(snapshot: SpecTreeSnapshot, target: string): SpecTreeNode | undefined {
   const normalized = normalizeTarget(target);
   return snapshot.allNodes.find((node) => node.id === normalized);
@@ -177,7 +184,14 @@ async function optionalFile(
   relativePath: string,
   includePath: (path: string) => boolean | Promise<boolean>,
 ): Promise<string | undefined> {
-  const specTreePath = fullSpecPath(relativePath);
+  return optionalSpecTreeFile(productDir, fullSpecPath(relativePath), includePath);
+}
+
+async function optionalSpecTreeFile(
+  productDir: string,
+  specTreePath: string,
+  includePath: (path: string) => boolean | Promise<boolean>,
+): Promise<string | undefined> {
   if (!await includePath(specTreePath)) return undefined;
   try {
     await access(join(productDir, specTreePath));
@@ -198,14 +212,6 @@ async function coordinationDocuments(
   ].filter((path): path is string => path !== undefined);
 }
 
-async function resolveMethodologyConfig(productDir: string): Promise<MethodologyConfig> {
-  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor, harnessEnvironmentConfigDescriptor]);
-  if (!loaded.ok) {
-    throw new Error(loaded.error);
-  }
-  return loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig;
-}
-
 async function buildManifest(
   productDir: string,
   snapshot: SpecTreeSnapshot,
@@ -222,22 +228,62 @@ async function buildManifest(
   const higherIndex = sortPaths(
     siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
   );
-  const methodology = resolveMethodologyIdentity(await resolveMethodologyConfig(productDir));
+  const methodologyConfig = await resolveMethodologyConfig(productDir);
+  if (!methodologyConfig.ok) {
+    throw new Error(methodologyConfig.error);
+  }
+  const methodology = resolveMethodologyIdentity(methodologyConfig.value);
 
   const documents: SpecContextDocument[] = [];
-  pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT, refPath(snapshot.product?.ref));
+  await pushExistingDocument(
+    documents,
+    SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT,
+    productDir,
+    refPath(snapshot.product?.ref),
+    includePath,
+  );
   for (const ancestor of ancestors) {
-    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.ANCESTOR, refPath(ancestor.ref));
+    await pushExistingDocument(
+      documents,
+      SPEC_CONTEXT_DOCUMENT_ROLE.ANCESTOR,
+      productDir,
+      refPath(ancestor.ref),
+      includePath,
+    );
   }
-  pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.TARGET, refPath(target.ref));
+  await pushExistingDocument(
+    documents,
+    SPEC_CONTEXT_DOCUMENT_ROLE.TARGET,
+    productDir,
+    refPath(target.ref),
+    includePath,
+  );
   for (const decision of decisionsFor(snapshot, contextNodes)) {
-    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.DECISION, refPath(decision.ref));
+    await pushExistingDocument(
+      documents,
+      SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
+      productDir,
+      refPath(decision.ref),
+      includePath,
+    );
   }
   for (const sibling of lowerSiblings) {
-    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING, refPath(sibling.ref));
+    await pushExistingDocument(
+      documents,
+      SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING,
+      productDir,
+      refPath(sibling.ref),
+      includePath,
+    );
   }
   for (const evidence of evidenceFor(snapshot, target)) {
-    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE, refPath(evidence.ref));
+    await pushExistingDocument(
+      documents,
+      SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE,
+      productDir,
+      refPath(evidence.ref),
+      includePath,
+    );
   }
   for (const path of await coordinationDocuments(productDir, target, includePath)) {
     pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION, path);

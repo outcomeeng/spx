@@ -1,9 +1,11 @@
 import { describe, it } from "vitest";
 
 import {
+  assertSpecContextIgnoresUnrelatedHarnessConfigDefects,
   assertSpecContextManifestIgnoresUntrackedScratchNodes,
   assertSpecContextManifestIncludesDocuments,
   assertSpecContextManifestIncludesMethodology,
+  assertSpecContextManifestOmitsMissingNodeSpecs,
   assertSpecContextRejectsHarnessMethodologyConfig,
   assertSpecContextRejectsMalformedMethodologyConfig,
   assertSpecContextTextIncludesContext,
@@ -22,6 +24,10 @@ describe("spec context ingestion scenarios", () => {
     await assertSpecContextManifestIgnoresUntrackedScratchNodes();
   });
 
+  it("omits missing node spec paths from the manifest", async () => {
+    await assertSpecContextManifestOmitsMissingNodeSpecs();
+  });
+
   it("renders deterministic spec-tree context as text", async () => {
     await assertSpecContextTextIncludesContext();
   });
@@ -32,5 +38,9 @@ describe("spec context ingestion scenarios", () => {
 
   it("rejects stale harness methodology config before manifest output", async () => {
     await assertSpecContextRejectsHarnessMethodologyConfig();
+  });
+
+  it("ignores unrelated harness config defects when resolving methodology context", async () => {
+    await assertSpecContextIgnoresUnrelatedHarnessConfigDefects();
   });
 });

@@ -12,9 +12,9 @@
  */
 
 import { resolveConfig } from "@/config/index";
-import { type MethodologyConfig, methodologyConfigDescriptor } from "@/config/methodology";
+import type { MethodologyConfig } from "@/config/methodology";
+import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
-import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
@@ -49,12 +49,6 @@ async function resolveDiagnoseConfig(productDir: string): Promise<
   const loaded = await resolveConfig(productDir, [diagnoseConfigDescriptor]);
   if (!loaded.ok) return loaded;
   return { ok: true, value: loaded.value[diagnoseConfigDescriptor.section] as DiagnoseConfig };
-}
-
-async function resolveMethodologyConfig(productDir: string): Promise<Result<MethodologyConfig>> {
-  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor, harnessEnvironmentConfigDescriptor]);
-  if (!loaded.ok) return loaded;
-  return { ok: true, value: loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig };
 }
 
 export interface DiagnoseCommandResult {
