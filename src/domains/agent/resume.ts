@@ -55,7 +55,7 @@ export interface AgentResumeCandidate {
   readonly cwd: string;
   readonly sourcePath: string;
   readonly modifiedAtMs: number;
-  readonly lastActivityAtMs: number;
+  readonly lastActivityAtMs: number | null;
   readonly updatedAt: string | null;
   readonly branch: string | null;
 }
@@ -107,6 +107,10 @@ const FIRST_PICKER_INDEX = 0;
 const PICKER_MOVE_UP_DELTA = -1;
 const PICKER_MOVE_DOWN_DELTA = 1;
 const PICKER_QUIT_INPUT = "q";
+const AGENT_RESUME_TIE_ORDER: Readonly<Record<AgentSessionKind, number>> = {
+  [AGENT_SESSION_KIND.CODEX]: 0,
+  [AGENT_SESSION_KIND.CLAUDE_CODE]: 1,
+};
 
 export class AgentResumeModeError extends Error {
   constructor(readonly selectedModes: readonly AgentResumeMode[]) {
@@ -261,7 +265,9 @@ export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[
     return AGENT_RESUME_TEXT.NO_MATCHES;
   }
   return candidates.map((candidate) => {
-    const updatedAt = new Date(candidate.lastActivityAtMs).toISOString();
+    const updatedAt = candidate.lastActivityAtMs === null
+      ? "unknown"
+      : new Date(candidate.lastActivityAtMs).toISOString();
     return `${updatedAt} ${AGENT_SESSION_LABEL[candidate.agent]} ${candidate.sessionId} ${candidate.cwd}`;
   }).join("\n");
 }
@@ -336,37 +342,38 @@ async function collectAgentCandidates(
   match: (core: AgentSessionHead) => boolean,
   parseHead: (head: string) => AgentSessionHead | null,
 ): Promise<AgentResumeCandidate[]> {
-  const bySessionId = new Map<string, AgentResumeCandidate>();
-  for (const file of files) {
+  const candidates = await mapWithConcurrency(files, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (file) => {
     const head = await fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
     if (head === null) {
-      continue;
+      return null;
     }
     const core = parseHead(head);
     if (core === null || !core.interactive || !match(core)) {
-      continue;
+      return null;
     }
     const tail = await fs.readTail(file.path, AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES).catch(() => null);
     if (tail === null) {
-      continue;
+      return null;
     }
-    const lastActivityAtMs = latestTranscriptTimestampMs(tail) ?? parseTimestampMs(core.updatedAt);
-    if (lastActivityAtMs === null) {
-      continue;
-    }
-    const candidate: AgentResumeCandidate = {
+    return {
       agent,
       sessionId: core.sessionId,
       cwd: core.cwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
-      lastActivityAtMs,
+      lastActivityAtMs: latestTranscriptTimestampMs(tail),
       updatedAt: core.updatedAt,
       branch: core.branch,
     };
-    const existing = bySessionId.get(core.sessionId);
+  });
+  const bySessionId = new Map<string, AgentResumeCandidate>();
+  for (const candidate of candidates) {
+    if (candidate === null) {
+      continue;
+    }
+    const existing = bySessionId.get(candidate.sessionId);
     if (existing === undefined || compareCandidates(candidate, existing) < 0) {
-      bySessionId.set(core.sessionId, candidate);
+      bySessionId.set(candidate.sessionId, candidate);
     }
   }
   return [...bySessionId.values()].sort(compareCandidates).slice(0, cap);
@@ -541,15 +548,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandidate): number {
-  const activityDiff = right.lastActivityAtMs - left.lastActivityAtMs;
-  if (activityDiff !== 0) {
-    return activityDiff;
+  if (left.lastActivityAtMs !== null && right.lastActivityAtMs !== null) {
+    const activityDiff = right.lastActivityAtMs - left.lastActivityAtMs;
+    if (activityDiff !== 0) {
+      return activityDiff;
+    }
+  } else if (left.lastActivityAtMs !== null) {
+    return -1;
+  } else if (right.lastActivityAtMs !== null) {
+    return 1;
   }
-  const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
-  if (modifiedDiff !== 0) {
-    return modifiedDiff;
+  const agentDiff = AGENT_RESUME_TIE_ORDER[left.agent] - AGENT_RESUME_TIE_ORDER[right.agent];
+  if (agentDiff !== 0) {
+    return agentDiff;
   }
-  return `${left.agent}:${left.sessionId}`.localeCompare(`${right.agent}:${right.sessionId}`);
+  return compareCodeUnits(`${left.sessionId}:${left.sourcePath}`, `${right.sessionId}:${right.sourcePath}`);
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }
 
 // Whether `child` is `parent` itself or nested beneath it, by normalized path.
