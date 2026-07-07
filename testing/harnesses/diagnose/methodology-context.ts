@@ -22,6 +22,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const OBSERVED_VERSION = "0.74.2";
 const DIFFERENT_VERSION = "0.74.1";
 const HIGHER_VERSION = "0.74.10";
+const NON_VERSION_DIRECTORY = "999x";
 const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
 const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
 const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
@@ -286,5 +287,33 @@ export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<v
     });
     const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
     expect(observed.version).toBe(HIGHER_VERSION);
+  });
+}
+
+export async function assertMethodologyProbeIgnoresNonVersionDirectories(): Promise<void> {
+  const methodology = generatedMethodology();
+  await withTempDir("spx-methodology-probe-", async (codexHome) => {
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+      recursive: true,
+    });
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), NON_VERSION_DIRECTORY), {
+      recursive: true,
+    });
+    const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
+    expect(observed.version).toBe(HIGHER_VERSION);
+  });
+}
+
+export async function assertMethodologyProbePrefersConfiguredExactVersion(): Promise<void> {
+  const methodology = generatedMethodology(DIFFERENT_VERSION);
+  await withTempDir("spx-methodology-probe-", async (codexHome) => {
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), DIFFERENT_VERSION), {
+      recursive: true,
+    });
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+      recursive: true,
+    });
+    const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
+    expect(observed.version).toBe(DIFFERENT_VERSION);
   });
 }
