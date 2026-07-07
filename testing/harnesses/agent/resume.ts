@@ -61,6 +61,21 @@ export interface ResumeFixture {
   readonly olderModifiedAtMs: number;
 }
 
+interface ResumeProgramInput {
+  readonly fs: AgentSessionFileSystem;
+  readonly homeDir: string;
+  readonly cwd: string;
+  readonly nowMs: number;
+  readonly isInteractiveTerminal: () => boolean;
+  readonly resolveWorktreeRoot: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
+  readonly pickCandidate?: (candidates: readonly AgentResumeCandidate[]) => Promise<AgentResumePickerResult>;
+  readonly launchCandidate?: (candidate: AgentResumeCandidate) => Promise<number>;
+  readonly writeStdout?: (output: string) => void;
+  readonly writeStderr?: (output: string) => void;
+  readonly setExitCode?: (exitCode: number) => void;
+  readonly exit?: (exitCode: number) => never;
+}
+
 interface MemoryFile {
   readonly content: string;
   readonly mtimeMs: number;
@@ -396,30 +411,17 @@ export function createProgramForResumeFixture(
     readonly resolveWorktreeRoot?: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
   } = {},
 ): ReturnType<typeof createCliProgram> {
-  return createCliProgram({
-    domains: [
-      createAgentDomain({
-        isInteractiveTerminal: () => true,
-        resumeDeps: {
-          fs: fixture.fs,
-          homeDir: () => fixture.homeDir,
-          nowMs: () => fixture.nowMs,
-          resolveWorktreeRoot: options.resolveWorktreeRoot
-            ?? (async (candidateCwd, fallbackWorktreeRoot) =>
-              isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd)
-                ? fixture.worktreeRoot
-                : fallbackWorktreeRoot),
-        },
-        pickCandidate: options.pickCandidate
-          ?? (async (candidates) => {
-            const candidate = candidates.at(0);
-            return candidate === undefined ? quitAgentResumePicker() : selectedAgentResumeCandidate(candidate);
-          }),
-        launchCandidate: options.launchCandidate
-          ?? (async () => sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 6)),
-      }),
-    ],
-    processCwd: () => fixture.cwd,
+  return createResumeProgram({
+    fs: fixture.fs,
+    homeDir: fixture.homeDir,
+    cwd: fixture.cwd,
+    nowMs: fixture.nowMs,
+    isInteractiveTerminal: () => true,
+    resolveWorktreeRoot: options.resolveWorktreeRoot
+      ?? (async (candidateCwd, fallbackWorktreeRoot) =>
+        isPathInsideOrEqual(fixture.worktreeRoot, candidateCwd) ? fixture.worktreeRoot : fallbackWorktreeRoot),
+    pickCandidate: options.pickCandidate ?? pickFirstResumeCandidate,
+    launchCandidate: options.launchCandidate ?? (async () => sampleAgentResumeValue(arbitraryAgentLaunchExitCode(), 6)),
     writeStdout: options.writeStdout,
     writeStderr: options.writeStderr,
     setExitCode: options.setExitCode,
@@ -442,10 +444,53 @@ export function createInteractiveResumeProgram(input: {
   readonly setExitCode?: (exitCode: number) => void;
   readonly exit?: (exitCode: number) => never;
 }): ReturnType<typeof createCliProgram> {
+  return createResumeProgram({
+    fs: input.fs,
+    homeDir: input.homeDir,
+    cwd: input.cwd,
+    nowMs: input.nowMs,
+    isInteractiveTerminal: () => true,
+    resolveWorktreeRoot: input.resolveWorktreeRoot,
+    pickCandidate: input.pickCandidate,
+    launchCandidate: input.launchCandidate,
+    writeStdout: input.writeStdout,
+    writeStderr: input.writeStderr,
+    setExitCode: input.setExitCode,
+    exit: input.exit,
+  });
+}
+
+export function createNonInteractiveResumeProgram(input: {
+  readonly productDir: string;
+  readonly writeStdout: (output: string) => void;
+  readonly writeStderr: (output: string) => void;
+  readonly exit: (exitCode: number) => never;
+}): ReturnType<typeof createCliProgram> {
+  return createResumeProgram({
+    fs: discoveryRefusalFileSystem(),
+    homeDir: input.productDir,
+    cwd: input.productDir,
+    nowMs: Date.now(),
+    isInteractiveTerminal: () => false,
+    resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(input.productDir),
+    writeStdout: input.writeStdout,
+    writeStderr: input.writeStderr,
+    exit: input.exit,
+  });
+}
+
+async function pickFirstResumeCandidate(
+  candidates: readonly AgentResumeCandidate[],
+): Promise<AgentResumePickerResult> {
+  const candidate = candidates.at(0);
+  return candidate === undefined ? quitAgentResumePicker() : selectedAgentResumeCandidate(candidate);
+}
+
+function createResumeProgram(input: ResumeProgramInput): ReturnType<typeof createCliProgram> {
   return createCliProgram({
     domains: [
       createAgentDomain({
-        isInteractiveTerminal: () => true,
+        isInteractiveTerminal: input.isInteractiveTerminal,
         resumeDeps: {
           fs: input.fs,
           homeDir: () => input.homeDir,
@@ -464,42 +509,15 @@ export function createInteractiveResumeProgram(input: {
   });
 }
 
-export function createNonInteractiveResumeProgram(input: {
-  readonly productDir: string;
-  readonly writeStdout: (output: string) => void;
-  readonly writeStderr: (output: string) => void;
-  readonly exit: (exitCode: number) => never;
-}): ReturnType<typeof createCliProgram> {
-  const refusalOnlyFs: AgentSessionFileSystem = {
-    readDir: async () => {
-      throw new Error("discovery should not run for non-interactive refusal");
-    },
-    readHead: async () => {
-      throw new Error("discovery should not run for non-interactive refusal");
-    },
-    readTail: async () => {
-      throw new Error("discovery should not run for non-interactive refusal");
-    },
-    stat: async () => {
-      throw new Error("discovery should not run for non-interactive refusal");
-    },
+function discoveryRefusalFileSystem(): AgentSessionFileSystem {
+  return {
+    readDir: async () => refuseDiscovery(),
+    readHead: async () => refuseDiscovery(),
+    readTail: async () => refuseDiscovery(),
+    stat: async () => refuseDiscovery(),
   };
+}
 
-  return createCliProgram({
-    domains: [
-      createAgentDomain({
-        isInteractiveTerminal: () => false,
-        resumeDeps: {
-          fs: refusalOnlyFs,
-          homeDir: () => input.productDir,
-          nowMs: () => Date.now(),
-          resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(input.productDir),
-        },
-      }),
-    ],
-    processCwd: () => input.productDir,
-    writeStdout: input.writeStdout,
-    writeStderr: input.writeStderr,
-    exit: input.exit,
-  });
+function refuseDiscovery(): never {
+  throw new Error("discovery should not run for non-interactive refusal");
 }
