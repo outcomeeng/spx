@@ -13,6 +13,7 @@ CAN render formal-review-shaped evidence from individual verification runs witho
 ### Mappings
 
 - Review terminal metadata maps provider identity when present, actor, state, body, submitted time, commit identity, and URL when present into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
+- Review terminal metadata state maps `approved` to terminal status `approved`, maps `changes_requested` to terminal status `rejected`, and lets `commented` preserve the caller-supplied terminal status unless review evidence already determines rejection ([test](tests/review-envelope.mapping.l1.test.ts))
 - Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL when present, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
 
 ### Compliance

@@ -231,16 +231,27 @@ function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
 }
 
 function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScopeUnit> {
-  return arbitraryCoverageGapAuditClassKind().chain((kind) =>
-    arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, producerProvenance: _provenance, ...unit }) => ({
+  return fc.oneof(
+    arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, ...unit }) => unit),
+    arbitraryAuditScopeUnit().map(({ producerProvenance: _producerProvenance, ...unit }) => unit),
+    arbitraryAuditScopeUnit().map((unit) => ({
       ...unit,
-      auditClass: kind.auditClass,
-      auditKind: kind.auditKind,
       priorContext: {
         changedFilePartition: unit.priorContext.changedFilePartition,
         concernPartition: unit.priorContext.concernPartition,
       },
-    }))
+    })),
+    arbitraryCoverageGapAuditClassKind().chain((kind) =>
+      arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, producerProvenance: _provenance, ...unit }) => ({
+        ...unit,
+        auditClass: kind.auditClass,
+        auditKind: kind.auditKind,
+        priorContext: {
+          changedFilePartition: unit.priorContext.changedFilePartition,
+          concernPartition: unit.priorContext.concernPartition,
+        },
+      }))
+    ),
   );
 }
 
@@ -451,6 +462,72 @@ export const VERIFY_TEST_GENERATOR = {
   auditScopeUnitWithoutOptionalFields: (): fc.Arbitrary<AuditScopeUnit> =>
     arbitraryAuditScopeUnitWithoutOptionalFields(),
   auditFinding: (): fc.Arbitrary<AuditFinding> => arbitraryAuditFinding(),
+  invalidAuditScopeUnit: (): fc.Arbitrary<unknown> =>
+    fc.oneof(
+      fc.constant(null),
+      fc.integer(),
+      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
+      arbitraryAuditScopeUnit().map(({ unitId: _unitId, ...unit }) => unit),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        auditClass: AUDIT_CLASS.IMPLEMENTATION,
+        auditKind: AUDIT_KIND.SKILL,
+      })),
+      arbitraryAuditScopeUnit().chain((unit) =>
+        STATE_STORE_TEST_GENERATOR.scopeToken().filter(
+          (value) => !(AUDIT_COVERAGE_STATUSES as readonly string[]).includes(value),
+        ).map((coverageStatus) => ({
+          ...unit,
+          coverageStatus,
+        }))
+      ),
+      arbitraryAuditScopeUnit().chain((unit) =>
+        fc.integer().map((parentUnitId) => ({
+          ...unit,
+          parentUnitId,
+        }))
+      ),
+      arbitraryAuditScopeUnit().chain((unit) =>
+        arbitraryAuditProducerProvenance().map((producerProvenance) => ({
+          ...unit,
+          auditKind: AUDIT_KIND.COVERAGE_GAP,
+          producerProvenance,
+        }))
+      ),
+    ),
+  invalidAuditFinding: (): fc.Arbitrary<unknown> =>
+    fc.oneof(
+      fc.constant(null),
+      fc.integer(),
+      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
+      arbitraryAuditFinding().map(({ unitId: _unitId, ...finding }) => finding),
+      arbitraryAuditFinding().chain((finding) =>
+        STATE_STORE_TEST_GENERATOR.scopeToken().filter(
+          (value) => !(AUDIT_FINDING_SEVERITIES as readonly string[]).includes(value),
+        ).map((severity) => ({
+          ...finding,
+          severity,
+        }))
+      ),
+      arbitraryAuditFinding().map((finding) => ({
+        ...finding,
+        message: EMPTY_SUMMARY,
+      })),
+      arbitraryAuditFinding().map(({ producerProvenance: _producerProvenance, ...finding }) => finding),
+      arbitraryAuditFinding().map((finding) => ({
+        ...finding,
+        producerIdentity: {
+          ...finding.producerIdentity,
+          producerKind: EMPTY_SUMMARY,
+        },
+      })),
+      arbitraryAuditFinding().chain((finding) =>
+        STATE_STORE_TEST_GENERATOR.scopeToken().map((evidence) => ({
+          ...finding,
+          evidence,
+        }))
+      ),
+    ),
   invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
