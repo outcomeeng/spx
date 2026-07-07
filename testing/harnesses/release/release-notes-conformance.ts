@@ -1,8 +1,13 @@
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import type { ReleaseData } from "@/domains/release/release-data";
-import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import {
+  composeReleaseNotes,
+  releaseNotesConformsToKeepAChangelog,
+  resolveReleaseNotesPath,
+} from "@/domains/release/release-notes";
+import {
+  arbitraryKeepAChangelogConformanceCase,
   sampleAtxClosingHashesReleaseNotesChangelogCase,
   sampleCdataReleaseNotesChangelogCase,
   sampleConformantReleaseNotesChangelogCase,
@@ -15,6 +20,7 @@ import {
   sampleTabbedHeadingReleaseNotesChangelogCase,
   sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
@@ -102,6 +108,18 @@ export function registerReleaseNotesConformanceTests(): void {
 
     it("accepts a non-standalone custom HTML tag before the release section", async () => {
       await expectConformantReadBack(sampleCustomInlineHtmlReleaseNotesChangelogCase());
+    });
+
+    it("matches the markdown-it oracle across generated changelog structures", () => {
+      assertProperty(
+        arbitraryKeepAChangelogConformanceCase(),
+        ({ releaseData, content }) => {
+          expect(releaseNotesConformsToKeepAChangelog(content, releaseData.version)).toBe(
+            independentKeepAChangelogConformance(content, releaseData.version),
+          );
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
     });
 
     it(

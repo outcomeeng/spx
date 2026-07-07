@@ -594,6 +594,22 @@ function encodeJsonData(data: string | readonly string[]): string {
   );
 }
 
+export function releaseNotesConformsToKeepAChangelog(
+  notes: string,
+  version: string,
+  existingNotes?: string,
+): boolean {
+  try {
+    assertConformsToKeepAChangelog(notes, version, existingNotes);
+    return true;
+  } catch (error) {
+    if (error instanceof ReleaseNotesError) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 /**
  * Validates that the read-back notes conform to the Keep a Changelog structure:
  * the title, a section for the release version, and at least one change-group
