@@ -43,6 +43,7 @@ export const AGENT_SEARCH_MATCH_REASON = {
 } as const;
 
 export const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
+  START_POINT: "origin/main",
   WORKTREE_ADD_PATH: "../branch-worktree",
 } as const;
 
@@ -219,15 +220,24 @@ async function matchReasons(
     core,
     options.query,
   );
-  const branchMatches = await branchMatchReasons(core, path, options);
-  const contentMatches = await contentMatchReasons(path, options);
-  if (metadataMatches === null || contentMatches === null) {
+  if (metadataMatches === null) {
     return [];
   }
-  if (branchMatches === null) {
+  const branchMatches = branchMetadataOrWorktreeMatchReasons(core, options);
+  const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
+  const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
+  if (content === null) {
     return [];
   }
-  return [...metadataMatches, ...branchMatches, ...contentMatches];
+  const resolvedBranchMatches = branchMatches ?? branchTranscriptCommandMatchReasons(content, options);
+  if (resolvedBranchMatches === null) {
+    return [];
+  }
+  const contentMatches = contentMatchReasons(content, options.query);
+  if (contentMatches === null) {
+    return [];
+  }
+  return [...metadataMatches, ...resolvedBranchMatches, ...contentMatches];
 }
 
 function hasSearchSelector(query: AgentSearchQuery): boolean {
@@ -252,11 +262,10 @@ function metadataMatchReasons(
   return matches;
 }
 
-async function branchMatchReasons(
+function branchMetadataOrWorktreeMatchReasons(
   core: AgentSessionHead,
-  path: string,
   options: AgentSearchOptions,
-): Promise<AgentSearchMatchReason[] | null> {
+): AgentSearchMatchReason[] | null {
   const branch = options.query.branch;
   if (branch === null) {
     return [];
@@ -268,11 +277,20 @@ async function branchMatchReasons(
   if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
     return [AGENT_SEARCH_MATCH_REASON.BRANCH];
   }
-  const content = await options.fs.readText(path).catch(() => null);
-  if (content === null) {
-    return null;
+  return null;
+}
+
+function branchTranscriptCommandMatchReasons(
+  content: string | undefined,
+  options: AgentSearchOptions,
+): AgentSearchMatchReason[] | null {
+  const branch = options.query.branch;
+  if (branch === null) {
+    return [];
   }
-  return transcriptHasAcceptedBranchCommand(content, branch) ? [AGENT_SEARCH_MATCH_REASON.BRANCH] : null;
+  return content !== undefined && transcriptHasAcceptedBranchCommand(content, branch)
+    ? [AGENT_SEARCH_MATCH_REASON.BRANCH]
+    : null;
 }
 
 export function transcriptHasAcceptedBranchCommand(content: string, branch: string): boolean {
@@ -301,20 +319,32 @@ function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: strin
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH) {
     return false;
   }
-  return args.length === 2 && args[1] === branch
-    || args.length === 3
-      && args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG
-      && args[2] === branch;
+  if (args.length === 2 && args[1] === branch) {
+    return true;
+  }
+  return (
+    args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG
+    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT
+    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG
+    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG
+  )
+    && args[2] === branch
+    && hasOptionalStartPoint(args, 3);
 }
 
 function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT) {
     return false;
   }
-  return args.length === 2 && args[1] === branch
-    || args.length === 3
-      && args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT
-      && args[2] === branch;
+  if (args.length === 2 && args[1] === branch) {
+    return true;
+  }
+  return (
+    args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT
+    || args[1] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT
+  )
+    && args[2] === branch
+    && hasOptionalStartPoint(args, 3);
 }
 
 function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -324,7 +354,28 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   ) {
     return false;
   }
-  return args.length === 4 && !args[2].startsWith("-") && args[3] === branch;
+  return args.length === 4 && !args[2].startsWith("-") && args[3] === branch
+    || (
+      args.length >= 5
+      && (
+        args[2] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT
+        || args[2] === AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT
+      )
+      && args[3] === branch
+      && !args[4].startsWith("-")
+      && hasOptionalStartPoint(args, 5)
+    );
+}
+
+function hasOptionalStartPoint(args: readonly string[], baseLength: number): boolean {
+  if (args.length === baseLength) {
+    return true;
+  }
+  if (args.length !== baseLength + 1) {
+    return false;
+  }
+  const startPoint = args[baseLength];
+  return !startPoint.startsWith("-");
 }
 
 const TRANSCRIPT_COMMAND_PATHS = [
@@ -428,15 +479,14 @@ function shellWords(command: string): readonly string[] {
   return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) => match.at(1) ?? match.at(2) ?? match[0]);
 }
 
-async function contentMatchReasons(
-  path: string,
-  options: AgentSearchOptions,
-): Promise<AgentSearchMatchReason[] | null> {
-  if (options.query.contentNeedles.length === 0) {
+function contentMatchReasons(
+  content: string | undefined,
+  query: AgentSearchQuery,
+): AgentSearchMatchReason[] | null {
+  if (query.contentNeedles.length === 0) {
     return [];
   }
-  const content = await options.fs.readText(path).catch(() => null);
-  return content === null ? null : matchingContentNeedles(content, options.query.contentNeedles);
+  return content === undefined ? null : matchingContentNeedles(content, query.contentNeedles);
 }
 
 function matchingContentNeedles(
