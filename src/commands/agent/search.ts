@@ -135,7 +135,7 @@ export async function loadAgentSearchResults(
     productScopeRoot,
     branchAssociatedWorktreeRoots: options.query.branch === null
       ? []
-      : await deps.resolveBranchAssociatedWorktreeRoots(options.cwd, options.query.branch),
+      : await deps.resolveBranchAssociatedWorktreeRoots(productScopeRoot, options.query.branch),
     fs: deps.fs,
     query: options.query,
   });
