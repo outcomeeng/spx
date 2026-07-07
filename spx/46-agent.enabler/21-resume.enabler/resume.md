@@ -21,11 +21,11 @@ CAN continue the right Codex or Claude Code conversation through `spx agent resu
 
 ### Compliance
 
-- ALWAYS: within the active scope, at most the five most recently modified sessions per agent are shown, newest first, for at most ten candidates total ([test](tests/resume.compliance.l1.test.ts))
-- ALWAYS: only sessions modified within the recent-activity window are candidates, so a session older than the window or carrying a future modification time does not surface ([test](tests/resume.compliance.l1.test.ts))
+- ALWAYS: within the active scope, at most the five sessions with the newest transcript activity per agent are shown, newest first, for at most ten candidates total; file modification time is only the recent-window eligibility filter ([test](tests/resume.compliance.l1.test.ts))
+- ALWAYS: only sessions whose file modification time falls within the recent-activity window are candidates, so a session whose file is older than the window or carries a future modification time does not surface ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: candidate discovery resolves the active scope's reference once — the invocation worktree root for worktree scope, the target name for branch scope — and classifies each candidate from its own recorded working directory or branch, never resolving a worktree root per candidate ([test](tests/resume.compliance.l1.test.ts))
-- ALWAYS: a candidate is identified from its transcript's opening metadata and, for a per-row field, a bounded scan, never by parsing the whole transcript ([test](tests/resume.compliance.l1.test.ts))
-- ALWAYS: sessions sharing one session id collapse to a single candidate, the most recently modified source ([test](tests/resume.compliance.l1.test.ts))
+- ALWAYS: a candidate is identified from its transcript's opening metadata, and its activity timestamp is identified from a bounded transcript tail scan, never by parsing the whole transcript ([test](tests/resume.compliance.l1.test.ts))
+- ALWAYS: sessions sharing one session id collapse to a single candidate, the source with the newest transcript activity ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: Codex candidates include interactive Codex transcripts and exclude non-interactive exec transcripts and subagent-thread transcripts, because `spx agent resume` launches through the interactive `codex resume` command ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: Claude Code candidates exclude subagent transcripts, because a subagent thread is not a resumable top-level conversation ([test](tests/resume.compliance.l1.test.ts))
 - ALWAYS: Codex candidates are read from `~/.codex/sessions` and Claude Code candidates are read from `~/.claude/projects` ([test](tests/resume.compliance.l1.test.ts))
