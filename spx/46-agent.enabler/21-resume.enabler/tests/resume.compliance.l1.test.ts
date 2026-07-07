@@ -39,6 +39,7 @@ import {
   codexSubagentTranscript,
   codexTranscript,
   codexTranscriptPath,
+  createAgentResumeDiscoveryFixture,
   MemoryAgentSessionFileSystem,
   recordingAgentResumeWorktreeRootResolver,
   writeCodexTranscriptWithoutTimestampFile,
@@ -174,11 +175,7 @@ describe("agent resume scope-reference resolution compliance", () => {
 
 describe("agent resume bounded-read compliance", () => {
   it("identifies a candidate from bounded metadata head and activity tail windows", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 90);
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 91);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 92);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 93);
+    const { fs, nowMs, homeDir, worktreeRoot, cwd } = createAgentResumeDiscoveryFixture(90);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 94);
     const transcriptPath = codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId));
     const oversizeBytes = AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES * 2;
@@ -203,11 +200,7 @@ describe("agent resume bounded-read compliance", () => {
   });
 
   it("keeps an otherwise matching session after timestamped sessions when transcript timestamps are absent", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 290);
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 291);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 292);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 293);
+    const { fs, nowMs, homeDir, worktreeRoot, cwd } = createAgentResumeDiscoveryFixture(290);
     const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 294);
     const timestampedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 295);
     writeCodexTranscriptWithoutTimestampFile(fs, homeDir, { sessionId, cwd, modifiedAtMs: nowMs });
@@ -233,11 +226,7 @@ describe("agent resume bounded-read compliance", () => {
   });
 
   it("keeps a partial-tail session after timestamped sessions", async () => {
-    const fs = new MemoryAgentSessionFileSystem();
-    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 300);
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 301);
-    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 302);
-    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 303);
+    const { fs, nowMs, homeDir, worktreeRoot, cwd } = createAgentResumeDiscoveryFixture(300);
     const activeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 304);
     const olderId = sampleAgentResumeValue(arbitraryAgentSessionId(), 305);
     const openingTimestamp = new Date(nowMs - AGENT_RESUME_RECENT_WINDOW_MS + 1).toISOString();

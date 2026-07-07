@@ -62,6 +62,14 @@ export interface ResumeFixture {
   readonly olderModifiedAtMs: number;
 }
 
+export interface AgentResumeDiscoveryFixture {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly nowMs: number;
+  readonly homeDir: string;
+  readonly worktreeRoot: string;
+  readonly cwd: string;
+}
+
 interface ResumeProgramInput {
   readonly fs: AgentSessionFileSystem;
   readonly homeDir: string;
@@ -437,6 +445,15 @@ export function createResumeFixture(): ResumeFixture {
   );
 
   return { fs, homeDir, worktreeRoot, cwd, nowMs, newestSessionId, olderSessionId, olderModifiedAtMs };
+}
+
+export function createAgentResumeDiscoveryFixture(seedOffset: number): AgentResumeDiscoveryFixture {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), seedOffset);
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), seedOffset + 1);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), seedOffset + 2);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), seedOffset + 3);
+  return { fs, nowMs, homeDir, worktreeRoot, cwd };
 }
 
 export function createProgramForResumeFixture(
