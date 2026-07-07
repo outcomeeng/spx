@@ -5,8 +5,8 @@ import {
   AGENT_SESSION_STORE,
   type AgentResumeCandidate,
   type AgentResumeScope,
+  type AgentResumeSessionFileSystem,
   type AgentSessionDirEntry,
-  type AgentSessionFileSystem,
   discoverAgentResumeCandidates,
   renderAgentResumeJson,
   renderAgentResumeList,
@@ -14,7 +14,7 @@ import {
 import { detectWorktreeProductRoot } from "@/git/root";
 
 export interface AgentResumeCommandDeps {
-  readonly fs: AgentSessionFileSystem;
+  readonly fs: AgentResumeSessionFileSystem;
   readonly homeDir: () => string;
   readonly nowMs: () => number;
   readonly resolveWorktreeRoot: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
@@ -27,7 +27,7 @@ export interface AgentResumeCommandOptions {
   readonly deps?: AgentResumeCommandDeps;
 }
 
-export const nodeAgentSessionFileSystem: AgentSessionFileSystem = {
+export const nodeAgentSessionFileSystem: AgentResumeSessionFileSystem = {
   async readDir(path) {
     const entries = await readdir(path, { withFileTypes: true });
     return entries.map((entry): AgentSessionDirEntry => ({

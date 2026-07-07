@@ -11,8 +11,8 @@ import {
 } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
+  type AgentResumeSessionFileSystem,
   type AgentSessionDirEntry,
-  type AgentSessionFileSystem,
   claudeProjectDirName,
   isPathInsideOrEqual,
 } from "@/domains/agent/resume";
@@ -71,7 +71,7 @@ export interface AgentResumeDiscoveryFixture {
 }
 
 interface ResumeProgramInput {
-  readonly fs: AgentSessionFileSystem;
+  readonly fs: AgentResumeSessionFileSystem;
   readonly homeDir: string;
   readonly cwd: string;
   readonly nowMs: number;
@@ -101,7 +101,7 @@ const CANDIDATE_SAMPLE = {
   SOURCE_HOME_DIR: 24,
 } as const;
 
-export class MemoryAgentSessionFileSystem implements AgentSessionFileSystem {
+export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
@@ -566,7 +566,7 @@ function createResumeProgram(input: ResumeProgramInput): ReturnType<typeof creat
   });
 }
 
-function discoveryRefusalFileSystem(): AgentSessionFileSystem {
+function discoveryRefusalFileSystem(): AgentResumeSessionFileSystem {
   return {
     readDir: async () => refuseDiscovery(),
     readHead: async () => refuseDiscovery(),
