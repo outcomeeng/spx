@@ -18,6 +18,7 @@ import {
   CODEX_SESSION_ORIGINATOR,
   CODEX_SESSION_THREAD_SOURCE,
 } from "./protocol";
+import { firstString, parseJsonObject } from "./transcript-json";
 
 export interface AgentSessionDirEntry {
   readonly name: string;
@@ -494,19 +495,6 @@ export function parseClaudeHead(head: string): AgentSessionHead | null {
   return { sessionId, cwd, branch, updatedAt, interactive: true };
 }
 
-function parseJsonObject(line: string): Record<string, unknown> | null {
-  const trimmed = line.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function latestTranscriptTimestampMs(transcriptSlice: string): number | null {
   let latest: number | null = null;
   for (const line of transcriptSlice.split("\n")) {
@@ -528,31 +516,6 @@ function parseTimestampMs(timestamp: string | null): number | null {
   }
   const timestampMs = Date.parse(timestamp);
   return Number.isNaN(timestampMs) ? null : timestampMs;
-}
-
-function firstString(row: Record<string, unknown>, paths: readonly (readonly string[])[]): string | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function valueAtPath(row: Record<string, unknown>, path: readonly string[]): unknown {
-  let current: unknown = row;
-  for (const segment of path) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    current = current[segment];
-  }
-  return current;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandidate): number {

@@ -12,13 +12,16 @@ import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
-  AGENT_TRANSCRIPT_COMMAND_STATUS,
+  AGENT_SESSION_ROW_TYPE,
+  AGENT_TRANSCRIPT_CODEX_OUTPUT,
+  AGENT_TRANSCRIPT_CONTENT_TYPE,
   AGENT_TRANSCRIPT_GIT_COMMAND,
+  AGENT_TRANSCRIPT_PAYLOAD_TYPE,
+  AGENT_TRANSCRIPT_TOOL_NAME,
 } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
-  AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE,
   type AgentSearchQuery,
   agentSearchQueryFromOptions,
   type AgentSearchQueryOptions,
@@ -211,6 +214,13 @@ const SEARCH_SAMPLE = {
   MAPPING_CONTAINS: 1,
   MAPPING_SESSION_ID: 2,
   MAPPING_BRANCH: 3,
+} as const;
+
+const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
+  START_POINT: "origin/main",
+  WORKTREE_ADD_PATH: "../branch-worktree",
+  CODEX_CALL_ID: "call_agent_search_branch_command",
+  CLAUDE_TOOL_USE_ID: "toolu_agent_search_branch_command",
 } as const;
 
 function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT): SearchFixture {
@@ -653,7 +663,7 @@ export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEviden
     cwd,
     timestamp,
     branch: otherBranch,
-    marker: transcriptCommandRow(
+    marker: codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${targetBranch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     modifiedAtMs: nowMs,
@@ -663,7 +673,7 @@ export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEviden
     cwd,
     timestamp,
     branch: otherBranch,
-    marker: transcriptCommandRow(
+    marker: claudeBashCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${targetBranch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     modifiedAtMs: nowMs - 1,
@@ -771,162 +781,198 @@ export function assertAgentSearchOptionMappings(): void {
 export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(`${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`),
+    codexExecCommandRows(`${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
+    ),
+    branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
+    ),
+    branch,
+  )).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
+    ),
+    branch,
+  )).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} -p ${branch}`,
+    ),
+    branch,
+  )).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
+    ),
+    branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
     ),
     branch,
   )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
     ),
     branch,
   )).toBe(false);
-  expect(transcriptHasAcceptedBranchCommand(transcriptCommandRow(`echo ${branch}`), branch)).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(codexExecCommandRows(`echo ${branch}`), branch)).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    transcriptCommandRow(
+    codexExecCommandRows(
       `echo ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
     ),
     branch,
   )).toBe(false);
   expect(transcriptHasAcceptedBranchCommand(
-    failedTranscriptCommandRow(
+    failedCodexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+    ),
+    branch,
+  )).toBe(false);
+  expect(transcriptHasAcceptedBranchCommand(
+    failedClaudeBashCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
     ),
     branch,
@@ -1420,7 +1466,7 @@ export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResu
     cwd,
     timestamp,
     branch: targetBranch,
-    marker: transcriptCommandRow(
+    marker: codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
     ),
     modifiedAtMs: nowMs,
@@ -1437,20 +1483,88 @@ export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResu
   expect(results).toEqual([]);
 }
 
-function transcriptCommandRow(command: string): string {
+function codexExecCommandRows(command: string): string {
+  return [
+    codexExecFunctionCallRow(command),
+    codexExecFunctionCallOutputRow(0),
+  ].join("\n");
+}
+
+function failedCodexExecCommandRows(command: string): string {
+  return [
+    codexExecFunctionCallRow(command),
+    codexExecFunctionCallOutputRow(1),
+  ].join("\n");
+}
+
+function codexExecFunctionCallRow(command: string): string {
   return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_RESPONSE_ITEM,
     [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
-      [AGENT_SESSION_JSON_FIELDS.COMMAND]: command,
-      [AGENT_SESSION_JSON_FIELDS.EXIT_CODE]: 0,
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL,
+      [AGENT_SESSION_JSON_FIELDS.NAME]: AGENT_TRANSCRIPT_TOOL_NAME.CODEX_EXEC_COMMAND,
+      [AGENT_SESSION_JSON_FIELDS.CALL_ID]: AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CODEX_CALL_ID,
+      [AGENT_SESSION_JSON_FIELDS.ARGUMENTS]: JSON.stringify({
+        [AGENT_SESSION_JSON_FIELDS.CMD]: command,
+      }),
     },
   });
 }
 
-function failedTranscriptCommandRow(command: string): string {
+function codexExecFunctionCallOutputRow(exitCode: number): string {
   return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_RESPONSE_ITEM,
     [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
-      [AGENT_SESSION_JSON_FIELDS.COMMAND]: command,
-      [AGENT_SESSION_JSON_FIELDS.STATUS]: AGENT_TRANSCRIPT_COMMAND_STATUS.FAILED,
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL_OUTPUT,
+      [AGENT_SESSION_JSON_FIELDS.CALL_ID]: AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CODEX_CALL_ID,
+      [AGENT_SESSION_JSON_FIELDS.OUTPUT]: `${AGENT_TRANSCRIPT_CODEX_OUTPUT.PROCESS_EXITED_WITH_CODE} ${exitCode}`,
+    },
+  });
+}
+
+function claudeBashCommandRows(command: string): string {
+  return [
+    claudeBashToolUseRow(command),
+    claudeBashToolResultRow(false),
+  ].join("\n");
+}
+
+function failedClaudeBashCommandRows(command: string): string {
+  return [
+    claudeBashToolUseRow(command),
+    claudeBashToolResultRow(true),
+  ].join("\n");
+}
+
+function claudeBashToolUseRow(command: string): string {
+  return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CLAUDE_ASSISTANT,
+    [AGENT_SESSION_JSON_FIELDS.MESSAGE]: {
+      [AGENT_SESSION_JSON_FIELDS.CONTENT]: [
+        {
+          [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_USE,
+          [AGENT_SESSION_JSON_FIELDS.ID]: AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CLAUDE_TOOL_USE_ID,
+          [AGENT_SESSION_JSON_FIELDS.NAME]: AGENT_TRANSCRIPT_TOOL_NAME.CLAUDE_BASH,
+          [AGENT_SESSION_JSON_FIELDS.INPUT]: {
+            [AGENT_SESSION_JSON_FIELDS.COMMAND]: command,
+          },
+        },
+      ],
+    },
+  });
+}
+
+function claudeBashToolResultRow(isError: boolean): string {
+  return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CLAUDE_USER,
+    [AGENT_SESSION_JSON_FIELDS.MESSAGE]: {
+      [AGENT_SESSION_JSON_FIELDS.CONTENT]: [
+        {
+          [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_RESULT,
+          [AGENT_SESSION_JSON_FIELDS.TOOL_USE_ID]: AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CLAUDE_TOOL_USE_ID,
+          [AGENT_SESSION_JSON_FIELDS.IS_ERROR]: isError,
+        },
+      ],
     },
   });
 }
