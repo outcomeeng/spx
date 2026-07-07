@@ -21,26 +21,6 @@ export function firstString(row: Record<string, unknown>, paths: readonly (reado
   return null;
 }
 
-export function firstNumber(row: Record<string, unknown>, paths: readonly (readonly string[])[]): number | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "number") {
-      return value;
-    }
-  }
-  return null;
-}
-
-export function firstBoolean(row: Record<string, unknown>, paths: readonly (readonly string[])[]): boolean | null {
-  for (const path of paths) {
-    const value = valueAtPath(row, path);
-    if (typeof value === "boolean") {
-      return value;
-    }
-  }
-  return null;
-}
-
 export function valueAtPath(row: Record<string, unknown>, path: readonly string[]): unknown {
   let current: unknown = row;
   for (const segment of path) {
