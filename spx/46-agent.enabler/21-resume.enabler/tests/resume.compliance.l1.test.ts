@@ -41,6 +41,8 @@ import {
   codexTranscriptPath,
   MemoryAgentSessionFileSystem,
   recordingAgentResumeWorktreeRootResolver,
+  writeCodexTranscriptWithoutTimestampFile,
+  writeCodexTranscriptWithPartialTailFile,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume per-agent display cap compliance", () => {
@@ -132,9 +134,10 @@ describe("agent resume per-agent display cap compliance", () => {
     const claudeResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE);
     expect(codexResult.map((candidate) => candidate.sessionId)).toEqual(codexIds.slice(0, cap));
     expect(claudeResult.map((candidate) => candidate.sessionId)).toEqual(claudeIds.slice(0, cap));
-    expect(candidates.map((candidate) => candidate.lastActivityAtMs)).toEqual(
-      [...candidates].map((candidate) => candidate.lastActivityAtMs).sort((left, right) => right - left),
-    );
+    const timestampedActivity = candidates
+      .map((candidate) => candidate.lastActivityAtMs)
+      .filter((activityAtMs): activityAtMs is number => activityAtMs !== null);
+    expect(timestampedActivity).toEqual([...timestampedActivity].sort((left, right) => right - left));
   });
 });
 
@@ -197,6 +200,74 @@ describe("agent resume bounded-read compliance", () => {
     expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
     expect(fs.maxHeadReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES);
     expect(fs.maxTailReadBytes(transcriptPath)).toBeLessThanOrEqual(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES);
+  });
+
+  it("keeps an otherwise matching session after timestamped sessions when transcript timestamps are absent", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 290);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 291);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 292);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 293);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 294);
+    const timestampedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 295);
+    writeCodexTranscriptWithoutTimestampFile(fs, homeDir, { sessionId, cwd, modifiedAtMs: nowMs });
+    fs.writeFile(
+      codexTranscriptPath(homeDir, agentSessionJsonlName(timestampedId)),
+      codexTranscript({ sessionId: timestampedId, cwd, timestamp: new Date(nowMs - 1).toISOString() }),
+      nowMs - 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => [candidate.sessionId, candidate.lastActivityAtMs])).toEqual([
+      [timestampedId, nowMs - 1],
+      [sessionId, null],
+    ]);
+  });
+
+  it("keeps a partial-tail session after timestamped sessions", async () => {
+    const fs = new MemoryAgentSessionFileSystem();
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 300);
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 301);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 302);
+    const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 303);
+    const activeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 304);
+    const olderId = sampleAgentResumeValue(arbitraryAgentSessionId(), 305);
+    const openingTimestamp = new Date(nowMs - AGENT_RESUME_RECENT_WINDOW_MS + 1).toISOString();
+    const olderTimestamp = new Date(nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 306))
+      .toISOString();
+    writeCodexTranscriptWithPartialTailFile(fs, homeDir, {
+      sessionId: activeId,
+      cwd,
+      timestamp: openingTimestamp,
+      modifiedAtMs: nowMs,
+    });
+    fs.writeFile(
+      codexTranscriptPath(homeDir, agentSessionJsonlName(olderId)),
+      codexTranscript({ sessionId: olderId, cwd, timestamp: olderTimestamp }),
+      nowMs - 1,
+    );
+
+    const candidates = await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      homeDir,
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+    });
+
+    expect(candidates.map((candidate) => [candidate.sessionId, candidate.lastActivityAtMs])).toEqual([
+      [olderId, Date.parse(olderTimestamp)],
+      [activeId, null],
+    ]);
   });
 });
 

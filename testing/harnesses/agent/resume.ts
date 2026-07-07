@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
+  AGENT_RESUME_LIMITS,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_ROW_TYPE,
@@ -178,6 +179,14 @@ function withTranscriptPadding(head: string, padToBytes: number | undefined): st
 }
 
 export function codexTranscript(input: TranscriptInput): string {
+  return withTranscriptPadding(codexTranscriptMeta(input, input.timestamp), input.padToBytes);
+}
+
+export function codexTranscriptWithoutTimestamp(input: Omit<TranscriptInput, "timestamp">): string {
+  return withTranscriptPadding(codexTranscriptMeta(input, undefined), input.padToBytes);
+}
+
+function codexTranscriptMeta(input: Omit<TranscriptInput, "timestamp">, timestamp: string | undefined): string {
   const payload: Record<string, unknown> = {
     [AGENT_SESSION_JSON_FIELDS.SESSION_ID]: input.sessionId,
     [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
@@ -187,12 +196,11 @@ export function codexTranscript(input: TranscriptInput): string {
   if (input.threadSource !== undefined) {
     payload[AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE] = input.threadSource;
   }
-  const meta = JSON.stringify({
-    [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
+  return JSON.stringify({
+    ...(timestamp === undefined ? {} : { [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp }),
     [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META,
     [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: payload,
   });
-  return withTranscriptPadding(meta, input.padToBytes);
 }
 
 export function codexSubagentTranscript(input: TranscriptInput): string {
@@ -250,6 +258,11 @@ interface TranscriptFileInput extends TranscriptInput {
   readonly modifiedAtMs: number;
 }
 
+interface TranscriptWriteInput {
+  readonly marker?: string;
+  readonly modifiedAtMs: number;
+}
+
 function appendTranscriptMarker(transcript: string, marker: string | undefined): string {
   return marker === undefined ? transcript : `${transcript}\n${marker}`;
 }
@@ -258,7 +271,7 @@ function writeTranscriptFile(
   fs: MemoryAgentSessionFileSystem,
   path: string,
   transcript: string,
-  input: TranscriptFileInput,
+  input: TranscriptWriteInput,
 ): string {
   fs.writeFile(path, appendTranscriptMarker(transcript, input.marker), input.modifiedAtMs);
   return path;
@@ -286,6 +299,33 @@ export function writeCodexSubagentTranscriptFile(
     fs,
     codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
     codexSubagentTranscript(input),
+    input,
+  );
+}
+
+export function writeCodexTranscriptWithoutTimestampFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: Omit<TranscriptFileInput, "timestamp">,
+): string {
+  return writeTranscriptFile(
+    fs,
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    codexTranscriptWithoutTimestamp(input),
+    input,
+  );
+}
+
+export function writeCodexTranscriptWithPartialTailFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  const partialRow = "x".repeat(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES * 2);
+  return writeTranscriptFile(
+    fs,
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    [codexTranscript(input), partialRow].join("\n"),
     input,
   );
 }
