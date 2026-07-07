@@ -55,11 +55,21 @@ function validateNonEmptyString(path: string, value: unknown): Result<string> {
 }
 
 const METHODOLOGY_ALLOWED_FIELDS = new Set<string>(Object.values(METHODOLOGY_CONFIG_FIELDS));
+const METHODOLOGY_SOURCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export const DEFAULT_METHODOLOGY_CONFIG: MethodologyConfig = {
   source: DEFAULT_METHODOLOGY_SOURCE,
   version: DEFAULT_METHODOLOGY_VERSION,
 };
+
+function validateMethodologySource(path: string, value: unknown): Result<string> {
+  const source = validateNonEmptyString(path, value);
+  if (!source.ok) return source;
+  if (!METHODOLOGY_SOURCE_PATTERN.test(source.value)) {
+    return { ok: false, error: `${path} must be an owner/repository identifier` };
+  }
+  return source;
+}
 
 export function validateMethodologyConfig(value: unknown): Result<MethodologyConfig> {
   if (!isRecord(value)) {
@@ -72,7 +82,7 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
   const sourceRaw = value[METHODOLOGY_CONFIG_FIELDS.SOURCE];
   const source = sourceRaw === undefined
     ? { ok: true as const, value: DEFAULT_METHODOLOGY_CONFIG.source }
-    : validateNonEmptyString(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`, sourceRaw);
+    : validateMethodologySource(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`, sourceRaw);
   if (!source.ok) return source;
 
   const versionRaw = value[METHODOLOGY_CONFIG_FIELDS.VERSION];

@@ -4,6 +4,7 @@ import {
   assertExactMethodologyVersionMismatchDiagnose,
   assertInstalledMethodologyDiagnoseIsHealthy,
   assertUnavailableMethodologyDiagnose,
+  assertUnknownMethodologyDiagnose,
 } from "@testing/harnesses/diagnose/methodology-context";
 
 describe("methodology-context diagnose scenarios", () => {
@@ -17,5 +18,9 @@ describe("methodology-context diagnose scenarios", () => {
 
   it("reports unavailable methodology context", async () => {
     await assertUnavailableMethodologyDiagnose();
+  });
+
+  it("reports unknown methodology context", async () => {
+    await assertUnknownMethodologyDiagnose();
   });
 });

@@ -12,9 +12,16 @@ function parseContextManifest(output: string): SpecContextManifest {
 
 function generatedMethodologySection(): Record<string, unknown> {
   return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
   };
+}
+
+function generatedMethodologySource(): string {
+  return [
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  ].join("/");
 }
 
 export async function assertSpecContextManifestIncludesMethodology(): Promise<void> {

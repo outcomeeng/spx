@@ -85,6 +85,7 @@ export const DIAGNOSE_TEXT_HEADER = {
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
   MARKETPLACE_UNKNOWN: "plugin marketplace state unknown",
   METHODOLOGY_CONFIGURED: "methodology context configured",
+  METHODOLOGY_NOT_CONFIGURED: "methodology context not configured",
   METHODOLOGY_RESOLVED: "methodology context resolved",
   METHODOLOGY_SOURCE_MISMATCH: "methodology source mismatch",
   METHODOLOGY_UNAVAILABLE: "methodology context unavailable",
@@ -112,6 +113,7 @@ export const DIAGNOSE_TEXT_DETAIL = {
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
   METHODOLOGY_CONFIGURED: "Methodology context is configured, but no installed version was observed locally.",
+  METHODOLOGY_NOT_CONFIGURED: "Methodology context is not configured for this diagnose run.",
   METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
   METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
   METHODOLOGY_VERSION_MISMATCH_FIX:
@@ -221,8 +223,8 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       };
     case METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_CONFIGURED,
-        details: [DIAGNOSE_TEXT_DETAIL.METHODOLOGY_CONFIGURED],
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_NOT_CONFIGURED,
+        details: [DIAGNOSE_TEXT_DETAIL.METHODOLOGY_NOT_CONFIGURED],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
