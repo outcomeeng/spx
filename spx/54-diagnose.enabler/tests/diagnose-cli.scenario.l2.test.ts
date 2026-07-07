@@ -5,7 +5,12 @@ import { execa } from "execa";
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
+import {
+  DEFAULT_METHODOLOGY_SOURCE,
+  DEFAULT_METHODOLOGY_VERSION,
+  METHODOLOGY_CONFIG_FIELDS,
+  METHODOLOGY_SECTION,
+} from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
@@ -213,6 +218,30 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
       expect(report.overall).toBe(foldedOverall(report));
       expectExitCodeKeyedToFold(result, report);
       expect(report.checks[0].verdict).not.toBe(SPX_REACHABILITY_VERDICT.PRESENT);
+    });
+  });
+
+  it("does not validate methodology config when selected diagnose checks do not consume it", async () => {
+    await withTempDir("diagnose-config-methodology-unused", async (cwd) => {
+      const expectedFloor = "0.0.0";
+      const invalidMethodologySource = "../not-a-methodology-source";
+      const config = [
+        `${DIAGNOSE_SECTION}:`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.SPX_FLOOR}: "${expectedFloor}"`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: ["${CHECK_NAME.SPX_REACHABILITY}"]`,
+        `${METHODOLOGY_SECTION}:`,
+        `  ${METHODOLOGY_CONFIG_FIELDS.SOURCE}: "${invalidMethodologySource}"`,
+        `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${DEFAULT_METHODOLOGY_VERSION}"`,
+      ].join("\n");
+      await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
+
+      const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+
+      const report = JSON.parse(result.stdout) as ReportShape;
+      expectSchemaValidReport(report);
+      expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
+      expect(report.checks[0].readings.floor).toBe(expectedFloor);
+      expectExitCodeKeyedToFold(result, report);
     });
   });
 

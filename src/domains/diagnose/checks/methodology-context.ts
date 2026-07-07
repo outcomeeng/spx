@@ -5,8 +5,6 @@ import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 
 export const METHODOLOGY_CONTEXT_VERDICT = {
   RESOLVED: "resolved",
-  CONFIGURED: "configured",
-  SOURCE_MISMATCH: "source-mismatch",
   VERSION_MISMATCH: "version-mismatch",
   UNAVAILABLE: "unavailable",
   NOT_APPLICABLE: "not-applicable",
@@ -40,9 +38,6 @@ export interface MethodologyContextProbe {
 
 const REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
   [METHODOLOGY_CONTEXT_VERDICT.RESOLVED]: "Configured methodology context resolves locally; no action needed.",
-  [METHODOLOGY_CONTEXT_VERDICT.CONFIGURED]:
-    "Methodology context is configured, but no local installed version was observed.",
-  [METHODOLOGY_CONTEXT_VERDICT.SOURCE_MISMATCH]: "Install or select the configured methodology source.",
   [METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH]:
     "Install the configured methodology version or change the methodology config.",
   [METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE]:
@@ -85,9 +80,6 @@ export function classifyMethodologyContext(reading: MethodologyContextReading): 
   }
   if (reading.observedSource === null || reading.observedVersion === null) {
     return record(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE, VERDICT_BUCKET.UNKNOWN, reading);
-  }
-  if (reading.configuredSource !== reading.observedSource) {
-    return record(METHODOLOGY_CONTEXT_VERDICT.SOURCE_MISMATCH, VERDICT_BUCKET.BROKEN, reading);
   }
   if (
     reading.configuredVersion !== DEFAULT_METHODOLOGY_VERSION
