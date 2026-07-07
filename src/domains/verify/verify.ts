@@ -656,8 +656,17 @@ function isCompatibleAuditKind(auditClass: AuditClass, auditKind: AuditKind): bo
   );
 }
 
-export type EvidenceValidator = (payload: JsonValue) => unknown | undefined;
+export interface EvidenceValidationInput {
+  readonly payload: JsonValue;
+  readonly events: readonly JournalEvent[];
+}
+
+export type EvidenceValidator = (input: EvidenceValidationInput) => unknown | undefined;
 export type TerminalMetadataValidator = (input: TerminalValidationInput) => TerminalMetadataValidationResult;
+
+function evidencePayloadValidator(validator: (payload: JsonValue) => unknown | undefined): EvidenceValidator {
+  return (input) => validator(input.payload);
+}
 
 function readReviewFindingMetadata(payload: JsonValue | undefined): ReviewFindingMetadata | undefined {
   if (!isJsonRecord(payload)) return undefined;
@@ -955,6 +964,12 @@ export function auditFindingReferencesRecordedScope(
   });
 }
 
+function validateAuditFindingForRun(input: EvidenceValidationInput): AuditFinding | undefined {
+  const finding = validateAuditFinding(input.payload);
+  if (finding === undefined) return undefined;
+  return auditFindingReferencesRecordedScope(input.events, finding) ? finding : undefined;
+}
+
 /**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
@@ -971,13 +986,13 @@ const EVIDENCE_VALIDATORS: Readonly<
   >
 > = {
   [VERIFY_VERIFICATION_TYPE.AUDIT]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: validateAuditScope,
-    [VERIFY_EVIDENCE_KIND.FINDING]: validateAuditFinding,
+    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateAuditScope),
+    [VERIFY_EVIDENCE_KIND.FINDING]: validateAuditFindingForRun,
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateAuditTerminal,
   },
   [VERIFY_VERIFICATION_TYPE.REVIEW]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: validateReviewScope,
-    [VERIFY_EVIDENCE_KIND.FINDING]: validateReviewFinding,
+    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateReviewScope),
+    [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateReviewFinding),
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateReviewTerminal,
   },
 };

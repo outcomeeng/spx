@@ -17,7 +17,6 @@ import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import {
-  auditFindingReferencesRecordedScope,
   buildAppendEvent,
   buildRunLocator,
   buildTerminalEvent,
@@ -36,13 +35,11 @@ import {
   type RunLocator,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
-  validateAuditFinding,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
-  VERIFY_VERIFICATION_TYPE,
   type VerifyAppendEventType,
   verifyInputRecordPath,
   type VerifyRunProjection,
@@ -779,15 +776,9 @@ function validateAppendEvidence(
   const evidenceKind = verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_EVIDENCE_KIND.FINDING : VERIFY_EVIDENCE_KIND.SCOPE;
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE;
-  const validated = validator(payload);
+  const validated = validator({ payload, events });
   if (validated === undefined) {
     return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID;
-  }
-  if (verificationType === VERIFY_VERIFICATION_TYPE.AUDIT && verb === VERIFY_VERB.APPEND_FINDING) {
-    const finding = validateAuditFinding(payload);
-    if (finding === undefined || !auditFindingReferencesRecordedScope(events, finding)) {
-      return VERIFY_CLI_ERROR.FINDING_INVALID;
-    }
   }
   return undefined;
 }
