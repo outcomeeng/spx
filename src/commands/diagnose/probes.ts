@@ -521,14 +521,16 @@ function selectConfiguredVersion(
   config: MethodologyConfig,
 ): LatestDirectoryReading {
   const versions = readings.flatMap((reading) => reading.versions);
+  const validVersions = versions
+    .filter(isVersionDirectoryName)
+    .sort(compareVersionDirectoryNames);
   let version: string | null;
   if (config.version === DEFAULT_METHODOLOGY_VERSION) {
-    const validVersions = versions
-      .filter(isVersionDirectoryName)
-      .sort(compareVersionDirectoryNames);
     version = validVersions.at(-1) ?? null;
   } else {
-    version = versions.find((candidate) => candidate === config.version) ?? null;
+    version = versions.find((candidate) => candidate === config.version)
+      ?? validVersions.at(-1)
+      ?? null;
   }
   return {
     errored: version === null && readings.some((reading) => reading.errored),

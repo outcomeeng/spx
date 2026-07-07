@@ -6,6 +6,7 @@ import {
   assertMethodologyProbeIgnoresNonVersionDirectories,
   assertMethodologyProbePrefersConfiguredExactVersion,
   assertMethodologyProbeReadsSupportedAgentCaches,
+  assertMethodologyProbeReportsInstalledVersionForMissingExactVersion,
   assertMethodologyProbeUsesExactNonVersionDirectory,
   assertMethodologyProbeUsesNumericVersionOrder,
 } from "@testing/harnesses/diagnose/methodology-context";
@@ -29,6 +30,10 @@ describe("methodology-context diagnose compliance", () => {
 
   it("prefers the configured exact methodology version when installed", async () => {
     await assertMethodologyProbePrefersConfiguredExactVersion();
+  });
+
+  it("reports an installed methodology version when a configured exact version is missing", async () => {
+    await assertMethodologyProbeReportsInstalledVersionForMissingExactVersion();
   });
 
   it("accepts configured exact methodology versions with non-version directory names", async () => {
