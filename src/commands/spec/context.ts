@@ -8,6 +8,7 @@ import {
   type MethodologyIdentity,
   resolveMethodologyIdentity,
 } from "@/config/methodology";
+import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { defaultGitDependencies } from "@/git/root";
 import type { GitDependencies } from "@/git/root";
@@ -198,7 +199,7 @@ async function coordinationDocuments(
 }
 
 async function resolveMethodologyConfig(productDir: string): Promise<MethodologyConfig> {
-  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor, harnessEnvironmentConfigDescriptor]);
   if (!loaded.ok) {
     throw new Error(loaded.error);
   }
@@ -221,7 +222,7 @@ async function buildManifest(
   const higherIndex = sortPaths(
     siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
   );
-  const methodology = resolveMethodologyIdentity(await resolveMethodologyConfig(productDir), undefined);
+  const methodology = resolveMethodologyIdentity(await resolveMethodologyConfig(productDir));
 
   const documents: SpecContextDocument[] = [];
   pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT, refPath(snapshot.product?.ref));

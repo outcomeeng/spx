@@ -47,6 +47,7 @@ import type { ProcessTable } from "@/domains/worktree/process-table";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { gatherGitFacts, type GitFacts } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
+import { compareNumericVersionIdentifiers } from "@/lib/spec-tree/config";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -59,8 +60,6 @@ const CLAUDE_HOME_ENV = "CLAUDE_CONFIG_DIR";
 const DEFAULT_CODEX_HOME_DIR = ".codex";
 const DEFAULT_CLAUDE_HOME_DIR = ".claude";
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
-const VERSION_PART_RADIX = 10;
-const VERSION_PART_SEPARATOR = ".";
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 
@@ -502,20 +501,6 @@ function isVersionDirectoryName(name: string): boolean {
   return VERSION_DIRECTORY_PATTERN.test(name);
 }
 
-function compareVersionDirectoryNames(left: string, right: string): number {
-  const leftParts = left.split(VERSION_PART_SEPARATOR).map((part) => Number.parseInt(part, VERSION_PART_RADIX));
-  const rightParts = right.split(VERSION_PART_SEPARATOR).map((part) => Number.parseInt(part, VERSION_PART_RADIX));
-  const sharedLength = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < sharedLength; index += 1) {
-    const leftPart = leftParts[index] ?? 0;
-    const rightPart = rightParts[index] ?? 0;
-    if (leftPart !== rightPart) {
-      return leftPart - rightPart;
-    }
-  }
-  return left.localeCompare(right);
-}
-
 function selectConfiguredVersion(
   readings: readonly VersionDirectoriesReading[],
   config: MethodologyConfig,
@@ -523,7 +508,7 @@ function selectConfiguredVersion(
   const versions = readings.flatMap((reading) => reading.versions);
   const validVersions = versions
     .filter(isVersionDirectoryName)
-    .sort(compareVersionDirectoryNames);
+    .sort(compareNumericVersionIdentifiers);
   let version: string | null;
   if (config.version === DEFAULT_METHODOLOGY_VERSION) {
     version = validVersions.at(-1) ?? null;

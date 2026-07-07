@@ -8,6 +8,7 @@ import {
   type SpecContextManifest,
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_RESOLUTION, METHODOLOGY_SECTION } from "@/config/methodology";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/domains/agent-environment/config";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/git/tracked-paths";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
@@ -179,6 +180,24 @@ export async function assertSpecContextRejectsMalformedMethodologyConfig(): Prom
     const target = snapshot.allNodes[0];
     await expect(contextCommand({ target: target.id, cwd: env.productDir })).rejects.toThrow(
       `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
+    );
+  });
+}
+
+export async function assertSpecContextRejectsHarnessMethodologyConfig(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    await expect(contextCommand({ target: target.id, cwd: env.productDir })).rejects.toThrow(
+      `${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`,
     );
   });
 }

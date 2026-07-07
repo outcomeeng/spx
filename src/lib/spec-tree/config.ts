@@ -177,7 +177,7 @@ function parseVersionComponents(version: string): number[] {
   });
 }
 
-function compareNumericVersionIdentifiers(left: string, right: string): number {
+export function compareNumericVersionIdentifiers(left: string, right: string): number {
   const leftComponents = parseVersionComponents(left);
   const rightComponents = parseVersionComponents(right);
   const length = Math.max(leftComponents.length, rightComponents.length);

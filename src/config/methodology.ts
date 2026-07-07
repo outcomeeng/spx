@@ -12,8 +12,6 @@ export const DEFAULT_METHODOLOGY_VERSION = "installed";
 
 export const METHODOLOGY_RESOLUTION = {
   CONFIGURED: "configured",
-  OBSERVED: "observed",
-  UNAVAILABLE: "unavailable",
 } as const;
 
 export type MethodologyResolution = (typeof METHODOLOGY_RESOLUTION)[keyof typeof METHODOLOGY_RESOLUTION];
@@ -24,7 +22,6 @@ export interface MethodologyConfig {
 }
 
 export interface MethodologyIdentity extends MethodologyConfig {
-  readonly observedVersion?: string;
   readonly resolution: MethodologyResolution;
 }
 
@@ -94,20 +91,10 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
   return { ok: true, value: { source: source.value, version: version.value } };
 }
 
-export function resolveMethodologyIdentity(
-  config: MethodologyConfig,
-  observedVersion: string | undefined,
-): MethodologyIdentity {
-  if (observedVersion === undefined) {
-    return {
-      ...config,
-      resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
-    };
-  }
+export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
   return {
     ...config,
-    observedVersion,
-    resolution: METHODOLOGY_RESOLUTION.OBSERVED,
+    resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
   };
 }
 

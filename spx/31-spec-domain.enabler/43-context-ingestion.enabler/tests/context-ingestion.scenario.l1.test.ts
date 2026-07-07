@@ -4,6 +4,7 @@ import {
   assertSpecContextManifestIgnoresUntrackedScratchNodes,
   assertSpecContextManifestIncludesDocuments,
   assertSpecContextManifestIncludesMethodology,
+  assertSpecContextRejectsHarnessMethodologyConfig,
   assertSpecContextRejectsMalformedMethodologyConfig,
   assertSpecContextTextIncludesContext,
 } from "@testing/harnesses/spec/context";
@@ -27,5 +28,9 @@ describe("spec context ingestion scenarios", () => {
 
   it("rejects malformed methodology config before manifest output", async () => {
     await assertSpecContextRejectsMalformedMethodologyConfig();
+  });
+
+  it("rejects stale harness methodology config before manifest output", async () => {
+    await assertSpecContextRejectsHarnessMethodologyConfig();
   });
 });
