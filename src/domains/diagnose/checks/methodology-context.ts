@@ -1,4 +1,4 @@
-import type { MethodologyConfig } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
 import type { CheckRunner } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
@@ -17,7 +17,6 @@ export type MethodologyContextVerdict = (typeof METHODOLOGY_CONTEXT_VERDICT)[key
 
 export const METHODOLOGY_CONTEXT_READING_VALUE = {
   ABSENT: "(absent)",
-  INSTALLED: "installed",
 } as const;
 
 export interface MethodologyContextObservation {
@@ -91,7 +90,7 @@ export function classifyMethodologyContext(reading: MethodologyContextReading): 
     return record(METHODOLOGY_CONTEXT_VERDICT.SOURCE_MISMATCH, VERDICT_BUCKET.BROKEN, reading);
   }
   if (
-    reading.configuredVersion !== METHODOLOGY_CONTEXT_READING_VALUE.INSTALLED
+    reading.configuredVersion !== DEFAULT_METHODOLOGY_VERSION
     && reading.configuredVersion !== reading.observedVersion
   ) {
     return record(METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH, VERDICT_BUCKET.DEGRADED, reading);

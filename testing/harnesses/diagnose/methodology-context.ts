@@ -319,6 +319,17 @@ export async function assertMethodologyProbePrefersConfiguredExactVersion(): Pro
   });
 }
 
+export async function assertMethodologyProbeReportsInstalledVersionForMissingExactVersion(): Promise<void> {
+  const methodology = generatedMethodology(DIFFERENT_VERSION);
+  await withTempDir("spx-methodology-probe-", async (codexHome) => {
+    await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+      recursive: true,
+    });
+    const observed = await createMethodologyContextProbe(codexHome).probe(methodology);
+    expect(observed.version).toBe(HIGHER_VERSION);
+  });
+}
+
 export async function assertMethodologyProbeUsesExactNonVersionDirectory(): Promise<void> {
   const methodology = generatedMethodology(EXACT_NON_VERSION_DIRECTORY);
   await withTempDir("spx-methodology-probe-", async (codexHome) => {

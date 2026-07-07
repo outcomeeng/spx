@@ -18,5 +18,5 @@ CAN report whether the product's methodology selection is configured, observable
 
 - ALWAYS: the text diagnose report renders a concise methodology-context line from the same check record as JSON output ([test](tests/methodology-context.compliance.l1.test.ts))
 - ALWAYS: manifest-driven diagnose runs selecting `methodology-context` without methodology facts are rejected before checks run ([test](tests/methodology-context.compliance.l1.test.ts))
-- ALWAYS: methodology version cache resolution reads supported local agent caches, uses the configured exact version when present, and resolves `installed` to the highest numeric dotted version while ignoring non-version directory names ([test](tests/methodology-context.compliance.l1.test.ts))
+- ALWAYS: methodology version cache resolution reads supported local agent caches, uses the configured exact version when present, reports the highest numeric dotted installed version when the configured exact version is missing, and resolves `installed` to the highest numeric dotted version while ignoring non-version directory names ([test](tests/methodology-context.compliance.l1.test.ts))
 - NEVER: the methodology-context classifier reads files, environment variables, processes, or plugin surfaces directly; observations enter through an injected probe ([test](tests/methodology-context.compliance.l1.test.ts))
