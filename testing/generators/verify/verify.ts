@@ -473,6 +473,16 @@ export const VERIFY_TEST_GENERATOR = {
         auditClass: AUDIT_CLASS.IMPLEMENTATION,
         auditKind: AUDIT_KIND.SKILL,
       })),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        auditClass: AUDIT_CLASS.INSTRUCTIONS,
+        auditKind: AUDIT_KIND.CODE,
+      })),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        auditClass: AUDIT_CLASS.SPEC,
+        auditKind: AUDIT_KIND.SKILL,
+      })),
       arbitraryAuditScopeUnit().chain((unit) =>
         STATE_STORE_TEST_GENERATOR.scopeToken().filter(
           (value) => !(AUDIT_COVERAGE_STATUSES as readonly string[]).includes(value),
