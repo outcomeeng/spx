@@ -865,6 +865,16 @@ function auditKindAllowsProducerProvenance(
   return auditKind !== AUDIT_KIND.COVERAGE_GAP || producerProvenance === undefined;
 }
 
+function auditKindAllowsCoverageStatus(auditKind: AuditKind, coverageStatus: AuditCoverageStatus): boolean {
+  return (
+    auditKind !== AUDIT_KIND.COVERAGE_GAP
+    || (
+      coverageStatus !== AUDIT_COVERAGE_STATUS.AUDITED
+      && coverageStatus !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
+    )
+  );
+}
+
 export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefined {
   if (!isJsonRecord(payload)) return undefined;
   const unitId = readRequiredString(payload, "unitId");
@@ -875,6 +885,7 @@ export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefin
   if (!isCompatibleAuditKind(auditClass, auditKind)) return undefined;
   if (!isAuditCoverageRequirement(coverageRequirement)) return undefined;
   if (!isAuditCoverageStatus(coverageStatus)) return undefined;
+  if (!auditKindAllowsCoverageStatus(auditKind, coverageStatus)) return undefined;
   const priorContext = validateAuditPriorContextPartitions(readRequiredRecord(payload, "priorContext"));
   const expectedProducer = validateAuditProducerIdentity(readRequiredRecord(payload, "expectedProducer"));
   const recordedByRunDriver = validateAuditProducerIdentity(readRequiredRecord(payload, "recordedByRunDriver"));
@@ -933,6 +944,17 @@ export function validateAuditFinding(payload: JsonValue): AuditFinding | undefin
   };
 }
 
+export function auditFindingReferencesRecordedScope(
+  events: readonly JournalEvent[],
+  finding: AuditFinding,
+): boolean {
+  return events.some((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
+    const scope = validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
+    return scope?.unitId === finding.unitId;
+  });
+}
+
 /**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
@@ -985,7 +1007,8 @@ function expectedReviewEvidenceTerminalStatus(events: readonly JournalEvent[]): 
 function auditCoverageRejectsRun(scope: AuditScopeUnit): boolean {
   if (scope.coverageRequirement !== AUDIT_COVERAGE_REQUIREMENT.REQUIRED) return false;
   return (
-    scope.coverageStatus === AUDIT_COVERAGE_STATUS.UNSUPPORTED
+    scope.auditKind === AUDIT_KIND.COVERAGE_GAP
+    || scope.coverageStatus === AUDIT_COVERAGE_STATUS.UNSUPPORTED
     || scope.coverageStatus === AUDIT_COVERAGE_STATUS.MISSING_SKILL
     || scope.coverageStatus === AUDIT_COVERAGE_STATUS.SKIPPED
     || scope.coverageStatus === AUDIT_COVERAGE_STATUS.INCOMPLETE

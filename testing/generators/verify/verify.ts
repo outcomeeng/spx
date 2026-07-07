@@ -30,6 +30,9 @@ const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
 const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
+const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status) =>
+  status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
+);
 const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
@@ -230,6 +233,23 @@ function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
   );
 }
 
+function arbitraryCoverageGapAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return arbitraryCoverageGapAuditClassKind().chain((kind) =>
+    arbitraryAuditScopeUnit().chain(({ parentUnitId: _parentUnitId, producerProvenance: _provenance, ...unit }) =>
+      fc.constantFrom(...AUDIT_UNCOVERED_COVERAGE_STATUSES).map((coverageStatus) => ({
+        ...unit,
+        auditClass: kind.auditClass,
+        auditKind: kind.auditKind,
+        coverageStatus,
+        priorContext: {
+          changedFilePartition: unit.priorContext.changedFilePartition,
+          concernPartition: unit.priorContext.concernPartition,
+        },
+      }))
+    )
+  );
+}
+
 function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScopeUnit> {
   return fc.oneof(
     arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, ...unit }) => unit),
@@ -241,17 +261,7 @@ function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScope
         concernPartition: unit.priorContext.concernPartition,
       },
     })),
-    arbitraryCoverageGapAuditClassKind().chain((kind) =>
-      arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, producerProvenance: _provenance, ...unit }) => ({
-        ...unit,
-        auditClass: kind.auditClass,
-        auditKind: kind.auditKind,
-        priorContext: {
-          changedFilePartition: unit.priorContext.changedFilePartition,
-          concernPartition: unit.priorContext.concernPartition,
-        },
-      }))
-    ),
+    arbitraryCoverageGapAuditScopeUnit(),
   );
 }
 
@@ -504,6 +514,18 @@ export const VERIFY_TEST_GENERATOR = {
           producerProvenance,
         }))
       ),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+        producerProvenance: undefined,
+      })),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
+        producerProvenance: undefined,
+      })),
     ),
   invalidAuditFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
