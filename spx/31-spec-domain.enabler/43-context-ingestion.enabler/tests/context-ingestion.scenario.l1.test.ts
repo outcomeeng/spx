@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertSpecContextManifestIgnoresUntrackedScratchNodes,
   assertSpecContextManifestIncludesDocuments,
   assertSpecContextManifestIncludesMethodology,
   assertSpecContextRejectsMalformedMethodologyConfig,
@@ -14,6 +15,10 @@ describe("spec context ingestion scenarios", () => {
 
   it("includes deterministic spec-tree documents in the manifest", async () => {
     await assertSpecContextManifestIncludesDocuments();
+  });
+
+  it("excludes untracked node-shaped scratch paths from the manifest", async () => {
+    await assertSpecContextManifestIgnoresUntrackedScratchNodes();
   });
 
   it("renders deterministic spec-tree context as text", async () => {
