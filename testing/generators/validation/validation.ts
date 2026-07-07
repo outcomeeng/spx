@@ -42,7 +42,7 @@ const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
 const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
 const ESCAPING_PATH_OPERAND = "../outside.ts";
-const PRODUCT_TREE_MARKDOWN_OPERAND = "spx/41-validation.enabler/21-validation-cli.enabler/validation-cli.md";
+const PRODUCT_TREE_TYPESCRIPT_OPERAND = "src/interfaces/cli/validation.ts";
 const OPTION_OPERAND_SEPARATOR = " ";
 const PROCESS_EXIT_UNAVAILABLE = -1;
 const PACKAGED_CLI_DIRECTORY = "bin";
@@ -267,7 +267,7 @@ export const VALIDATION_PIPELINE_DATA = {
   circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
   circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
   skipCircularFlag: allValidationCliOptions.skipCircular.flag,
-  productTreeMarkdownOperand: PRODUCT_TREE_MARKDOWN_OPERAND,
+  productTreeTypeScriptOperand: PRODUCT_TREE_TYPESCRIPT_OPERAND,
   literalSkipOutput: LITERAL_SKIP_OUTPUT,
   literalSkipJsonOutput: LITERAL_SKIP_JSON_OUTPUT,
   skipLiteralFlag: allValidationCliOptions.skipLiteral.flag,

@@ -249,7 +249,7 @@ export function auditPriorContextSelectorForScopeUnit(unit: AuditScopeUnit): Aud
     ...(unit.priorContext.languagePartition === undefined
       ? {}
       : { languagePartition: unit.priorContext.languagePartition }),
-    ...(unit.producerProvenance === undefined ? {} : { producerIdentity: unit.expectedProducer }),
+    ...(unit.producerProvenance === undefined ? {} : { producerIdentity: unit.recordedByRunDriver }),
   };
 }
 
@@ -282,7 +282,7 @@ function auditProducedByIdentityMatches(
 ): boolean {
   if (producerIdentity === undefined) return true;
   if (unit.producerProvenance === undefined) return false;
-  return auditProducerIdentityMatches(unit.expectedProducer, producerIdentity);
+  return auditProducerIdentityMatches(unit.recordedByRunDriver, producerIdentity);
 }
 
 function auditProducerIdentityMatches(left: AuditProducerIdentity, right: AuditProducerIdentity): boolean {
