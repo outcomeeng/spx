@@ -22,6 +22,7 @@ const ORACLE_CHANGELOG_REFERENCE_DEFINITION_SEPARATOR = "]: ";
 const ORACLE_CHANGELOG_RELEASE_URL = "https://example.com/releases/";
 const ORACLE_MARKDOWN_H2_MARKER = "##";
 const ORACLE_MARKDOWN_H3_MARKER = "###";
+const ORACLE_MARKDOWN_H4_MARKER = "####";
 const ORACLE_MARKDOWN_VERSION_CLOSING_HASHES = "##";
 const ORACLE_MARKDOWN_CHANGE_GROUP_CLOSING_HASHES = "###";
 const ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR = "\t";
@@ -318,6 +319,48 @@ const RAW_HTML_CLOSE_TRAILING_WHITESPACE = "   ";
 const RAW_HTML_CLOSE_TRAILING_TEXT = " text";
 const BLOCKQUOTE_SEPARATOR = " ";
 const INDENTED_CODE_PREFIX = "    ";
+const NON_CONFORMANT_GROUP_HEADING_SUFFIX = " and Changed";
+
+const GENERATED_CHANGELOG_TITLE_MODES = [
+  "exact",
+  "missing",
+  "suffix",
+  "blank-before",
+  "preamble-before",
+] as const;
+const GENERATED_CHANGELOG_VERSION_MODES = [
+  "top-level",
+  "missing",
+  "wrong-level",
+  "blockquote",
+  "fence",
+  "html",
+  "later-h1",
+  "list",
+] as const;
+const GENERATED_CHANGELOG_GROUP_MODES = [
+  "top-level",
+  "missing",
+  "wrong-level",
+  "wrong-text",
+  "blockquote",
+  "fence",
+  "html",
+  "list",
+  "script",
+] as const;
+const GENERATED_CHANGELOG_PREAMBLE_MODES = [
+  "none",
+  "text",
+  "fence",
+  "html",
+  "blockquote",
+] as const;
+
+type GeneratedChangelogTitleMode = (typeof GENERATED_CHANGELOG_TITLE_MODES)[number];
+type GeneratedChangelogVersionMode = (typeof GENERATED_CHANGELOG_VERSION_MODES)[number];
+type GeneratedChangelogGroupMode = (typeof GENERATED_CHANGELOG_GROUP_MODES)[number];
+type GeneratedChangelogPreambleMode = (typeof GENERATED_CHANGELOG_PREAMBLE_MODES)[number];
 
 function blockquoteLine(line: string): string {
   return `${ORACLE_MARKDOWN_BLOCKQUOTE_PREFIX}${BLOCKQUOTE_SEPARATOR}${line}`;
@@ -486,6 +529,176 @@ export interface ReleaseNotesChangelogCase {
 
 export interface NonConformantReleaseNotesChangelogCase extends NonConformantChangelogCase {
   readonly releaseData: ReleaseData;
+}
+
+interface GeneratedChangelogShape {
+  readonly titleMode: GeneratedChangelogTitleMode;
+  readonly preambleMode: GeneratedChangelogPreambleMode;
+  readonly versionMode: GeneratedChangelogVersionMode;
+  readonly groupMode: GeneratedChangelogGroupMode;
+}
+
+export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<ReleaseNotesChangelogCase> {
+  return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) => {
+    const subjects = releaseData.commits.map((commit) => commit.subject);
+    return fc
+      .record({
+        titleMode: fc.constantFrom(...GENERATED_CHANGELOG_TITLE_MODES),
+        preambleMode: fc.constantFrom(...GENERATED_CHANGELOG_PREAMBLE_MODES),
+        versionMode: fc.constantFrom(...GENERATED_CHANGELOG_VERSION_MODES),
+        groupMode: fc.constantFrom(...GENERATED_CHANGELOG_GROUP_MODES),
+      })
+      .map((shape) => ({
+        releaseData,
+        content: generatedChangelog(shape, releaseData.version, subjects),
+      }));
+  });
+}
+
+function generatedChangelog(
+  shape: GeneratedChangelogShape,
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ...generatedTitleLines(shape.titleMode),
+    ...generatedPreambleLines(shape.preambleMode),
+    ...generatedVersionLines(shape.versionMode, version),
+    ...generatedGroupLines(shape.groupMode, subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+function generatedTitleLines(mode: GeneratedChangelogTitleMode): readonly string[] {
+  switch (mode) {
+    case "exact":
+      return [ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+    case "missing":
+      return [];
+    case "suffix":
+      return [`${ORACLE_CHANGELOG_TITLE}${TITLE_SUFFIX}`, BLANK_LINE];
+    case "blank-before":
+      return [BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+    case "preamble-before":
+      return [PREAMBLE_LINE, BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+  }
+}
+
+function generatedPreambleLines(mode: GeneratedChangelogPreambleMode): readonly string[] {
+  switch (mode) {
+    case "none":
+      return [];
+    case "text":
+      return [PREAMBLE_LINE, BLANK_LINE];
+    case "fence":
+      return [
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        BLANK_LINE,
+      ];
+    case "html":
+      return [
+        `${ORACLE_MARKDOWN_HTML_BLOCK_OPEN}note${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}`,
+        BLANK_LINE,
+      ];
+    case "blockquote":
+      return [blockquoteLine(oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP)), BLANK_LINE];
+  }
+}
+
+function generatedVersionLines(
+  mode: GeneratedChangelogVersionMode,
+  version: string,
+): readonly string[] {
+  const versionHeading = oracleChangelogVersionHeading(version);
+  switch (mode) {
+    case "top-level":
+      return [versionHeading];
+    case "missing":
+      return [];
+    case "wrong-level":
+      return [
+        `${ORACLE_MARKDOWN_H3_MARKER} ${ORACLE_CHANGELOG_VERSION_TEXT_PREFIX}${version}`
+        + ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX,
+      ];
+    case "blockquote":
+      return [blockquoteLine(versionHeading)];
+    case "fence":
+      return [
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+        versionHeading,
+        ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
+      ];
+    case "html":
+      return [
+        ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
+        versionHeading,
+        ORACLE_MARKDOWN_HTML_BLOCK_CLOSE,
+        BLANK_LINE,
+      ];
+    case "later-h1":
+      return [ORACLE_MARKDOWN_INTERSTITIAL_H1, versionHeading];
+    case "list":
+      return [
+        ORACLE_MARKDOWN_LIST_ITEM,
+        `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${versionHeading}`,
+      ];
+  }
+}
+
+function generatedGroupLines(
+  mode: GeneratedChangelogGroupMode,
+  subjects: readonly string[],
+): readonly string[] {
+  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const entries = formatEntries(subjects);
+  switch (mode) {
+    case "top-level":
+      return [groupHeading, entries];
+    case "missing":
+      return [entries];
+    case "wrong-level":
+      return [
+        `${ORACLE_MARKDOWN_H4_MARKER} ${SAMPLE_CHANGE_GROUP}`,
+        entries,
+      ];
+    case "wrong-text":
+      return [
+        `${groupHeading}${NON_CONFORMANT_GROUP_HEADING_SUFFIX}`,
+        entries,
+      ];
+    case "blockquote":
+      return [blockquoteLine(groupHeading), entries];
+    case "fence":
+      return [
+        ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
+        groupHeading,
+        ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
+        entries,
+      ];
+    case "html":
+      return [
+        ORACLE_MARKDOWN_CUSTOM_BLOCK_OPEN,
+        groupHeading,
+        ORACLE_MARKDOWN_CUSTOM_BLOCK_CLOSE,
+        BLANK_LINE,
+        entries,
+      ];
+    case "list":
+      return [
+        ORACLE_MARKDOWN_LIST_ITEM,
+        `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${groupHeading}`,
+        entries,
+      ];
+    case "script":
+      return [
+        ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN,
+        groupHeading,
+        ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE,
+        entries,
+      ];
+  }
 }
 
 export function sampleConformantReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
