@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
 export const PATH_CONTAINMENT_PARENT_DIRECTORY = "..";
 export const PATH_CONTAINMENT_ROOT_CANDIDATE = "";
@@ -6,6 +6,14 @@ const WINDOWS_DRIVE_ROOT_PATTERN = /^[a-zA-Z]:[\\/]/;
 const WINDOWS_UNC_ROOT_PATTERN = /^[/\\]{2}(?![.?][\\/])[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/;
 const WINDOWS_EXTENDED_LENGTH_ROOT_PATTERN =
   /^[/\\]{2}\?[\\/](?:[a-zA-Z]:[\\/]|UNC[\\/][^\\/]+[\\/][^\\/]+(?:[\\/]|$))/;
+
+export interface NearestExistingCanonicalPath {
+  readonly path: string;
+  readonly checkedPath: string;
+  readonly isCandidate: boolean;
+}
+
+export type PathCanonicalizer = (path: string) => string | undefined | Promise<string | undefined>;
 
 /**
  * Whether `candidate` resolves within `root`. The candidate is resolved against
@@ -23,6 +31,39 @@ export function isPathContained(root: string, candidate: string): boolean {
     );
   }
   return isResolvedPathContained(relative(root, resolve(root, candidate)), sep, isAbsolute);
+}
+
+export async function nearestExistingCanonicalPath(
+  path: string,
+  canonicalizePath: PathCanonicalizer,
+): Promise<NearestExistingCanonicalPath | undefined> {
+  let candidate = path;
+  let isCandidate = true;
+  for (;;) {
+    const canonicalPath = await canonicalizePath(candidate);
+    if (canonicalPath !== undefined) {
+      return { path: canonicalPath, checkedPath: candidate, isCandidate };
+    }
+    const parent = dirname(candidate);
+    if (parent === candidate) {
+      return undefined;
+    }
+    candidate = parent;
+    isCandidate = false;
+  }
+}
+
+export function canonicalTargetPath(
+  canonicalPath: NearestExistingCanonicalPath,
+  candidatePath: string,
+): string {
+  if (canonicalPath.isCandidate) {
+    return canonicalPath.path;
+  }
+  return resolve(
+    canonicalPath.path,
+    relative(canonicalPath.checkedPath, candidatePath),
+  );
 }
 
 function usesWindowsPathSemantics(root: string): boolean {
