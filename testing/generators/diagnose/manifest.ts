@@ -11,9 +11,11 @@
 
 import fc from "fast-check";
 
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
 
 const DIAGNOSE_SAMPLE_SEED = 7;
+const METHODOLOGY_SOURCE_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** A semver-shaped spx-version floor. */
 export const arbitrarySpxFloor = (): fc.Arbitrary<string> =>
@@ -40,6 +42,15 @@ export const arbitraryNameToken = (): fc.Arbitrary<string> =>
 export const arbitraryMarketplaceSource = (): fc.Arbitrary<string> =>
   fc.tuple(arbitraryNameToken(), arbitraryNameToken()).map(([owner, repo]) => `${owner}/${repo}`);
 
+/** A methodology `owner/repository` source accepted by the methodology config validator. */
+export const arbitraryMethodologySource = (): fc.Arbitrary<string> =>
+  fc
+    .tuple(
+      arbitraryNameToken().filter((segment) => METHODOLOGY_SOURCE_SEGMENT_PATTERN.test(segment)),
+      arbitraryNameToken().filter((segment) => METHODOLOGY_SOURCE_SEGMENT_PATTERN.test(segment)),
+    )
+    .map(([owner, repo]) => `${owner}/${repo}`);
+
 /** A single source-owned check name. */
 export const arbitraryCheckName = (): fc.Arbitrary<CheckName> => fc.constantFrom(...Object.values(CHECK_NAME));
 
@@ -49,6 +60,8 @@ export interface ManifestFacts {
   readonly spxFloor: string;
   readonly marketplaceName: string;
   readonly marketplaceSource: string;
+  readonly methodologySource: string;
+  readonly methodologyVersion: string;
   readonly expectedPlugins: readonly string[];
 }
 
@@ -59,6 +72,8 @@ export const arbitraryManifestFacts = (): fc.Arbitrary<ManifestFacts> =>
     spxFloor: arbitrarySpxFloor(),
     marketplaceName: arbitraryNameToken(),
     marketplaceSource: arbitraryMarketplaceSource(),
+    methodologySource: arbitraryMethodologySource(),
+    methodologyVersion: arbitraryNameToken(),
     expectedPlugins: fc.array(arbitraryNameToken(), { minLength: 1, maxLength: 5 }),
   });
 
@@ -71,6 +86,12 @@ export function manifestJson(facts: ManifestFacts): string {
   if (facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
     body.marketplace = { name: facts.marketplaceName, source: facts.marketplaceSource };
     body.expected_plugins = facts.expectedPlugins;
+  }
+  if (facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
+    body[METHODOLOGY_SECTION] = {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: facts.methodologyVersion,
+    };
   }
   return JSON.stringify(body);
 }

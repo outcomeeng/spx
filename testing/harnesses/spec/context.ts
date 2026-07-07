@@ -1,6 +1,12 @@
 import { expect } from "vitest";
 
-import { contextCommand, SPEC_CONTEXT_DOCUMENT_ROLE, type SpecContextManifest } from "@/commands/spec/context";
+import {
+  contextCommand,
+  contextTextCommand,
+  SPEC_CONTEXT_DOCUMENT_ROLE,
+  SPEC_CONTEXT_TEXT_LABEL,
+  type SpecContextManifest,
+} from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_RESOLUTION, METHODOLOGY_SECTION } from "@/config/methodology";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -64,7 +70,29 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
       path: `spx/${target.id}/PLAN.md`,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
     });
+    const productIndex = manifest.documents.findIndex((document) =>
+      document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT
+    );
+    const targetIndex = manifest.documents.findIndex((document) => document.role === SPEC_CONTEXT_DOCUMENT_ROLE.TARGET);
+    expect(productIndex).toBeGreaterThanOrEqual(0);
+    expect(targetIndex).toBeGreaterThan(productIndex);
     expect(manifest.documents.length).toBeGreaterThan(0);
+  });
+}
+
+export async function assertSpecContextTextIncludesContext(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const output = await contextTextCommand({ target: target.id, cwd: env.productDir });
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGET}: spx/${target.id}`);
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS}:`);
   });
 }
 

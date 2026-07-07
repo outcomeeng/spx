@@ -64,6 +64,16 @@ export interface ContextOptions {
 const JSON_INDENTATION = 2;
 const SPEC_TREE_ROOT_PREFIX = "spx/";
 
+export const SPEC_CONTEXT_TEXT_LABEL = {
+  TARGET: "Target",
+  METHODOLOGY: "Methodology",
+  DOCUMENTS: "Documents",
+  SAME_INDEX_SIBLINGS: "Same-index siblings",
+  HIGHER_INDEX_SIBLINGS: "Higher-index siblings",
+} as const;
+
+const TEXT_LIST_INDENT = "  - ";
+
 function refPath(ref: SpecTreeSourceRef | undefined): string | undefined {
   return ref?.path;
 }
@@ -194,7 +204,7 @@ async function buildManifest(
   return {
     methodology,
     target: fullSpecPath(target.id),
-    documents: documents.sort((left, right) => left.path.localeCompare(right.path)),
+    documents,
     siblings: {
       sameIndex,
       higherIndex,
@@ -202,7 +212,7 @@ async function buildManifest(
   };
 }
 
-export async function contextCommand(options: ContextOptions): Promise<string> {
+async function contextManifest(options: ContextOptions): Promise<SpecContextManifest> {
   const productDir = await resolveSpecProductDir(
     options.cwd ?? CONFIG_PROCESS_CWD.read(),
     options.gitDependencies,
@@ -213,5 +223,35 @@ export async function contextCommand(options: ContextOptions): Promise<string> {
   if (target === undefined) {
     throw new Error(`Spec context target not found: ${options.target}`);
   }
-  return JSON.stringify(await buildManifest(productDir, snapshot, target), null, JSON_INDENTATION);
+  return buildManifest(productDir, snapshot, target);
+}
+
+function appendList(lines: string[], label: string, values: readonly string[]): void {
+  lines.push(`${label}:`);
+  for (const value of values) {
+    lines.push(`${TEXT_LIST_INDENT}${value}`);
+  }
+}
+
+export function renderSpecContextText(manifest: SpecContextManifest): string {
+  const lines = [
+    `${SPEC_CONTEXT_TEXT_LABEL.TARGET}: ${manifest.target}`,
+    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
+  ];
+  appendList(
+    lines,
+    SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS,
+    manifest.documents.map((document) => `${document.role}: ${document.path}`),
+  );
+  appendList(lines, SPEC_CONTEXT_TEXT_LABEL.SAME_INDEX_SIBLINGS, manifest.siblings.sameIndex);
+  appendList(lines, SPEC_CONTEXT_TEXT_LABEL.HIGHER_INDEX_SIBLINGS, manifest.siblings.higherIndex);
+  return lines.join("\n");
+}
+
+export async function contextCommand(options: ContextOptions): Promise<string> {
+  return JSON.stringify(await contextManifest(options), null, JSON_INDENTATION);
+}
+
+export async function contextTextCommand(options: ContextOptions): Promise<string> {
+  return renderSpecContextText(await contextManifest(options));
 }

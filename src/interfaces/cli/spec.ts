@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { contextCommand } from "@/commands/spec/context";
+import { contextCommand, contextTextCommand } from "@/commands/spec/context";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -92,10 +92,9 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .action(async (target: string, options: { json?: boolean }) => {
       try {
-        if (options.json !== true) {
-          throw new Error("spx spec context currently requires --json");
-        }
-        const output = await contextCommand({ target, cwd: productDir(), onWarning });
+        const output = options.json === true
+          ? await contextCommand({ target, cwd: productDir(), onWarning })
+          : await contextTextCommand({ target, cwd: productDir(), onWarning });
         writeOutput(invocation.io, output);
       } catch (error) {
         handleCommandError(invocation.io, error);

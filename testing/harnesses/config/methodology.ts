@@ -22,6 +22,9 @@ import {
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
+const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
+const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+
 function generatedMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
@@ -81,7 +84,7 @@ export function assertMethodologyConfigFormatsResolveEquivalently(): void {
 }
 
 export async function assertMalformedMethodologyConfigRejects(): Promise<void> {
-  for (const source of ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"]) {
+  for (const source of INVALID_METHODOLOGY_SOURCES) {
     await withTestEnv({
       [METHODOLOGY_SECTION]: {
         [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
@@ -91,6 +94,20 @@ export async function assertMalformedMethodologyConfigRejects(): Promise<void> {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`);
+      }
+    });
+  }
+  for (const version of INVALID_METHODOLOGY_VERSIONS) {
+    await withTestEnv({
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+      },
+    }, async ({ productDir }) => {
+      const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
       }
     });
   }

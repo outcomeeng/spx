@@ -11,6 +11,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 
@@ -43,7 +44,15 @@ export async function writeAllChecksManifest(): Promise<string> {
   const [facts] = fc.sample(arbitraryManifestFacts(), { numRuns: 1, seed: 7 });
   const dir = await diagnoseTempDir();
   const manifestPath = join(dir, "diagnose.json");
-  await writeFile(manifestPath, manifestJson({ ...facts, checks: Object.values(CHECK_NAME) }));
+  await writeFile(
+    manifestPath,
+    manifestJson({
+      ...facts,
+      checks: Object.values(CHECK_NAME),
+      methodologySource: DEFAULT_METHODOLOGY_SOURCE,
+      methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
+    }),
+  );
   return manifestPath;
 }
 

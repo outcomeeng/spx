@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
+import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
 import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
 import { SPX_REACHABILITY_READING_VALUE, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
@@ -142,6 +143,8 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     const report = JSON.parse(result.stdout) as ReportShape;
     expectSchemaValidReport(report);
     expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
+    expect(report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT)?.verdict)
+      .toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
     expect(report.overall).toBe(foldedOverall(report));
     expectExitCodeKeyedToFold(result, report);
   });
