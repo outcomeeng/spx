@@ -200,6 +200,23 @@ export async function assertRegisteredSubcommandRunsHandler(): Promise<void> {
   });
 }
 
+export async function assertValidationAllRunsAgainstProductTree(): Promise<void> {
+  const result = await runValidationSubprocess(
+    [
+      validationCliDefinition.subcommands.all.commandName,
+      allValidationCliOptions.skipCircular.flag,
+      allValidationCliOptions.skipLiteral.flag,
+      VALIDATION_PIPELINE_DATA.productTreeMarkdownOperand,
+    ],
+    { timeout: VALIDATION_PIPELINE_DATA.allTimeout },
+  );
+
+  expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+  expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
+  expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+  expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
+}
+
 export async function assertRegisteredSubcommandPropagatesHandlerExitCode(): Promise<void> {
   await withEmptyValidationProject(async (productRoot) => {
     const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());

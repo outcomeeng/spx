@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
 
 import type { Command } from "commander";
@@ -30,6 +31,7 @@ import {
   verifyStatusCommand,
   type VerifyStatusReport,
 } from "@/commands/verify/cli";
+import { DESCRIPTOR_DIGEST_HEX_ENCODING, DESCRIPTOR_DIGEST_SHA256_ALGORITHM } from "@/config/descriptor-digest";
 import type { CliCommandResult } from "@/config/types";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
@@ -93,7 +95,7 @@ import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
   appendableJournalSealMarkerPath,
 } from "@/lib/appendable-journal-store";
-import { GIT_NAME_STATUS_FLAG } from "@/lib/git/name-status";
+import { GIT_NAME_STATUS_FLAG, pathsFromNameStatus } from "@/lib/git/name-status";
 import {
   ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,
@@ -120,8 +122,8 @@ const GIT_UNEXPECTED_COMMAND: ExecResult = {
   stdout: "",
   stderr: "verify harness: unexpected git command",
 };
-const VERIFY_PROPERTY_SEED = 0x5650524f50;
-const VERIFY_PROPERTY_RUNS = 50;
+const VERIFY_PROPERTY_REPLAY_SEED_ENV = "SPX_VERIFY_PROPERTY_SEED";
+const VERIFY_PROPERTY_RUNS = 100;
 const APPEND_COMMANDS = [verifyAppendScopeCommand, verifyAppendFindingCommand] as const;
 
 interface RawJournalOpenReport {
@@ -645,6 +647,12 @@ export function verifyInputRecordFilePath(scenario: VerifyRunContextScenario, ru
   return inputPath.value;
 }
 
+function expectedRunInputDigest(scenario: VerifyRunContextScenario): string {
+  return createHash(DESCRIPTOR_DIGEST_SHA256_ALGORITHM)
+    .update(JSON.stringify({ content: scenario.inputContent, source: VERIFY_INPUT_SOURCE.STDIN }))
+    .digest(DESCRIPTOR_DIGEST_HEX_ENCODING);
+}
+
 function gitSuccess(stdout: string): ExecResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.OK, stdout, stderr: "" };
 }
@@ -1064,10 +1072,21 @@ async function assertVerifyProperty<T>(
   arbitrary: fc.Arbitrary<T>,
   assertion: (value: T) => Promise<void>,
 ): Promise<void> {
-  await fc.assert(fc.asyncProperty(arbitrary, assertion), {
-    seed: VERIFY_PROPERTY_SEED,
-    numRuns: VERIFY_PROPERTY_RUNS,
-  });
+  const replaySeed = verifyPropertyReplaySeed();
+  const parameters = replaySeed === undefined
+    ? { numRuns: VERIFY_PROPERTY_RUNS }
+    : { numRuns: VERIFY_PROPERTY_RUNS, seed: replaySeed };
+  await fc.assert(fc.asyncProperty(arbitrary, assertion), parameters);
+}
+
+function verifyPropertyReplaySeed(): number | undefined {
+  const rawSeed = process.env[VERIFY_PROPERTY_REPLAY_SEED_ENV];
+  if (rawSeed === undefined || rawSeed.length === 0) return undefined;
+  const seed = Number(rawSeed);
+  if (!Number.isInteger(seed)) {
+    throw new Error(`${VERIFY_PROPERTY_REPLAY_SEED_ENV} must be an integer fast-check seed`);
+  }
+  return seed;
 }
 
 async function reviewAppendScenario(): Promise<{
@@ -1929,6 +1948,200 @@ export async function assertStartRequiresNonBlankInputSource(): Promise<void> {
     expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(started.output).toBe(VERIFY_CLI_ERROR.INPUT_REQUIRED);
   });
+}
+
+export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const report = parseStartReport(started.output);
+  expect(report.runToken.length).toBeGreaterThan(0);
+  expect(report.contextDigest.length).toBeGreaterThan(0);
+  expect(report.changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
+  expect(report.input.source).toBe(VERIFY_INPUT_SOURCE.STDIN);
+  expect(report.input.digest).toBe(expectedRunInputDigest(scenario));
+  expect(report.locator.runToken).toBe(report.runToken);
+  expect(report.locator.verificationType).toBe(scenario.verificationType);
+  expect(report.locator.scopeType).toBe(VERIFY_SCOPE_TYPE.CHANGESET);
+  expect(report.locator.scopeIdentity).toBe(scenario.scope);
+  expect(report.locator.runTarget.length).toBeGreaterThan(0);
+}
+
+export async function assertStartPersistsRunJournalAtLocatorTarget(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const report = parseStartReport(started.output);
+  expect(report.locator.runTarget).toContain(report.runToken);
+  await expect(fs.readFile(report.locator.runTarget, STATE_STORE_TEXT_ENCODING)).resolves.toBeDefined();
+}
+
+export async function assertInputRequiresNonBlankRunToken(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.blankRunToken(), async (blankRun) => {
+    const fs = createInMemoryStateStoreFileSystem();
+    const replayed = await verifyInputCommand(verifyInputOptions(scenario, blankRun), verifyDeps(scenario, fs));
+    expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(replayed.output).toBe(VERIFY_CLI_ERROR.RUN_REQUIRED);
+  });
+}
+
+export async function assertInputRejectsTypeScopeSelectionWithoutRunToken(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.blankRunToken(), async (blankRun) => {
+    const replayed = await verifyInputCommand(verifyInputOptions(scenario, blankRun), deps);
+    expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(replayed.output).toBe(VERIFY_CLI_ERROR.RUN_REQUIRED);
+  });
+}
+
+export async function assertInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const recorder = createRecordingGitDeps();
+  const deps: VerifyCliDeps = { ...verifyDeps(scenario, fs), git: recorder.git };
+  const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
+  const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+
+  const replayed = await verifyInputCommand(
+    { ...verifyInputOptions(scenario, runToken), verificationType: unsupportedType },
+    deps,
+  );
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(replayed.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+  expect(recorder.calls()).toBe(0);
+}
+
+export async function assertInputReportsSelectorAndTargetForMissingRun(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const missingRunToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+
+  const replayed = await verifyInputCommand(verifyInputOptions(scenario, missingRunToken), deps);
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(replayed.output).toContain(missingRunToken);
+  expect(replayed.output).toContain(scenario.verificationType);
+  expect(replayed.output).toContain(VERIFY_SCOPE_TYPE.CHANGESET);
+  expect(replayed.output).toContain(scenario.scope);
+  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.BACKEND}${JOURNAL_BACKEND.LOCAL}`);
+  expect(replayed.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE);
+  expect(replayed.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.TARGET);
+  expect(replayed.output).toContain(verifyInputRecordFilePath(scenario, missingRunToken));
+  expect(replayed.output).toContain(
+    `${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.SCOPE_TYPE}${VERIFY_SCOPE_TYPE.CHANGESET}`,
+  );
+  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.SCOPE}${scenario.scope}`);
+}
+
+export async function assertInputRejectsRecordedScopeMismatch(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const { runToken } = parseStartReport(started.output);
+
+  const replayed = await verifyInputCommand(
+    { ...verifyInputOptions(scenario, runToken), scope: `${scenario.head}${VERIFY_SCOPE_SEPARATOR}${scenario.base}` },
+    deps,
+  );
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(replayed.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+  expect(replayed.output).toContain(verifyInputRecordFilePath(scenario, runToken));
+}
+
+export async function assertInputReplaysRecordedInput(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+
+  const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const inputReport = parseInputReport(replayed.output);
+  expect(inputReport.content).toBe(scenario.inputContent);
+  expect(inputReport.source).toBe(startReport.input.source);
+  expect(inputReport.digest).toBe(startReport.input.digest);
+}
+
+export async function assertInputDoesNotReadFreshInputSource(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+
+  const reader = createRecordingInputReader();
+  const replayDeps: VerifyCliDeps = { ...deps, readInputSource: reader.read };
+  const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), replayDeps);
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseInputReport(replayed.output).content).toBe(scenario.inputContent);
+  expect(reader.calls()).toBe(0);
+}
+
+export async function assertInputReportsReadFailureForRecordMissingSelectorFields(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+
+  const malformedRecord = {
+    source: startReport.input.source,
+    digest: startReport.input.digest,
+    content: scenario.inputContent,
+  };
+  await fs.writeFile(verifyInputRecordFilePath(scenario, startReport.runToken), JSON.stringify(malformedRecord));
+
+  const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+}
+
+export async function assertInputReportsReadFailureForInvalidRecordJson(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+  const invalidJson = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())).slice(0, -1);
+  await fs.writeFile(verifyInputRecordFilePath(scenario, startReport.runToken), invalidJson);
+
+  const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
+
+  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
 }
 
 export async function assertStartRejectsUnsupportedVerificationTypeBeforeOpeningRun(): Promise<void> {

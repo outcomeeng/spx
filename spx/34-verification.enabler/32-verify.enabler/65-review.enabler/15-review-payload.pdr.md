@@ -8,7 +8,7 @@ Formal review systems separate the review submission from inline comments. Prese
 
 ## Product properties
 
-1. Review `finish` records the review envelope as verification-type terminal metadata with provider identity when present, actor, state, body, submitted time, commit identity, and URL when present.
+1. Review `finish` records the review envelope as verification-type terminal metadata with provider identity when present, actor, state, body, submitted time, commit identity, and URL when present. Review states `approved` and `changes_requested` derive terminal status when evidence does not already determine it; review state `commented` and omitted terminal metadata do not derive terminal status, so the supplied terminal status is preserved unless finding or scope evidence creates a conflict.
 2. A review comment records provider identity when present, path, line or position, side, original commit identity, diff hunk, URL when present, body, and SPX finding metadata when the comment is a finding.
 3. Reviewed scope units and review findings remain separate evidence: a reviewed scope unit records provider identity when present, path, optional line or position range, side, commit identity, coverage state, and optional URL; a reviewed unit can be clean, and a finding anchors to the reviewed unit it concerns.
 

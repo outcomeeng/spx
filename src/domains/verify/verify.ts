@@ -1151,7 +1151,8 @@ function countReviewScopeFindingUnits(events: readonly JournalEvent[]): number {
   return events.filter((event) => {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
     const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
-    return isJsonRecord(payload) && payload.coverageState === REVIEW_SCOPE_COVERAGE_STATE.FINDING;
+    const scope = validateReviewScope(payload);
+    return scope?.coverageState === REVIEW_SCOPE_COVERAGE_STATE.FINDING;
   }).length;
 }
 
