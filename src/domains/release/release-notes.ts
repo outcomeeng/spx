@@ -104,6 +104,9 @@ export const MARKDOWN_FENCE_TILDE_MARKER = "~~~";
 export const MARKDOWN_BLOCKQUOTE_PREFIX = ">";
 const MARKDOWN_FENCE_MINIMUM_LENGTH = 3;
 const MARKDOWN_MAX_MARKER_INDENTATION = 3;
+const MARKDOWN_ORDERED_LIST_MAX_DIGITS = 9;
+const MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING = 1;
+const MARKDOWN_LIST_CONTINUATION_MAX_EXPLICIT_PADDING = 4;
 const SPACE = " ";
 const TAB = "\t";
 const MARKDOWN_HTML_BLOCK_OPEN_PATTERN = /^<([A-Za-z][A-Za-z0-9-]*)(?:\s|>|\/>)/;
@@ -631,8 +634,17 @@ function markdownHeadingLines(
   let activeHtmlBlockTag: string | undefined;
   let activeHtmlDeclarationClose: string | undefined;
   let activeHtmlComment = false;
+  let activeListContinuationIndent: number | undefined;
   for (const [index, rawLine] of lines.entries()) {
     const line = normalizeLineEnding(rawLine) ?? "";
+    const leadingSpaces = countLeadingSpaces(line);
+    if (
+      line.trim().length > 0
+      && activeListContinuationIndent !== undefined
+      && leadingSpaces < activeListContinuationIndent
+    ) {
+      activeListContinuationIndent = undefined;
+    }
     const scan = scanMarkdownHeadingLine(
       index,
       line,
@@ -645,8 +657,18 @@ function markdownHeadingLines(
     activeHtmlBlockTag = scan.activeHtmlBlockTag;
     activeHtmlDeclarationClose = scan.activeHtmlDeclarationClose;
     activeHtmlComment = scan.activeHtmlComment;
-    if (scan.heading !== undefined) {
+    if (
+      scan.heading !== undefined
+      && (
+        activeListContinuationIndent === undefined
+        || leadingSpaces < activeListContinuationIndent
+      )
+    ) {
       headings.push(scan.heading);
+    }
+    const listContinuationIndent = markdownListContinuationIndent(line);
+    if (listContinuationIndent !== undefined) {
+      activeListContinuationIndent = listContinuationIndent;
     }
   }
   return headings;
@@ -1036,10 +1058,78 @@ function markdownMarkerContent(line: string): string | undefined {
   return line.slice(leadingSpaces);
 }
 
+function markdownListContinuationIndent(line: string): number | undefined {
+  const leadingSpaces = countLeadingSpaces(line);
+  if (leadingSpaces > MARKDOWN_MAX_MARKER_INDENTATION) {
+    return undefined;
+  }
+  const content = line.slice(leadingSpaces);
+  const markerLength = markdownListMarkerLength(content);
+  if (markerLength === undefined) {
+    return undefined;
+  }
+  const padding = markdownListMarkerPadding(content.slice(markerLength));
+  if (padding === undefined) {
+    return undefined;
+  }
+  return leadingSpaces + markerLength + padding;
+}
+
+function markdownListMarkerLength(content: string): number | undefined {
+  const firstCharacter = content.charAt(0);
+  if (
+    firstCharacter === "-"
+    || firstCharacter === "+"
+    || firstCharacter === "*"
+  ) {
+    return 1;
+  }
+  const digitCount = countLeadingDigits(content);
+  if (digitCount === 0 || digitCount > MARKDOWN_ORDERED_LIST_MAX_DIGITS) {
+    return undefined;
+  }
+  const marker = content.charAt(digitCount);
+  return marker === "." || marker === ")" ? digitCount + 1 : undefined;
+}
+
+function markdownListMarkerPadding(markerTail: string): number | undefined {
+  if (!markerTail.startsWith(SPACE) && !markerTail.startsWith(TAB)) {
+    return undefined;
+  }
+  let padding = 0;
+  for (const character of markerTail) {
+    if (character === SPACE) {
+      padding += 1;
+      continue;
+    }
+    if (character === TAB) {
+      return MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING;
+    }
+    break;
+  }
+  if (padding === 0) {
+    return MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING;
+  }
+  return padding > MARKDOWN_LIST_CONTINUATION_MAX_EXPLICIT_PADDING
+    ? MARKDOWN_LIST_CONTINUATION_FALLBACK_PADDING
+    : padding;
+}
+
 function countLeadingSpaces(line: string): number {
   let count = 0;
   for (const character of line) {
     if (character !== SPACE) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function countLeadingDigits(line: string): number {
+  let count = 0;
+  for (const character of line) {
+    if (character < "0" || character > "9") {
       break;
     }
     count += 1;
