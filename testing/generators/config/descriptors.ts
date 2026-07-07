@@ -291,8 +291,6 @@ function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvir
     .record({
       marketplaceName: arbitraryConfigKey(),
       marketplaceSource: arbitraryConfigKey(),
-      methodologySource: arbitraryConfigKey(),
-      methodologyVersion: arbitraryConfigKey(),
       pluginName: arbitraryConfigKey(),
       pluginVersion: arbitraryConfigKey(),
       skillName: arbitraryConfigKey(),
@@ -302,8 +300,6 @@ function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvir
       {
         marketplaceName,
         marketplaceSource,
-        methodologySource,
-        methodologyVersion,
         pluginName,
         pluginVersion,
         skillName,
@@ -311,10 +307,6 @@ function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvir
       },
     ) => {
       const section = {
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.METHODOLOGY]: {
-          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SOURCE]: methodologySource,
-          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.VERSION]: methodologyVersion,
-        },
         [HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS]: {
           [HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES]: [
             {
@@ -364,10 +356,6 @@ function arbitraryHarnessEnvironmentConfig(): fc.Arbitrary<GeneratedHarnessEnvir
           [HARNESS_ENVIRONMENT_SECTION]: section,
         },
         expected: {
-          methodology: {
-            source: methodologySource,
-            version: methodologyVersion,
-          },
           instructions: {
             files: [
               {

@@ -1,0 +1,217 @@
+import { access } from "node:fs/promises";
+import { join } from "node:path";
+
+import { resolveConfig } from "@/config/index";
+import {
+  type MethodologyConfig,
+  methodologyConfigDescriptor,
+  type MethodologyIdentity,
+  resolveMethodologyIdentity,
+} from "@/config/methodology";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import type { GitDependencies } from "@/git/root";
+import {
+  createFilesystemSpecTreeSource,
+  readSpecTree,
+  SPEC_TREE_ENTRY_TYPE,
+  type SpecTreeDecision,
+  type SpecTreeEvidenceSourceEntry,
+  type SpecTreeNode,
+  type SpecTreeSnapshot,
+  type SpecTreeSourceRef,
+} from "@/lib/spec-tree";
+import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
+
+export const SPEC_CONTEXT_DOCUMENT_ROLE = {
+  PRODUCT: "product",
+  ANCESTOR: "ancestor",
+  TARGET: "target",
+  DECISION: "decision",
+  LOWER_INDEX_SIBLING: "lower-index-sibling",
+  EVIDENCE: "evidence",
+  COORDINATION: "coordination",
+} as const;
+
+export const SPEC_CONTEXT_COORDINATION_FILE = {
+  PLAN: "PLAN.md",
+  ISSUES: "ISSUES.md",
+} as const;
+
+export interface SpecContextDocument {
+  readonly path: string;
+  readonly role: string;
+}
+
+export interface SpecContextSiblingSummary {
+  readonly sameIndex: readonly string[];
+  readonly higherIndex: readonly string[];
+}
+
+export interface SpecContextManifest {
+  readonly methodology: MethodologyIdentity;
+  readonly target: string;
+  readonly documents: readonly SpecContextDocument[];
+  readonly siblings: SpecContextSiblingSummary;
+}
+
+export interface ContextOptions {
+  readonly target: string;
+  readonly cwd?: string;
+  readonly gitDependencies?: GitDependencies;
+  readonly onWarning?: SpecProductDirWarningHandler;
+}
+
+const JSON_INDENTATION = 2;
+const SPEC_TREE_ROOT_PREFIX = "spx/";
+
+function refPath(ref: SpecTreeSourceRef | undefined): string | undefined {
+  return ref?.path;
+}
+
+function sortPaths(paths: readonly string[]): readonly string[] {
+  return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeTarget(target: string): string {
+  return target.startsWith(SPEC_TREE_ROOT_PREFIX) ? target.slice(SPEC_TREE_ROOT_PREFIX.length) : target;
+}
+
+function fullSpecPath(path: string): string {
+  return path.startsWith(SPEC_TREE_ROOT_PREFIX) ? path : `${SPEC_TREE_ROOT_PREFIX}${path}`;
+}
+
+function pushDocument(documents: SpecContextDocument[], role: string, path: string | undefined): void {
+  if (path !== undefined) {
+    documents.push({ role, path });
+  }
+}
+
+function findNode(snapshot: SpecTreeSnapshot, target: string): SpecTreeNode | undefined {
+  const normalized = normalizeTarget(target);
+  return snapshot.allNodes.find((node) => node.id === normalized);
+}
+
+function ancestorsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
+  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
+  const ancestors: SpecTreeNode[] = [];
+  let currentParent = target.parentId;
+  while (currentParent !== undefined) {
+    const parent = byId.get(currentParent);
+    if (parent === undefined) break;
+    ancestors.unshift(parent);
+    currentParent = parent.parentId;
+  }
+  return ancestors;
+}
+
+function siblingsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
+  return snapshot.allNodes
+    .filter((node) => node.parentId === target.parentId && node.id !== target.id);
+}
+
+function decisionsFor(
+  snapshot: SpecTreeSnapshot,
+  contextNodes: readonly SpecTreeNode[],
+): readonly SpecTreeDecision[] {
+  const contextByParentId = new Map<string | undefined, number>();
+  for (const node of contextNodes) {
+    contextByParentId.set(node.parentId, node.order);
+  }
+  return snapshot.decisions.filter((decision) => {
+    const constrainedOrder = contextByParentId.get(decision.parentId);
+    return constrainedOrder !== undefined && decision.order < constrainedOrder;
+  });
+}
+
+function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeEvidenceSourceEntry[] {
+  return snapshot.entries.filter(
+    (entry): entry is SpecTreeEvidenceSourceEntry =>
+      entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE && entry.parentId === target.id,
+  );
+}
+
+async function optionalFile(productDir: string, relativePath: string): Promise<string | undefined> {
+  const specTreePath = fullSpecPath(relativePath);
+  try {
+    await access(join(productDir, specTreePath));
+    return specTreePath;
+  } catch {
+    return undefined;
+  }
+}
+
+async function coordinationDocuments(productDir: string, target: SpecTreeNode): Promise<readonly string[]> {
+  return [
+    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN)),
+    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES)),
+  ].filter((path): path is string => path !== undefined);
+}
+
+async function resolveMethodologyConfig(productDir: string): Promise<MethodologyConfig> {
+  const loaded = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+  if (!loaded.ok) {
+    throw new Error(loaded.error);
+  }
+  return loaded.value[methodologyConfigDescriptor.section] as MethodologyConfig;
+}
+
+async function buildManifest(
+  productDir: string,
+  snapshot: SpecTreeSnapshot,
+  target: SpecTreeNode,
+): Promise<SpecContextManifest> {
+  const ancestors = ancestorsFor(snapshot, target);
+  const contextNodes = [...ancestors, target];
+  const siblings = siblingsFor(snapshot, target);
+  const lowerSiblings = siblings.filter((node) => node.order < target.order);
+  const sameIndex = sortPaths(
+    siblings.filter((node) => node.order === target.order).map((node) => fullSpecPath(node.id)),
+  );
+  const higherIndex = sortPaths(
+    siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
+  );
+  const methodology = resolveMethodologyIdentity(await resolveMethodologyConfig(productDir), undefined);
+
+  const documents: SpecContextDocument[] = [];
+  pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT, refPath(snapshot.product?.ref));
+  for (const ancestor of ancestors) {
+    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.ANCESTOR, refPath(ancestor.ref));
+  }
+  pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.TARGET, refPath(target.ref));
+  for (const decision of decisionsFor(snapshot, contextNodes)) {
+    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.DECISION, refPath(decision.ref));
+  }
+  for (const sibling of lowerSiblings) {
+    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING, refPath(sibling.ref));
+  }
+  for (const evidence of evidenceFor(snapshot, target)) {
+    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE, refPath(evidence.ref));
+  }
+  for (const path of await coordinationDocuments(productDir, target)) {
+    pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION, path);
+  }
+
+  return {
+    methodology,
+    target: fullSpecPath(target.id),
+    documents: documents.sort((left, right) => left.path.localeCompare(right.path)),
+    siblings: {
+      sameIndex,
+      higherIndex,
+    },
+  };
+}
+
+export async function contextCommand(options: ContextOptions): Promise<string> {
+  const productDir = await resolveSpecProductDir(
+    options.cwd ?? CONFIG_PROCESS_CWD.read(),
+    options.gitDependencies,
+    options.onWarning,
+  );
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  const target = findNode(snapshot, options.target);
+  if (target === undefined) {
+    throw new Error(`Spec context target not found: ${options.target}`);
+  }
+  return JSON.stringify(await buildManifest(productDir, snapshot, target), null, JSON_INDENTATION);
+}
