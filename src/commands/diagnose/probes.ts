@@ -15,6 +15,7 @@ import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 
+import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -59,6 +60,7 @@ const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const VERSION_PART_RADIX = 10;
 const VERSION_PART_SEPARATOR = ".";
 const NOT_FOUND_ERROR_CODE = "ENOENT";
+const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 
 export interface WorktreePoolSnapshotEntry {
   readonly root: string;
@@ -480,6 +482,7 @@ async function latestDirectory(path: string): Promise<LatestDirectoryReading> {
     const names = entries
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
+      .filter(isVersionDirectoryName)
       .sort(compareVersionDirectoryNames);
     return { errored: false, version: names.at(-1) ?? null };
   } catch (error) {
@@ -488,6 +491,10 @@ async function latestDirectory(path: string): Promise<LatestDirectoryReading> {
     }
     return { errored: true, version: null };
   }
+}
+
+function isVersionDirectoryName(name: string): boolean {
+  return VERSION_DIRECTORY_PATTERN.test(name);
 }
 
 function compareVersionDirectoryNames(left: string, right: string): number {
@@ -504,11 +511,30 @@ function compareVersionDirectoryNames(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
+async function configuredVersionDirectory(path: string, config: MethodologyConfig): Promise<LatestDirectoryReading> {
+  if (config.version === DEFAULT_METHODOLOGY_VERSION) {
+    return latestDirectory(path);
+  }
+  if (!isVersionDirectoryName(config.version)) {
+    return { errored: false, version: null };
+  }
+  try {
+    const entries = await readdir(path, { withFileTypes: true });
+    const configured = entries.find((entry) => entry.isDirectory() && entry.name === config.version);
+    return { errored: false, version: configured?.name ?? null };
+  } catch (error) {
+    if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE)) {
+      return { errored: false, version: null };
+    }
+    return { errored: true, version: null };
+  }
+}
+
 export function createMethodologyContextProbe(codexHomeDir: string): MethodologyContextProbe {
   return {
     async probe(config): Promise<MethodologyContextObservation> {
       const sourcePath = join(codexHomeDir, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
-      const reading = await latestDirectory(sourcePath);
+      const reading = await configuredVersionDirectory(sourcePath, config);
       if (reading.version === null) {
         return { source: null, version: null, errored: reading.errored };
       }
@@ -524,7 +550,7 @@ export function createMethodologyContextProbe(codexHomeDir: string): Methodology
 export const defaultMethodologyContextProbe: MethodologyContextProbe = {
   async probe(config): Promise<MethodologyContextObservation> {
     const sourcePath = join(codexHome(), ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"));
-    const reading = await latestDirectory(sourcePath);
+    const reading = await configuredVersionDirectory(sourcePath, config);
     if (reading.version === null) {
       return { source: null, version: null, errored: reading.errored };
     }

@@ -11,7 +11,7 @@ import {
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { defaultGitDependencies } from "@/git/root";
 import type { GitDependencies } from "@/git/root";
-import { createTrackedPathInclusion, listTrackedPaths } from "@/git/tracked-paths";
+import { createTrackedPathInclusion, listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/git/tracked-paths";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
@@ -90,6 +90,10 @@ function normalizeTarget(target: string): string {
 
 function fullSpecPath(path: string): string {
   return path.startsWith(SPEC_TREE_ROOT_PREFIX) ? path : `${SPEC_TREE_ROOT_PREFIX}${path}`;
+}
+
+function childSpecPath(parent: string, child: string): string {
+  return `${parent}${TRACKED_PATH_DIRECTORY_SEPARATOR}${child}`;
 }
 
 function pushDocument(documents: SpecContextDocument[], role: string, path: string | undefined): void {
@@ -186,8 +190,8 @@ async function coordinationDocuments(
   includePath: (path: string) => boolean | Promise<boolean>,
 ): Promise<readonly string[]> {
   return [
-    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN), includePath),
-    await optionalFile(productDir, join(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES), includePath),
+    await optionalFile(productDir, childSpecPath(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN), includePath),
+    await optionalFile(productDir, childSpecPath(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES), includePath),
   ].filter((path): path is string => path !== undefined);
 }
 
