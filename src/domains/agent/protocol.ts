@@ -95,6 +95,10 @@ export const AGENT_TRANSCRIPT_GIT_COMMAND = {
   ADD: "add",
   CREATE_BRANCH_SHORT: "-b",
   CREATE_BRANCH_LONG: "-c",
+  CREATE_BRANCH_RESET_SHORT: "-B",
+  CREATE_BRANCH_SWITCH_RESET_SHORT: "-C",
+  CREATE_BRANCH_SWITCH_LONG: "--create",
+  CREATE_BRANCH_SWITCH_RESET_LONG: "--force-create",
   DETACH: "--detach",
   ORPHAN: "--orphan",
 } as const;

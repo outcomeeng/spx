@@ -6,6 +6,7 @@ import {
   assertAgentSearchBranchExistenceAloneReturnsNoSessions,
   assertAgentSearchExcludesStaleOutOfScopeSubagentAndHandoffFiles,
   assertAgentSearchExcludesSubagentsFromBranchAssociatedResults,
+  assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence,
   assertAgentSearchIncludesTranscriptMetadataBranchAssociation,
   assertAgentSearchIncludesWorktreeRootBranchAssociation,
   assertAgentSearchMatchesAllScopedRecentSessionsWithoutSelector,
@@ -48,6 +49,10 @@ describe("agent session search compliance", () => {
 
   it("includes sessions associated by same-product worktree root", async () => {
     await assertAgentSearchIncludesWorktreeRootBranchAssociation();
+  });
+
+  it("includes sessions associated by accepted transcript command evidence", async () => {
+    await assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence();
   });
 
   it("excludes subagent rows from branch-associated search results", async () => {
