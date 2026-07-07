@@ -576,7 +576,7 @@ function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: strin
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length <= 1;
   }
-  return parsed.positionals.length === 1 && parsed.positionals[0] === branch;
+  return parsed.positionals.length === 1 && positionalBranchMatches(parsed.positionals[0], parsed, branch);
 }
 
 function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -590,7 +590,7 @@ function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: str
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length <= 1;
   }
-  return parsed.positionals.length === 1 && parsed.positionals[0] === branch;
+  return parsed.positionals.length === 1 && positionalBranchMatches(parsed.positionals[0], parsed, branch);
 }
 
 function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -607,12 +607,16 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length >= 1 && parsed.positionals.length <= 2;
   }
+  if (parsed.positionals.length === 1) {
+    return worktreePathImpliedBranch(parsed.positionals[0]) === branch;
+  }
   return parsed.positionals.length === 2 && parsed.positionals[1] === branch;
 }
 
 interface ParsedGitBranchArgs {
   readonly createdBranch: string | null;
   readonly positionals: readonly string[];
+  readonly usesTrack: boolean;
   readonly invalid: boolean;
 }
 
@@ -764,14 +768,15 @@ function parseGitBranchArgs(
 ): ParsedGitBranchArgs {
   const positionals: string[] = [];
   let createdBranch: string | null = null;
+  let usesTrack = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (tupleIncludes(DISALLOWED_BRANCH_ASSOCIATION_FLAGS, arg)) {
-      return { createdBranch, positionals, invalid: true };
+      return { createdBranch, positionals, usesTrack, invalid: true };
     }
     const createBranch = gitCreateBranchParse(args, index, createFlags);
     if (createBranch === GIT_OPTION_CONSUMPTION.INVALID) {
-      return { createdBranch, positionals, invalid: true };
+      return { createdBranch, positionals, usesTrack, invalid: true };
     }
     if (createBranch !== null) {
       createdBranch = createBranch.branch;
@@ -780,18 +785,33 @@ function parseGitBranchArgs(
     }
     const optionConsumption = gitOptionConsumption(args, index, allowedOptions);
     if (optionConsumption === GIT_OPTION_CONSUMPTION.INVALID) {
-      return { createdBranch, positionals, invalid: true };
+      return { createdBranch, positionals, usesTrack, invalid: true };
     }
     if (optionConsumption !== GIT_OPTION_CONSUMPTION.NOT_ALLOWED) {
+      usesTrack ||= isTrackOption(arg);
       index += optionConsumption;
       continue;
     }
     if (arg.startsWith("-")) {
-      return { createdBranch, positionals, invalid: true };
+      return { createdBranch, positionals, usesTrack, invalid: true };
     }
     positionals.push(arg);
   }
-  return { createdBranch, positionals, invalid: false };
+  return { createdBranch, positionals, usesTrack, invalid: false };
+}
+
+function positionalBranchMatches(positional: string, parsed: ParsedGitBranchArgs, branch: string): boolean {
+  return positional === branch || parsed.usesTrack && remoteTrackingBranchLocalName(positional) === branch;
+}
+
+function remoteTrackingBranchLocalName(ref: string): string | null {
+  const firstSlash = ref.indexOf("/");
+  return firstSlash > 0 && firstSlash < ref.length - 1 ? ref.slice(firstSlash + 1) : null;
+}
+
+function worktreePathImpliedBranch(worktreePath: string): string | null {
+  const segments = worktreePath.split(/[\\/]+/u).filter((segment) => segment.length > 0 && segment !== ".");
+  return segments.at(-1) ?? null;
 }
 
 function gitCreateBranchParse(
@@ -849,6 +869,12 @@ function tupleIncludes(values: readonly string[], value: string): boolean {
 
 function isInlineValueFlag(flags: readonly string[], value: string): boolean {
   return flags.some((flag) => value.startsWith(`${flag}=`) && value.length > flag.length + 1);
+}
+
+function isTrackOption(value: string): boolean {
+  return value === AGENT_TRANSCRIPT_GIT_COMMAND.TRACK
+    || value === AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT
+    || value.startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK}=`);
 }
 
 const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\S+)/gu;
