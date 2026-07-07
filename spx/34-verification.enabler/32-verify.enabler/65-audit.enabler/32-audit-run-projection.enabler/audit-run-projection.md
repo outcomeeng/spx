@@ -18,4 +18,5 @@ CAN finish individual audit runs from coverage evidence and produce selector inp
 
 ### Compliance
 
+- ALWAYS: audit finish rejects supplied terminal metadata because audit terminal status derives from coverage and finding evidence only ([test](tests/audit-terminal-metadata.compliance.l1.test.ts))
 - ALWAYS: audit payload projection preserves prior-context selector fields rather than parsing rendered audit output or raw journal-event envelopes for run-set context ([audit])

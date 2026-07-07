@@ -1609,6 +1609,36 @@ export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promis
   }
 }
 
+export async function assertAuditRejectsSuppliedTerminalMetadata(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await auditAppendScenario();
+  const scope = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  await appendAuditScope(scenario, deps, runToken, scope);
+  const eventsBeforeInvalidMetadata = await readVerifyRunEvents(scenario, runToken, fs);
+  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+  const finished = await verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+  expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID);
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeInvalidMetadata);
+  expect(
+    await finishRun(
+      scenario,
+      deps,
+      runToken,
+      JOURNAL_RUN_STATE_STATUS.APPROVED,
+    ),
+  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED });
+}
+
 function requiredRejectingAuditCoverageStatuses(): readonly AuditScopeUnit["coverageStatus"][] {
   return Object.values(AUDIT_COVERAGE_STATUS).filter((status) =>
     status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
