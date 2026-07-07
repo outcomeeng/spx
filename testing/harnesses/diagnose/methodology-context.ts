@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect } from "vitest";
@@ -23,6 +23,8 @@ const OBSERVED_VERSION = "0.74.2";
 const DIFFERENT_VERSION = "0.74.1";
 const HIGHER_VERSION = "0.74.10";
 const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
+const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
+const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
 
 function generatedMethodology(version = "installed"): MethodologyConfig {
   return {
@@ -94,8 +96,8 @@ async function runText(
   return output;
 }
 
-async function runManifestTextWithoutMethodology(): Promise<string> {
-  let output: string | undefined;
+async function runManifestWithoutMethodology(): Promise<string> {
+  let error: string | undefined;
   await withTestEnv({}, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
@@ -107,12 +109,44 @@ async function runManifestTextWithoutMethodology(): Promise<string> {
         readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
       },
     });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      error = result.error;
+    }
+  });
+  if (error === undefined) throw new Error("diagnose command produced no error");
+  return error;
+}
+
+async function runManifestJsonWithMethodology(
+  methodology: MethodologyConfig,
+  observation: MethodologyContextObservation,
+): Promise<Record<string, unknown>> {
+  let output: string | undefined;
+  await withTestEnv({}, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      manifestPath: "diagnose.json",
+      format: DIAGNOSE_FORMAT.JSON,
+      color: false,
+      registry: registryFor(observation),
+      fs: {
+        readFile: () =>
+          Promise.resolve(JSON.stringify({
+            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
+            [METHODOLOGY_SECTION]: {
+              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
+              [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
+            },
+          })),
+      },
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     output = result.value.output;
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
-  return output;
+  return JSON.parse(output) as Record<string, unknown>;
 }
 
 function firstCheck(report: Record<string, unknown>): Record<string, unknown> {
@@ -125,53 +159,102 @@ function firstCheck(report: Record<string, unknown>): Record<string, unknown> {
   return check as Record<string, unknown>;
 }
 
+function expectReadings(
+  check: Record<string, unknown>,
+  configured: MethodologyConfig,
+  observed: MethodologyContextObservation,
+): void {
+  expect(check.readings).toEqual(expect.objectContaining({
+    configuredSource: configured.source,
+    configuredVersion: configured.version,
+    observedSource: observed.source ?? "(absent)",
+    observedVersion: observed.version ?? "(absent)",
+  }));
+}
+
 export async function assertInstalledMethodologyDiagnoseIsHealthy(): Promise<void> {
   const methodology = generatedMethodology();
-  const report = await runJson(methodology, {
+  const observation = {
     source: methodology.source,
     version: OBSERVED_VERSION,
     errored: false,
-  });
+  };
+  const report = await runJson(methodology, observation);
   const check = firstCheck(report);
   expect(check.name).toBe(CHECK_NAME.METHODOLOGY_CONTEXT);
   expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
+  expectReadings(check, methodology, observation);
+  expect(report.overall).toBe(OVERALL_VERDICT.HEALTHY);
+}
+
+export async function assertManifestMethodologyDiagnoseIsHealthy(): Promise<void> {
+  const methodology = generatedMethodology();
+  const observation = {
+    source: methodology.source,
+    version: OBSERVED_VERSION,
+    errored: false,
+  };
+  const report = await runManifestJsonWithMethodology(methodology, observation);
+  const check = firstCheck(report);
+  expect(check.name).toBe(CHECK_NAME.METHODOLOGY_CONTEXT);
+  expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
+  expectReadings(check, methodology, observation);
   expect(report.overall).toBe(OVERALL_VERDICT.HEALTHY);
 }
 
 export async function assertExactMethodologyVersionMismatchDiagnose(): Promise<void> {
   const methodology = generatedMethodology(DIFFERENT_VERSION);
-  const report = await runJson(methodology, {
+  const observation = {
     source: methodology.source,
     version: OBSERVED_VERSION,
     errored: false,
-  });
+  };
+  const report = await runJson(methodology, observation);
   const check = firstCheck(report);
   expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH);
+  expectReadings(check, methodology, observation);
   expect(report.overall).toBe(OVERALL_VERDICT.DEGRADED);
 }
 
 export async function assertUnavailableMethodologyDiagnose(): Promise<void> {
   const methodology = generatedMethodology();
-  const report = await runJson(methodology, {
+  const observation = {
     source: null,
     version: null,
     errored: false,
-  });
+  };
+  const report = await runJson(methodology, observation);
   const check = firstCheck(report);
   expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
+  expectReadings(check, methodology, observation);
   expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
 }
 
 export async function assertUnknownMethodologyDiagnose(): Promise<void> {
   const methodology = generatedMethodology();
-  const report = await runJson(methodology, {
+  const observation = {
     source: null,
     version: null,
     errored: true,
-  });
+  };
+  const report = await runJson(methodology, observation);
   const check = firstCheck(report);
   expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+  expectReadings(check, methodology, observation);
   expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
+}
+
+export async function assertMethodologyProbeReadErrorsReachUnknownDiagnose(): Promise<void> {
+  const methodology = generatedMethodology();
+  await withTempDir("spx-methodology-probe-", async (codexHome) => {
+    await writeFile(join(codexHome, BROKEN_PLUGIN_CACHE_SEGMENT), BROKEN_PLUGIN_CACHE_FILE_CONTENT);
+    const observation = await createMethodologyContextProbe(codexHome).probe(methodology);
+    const report = await runJson(methodology, observation);
+    const check = firstCheck(report);
+    expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+    expectReadings(check, methodology, observation);
+    expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
+  });
 }
 
 export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
@@ -182,13 +265,14 @@ export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
     errored: false,
   });
   expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
+  expect(output).toContain(methodology.source);
   expect(output).toContain(OBSERVED_VERSION);
 }
 
-export async function assertMethodologyNotApplicableTextRenders(): Promise<void> {
-  const output = await runManifestTextWithoutMethodology();
-  expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_NOT_CONFIGURED);
-  expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_CONFIGURED);
+export async function assertMethodologyManifestWithoutFactsRejects(): Promise<void> {
+  const error = await runManifestWithoutMethodology();
+  expect(error).toContain(CHECK_NAME.METHODOLOGY_CONTEXT);
+  expect(error).toContain(METHODOLOGY_SECTION);
 }
 
 export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<void> {

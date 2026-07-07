@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { CHECK_NAME, type CheckName, parseManifest } from "@/domains/diagnose/manifest";
 import { arbitraryCheckName, arbitraryManifestFacts, manifestJson } from "@testing/generators/diagnose/manifest";
 
@@ -30,6 +31,15 @@ describe("a manifest parses to the typed contract carrying the floor, marketplac
           expect(result.value.marketplace).toBeUndefined();
           expect(result.value.expectedPlugins).toBeUndefined();
         }
+
+        if (facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
+          expect(result.value.methodology).toEqual({
+            [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
+            [METHODOLOGY_CONFIG_FIELDS.VERSION]: facts.methodologyVersion,
+          });
+        } else {
+          expect(result.value.methodology).toBeUndefined();
+        }
       }),
     );
   });
@@ -57,6 +67,60 @@ describe("a manifest that selects a check without that check's required consumer
           }),
         );
         expect(result.ok).toBe(false);
+      }),
+    );
+  });
+
+  it("rejects a manifest selecting methodology-context with no methodology facts", () => {
+    const result = parseAgainstAllChecks(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] }));
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a manifest selecting methodology-context with malformed methodology facts", () => {
+    fc.assert(
+      fc.property(arbitraryManifestFacts(), (facts) => {
+        const result = parseAgainstAllChecks(
+          JSON.stringify({
+            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
+            [METHODOLOGY_SECTION]: {
+              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
+              [METHODOLOGY_CONFIG_FIELDS.VERSION]: "",
+            },
+          }),
+        );
+        expect(result.ok).toBe(false);
+      }),
+    );
+  });
+
+  it("rejects a manifest selecting methodology-context with incomplete methodology facts", () => {
+    fc.assert(
+      fc.property(arbitraryManifestFacts(), (facts) => {
+        const result = parseAgainstAllChecks(
+          JSON.stringify({
+            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
+            [METHODOLOGY_SECTION]: {
+              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
+            },
+          }),
+        );
+        expect(result.ok).toBe(false);
+      }),
+    );
+  });
+
+  it("ignores malformed methodology facts when methodology-context is not selected", () => {
+    fc.assert(
+      fc.property(arbitraryManifestFacts(), (facts) => {
+        const checks = facts.checks.filter((check) => check !== CHECK_NAME.METHODOLOGY_CONTEXT);
+        fc.pre(checks.length > 0);
+        const body = JSON.parse(manifestJson({ ...facts, checks })) as Record<string, unknown>;
+        body[METHODOLOGY_SECTION] = {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: "",
+        };
+        const result = parseAgainstAllChecks(JSON.stringify(body));
+        expect(result.ok).toBe(true);
       }),
     );
   });

@@ -9,7 +9,7 @@
  * @module domains/diagnose/manifest
  */
 
-import type { MethodologyConfig } from "@/config/methodology";
+import { type MethodologyConfig, validateMethodologyConfig } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import {
   isNonEmptyString,
@@ -59,12 +59,38 @@ function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<re
   return { ok: true, value: raw as readonly CheckName[] };
 }
 
+function validateManifestMethodology(
+  parsed: Record<string, unknown>,
+  checks: readonly CheckName[],
+): Result<MethodologyConfig | undefined> {
+  if (!checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
+    return { ok: true, value: undefined };
+  }
+
+  if (parsed.methodology === undefined) {
+    return { ok: false, error: "manifest selects `methodology-context` but carries no `methodology`" };
+  }
+
+  if (
+    !isRecord(parsed.methodology)
+    || !isNonEmptyString(parsed.methodology.source)
+    || !isNonEmptyString(parsed.methodology.version)
+  ) {
+    return { ok: false, error: "manifest selects `methodology-context` but carries incomplete `methodology`" };
+  }
+
+  const methodology = validateMethodologyConfig(parsed.methodology);
+  if (!methodology.ok) return { ok: false, error: `manifest \`methodology\`: ${methodology.error}` };
+  return methodology;
+}
+
 /**
  * Parses the raw manifest JSON and validates it into the typed contract against
  * the checks available in this build. A manifest naming a check absent from
  * `availableChecks` is rejected, as is one that selects a check without that
- * check's required consumer facts: `spx-reachability` requires `spx_floor`, and
- * `marketplace-install` requires `marketplace` and `expected_plugins`.
+ * check's required consumer facts: `spx-reachability` requires `spx_floor`,
+ * `marketplace-install` requires `marketplace` and `expected_plugins`, and
+ * `methodology-context` requires `methodology`.
  */
 export function parseManifest(rawJson: string, availableChecks: readonly CheckName[]): Result<DiagnoseManifest> {
   let parsed: unknown;
@@ -85,7 +111,12 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
     marketplace?: MarketplaceIdentity;
     expectedPlugins?: readonly string[];
     checks: readonly CheckName[];
+    methodology?: MethodologyConfig;
   } = { checks: checks.value };
+
+  const methodology = validateManifestMethodology(parsed, checks.value);
+  if (!methodology.ok) return methodology;
+  manifest.methodology = methodology.value;
 
   if (checks.value.includes(CHECK_NAME.SPX_REACHABILITY)) {
     if (!isNonEmptyString(parsed.spx_floor)) {
