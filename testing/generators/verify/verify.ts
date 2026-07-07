@@ -2,6 +2,15 @@ import * as fc from "fast-check";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
+  AUDIT_CLASS,
+  AUDIT_COVERAGE_REQUIREMENT,
+  AUDIT_COVERAGE_STATUS,
+  AUDIT_FINDING_SEVERITY,
+  AUDIT_KIND,
+  type AuditFinding,
+  type AuditProducerIdentity,
+  type AuditProducerProvenance,
+  type AuditScopeUnit,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_SCOPE_COVERAGE_STATE,
@@ -19,6 +28,9 @@ const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFI
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
 const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
+const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
+const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
+const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
 const EMPTY_REVIEW_BODY = "";
@@ -66,6 +78,24 @@ function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
   );
 }
 
+function arbitraryLineReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFinding().filter((finding) =>
+    finding.line !== undefined && finding.position === undefined && finding.providerIdentity === undefined
+  );
+}
+
+function arbitraryProviderPositionReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFinding().filter((finding) =>
+    finding.line === undefined && finding.position !== undefined && finding.providerIdentity !== undefined
+  );
+}
+
+function arbitraryProviderLineAndPositionReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFinding().filter((finding) =>
+    finding.line !== undefined && finding.position !== undefined && finding.providerIdentity !== undefined
+  );
+}
+
 function arbitraryReviewScopeUnit(): fc.Arbitrary<ReviewScopeUnit> {
   const base = {
     path: arbitrarySourceFilePath(),
@@ -96,6 +126,138 @@ function arbitraryReviewTerminalMetadata(state: string): fc.Arbitrary<ReviewTerm
     submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
     commit: STATE_STORE_TEST_GENERATOR.headSha(),
   }) as fc.Arbitrary<ReviewTerminalMetadata>;
+}
+
+function arbitraryReviewTerminalMetadataWithProvider(state: string): fc.Arbitrary<ReviewTerminalMetadata> {
+  return fc.record({
+    actor: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    state: fc.constant(state),
+    body: fc.oneof(STATE_STORE_TEST_GENERATOR.scopeToken(), fc.constant(EMPTY_REVIEW_BODY)),
+    submittedAt: VERIFY_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+    commit: STATE_STORE_TEST_GENERATOR.headSha(),
+    providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  }) as fc.Arbitrary<ReviewTerminalMetadata>;
+}
+
+function arbitraryAuditProducerIdentity(): fc.Arbitrary<AuditProducerIdentity> {
+  return fc.record({
+    producerKind: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    agentName: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    agentOwningPluginName: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    skillName: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    skillOwningPluginName: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    invocationRole: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
+function arbitraryAuditProducerProvenance(): fc.Arbitrary<AuditProducerProvenance> {
+  return fc.oneof(
+    fc.record({
+      agentOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      skillOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record({
+      agentOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      skillOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      toolVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  );
+}
+
+interface AuditClassKind {
+  readonly auditClass: AuditScopeUnit["auditClass"];
+  readonly auditKind: AuditScopeUnit["auditKind"];
+}
+
+function arbitraryExecutedAuditClassKind(): fc.Arbitrary<AuditClassKind> {
+  return fc.oneof(
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.INSTRUCTIONS),
+      auditKind: fc.constantFrom(
+        AUDIT_KIND.SKILL,
+        AUDIT_KIND.SUBAGENT,
+        AUDIT_KIND.PROMPT,
+        AUDIT_KIND.GUIDE_TEMPLATE,
+      ),
+    }),
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.SPEC),
+      auditKind: fc.constantFrom(AUDIT_KIND.SPEC, AUDIT_KIND.ADR, AUDIT_KIND.PDR),
+    }),
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.IMPLEMENTATION),
+      auditKind: fc.constantFrom(
+        AUDIT_KIND.CODE,
+        AUDIT_KIND.TESTS,
+        AUDIT_KIND.ARCHITECTURE,
+        AUDIT_KIND.EVAL_EVIDENCE,
+      ),
+    }),
+  );
+}
+
+function arbitraryCoverageGapAuditClassKind(): fc.Arbitrary<AuditClassKind> {
+  return fc.record({
+    auditClass: fc.constantFrom(...Object.values(AUDIT_CLASS)),
+    auditKind: fc.constant(AUDIT_KIND.COVERAGE_GAP),
+  });
+}
+
+function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return arbitraryExecutedAuditClassKind().chain((kind) =>
+    fc
+      .record({
+        unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        parentUnitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        subject: arbitrarySourceFilePath(),
+        coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
+        coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
+        priorContext: fc.record({
+          changedFilePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+          concernPartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+          languagePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        }),
+        expectedProducer: arbitraryAuditProducerIdentity(),
+        recordedByRunDriver: arbitraryAuditProducerIdentity(),
+        producerProvenance: arbitraryAuditProducerProvenance(),
+      })
+      .map((unit) => ({
+        ...unit,
+        auditClass: kind.auditClass,
+        auditKind: kind.auditKind,
+      }))
+  );
+}
+
+function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScopeUnit> {
+  return arbitraryCoverageGapAuditClassKind().chain((kind) =>
+    arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, producerProvenance: _provenance, ...unit }) => ({
+      ...unit,
+      auditClass: kind.auditClass,
+      auditKind: kind.auditKind,
+      priorContext: {
+        changedFilePartition: unit.priorContext.changedFilePartition,
+        concernPartition: unit.priorContext.concernPartition,
+      },
+    }))
+  );
+}
+
+function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
+  return fc.record({
+    unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    producerIdentity: arbitraryAuditProducerIdentity(),
+    producerProvenance: arbitraryAuditProducerProvenance(),
+    rule: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    severity: fc.constantFrom(...AUDIT_FINDING_SEVERITIES),
+    location: arbitrarySourceFilePath(),
+    message: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    evidence: fc.record({
+      observed: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      expected: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  });
 }
 
 const SAMPLE_SEED = 0x5645524659;
@@ -192,6 +354,12 @@ export const VERIFY_TEST_GENERATOR = {
       fc.record({ finding: arbitraryReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  reviewFindingAnchorVariants: (): fc.Arbitrary<readonly ReviewFinding[]> =>
+    fc.tuple(
+      arbitraryLineReviewFinding(),
+      arbitraryProviderPositionReviewFinding(),
+      arbitraryProviderLineAndPositionReviewFinding(),
+    ),
   invalidReviewFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
@@ -279,6 +447,10 @@ export const VERIFY_TEST_GENERATOR = {
       }),
     ),
   reviewScopeUnit: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
+  auditScopeUnit: (): fc.Arbitrary<AuditScopeUnit> => arbitraryAuditScopeUnit(),
+  auditScopeUnitWithoutOptionalFields: (): fc.Arbitrary<AuditScopeUnit> =>
+    arbitraryAuditScopeUnitWithoutOptionalFields(),
+  auditFinding: (): fc.Arbitrary<AuditFinding> => arbitraryAuditFinding(),
   invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
@@ -324,8 +496,12 @@ export const VERIFY_TEST_GENERATOR = {
     ),
   reviewApprovedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
     arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.APPROVED),
+  reviewApprovedTerminalMetadataWithProvider: (): fc.Arbitrary<ReviewTerminalMetadata> =>
+    arbitraryReviewTerminalMetadataWithProvider(REVIEW_TERMINAL_STATE.APPROVED),
   reviewChangesRequestedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
     arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.CHANGES_REQUESTED),
+  reviewCommentedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
+    arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.COMMENTED),
   invalidReviewTerminalMetadata: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),

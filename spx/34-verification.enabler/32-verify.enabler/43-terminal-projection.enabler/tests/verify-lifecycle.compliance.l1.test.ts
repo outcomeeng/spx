@@ -12,6 +12,7 @@ import {
   assertRepeatedFinishRejectsRecordedInputSelectorMismatch,
   assertRepeatedFinishRetriesPhysicalSeal,
   assertRepeatedFinishReturnsExistingProjection,
+  assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus,
   assertReviewFindingScopeRejectsApprovedTerminalStatus,
   assertReviewFindingsRejectApprovedTerminalStatus,
   assertReviewTerminalMetadataConflictRejectsWithoutSealing,
@@ -41,6 +42,10 @@ describe("verify finish compliance", () => {
 
   it("rejects approved review terminal status and metadata when scope coverage reports a finding", async () => {
     await assertReviewFindingScopeRejectsApprovedTerminalStatus();
+  });
+
+  it("accepts commented review terminal metadata with the caller-supplied terminal status", async () => {
+    await assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus();
   });
 
   it("returns the existing terminal projection for a repeated finish without appending a second terminal event", async () => {

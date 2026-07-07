@@ -42,9 +42,20 @@ import {
 } from "@/domains/verification-context/context";
 import { verificationContextFilePath } from "@/domains/verification-context/path";
 import {
+  AUDIT_CLASS,
+  AUDIT_COVERAGE_REQUIREMENT,
+  AUDIT_COVERAGE_STATUS,
+  AUDIT_FINDING_SEVERITY,
+  AUDIT_KIND,
+  type AuditFinding,
+  auditPriorContextSelectorForScopeUnit,
+  type AuditScopeUnit,
+  filterAuditScopeUnitsForPriorContext,
   findTerminalEvent,
   REVIEW_SCOPE_COVERAGE_STATE,
   TERMINAL_METADATA_VALIDATION_ERROR,
+  validateAuditFinding,
+  validateAuditScope,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_INPUT_RECORD,
@@ -77,7 +88,7 @@ import {
   VERIFY_CLI,
   type VerifyCliHandlers,
 } from "@/interfaces/cli/verify";
-import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
+import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
   appendableJournalSealMarkerPath,
@@ -587,6 +598,10 @@ export function withVerificationType(
   return { ...scenario, verificationType };
 }
 
+function createReviewVerifyRunContextScenario(): VerifyRunContextScenario {
+  return withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW);
+}
+
 export async function startReportFor(scenario: VerifyRunContextScenario): Promise<VerifyStartReport> {
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
@@ -1064,8 +1079,28 @@ async function reviewAppendScenario(): Promise<{
   const { scenario, fs, deps } = createVerifyAppendScenario(
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+  const runToken = startReport.runToken;
+  return { scenario, fs, deps, runToken };
+}
+
+async function auditAppendScenario(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly fs: VerifyStateStoreFileSystem;
+  readonly deps: VerifyCliDeps;
+  readonly runToken: string;
+}> {
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+  );
   const runToken = await startedRunToken(scenario, deps);
   return { scenario, fs, deps, runToken };
+}
+
+function toJsonValue(value: unknown): JsonValue {
+  return JSON.parse(JSON.stringify(value)) as JsonValue;
 }
 
 function assertEqualJson(actual: unknown, expected: unknown, message: string): void {
@@ -1131,6 +1166,368 @@ export async function assertValidReviewScopeRecordsScopeEvidenceKind(): Promise<
   }
 }
 
+export async function assertReviewScopeProjectionIncludesCleanReviewedUnit(): Promise<void> {
+  const { scenario, deps, runToken } = await reviewAppendScenario();
+  const scope = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewScopeUnit()),
+    coverageState: REVIEW_SCOPE_COVERAGE_STATE.CLEAN,
+  };
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const appended = await verifyAppendScopeCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(scope),
+      idempotencyKey,
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const report = parseRenderReport(
+    (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
+  );
+  const scopeEvents = report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE);
+  const findingEvents = report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING);
+  expect(report.findingCount).toBe(0);
+  expect(scopeEvents).toHaveLength(1);
+  expect(findingEvents).toHaveLength(0);
+  expect(scopeEvents[0]?.data).toEqual({
+    [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: idempotencyKey,
+    [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: scope,
+  });
+}
+
+export async function assertAuditScopePayloadsConformToSchema(): Promise<void> {
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnit(), async (scopeUnit) => {
+    const payload = toJsonValue(scopeUnit);
+    expect(validateAuditScope(payload)).toEqual(scopeUnit);
+  });
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnit(), async (scopeUnit) => {
+    const { producerProvenance: _producerProvenance, ...scopeUnitWithoutProvenance } = scopeUnit;
+    const payload = toJsonValue(scopeUnitWithoutProvenance);
+    expect(validateAuditScope(payload)).toEqual(scopeUnitWithoutProvenance);
+  });
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnitWithoutOptionalFields(), async (scopeUnit) => {
+    const payload = toJsonValue(scopeUnit);
+    expect(validateAuditScope(payload)).toEqual(scopeUnit);
+  });
+}
+
+export async function assertAuditFindingPayloadsConformToSchema(): Promise<void> {
+  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditFinding(), async (finding) => {
+    const payload = toJsonValue(finding);
+    expect(validateAuditFinding(payload)).toEqual(finding);
+  });
+}
+
+async function appendAuditScope(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+  scope: AuditScopeUnit,
+  idempotencyKey: string = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+): Promise<void> {
+  const appended = await verifyAppendScopeCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(scope),
+      idempotencyKey,
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+}
+
+async function appendAuditFinding(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+  finding: AuditFinding,
+): Promise<void> {
+  const appended = await verifyAppendFindingCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(finding),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+}
+
+export async function assertAuditScopeProjectionPreservesUnits(): Promise<void> {
+  const { scenario, deps, runToken } = await auditAppendScenario();
+  const scopeIds = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const parent = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    unitId: scopeIds.first,
+    parentUnitId: undefined,
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  const child = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    unitId: scopeIds.second,
+    parentUnitId: parent.unitId,
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  await appendAuditScope(scenario, deps, runToken, parent, idempotencyKeys.first);
+  await appendAuditScope(scenario, deps, runToken, child, idempotencyKeys.second);
+  const report = parseRenderReport(
+    (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
+  );
+  const scopeEvents = report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE);
+  expect(scopeEvents.map((event) => (event.data as { readonly payload: JsonValue }).payload)).toEqual([
+    toJsonValue(parent),
+    toJsonValue(child),
+  ]);
+  expect(report.findingCount).toBe(0);
+}
+
+export async function assertAuditPriorContextSelectorsFilterScopeUnits(): Promise<void> {
+  const current = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    auditClass: AUDIT_CLASS.IMPLEMENTATION,
+    auditKind: AUDIT_KIND.ARCHITECTURE,
+  };
+  const alternate = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
+  const alternatePaths = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changedPathsPair());
+  const alternatePartitions = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const alternateSubject = selectAlternateString(current.subject, [
+    ...alternatePaths.first,
+    ...alternatePaths.second,
+    alternate.subject,
+  ]);
+  const alternateChangedFilePartition = selectAlternateString(
+    current.priorContext.changedFilePartition,
+    [alternatePartitions.first, alternatePartitions.second],
+  );
+  const currentLanguagePartition = current.priorContext.languagePartition;
+  expect(currentLanguagePartition).toBeDefined();
+  const alternateLanguagePartition = selectAlternateString(
+    currentLanguagePartition ?? current.priorContext.changedFilePartition,
+    [alternatePartitions.first, alternatePartitions.second],
+  );
+  const alternateConcernPartition = selectAlternateString(
+    current.priorContext.concernPartition,
+    [alternatePartitions.first, alternatePartitions.second, alternate.priorContext.concernPartition],
+  );
+  const alternateExpectedProducer = {
+    ...current.expectedProducer,
+    invocationRole: selectAlternateString(
+      current.expectedProducer.invocationRole,
+      [alternatePartitions.first, alternatePartitions.second, alternate.expectedProducer.invocationRole],
+    ),
+  };
+  const { producerProvenance: _currentProducerProvenance, ...currentWithoutProducerProvenance } = current;
+  const selector = auditPriorContextSelectorForScopeUnit(current);
+
+  expect(selector).toEqual({
+    auditClass: current.auditClass,
+    auditKind: current.auditKind,
+    expectedProducer: current.expectedProducer,
+    subjectPath: current.subject,
+    changedFilePartition: current.priorContext.changedFilePartition,
+    concernPartition: current.priorContext.concernPartition,
+    languagePartition: current.priorContext.languagePartition,
+    producerIdentity: current.expectedProducer,
+  });
+  expect(filterAuditScopeUnitsForPriorContext([
+    { ...current, auditClass: AUDIT_CLASS.SPEC },
+    { ...current, auditKind: AUDIT_KIND.CODE },
+    { ...current, expectedProducer: alternateExpectedProducer },
+    { ...current, subject: alternateSubject },
+    {
+      ...current,
+      priorContext: {
+        ...current.priorContext,
+        changedFilePartition: alternateChangedFilePartition,
+      },
+    },
+    {
+      ...current,
+      priorContext: {
+        ...current.priorContext,
+        languagePartition: alternateLanguagePartition,
+      },
+    },
+    {
+      ...current,
+      priorContext: {
+        ...current.priorContext,
+        concernPartition: alternateConcernPartition,
+      },
+    },
+    currentWithoutProducerProvenance,
+    current,
+  ], selector)).toEqual([current]);
+
+  const planned = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnitWithoutOptionalFields());
+  const plannedSelector = auditPriorContextSelectorForScopeUnit(planned);
+
+  expect(plannedSelector.producerIdentity).toBeUndefined();
+  expect(filterAuditScopeUnitsForPriorContext([planned], plannedSelector)).toEqual([planned]);
+}
+
+function selectAlternateString(current: string, candidates: readonly string[]): string {
+  const alternate = candidates.find((candidate) => candidate !== current);
+  expect(alternate).toBeDefined();
+  return alternate ?? current;
+}
+
+export async function assertAuditCleanCoverageDoesNotInventFinding(): Promise<void> {
+  const { scenario, deps, runToken } = await auditAppendScenario();
+  const scope = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  await appendAuditScope(scenario, deps, runToken, scope);
+  const report = parseRenderReport(
+    (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
+  );
+  expect(report.findingCount).toBe(0);
+  expect(report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
+  expect(report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
+}
+
+export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promise<void> {
+  const requiredClean = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  const requiredNotApplicable = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
+  };
+  const optionalUncovered = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+    coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
+  };
+
+  const cleanScenario = await auditAppendScenario();
+  const cleanScopeKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  await appendAuditScope(
+    cleanScenario.scenario,
+    cleanScenario.deps,
+    cleanScenario.runToken,
+    requiredClean,
+    cleanScopeKeys.first,
+  );
+  await appendAuditScope(
+    cleanScenario.scenario,
+    cleanScenario.deps,
+    cleanScenario.runToken,
+    optionalUncovered,
+    cleanScopeKeys.second,
+  );
+  await appendAuditScope(
+    cleanScenario.scenario,
+    cleanScenario.deps,
+    cleanScenario.runToken,
+    requiredNotApplicable,
+  );
+  expect(
+    await finishRun(
+      cleanScenario.scenario,
+      cleanScenario.deps,
+      cleanScenario.runToken,
+      JOURNAL_RUN_STATE_STATUS.APPROVED,
+    ),
+  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED });
+
+  const emptyScenario = await auditAppendScenario();
+  const emptyRejected = await verifyFinishCommand(
+    verifyFinishOptions(emptyScenario.scenario, {
+      run: emptyScenario.runToken,
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+    }),
+    emptyScenario.deps,
+  );
+  expect(emptyRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(emptyRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(
+    await finishRun(
+      emptyScenario.scenario,
+      emptyScenario.deps,
+      emptyScenario.runToken,
+      JOURNAL_RUN_STATE_STATUS.REJECTED,
+    ),
+  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
+
+  for (const coverageStatus of requiredRejectingAuditCoverageStatuses()) {
+    const uncoveredScenario = await auditAppendScenario();
+    await appendAuditScope(
+      uncoveredScenario.scenario,
+      uncoveredScenario.deps,
+      uncoveredScenario.runToken,
+      {
+        ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus,
+      },
+    );
+    const uncoveredRejected = await verifyFinishCommand(
+      verifyFinishOptions(uncoveredScenario.scenario, {
+        run: uncoveredScenario.runToken,
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      }),
+      uncoveredScenario.deps,
+    );
+    expect(uncoveredRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(uncoveredRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+    expect(
+      await finishRun(
+        uncoveredScenario.scenario,
+        uncoveredScenario.deps,
+        uncoveredScenario.runToken,
+        JOURNAL_RUN_STATE_STATUS.REJECTED,
+      ),
+    ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
+  }
+
+  for (const severity of Object.values(AUDIT_FINDING_SEVERITY)) {
+    const findingScenario = await auditAppendScenario();
+    await appendAuditScope(findingScenario.scenario, findingScenario.deps, findingScenario.runToken, requiredClean);
+    await appendAuditFinding(
+      findingScenario.scenario,
+      findingScenario.deps,
+      findingScenario.runToken,
+      {
+        ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+        severity,
+      },
+    );
+    const findingRejected = await verifyFinishCommand(
+      verifyFinishOptions(findingScenario.scenario, {
+        run: findingScenario.runToken,
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      }),
+      findingScenario.deps,
+    );
+    expect(findingRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(findingRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+    expect(
+      await finishRun(
+        findingScenario.scenario,
+        findingScenario.deps,
+        findingScenario.runToken,
+        JOURNAL_RUN_STATE_STATUS.REJECTED,
+      ),
+    ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
+  }
+}
+
+function requiredRejectingAuditCoverageStatuses(): readonly AuditScopeUnit["coverageStatus"][] {
+  return Object.values(AUDIT_COVERAGE_STATUS).filter((status) =>
+    status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
+  );
+}
+
 export async function assertInvalidReviewFindingRejectedBeforeAppend(): Promise<void> {
   const { scenario, fs, deps, runToken } = await reviewAppendScenario();
   const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
@@ -1185,6 +1582,37 @@ export async function assertValidReviewFindingRecordsBoundaryEvidence(): Promise
   }
 }
 
+export async function assertReviewCommentProjectionIncludesFindingPayload(): Promise<void> {
+  const { scenario, deps, runToken } = await reviewAppendScenario();
+  const findings = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingAnchorVariants());
+  const idempotencyKeys = sampleVerifyTestValue(
+    fc.uniqueArray(VERIFY_TEST_GENERATOR.idempotencyKey(), { minLength: findings.length, maxLength: findings.length }),
+  );
+  for (const [index, finding] of findings.entries()) {
+    const appended = await verifyAppendFindingCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(finding),
+        idempotencyKey: idempotencyKeys[index],
+      }),
+      deps,
+    );
+    expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  }
+  const report = parseRenderReport(
+    (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
+  );
+  const findingEvents = report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING);
+  expect(report.findingCount).toBe(findings.length);
+  expect(findingEvents).toHaveLength(findings.length);
+  expect(findingEvents.map((event) => event.data)).toEqual(
+    findings.map((finding, index) => ({
+      [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: idempotencyKeys[index],
+      [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: finding,
+    })),
+  );
+}
+
 export async function assertReviewFindingSelectorMismatchRejectsWithoutAppend(): Promise<void> {
   const { scenario, fs, deps, runToken } = await reviewAppendScenario();
   const finding = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFinding());
@@ -1217,7 +1645,9 @@ export async function assertReviewFindingSelectorMismatchRejectsWithoutAppend():
 }
 
 export async function assertReviewTerminalMetadataConflictRejectsWithoutSealing(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     throw new Error(`verify start failed in harness: ${started.output}`);
@@ -1318,8 +1748,29 @@ export async function assertReviewFindingScopeRejectsApprovedTerminalStatus(): P
   await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
 }
 
+export async function assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus(): Promise<void> {
+  for (const terminalStatus of [JOURNAL_RUN_STATE_STATUS.APPROVED, JOURNAL_RUN_STATE_STATUS.REJECTED]) {
+    const { scenario, deps } = createVerifyAppendScenario(
+      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+    );
+    const runToken = await startedRunToken(scenario, deps);
+    const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewCommentedTerminalMetadata());
+    const finished = await verifyFinishCommand(
+      {
+        ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
+        terminalMetadata: JSON.stringify(terminalMetadata),
+      },
+      deps,
+    );
+    const report = parseFinishReport(finished.output);
+    expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    expect(report.terminalStatus).toBe(terminalStatus);
+    expect(report.terminalMetadata).toEqual(terminalMetadata);
+  }
+}
+
 export async function assertBlankTerminalStatusRejectedWithoutCompletion(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     throw new Error(`verify start failed in harness: ${started.output}`);
@@ -1352,7 +1803,7 @@ export async function assertBlankTerminalStatusRejectedWithoutCompletion(): Prom
 }
 
 export async function assertInvalidTerminalStatusRejectedWithoutCompletion(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     throw new Error(`verify start failed in harness: ${started.output}`);
@@ -1385,7 +1836,9 @@ export async function assertInvalidTerminalStatusRejectedWithoutCompletion(): Pr
 }
 
 export async function assertInvalidReviewTerminalMetadataRejectedWithoutCompletion(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     throw new Error(`verify start failed in harness: ${started.output}`);
@@ -1615,7 +2068,7 @@ export async function assertStartReportsPersistableRunLocator(): Promise<void> {
 }
 
 export async function assertAppendRejectsUnsupportedScopeTypesBeforePayloadRead(): Promise<void> {
-  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
   const deps = {
     ...baseDeps,
@@ -1648,7 +2101,7 @@ export async function assertAppendRejectsUnsupportedScopeTypesBeforePayloadRead(
 }
 
 export async function assertAppendRejectsMalformedChangesetScopesBeforePayloadRead(): Promise<void> {
-  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
   const deps = {
     ...baseDeps,
@@ -1681,7 +2134,9 @@ export async function assertAppendRejectsMalformedChangesetScopesBeforePayloadRe
 }
 
 export async function assertAppendPayloadChannelDoesNotReuseRunInput(): Promise<void> {
-  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps: baseDeps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
   const inputReader = createRecordingInputReader();
   const deps = { ...baseDeps, readInputSource: inputReader.read };
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
@@ -1757,7 +2212,9 @@ export async function assertAppendRejectsUnsupportedVerificationTypesBeforePaylo
 }
 
 export async function assertAppendIdempotencyReturnsExistingSequenceForRepeatedKey(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
   const runToken = await startedRunToken(scenario, deps);
   const keys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
   const payload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
@@ -1821,7 +2278,10 @@ export async function assertIdempotencyKeysDoNotCollideAcrossAppendKinds(): Prom
   );
   const runToken = await startedRunToken(scenario, deps);
   const sharedKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
-  const scopePayload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
+  const scopePayload = JSON.stringify({
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewScopeUnit()),
+    coverageState: REVIEW_SCOPE_COVERAGE_STATE.CLEAN,
+  });
   const findingPayload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFinding()));
   const scopeAppend = await verifyAppendScopeCommand(
     verifyAppendOptions(scenario, { run: runToken, payload: scopePayload, idempotencyKey: sharedKey }),
@@ -1926,9 +2386,15 @@ export async function assertFinishRecordsTerminalCompletionAndRejectsFurtherEvid
   const { scenario, fs, deps } = createVerifyAppendScenario(
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
-  const runToken = await startedRunToken(scenario, deps);
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const startReport = parseStartReport(started.output);
+  const runToken = startReport.runToken;
   const keys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
-  const scopePayload = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.scopePayload()));
+  const scopePayload = JSON.stringify({
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewScopeUnit()),
+    coverageState: REVIEW_SCOPE_COVERAGE_STATE.CLEAN,
+  });
   const scopeAppend = await verifyAppendScopeCommand(
     verifyAppendOptions(scenario, { run: runToken, payload: scopePayload, idempotencyKey: keys.first }),
     deps,
@@ -1937,7 +2403,9 @@ export async function assertFinishRecordsTerminalCompletionAndRejectsFurtherEvid
   const findings = await appendFindingBatch(scenario, deps, runToken);
   const terminalStatus = JOURNAL_RUN_STATE_STATUS.REJECTED;
   const finished = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
-  expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  if (finished.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify finish failed in rejected terminal scenario: ${finished.output}`);
+  }
 
   const report = parseFinishReport(finished.output);
   expect(report.runToken).toBe(runToken);
@@ -1947,6 +2415,9 @@ export async function assertFinishRecordsTerminalCompletionAndRejectsFurtherEvid
   const events = await readVerifyRunEvents(scenario, runToken, fs);
   expect(findTerminalEvent(events)).toBeDefined();
   expect(report.lastSequence).toBe(events.length);
+  await expect(
+    fs.readFile(appendableJournalSealMarkerPath(startReport.locator.runTarget), STATE_STORE_TEXT_ENCODING),
+  ).resolves.toBe(APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
 
   const afterFinish = await verifyAppendScopeCommand(
     verifyAppendOptions(scenario, { run: runToken, payload: scopePayload, idempotencyKey: keys.second }),
@@ -2082,7 +2553,7 @@ export async function assertFinishStatusAndRenderProjectTerminalMetadata(): Prom
   );
   const runToken = await startedRunToken(scenario, deps);
   const terminalMetadata = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata()),
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadataWithProvider()),
     body: "",
   };
   const terminalMetadataPayload = { ...terminalMetadata, ignored: scenario.inputContent };
@@ -2244,7 +2715,7 @@ export async function assertStatusAndRenderRejectRequestedScopeMismatch(): Promi
 }
 
 export async function assertRepeatedFinishReturnsExistingProjection(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
   const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
   const first = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
@@ -2256,7 +2727,7 @@ export async function assertRepeatedFinishReturnsExistingProjection(): Promise<v
 }
 
 export async function assertRepeatedFinishRetriesPhysicalSeal(): Promise<void> {
-  const scenario = createVerifyRunContextScenario();
+  const scenario = createReviewVerifyRunContextScenario();
   const fs = createSealRetryFileSystem();
   const deps = createVerifyAppendScenario(scenario).deps;
   const retryDeps = { ...deps, fs };
@@ -2287,7 +2758,7 @@ export async function assertRepeatedFinishRetriesPhysicalSeal(): Promise<void> {
 }
 
 export async function assertRepeatedFinishProjectsWhenSealMarkerUnreadable(): Promise<void> {
-  const scenario = createVerifyRunContextScenario();
+  const scenario = createReviewVerifyRunContextScenario();
   const fs = createSealRetryFileSystem();
   const deps = { ...createVerifyAppendScenario(scenario).deps, fs };
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
@@ -2327,7 +2798,7 @@ export async function assertFinishRejectsRawUnterminalRun(): Promise<void> {
 }
 
 export async function assertSecondFinishKeepsFirstProjection(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
   const statuses = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.distinctTerminalStatuses());
   await finishRun(scenario, deps, runToken, statuses.first);
@@ -2340,7 +2811,7 @@ export async function assertSecondFinishKeepsFirstProjection(): Promise<void> {
 }
 
 export async function assertFinishProjectionWorksWithoutJournalBinding(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
   const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
   await finishRun(scenario, deps, runToken, terminalStatus);
@@ -2358,7 +2829,7 @@ export async function assertFinishProjectionWorksWithoutJournalBinding(): Promis
 }
 
 export async function assertRepeatedFinishRejectsRecordedInputSelectorMismatch(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
@@ -2382,7 +2853,7 @@ export async function assertRepeatedFinishRejectsRecordedInputSelectorMismatch()
 }
 
 export async function assertFinishRejectsUnsupportedScopeAndMalformedScope(): Promise<void> {
-  const { scenario, fs, deps } = createVerifyAppendScenario(createVerifyRunContextScenario());
+  const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);

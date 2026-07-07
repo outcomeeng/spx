@@ -2,13 +2,14 @@ import { readdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
   type ValidationPipelineScenario,
+  validationPipelineScenarios,
   type ValidationStepOutcome,
   type ValidationStructuralMappingScenario,
 } from "@testing/generators/validation/validation";
@@ -18,6 +19,20 @@ import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-val
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const VALIDATION_ROOT = resolve(__dirname, "../../../spx/41-validation.enabler");
+
+export function describeValidationPipelineComposition(): void {
+  describe("validation pipeline composition", () => {
+    for (const scenario of validationPipelineScenarios()) {
+      it(
+        scenario.title,
+        { timeout: scenario.timeout },
+        async () => {
+          await runValidationPipelineScenario(scenario);
+        },
+      );
+    }
+  });
+}
 
 export function expectValidationStructuralMapping(scenario: ValidationStructuralMappingScenario): void {
   const slugs = listEnablerChildSlugs(resolve(VALIDATION_ROOT, scenario.nodeDirectory));

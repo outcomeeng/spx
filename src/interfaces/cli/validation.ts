@@ -223,6 +223,30 @@ interface ValidationCliResult {
   readonly exitCode: number;
 }
 
+export interface ValidationCommandHandlers {
+  readonly typescript: typeof typescriptCommand;
+  readonly lint: typeof lintCommand;
+  readonly circular: typeof circularCommand;
+  readonly knip: typeof knipCommand;
+  readonly literal: typeof literalCommand;
+  readonly markdown: typeof markdownCommand;
+  readonly formatting: typeof formattingCommand;
+  readonly all: typeof allCommand;
+  readonly allowlistExisting: typeof allowlistExisting;
+}
+
+const DEFAULT_VALIDATION_COMMAND_HANDLERS: ValidationCommandHandlers = {
+  typescript: typescriptCommand,
+  lint: lintCommand,
+  circular: circularCommand,
+  knip: knipCommand,
+  literal: literalCommand,
+  markdown: markdownCommand,
+  formatting: formattingCommand,
+  all: allCommand,
+  allowlistExisting,
+};
+
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
   if (result.output.length > 0) {
     io.writeStdout(`${result.output}\n`);
@@ -317,14 +341,18 @@ function addValidationSubcommand(
 /**
  * Register validation domain commands
  */
-function registerValidationCommands(validationCmd: Command, invocation: CliInvocation): void {
+function registerValidationCommands(
+  validationCmd: Command,
+  invocation: CliInvocation,
+  handlers: ValidationCommandHandlers,
+): void {
   const { subcommands } = validationCliDefinition;
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await typescriptCommand({
+      const result = await handlers.typescript({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -340,7 +368,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option("--fix", "Auto-fix issues")
     .action(async (pathOperands: string[], options: LintOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await lintCommand({
+      const result = await handlers.lint({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -356,7 +384,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await circularCommand({
+      const result = await handlers.circular({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -371,7 +399,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await knipCommand({
+      const result = await handlers.knip({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -403,7 +431,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .action(async (pathOperands: string[], options: LiteralOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
       if (options.allowlistExisting) {
-        const result = await allowlistExisting({ productDir: paths.productDir });
+        const result = await handlers.allowlistExisting({ productDir: paths.productDir });
         emitValidationResult(result, invocation.io);
       }
       let kind: LiteralProblemKind | undefined;
@@ -417,7 +445,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
       }
-      const result = await literalCommand({
+      const result = await handlers.literal({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -442,7 +470,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await markdownCommand({
+      const result = await handlers.markdown({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
@@ -455,7 +483,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await formattingCommand({
+      const result = await handlers.formatting({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
@@ -471,7 +499,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (pathOperands: string[], options: AllOptions) => {
       const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await allCommand({
+      const result = await handlers.all({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -502,20 +530,26 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
   return io.exit(unknownSubcommand.exitCode);
 }
 
-export const validationDomain: Domain = {
-  name: validationCliDefinition.domain.commandName,
-  description: validationCliDefinition.domain.description,
-  register: (program: Command, invocation: CliInvocation) => {
-    const { domain } = validationCliDefinition;
-    const validationCmd = program
-      .command(domain.commandName)
-      .alias(domain.alias)
-      .description(domain.description);
+export function createValidationDomain(
+  handlers: ValidationCommandHandlers = DEFAULT_VALIDATION_COMMAND_HANDLERS,
+): Domain {
+  return {
+    name: validationCliDefinition.domain.commandName,
+    description: validationCliDefinition.domain.description,
+    register: (program: Command, invocation: CliInvocation) => {
+      const { domain } = validationCliDefinition;
+      const validationCmd = program
+        .command(domain.commandName)
+        .alias(domain.alias)
+        .description(domain.description);
 
-    validationCmd.on("command:*", (operands: readonly string[]) => {
-      handleUnknownSubcommand(operands, invocation.io);
-    });
+      validationCmd.on("command:*", (operands: readonly string[]) => {
+        handleUnknownSubcommand(operands, invocation.io);
+      });
 
-    registerValidationCommands(validationCmd, invocation);
-  },
-};
+      registerValidationCommands(validationCmd, invocation, handlers);
+    },
+  };
+}
+
+export const validationDomain: Domain = createValidationDomain();

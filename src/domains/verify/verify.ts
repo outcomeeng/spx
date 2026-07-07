@@ -45,6 +45,7 @@ const UNSEALED_NEXT_ACTIONS: readonly string[] = [
  * keyed by this vocabulary, never verification-type-name branching.
  */
 export const VERIFY_VERIFICATION_TYPE = {
+  AUDIT: "audit",
   REVIEW: "review",
 } as const;
 
@@ -128,6 +129,171 @@ export interface ReviewTerminalMetadata {
   readonly commit: string;
   readonly providerIdentity?: string;
   readonly url?: string;
+}
+
+export const AUDIT_CLASS = {
+  IMPLEMENTATION: "implementation",
+  INSTRUCTIONS: "instructions",
+  SPEC: "spec",
+} as const;
+
+export type AuditClass = (typeof AUDIT_CLASS)[keyof typeof AUDIT_CLASS];
+
+export const AUDIT_KIND = {
+  ADR: "adr",
+  ARCHITECTURE: "architecture",
+  CODE: "code",
+  COVERAGE_GAP: "coverage-gap",
+  EVAL_EVIDENCE: "eval-evidence",
+  GUIDE_TEMPLATE: "guide-template",
+  PDR: "pdr",
+  PROMPT: "prompt",
+  SKILL: "skill",
+  SPEC: "spec",
+  SUBAGENT: "subagent",
+  TESTS: "tests",
+} as const;
+
+export type AuditKind = (typeof AUDIT_KIND)[keyof typeof AUDIT_KIND];
+
+export const AUDIT_COVERAGE_REQUIREMENT = {
+  OPTIONAL: "optional",
+  REQUIRED: "required",
+} as const;
+
+export type AuditCoverageRequirement = (typeof AUDIT_COVERAGE_REQUIREMENT)[keyof typeof AUDIT_COVERAGE_REQUIREMENT];
+
+export const AUDIT_COVERAGE_STATUS = {
+  AUDITED: "audited",
+  INCOMPLETE: "incomplete",
+  MISSING_SKILL: "missing-skill",
+  NOT_APPLICABLE: "not-applicable",
+  SKIPPED: "skipped",
+  UNSUPPORTED: "unsupported",
+} as const;
+
+export type AuditCoverageStatus = (typeof AUDIT_COVERAGE_STATUS)[keyof typeof AUDIT_COVERAGE_STATUS];
+
+export const AUDIT_FINDING_SEVERITY = {
+  BLOCKING: "blocking",
+  DEBT: "debt",
+} as const;
+
+export type AuditFindingSeverity = (typeof AUDIT_FINDING_SEVERITY)[keyof typeof AUDIT_FINDING_SEVERITY];
+
+export interface AuditProducerIdentity {
+  readonly producerKind: string;
+  readonly agentName: string;
+  readonly agentOwningPluginName: string;
+  readonly skillName: string;
+  readonly skillOwningPluginName: string;
+  readonly invocationRole: string;
+}
+
+export interface AuditProducerProvenance {
+  readonly agentOwningPluginVersion: string;
+  readonly skillOwningPluginVersion: string;
+  readonly toolVersion?: string;
+}
+
+export interface AuditPriorContextPartitions {
+  readonly changedFilePartition: string;
+  readonly concernPartition: string;
+  readonly languagePartition?: string;
+}
+
+export interface AuditScopeUnit {
+  readonly unitId: string;
+  readonly auditClass: AuditClass;
+  readonly auditKind: AuditKind;
+  readonly subject: string;
+  readonly coverageRequirement: AuditCoverageRequirement;
+  readonly coverageStatus: AuditCoverageStatus;
+  readonly priorContext: AuditPriorContextPartitions;
+  readonly expectedProducer: AuditProducerIdentity;
+  readonly recordedByRunDriver: AuditProducerIdentity;
+  readonly parentUnitId?: string;
+  readonly producerProvenance?: AuditProducerProvenance;
+}
+
+export interface AuditPriorContextSelector {
+  readonly auditClass: AuditClass;
+  readonly auditKind: AuditKind;
+  readonly expectedProducer: AuditProducerIdentity;
+  readonly subjectPath: string;
+  readonly changedFilePartition: string;
+  readonly concernPartition: string;
+  readonly languagePartition?: string;
+  readonly producerIdentity?: AuditProducerIdentity;
+}
+
+export interface AuditFinding {
+  readonly unitId: string;
+  readonly producerIdentity: AuditProducerIdentity;
+  readonly producerProvenance: AuditProducerProvenance;
+  readonly rule: string;
+  readonly severity: AuditFindingSeverity;
+  readonly location: string;
+  readonly message: string;
+  readonly evidence: { readonly [key: string]: JsonValue };
+}
+
+export function auditPriorContextSelectorForScopeUnit(unit: AuditScopeUnit): AuditPriorContextSelector {
+  return {
+    auditClass: unit.auditClass,
+    auditKind: unit.auditKind,
+    expectedProducer: unit.expectedProducer,
+    subjectPath: unit.subject,
+    changedFilePartition: unit.priorContext.changedFilePartition,
+    concernPartition: unit.priorContext.concernPartition,
+    ...(unit.priorContext.languagePartition === undefined
+      ? {}
+      : { languagePartition: unit.priorContext.languagePartition }),
+    ...(unit.producerProvenance === undefined ? {} : { producerIdentity: unit.expectedProducer }),
+  };
+}
+
+export function filterAuditScopeUnitsForPriorContext(
+  units: readonly AuditScopeUnit[],
+  selector: AuditPriorContextSelector,
+): readonly AuditScopeUnit[] {
+  return units.filter((unit) => auditScopeUnitMatchesPriorContextSelector(unit, selector));
+}
+
+function auditScopeUnitMatchesPriorContextSelector(
+  unit: AuditScopeUnit,
+  selector: AuditPriorContextSelector,
+): boolean {
+  return (
+    unit.auditClass === selector.auditClass
+    && unit.auditKind === selector.auditKind
+    && unit.subject === selector.subjectPath
+    && unit.priorContext.changedFilePartition === selector.changedFilePartition
+    && unit.priorContext.concernPartition === selector.concernPartition
+    && unit.priorContext.languagePartition === selector.languagePartition
+    && auditProducerIdentityMatches(unit.expectedProducer, selector.expectedProducer)
+    && auditProducedByIdentityMatches(unit, selector.producerIdentity)
+  );
+}
+
+function auditProducedByIdentityMatches(
+  unit: AuditScopeUnit,
+  producerIdentity: AuditProducerIdentity | undefined,
+): boolean {
+  if (producerIdentity === undefined) return true;
+  if (unit.producerProvenance === undefined) return false;
+  return auditProducerIdentityMatches(unit.expectedProducer, producerIdentity);
+}
+
+function auditProducerIdentityMatches(left: AuditProducerIdentity, right: AuditProducerIdentity): boolean {
+  return (
+    left.producerKind === right.producerKind
+    && left.agentName === right.agentName
+    && left.agentOwningPluginName === right.agentOwningPluginName
+    && left.skillName === right.skillName
+    && left.skillOwningPluginName === right.skillOwningPluginName
+    && left.invocationRole === right.invocationRole
+  );
 }
 
 export interface TerminalValidationInput {
@@ -394,6 +560,25 @@ function optionalFieldValue<T>(field: OptionalField<T>): T | undefined {
   return field.state === OPTIONAL_FIELD_STATE.PRESENT ? field.value : undefined;
 }
 
+function readRequiredRecord(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): { readonly [key: string]: JsonValue } | undefined {
+  const value = record[field];
+  return isJsonRecord(value) ? value : undefined;
+}
+
+function readOptionalRecord(
+  record: { readonly [key: string]: JsonValue },
+  field: string,
+): OptionalField<{ readonly [key: string]: JsonValue }> {
+  if (!(field in record)) return { state: OPTIONAL_FIELD_STATE.ABSENT };
+  const value = record[field];
+  return isJsonRecord(value)
+    ? { state: OPTIONAL_FIELD_STATE.PRESENT, value }
+    : { state: OPTIONAL_FIELD_STATE.INVALID };
+}
+
 function hasInvalidOptionalField(...fields: readonly OptionalField<unknown>[]): boolean {
   return fields.some((field) => field.state === OPTIONAL_FIELD_STATE.INVALID);
 }
@@ -426,6 +611,49 @@ function isReviewTerminalState(value: JsonValue | undefined): value is ReviewTer
   return (
     typeof value === "string"
     && (Object.values(REVIEW_TERMINAL_STATE) as readonly string[]).includes(value)
+  );
+}
+
+function isAuditClass(value: JsonValue | undefined): value is AuditClass {
+  return typeof value === "string" && (Object.values(AUDIT_CLASS) as readonly string[]).includes(value);
+}
+
+function isAuditKind(value: JsonValue | undefined): value is AuditKind {
+  return typeof value === "string" && (Object.values(AUDIT_KIND) as readonly string[]).includes(value);
+}
+
+function isAuditCoverageRequirement(value: JsonValue | undefined): value is AuditCoverageRequirement {
+  return (
+    typeof value === "string" && (Object.values(AUDIT_COVERAGE_REQUIREMENT) as readonly string[]).includes(value)
+  );
+}
+
+function isAuditCoverageStatus(value: JsonValue | undefined): value is AuditCoverageStatus {
+  return typeof value === "string" && (Object.values(AUDIT_COVERAGE_STATUS) as readonly string[]).includes(value);
+}
+
+function isAuditFindingSeverity(value: JsonValue | undefined): value is AuditFindingSeverity {
+  return typeof value === "string" && (Object.values(AUDIT_FINDING_SEVERITY) as readonly string[]).includes(value);
+}
+
+function isCompatibleAuditKind(auditClass: AuditClass, auditKind: AuditKind): boolean {
+  if (auditKind === AUDIT_KIND.COVERAGE_GAP) return true;
+  if (auditClass === AUDIT_CLASS.INSTRUCTIONS) {
+    return (
+      auditKind === AUDIT_KIND.SKILL
+      || auditKind === AUDIT_KIND.SUBAGENT
+      || auditKind === AUDIT_KIND.PROMPT
+      || auditKind === AUDIT_KIND.GUIDE_TEMPLATE
+    );
+  }
+  if (auditClass === AUDIT_CLASS.SPEC) {
+    return auditKind === AUDIT_KIND.SPEC || auditKind === AUDIT_KIND.ADR || auditKind === AUDIT_KIND.PDR;
+  }
+  return (
+    auditKind === AUDIT_KIND.CODE
+    || auditKind === AUDIT_KIND.TESTS
+    || auditKind === AUDIT_KIND.ARCHITECTURE
+    || auditKind === AUDIT_KIND.EVAL_EVIDENCE
   );
 }
 
@@ -563,6 +791,149 @@ export function validateReviewTerminal(input: TerminalValidationInput): Terminal
   };
 }
 
+function validateAuditProducerIdentity(payload: JsonValue | undefined): AuditProducerIdentity | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const producerKind = readRequiredString(payload, "producerKind");
+  const agentName = readRequiredString(payload, "agentName");
+  const agentOwningPluginName = readRequiredString(payload, "agentOwningPluginName");
+  const skillName = readRequiredString(payload, "skillName");
+  const skillOwningPluginName = readRequiredString(payload, "skillOwningPluginName");
+  const invocationRole = readRequiredString(payload, "invocationRole");
+  if (
+    producerKind === undefined
+    || agentName === undefined
+    || agentOwningPluginName === undefined
+    || skillName === undefined
+    || skillOwningPluginName === undefined
+    || invocationRole === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    producerKind,
+    agentName,
+    agentOwningPluginName,
+    skillName,
+    skillOwningPluginName,
+    invocationRole,
+  };
+}
+
+function validateAuditProducerProvenance(payload: JsonValue | undefined): AuditProducerProvenance | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const agentOwningPluginVersion = readRequiredString(payload, "agentOwningPluginVersion");
+  const skillOwningPluginVersion = readRequiredString(payload, "skillOwningPluginVersion");
+  if (agentOwningPluginVersion === undefined || skillOwningPluginVersion === undefined) return undefined;
+  const toolVersion = readOptionalString(payload, "toolVersion");
+  if (hasInvalidOptionalField(toolVersion)) return undefined;
+  const toolVersionValue = optionalFieldValue(toolVersion);
+  return {
+    agentOwningPluginVersion,
+    skillOwningPluginVersion,
+    ...(toolVersionValue === undefined ? {} : { toolVersion: toolVersionValue }),
+  };
+}
+
+function validateAuditPriorContextPartitions(payload: JsonValue | undefined): AuditPriorContextPartitions | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const changedFilePartition = readRequiredString(payload, "changedFilePartition");
+  const concernPartition = readRequiredString(payload, "concernPartition");
+  if (changedFilePartition === undefined || concernPartition === undefined) return undefined;
+  const languagePartition = readOptionalString(payload, "languagePartition");
+  if (hasInvalidOptionalField(languagePartition)) return undefined;
+  const languagePartitionValue = optionalFieldValue(languagePartition);
+  return {
+    changedFilePartition,
+    concernPartition,
+    ...(languagePartitionValue === undefined ? {} : { languagePartition: languagePartitionValue }),
+  };
+}
+
+function validateOptionalAuditProducerProvenance(
+  producerProvenance: OptionalField<{ readonly [key: string]: JsonValue }>,
+): OptionalField<AuditProducerProvenance> {
+  if (producerProvenance.state !== OPTIONAL_FIELD_STATE.PRESENT) return producerProvenance;
+  const value = validateAuditProducerProvenance(producerProvenance.value);
+  return value === undefined
+    ? { state: OPTIONAL_FIELD_STATE.INVALID }
+    : { state: OPTIONAL_FIELD_STATE.PRESENT, value };
+}
+
+function auditKindAllowsProducerProvenance(
+  auditKind: AuditKind,
+  producerProvenance: AuditProducerProvenance | undefined,
+): boolean {
+  return auditKind !== AUDIT_KIND.COVERAGE_GAP || producerProvenance === undefined;
+}
+
+export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const unitId = readRequiredString(payload, "unitId");
+  const subject = readRequiredString(payload, "subject");
+  const { auditClass, auditKind, coverageRequirement, coverageStatus } = payload;
+  if (unitId === undefined || subject === undefined) return undefined;
+  if (!isAuditClass(auditClass) || !isAuditKind(auditKind)) return undefined;
+  if (!isCompatibleAuditKind(auditClass, auditKind)) return undefined;
+  if (!isAuditCoverageRequirement(coverageRequirement)) return undefined;
+  if (!isAuditCoverageStatus(coverageStatus)) return undefined;
+  const priorContext = validateAuditPriorContextPartitions(readRequiredRecord(payload, "priorContext"));
+  const expectedProducer = validateAuditProducerIdentity(readRequiredRecord(payload, "expectedProducer"));
+  const recordedByRunDriver = validateAuditProducerIdentity(readRequiredRecord(payload, "recordedByRunDriver"));
+  if (priorContext === undefined || expectedProducer === undefined || recordedByRunDriver === undefined) {
+    return undefined;
+  }
+  const parentUnitId = readOptionalString(payload, "parentUnitId");
+  const producerProvenance = validateOptionalAuditProducerProvenance(
+    readOptionalRecord(payload, "producerProvenance"),
+  );
+  if (hasInvalidOptionalField(parentUnitId, producerProvenance)) return undefined;
+  const parentUnitIdValue = optionalFieldValue(parentUnitId);
+  const producerProvenanceValue = optionalFieldValue(producerProvenance);
+  if (!auditKindAllowsProducerProvenance(auditKind, producerProvenanceValue)) return undefined;
+  return {
+    unitId,
+    auditClass,
+    auditKind,
+    subject,
+    coverageRequirement,
+    coverageStatus,
+    priorContext,
+    expectedProducer,
+    recordedByRunDriver,
+    ...(parentUnitIdValue === undefined ? {} : { parentUnitId: parentUnitIdValue }),
+    ...(producerProvenanceValue === undefined ? {} : { producerProvenance: producerProvenanceValue }),
+  };
+}
+
+export function validateAuditFinding(payload: JsonValue): AuditFinding | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const unitId = readRequiredString(payload, "unitId");
+  const rule = readRequiredString(payload, "rule");
+  const location = readRequiredString(payload, "location");
+  const message = readRequiredString(payload, "message");
+  const { severity } = payload;
+  if (unitId === undefined || rule === undefined || location === undefined || message === undefined) {
+    return undefined;
+  }
+  if (!isAuditFindingSeverity(severity)) return undefined;
+  const producerIdentity = validateAuditProducerIdentity(readRequiredRecord(payload, "producerIdentity"));
+  const producerProvenance = validateAuditProducerProvenance(readRequiredRecord(payload, "producerProvenance"));
+  const evidence = readRequiredRecord(payload, "evidence");
+  if (producerIdentity === undefined || producerProvenance === undefined || evidence === undefined) {
+    return undefined;
+  }
+  return {
+    unitId,
+    producerIdentity,
+    producerProvenance,
+    rule,
+    severity,
+    location,
+    message,
+    evidence,
+  };
+}
+
 /**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
@@ -578,6 +949,11 @@ const EVIDENCE_VALIDATORS: Readonly<
     }>
   >
 > = {
+  [VERIFY_VERIFICATION_TYPE.AUDIT]: {
+    [VERIFY_EVIDENCE_KIND.SCOPE]: validateAuditScope,
+    [VERIFY_EVIDENCE_KIND.FINDING]: validateAuditFinding,
+    [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateAuditTerminal,
+  },
   [VERIFY_VERIFICATION_TYPE.REVIEW]: {
     [VERIFY_EVIDENCE_KIND.SCOPE]: validateReviewScope,
     [VERIFY_EVIDENCE_KIND.FINDING]: validateReviewFinding,
@@ -600,18 +976,48 @@ export function terminalMetadataValidatorFor(verificationType: string): Terminal
   )[verificationType]?.[VERIFY_EVIDENCE_KIND.TERMINAL_METADATA];
 }
 
-export function expectedTerminalStatusForReview(
-  events: readonly JournalEvent[],
-  metadata?: ReviewTerminalMetadata,
-): string | undefined {
-  return expectedReviewEvidenceTerminalStatus(events) ?? expectedReviewMetadataTerminalStatus(metadata);
-}
-
 function expectedReviewEvidenceTerminalStatus(events: readonly JournalEvent[]): string | undefined {
   if (countVerifyFindings(events) > 0 || countReviewScopeFindingUnits(events) > 0) {
     return JOURNAL_RUN_STATE_STATUS.REJECTED;
   }
   return undefined;
+}
+
+function auditCoverageRejectsRun(scope: AuditScopeUnit): boolean {
+  if (scope.coverageRequirement !== AUDIT_COVERAGE_REQUIREMENT.REQUIRED) return false;
+  return (
+    scope.coverageStatus === AUDIT_COVERAGE_STATUS.UNSUPPORTED
+    || scope.coverageStatus === AUDIT_COVERAGE_STATUS.MISSING_SKILL
+    || scope.coverageStatus === AUDIT_COVERAGE_STATUS.SKIPPED
+    || scope.coverageStatus === AUDIT_COVERAGE_STATUS.INCOMPLETE
+  );
+}
+
+function expectedAuditTerminalStatus(events: readonly JournalEvent[]): string {
+  const hasFinding = countVerifyFindings(events) > 0;
+  const auditScopeEvents = events.filter((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
+    return validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]) !== undefined;
+  });
+  const hasUncoveredRequiredScope = events.some((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
+    const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
+    const scope = validateAuditScope(payload);
+    return scope === undefined ? false : auditCoverageRejectsRun(scope);
+  });
+  return hasFinding || auditScopeEvents.length === 0 || hasUncoveredRequiredScope
+    ? JOURNAL_RUN_STATE_STATUS.REJECTED
+    : JOURNAL_RUN_STATE_STATUS.APPROVED;
+}
+
+export function validateAuditTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
+  if (input.metadata !== undefined) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+  }
+  if (input.terminalStatus !== expectedAuditTerminalStatus(input.events)) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+  }
+  return { ok: true, value: undefined };
 }
 
 function expectedReviewMetadataTerminalStatus(metadata?: ReviewTerminalMetadata): string | undefined {
