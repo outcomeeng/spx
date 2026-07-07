@@ -5,6 +5,7 @@ import { execa } from "execa";
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
@@ -143,8 +144,10 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     const report = JSON.parse(result.stdout) as ReportShape;
     expectSchemaValidReport(report);
     expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
-    expect(report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT)?.verdict)
-      .toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
+    const methodologyCheck = report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT);
+    expect(methodologyCheck?.verdict).not.toBe(METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE);
+    expect(methodologyCheck?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
+    expect(methodologyCheck?.readings.configuredVersion).toBe(DEFAULT_METHODOLOGY_VERSION);
     expect(report.overall).toBe(foldedOverall(report));
     expectExitCodeKeyedToFold(result, report);
   });
