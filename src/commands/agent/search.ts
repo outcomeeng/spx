@@ -17,13 +17,8 @@ import {
   detectWorktreeProductRoot,
   GIT_ROOT_COMMAND,
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
-  GIT_WORKTREE_PORCELAIN_BARE_LINE,
-  GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX,
-  GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE,
-  GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX,
-  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
-  normalizeGitPath,
+  parseGitWorktreePorcelainRecords,
 } from "@/git/root";
 
 export interface AgentSearchCommandDeps {
@@ -77,8 +72,6 @@ export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   resolveBranchAssociatedWorktreeRoots: resolveAgentSearchBranchAssociatedWorktreeRoots,
 };
 
-const GIT_WORKTREE_PORCELAIN_RECORD_SEPARATOR = /\n\n+/;
-
 export async function resolveAgentSearchProductScopeRoot(
   cwd: string,
   fallbackProductScopeRoot: string,
@@ -104,24 +97,9 @@ export async function resolveAgentSearchBranchAssociatedWorktreeRoots(
 }
 
 function parseBranchAssociatedWorktreeRoots(stdout: string, branch: string): readonly string[] {
-  const roots: string[] = [];
-  for (const record of stdout.split(GIT_WORKTREE_PORCELAIN_RECORD_SEPARATOR)) {
-    const lines = record.split("\n");
-    if (
-      lines.includes(GIT_WORKTREE_PORCELAIN_BARE_LINE)
-      || lines.includes(GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE)
-      || lines.some((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX))
-    ) {
-      continue;
-    }
-    const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
-    const branchLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX));
-    if (rootLine === undefined || branchLine === undefined) continue;
-    if (branchLine !== `${GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX}${branch}`) continue;
-    const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
-    if (root.length > 0) roots.push(root);
-  }
-  return roots;
+  return parseGitWorktreePorcelainRecords(stdout)
+    .filter((record) => record.branch === branch)
+    .map((record) => record.root);
 }
 
 export async function loadAgentSearchResults(

@@ -57,6 +57,11 @@ export interface ExecResult {
   stderr: string;
 }
 
+export interface GitWorktreePorcelainRecord {
+  readonly root: string;
+  readonly branch: string | null;
+}
+
 // Dependencies for git operations.
 export interface GitDependencies {
   // Execute a command.
@@ -493,8 +498,8 @@ function isPrunableWorktreeRecordLine(line: string): boolean {
     || line.startsWith(GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX);
 }
 
-function parseWorktreeRoots(stdout: string): string[] {
-  const roots: string[] = [];
+export function parseGitWorktreePorcelainRecords(stdout: string): readonly GitWorktreePorcelainRecord[] {
+  const records: GitWorktreePorcelainRecord[] = [];
   for (const record of stdout.split(/\n\n+/)) {
     const lines = record.split("\n");
     if (
@@ -503,10 +508,22 @@ function parseWorktreeRoots(stdout: string): string[] {
     ) continue;
     const rootLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX));
     if (rootLine === undefined) continue;
+    const branchLine = lines.find((line) => line.startsWith(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX));
     const root = normalizeGitPath(rootLine.slice(GIT_WORKTREE_PORCELAIN_ROOT_PREFIX.length));
-    if (root.length > 0) roots.push(root);
+    if (root.length > 0) {
+      records.push({
+        root,
+        branch: branchLine === undefined
+          ? null
+          : branchLine.slice(GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX.length),
+      });
+    }
   }
-  return roots;
+  return records;
+}
+
+function parseWorktreeRoots(stdout: string): string[] {
+  return parseGitWorktreePorcelainRecords(stdout).map((record) => record.root);
 }
 
 function observedWorktreeRoots(worktreeListResult: ExecResult): string[] {

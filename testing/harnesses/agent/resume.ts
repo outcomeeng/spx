@@ -55,6 +55,7 @@ export { isPathInsideOrEqual };
 
 export interface TranscriptInput {
   readonly sessionId: string;
+  readonly transcriptId?: string;
   readonly cwd: string;
   readonly timestamp: string;
   readonly branch?: string;
@@ -227,6 +228,7 @@ export function codexTranscriptWithoutTimestamp(input: Omit<TranscriptInput, "ti
 function codexTranscriptMeta(input: Omit<TranscriptInput, "timestamp">, timestamp: string | undefined): string {
   const payload: Record<string, unknown> = {
     [AGENT_SESSION_JSON_FIELDS.SESSION_ID]: input.sessionId,
+    [AGENT_SESSION_JSON_FIELDS.ID]: input.transcriptId ?? input.sessionId,
     [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
     [AGENT_SESSION_JSON_FIELDS.ORIGINATOR]: input.originator ?? CODEX_SESSION_ORIGINATOR.TUI,
     [AGENT_SESSION_JSON_FIELDS.GIT]: { [AGENT_SESSION_JSON_FIELDS.BRANCH]: input.branch ?? null },
@@ -324,7 +326,7 @@ export function writeCodexTranscriptFile(
 ): string {
   return writeTranscriptFile(
     fs,
-    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.transcriptId ?? input.sessionId)),
     codexTranscript(input),
     input,
   );
@@ -337,7 +339,7 @@ export function writeCodexSubagentTranscriptFile(
 ): string {
   return writeTranscriptFile(
     fs,
-    codexTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    codexTranscriptPath(homeDir, agentSessionJsonlName(input.transcriptId ?? input.sessionId)),
     codexSubagentTranscript(input),
     input,
   );

@@ -234,7 +234,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         .option(AGENT_CLI.optionArgs.pickupId, "Search for an exact SPX pickup marker")
         .option(AGENT_CLI.optionArgs.contains, "Search transcript content for a literal string")
         .option(AGENT_CLI.optionArgs.sessionId, "Search for an agent session id")
-        .option(AGENT_CLI.optionArgs.branch, "Search for sessions started on the named branch")
+        .option(AGENT_CLI.optionArgs.branch, "Search by branch association")
         .option(AGENT_CLI.optionArgs.agent, "Search only one agent kind")
         .option(AGENT_CLI.flags.all, "Include sessions outside the recent-session window")
         .option(AGENT_CLI.optionArgs.limit, "Maximum number of results")

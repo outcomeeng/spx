@@ -291,6 +291,7 @@ export interface AgentSessionHead {
   readonly branch: string | null;
   readonly updatedAt: string | null;
   readonly interactive: boolean;
+  readonly subagent: boolean;
 }
 
 export interface AgentStoreFile {
@@ -436,6 +437,7 @@ export function parseCodexHead(head: string): AgentSessionHead | null {
       [AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE],
       [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.THREAD_SOURCE],
     ]);
+    const subagent = threadSource === CODEX_SESSION_THREAD_SOURCE.SUBAGENT;
     return {
       sessionId,
       cwd,
@@ -445,6 +447,7 @@ export function parseCodexHead(head: string): AgentSessionHead | null {
       ]),
       updatedAt: firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]),
       interactive: isCodexInteractive(originator, threadSource),
+      subagent,
     };
   }
   return null;
@@ -492,7 +495,7 @@ export function parseClaudeHead(head: string): AgentSessionHead | null {
   if (sessionId === null || cwd === null) {
     return null;
   }
-  return { sessionId, cwd, branch, updatedAt, interactive: true };
+  return { sessionId, cwd, branch, updatedAt, interactive: true, subagent: false };
 }
 
 function latestTranscriptTimestampMs(transcriptSlice: string): number | null {

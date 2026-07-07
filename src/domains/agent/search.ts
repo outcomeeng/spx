@@ -2,6 +2,8 @@ import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/sess
 import type { AgentHomeDirs } from "./home";
 import {
   AGENT_RESUME_LIMITS,
+  AGENT_SEARCH_DEFAULT_LIMIT,
+  AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_LABEL,
@@ -11,6 +13,7 @@ import {
   AGENT_TRANSCRIPT_GIT_COMMAND,
   AGENT_TRANSCRIPT_PAYLOAD_TYPE,
   AGENT_TRANSCRIPT_TOOL_NAME,
+  type AgentSearchMatchReason,
   type AgentSessionKind,
 } from "./protocol";
 import {
@@ -35,19 +38,6 @@ import { firstString, isRecord, parseJsonObject, valueAtPath } from "./transcrip
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
 }
-
-export const AGENT_SEARCH_DEFAULT_LIMIT = 20;
-
-export const AGENT_SEARCH_MATCH_REASON = {
-  ALL: "all",
-  PICKUP_ID: "pickup-id",
-  CONTAINS: "contains",
-  SESSION_ID: "session-id",
-  AGENT: "agent",
-  BRANCH: "branch",
-} as const;
-
-export type AgentSearchMatchReason = (typeof AGENT_SEARCH_MATCH_REASON)[keyof typeof AGENT_SEARCH_MATCH_REASON];
 
 export interface AgentSearchContentNeedle {
   readonly reason: AgentSearchMatchReason;
@@ -94,6 +84,14 @@ export interface AgentSearchResult {
 }
 
 type AgentHeadParser = (head: string) => AgentSessionHead | null;
+
+interface CodexSubagentBranchAssociation {
+  readonly cwd: string;
+  readonly sourcePath: string;
+  readonly modifiedAtMs: number;
+  readonly updatedAt: string | null;
+  readonly branch: string | null;
+}
 
 export function pickupIdSearchLiteral(pickupId: string): string {
   return formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, pickupId);
@@ -152,16 +150,22 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
+  const acceptsClaudeDir = options.query.branch === null
+    ? claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots)
+    : () => true;
   const paths = agent === AGENT_SESSION_KIND.CODEX
     ? await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs)
     : await claudeTranscriptFiles(
       claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
       options.fs,
-      claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots),
+      acceptsClaudeDir,
     );
   const files = await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
   const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
-  return collectMatchingSessions(agent, files, options, parser);
+  const subagentBranchAssociations = agent === AGENT_SESSION_KIND.CODEX
+    ? await collectCodexSubagentBranchAssociations(files, options)
+    : new Map<string, CodexSubagentBranchAssociation>();
+  return collectMatchingSessions(agent, files, options, parser, subagentBranchAssociations);
 }
 
 function claudeDirAcceptsProductScope(
@@ -180,6 +184,7 @@ async function collectMatchingSessions(
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
   parseHead: AgentHeadParser,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchResult[]> {
   const results: AgentSearchResult[] = [];
   const seen = new Set<string>();
@@ -188,18 +193,19 @@ async function collectMatchingSessions(
     if (head === null) continue;
     const core = parseHead(head);
     if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
-    if (!coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? [])) continue;
-    const matches = await matchReasons(agent, core, file.path, options);
+    if (!coreMatchesSearchInputScope(core, options)) continue;
+    const matches = await matchReasons(agent, core, file.path, options, subagentBranchAssociations);
     if (matches.length === 0) continue;
+    const subagentBranchAssociation = subagentBranchAssociationForResult(core, options, subagentBranchAssociations);
     seen.add(core.sessionId);
     results.push({
       agent,
       sessionId: core.sessionId,
-      cwd: core.cwd,
-      sourcePath: file.path,
-      modifiedAtMs: file.modifiedAtMs,
-      updatedAt: core.updatedAt,
-      branch: core.branch,
+      cwd: subagentBranchAssociation?.cwd ?? core.cwd,
+      sourcePath: subagentBranchAssociation?.sourcePath ?? file.path,
+      modifiedAtMs: subagentBranchAssociation?.modifiedAtMs ?? file.modifiedAtMs,
+      updatedAt: subagentBranchAssociation?.updatedAt ?? core.updatedAt,
+      branch: subagentBranchAssociation?.branch ?? core.branch,
       matches,
     });
   }
@@ -211,6 +217,7 @@ async function matchReasons(
   core: AgentSessionHead,
   path: string,
   options: AgentSearchOptions,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchMatchReason[]> {
   if (!hasSearchSelector(options.query)) {
     return [AGENT_SEARCH_MATCH_REASON.ALL];
@@ -223,7 +230,7 @@ async function matchReasons(
   if (metadataMatches === null) {
     return [];
   }
-  const branchMatches = branchMetadataOrWorktreeMatchReasons(core, options);
+  const branchMatches = branchMetadataOrWorktreeMatchReasons(core, options, subagentBranchAssociations);
   const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
   const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
   if (content === null) {
@@ -242,6 +249,14 @@ async function matchReasons(
 
 function hasSearchSelector(query: AgentSearchQuery): boolean {
   return query.contentNeedles.length > 0 || query.sessionId !== null || query.branch !== null || query.agent !== null;
+}
+
+function coreMatchesSearchInputScope(
+  core: AgentSessionHead,
+  options: AgentSearchOptions,
+): boolean {
+  return options.query.branch !== null
+    || coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
 }
 
 function metadataMatchReasons(
@@ -265,6 +280,7 @@ function metadataMatchReasons(
 function branchMetadataOrWorktreeMatchReasons(
   core: AgentSessionHead,
   options: AgentSearchOptions,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): AgentSearchMatchReason[] | null {
   const branch = options.query.branch;
   if (branch === null) {
@@ -277,7 +293,74 @@ function branchMetadataOrWorktreeMatchReasons(
   if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
     return [AGENT_SEARCH_MATCH_REASON.BRANCH];
   }
+  if (subagentBranchAssociations.has(core.sessionId)) {
+    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+  }
   return null;
+}
+
+function subagentBranchAssociationForResult(
+  core: AgentSessionHead,
+  options: AgentSearchOptions,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
+): CodexSubagentBranchAssociation | null {
+  const branch = options.query.branch;
+  if (branch === null || core.branch === branch) {
+    return null;
+  }
+  const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
+  if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
+    return null;
+  }
+  return subagentBranchAssociations.get(core.sessionId) ?? null;
+}
+
+async function collectCodexSubagentBranchAssociations(
+  files: readonly AgentStoreFile[],
+  options: AgentSearchOptions,
+): Promise<ReadonlyMap<string, CodexSubagentBranchAssociation>> {
+  const branch = options.query.branch;
+  const associated = new Map<string, CodexSubagentBranchAssociation>();
+  if (branch === null) {
+    return associated;
+  }
+  for (const file of files) {
+    const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
+    if (head === null) {
+      continue;
+    }
+    const core = parseCodexHead(head);
+    if (core === null || !core.subagent) {
+      continue;
+    }
+    const branchMetadataMatches = core.branch === branch;
+    if (branchMetadataMatches) {
+      addCodexSubagentBranchAssociation(associated, core, file);
+      continue;
+    }
+    const content = await options.fs.readText(file.path).catch(() => null);
+    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
+      addCodexSubagentBranchAssociation(associated, core, file);
+    }
+  }
+  return associated;
+}
+
+function addCodexSubagentBranchAssociation(
+  associated: Map<string, CodexSubagentBranchAssociation>,
+  core: AgentSessionHead,
+  file: AgentStoreFile,
+): void {
+  if (associated.has(core.sessionId)) {
+    return;
+  }
+  associated.set(core.sessionId, {
+    cwd: core.cwd,
+    sourcePath: file.path,
+    modifiedAtMs: file.modifiedAtMs,
+    updatedAt: core.updatedAt,
+    branch: core.branch,
+  });
 }
 
 function branchTranscriptCommandMatchReasons(
@@ -486,7 +569,7 @@ function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: strin
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH) {
     return false;
   }
-  const parsed = parseGitBranchArgs(args.slice(1), SWITCH_CREATE_FLAGS, SWITCH_ALLOWED_FLAGS);
+  const parsed = parseGitBranchArgs(args.slice(1), SWITCH_CREATE_FLAGS, SWITCH_ALLOWED_OPTIONS);
   if (parsed.invalid) {
     return false;
   }
@@ -500,7 +583,7 @@ function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: str
   if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT) {
     return false;
   }
-  const parsed = parseGitBranchArgs(args.slice(1), CHECKOUT_CREATE_FLAGS, EMPTY_ALLOWED_FLAGS);
+  const parsed = parseGitBranchArgs(args.slice(1), CHECKOUT_CREATE_FLAGS, CHECKOUT_ALLOWED_OPTIONS);
   if (parsed.invalid) {
     return false;
   }
@@ -517,7 +600,7 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   ) {
     return false;
   }
-  const parsed = parseGitBranchArgs(args.slice(2), WORKTREE_CREATE_FLAGS, WORKTREE_ALLOWED_FLAGS);
+  const parsed = parseGitBranchArgs(args.slice(2), WORKTREE_CREATE_FLAGS, WORKTREE_ALLOWED_OPTIONS);
   if (parsed.invalid) {
     return false;
   }
@@ -531,6 +614,24 @@ interface ParsedGitBranchArgs {
   readonly createdBranch: string | null;
   readonly positionals: readonly string[];
   readonly invalid: boolean;
+}
+
+interface GitAllowedOptions {
+  readonly flags: readonly string[];
+  readonly valueFlags: readonly string[];
+  readonly optionalValueFlags: readonly string[];
+}
+
+const GIT_OPTION_CONSUMPTION = {
+  INVALID: "invalid",
+  NOT_ALLOWED: "not-allowed",
+} as const;
+
+type GitOptionConsumption = number | (typeof GIT_OPTION_CONSUMPTION)[keyof typeof GIT_OPTION_CONSUMPTION];
+
+interface GitCreateBranchParse {
+  readonly branch: string;
+  readonly consumed: number;
 }
 
 const SWITCH_CREATE_FLAGS = [
@@ -547,16 +648,108 @@ const CHECKOUT_CREATE_FLAGS = [
 
 const WORKTREE_CREATE_FLAGS = CHECKOUT_CREATE_FLAGS;
 
-const EMPTY_ALLOWED_FLAGS = [] as const;
+const CHECKOUT_ALLOWED_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.OVERLAY,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERLAY,
+  AGENT_TRANSCRIPT_GIT_COMMAND.PROGRESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PROGRESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_REFLOG_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.OVERWRITE_IGNORE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERWRITE_IGNORE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.IGNORE_OTHER_WORKTREES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_IGNORE_OTHER_WORKTREES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RECURSE_SUBMODULES,
+] as const;
+
+const CHECKOUT_ALLOWED_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT,
+] as const;
+
+const CHECKOUT_ALLOWED_OPTIONAL_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES,
+] as const;
+
+const CHECKOUT_ALLOWED_OPTIONS: GitAllowedOptions = {
+  flags: CHECKOUT_ALLOWED_FLAGS,
+  valueFlags: CHECKOUT_ALLOWED_VALUE_FLAGS,
+  optionalValueFlags: CHECKOUT_ALLOWED_OPTIONAL_VALUE_FLAGS,
+};
 
 const SWITCH_ALLOWED_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.DISCARD_CHANGES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_DISCARD_CHANGES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.PROGRESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PROGRESS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.OVERWRITE_IGNORE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERWRITE_IGNORE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.IGNORE_OTHER_WORKTREES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_IGNORE_OTHER_WORKTREES,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RECURSE_SUBMODULES,
 ] as const;
+
+const SWITCH_ALLOWED_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT,
+] as const;
+
+const SWITCH_ALLOWED_OPTIONAL_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES,
+] as const;
+
+const SWITCH_ALLOWED_OPTIONS: GitAllowedOptions = {
+  flags: SWITCH_ALLOWED_FLAGS,
+  valueFlags: SWITCH_ALLOWED_VALUE_FLAGS,
+  optionalValueFlags: SWITCH_ALLOWED_OPTIONAL_VALUE_FLAGS,
+};
 
 const WORKTREE_ALLOWED_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
+  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT_WORKTREE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_CHECKOUT_WORKTREE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.LOCK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_LOCK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS_REMOTE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS_REMOTE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.RELATIVE_PATHS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RELATIVE_PATHS,
 ] as const;
+
+const WORKTREE_ALLOWED_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.REASON,
+] as const;
+
+const WORKTREE_ALLOWED_OPTIONS: GitAllowedOptions = {
+  flags: WORKTREE_ALLOWED_FLAGS,
+  valueFlags: WORKTREE_ALLOWED_VALUE_FLAGS,
+  optionalValueFlags: [],
+};
 
 const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.DETACH,
@@ -564,14 +757,10 @@ const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR,
 ] as const;
 
-const GIT_OPTION_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.REASON,
-] as const;
-
 function parseGitBranchArgs(
   args: readonly string[],
   createFlags: readonly string[],
-  allowedFlags: readonly string[],
+  allowedOptions: GitAllowedOptions,
 ): ParsedGitBranchArgs {
   const positionals: string[] = [];
   let createdBranch: string | null = null;
@@ -580,24 +769,72 @@ function parseGitBranchArgs(
     if (tupleIncludes(DISALLOWED_BRANCH_ASSOCIATION_FLAGS, arg)) {
       return { createdBranch, positionals, invalid: true };
     }
-    if (tupleIncludes(createFlags, arg)) {
-      const branch = args.at(index + 1);
-      if (branch === undefined || branch.startsWith("-")) {
-        return { createdBranch, positionals, invalid: true };
-      }
-      createdBranch = branch;
-      index += 1;
-    } else if (tupleIncludes(GIT_OPTION_VALUE_FLAGS, arg)) {
-      index += 1;
-    } else if (tupleIncludes(allowedFlags, arg)) {
-      continue;
-    } else if (arg.startsWith("-")) {
+    const createBranch = gitCreateBranchParse(args, index, createFlags);
+    if (createBranch === GIT_OPTION_CONSUMPTION.INVALID) {
       return { createdBranch, positionals, invalid: true };
-    } else {
-      positionals.push(arg);
     }
+    if (createBranch !== null) {
+      createdBranch = createBranch.branch;
+      index += createBranch.consumed;
+      continue;
+    }
+    const optionConsumption = gitOptionConsumption(args, index, allowedOptions);
+    if (optionConsumption === GIT_OPTION_CONSUMPTION.INVALID) {
+      return { createdBranch, positionals, invalid: true };
+    }
+    if (optionConsumption !== GIT_OPTION_CONSUMPTION.NOT_ALLOWED) {
+      index += optionConsumption;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      return { createdBranch, positionals, invalid: true };
+    }
+    positionals.push(arg);
   }
   return { createdBranch, positionals, invalid: false };
+}
+
+function gitCreateBranchParse(
+  args: readonly string[],
+  index: number,
+  createFlags: readonly string[],
+): GitCreateBranchParse | typeof GIT_OPTION_CONSUMPTION.INVALID | null {
+  if (!tupleIncludes(createFlags, args[index])) {
+    return null;
+  }
+  const branch = args.at(index + 1);
+  if (branch === undefined || branch.startsWith("-")) {
+    return GIT_OPTION_CONSUMPTION.INVALID;
+  }
+  return {
+    branch,
+    consumed: 1,
+  };
+}
+
+function gitOptionConsumption(
+  args: readonly string[],
+  index: number,
+  allowedOptions: GitAllowedOptions,
+): GitOptionConsumption {
+  const arg = args[index];
+  if (isInlineValueFlag(allowedOptions.valueFlags, arg)) {
+    return 0;
+  }
+  if (tupleIncludes(allowedOptions.valueFlags, arg)) {
+    const value = args.at(index + 1);
+    if (value === undefined || value.startsWith("-")) {
+      return GIT_OPTION_CONSUMPTION.INVALID;
+    }
+    return 1;
+  }
+  if (isInlineValueFlag(allowedOptions.optionalValueFlags, arg) || tupleIncludes(allowedOptions.flags, arg)) {
+    return 0;
+  }
+  if (tupleIncludes(allowedOptions.optionalValueFlags, arg)) {
+    return 0;
+  }
+  return GIT_OPTION_CONSUMPTION.NOT_ALLOWED;
 }
 
 function stringArray(value: unknown): readonly string[] | null {
@@ -608,6 +845,10 @@ function stringArray(value: unknown): readonly string[] | null {
 
 function tupleIncludes(values: readonly string[], value: string): boolean {
   return values.includes(value);
+}
+
+function isInlineValueFlag(flags: readonly string[], value: string): boolean {
+  return flags.some((flag) => value.startsWith(`${flag}=`) && value.length > flag.length + 1);
 }
 
 const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\S+)/gu;
