@@ -1,4 +1,4 @@
-import { symlink } from "node:fs/promises";
+import { mkdir, symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -10,6 +10,7 @@ import {
   validationCliDefinition,
 } from "@/interfaces/cli/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
@@ -97,6 +98,33 @@ async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Pro
     expect(result.exitCode).not.toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+  });
+}
+
+async function expectMissingPathBelowEscapingSymlinkAncestorRejected(): Promise<void> {
+  await withEmptyValidationProject(async (productRoot) => {
+    const outsideRoot = join(dirname(productRoot), sampleLiteralTestValue(arbitraryPathSegment()));
+    const symlinkName = sampleLiteralTestValue(arbitraryPathSegment());
+    const symlinkRoot = join(productRoot, symlinkName);
+    const operand = join(symlinkName, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+
+    await mkdir(outsideRoot);
+    await symlink(outsideRoot, symlinkRoot, "dir");
+
+    const result = await runValidationSubprocess(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        operand,
+      ],
+      { cwd: productRoot },
+    );
+
+    expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
+    expect(result.stdout).toBe(validationCliEmptyOutput());
+    expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
+    expect(result.stderr).toContain(sanitizeCliArgument(operand));
+    expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+    expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
   });
 }
 
@@ -217,6 +245,10 @@ export function registerValidationCliScenarioTests(): void {
     it(
       "non-existent in-product path operands resolve from a symlinked invocation directory",
       expectSymlinkedInvocationDirectoryResolvesInProductOperand,
+    );
+    it(
+      "non-existent path operands below symlink ancestors that escape the product are rejected",
+      expectMissingPathBelowEscapingSymlinkAncestorRejected,
     );
     it("unknown subcommand reaches the sanitized diagnostic path", expectUnknownSubcommandDiagnostic);
     it("empty argument reports the empty-value sentinel", expectEmptyArgumentDiagnostic);

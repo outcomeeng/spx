@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { existsSync, realpathSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { basename, dirname, relative, resolve } from "node:path";
 
 import {
   allCommand,
@@ -248,9 +248,9 @@ function normalizeProductPathOperand(
   effectiveInvocationDir: string,
   operand: string,
 ): string | undefined {
-  const resolvedProductDir = canonicalExistingPath(resolve(productDir));
-  const resolvedInvocationDir = canonicalExistingPath(resolve(effectiveInvocationDir));
-  const absoluteOperand = canonicalExistingPath(resolve(resolvedInvocationDir, operand));
+  const resolvedProductDir = canonicalPathThroughExistingAncestor(resolve(productDir));
+  const resolvedInvocationDir = canonicalPathThroughExistingAncestor(resolve(effectiveInvocationDir));
+  const absoluteOperand = canonicalPathThroughExistingAncestor(resolve(resolvedInvocationDir, operand));
   if (!isPathContained(resolvedProductDir, absoluteOperand)) {
     return undefined;
   }
@@ -258,8 +258,11 @@ function normalizeProductPathOperand(
   return relativeOperand.length > 0 ? relativeOperand.replaceAll("\\", "/") : ".";
 }
 
-function canonicalExistingPath(path: string): string {
-  return existsSync(path) ? realpathSync.native(path) : path;
+function canonicalPathThroughExistingAncestor(path: string): string {
+  if (existsSync(path)) return realpathSync.native(path);
+  const parent = dirname(path);
+  if (parent === path) return path;
+  return resolve(canonicalPathThroughExistingAncestor(parent), basename(path));
 }
 
 function normalizePathOperands(
