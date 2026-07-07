@@ -206,13 +206,13 @@ export async function assertValidationAllRunsAgainstProductTree(): Promise<void>
       validationCliDefinition.subcommands.all.commandName,
       allValidationCliOptions.skipCircular.flag,
       allValidationCliOptions.skipLiteral.flag,
-      VALIDATION_PIPELINE_DATA.productTreeMarkdownOperand,
+      VALIDATION_PIPELINE_DATA.productTreeTypeScriptOperand,
     ],
     { timeout: VALIDATION_PIPELINE_DATA.allTimeout },
   );
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
+  expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
   expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
   expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
 }

@@ -1305,7 +1305,7 @@ export async function assertAuditScopeProjectionPreservesUnits(): Promise<void> 
 }
 
 export async function assertAuditPriorContextSelectorsFilterScopeUnits(): Promise<void> {
-  const current = {
+  const baseCurrent = {
     ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
     auditClass: AUDIT_CLASS.IMPLEMENTATION,
     auditKind: AUDIT_KIND.ARCHITECTURE,
@@ -1313,32 +1313,47 @@ export async function assertAuditPriorContextSelectorsFilterScopeUnits(): Promis
   const alternate = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
   const alternatePaths = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changedPathsPair());
   const alternatePartitions = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
-  const alternateSubject = selectAlternateString(current.subject, [
+  const alternateSubject = selectAlternateString(baseCurrent.subject, [
     ...alternatePaths.first,
     ...alternatePaths.second,
     alternate.subject,
   ]);
   const alternateChangedFilePartition = selectAlternateString(
-    current.priorContext.changedFilePartition,
+    baseCurrent.priorContext.changedFilePartition,
     [alternatePartitions.first, alternatePartitions.second],
   );
-  const currentLanguagePartition = current.priorContext.languagePartition;
+  const currentLanguagePartition = baseCurrent.priorContext.languagePartition;
   expect(currentLanguagePartition).toBeDefined();
   const alternateLanguagePartition = selectAlternateString(
-    currentLanguagePartition ?? current.priorContext.changedFilePartition,
+    currentLanguagePartition ?? baseCurrent.priorContext.changedFilePartition,
     [alternatePartitions.first, alternatePartitions.second],
   );
   const alternateConcernPartition = selectAlternateString(
-    current.priorContext.concernPartition,
+    baseCurrent.priorContext.concernPartition,
     [alternatePartitions.first, alternatePartitions.second, alternate.priorContext.concernPartition],
   );
   const alternateExpectedProducer = {
-    ...current.expectedProducer,
+    ...baseCurrent.expectedProducer,
     invocationRole: selectAlternateString(
-      current.expectedProducer.invocationRole,
+      baseCurrent.expectedProducer.invocationRole,
       [alternatePartitions.first, alternatePartitions.second, alternate.expectedProducer.invocationRole],
     ),
   };
+  const recordedByRunDriver = {
+    ...baseCurrent.expectedProducer,
+    invocationRole: selectAlternateString(
+      baseCurrent.expectedProducer.invocationRole,
+      [alternatePartitions.first, alternatePartitions.second, alternate.recordedByRunDriver.invocationRole],
+    ),
+  };
+  const alternateRecordedByRunDriver = {
+    ...recordedByRunDriver,
+    invocationRole: selectAlternateString(
+      recordedByRunDriver.invocationRole,
+      [baseCurrent.expectedProducer.invocationRole, alternate.expectedProducer.invocationRole],
+    ),
+  };
+  const current = { ...baseCurrent, recordedByRunDriver };
   const { producerProvenance: _currentProducerProvenance, ...currentWithoutProducerProvenance } = current;
   const selector = auditPriorContextSelectorForScopeUnit(current);
 
@@ -1350,12 +1365,13 @@ export async function assertAuditPriorContextSelectorsFilterScopeUnits(): Promis
     changedFilePartition: current.priorContext.changedFilePartition,
     concernPartition: current.priorContext.concernPartition,
     languagePartition: current.priorContext.languagePartition,
-    producerIdentity: current.expectedProducer,
+    producerIdentity: current.recordedByRunDriver,
   });
   expect(filterAuditScopeUnitsForPriorContext([
     { ...current, auditClass: AUDIT_CLASS.SPEC },
     { ...current, auditKind: AUDIT_KIND.CODE },
     { ...current, expectedProducer: alternateExpectedProducer },
+    { ...current, recordedByRunDriver: alternateRecordedByRunDriver },
     { ...current, subject: alternateSubject },
     {
       ...current,
