@@ -183,11 +183,10 @@ spx/<node>` and `spx test spx/<node>/tests/<file>`. Selective changeset testing
 is available through `spx test --changed [--base <ref>]`, which resolves changed
 spec or test files by node path and changed source files through registered
 language adapters. The product `CLAUDE.md` running-tests STOP TRIGGER documents
-`spx test --changed [--base origin/main]` as the focused agent verification path,
-and the pre-commit hook drives `spx test --changed --base HEAD` instead of raw
-Vitest. The remaining raw-Vitest package script (`pnpm run build && vitest run`)
-is the deliberate broad full-suite gate covered by the running-tests STOP
-TRIGGER, alongside the human `test:coverage` and `test:watch` scripts.
+`spx test --changed [--base origin/main]` as the focused agent verification path.
+The remaining raw-Vitest package script (`pnpm run build && vitest run`) is the
+deliberate broad full-suite gate covered by the running-tests STOP TRIGGER,
+alongside the human `test:coverage` and `test:watch` scripts.
 
 **Evidence:** agent-output feature work on June 18, 2026 used direct Vitest
 before explicit target operands and changed-set planning were present. The
@@ -196,9 +195,8 @@ minutes under load 200, with multiple agents repeatedly running the full suite
 during PR push loops. A second agent review called out the absent
 `--changed`/`--base` planner and package-script non-dogfooding.
 
-**Tracking classification:** Resolved for focused local verification and
-pre-commit dogfooding. The full-suite package script remains a deliberate broad
-gate.
+**Tracking classification:** Resolved for focused local verification. The
+full-suite package script remains a deliberate broad gate.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
 `typescript:code-typescript`, `typescript:test-typescript`,
