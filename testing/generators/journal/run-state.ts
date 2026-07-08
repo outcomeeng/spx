@@ -4,12 +4,14 @@ import {
   JOURNAL_RUN_EVENT,
   JOURNAL_RUN_STATE_STATUS,
   JOURNAL_TARGET_KIND,
+  journalRunCompletedEventType,
   type JournalRunState,
   journalRunStateRecord,
   type JournalRunStateStatus,
   type JournalTargetKind,
 } from "@/domains/journal/run-state";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
+import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { formatRunTimestamp } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -90,6 +92,14 @@ function completedEvent(seq: number, state: JournalRunState): JournalEvent {
   return buildJournalEvent(seq, JOURNAL_RUN_EVENT.COMPLETED_TYPE, journalRunStateRecord(state));
 }
 
+function completedEventWithNamespace(seq: number, namespace: string, state: JournalRunState): JournalEvent {
+  return buildJournalEvent(seq, journalRunCompletedEventType(namespace), journalRunStateRecord(state));
+}
+
+function completedEventNamespace(): fc.Arbitrary<string> {
+  return CONFIG_TEST_GENERATOR.key().filter((namespace) => namespace !== RUNTIME_EVENT_NAMESPACE_DEFAULT);
+}
+
 /** A non-completed lifecycle event (started or progress) the fold ignores. */
 function arbitraryNonCompletedEvent(seq: number): fc.Arbitrary<JournalEvent> {
   return fc
@@ -125,4 +135,6 @@ export const JOURNAL_RUN_STATE_TEST_GENERATOR = {
       buildJournalEvent(JOURNAL_SEQ_BASE, JOURNAL_RUN_EVENT.COMPLETED_TYPE, { status }),
     ]),
   completedEvent,
+  completedEventNamespace,
+  completedEventWithNamespace,
 } as const;

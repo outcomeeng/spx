@@ -29,6 +29,10 @@ export const JOURNAL_RUN_STATE_INCOMPLETE_REASON = {
   SHAPE_INVALID_STATE: "shape-invalid-state",
 } as const;
 
+export const JOURNAL_RUN_EVENT_TYPE_SUFFIX = {
+  COMPLETED: ".journal.run.completed",
+} as const;
+
 /**
  * The generic, type-agnostic run-lifecycle event vocabulary. The verification
  * kind is the opaque `<type>` scope segment, never an event-type name, so this
@@ -38,7 +42,7 @@ export const JOURNAL_RUN_EVENT = {
   SOURCE: "/spx/journal",
   STARTED_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.started`,
   PROGRESS_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.progress`,
-  COMPLETED_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.journal.run.completed`,
+  COMPLETED_TYPE: `${RUNTIME_EVENT_NAMESPACE_DEFAULT}${JOURNAL_RUN_EVENT_TYPE_SUFFIX.COMPLETED}`,
 } as const;
 
 export const JOURNAL_RUN_STATE_FIELDS = {
@@ -116,7 +120,7 @@ export function foldJournalRunState(
   }
   let completed: JournalEvent | undefined;
   for (const event of events) {
-    if (event.type === JOURNAL_RUN_EVENT.COMPLETED_TYPE) completed = event;
+    if (isJournalRunCompletedEventType(event.type)) completed = event;
   }
   if (completed === undefined) {
     return {
@@ -133,6 +137,14 @@ export function foldJournalRunState(
     };
   }
   return validated;
+}
+
+export function journalRunCompletedEventType(namespace: string): string {
+  return `${namespace}${JOURNAL_RUN_EVENT_TYPE_SUFFIX.COMPLETED}`;
+}
+
+export function isJournalRunCompletedEventType(type: string): boolean {
+  return type.endsWith(JOURNAL_RUN_EVENT_TYPE_SUFFIX.COMPLETED);
 }
 
 /** Build a journal run-lifecycle event input carrying a run state's serialized record. */
