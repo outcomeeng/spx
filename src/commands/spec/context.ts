@@ -17,6 +17,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_CONTEXT_DOCUMENT_ROLE = {
@@ -60,7 +61,7 @@ export interface ContextOptions {
 }
 
 const JSON_INDENTATION = 2;
-const SPEC_TREE_ROOT_PREFIX = "spx/";
+const SPEC_TREE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
 
 export const SPEC_CONTEXT_TEXT_LABEL = {
   TARGET: "Target",
