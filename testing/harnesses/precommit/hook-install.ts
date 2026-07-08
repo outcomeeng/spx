@@ -1,6 +1,7 @@
 import { chmod as chmodFs, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect } from "vitest";
+import { parse } from "yaml";
 
 import {
   configuredHookNames,
@@ -28,6 +29,21 @@ const executableModeMask = 0o111;
 const yamlCommandStub = "commands: {}";
 const unknownLefthookSection = "not-a-git-hook";
 const handwrittenHookContent = "#!/bin/sh\ncustom-hook \"$@\"\n";
+const fixtureExclusionCommandName = "sonarqube-cloud-exclusions";
+const sonarFixtureExclusionEntrypoint = "src/lib/sonarqube-cloud/check-fixture-exclusions.ts";
+const rebuildCommandName = "rebuild-dist";
+const installDepsCommandName = "install-deps";
+const preCommitSectionName = "pre-commit";
+const prePushSectionName = "pre-push";
+const postCheckoutSectionName = "post-checkout";
+const postMergeSectionName = "post-merge";
+const postRewriteSectionName = "post-rewrite";
+const commandsKey = "commands";
+const runKey = "run";
+const globKey = "glob";
+const disallowedPrecommitFragments = ["pnpm run build", "pnpm run validate", "spx test", "vitest"];
+
+type LefthookConfig = Record<string, unknown>;
 
 function sampleHookNames(): readonly [GitHookName, GitHookName] {
   return [GIT_HOOK_NAMES[0], GIT_HOOK_NAMES[1]];
@@ -44,8 +60,72 @@ function formatCommand(command: string, args: readonly string[]): string {
   return [command, ...args].join(" ");
 }
 
+function asConfigRecord(value: unknown): LefthookConfig {
+  expect(value).toBeTypeOf("object");
+  expect(value).not.toBeNull();
+  expect(Array.isArray(value)).toBe(false);
+  return value as LefthookConfig;
+}
+
+function readConfigSection(config: LefthookConfig, sectionName: string): LefthookConfig {
+  return asConfigRecord(config[sectionName]);
+}
+
+function readCommands(config: LefthookConfig, sectionName: string): LefthookConfig {
+  return asConfigRecord(readConfigSection(config, sectionName)[commandsKey]);
+}
+
+function readCommand(config: LefthookConfig, sectionName: string, commandName: string): LefthookConfig {
+  return asConfigRecord(readCommands(config, sectionName)[commandName]);
+}
+
+function readCommandRun(config: LefthookConfig, sectionName: string, commandName: string): string {
+  const run = readCommand(config, sectionName, commandName)[runKey];
+  expect(run).toBeTypeOf("string");
+  return run as string;
+}
+
+async function readProductLefthookConfig(): Promise<LefthookConfig> {
+  return asConfigRecord(parse(await readFile(join(process.cwd(), LEFTHOOK_CONFIG_FILE), HOOK_FILE_ENCODING)));
+}
+
 export function assertConfiguredHookNameParsing(): void {
   expect(configuredHookNames(renderHookConfig(sampleHookNames()))).toEqual(sampleHookNames());
+}
+
+export async function assertLefthookConfigKeepsPrecommitMinimal(): Promise<void> {
+  const config = await readProductLefthookConfig();
+  const preCommitCommands = readCommands(config, preCommitSectionName);
+  const preCommitRun = readCommandRun(config, preCommitSectionName, fixtureExclusionCommandName);
+  const prePushCommands = readCommands(config, prePushSectionName);
+
+  expect(Object.keys(preCommitCommands)).toEqual([fixtureExclusionCommandName]);
+  expect(readCommand(config, preCommitSectionName, fixtureExclusionCommandName)[globKey]).toBe(
+    "{.sonarcloud.properties,testing/fixtures/**}",
+  );
+  expect(preCommitRun).toContain(sonarFixtureExclusionEntrypoint);
+  for (const disallowedFragment of disallowedPrecommitFragments) {
+    expect(preCommitRun).not.toContain(disallowedFragment);
+  }
+  expect(Object.keys(prePushCommands)).toEqual(["sonar-analyze"]);
+  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run build");
+  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run validate");
+  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("spx test");
+}
+
+export async function assertLefthookConfigRoutesLifecycleHooksThroughGates(): Promise<void> {
+  const config = await readProductLefthookConfig();
+  const postMergeRun = readCommandRun(config, postMergeSectionName, rebuildCommandName);
+  const postRewriteRun = readCommandRun(config, postRewriteSectionName, rebuildCommandName);
+  const postCheckoutRun = readCommandRun(config, postCheckoutSectionName, installDepsCommandName);
+
+  expect(Object.keys(readCommands(config, postMergeSectionName))).toEqual([rebuildCommandName]);
+  expect(Object.keys(readCommands(config, postRewriteSectionName))).toEqual([rebuildCommandName]);
+  expect(Object.keys(readCommands(config, postCheckoutSectionName))).toEqual([installDepsCommandName]);
+  expect(postMergeRun).toContain("src/lib/precommit/main-checkout-gate.ts");
+  expect(postRewriteRun).toContain("src/lib/precommit/main-checkout-gate.ts");
+  expect(postCheckoutRun).toContain("src/lib/precommit/deps-install-gate.ts");
+  expect(postCheckoutRun).toContain("pnpm install --frozen-lockfile");
 }
 
 export function assertRenderedHookUsesWorktreeResolution(): void {
