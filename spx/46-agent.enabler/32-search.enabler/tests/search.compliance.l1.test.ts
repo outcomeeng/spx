@@ -12,6 +12,7 @@ import {
   assertAgentSearchMatchesAllScopedRecentSessionsWithoutSelector,
   assertAgentSearchMatchesOnlySelectedAgentKind,
   assertAgentSearchRequiresEverySelectorOnSameSession,
+  assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelSessions,
 } from "@testing/harnesses/agent/search";
 
 describe("agent session search compliance", () => {
@@ -57,5 +58,9 @@ describe("agent session search compliance", () => {
 
   it("excludes subagent rows from branch-associated search results", async () => {
     await assertAgentSearchExcludesSubagentsFromBranchAssociatedResults();
+  });
+
+  it("uses older branch evidence to associate recent top-level sessions", async () => {
+    await assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelSessions();
   });
 });
