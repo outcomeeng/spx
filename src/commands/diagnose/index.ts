@@ -72,6 +72,20 @@ async function readManifest(
   return parseManifest(raw, availableChecks);
 }
 
+function shouldResolveMethodologyConfig(
+  manifest: DiagnoseManifest | undefined,
+  config: DiagnoseConfig | undefined,
+  availableChecks: readonly CheckName[],
+): boolean {
+  if (manifest !== undefined) {
+    return false;
+  }
+  if (config?.checks === undefined) {
+    return availableChecks.includes(CHECK_NAME.METHODOLOGY_CONTEXT);
+  }
+  return config.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT);
+}
+
 /** Resolves the facts, runs the resolved check set, and returns the rendered report and verdict-keyed exit code. */
 export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<Result<DiagnoseCommandResult>> {
   const availableChecks = Object.keys(options.registry) as CheckName[];
@@ -89,24 +103,22 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     : { ok: true, value: undefined };
   if (!config.ok) return config;
 
-  const resolved = resolveDiagnoseFacts({
-    manifest: manifest?.value,
-    config: config.value ?? {},
-    availableChecks,
-  });
-  if (!resolved.ok) return resolved;
-
   let methodology: MethodologyConfig | undefined;
-  if (manifest === undefined && resolved.value.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
+  if (shouldResolveMethodologyConfig(manifest?.value, config.value, availableChecks)) {
     const methodologyConfig = await resolveMethodologyConfig(options.productDir);
     if (!methodologyConfig.ok) return methodologyConfig;
     methodology = methodologyConfig.value;
   }
 
-  const reportManifest = methodology === undefined
-    ? resolved.value
-    : { ...resolved.value, methodology };
-  const report = await runDiagnose(reportManifest, options.registry);
+  const resolved = resolveDiagnoseFacts({
+    manifest: manifest?.value,
+    config: config.value ?? {},
+    methodology,
+    availableChecks,
+  });
+  if (!resolved.ok) return resolved;
+
+  const report = await runDiagnose(resolved.value, options.registry);
   if (!report.ok) return report;
 
   return {
