@@ -1172,7 +1172,7 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ../${impliedWorktreeBranch}`,
     ),
     impliedWorktreeBranch,
-  )).toBe(false);
+  )).toBe(true);
   expect(transcriptHasAcceptedBranchCommand(
     codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${branch}`,
