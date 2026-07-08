@@ -7,7 +7,17 @@ export const LEGACY_METHODOLOGY_CONFIG_SECTION = HARNESS_ENVIRONMENT_SECTION;
 
 export function isLegacyHarnessMethodologyConfigError(error: string): boolean {
   const directPath = `${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`;
-  return error.startsWith(directPath) || error.startsWith(`${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${directPath}`);
+  const pluralPrefix =
+    `${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${LEGACY_METHODOLOGY_CONFIG_SECTION} has unrecognized config fields: `;
+  if (error.startsWith(directPath) || error.startsWith(`${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${directPath}`)) {
+    return true;
+  }
+  if (!error.startsWith(pluralPrefix)) return false;
+  return error
+    .slice(pluralPrefix.length)
+    .split(",")
+    .map((field) => field.trim())
+    .includes(METHODOLOGY_SECTION);
 }
 
 function rejectLegacyHarnessMethodologyConfig(detected: ConfigFileReadResult): Result<undefined> {
