@@ -1,6 +1,6 @@
 import {
   assertConfiguredHookNameParsing,
-  assertLefthookConfigDeclaresNoPrecommitHook,
+  assertLefthookConfigAvoidsCommitBoundaryValidationHooks,
   assertLefthookConfigRoutesLifecycleHooksThroughGates,
   assertObsoletePortableHooksAreRemoved,
   assertPortableHookInstallWritesExecutableShims,
@@ -16,8 +16,8 @@ describe("portable lefthook hook installation", () => {
     assertConfiguredHookNameParsing();
   });
 
-  it("declares no product pre-commit hook", async () => {
-    await expect(assertLefthookConfigDeclaresNoPrecommitHook()).resolves.toBeUndefined();
+  it("declares no product pre-commit hook or validation-heavy pre-push hook", async () => {
+    await expect(assertLefthookConfigAvoidsCommitBoundaryValidationHooks()).resolves.toBeUndefined();
   });
 
   it("routes checkout, merge, and rewrite hooks through their tested gates", async () => {

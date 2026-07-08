@@ -38,6 +38,14 @@ const postMergeSectionName = "post-merge";
 const postRewriteSectionName = "post-rewrite";
 const commandsKey = "commands";
 const runKey = "run";
+const prePushValidationCommandFragments = [
+  "pnpm run build",
+  "pnpm run validate",
+  "pnpm test",
+  "pnpm run test",
+  "spx test",
+] as const;
+const sonarCloudCommitBoundaryFragments = ["sonar", "spx_sonar", "testing/fixtures", "fixture-exclusion"] as const;
 
 type LefthookConfig = Record<string, unknown>;
 
@@ -81,6 +89,18 @@ function readCommandRun(config: LefthookConfig, sectionName: string, commandName
   return run as string;
 }
 
+function hasConfigSection(config: LefthookConfig, sectionName: string): boolean {
+  return Object.hasOwn(config, sectionName);
+}
+
+function serializedConfigSection(config: LefthookConfig, sectionName: string): string | null {
+  if (!hasConfigSection(config, sectionName)) {
+    return null;
+  }
+
+  return JSON.stringify(readConfigSection(config, sectionName)).toLowerCase();
+}
+
 async function readProductLefthookConfig(): Promise<LefthookConfig> {
   return asConfigRecord(parse(await readFile(join(process.cwd(), LEFTHOOK_CONFIG_FILE), HOOK_FILE_ENCODING)));
 }
@@ -89,15 +109,32 @@ export function assertConfiguredHookNameParsing(): void {
   expect(configuredHookNames(renderHookConfig(sampleHookNames()))).toEqual(sampleHookNames());
 }
 
-export async function assertLefthookConfigDeclaresNoPrecommitHook(): Promise<void> {
+export async function assertLefthookConfigAvoidsCommitBoundaryValidationHooks(): Promise<void> {
   const config = await readProductLefthookConfig();
-  const prePushCommands = readCommands(config, prePushSectionName);
+  const prePushSection = serializedConfigSection(config, prePushSectionName);
 
   expect(config).not.toHaveProperty(preCommitSectionName);
-  expect(Object.keys(prePushCommands)).toEqual(["sonar-analyze"]);
-  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run build");
-  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run validate");
-  expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("spx test");
+  if (prePushSection !== null) {
+    for (const fragment of prePushValidationCommandFragments) {
+      expect(prePushSection).not.toContain(fragment);
+    }
+  }
+}
+
+export async function assertLefthookConfigDeclaresNoSonarCloudCommitBoundaryHook(): Promise<void> {
+  const config = await readProductLefthookConfig();
+  const commitBoundarySections = [preCommitSectionName, prePushSectionName] as const;
+
+  for (const sectionName of commitBoundarySections) {
+    const section = serializedConfigSection(config, sectionName);
+    if (section === null) {
+      continue;
+    }
+
+    for (const fragment of sonarCloudCommitBoundaryFragments) {
+      expect(section).not.toContain(fragment);
+    }
+  }
 }
 
 export async function assertLefthookConfigRoutesLifecycleHooksThroughGates(): Promise<void> {

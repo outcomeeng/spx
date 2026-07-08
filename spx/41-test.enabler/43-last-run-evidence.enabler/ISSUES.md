@@ -41,5 +41,5 @@ SonarQube-zero-issues program owns. Do the consolidation in that program's pass,
 or when `src/lib/state-store/index.ts` is next edited for its own reason.
 
 **Evidence:** spec-tree-review on PR #239 (`run-state.ts` ↔
-`src/lib/state-store/index.ts:570`); local `sonar analyze` probe surfacing four
+`src/lib/state-store/index.ts:570`); local SonarQube finding probe surfacing four
 state-store findings from a one-line edit.

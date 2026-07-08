@@ -156,7 +156,7 @@ pnpm run validate:published   # Packaged executable validation excluding circula
 
 SonarCloud analyzes the repository through server-side [automatic analysis](https://docs.sonarsource.com/sonarcloud/advanced-setup/automatic-analysis/) on every push to `main` and every pull request, so there is no analysis step in the GitHub Actions workflows. The `.sonarcloud.properties` file at the repository root is its only required artifact; it pins the Python analysis target for the single Python test fixture so analysis does not warn about defaulting to all Python 3 versions.
 
-`.mcp.json` registers a SonarQube MCP server so agents can query the project's findings — quality gate, issues, coverage, duplication, and dependency risks. It complements the `sonarqube@claude-plugins-official` plugin enabled in `.claude/settings.json`: the plugin supplies the SonarQube skills (`/sonar-quality-gate`, `/sonar-analyze`, `/sonar-coverage`, `/sonar-duplication`, `/sonar-dependency-risks`), and this MCP server gives those skills and any MCP-aware agent access to the project's SonarCloud data — the two are complementary, not alternatives. To activate it, install the [`sonar` CLI](https://cli.sonarqube.com) from SonarSource's official instructions onto `PATH`, ensure a container runtime (Docker, Podman, or Nerdctl) is running — `sonar run mcp` starts the server in a container — and authenticate to the `outcomeeng` SonarCloud organization:
+`.mcp.json` registers a SonarQube MCP server so agents can query the project's findings — quality gate, issues, coverage, duplication, and dependency risks. It complements the `sonarqube@claude-plugins-official` plugin enabled in `.claude/settings.json`: the plugin supplies SonarQube slash-command skills, and this MCP server gives those skills and any MCP-aware agent access to the project's SonarCloud data. To activate it, install the [`sonar` CLI](https://cli.sonarqube.com) from SonarSource's official instructions onto `PATH`, ensure a container runtime (Docker, Podman, or Nerdctl) is running — `sonar run mcp` starts the server in a container — and authenticate to the `outcomeeng` SonarCloud organization:
 
 ```bash
 sonar auth login -o outcomeeng   # opens a browser; the token is stored in the OS keychain
@@ -164,7 +164,7 @@ sonar auth login -o outcomeeng   # opens a browser; the token is stored in the O
 
 Until then the MCP server entry is inert: it does not affect builds, tests, or validation.
 
-The local static-analysis gate is `pnpm run validate`, which includes the ESLint mirror of SonarQube findings. SonarQube Cloud automatic analysis still runs server-side on pushes and pull requests. Contributors with SonarQube Cloud plan access for local CLI analysis can set `SPX_SONAR_CLI_ANALYZE=1`; the Lefthook **pre-push** hook then runs `sonar analyze --base origin/main` and blocks the push on findings.
+The local static-analysis gate is `pnpm run validate`, which includes the ESLint mirror of SonarQube findings. SonarQube Cloud automatic analysis still runs server-side on pushes and pull requests.
 
 ## CI/CD
 
