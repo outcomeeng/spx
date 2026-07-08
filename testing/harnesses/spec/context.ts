@@ -84,13 +84,16 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
     const lowerSibling = lowerSiblingDirectoryName(env.fixture);
+    const evidencePath = `spx/${target.id}/tests/${target.slug}.scenario.l1.test.ts`;
     await env.writeRaw(`spx/${lowerSibling}/${env.fixture.root.slug}.md`, "# Lower sibling\n");
     await env.writeRaw(`spx/${target.id}/PLAN.md`, "# Plan\n");
+    await env.writeRaw(evidencePath, "import { describe, it } from \"vitest\";\n");
     const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
     const roles = new Set(manifest.documents.map((document) => document.role));
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.TARGET)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.DECISION)).toBe(true);
+    expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE)).toBe(true);
     expect(manifest.documents).toContainEqual({
       path: `spx/${target.id}/PLAN.md`,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
@@ -98,6 +101,10 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     expect(manifest.documents).toContainEqual({
       path: `spx/${lowerSibling}/${env.fixture.root.slug}.md`,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING,
+    });
+    expect(manifest.documents).toContainEqual({
+      path: evidencePath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE,
     });
     const productIndex = manifest.documents.findIndex((document) =>
       document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT
