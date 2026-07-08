@@ -600,7 +600,7 @@ function collectClaudeToolResult(
 }
 
 function gitCommandAssociatesBranch(words: readonly string[], branch: string): boolean {
-  return shellCommandSegments(words).some((segment) => {
+  return shellSuccessProvingCommandSegments(words).some((segment) => {
     const gitCommand = normalizeGitCommandSegment(segment);
     if (gitCommand === null) {
       return false;
@@ -809,6 +809,8 @@ const SHELL_COMMAND_SEPARATOR = {
   SEQUENCE: ";",
 } as const;
 
+const SHELL_OPERATOR_AND = "&&";
+const SHELL_OPERATOR_OR = "||";
 const SHELL_OPERATOR_AMPERSAND = "&";
 const SHELL_OPERATOR_PIPE = "|";
 const SHELL_ENV_COMMAND = "env";
@@ -822,10 +824,13 @@ const SHELL_ENV_ASSIGNMENT_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*=.*$/u;
 const SHELL_REDIRECTION_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)$/u;
 const SHELL_DUPLICATED_DESCRIPTOR_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)&?\d+$/u;
 
-function shellCommandSegments(words: readonly string[]): readonly (readonly string[])[] {
+function shellSuccessProvingCommandSegments(words: readonly string[]): readonly (readonly string[])[] {
   const segments: string[][] = [[]];
   for (const word of words) {
-    if (isShellCommandSeparator(word)) {
+    if (isShellUnsafeSuccessSeparator(word)) {
+      return [];
+    }
+    if (word === SHELL_OPERATOR_AND) {
       segments.push([]);
       continue;
     }
@@ -848,7 +853,7 @@ function normalizeGitCommandSegment(words: readonly string[]): readonly string[]
   }
   const shellCommandWords = shellCommandWrapperWords(words.slice(index));
   if (shellCommandWords !== null) {
-    return shellCommandSegments(shellCommandWords)
+    return shellSuccessProvingCommandSegments(shellCommandWords)
       .map((segment) => normalizeGitCommandSegment(segment))
       .find((segment): segment is readonly string[] => segment !== null) ?? null;
   }
@@ -868,9 +873,8 @@ function shellCommandWrapperWords(words: readonly string[]): readonly string[] |
   return command === undefined ? null : shellWords(command);
 }
 
-function isShellCommandSeparator(word: string): boolean {
-  return word === `${SHELL_OPERATOR_AMPERSAND}${SHELL_OPERATOR_AMPERSAND}`
-    || word === `${SHELL_OPERATOR_PIPE}${SHELL_OPERATOR_PIPE}`
+function isShellUnsafeSuccessSeparator(word: string): boolean {
+  return word === SHELL_OPERATOR_OR
     || word === SHELL_OPERATOR_AMPERSAND
     || word === SHELL_OPERATOR_PIPE
     || word === SHELL_COMMAND_SEPARATOR.SEQUENCE;
