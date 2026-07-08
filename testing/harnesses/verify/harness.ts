@@ -1345,6 +1345,33 @@ export async function assertAuditFindingUnknownUnitRejectedBeforeAppend(): Promi
   );
 }
 
+export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await auditAppendScenario();
+  const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
+  const finding = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    unitId: scope.unitId,
+    evidence: {},
+  };
+  await appendAuditScope(scenario, deps, runToken, scope);
+  const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
+  const appended = await verifyAppendFindingCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(finding),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(appended.output).toBe(VERIFY_CLI_ERROR.FINDING_INVALID);
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidFinding,
+    "empty-evidence audit finding append mutated journal events",
+  );
+}
+
 async function appendAuditScope(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,

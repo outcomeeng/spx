@@ -908,6 +908,7 @@ export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefin
   if (hasInvalidOptionalField(parentUnitId, producerProvenance)) return undefined;
   const parentUnitIdValue = optionalFieldValue(parentUnitId);
   const producerProvenanceValue = optionalFieldValue(producerProvenance);
+  if (parentUnitIdValue === unitId) return undefined;
   if (!auditKindAllowsProducerProvenance(auditKind, producerProvenanceValue)) return undefined;
   return {
     unitId,
@@ -924,6 +925,16 @@ export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefin
   };
 }
 
+function validateAuditFindingEvidence(
+  evidence: { readonly [key: string]: JsonValue } | undefined,
+): AuditFinding["evidence"] | undefined {
+  if (evidence === undefined) return undefined;
+  const observed = readRequiredString(evidence, "observed");
+  const expected = readRequiredString(evidence, "expected");
+  if (observed === undefined || expected === undefined) return undefined;
+  return { observed, expected };
+}
+
 export function validateAuditFinding(payload: JsonValue): AuditFinding | undefined {
   if (!isJsonRecord(payload)) return undefined;
   const unitId = readRequiredString(payload, "unitId");
@@ -937,7 +948,7 @@ export function validateAuditFinding(payload: JsonValue): AuditFinding | undefin
   if (!isAuditFindingSeverity(severity)) return undefined;
   const producerIdentity = validateAuditProducerIdentity(readRequiredRecord(payload, "producerIdentity"));
   const producerProvenance = validateAuditProducerProvenance(readRequiredRecord(payload, "producerProvenance"));
-  const evidence = readRequiredRecord(payload, "evidence");
+  const evidence = validateAuditFindingEvidence(readRequiredRecord(payload, "evidence"));
   if (producerIdentity === undefined || producerProvenance === undefined || evidence === undefined) {
     return undefined;
   }
