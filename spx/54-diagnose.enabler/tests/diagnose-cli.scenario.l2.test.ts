@@ -245,6 +245,29 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     });
   });
 
+  it("reports invalid methodology config through methodology-context while default diagnose checks still run", async () => {
+    await withTempDir("diagnose-config-methodology-invalid-default", async (cwd) => {
+      const invalidMethodologySource = "../not-a-methodology-source";
+      const config = [
+        `${METHODOLOGY_SECTION}:`,
+        `  ${METHODOLOGY_CONFIG_FIELDS.SOURCE}: "${invalidMethodologySource}"`,
+        `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${DEFAULT_METHODOLOGY_VERSION}"`,
+      ].join("\n");
+      await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
+
+      const result = await runDiagnose([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+
+      const report = JSON.parse(result.stdout) as ReportShape;
+      const methodologyCheck = checkByName(report, CHECK_NAME.METHODOLOGY_CONTEXT);
+      expectSchemaValidReport(report);
+      expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
+      expect(methodologyCheck.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+      expect(methodologyCheck.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
+      expect(methodologyCheck.readings.configured).toBe(String(true));
+      expectExitCodeKeyedToFold(result, report);
+    });
+  });
+
   it("runs from a supplied --manifest even when the diagnose config section is malformed — manifest takes precedence", async () => {
     await withTempDir("diagnose-manifest-precedence", async (cwd) => {
       // A diagnose section the config descriptor rejects. A manifest run must

@@ -33,6 +33,7 @@ export function resolveDiagnoseFacts(options: {
   readonly manifest?: DiagnoseManifest;
   readonly config: DiagnoseConfig;
   readonly methodology?: MethodologyConfig;
+  readonly methodologyError?: string;
   readonly availableChecks: readonly CheckName[];
 }): Result<DiagnoseManifest> {
   if (options.manifest !== undefined) {
@@ -64,6 +65,7 @@ export function resolveDiagnoseFacts(options: {
       marketplace: config.marketplace,
       expectedPlugins: config.expectedPlugins,
       methodology: options.methodology,
+      methodologyError: options.methodologyError,
     },
   };
 }

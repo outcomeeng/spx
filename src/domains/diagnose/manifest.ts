@@ -43,6 +43,8 @@ export interface DiagnoseManifest {
   readonly checks: readonly CheckName[];
   /** The configured methodology source/version; present on config-driven runs. */
   readonly methodology?: MethodologyConfig;
+  /** A config-derived methodology resolution error; present only when methodology-context should own the failure. */
+  readonly methodologyError?: string;
 }
 
 function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<readonly CheckName[]> {

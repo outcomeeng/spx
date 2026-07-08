@@ -13,7 +13,7 @@
 
 import { resolveConfig } from "@/config/index";
 import type { MethodologyConfig } from "@/config/methodology";
-import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import { isLegacyHarnessMethodologyConfigError, resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
 import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
@@ -104,16 +104,22 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
   if (!config.ok) return config;
 
   let methodology: MethodologyConfig | undefined;
+  let methodologyError: string | undefined;
   if (shouldResolveMethodologyConfig(manifest?.value, config.value, availableChecks)) {
     const methodologyConfig = await resolveMethodologyConfig(options.productDir);
-    if (!methodologyConfig.ok) return methodologyConfig;
-    methodology = methodologyConfig.value;
+    if (methodologyConfig.ok) {
+      methodology = methodologyConfig.value;
+    } else {
+      if (isLegacyHarnessMethodologyConfigError(methodologyConfig.error)) return methodologyConfig;
+      methodologyError = methodologyConfig.error;
+    }
   }
 
   const resolved = resolveDiagnoseFacts({
     manifest: manifest?.value,
     config: config.value ?? {},
     methodology,
+    methodologyError,
     availableChecks,
   });
   if (!resolved.ok) return resolved;

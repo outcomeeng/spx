@@ -92,6 +92,17 @@ export function classifyMethodologyContext(reading: MethodologyContextReading): 
 
 export function methodologyContextRunner(probe: MethodologyContextProbe): CheckRunner {
   return async (manifest) => {
+    if (manifest.methodologyError !== undefined) {
+      return classifyMethodologyContext({
+        configured: true,
+        configuredSource: null,
+        configuredVersion: null,
+        observedSource: null,
+        observedVersion: null,
+        errored: true,
+      });
+    }
+
     if (manifest.methodology === undefined) {
       return classifyMethodologyContext({
         configured: false,
