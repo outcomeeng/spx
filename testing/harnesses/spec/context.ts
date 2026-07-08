@@ -12,29 +12,15 @@ import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placemen
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/git/tracked-paths";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   type RepresentativeSpecTreeFixture,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
+import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
-}
-
-function generatedMethodologySection(): Record<string, unknown> {
-  return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-  };
-}
-
-function generatedMethodologySource(): string {
-  return [
-    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-  ].join("/");
 }
 
 function trackedSpecContextGitDependencies(productDir: string, trackedPaths: readonly string[]): GitDependencies {
