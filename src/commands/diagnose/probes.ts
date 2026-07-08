@@ -10,12 +10,12 @@
  */
 
 import { readdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 
 import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
+import { resolveAgentHomeDirs } from "@/domains/agent";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -55,15 +55,6 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-export const METHODOLOGY_CONTEXT_HOME_ENV = {
-  CODEX: "CODEX_HOME",
-  CLAUDE: "CLAUDE_CONFIG_DIR",
-} as const;
-
-const CODEX_HOME_ENV = METHODOLOGY_CONTEXT_HOME_ENV.CODEX;
-const CLAUDE_HOME_ENV = METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE;
-const DEFAULT_CODEX_HOME_DIR = ".codex";
-const DEFAULT_CLAUDE_HOME_DIR = ".claude";
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
@@ -467,10 +458,6 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
   },
 };
 
-function codexHome(env: Readonly<Record<string, string | undefined>> = process.env): string {
-  return env[CODEX_HOME_ENV] ?? join(homedir(), DEFAULT_CODEX_HOME_DIR);
-}
-
 interface LatestDirectoryReading {
   readonly errored: boolean;
   readonly version: string | null;
@@ -539,7 +526,8 @@ async function configuredVersionDirectory(
 }
 
 export function createMethodologyContextProbe(...agentHomeDirs: readonly string[]): MethodologyContextProbe {
-  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [codexHome(), claudeHome()];
+  const resolvedHomes = resolveAgentHomeDirs();
+  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
   return {
     async probe(config): Promise<MethodologyContextObservation> {
       const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
@@ -554,10 +542,6 @@ export function createMethodologyContextProbe(...agentHomeDirs: readonly string[
       };
     },
   };
-}
-
-function claudeHome(env: Readonly<Record<string, string | undefined>> = process.env): string {
-  return env[CLAUDE_HOME_ENV] ?? join(homedir(), DEFAULT_CLAUDE_HOME_DIR);
 }
 
 export const defaultMethodologyContextProbe: MethodologyContextProbe = {

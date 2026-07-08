@@ -1,4 +1,9 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/46-agent.enabler/tests/agent-home-resolution.compliance.l1.test.ts": "passed"
+    }
+  }
 }

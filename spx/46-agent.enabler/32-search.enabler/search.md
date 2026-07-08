@@ -17,4 +17,5 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 
 ### Compliance
 
+- ALWAYS: Codex search reads from `CODEX_HOME` plus `sessions` when set or `~/.codex/sessions` otherwise, and Claude Code search reads from `CLAUDE_CONFIG_DIR` plus `projects` when set or `~/.claude/projects` otherwise ([test](tests/search.compliance.l1.test.ts))
 - ALWAYS: default search is product-scoped, excludes agent subagent transcripts, bounds output by recent-session and result-count limits, and searches only agent-native transcript stores rather than `.spx/sessions/` SPX handoff session files ([test](tests/search.compliance.l1.test.ts))

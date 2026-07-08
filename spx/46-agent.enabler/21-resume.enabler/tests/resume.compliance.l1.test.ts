@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertAgentResumeUsesConfiguredAgentHomes,
   assertBoundedMetadataHeadAndActivityTailWindows,
   assertClaudeBranchReadFromLaterHeadRow,
   assertClaudeProjectNameEncodesPathSeparators,
@@ -117,5 +118,9 @@ describe("agent resume Claude project encoding compliance", () => {
 describe("agent resume store path compliance", () => {
   it("reads Codex and Claude Code candidates from their default agent session stores", () => {
     assertDefaultAgentSessionStoreDirs();
+  });
+
+  it("reads Codex and Claude Code candidates from configured agent session stores", async () => {
+    await assertAgentResumeUsesConfiguredAgentHomes();
   });
 });

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
@@ -23,6 +24,7 @@ import {
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   agentSessionJsonlName,
+  assertAgentSearchUsesConfiguredAgentHomes,
   codexTranscript,
   MemoryAgentSessionFileSystem,
   writeClaudeProjectTranscriptFile,
@@ -31,6 +33,10 @@ import {
 } from "@testing/harnesses/agent/resume";
 
 describe("agent session search compliance", () => {
+  it("reads Codex and Claude Code sessions from configured agent session stores", async () => {
+    await assertAgentSearchUsesConfiguredAgentHomes();
+  });
+
   it("matches all scoped recent agent sessions when no selector is provided", async () => {
     const fs = new MemoryAgentSessionFileSystem();
     const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 70);
@@ -73,7 +79,7 @@ describe("agent session search compliance", () => {
     });
 
     const results = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
@@ -111,7 +117,7 @@ describe("agent session search compliance", () => {
     });
 
     const results = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
@@ -169,14 +175,14 @@ describe("agent session search compliance", () => {
     });
 
     const agentAndContent = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
       query: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CODEX, contains: matchingLiteral }),
     });
     const sessionAndBranch = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
@@ -217,7 +223,7 @@ describe("agent session search compliance", () => {
     }
 
     const results = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
@@ -290,7 +296,7 @@ describe("agent session search compliance", () => {
     );
 
     const results = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,

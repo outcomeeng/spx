@@ -2,6 +2,13 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { expect } from "vitest";
 
 import { listAgentResumeSessions } from "@/commands/agent/resume";
+import { jsonAgentSearchSessions } from "@/commands/agent/search";
+import {
+  AGENT_HOME_ENV,
+  type AgentHomeDirs,
+  agentHomeDirsFromHomeDir,
+  resolveAgentHomeDirs,
+} from "@/domains/agent/home";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_RECENT_WINDOW_MS,
@@ -24,6 +31,7 @@ import {
   isPathInsideOrEqual,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
+import { agentSearchQueryFromOptions } from "@/domains/agent/search";
 import { createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
@@ -109,6 +117,18 @@ const CANDIDATE_SAMPLE = {
   WORKTREE_ROOT: 22,
   CWD: 23,
   SOURCE_HOME_DIR: 24,
+} as const;
+const CONFIGURED_AGENT_HOME_SAMPLE = {
+  DEFAULT_HOME: 401,
+  CODEX_HOME: 402,
+  CLAUDE_HOME: 403,
+  WORKTREE_ROOT: 404,
+  CODEX_CWD: 405,
+  CLAUDE_CWD: 406,
+  CODEX_SESSION_ID: 407,
+  CLAUDE_SESSION_ID: 408,
+  DEFAULT_SESSION_ID: 409,
+  NOW_MS: 410,
 } as const;
 
 export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
@@ -260,10 +280,12 @@ export function recordingAgentResumeWorktreeRootResolver(
 }
 
 export function codexTranscriptPath(homeDir: string, fileName: string): string {
+  return codexTranscriptPathFromAgentHome(agentHomeDirsFromHomeDir(homeDir).codex, fileName);
+}
+
+function codexTranscriptPathFromAgentHome(codexHomeDir: string, fileName: string): string {
   return join(
-    homeDir,
-    AGENT_SESSION_STORE.CODEX_DIR,
-    AGENT_SESSION_STORE.CODEX_SESSIONS_DIR,
+    codexSessionStoreDir(codexHomeDir),
     CODEX_TRANSCRIPT_YEAR_DIR,
     CODEX_TRANSCRIPT_MONTH_DIR,
     CODEX_TRANSCRIPT_DAY_DIR,
@@ -363,10 +385,12 @@ export function agentTranscriptActivityRow(timestamp: string): string {
 }
 
 export function claudeProjectTranscriptPath(homeDir: string, cwd: string, fileName: string): string {
+  return claudeProjectTranscriptPathFromAgentHome(agentHomeDirsFromHomeDir(homeDir).claudeCode, cwd, fileName);
+}
+
+function claudeProjectTranscriptPathFromAgentHome(claudeCodeHomeDir: string, cwd: string, fileName: string): string {
   return join(
-    homeDir,
-    AGENT_SESSION_STORE.CLAUDE_DIR,
-    AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+    claudeCodeSessionStoreDir(claudeCodeHomeDir),
     claudeProjectDirName(cwd),
     fileName,
   );
@@ -400,9 +424,7 @@ export function writeClaudeSubagentTranscriptFile(
 
 export function claudeSubagentTranscriptPath(homeDir: string, cwd: string, fileName: string): string {
   return join(
-    homeDir,
-    AGENT_SESSION_STORE.CLAUDE_DIR,
-    AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR,
+    claudeCodeSessionStoreDir(agentHomeDirsFromHomeDir(homeDir).claudeCode),
     claudeProjectDirName(cwd),
     AGENT_SESSION_STORE.CLAUDE_SUBAGENTS_DIR,
     fileName,
@@ -497,7 +519,7 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
     scope: worktreeResumeScope(),
     deps: {
       fs,
-      homeDir: () => homeDir,
+      agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
       nowMs: () => nowMs,
       resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     },
@@ -543,7 +565,7 @@ export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -579,7 +601,7 @@ export async function assertInvocationWorktreeRootResolvedOnce(): Promise<void> 
 
   await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -602,7 +624,7 @@ export async function assertBoundedMetadataHeadAndActivityTailWindows(): Promise
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -644,7 +666,7 @@ export async function assertUnknownActivityFillsRemainingCapSlots(): Promise<voi
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -673,7 +695,7 @@ export async function assertTimestamplessSessionSortsAfterTimestamped(): Promise
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -707,7 +729,7 @@ export async function assertPartialTailSessionSortsAfterTimestamped(): Promise<v
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -743,7 +765,7 @@ export async function assertDeduplicatesSharedSessionIdToNewestActivity(): Promi
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -780,7 +802,7 @@ export async function assertDedupKeepsInScopeSessionWhenNewerDuplicateOutOfScope
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: inScopeCwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -818,7 +840,7 @@ export async function assertExcludesNonInteractiveCodexTranscripts(): Promise<vo
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -850,7 +872,7 @@ export async function assertExcludesClaudeSubagentTranscripts(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -876,7 +898,7 @@ export async function assertIncludesCodexVsCodeTranscripts(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -909,7 +931,7 @@ export async function assertExcludesStaleModifiedSessions(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -943,7 +965,7 @@ export async function assertExcludesFutureModifiedSessions(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -980,7 +1002,7 @@ export async function assertSkipsClaudeSiblingProjectPrefix(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: invocationCwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -1013,7 +1035,7 @@ export async function assertSourcePathTieBreakSelectsPerAgentCap(): Promise<void
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: worktreeResumeScope(),
     fs,
@@ -1043,7 +1065,7 @@ export async function assertClaudeBranchReadFromLaterHeadRow(): Promise<void> {
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     scope: branchResumeScope(targetBranch),
     fs,
@@ -1069,12 +1091,158 @@ export function assertClaudeProjectNameEncodesPathSeparators(): void {
 export function assertDefaultAgentSessionStoreDirs(): void {
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
 
-  expect(codexSessionStoreDir(homeDir)).toBe(
+  const agentHomeDirs = agentHomeDirsFromHomeDir(homeDir);
+  expect(codexSessionStoreDir(agentHomeDirs.codex)).toBe(
     join(homeDir, AGENT_SESSION_STORE.CODEX_DIR, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR),
   );
-  expect(claudeCodeSessionStoreDir(homeDir)).toBe(
+  expect(claudeCodeSessionStoreDir(agentHomeDirs.claudeCode)).toBe(
     join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR),
   );
+}
+
+export function assertAgentHomeResolutionHonorsEnvironment(): void {
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+  const configuredCodexHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME,
+  );
+  const configuredClaudeHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME,
+  );
+  const resolved = resolveAgentHomeDirs(
+    {
+      [AGENT_HOME_ENV.CODEX]: configuredCodexHome,
+      [AGENT_HOME_ENV.CLAUDE]: configuredClaudeHome,
+    },
+    { homeDir: () => defaultHome },
+  );
+
+  expect(resolved).toEqual({
+    codex: configuredCodexHome,
+    claudeCode: configuredClaudeHome,
+  });
+}
+
+export function assertAgentHomeResolutionUsesDefaultHomes(): void {
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+
+  expect(resolveAgentHomeDirs({}, { homeDir: () => defaultHome })).toEqual(agentHomeDirsFromHomeDir(defaultHome));
+}
+
+export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
+  const fixture = createConfiguredAgentHomeFixture();
+  const output = await listAgentResumeSessions({
+    cwd: fixture.codexCwd,
+    fallbackWorktreeRoot: fixture.worktreeRoot,
+    scope: worktreeResumeScope(),
+    deps: {
+      fs: fixture.fs,
+      agentHomeDirs: () => fixture.agentHomeDirs,
+      nowMs: () => fixture.nowMs,
+      resolveWorktreeRoot: async () => fixture.worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(fixture.codexSessionId);
+  expect(output).toContain(fixture.claudeSessionId);
+  expect(output).not.toContain(fixture.defaultSessionId);
+}
+
+export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
+  const fixture = createConfiguredAgentHomeFixture();
+  const output = await jsonAgentSearchSessions({
+    cwd: fixture.codexCwd,
+    fallbackProductScopeRoot: fixture.worktreeRoot,
+    query: agentSearchQueryFromOptions({}),
+    deps: {
+      fs: fixture.fs,
+      agentHomeDirs: () => fixture.agentHomeDirs,
+      nowMs: () => fixture.nowMs,
+      resolveProductScopeRoot: async () => fixture.worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(fixture.codexSessionId);
+  expect(output).toContain(fixture.claudeSessionId);
+  expect(output).not.toContain(fixture.defaultSessionId);
+}
+
+interface ConfiguredAgentHomeFixture {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly agentHomeDirs: AgentHomeDirs;
+  readonly worktreeRoot: string;
+  readonly codexCwd: string;
+  readonly claudeCwd: string;
+  readonly codexSessionId: string;
+  readonly claudeSessionId: string;
+  readonly defaultSessionId: string;
+  readonly nowMs: number;
+}
+
+function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
+  const fs = new MemoryAgentSessionFileSystem();
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+  const agentHomeDirs = {
+    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
+    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
+  };
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT);
+  const codexCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(worktreeRoot),
+    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_CWD,
+  );
+  const claudeCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(worktreeRoot),
+    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CWD,
+  );
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), CONFIGURED_AGENT_HOME_SAMPLE.NOW_MS);
+  const codexSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_SESSION_ID,
+  );
+  const claudeSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
+  );
+  const defaultSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
+  );
+  const timestamp = new Date(nowMs).toISOString();
+
+  fs.writeFile(
+    codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
+    codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    claudeProjectTranscriptPathFromAgentHome(
+      agentHomeDirs.claudeCode,
+      claudeCwd,
+      agentSessionJsonlName(claudeSessionId),
+    ),
+    claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
+    nowMs,
+  );
+  writeCodexTranscriptFile(fs, defaultHome, {
+    sessionId: defaultSessionId,
+    cwd: codexCwd,
+    timestamp,
+    modifiedAtMs: nowMs,
+  });
+
+  return {
+    fs,
+    agentHomeDirs,
+    worktreeRoot,
+    codexCwd,
+    claudeCwd,
+    codexSessionId,
+    claudeSessionId,
+    defaultSessionId,
+    nowMs,
+  };
 }
 
 export function createProgramForResumeFixture(
@@ -1171,7 +1339,7 @@ function createResumeProgram(input: ResumeProgramInput): ReturnType<typeof creat
         isInteractiveTerminal: input.isInteractiveTerminal,
         resumeDeps: {
           fs: input.fs,
-          homeDir: () => input.homeDir,
+          agentHomeDirs: () => agentHomeDirsFromHomeDir(input.homeDir),
           nowMs: () => input.nowMs,
           resolveWorktreeRoot: input.resolveWorktreeRoot,
         },
