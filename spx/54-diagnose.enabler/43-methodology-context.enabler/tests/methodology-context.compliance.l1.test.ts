@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertDefaultMethodologyProbeReadsAgentHomesAtProbeTime,
   assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects,
   assertMethodologyDiagnoseRejectsHarnessMethodologyConfig,
   assertMethodologyDiagnoseTextRenders,
@@ -52,5 +53,9 @@ describe("methodology-context diagnose compliance", () => {
 
   it("reads supported local agent methodology caches", async () => {
     await assertMethodologyProbeReadsSupportedAgentCaches();
+  });
+
+  it("resolves default probe agent homes when probing", async () => {
+    await assertDefaultMethodologyProbeReadsAgentHomesAtProbeTime();
   });
 });
