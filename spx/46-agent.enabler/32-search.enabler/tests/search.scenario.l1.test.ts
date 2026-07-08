@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveAgentSearchProductScopeRoot } from "@/commands/agent/search";
+import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   AGENT_SEARCH_MATCH_REASON,
@@ -100,7 +101,7 @@ describe("agent session search scenarios", () => {
     });
 
     const results = await searchAgentSessions({
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       productScopeRoot,
       fs,
@@ -145,7 +146,7 @@ describe("agent session search scenarios", () => {
         createAgentDomain({
           searchDeps: {
             fs,
-            homeDir: () => homeDir,
+            agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
             nowMs: () => nowMs,
             resolveProductScopeRoot: async () => productScopeRoot,
           },
@@ -217,7 +218,7 @@ describe("agent session search scenarios", () => {
         createAgentDomain({
           searchDeps: {
             fs,
-            homeDir: () => homeDir,
+            agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
             nowMs: () => nowMs,
             resolveProductScopeRoot: async (_cwd, fallbackRoot) => fallbackRoot,
           },

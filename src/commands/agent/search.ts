@@ -1,21 +1,22 @@
 import { open, readdir, readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 
 import {
   AGENT_SESSION_STORE,
+  type AgentHomeDirs,
   type AgentSearchFileSystem,
   type AgentSearchQuery,
   type AgentSearchResult,
   type AgentSessionDirEntry,
   renderAgentSearchJson,
   renderAgentSearchList,
+  resolveAgentHomeDirs,
   searchAgentSessions,
 } from "@/domains/agent";
 import { defaultGitDependencies, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
-  readonly homeDir: () => string;
+  readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
   readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<string>;
 }
@@ -57,7 +58,7 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
 
 export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   fs: nodeAgentSearchFileSystem,
-  homeDir: homedir,
+  agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
 };
@@ -76,7 +77,7 @@ export async function loadAgentSearchResults(
 ): Promise<AgentSearchResult[]> {
   const deps = options.deps ?? defaultAgentSearchCommandDeps;
   return searchAgentSessions({
-    homeDir: deps.homeDir(),
+    agentHomeDirs: deps.agentHomeDirs(),
     nowMs: deps.nowMs(),
     productScopeRoot: await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot),
     fs: deps.fs,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_RESUME_COMMAND,
   AGENT_RESUME_MODE,
@@ -277,7 +278,7 @@ describe("agent resume scope mappings", () => {
     for (const testCase of cases) {
       const candidates = await discoverAgentResumeCandidates({
         invocationDir: cwdInWorktree,
-        homeDir,
+        agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
         nowMs,
         scope: testCase.scope,
         fs,

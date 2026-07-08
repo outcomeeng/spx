@@ -1,8 +1,8 @@
 import { open, readdir, stat } from "node:fs/promises";
-import { homedir } from "node:os";
 
 import {
   AGENT_SESSION_STORE,
+  type AgentHomeDirs,
   type AgentResumeCandidate,
   type AgentResumeScope,
   type AgentResumeSessionFileSystem,
@@ -10,12 +10,13 @@ import {
   discoverAgentResumeCandidates,
   renderAgentResumeJson,
   renderAgentResumeList,
+  resolveAgentHomeDirs,
 } from "@/domains/agent";
 import { detectWorktreeProductRoot } from "@/git/root";
 
 export interface AgentResumeCommandDeps {
   readonly fs: AgentResumeSessionFileSystem;
-  readonly homeDir: () => string;
+  readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
   readonly resolveWorktreeRoot: (cwd: string, fallbackWorktreeRoot: string) => Promise<string>;
 }
@@ -67,7 +68,7 @@ export const nodeAgentSessionFileSystem: AgentResumeSessionFileSystem = {
 
 export const defaultAgentResumeCommandDeps: AgentResumeCommandDeps = {
   fs: nodeAgentSessionFileSystem,
-  homeDir: homedir,
+  agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveWorktreeRoot: async (cwd, fallbackWorktreeRoot) => {
     const result = await detectWorktreeProductRoot(cwd);
@@ -81,7 +82,7 @@ export async function loadAgentResumeCandidates(
   const deps = options.deps ?? defaultAgentResumeCommandDeps;
   return discoverAgentResumeCandidates({
     invocationDir: options.cwd,
-    homeDir: deps.homeDir(),
+    agentHomeDirs: deps.agentHomeDirs(),
     nowMs: deps.nowMs(),
     scope: options.scope,
     fs: deps.fs,

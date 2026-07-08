@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
@@ -72,7 +73,7 @@ describe("agent resume discovery scenarios", () => {
 
     const candidates = await discoverAgentResumeCandidates({
       invocationDir,
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       scope: worktreeResumeScope(),
       fs,
@@ -119,7 +120,7 @@ describe("agent resume discovery scenarios", () => {
 
     const candidates = await discoverAgentResumeCandidates({
       invocationDir,
-      homeDir,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
       nowMs,
       scope: branchResumeScope(targetBranch),
       fs,

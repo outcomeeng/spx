@@ -1,5 +1,6 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+import type { AgentHomeDirs } from "./home";
 import {
   AGENT_RESUME_COMMAND,
   AGENT_RESUME_LIMITS,
@@ -71,7 +72,7 @@ export interface AgentResumeLaunchCommand {
 
 export interface DiscoverAgentResumeCandidatesOptions {
   readonly invocationDir: string;
-  readonly homeDir: string;
+  readonly agentHomeDirs: AgentHomeDirs;
   readonly nowMs: number;
   readonly scope: AgentResumeScope;
   readonly fs: AgentResumeSessionFileSystem;
@@ -169,12 +170,12 @@ function moveAgentResumePickerSelection(
   return { selectedIndex: nextIndex };
 }
 
-export function codexSessionStoreDir(homeDir: string): string {
-  return resolve(homeDir, AGENT_SESSION_STORE.CODEX_DIR, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR);
+export function codexSessionStoreDir(codexHomeDir: string): string {
+  return resolve(codexHomeDir, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR);
 }
 
-export function claudeCodeSessionStoreDir(homeDir: string): string {
-  return resolve(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR);
+export function claudeCodeSessionStoreDir(claudeCodeHomeDir: string): string {
+  return resolve(claudeCodeHomeDir, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR);
 }
 
 const CLAUDE_PROJECT_PATH_SEPARATORS = /[/\\]/g;
@@ -201,7 +202,7 @@ export async function discoverAgentResumeCandidates(
     collectAgentCandidates(
       AGENT_SESSION_KIND.CODEX,
       await recentStoreFiles(
-        await collectJsonlFiles(codexSessionStoreDir(options.homeDir), options.fs),
+        await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
         options.fs,
         options.nowMs,
       ),
@@ -213,7 +214,11 @@ export async function discoverAgentResumeCandidates(
     collectAgentCandidates(
       AGENT_SESSION_KIND.CLAUDE_CODE,
       await recentStoreFiles(
-        await claudeTranscriptFiles(claudeCodeSessionStoreDir(options.homeDir), options.fs, scope.claudeDirAccepts),
+        await claudeTranscriptFiles(
+          claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
+          options.fs,
+          scope.claudeDirAccepts,
+        ),
         options.fs,
         options.nowMs,
       ),

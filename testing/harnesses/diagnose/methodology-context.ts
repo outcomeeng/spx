@@ -4,13 +4,10 @@ import { join } from "node:path";
 import { expect } from "vitest";
 
 import { diagnoseCommand } from "@/commands/diagnose";
-import {
-  createMethodologyContextProbe,
-  defaultMethodologyContextProbe,
-  METHODOLOGY_CONTEXT_HOME_ENV,
-} from "@/commands/diagnose/probes";
+import { createMethodologyContextProbe, defaultMethodologyContextProbe } from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
+import { AGENT_HOME_ENV } from "@/domains/agent";
 import {
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextObservation,
@@ -39,22 +36,22 @@ async function withAgentHomeEnv(
   claudeHome: string,
   callback: () => Promise<void>,
 ): Promise<void> {
-  const previousCodexHome = process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX];
-  const previousClaudeHome = process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE];
-  process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX] = codexHome;
-  process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE] = claudeHome;
+  const previousCodexHome = process.env[AGENT_HOME_ENV.CODEX];
+  const previousClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
+  process.env[AGENT_HOME_ENV.CODEX] = codexHome;
+  process.env[AGENT_HOME_ENV.CLAUDE] = claudeHome;
   try {
     await callback();
   } finally {
     if (previousCodexHome === undefined) {
-      delete process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX];
+      delete process.env[AGENT_HOME_ENV.CODEX];
     } else {
-      process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX] = previousCodexHome;
+      process.env[AGENT_HOME_ENV.CODEX] = previousCodexHome;
     }
     if (previousClaudeHome === undefined) {
-      delete process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE];
+      delete process.env[AGENT_HOME_ENV.CLAUDE];
     } else {
-      process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE] = previousClaudeHome;
+      process.env[AGENT_HOME_ENV.CLAUDE] = previousClaudeHome;
     }
   }
 }

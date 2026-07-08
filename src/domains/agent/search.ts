@@ -1,4 +1,5 @@
 import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
+import type { AgentHomeDirs } from "./home";
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND, AGENT_SESSION_LABEL, type AgentSessionKind } from "./protocol";
 import {
   type AgentSessionFileStat,
@@ -60,7 +61,7 @@ export interface AgentSearchQueryOptions {
 }
 
 export interface AgentSearchOptions {
-  readonly homeDir: string;
+  readonly agentHomeDirs: AgentHomeDirs;
   readonly nowMs: number;
   readonly productScopeRoot: string;
   readonly fs: AgentSearchFileSystem;
@@ -137,9 +138,9 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const paths = agent === AGENT_SESSION_KIND.CODEX
-    ? await collectJsonlFiles(codexSessionStoreDir(options.homeDir), options.fs)
+    ? await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs)
     : await claudeTranscriptFiles(
-      claudeCodeSessionStoreDir(options.homeDir),
+      claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
       options.fs,
       claudeDirAcceptsProductScope(options.productScopeRoot),
     );
