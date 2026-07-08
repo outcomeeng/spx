@@ -1,317 +1,75 @@
-import { ESLint, Linter } from "eslint";
-import importPlugin from "eslint-plugin-import";
-import sonarjs from "eslint-plugin-sonarjs";
-import unicorn from "eslint-plugin-unicorn";
-import { builtinRules } from "eslint/use-at-your-own-risk";
-import tseslint from "typescript-eslint";
+import {
+  assertClearedFindingClassesRunAtErrorTier,
+  assertCognitiveComplexityGuardReportsFinding,
+  assertMirrorDrawsRulesFromExpectedSources,
+  assertMirroredSonarjsRulesReportFinding,
+  assertMirroredUnicornRulesReportFindings,
+  assertMirrorRuleIdsAreRecognizedByOwners,
+  assertMirrorRuleTiersPartitionMirror,
+  assertMirrorTierSeveritiesMapToEslintLevels,
+  assertOfflineErrorTierRulesReportFindings,
+  assertPseudoRandomGuardReportsFinding,
+  assertTaskMarkerCommentsReportFindings,
+  assertTaskMarkerFallbackConfigReportsFindings,
+  assertTypeAwareParserOptions,
+  assertUnicornRulesRunAtWarnTier,
+} from "@testing/harnesses/validation/eslint-mirror";
 import { describe, expect, it } from "vitest";
 
-import { TEST_RELEVANT_SOURCE_ROOT_PREFIX } from "@/config/source-roots";
-import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-finder";
-import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
-import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
-import customRules from "@eslint-rules/index";
-import { NO_TASK_MARKER_COMMENTS_RULE_NAME, TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";
-import {
-  ARRAY_SORT_COMPARATOR_RULE,
-  COGNITIVE_COMPLEXITY_RULE,
-  DUPLICATE_IMPORT_RULE,
-  MIRROR_ERROR_RULES,
-  MIRROR_ERROR_SEVERITY,
-  MIRROR_RULES,
-  MIRROR_WARN_RULES,
-  MIRROR_WARN_SEVERITY,
-  OBJECT_HAS_OWN_RULE,
-  PSEUDO_RANDOM_RULE,
-  REDUNDANT_ASSERTION_RULE,
-  TASK_MARKER_COMMENT_FALLBACK_FILES,
-  TASK_MARKER_COMMENT_RULE,
-  TYPE_AWARE_PARSER_OPTIONS,
-} from "@eslint-rules/offline-mirror";
-import { ESLINT_MIRROR_TEST_GENERATOR } from "@testing/generators/validation/eslint-mirror";
-
 describe("type-aware lint mirror", () => {
-  const sonarjsPrefix = "sonarjs/";
-  const typescriptPrefix = "@typescript-eslint/";
-  const unicornPrefix = "unicorn/";
-  const importPrefix = "import/";
-  const spxPrefix = SPX_RULE_PREFIX;
-  // ESLint core rules carry no plugin prefix (no `/` in the rule id).
-  const isCoreRule = (rule: string): boolean => !rule.includes("/");
-  const violatingSource = ESLINT_MIRROR_TEST_GENERATOR.identicalExpressionSource();
-
-  const sonarjsMirrorRules = (): Linter.RulesRecord =>
-    Object.fromEntries(
-      Object.entries(MIRROR_RULES).filter(([name]) => name.startsWith(sonarjsPrefix)),
-    );
-
-  const unicornViolationFixtures = ESLINT_MIRROR_TEST_GENERATOR.unicornViolationFixtures();
-
-  const unicornMirrorRuleNames = (): string[] =>
-    Object.keys(MIRROR_RULES).filter((name) => name.startsWith(unicornPrefix));
-
   it("enables type-aware linting through the project service", () => {
-    expect(TYPE_AWARE_PARSER_OPTIONS.projectService).toBe(true);
+    assertTypeAwareParserOptions();
   });
 
-  // ESLint's numeric severities are an external contract: 1 is a warning
-  // (non-blocking), 2 is an error (fails the lint run).
-  const eslintWarningSeverity = 1;
-  const eslintErrorSeverity = 2;
-
-  // Drives the warn-tier SonarJS rules at a chosen severity and reads back the
-  // severity ESLint reports for whichever fires on the violating source, so the
-  // probe names no specific rule.
-  const reportedSeverityAt = (severity: Linter.RuleSeverity): number | undefined => {
-    const rules = Object.fromEntries(
-      Object.keys(MIRROR_WARN_RULES)
-        .filter((name) => name.startsWith(sonarjsPrefix))
-        .map((name) => [name, severity]),
-    );
-    return new Linter()
-      .verify(violatingSource, { plugins: { sonarjs }, rules })
-      .find((message) => message.ruleId?.startsWith(sonarjsPrefix))?.severity;
-  };
-
   it("partitions rules into disjoint warn and error tiers whose union is the mirror", () => {
-    expect(MIRROR_WARN_SEVERITY).not.toBe(MIRROR_ERROR_SEVERITY);
-    expect(
-      Object.values(MIRROR_WARN_RULES).every((severity) => severity === MIRROR_WARN_SEVERITY),
-    ).toBe(true);
-    expect(
-      Object.values(MIRROR_ERROR_RULES).every((severity) => severity === MIRROR_ERROR_SEVERITY),
-    ).toBe(true);
-    const warnNames = Object.keys(MIRROR_WARN_RULES);
-    const errorNames = Object.keys(MIRROR_ERROR_RULES);
-    expect(warnNames.some((name) => errorNames.includes(name))).toBe(false);
-    expect(MIRROR_RULES).toEqual({ ...MIRROR_WARN_RULES, ...MIRROR_ERROR_RULES });
+    assertMirrorRuleTiersPartitionMirror();
   });
 
   it("maps the tier severity values to ESLint's blocking and non-blocking levels", () => {
-    // Feeds each tier's severity value into ESLint through a syntactic warn-tier
-    // rule and reads back the numeric severity ESLint assigns: the error tier's
-    // value yields a blocking error (2), the warn tier's a non-blocking warning
-    // (1). This pins the severity values, not the type-aware sort rule's firing —
-    // that fires only against a real project and is covered by the live
-    // `spx validation` gate.
-    expect(reportedSeverityAt(MIRROR_WARN_SEVERITY)).toBe(eslintWarningSeverity);
-    expect(reportedSeverityAt(MIRROR_ERROR_SEVERITY)).toBe(eslintErrorSeverity);
+    assertMirrorTierSeveritiesMapToEslintLevels();
   });
 
   it("places the cleared classes in the error tier", () => {
-    // The cleared finding classes have no remaining occurrence in the linted
-    // tree, so each runs at the error tier: a new occurrence fails the gate.
-    // Each graduated class is named through a source-owned constant, so no
-    // rule-id literal is duplicated from source.
-    expect(MIRROR_ERROR_RULES).toHaveProperty(ARRAY_SORT_COMPARATOR_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(COGNITIVE_COMPLEXITY_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(PSEUDO_RANDOM_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(REDUNDANT_ASSERTION_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(OBJECT_HAS_OWN_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(DUPLICATE_IMPORT_RULE, MIRROR_ERROR_SEVERITY);
-    expect(MIRROR_ERROR_RULES).toHaveProperty(TASK_MARKER_COMMENT_RULE, MIRROR_ERROR_SEVERITY);
+    assertClearedFindingClassesRunAtErrorTier();
   });
 
   it("places the unicorn-family rules in the warn tier", () => {
-    // The unicorn-family modernization backlog is uncleared, so each rule runs at
-    // the warn tier — findings surface without failing the gate — and graduates to
-    // the error tier in the change that clears its last occurrence.
-    const unicornNames = unicornMirrorRuleNames();
-    expect(unicornNames.length).toBeGreaterThan(0);
-    expect(
-      unicornNames.every((name) => MIRROR_WARN_RULES[name] === MIRROR_WARN_SEVERITY),
-    ).toBe(true);
-    expect(unicornNames.some((name) => name in MIRROR_ERROR_RULES)).toBe(false);
+    assertUnicornRulesRunAtWarnTier();
   });
 
   it("reports a finding when ESLint runs each mirrored unicorn rule against violating source", () => {
-    const linter = new Linter();
-    const unicornNames = unicornMirrorRuleNames();
-
-    expect(unicornNames.length).toBeGreaterThan(0);
-    for (const ruleId of unicornNames) {
-      const shortName = ruleId.slice(unicornPrefix.length);
-      const source = unicornViolationFixtures[shortName];
-      expect(source, `missing violating fixture for ${ruleId}`).toBeDefined();
-
-      const messages = linter.verify(source, {
-        plugins: { unicorn },
-        rules: { [ruleId]: MIRROR_WARN_SEVERITY },
-      });
-
-      expect(messages.some((message) => message.ruleId === ruleId)).toBe(true);
-    }
+    assertMirroredUnicornRulesReportFindings();
   });
 
   it("draws rules from sonarjs, @typescript-eslint, ESLint core, eslint-plugin-import, unicorn, and spx across its tiers", () => {
-    const ruleNames = Object.keys(MIRROR_RULES);
-
-    expect(ruleNames.some((rule) => rule.startsWith(sonarjsPrefix))).toBe(true);
-    expect(ruleNames.some((rule) => rule.startsWith(typescriptPrefix))).toBe(true);
-    expect(ruleNames.some((rule) => rule.startsWith(unicornPrefix))).toBe(true);
-    expect(ruleNames.some((rule) => rule.startsWith(importPrefix))).toBe(true);
-    expect(ruleNames.some((rule) => rule.startsWith(spxPrefix))).toBe(true);
-    expect(ruleNames.some(isCoreRule)).toBe(true);
+    assertMirrorDrawsRulesFromExpectedSources();
   });
 
   it("reports a finding when ESLint runs the mirrored SonarJS rules against violating source", () => {
-    const linter = new Linter();
-    const messages = linter.verify(violatingSource, {
-      plugins: { sonarjs },
-      rules: sonarjsMirrorRules(),
-    });
-
-    expect(
-      messages.some((message) => message.ruleId?.startsWith(sonarjsPrefix)),
-    ).toBe(true);
+    assertMirroredSonarjsRulesReportFinding();
   });
 
   it("reports a finding when ESLint runs the PRNG recurrence guard against Math.random", () => {
-    const linter = new Linter();
-    const messages = linter.verify(ESLINT_MIRROR_TEST_GENERATOR.pseudoRandomSource(), {
-      plugins: { sonarjs },
-      rules: { [PSEUDO_RANDOM_RULE]: MIRROR_ERROR_SEVERITY },
-    });
-
-    expect(messages.some((message) => message.ruleId === PSEUDO_RANDOM_RULE)).toBe(true);
+    assertPseudoRandomGuardReportsFinding();
   });
 
   it("reports a finding when ESLint runs the cognitive-complexity recurrence guard", () => {
-    const linter = new Linter();
-    const cognitiveComplexityProbeThreshold = 0;
-    const messages = linter.verify(
-      ESLINT_MIRROR_TEST_GENERATOR.cognitiveComplexitySource(),
-      {
-        plugins: { sonarjs },
-        rules: { [COGNITIVE_COMPLEXITY_RULE]: [MIRROR_ERROR_SEVERITY, cognitiveComplexityProbeThreshold] },
-      },
-    );
-
-    expect(messages.some((message) => message.ruleId === COGNITIVE_COMPLEXITY_RULE)).toBe(true);
+    assertCognitiveComplexityGuardReportsFinding();
   });
 
-  // The non-type-aware error-tier rules paired with violating source. Each rule
-  // id is read from the source-owned MIRROR_ERROR_RULES via its selector, so no
-  // rule-id literal is duplicated from source; only the violating fixture — kept
-  // to short module names and identifiers, never a flaggable string literal — is
-  // test input. The type-aware error-tier rules (S2871 sort, S4325 assertion)
-  // fire only against a real project, covered by the buildEslintConfig
-  // composition [audit] and the live `spx validation` gate.
-  const offlineErrorRuleProbes: { select: (rule: string) => boolean; violatingSource: string }[] = [
-    {
-      select: (rule) => isCoreRule(rule),
-      violatingSource: ESLINT_MIRROR_TEST_GENERATOR.objectHasOwnSource(),
-    },
-    {
-      select: (rule) => rule.startsWith(importPrefix),
-      violatingSource: ESLINT_MIRROR_TEST_GENERATOR.duplicateImportSource(),
-    },
-  ];
-
   it("reports a finding when ESLint runs each offline-testable error-tier rule against violating source", () => {
-    const linter = new Linter();
-    for (const probe of offlineErrorRuleProbes) {
-      const ruleId = Object.keys(MIRROR_ERROR_RULES).find(probe.select);
-      expect(ruleId, "no error-tier rule matched the probe selector").toBeDefined();
-
-      const messages = linter.verify(probe.violatingSource, {
-        plugins: { import: importPlugin },
-        rules: { [ruleId!]: MIRROR_ERROR_SEVERITY },
-      });
-
-      expect(
-        messages.some((message) => message.ruleId === ruleId),
-        `error-tier rule ${ruleId} did not fire on its violating fixture`,
-      ).toBe(true);
-    }
+    assertOfflineErrorTierRulesReportFindings();
   });
 
   it("reports each uppercase task-marker comment while allowing lower-case session vocabulary", () => {
-    const linter = new Linter();
-    for (const marker of TASK_MARKER_COMMENT_TERMS) {
-      const violatingMessages = linter.verify(ESLINT_MIRROR_TEST_GENERATOR.taskMarkerCommentSource(marker), {
-        plugins: { spx: customRules },
-        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
-      });
-
-      expect(violatingMessages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
-    }
-
-    const domainVocabularyMessages = linter.verify(
-      ESLINT_MIRROR_TEST_GENERATOR.domainVocabularySource(),
-      {
-        plugins: { spx: customRules },
-        rules: { [TASK_MARKER_COMMENT_RULE]: MIRROR_ERROR_SEVERITY },
-      },
-    );
-
-    expect(domainVocabularyMessages).toEqual([]);
+    assertTaskMarkerCommentsReportFindings();
   });
 
   it("reports task-marker comments in root TypeScript config files through the fallback config", async () => {
-    const eslint = new ESLint({
-      overrideConfigFile: DEFAULT_ESLINT_CONFIG_FILE,
-    });
-    const [eslintRuleFileGlob, rootTypeScriptConfigGlob, productionTypeScriptConfigGlob] =
-      TASK_MARKER_COMMENT_FALLBACK_FILES;
-    const [productionEslintConfigFile] = ESLINT_PRODUCTION_CONFIG_FILES;
-    const fallbackCases = [
-      {
-        glob: eslintRuleFileGlob,
-        filename: `${TEST_RELEVANT_SOURCE_ROOT_PREFIX.ESLINT_RULES}${NO_TASK_MARKER_COMMENTS_RULE_NAME}.ts`,
-      },
-      {
-        glob: rootTypeScriptConfigGlob,
-        filename: DEFAULT_ESLINT_CONFIG_FILE,
-      },
-      {
-        glob: productionTypeScriptConfigGlob,
-        filename: productionEslintConfigFile,
-      },
-    ];
-    expect(fallbackCases.map((fallbackCase) => fallbackCase.glob)).toEqual([...TASK_MARKER_COMMENT_FALLBACK_FILES]);
-    for (const fallbackCase of fallbackCases) {
-      const [result] = await eslint.lintText(
-        ESLINT_MIRROR_TEST_GENERATOR.taskMarkerCommentSource(TASK_MARKER_COMMENT_TERMS[0]),
-        { filePath: fallbackCase.filename },
-      );
-
-      expect(result?.messages.some((message) => message.ruleId === TASK_MARKER_COMMENT_RULE)).toBe(true);
-    }
+    await expect(assertTaskMarkerFallbackConfigReportsFindings()).resolves.toBeUndefined();
   });
 
   it("declares mirror rule ids the owning plugins recognize", () => {
-    // Type-aware rules report only against a real TypeScript project, covered by
-    // the buildEslintConfig composition [audit] and the live `spx validation`
-    // gate; here every rule id is confirmed recognized by the plugin (or ESLint
-    // core) that owns it, so a typo cannot silently disable a mirrored rule.
-    const namesUnder = (prefix: string): string[] =>
-      Object.keys(MIRROR_RULES)
-        .filter((rule) => rule.startsWith(prefix))
-        .map((rule) => rule.slice(prefix.length));
-
-    // The runtime plugins expose `rules`; the compat plugin types do not.
-    const pluginRulesOf = (plugin: unknown): Record<string, unknown> =>
-      (plugin as { rules?: Record<string, unknown> }).rules ?? {};
-
-    const expectAllRecognized = (ruleNames: string[], ownerRules: Record<string, unknown>): void => {
-      expect(ruleNames.length).toBeGreaterThan(0);
-      for (const ruleName of ruleNames) {
-        expect(ownerRules).toHaveProperty(ruleName);
-      }
-    };
-
-    expectAllRecognized(namesUnder(typescriptPrefix), pluginRulesOf(tseslint.plugin));
-    expectAllRecognized(namesUnder(sonarjsPrefix), pluginRulesOf(sonarjs));
-    expectAllRecognized(namesUnder(importPrefix), pluginRulesOf(importPlugin));
-    expectAllRecognized(namesUnder(unicornPrefix), pluginRulesOf(unicorn));
-    expectAllRecognized(namesUnder(spxPrefix), pluginRulesOf(customRules));
-
-    // ESLint core rules carry no plugin prefix; the builtin rule map owns them.
-    const coreRuleNames = Object.keys(MIRROR_RULES).filter(isCoreRule);
-    expect(coreRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of coreRuleNames) {
-      expect(builtinRules.has(ruleName)).toBe(true);
-    }
+    assertMirrorRuleIdsAreRecognizedByOwners();
   });
 });

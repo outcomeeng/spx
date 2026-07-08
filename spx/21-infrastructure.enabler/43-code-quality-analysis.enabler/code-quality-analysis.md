@@ -9,7 +9,7 @@ CAN surface code-quality, security, and reliability findings on the source witho
 ### Compliance
 
 - ALWAYS: a repository-root `.sonarcloud.properties` configures SonarQube Cloud automatic analysis — the only in-repository artifact the server-side analysis requires ([audit])
-- ALWAYS: deliberate test-fixture inputs under `testing/fixtures` are excluded from analysis so fixtures are not analyzed as product source ([audit])
+- ALWAYS: deliberate test-fixture inputs under `testing/fixtures` are excluded from analysis through a single `testing/fixtures/**` scope so fixtures are not analyzed as product source ([audit])
 - ALWAYS: a repository-root `.mcp.json` registers a SonarQube MCP server bound to the product's SonarQube Cloud project so agents can query its findings ([audit])
 - NEVER: a continuous-integration workflow performs the SonarQube Cloud analysis — automatic analysis runs server-side, so no GitHub Actions job runs it ([audit])
 - ALWAYS: the project's SonarQube Cloud quality gate fails on any new issue, any new duplicated line, or any unreviewed new security hotspot ([audit])
@@ -19,5 +19,3 @@ CAN surface code-quality, security, and reliability findings on the source witho
 - ALWAYS: the mirror runs each rule at one of two enforcement tiers — an error tier whose severity blocks `spx validation` on any finding, and a warn tier whose severity surfaces findings without blocking — with the array-sort-comparator, cognitive-complexity, pseudo-random, redundant-assertion, object-has-own, duplicate-import, and uppercase task-marker comment classes configured in the error tier and the unicorn-family classes in the warn tier while their backlog is uncleared ([test](tests/eslint-mirror.compliance.l1.test.ts))
 - ALWAYS: `buildEslintConfig` composes the mirror (type-aware parser options and the mirror rule set) into the flat config `spx validation lint` runs ([audit])
 - ALWAYS: `lefthook.yml` declares the `sonar analyze --base origin/main` pre-push hook behind an explicit opt-in environment gate, so Free-plan contributors can push while Team-plan contributors can run the paid-plan local CLI check before push ([audit])
-- ALWAYS: a pre-commit check reports drift exactly when the `testing/fixtures` entries in `.sonarcloud.properties` `sonar.exclusions` differ from the tracked files under `testing/fixtures`, naming the missing and extra paths ([test](tests/exclusion-sync.compliance.l1.test.ts))
-- ALWAYS: parsing `.sonarcloud.properties` yields the same `sonar.exclusions` path set whether the value is written on one line or across `.properties` continuation lines ([test](tests/exclusion-sync.property.l1.test.ts))

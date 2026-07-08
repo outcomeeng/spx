@@ -29,8 +29,6 @@ const executableModeMask = 0o111;
 const yamlCommandStub = "commands: {}";
 const unknownLefthookSection = "not-a-git-hook";
 const handwrittenHookContent = "#!/bin/sh\ncustom-hook \"$@\"\n";
-const fixtureExclusionCommandName = "sonarqube-cloud-exclusions";
-const sonarFixtureExclusionEntrypoint = "src/lib/sonarqube-cloud/check-fixture-exclusions.ts";
 const rebuildCommandName = "rebuild-dist";
 const installDepsCommandName = "install-deps";
 const preCommitSectionName = "pre-commit";
@@ -40,8 +38,6 @@ const postMergeSectionName = "post-merge";
 const postRewriteSectionName = "post-rewrite";
 const commandsKey = "commands";
 const runKey = "run";
-const globKey = "glob";
-const disallowedPrecommitFragments = ["pnpm run build", "pnpm run validate", "spx test", "vitest"];
 
 type LefthookConfig = Record<string, unknown>;
 
@@ -93,20 +89,11 @@ export function assertConfiguredHookNameParsing(): void {
   expect(configuredHookNames(renderHookConfig(sampleHookNames()))).toEqual(sampleHookNames());
 }
 
-export async function assertLefthookConfigKeepsPrecommitMinimal(): Promise<void> {
+export async function assertLefthookConfigDeclaresNoPrecommitHook(): Promise<void> {
   const config = await readProductLefthookConfig();
-  const preCommitCommands = readCommands(config, preCommitSectionName);
-  const preCommitRun = readCommandRun(config, preCommitSectionName, fixtureExclusionCommandName);
   const prePushCommands = readCommands(config, prePushSectionName);
 
-  expect(Object.keys(preCommitCommands)).toEqual([fixtureExclusionCommandName]);
-  expect(readCommand(config, preCommitSectionName, fixtureExclusionCommandName)[globKey]).toBe(
-    "{.sonarcloud.properties,testing/fixtures/**}",
-  );
-  expect(preCommitRun).toContain(sonarFixtureExclusionEntrypoint);
-  for (const disallowedFragment of disallowedPrecommitFragments) {
-    expect(preCommitRun).not.toContain(disallowedFragment);
-  }
+  expect(config).not.toHaveProperty(preCommitSectionName);
   expect(Object.keys(prePushCommands)).toEqual(["sonar-analyze"]);
   expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run build");
   expect(readCommandRun(config, prePushSectionName, "sonar-analyze")).not.toContain("pnpm run validate");

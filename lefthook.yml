@@ -1,23 +1,10 @@
-# Lefthook configuration for pre-commit and post-merge/post-rewrite hooks.
+# Lefthook configuration for post-checkout, post-merge, and post-rewrite hooks.
 # Keeps local hook behavior aligned with the product's hook machinery.
-#
-# Pre-commit stays intentionally small. Deterministic build, validation, and
-# test gates run in CI or through explicit operator and agent commands.
 #
 # Post-merge and post-rewrite hooks rebuild dist/ after a pull (merge or
 # rebase) so a published or pnpm-linked `spx` (which resolves to ./dist)
 # reflects the merged code. They rebuild only in the main worktree; linked
 # worktrees are dev checkouts and skip it.
-
-pre-commit:
-  parallel: true
-  commands:
-    # Blocks a commit whose .sonarcloud.properties sonar.exclusions list has drifted
-    # from the tracked testing/fixtures tree. Fires when the properties file or any
-    # fixture changes.
-    sonarqube-cloud-exclusions:
-      glob: "{.sonarcloud.properties,testing/fixtures/**}"
-      run: env -u GIT_DIR -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR npx tsx src/lib/sonarqube-cloud/check-fixture-exclusions.ts
 
 # SonarQube Cloud CLI analysis requires paid-plan access for this project, so it
 # is opt-in. Free-plan contributors still get local static analysis through

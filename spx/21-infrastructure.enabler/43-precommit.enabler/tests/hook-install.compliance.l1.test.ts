@@ -1,6 +1,6 @@
 import {
   assertConfiguredHookNameParsing,
-  assertLefthookConfigKeepsPrecommitMinimal,
+  assertLefthookConfigDeclaresNoPrecommitHook,
   assertLefthookConfigRoutesLifecycleHooksThroughGates,
   assertObsoletePortableHooksAreRemoved,
   assertPortableHookInstallWritesExecutableShims,
@@ -16,8 +16,8 @@ describe("portable lefthook hook installation", () => {
     assertConfiguredHookNameParsing();
   });
 
-  it("keeps the product pre-commit hook limited to the fixture-exclusion drift check", async () => {
-    await expect(assertLefthookConfigKeepsPrecommitMinimal()).resolves.toBeUndefined();
+  it("declares no product pre-commit hook", async () => {
+    await expect(assertLefthookConfigDeclaresNoPrecommitHook()).resolves.toBeUndefined();
   });
 
   it("routes checkout, merge, and rewrite hooks through their tested gates", async () => {
