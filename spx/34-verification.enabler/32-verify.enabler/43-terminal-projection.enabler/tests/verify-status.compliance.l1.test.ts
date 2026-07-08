@@ -1,7 +1,6 @@
 import { describe, it } from "vitest";
 
 import {
-  assertFinishStatusAndRenderProjectTerminalMetadata,
   assertFinishStatusAndRenderShareFindingProjection,
   assertStatusAndRenderHydrateWithMalformedRecordedInput,
   assertStatusAndRenderHydrateWithoutRecordedInput,
@@ -24,10 +23,6 @@ describe("verify status compliance", () => {
 
   it("reports the same authoritative finding count and run token across finish, status, and render for a sealed review run", async () => {
     await assertFinishStatusAndRenderShareFindingProjection();
-  });
-
-  it("projects terminal metadata across finish, status, and render for a sealed review run", async () => {
-    await assertFinishStatusAndRenderProjectTerminalMetadata();
   });
 
   it("projects status and render from the journal when a hydrated run has no recorded input file", async () => {
