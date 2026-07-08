@@ -13,6 +13,7 @@ import {
   METHODOLOGY_SECTION,
   methodologyConfigDescriptor,
 } from "@/config/methodology";
+import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { productionRegistry } from "@/config/registry";
 import {
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
@@ -24,6 +25,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
 const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+const STRAY_HARNESS_FIELD = "strayHarnessField";
 
 function generatedMethodologySection(): Record<string, unknown> {
   return {
@@ -123,6 +125,21 @@ export async function assertHarnessEnvironmentMethodologyRejects(): Promise<void
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
+    }
+  });
+}
+
+export async function assertMethodologyResolverRejectsHarnessMethodologyAmongUnknownFields(): Promise<void> {
+  await withTestEnv({
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+      [STRAY_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  }, async ({ productDir }) => {
+    const result = await resolveMethodologyConfig(productDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(METHODOLOGY_SECTION);
     }
   });
 }
