@@ -675,7 +675,17 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length >= 1 && parsed.positionals.length <= 2;
   }
-  return parsed.positionals.length === 2 && parsed.positionals[1] === branch;
+  if (parsed.positionals.length === 2) {
+    return parsed.positionals[1] === branch;
+  }
+  return parsed.positionals.length === 1 && impliedWorktreeBranchName(parsed.positionals[0]) === branch;
+}
+
+function impliedWorktreeBranchName(path: string): string | null {
+  const trimmed = path.replace(/[\\/]+$/u, "");
+  const lastSeparator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  const basename = trimmed.slice(lastSeparator + 1);
+  return basename.length > 0 && basename !== "." && basename !== ".." ? basename : null;
 }
 
 interface ParsedGitBranchArgs {
