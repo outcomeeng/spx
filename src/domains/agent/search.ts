@@ -170,10 +170,11 @@ async function searchAgentStore(
     );
   const allFiles = await storeFiles(paths, options.fs, options.nowMs, true);
   const files = options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs);
+  const branchEvidenceFiles = nonFutureStoreFiles(allFiles, options.nowMs);
   const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
-  const branchAssociatedSessionIds = await collectTopLevelBranchAssociations(allFiles, options, parser);
+  const branchAssociatedSessionIds = await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser);
   const subagentBranchAssociations = agent === AGENT_SESSION_KIND.CODEX
-    ? await collectCodexSubagentBranchAssociations(allFiles, options)
+    ? await collectCodexSubagentBranchAssociations(branchEvidenceFiles, options)
     : new Map<string, CodexSubagentBranchAssociation>();
   return collectMatchingSessions(agent, files, options, parser, branchAssociatedSessionIds, subagentBranchAssociations);
 }
@@ -443,12 +444,13 @@ function branchTranscriptCommandMatchReasons(
 
 export function transcriptHasAcceptedBranchCommand(content: string, branch: string): boolean {
   return transcriptBranchCommandEvidence(content).some((evidence) =>
-    !evidence.failed && gitCommandAssociatesBranch(evidence.words, branch)
+    evidence.completed && !evidence.failed && gitCommandAssociatesBranch(evidence.words, branch)
   );
 }
 
 interface TranscriptBranchCommandEvidence {
   readonly words: readonly string[];
+  completed: boolean;
   failed: boolean;
 }
 
@@ -456,6 +458,8 @@ function transcriptBranchCommandEvidence(content: string): readonly TranscriptBr
   const evidence: TranscriptBranchCommandEvidence[] = [];
   const codexCalls = new Map<string, TranscriptBranchCommandEvidence>();
   const claudeToolUses = new Map<string, TranscriptBranchCommandEvidence>();
+  const completedCodexCallIds = new Set<string>();
+  const completedClaudeToolUseIds = new Set<string>();
   const failedCodexCallIds = new Set<string>();
   const failedClaudeToolUseIds = new Set<string>();
   for (const line of content.split("\n")) {
@@ -463,8 +467,8 @@ function transcriptBranchCommandEvidence(content: string): readonly TranscriptBr
     if (row === null) {
       continue;
     }
-    collectCodexCommandEvidence(row, evidence, codexCalls, failedCodexCallIds);
-    collectClaudeCommandEvidence(row, evidence, claudeToolUses, failedClaudeToolUseIds);
+    collectCodexCommandEvidence(row, evidence, codexCalls, completedCodexCallIds, failedCodexCallIds);
+    collectClaudeCommandEvidence(row, evidence, claudeToolUses, completedClaudeToolUseIds, failedClaudeToolUseIds);
   }
   return evidence;
 }
@@ -473,6 +477,7 @@ function collectCodexCommandEvidence(
   row: Record<string, unknown>,
   evidence: TranscriptBranchCommandEvidence[],
   calls: Map<string, TranscriptBranchCommandEvidence>,
+  completedCallIds: Set<string>,
   failedCallIds: Set<string>,
 ): void {
   if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_RESPONSE_ITEM) {
@@ -490,10 +495,12 @@ function collectCodexCommandEvidence(
     }
     const rowEvidence: TranscriptBranchCommandEvidence = {
       words: command,
+      completed: false,
       failed: false,
     };
     const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
     if (callId !== null) {
+      rowEvidence.completed = completedCallIds.has(callId);
       rowEvidence.failed = failedCallIds.has(callId);
       calls.set(callId, rowEvidence);
     }
@@ -504,11 +511,18 @@ function collectCodexCommandEvidence(
     return;
   }
   const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
-  if (callId === null || !codexFunctionCallOutputFailed(payload)) {
+  if (callId === null) {
+    return;
+  }
+  completedCallIds.add(callId);
+  const command = calls.get(callId);
+  if (command !== undefined) {
+    command.completed = true;
+  }
+  if (!codexFunctionCallOutputFailed(payload)) {
     return;
   }
   failedCallIds.add(callId);
-  const command = calls.get(callId);
   if (command !== undefined) {
     command.failed = true;
   }
@@ -556,6 +570,7 @@ function collectClaudeCommandEvidence(
   row: Record<string, unknown>,
   evidence: TranscriptBranchCommandEvidence[],
   toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  completedToolUseIds: Set<string>,
   failedToolUseIds: Set<string>,
 ): void {
   const content = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.MESSAGE, AGENT_SESSION_JSON_FIELDS.CONTENT]);
@@ -568,9 +583,9 @@ function collectClaudeCommandEvidence(
     }
     const itemType = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TYPE]]);
     if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_USE) {
-      collectClaudeToolUse(item, evidence, toolUses, failedToolUseIds);
+      collectClaudeToolUse(item, evidence, toolUses, completedToolUseIds, failedToolUseIds);
     } else if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_RESULT) {
-      collectClaudeToolResult(item, toolUses, failedToolUseIds);
+      collectClaudeToolResult(item, toolUses, completedToolUseIds, failedToolUseIds);
     }
   }
 }
@@ -579,6 +594,7 @@ function collectClaudeToolUse(
   item: Record<string, unknown>,
   evidence: TranscriptBranchCommandEvidence[],
   toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  completedToolUseIds: Set<string>,
   failedToolUseIds: Set<string>,
 ): void {
   const toolName = firstString(item, [[AGENT_SESSION_JSON_FIELDS.NAME]]);
@@ -591,10 +607,12 @@ function collectClaudeToolUse(
   }
   const rowEvidence: TranscriptBranchCommandEvidence = {
     words: shellWords(command),
+    completed: false,
     failed: false,
   };
   const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.ID]]);
   if (toolUseId !== null) {
+    rowEvidence.completed = completedToolUseIds.has(toolUseId);
     rowEvidence.failed = failedToolUseIds.has(toolUseId);
     toolUses.set(toolUseId, rowEvidence);
   }
@@ -604,17 +622,22 @@ function collectClaudeToolUse(
 function collectClaudeToolResult(
   item: Record<string, unknown>,
   toolUses: Map<string, TranscriptBranchCommandEvidence>,
+  completedToolUseIds: Set<string>,
   failedToolUseIds: Set<string>,
 ): void {
-  if (valueAtPath(item, [AGENT_SESSION_JSON_FIELDS.IS_ERROR]) !== true) {
-    return;
-  }
   const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TOOL_USE_ID]]);
   if (toolUseId === null) {
     return;
   }
-  failedToolUseIds.add(toolUseId);
+  completedToolUseIds.add(toolUseId);
   const command = toolUses.get(toolUseId);
+  if (command !== undefined) {
+    command.completed = true;
+  }
+  if (valueAtPath(item, [AGENT_SESSION_JSON_FIELDS.IS_ERROR]) !== true) {
+    return;
+  }
+  failedToolUseIds.add(toolUseId);
   if (command !== undefined) {
     command.failed = true;
   }
@@ -642,23 +665,14 @@ function stripGitGlobalOptions(words: readonly string[]): readonly string[] | nu
   }
   let index = 1;
   while (index < words.length) {
-    if (words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY) {
-      index += 2;
-      continue;
+    const optionConsumption = gitOptionConsumption(words, index, GIT_GLOBAL_OPTIONS);
+    if (optionConsumption === GIT_OPTION_CONSUMPTION.INVALID) {
+      return null;
     }
-    if (words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG) {
-      index += 2;
-      continue;
+    if (optionConsumption === GIT_OPTION_CONSUMPTION.NOT_ALLOWED) {
+      break;
     }
-    if (words[index].startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY}=`)) {
-      index += 1;
-      continue;
-    }
-    if (words[index].startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG}=`)) {
-      index += 1;
-      continue;
-    }
-    break;
+    index += optionConsumption + 1;
   }
   return words.slice(index);
 }
@@ -868,6 +882,39 @@ const WORKTREE_ALLOWED_OPTIONS: GitAllowedOptions = {
   optionalValueFlags: [],
 };
 
+const GIT_GLOBAL_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.HTML_PATH,
+  AGENT_TRANSCRIPT_GIT_COMMAND.MAN_PATH,
+  AGENT_TRANSCRIPT_GIT_COMMAND.INFO_PATH,
+  AGENT_TRANSCRIPT_GIT_COMMAND.PAGINATE_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.PAGINATE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PAGER,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_REPLACE_OBJECTS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_LAZY_FETCH,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OPTIONAL_LOCKS,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_ADVICE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.BARE,
+] as const;
+
+const GIT_GLOBAL_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG,
+  AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR,
+  AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NAMESPACE,
+  AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG_ENV,
+] as const;
+
+const GIT_GLOBAL_OPTIONAL_VALUE_FLAGS = [
+  AGENT_TRANSCRIPT_GIT_COMMAND.EXEC_PATH,
+] as const;
+
+const GIT_GLOBAL_OPTIONS: GitAllowedOptions = {
+  flags: GIT_GLOBAL_FLAGS,
+  valueFlags: GIT_GLOBAL_VALUE_FLAGS,
+  optionalValueFlags: GIT_GLOBAL_OPTIONAL_VALUE_FLAGS,
+};
+
 const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.DETACH,
   AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR,
@@ -881,6 +928,7 @@ const SHELL_OPERATOR_AND = "&&";
 const SHELL_OPERATOR_OR = "||";
 const SHELL_OPERATOR_AMPERSAND = "&";
 const SHELL_OPERATOR_PIPE = "|";
+const SHELL_CHANGE_DIRECTORY_COMMAND = "cd";
 const SHELL_ENV_COMMAND = "env";
 const SHELL_COMMAND_WRAPPER_COMMAND = "command";
 const SHELL_SUDO_COMMAND = "sudo";
@@ -904,7 +952,15 @@ function shellSuccessProvingCommandSegments(words: readonly string[]): readonly 
     }
     segments[segments.length - 1].push(word);
   }
-  return segments.filter((segment) => segment.length > 0);
+  const populatedSegments = segments.filter((segment) => segment.length > 0);
+  return populatedSegments.filter((_segment, index) =>
+    index === 0 || populatedSegments.slice(0, index).every(isShellReachabilityPreservingSetupSegment)
+  );
+}
+
+function isShellReachabilityPreservingSetupSegment(words: readonly string[]): boolean {
+  const command = stripShellRedirections(words);
+  return command[0] === SHELL_CHANGE_DIRECTORY_COMMAND && command.length === 2;
 }
 
 function normalizeGitCommandSegment(words: readonly string[]): readonly string[] | null {
@@ -1017,17 +1073,37 @@ function gitCreateBranchParse(
   index: number,
   createFlags: readonly string[],
 ): GitCreateBranchParse | typeof GIT_OPTION_CONSUMPTION.INVALID | null {
-  if (!tupleIncludes(createFlags, args[index])) {
-    return null;
+  const arg = args[index];
+  for (const flag of createFlags) {
+    if (arg === flag) {
+      const branch = args.at(index + 1);
+      return parseCreatedBranch(branch, 1);
+    }
+    if (isInlineValueFlag([flag], arg)) {
+      return parseCreatedBranch(arg.slice(flag.length + 1), 0);
+    }
+    if (isShortFlagWithAttachedValue(flag, arg)) {
+      return parseCreatedBranch(arg.slice(flag.length), 0);
+    }
   }
-  const branch = args.at(index + 1);
-  if (branch === undefined || branch.startsWith("-")) {
+  return null;
+}
+
+function parseCreatedBranch(
+  branch: string | undefined,
+  consumed: number,
+): GitCreateBranchParse | typeof GIT_OPTION_CONSUMPTION.INVALID {
+  if (branch === undefined || branch.length === 0 || branch.startsWith("-")) {
     return GIT_OPTION_CONSUMPTION.INVALID;
   }
   return {
     branch,
-    consumed: 1,
+    consumed,
   };
+}
+
+function isShortFlagWithAttachedValue(flag: string, arg: string): boolean {
+  return flag.length === 2 && arg.startsWith(flag) && arg.length > flag.length;
 }
 
 function gitOptionConsumption(
@@ -1131,6 +1207,10 @@ async function storeFiles(
 
 function recentStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
   return files.filter((file) => isRecentAgentSessionMtime(file.modifiedAtMs, nowMs));
+}
+
+function nonFutureStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
+  return files.filter((file) => file.modifiedAtMs <= nowMs);
 }
 
 function compareSearchResults(left: AgentSearchResult, right: AgentSearchResult): number {

@@ -213,6 +213,8 @@ const SEARCH_SAMPLE = {
   STALE_BRANCH_EVIDENCE_OUTSIDE_SESSION_ID: 188,
   STALE_BRANCH_EVIDENCE_OUTSIDE_TRANSCRIPT_ID: 189,
   STALE_BRANCH_EVIDENCE_COMMAND_SUBAGENT_TRANSCRIPT_ID: 194,
+  STALE_BRANCH_EVIDENCE_FUTURE_SESSION_ID: 195,
+  STALE_BRANCH_EVIDENCE_FUTURE_TRANSCRIPT_ID: 196,
   BRANCH_METADATA_HOME_DIR: 155,
   BRANCH_METADATA_PRODUCT_SCOPE_ROOT: 156,
   BRANCH_METADATA_CWD: 157,
@@ -252,6 +254,7 @@ const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
   SHELL_OR: "||",
   SHELL_COMMAND_WRAPPER: "command",
   SHELL_SUDO_WRAPPER: "sudo",
+  SHELL_FALSE_COMMAND: "false",
   SHELL_BOURNE_WRAPPER: "sh",
   SHELL_BASH_WRAPPER: "bash",
   SHELL_COMMAND_STRING_FLAG: "-c",
@@ -266,6 +269,10 @@ const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
   LOCK_REASON: "agent-search-branch-lock",
   SUBMODULE_CHECKOUT_MODE: "on-demand",
   CONFLICT_STYLE: "zdiff3",
+  GIT_DIR_PATH: "../repo/.git",
+  GIT_WORK_TREE_PATH: "../repo",
+  GIT_NAMESPACE: "agent-search",
+  GIT_CONFIG_ENV: "protocol.version=SPX_PROTOCOL_VERSION",
 } as const;
 
 function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT): SearchFixture {
@@ -854,6 +861,21 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     },
     {
       command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_DIR_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_WORK_TREE_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_DIR_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_WORK_TREE_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.NAMESPACE}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_NAMESPACE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG_ENV} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_CONFIG_ENV} ${AGENT_TRANSCRIPT_GIT_COMMAND.NO_OPTIONAL_LOCKS} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
         `env ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_ENV_ASSIGNMENT} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
       expected: true,
     },
@@ -866,6 +888,11 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
       command:
         `cd ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH}${shellAnd}${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
       expected: true,
+    },
+    {
+      command:
+        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_FALSE_COMMAND} ${shellAnd} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      expected: false,
     },
     {
       command:
@@ -984,6 +1011,16 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     },
     {
       command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG}=${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG}${branch}`,
+      expected: true,
+    },
+    {
+      command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
       expected: true,
     },
@@ -1004,6 +1041,11 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     },
     {
       command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG}=${branch}`,
+      expected: true,
+    },
+    {
+      command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
       expected: true,
     },
@@ -1011,6 +1053,16 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN} ${branch}`,
       expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN}=${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG}=`,
+      expected: false,
     },
     {
       command: `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
@@ -1033,6 +1085,11 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT}${branch}`,
       expected: true,
     },
     {
@@ -1082,12 +1139,22 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     },
     {
       command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT}${branch}`,
+      expected: true,
+    },
+    {
+      command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
       expected: true,
     },
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN}=${branch}`,
       expected: true,
     },
     {
@@ -1113,6 +1180,11 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT}${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
       expected: true,
     },
     {
@@ -1148,6 +1220,11 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT}${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
       expected: true,
     },
     {
@@ -1221,6 +1298,19 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
     ]
   ) {
     expect(transcriptHasAcceptedBranchCommand(failedRows, branch)).toBe(false);
+  }
+
+  for (
+    const incompleteRows of [
+      codexExecFunctionCallRow(
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      ),
+      claudeBashToolUseRow(
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
+      ),
+    ]
+  ) {
+    expect(transcriptHasAcceptedBranchCommand(incompleteRows, branch)).toBe(false);
   }
 }
 
@@ -1582,15 +1672,39 @@ export async function assertAgentSearchBranchExistenceAloneReturnsNoSessions(): 
     modifiedAtMs: nowMs,
   });
 
-  const results = await searchAgentSessions({
-    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
-    nowMs,
-    productScopeRoot,
-    fs,
-    query: agentSearchQueryFromOptions({ branch: targetBranch }),
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const observedExistingBranches: string[] = [];
+  const program = createCliProgram({
+    domains: [
+      createAgentDomain({
+        searchDeps: {
+          fs,
+          agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+          nowMs: () => nowMs,
+          resolveProductScopeRoot: async () => productScopeRoot,
+          resolveBranchAssociatedWorktreeRoots: async (_cwd, branch) => {
+            observedExistingBranches.push(branch);
+            return [];
+          },
+        },
+      }),
+    ],
+    processCwd: () => cwd,
+    writeStdout: (output) => stdout.push(output),
+    writeStderr: (output) => stderr.push(output),
   });
 
-  expect(results).toEqual([]);
+  await program.parseAsync([
+    AGENT_CLI.commandName,
+    AGENT_CLI.searchCommandName,
+    AGENT_CLI.flags.branch,
+    targetBranch,
+    AGENT_CLI.flags.json,
+  ], { from: SPX_COMMANDER_PARSE_SOURCE });
+
+  expect(observedExistingBranches).toEqual([targetBranch]);
+  expect(JSON.parse(stdout.join(""))).toEqual([]);
 }
 
 export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociation(): Promise<void> {
@@ -1858,6 +1972,14 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     arbitraryAgentSessionId(),
     SEARCH_SAMPLE.STALE_BRANCH_EVIDENCE_OUTSIDE_TRANSCRIPT_ID,
   );
+  const futureSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.STALE_BRANCH_EVIDENCE_FUTURE_SESSION_ID,
+  );
+  const futureTranscriptId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.STALE_BRANCH_EVIDENCE_FUTURE_TRANSCRIPT_ID,
+  );
 
   writeCodexTranscriptFile(fs, homeDir, {
     sessionId: commandSessionId,
@@ -1921,9 +2043,27 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     ),
     modifiedAtMs: 0,
   });
+  writeCodexTranscriptFile(fs, homeDir, {
+    sessionId: futureSessionId,
+    cwd,
+    timestamp,
+    branch: otherBranch,
+    modifiedAtMs: nowMs - 3,
+  });
+  writeCodexTranscriptFile(fs, homeDir, {
+    sessionId: futureSessionId,
+    transcriptId: futureTranscriptId,
+    cwd,
+    timestamp,
+    branch: otherBranch,
+    marker: codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
+    ),
+    modifiedAtMs: nowMs + 1,
+  });
 
   const results = await searchAgentSessions({
-    homeDir,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
     nowMs,
     productScopeRoot,
     fs,
@@ -1949,6 +2089,7 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     ],
     [outsideSessionId, cwd, expect.any(String), nowMs - 2, otherBranch, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
+  expect(results.map((result) => result.sessionId)).not.toContain(futureSessionId);
 }
 
 function codexExecCommandRows(command: string): string {
