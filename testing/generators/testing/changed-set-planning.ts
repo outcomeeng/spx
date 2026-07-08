@@ -1,8 +1,9 @@
 import * as fc from "fast-check";
 
+import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 
 const PATH_SEPARATOR = "/";
 const CURRENT_DIRECTORY_PREFIX = ".";
@@ -73,6 +74,11 @@ export interface ChangedSetFixtureContent {
   readonly afterSourceValue: number;
 }
 
+export interface ChangedSetPathEntry {
+  readonly node: string;
+  readonly path: string;
+}
+
 export const CHANGED_SET_PLANNING_GENERATOR = {
   aliasFixture: arbitraryAliasFixture,
   aliasFixtureSet: arbitraryAliasFixtureSet,
@@ -82,6 +88,8 @@ export const CHANGED_SET_PLANNING_GENERATOR = {
   indexAliasFixture: arbitraryIndexAliasFixture,
   readFailureFixture: arbitraryReadFailureFixture,
   fixturePaths: arbitraryFixturePaths,
+  changedSpecPath: arbitraryChangedSpecPath,
+  changedTestPath: arbitraryChangedTestPath,
   harnessConsumersFixture: arbitraryHarnessConsumersFixture,
   content: fixtureContent,
 } as const;
@@ -159,6 +167,20 @@ function arbitraryFixturePaths(): fc.Arbitrary<ChangedSetFixturePaths> {
         )),
       };
     });
+}
+
+function arbitraryChangedSpecPath(): fc.Arbitrary<ChangedSetPathEntry> {
+  return TEST_DISPATCH_GENERATOR.nodePath().map((node) => {
+    const segment = node.split(PATH_SEPARATOR).at(-1) ?? node;
+    const slug = segment.replace(/^\d+-/, "").replace(KIND_REGISTRY.enabler.suffix, "");
+    return { node, path: [nodeOperand(node), `${slug}.md`].join(PATH_SEPARATOR) };
+  });
+}
+
+function arbitraryChangedTestPath(): fc.Arbitrary<ChangedSetPathEntry> {
+  return TEST_DISPATCH_GENERATOR.nodePath().chain((node) =>
+    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, node).map((path) => ({ node, path }))
+  );
 }
 
 function arbitraryAliasFixtureSet(): fc.Arbitrary<readonly ChangedSetAliasFixture[]> {
