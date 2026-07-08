@@ -766,21 +766,24 @@ function appendRunSelectorMismatchDiagnostic(
   });
 }
 
-/** Validate an evidence payload against its verification type and kind, returning the CLI error when invalid. */
+/** Validate an evidence payload against its verification type and kind, returning the payload to record. */
 function validateAppendEvidence(
   verb: VerifyAppendVerb,
   verificationType: string,
   payload: JsonValue,
   events: readonly JournalEvent[],
-): string | undefined {
+): Result<JsonValue> {
   const evidenceKind = verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_EVIDENCE_KIND.FINDING : VERIFY_EVIDENCE_KIND.SCOPE;
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
-  if (validator === undefined) return VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE;
+  if (validator === undefined) return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   const validated = validator({ payload, events });
   if (validated === undefined) {
-    return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID;
+    return {
+      ok: false,
+      error: verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID,
+    };
   }
-  return undefined;
+  return { ok: true, value: JSON.parse(JSON.stringify(validated)) as JsonValue };
 }
 
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
@@ -818,13 +821,13 @@ async function verifyAppend(
   }
   const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
-  const evidenceError = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents);
-  if (evidenceError !== undefined) return errorResult(evidenceError);
+  const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents);
+  if (!evidence.ok) return errorResult(evidence.error);
 
   const event = buildAppendEvent({
     eventType,
     idempotencyKey: options.idempotencyKey,
-    payload: parsed,
+    payload: evidence.value,
     at: deps.now?.() ?? new Date(),
   });
   const appended = await journalAppendCommand(journalScope, event, binding, forwardDeps(deps));
