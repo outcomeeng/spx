@@ -4,6 +4,7 @@ import {
   assertDefaultMethodologyProbeReadsAgentHomesAtProbeTime,
   assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects,
   assertMethodologyDiagnoseRejectsHarnessMethodologyConfig,
+  assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHarnessMethodologyConfig,
   assertMethodologyDiagnoseTextRenders,
   assertMethodologyManifestWithoutFactsRejects,
   assertMethodologyProbeIgnoresNonVersionDirectories,
@@ -29,6 +30,10 @@ describe("methodology-context diagnose compliance", () => {
 
   it("ignores unrelated harness config defects before probing", async () => {
     await assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects();
+  });
+
+  it("rejects unavailable checks before stale harness methodology config", async () => {
+    await assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHarnessMethodologyConfig();
   });
 
   it("orders observed methodology versions numerically", async () => {
