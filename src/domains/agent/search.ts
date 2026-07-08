@@ -607,9 +607,6 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length >= 1 && parsed.positionals.length <= 2;
   }
-  if (parsed.positionals.length === 1) {
-    return worktreePathImpliedBranch(parsed.positionals[0]) === branch;
-  }
   return parsed.positionals.length === 2 && parsed.positionals[1] === branch;
 }
 
@@ -807,11 +804,6 @@ function positionalBranchMatches(positional: string, parsed: ParsedGitBranchArgs
 function remoteTrackingBranchLocalName(ref: string): string | null {
   const firstSlash = ref.indexOf("/");
   return firstSlash > 0 && firstSlash < ref.length - 1 ? ref.slice(firstSlash + 1) : null;
-}
-
-function worktreePathImpliedBranch(worktreePath: string): string | null {
-  const segments = worktreePath.split(/[\\/]+/u).filter((segment) => segment.length > 0 && segment !== ".");
-  return segments.at(-1) ?? null;
 }
 
 function gitCreateBranchParse(
