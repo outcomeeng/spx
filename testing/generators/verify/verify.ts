@@ -210,21 +210,25 @@ function arbitraryCoverageGapAuditClassKind(): fc.Arbitrary<AuditClassKind> {
 function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
   return arbitraryExecutedAuditClassKind().chain((kind) =>
     fc
-      .record({
-        unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-        parentUnitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-        subject: arbitrarySourceFilePath(),
-        coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
-        coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
-        priorContext: fc.record({
-          changedFilePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-          concernPartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-          languagePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-        }),
-        expectedProducer: arbitraryAuditProducerIdentity(),
-        recordedByRunDriver: arbitraryAuditProducerIdentity(),
-        producerProvenance: arbitraryAuditProducerProvenance(),
-      })
+      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .filter(([unitId, parentUnitId]) => unitId !== parentUnitId)
+      .chain(([unitId, parentUnitId]) =>
+        fc.record({
+          unitId: fc.constant(unitId),
+          parentUnitId: fc.constant(parentUnitId),
+          subject: arbitrarySourceFilePath(),
+          coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
+          coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
+          priorContext: fc.record({
+            changedFilePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+            concernPartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+            languagePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+          }),
+          expectedProducer: arbitraryAuditProducerIdentity(),
+          recordedByRunDriver: arbitraryAuditProducerIdentity(),
+          producerProvenance: arbitraryAuditProducerProvenance(),
+        })
+      )
       .map((unit) => ({
         ...unit,
         auditClass: kind.auditClass,
