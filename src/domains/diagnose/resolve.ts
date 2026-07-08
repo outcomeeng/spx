@@ -21,6 +21,28 @@ function isCheckName(value: string): value is CheckName {
   return CHECK_NAMES.has(value);
 }
 
+/** Resolves and validates the effective diagnose check set for the current build. */
+export function resolveDiagnoseCheckSet(
+  config: DiagnoseConfig,
+  availableChecks: readonly CheckName[],
+): Result<readonly CheckName[]> {
+  const configuredChecks = config.checks;
+  if (configuredChecks === undefined) {
+    return { ok: true, value: availableChecks };
+  }
+
+  const available = new Set<string>(availableChecks);
+  const unavailable = configuredChecks.filter((name) => !isCheckName(name) || !available.has(name));
+  if (unavailable.length > 0) {
+    return {
+      ok: false,
+      error: `diagnose config \`checks\` names checks not available in this build: ${unavailable.join(", ")}`,
+    };
+  }
+
+  return { ok: true, value: configuredChecks.filter(isCheckName) };
+}
+
 /**
  * Resolves the diagnostic facts into a manifest. With an explicit manifest the
  * manifest is authoritative and returned unchanged. Otherwise the check set
@@ -41,26 +63,13 @@ export function resolveDiagnoseFacts(options: {
   }
 
   const { config, availableChecks } = options;
-  const configuredChecks = config.checks;
-  let checks: readonly CheckName[];
-  if (configuredChecks === undefined) {
-    checks = availableChecks;
-  } else {
-    const available = new Set<string>(availableChecks);
-    const unavailable = configuredChecks.filter((name) => !isCheckName(name) || !available.has(name));
-    if (unavailable.length > 0) {
-      return {
-        ok: false,
-        error: `diagnose config \`checks\` names checks not available in this build: ${unavailable.join(", ")}`,
-      };
-    }
-    checks = configuredChecks.filter(isCheckName);
-  }
+  const checks = resolveDiagnoseCheckSet(config, availableChecks);
+  if (!checks.ok) return checks;
 
   return {
     ok: true,
     value: {
-      checks,
+      checks: checks.value,
       spxFloor: config.spxFloor,
       marketplace: config.marketplace,
       expectedPlugins: config.expectedPlugins,

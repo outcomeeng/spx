@@ -16,6 +16,7 @@ import {
   type MethodologyContextObservation,
   methodologyContextRunner,
 } from "@/domains/diagnose/checks/methodology-context";
+import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
@@ -397,6 +398,35 @@ export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefe
     const report = JSON.parse(result.value.output) as Record<string, unknown>;
     expect(firstCheck(report).verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
   });
+}
+
+export async function assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHarnessMethodologyConfig(): Promise<void> {
+  const unavailableCheck = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+  let error: string | undefined;
+  await withTestEnv({
+    [DIAGNOSE_SECTION]: {
+      [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT, unavailableCheck],
+    },
+    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodology(),
+    },
+  }, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      format: DIAGNOSE_FORMAT.TEXT,
+      color: false,
+      registry: registryFor({ source: null, version: null, errored: false }),
+      fs: { readFile: () => Promise.resolve("") },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      error = result.error;
+    }
+  });
+  if (error === undefined) throw new Error("diagnose command produced no error");
+  expect(error).toContain("diagnose config `checks` names checks not available in this build");
+  expect(error).toContain(unavailableCheck);
+  expect(error).not.toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
 }
 
 export async function assertMethodologyProbeUsesNumericVersionOrder(): Promise<void> {

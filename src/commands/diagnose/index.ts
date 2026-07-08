@@ -20,7 +20,7 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
 import { type DiagnoseFormat, renderReport } from "@/domains/diagnose/report";
-import { resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
+import { resolveDiagnoseCheckSet, resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
 
 /** The injected boundary the handler reads the manifest file through. */
 export interface ManifestFileSystem {
@@ -72,18 +72,11 @@ async function readManifest(
   return parseManifest(raw, availableChecks);
 }
 
-function shouldResolveMethodologyConfig(
-  manifest: DiagnoseManifest | undefined,
-  config: DiagnoseConfig | undefined,
-  availableChecks: readonly CheckName[],
-): boolean {
+function shouldResolveMethodologyConfig(manifest: DiagnoseManifest | undefined, checks: readonly CheckName[]): boolean {
   if (manifest !== undefined) {
     return false;
   }
-  if (config?.checks === undefined) {
-    return availableChecks.includes(CHECK_NAME.METHODOLOGY_CONTEXT);
-  }
-  return config.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT);
+  return checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT);
 }
 
 /** Resolves the facts, runs the resolved check set, and returns the rendered report and verdict-keyed exit code. */
@@ -102,10 +95,12 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     ? await resolveDiagnoseConfig(options.productDir)
     : { ok: true, value: undefined };
   if (!config.ok) return config;
+  const resolvedChecks = resolveDiagnoseCheckSet(config.value ?? {}, availableChecks);
+  if (!resolvedChecks.ok) return resolvedChecks;
 
   let methodology: MethodologyConfig | undefined;
   let methodologyError: string | undefined;
-  if (shouldResolveMethodologyConfig(manifest?.value, config.value, availableChecks)) {
+  if (shouldResolveMethodologyConfig(manifest?.value, resolvedChecks.value)) {
     const methodologyConfig = await resolveMethodologyConfig(options.productDir);
     if (methodologyConfig.ok) {
       methodology = methodologyConfig.value;
