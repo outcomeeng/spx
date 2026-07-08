@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertAppendRecordsValidatedEvidencePayload,
   assertInvalidReviewFindingRejectedBeforeAppend,
   assertInvalidReviewScopeRejectedBeforeAppend,
   assertReviewFindingSelectorMismatchRejectsWithoutAppend,
@@ -19,6 +20,10 @@ describe("verify finding evidence compliance", () => {
 
   it("records a valid review scope payload through the scope-evidence validator", async () => {
     await assertValidReviewScopeRecordsScopeEvidenceKind();
+  });
+
+  it("records the validated evidence payload returned by the verification-type validator", async () => {
+    await assertAppendRecordsValidatedEvidencePayload();
   });
 
   it("records a valid review finding at the finding-evidence boundary so callers carry no review schema", async () => {

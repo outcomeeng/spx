@@ -1185,6 +1185,32 @@ export async function assertValidReviewScopeRecordsScopeEvidenceKind(): Promise<
   }
 }
 
+export async function assertAppendRecordsValidatedEvidencePayload(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await reviewAppendScenario();
+  const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewScopeUnit());
+  const payload = {
+    ...scope,
+    extraProviderField: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+  };
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const appended = await verifyAppendScopeCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(payload),
+      idempotencyKey,
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const events = await readVerifyRunEvents(scenario, runToken, fs);
+  const scopeEvents = events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE);
+  expect(scopeEvents).toHaveLength(1);
+  expect(scopeEvents[0]?.data).toEqual({
+    [VERIFY_APPEND_EVENT_FIELD.IDEMPOTENCY_KEY]: idempotencyKey,
+    [VERIFY_APPEND_EVENT_FIELD.PAYLOAD]: scope,
+  });
+}
+
 export async function assertReviewScopeProjectionIncludesCleanReviewedUnit(): Promise<void> {
   const { scenario, deps, runToken } = await reviewAppendScenario();
   const scope = {
