@@ -9,12 +9,14 @@
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-cli-registry.scenario.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-cli.scenario.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-environment.mapping.l1.test.ts": "passed",
+      "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection-namespace.scenario.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.compliance.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.property.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.scenario.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-verbs.mapping.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/projection.property.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/run-scope.property.l1.test.ts": "passed",
+      "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/run-state-namespace.compliance.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/run-state.compliance.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/streaming.scenario.l1.test.ts": "passed"
     }
