@@ -1,9 +1,14 @@
-import { type ConfigFileReadResult, readProductConfigFile, resolveConfigFromReadResult } from "@/config/index";
+import {
+  type ConfigFileReadResult,
+  readConfigSectionFromReadResult,
+  readProductConfigFile,
+  resolveConfigFromReadResult,
+} from "@/config/index";
 import { METHODOLOGY_SECTION, type MethodologyConfig, methodologyConfigDescriptor } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import {
   HARNESS_ENVIRONMENT_SECTION,
-  harnessEnvironmentConfigDescriptor,
+  harnessEnvironmentUnknownConfigFieldError,
   isHarnessEnvironmentUnknownConfigFieldError,
 } from "@/domains/agent-environment/config";
 
@@ -14,9 +19,19 @@ export function isLegacyHarnessMethodologyConfigError(error: string): boolean {
 }
 
 function rejectLegacyHarnessMethodologyConfig(detected: ConfigFileReadResult): Result<undefined> {
-  const loaded = resolveConfigFromReadResult(detected, [harnessEnvironmentConfigDescriptor]);
-  if (!loaded.ok && isLegacyHarnessMethodologyConfigError(loaded.error)) return loaded;
+  const harnessEnvironment = readConfigSectionFromReadResult(detected, LEGACY_METHODOLOGY_CONFIG_SECTION);
+  if (!harnessEnvironment.ok) return harnessEnvironment;
+  if (hasLegacyHarnessMethodologyConfig(harnessEnvironment.value)) {
+    return { ok: false, error: harnessEnvironmentUnknownConfigFieldError(METHODOLOGY_SECTION) };
+  }
   return { ok: true, value: undefined };
+}
+
+function hasLegacyHarnessMethodologyConfig(value: unknown): boolean {
+  return typeof value === "object"
+    && value !== null
+    && !Array.isArray(value)
+    && Object.hasOwn(value, METHODOLOGY_SECTION);
 }
 
 export async function resolveMethodologyConfig(productDir: string): Promise<Result<MethodologyConfig>> {
