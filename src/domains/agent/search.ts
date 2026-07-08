@@ -87,11 +87,9 @@ type AgentHeadParser = (head: string) => AgentSessionHead | null;
 
 interface CodexSubagentBranchAssociation {
   readonly cwd: string;
-  readonly sourcePath: string;
-  readonly modifiedAtMs: number;
-  readonly updatedAt: string | null;
-  readonly branch: string | null;
 }
+
+type BranchAssociatedSessionIds = ReadonlySet<string>;
 
 export function pickupIdSearchLiteral(pickupId: string): string {
   return formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, pickupId);
@@ -160,12 +158,14 @@ async function searchAgentStore(
       options.fs,
       acceptsClaudeDir,
     );
-  const files = await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
+  const allFiles = await storeFiles(paths, options.fs, options.nowMs, true);
+  const files = options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs);
   const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
+  const branchAssociatedSessionIds = await collectTopLevelBranchAssociations(allFiles, options, parser);
   const subagentBranchAssociations = agent === AGENT_SESSION_KIND.CODEX
-    ? await collectCodexSubagentBranchAssociations(files, options)
+    ? await collectCodexSubagentBranchAssociations(allFiles, options)
     : new Map<string, CodexSubagentBranchAssociation>();
-  return collectMatchingSessions(agent, files, options, parser, subagentBranchAssociations);
+  return collectMatchingSessions(agent, files, options, parser, branchAssociatedSessionIds, subagentBranchAssociations);
 }
 
 function claudeDirAcceptsProductScope(
@@ -184,6 +184,7 @@ async function collectMatchingSessions(
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
   parseHead: AgentHeadParser,
+  branchAssociatedSessionIds: BranchAssociatedSessionIds,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchResult[]> {
   const results: AgentSearchResult[] = [];
@@ -194,7 +195,14 @@ async function collectMatchingSessions(
     const core = parseHead(head);
     if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
     if (!coreMatchesSearchInputScope(core, options)) continue;
-    const matches = await matchReasons(agent, core, file.path, options, subagentBranchAssociations);
+    const matches = await matchReasons(
+      agent,
+      core,
+      file.path,
+      options,
+      branchAssociatedSessionIds,
+      subagentBranchAssociations,
+    );
     if (matches.length === 0) continue;
     const subagentBranchAssociation = subagentBranchAssociationForResult(core, options, subagentBranchAssociations);
     seen.add(core.sessionId);
@@ -202,10 +210,10 @@ async function collectMatchingSessions(
       agent,
       sessionId: core.sessionId,
       cwd: subagentBranchAssociation?.cwd ?? core.cwd,
-      sourcePath: subagentBranchAssociation?.sourcePath ?? file.path,
-      modifiedAtMs: subagentBranchAssociation?.modifiedAtMs ?? file.modifiedAtMs,
-      updatedAt: subagentBranchAssociation?.updatedAt ?? core.updatedAt,
-      branch: subagentBranchAssociation?.branch ?? core.branch,
+      sourcePath: file.path,
+      modifiedAtMs: file.modifiedAtMs,
+      updatedAt: core.updatedAt,
+      branch: core.branch,
       matches,
     });
   }
@@ -217,6 +225,7 @@ async function matchReasons(
   core: AgentSessionHead,
   path: string,
   options: AgentSearchOptions,
+  branchAssociatedSessionIds: BranchAssociatedSessionIds,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchMatchReason[]> {
   if (!hasSearchSelector(options.query)) {
@@ -230,7 +239,12 @@ async function matchReasons(
   if (metadataMatches === null) {
     return [];
   }
-  const branchMatches = branchMetadataOrWorktreeMatchReasons(core, options, subagentBranchAssociations);
+  const branchMatches = branchMetadataOrWorktreeMatchReasons(
+    core,
+    options,
+    branchAssociatedSessionIds,
+    subagentBranchAssociations,
+  );
   const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
   const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
   if (content === null) {
@@ -280,6 +294,7 @@ function metadataMatchReasons(
 function branchMetadataOrWorktreeMatchReasons(
   core: AgentSessionHead,
   options: AgentSearchOptions,
+  branchAssociatedSessionIds: BranchAssociatedSessionIds,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): AgentSearchMatchReason[] | null {
   const branch = options.query.branch;
@@ -291,6 +306,9 @@ function branchMetadataOrWorktreeMatchReasons(
   }
   const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
   if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
+    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+  }
+  if (branchAssociatedSessionIds.has(core.sessionId)) {
     return [AGENT_SEARCH_MATCH_REASON.BRANCH];
   }
   if (subagentBranchAssociations.has(core.sessionId)) {
@@ -315,6 +333,42 @@ function subagentBranchAssociationForResult(
   return subagentBranchAssociations.get(core.sessionId) ?? null;
 }
 
+async function collectTopLevelBranchAssociations(
+  files: readonly AgentStoreFile[],
+  options: AgentSearchOptions,
+  parseHead: AgentHeadParser,
+): Promise<BranchAssociatedSessionIds> {
+  const branch = options.query.branch;
+  const associated = new Set<string>();
+  if (branch === null) {
+    return associated;
+  }
+  for (const file of files) {
+    const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
+    if (head === null) {
+      continue;
+    }
+    const core = parseHead(head);
+    if (
+      core === null
+      || !core.interactive
+      || core.subagent
+      || !coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? [])
+    ) {
+      continue;
+    }
+    if (core.branch === branch) {
+      associated.add(core.sessionId);
+      continue;
+    }
+    const content = await options.fs.readText(file.path).catch(() => null);
+    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
+      associated.add(core.sessionId);
+    }
+  }
+  return associated;
+}
+
 async function collectCodexSubagentBranchAssociations(
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
@@ -335,12 +389,12 @@ async function collectCodexSubagentBranchAssociations(
     }
     const branchMetadataMatches = core.branch === branch;
     if (branchMetadataMatches) {
-      addCodexSubagentBranchAssociation(associated, core, file);
+      addCodexSubagentBranchAssociation(associated, core);
       continue;
     }
     const content = await options.fs.readText(file.path).catch(() => null);
     if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
-      addCodexSubagentBranchAssociation(associated, core, file);
+      addCodexSubagentBranchAssociation(associated, core);
     }
   }
   return associated;
@@ -349,17 +403,12 @@ async function collectCodexSubagentBranchAssociations(
 function addCodexSubagentBranchAssociation(
   associated: Map<string, CodexSubagentBranchAssociation>,
   core: AgentSessionHead,
-  file: AgentStoreFile,
 ): void {
   if (associated.has(core.sessionId)) {
     return;
   }
   associated.set(core.sessionId, {
     cwd: core.cwd,
-    sourcePath: file.path,
-    modifiedAtMs: file.modifiedAtMs,
-    updatedAt: core.updatedAt,
-    branch: core.branch,
   });
 }
 
@@ -556,13 +605,16 @@ function collectClaudeToolResult(
 }
 
 function gitCommandAssociatesBranch(words: readonly string[], branch: string): boolean {
-  if (words[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE) {
-    return false;
-  }
-  const args = words.slice(1);
-  return gitSwitchCommandAssociatesBranch(args, branch)
-    || gitCheckoutCommandAssociatesBranch(args, branch)
-    || gitWorktreeAddCommandAssociatesBranch(args, branch);
+  return shellCommandSegments(words).some((segment) => {
+    const gitCommand = normalizeGitCommandSegment(segment);
+    if (gitCommand === null) {
+      return false;
+    }
+    const args = gitCommand.slice(1);
+    return gitSwitchCommandAssociatesBranch(args, branch)
+      || gitCheckoutCommandAssociatesBranch(args, branch)
+      || gitWorktreeAddCommandAssociatesBranch(args, branch);
+  });
 }
 
 function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -758,6 +810,73 @@ const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR,
 ] as const;
 
+const SHELL_COMMAND_SEPARATOR = {
+  SEQUENCE: ";",
+} as const;
+
+const SHELL_OPERATOR_AMPERSAND = "&";
+const SHELL_OPERATOR_PIPE = "|";
+const SHELL_ENV_COMMAND = "env";
+const SHELL_COMMAND_WRAPPER_COMMAND = "command";
+const SHELL_SUDO_COMMAND = "sudo";
+const SHELL_BOURNE_COMMAND = "sh";
+const SHELL_BASH_COMMAND = "bash";
+const SHELL_COMMAND_STRING_FLAG = "-c";
+const SHELL_LOGIN_COMMAND_STRING_FLAG = "-lc";
+const SHELL_ENV_ASSIGNMENT_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*=.*$/u;
+
+function shellCommandSegments(words: readonly string[]): readonly (readonly string[])[] {
+  const segments: string[][] = [[]];
+  for (const word of words) {
+    if (isShellCommandSeparator(word)) {
+      segments.push([]);
+      continue;
+    }
+    segments[segments.length - 1].push(word);
+  }
+  return segments.filter((segment) => segment.length > 0);
+}
+
+function normalizeGitCommandSegment(words: readonly string[]): readonly string[] | null {
+  let index = 0;
+  while (index < words.length) {
+    if (words[index] === SHELL_ENV_COMMAND || SHELL_ENV_ASSIGNMENT_PATTERN.test(words[index])) {
+      index += 1;
+      continue;
+    }
+    break;
+  }
+  if (words[index] === SHELL_COMMAND_WRAPPER_COMMAND || words[index] === SHELL_SUDO_COMMAND) {
+    return normalizeGitCommandSegment(words.slice(index + 1));
+  }
+  const shellCommandWords = shellCommandWrapperWords(words.slice(index));
+  if (shellCommandWords !== null) {
+    return shellCommandSegments(shellCommandWords)
+      .map((segment) => normalizeGitCommandSegment(segment))
+      .find((segment): segment is readonly string[] => segment !== null) ?? null;
+  }
+  return words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE ? words.slice(index) : null;
+}
+
+function shellCommandWrapperWords(words: readonly string[]): readonly string[] | null {
+  const executable = words[0];
+  if (executable !== SHELL_BOURNE_COMMAND && executable !== SHELL_BASH_COMMAND) {
+    return null;
+  }
+  const commandIndex = words.findIndex((word) =>
+    word === SHELL_COMMAND_STRING_FLAG || word === SHELL_LOGIN_COMMAND_STRING_FLAG
+  );
+  const command = commandIndex === -1 ? undefined : words.at(commandIndex + 1);
+  return command === undefined ? null : shellWords(command);
+}
+
+function isShellCommandSeparator(word: string): boolean {
+  return word === `${SHELL_OPERATOR_AMPERSAND}${SHELL_OPERATOR_AMPERSAND}`
+    || word === `${SHELL_OPERATOR_PIPE}${SHELL_OPERATOR_PIPE}`
+    || word === SHELL_OPERATOR_PIPE
+    || word === SHELL_COMMAND_SEPARATOR.SEQUENCE;
+}
+
 function parseGitBranchArgs(
   args: readonly string[],
   createFlags: readonly string[],
@@ -869,10 +988,12 @@ function isTrackOption(value: string): boolean {
     || value.startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK}=`);
 }
 
-const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\S+)/gu;
+const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(&&|\|\||[;|])|([^\s;&|]+)/gu;
 
 function shellWords(command: string): readonly string[] {
-  return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) => match.at(1) ?? match.at(2) ?? match[0]);
+  return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) =>
+    match.at(1) ?? match.at(2) ?? match.at(3) ?? match[0]
+  );
 }
 
 function contentMatchReasons(
@@ -919,6 +1040,10 @@ async function storeFiles(
   return files
     .filter((file): file is AgentStoreFile => file !== null)
     .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
+}
+
+function recentStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
+  return files.filter((file) => isRecentAgentSessionMtime(file.modifiedAtMs, nowMs));
 }
 
 function compareSearchResults(left: AgentSearchResult, right: AgentSearchResult): number {
