@@ -1,5 +1,19 @@
 # Issues: Journal
 
+## FOLLOW-UP — list can report missing terminal state when render finds one
+
+`spx journal list --type review --limit 20` reported sealed review runs with
+`terminalState: "missing-state"` under branch slug `head-b5180223`, while
+`spx journal render --type review --branch-slug head-b5180223 --run
+2026-07-08_15-13-09-795-c75e62e5e1f5` rendered the same run with an approved
+terminal event, `blocking: 0`, and `debt: 0`.
+
+The list projection and render projection therefore disagree about terminal
+state for the same sealed journal run. Reproduce with a sealed review run whose
+rendered projection has a terminal verdict, then add focused evidence that
+`journal list` derives the same terminal state as `journal render` before
+changing the projection code.
+
 ## FOLLOW-UP — review-run journal projection emitted duplicate sequence numbers
 
 The changes reviewer run `2026-06-30_14-39-57-855-318491581ca8` reported a sealed approved terminal projection with a journal prefix defect: two scope-advanced events both carried `seq: 2`. The terminal event was present, but duplicate sequence numbers contradict the append-only journal contract from `spx/15-agent-run-journal.enabler/agent-run-journal.md`.
