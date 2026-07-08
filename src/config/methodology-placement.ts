@@ -7,9 +7,13 @@ export const LEGACY_METHODOLOGY_CONFIG_SECTION = HARNESS_ENVIRONMENT_SECTION;
 
 export function isLegacyHarnessMethodologyConfigError(error: string): boolean {
   const directPath = `${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`;
+  const singleFieldError = `${directPath} is not a recognized config field`;
   const pluralPrefix =
     `${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${LEGACY_METHODOLOGY_CONFIG_SECTION} has unrecognized config fields: `;
-  if (error.startsWith(directPath) || error.startsWith(`${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${directPath}`)) {
+  if (
+    error === singleFieldError
+    || error === `${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${singleFieldError}`
+  ) {
     return true;
   }
   if (!error.startsWith(pluralPrefix)) return false;

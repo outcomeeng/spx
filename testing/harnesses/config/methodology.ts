@@ -25,6 +25,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
 const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+const SIMILAR_HARNESS_FIELD = "methodologySource";
 const STRAY_HARNESS_FIELD = "strayHarnessField";
 
 function generatedMethodologySection(): Record<string, unknown> {
@@ -141,6 +142,19 @@ export async function assertMethodologyResolverRejectsHarnessMethodologyAmongUnk
     if (!result.ok) {
       expect(result.error).toContain(METHODOLOGY_SECTION);
     }
+  });
+}
+
+export async function assertMethodologyResolverIgnoresSimilarHarnessField(): Promise<void> {
+  await withTestEnv({
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [SIMILAR_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  }, async ({ productDir }) => {
+    const result = await resolveMethodologyConfig(productDir);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value).toEqual(DEFAULT_METHODOLOGY_CONFIG);
   });
 }
 
