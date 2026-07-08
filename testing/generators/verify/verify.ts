@@ -507,6 +507,10 @@ export const VERIFY_TEST_GENERATOR = {
           parentUnitId,
         }))
       ),
+      arbitraryAuditScopeUnit().map((unit) => ({
+        ...unit,
+        parentUnitId: unit.unitId,
+      })),
       arbitraryAuditScopeUnit().chain((unit) =>
         arbitraryAuditProducerProvenance().map((producerProvenance) => ({
           ...unit,
@@ -559,6 +563,22 @@ export const VERIFY_TEST_GENERATOR = {
           evidence,
         }))
       ),
+      arbitraryAuditFinding().map((finding) => ({
+        ...finding,
+        evidence: {},
+      })),
+      arbitraryAuditFinding().map((finding) => ({
+        ...finding,
+        evidence: {
+          expected: finding.evidence.expected,
+        },
+      })),
+      arbitraryAuditFinding().map((finding) => ({
+        ...finding,
+        evidence: {
+          observed: finding.evidence.observed,
+        },
+      })),
     ),
   invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>
     fc.oneof(

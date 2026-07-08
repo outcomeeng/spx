@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertAuditFindingEmptyEvidenceRejectedBeforeAppend,
   assertAuditFindingUnknownUnitRejectedBeforeAppend,
   assertInvalidAuditFindingRejectedBeforeAppend,
   assertInvalidAuditScopeRejectedBeforeAppend,
@@ -17,5 +18,9 @@ describe("audit evidence validation", () => {
 
   it("rejects audit findings that reference units absent from scope evidence before append", async () => {
     await assertAuditFindingUnknownUnitRejectedBeforeAppend();
+  });
+
+  it("rejects audit findings that omit observed-versus-expected evidence before append", async () => {
+    await assertAuditFindingEmptyEvidenceRejectedBeforeAppend();
   });
 });
