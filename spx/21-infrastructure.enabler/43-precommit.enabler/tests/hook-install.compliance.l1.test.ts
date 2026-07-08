@@ -1,5 +1,7 @@
 import {
   assertConfiguredHookNameParsing,
+  assertLefthookConfigKeepsPrecommitMinimal,
+  assertLefthookConfigRoutesLifecycleHooksThroughGates,
   assertObsoletePortableHooksAreRemoved,
   assertPortableHookInstallWritesExecutableShims,
   assertPortableShimMarkerRecognition,
@@ -12,6 +14,14 @@ import { describe, expect, it } from "vitest";
 describe("portable lefthook hook installation", () => {
   it("maps only configured Git hook sections from lefthook config", () => {
     assertConfiguredHookNameParsing();
+  });
+
+  it("keeps the product pre-commit hook limited to the fixture-exclusion drift check", async () => {
+    await expect(assertLefthookConfigKeepsPrecommitMinimal()).resolves.toBeUndefined();
+  });
+
+  it("routes checkout, merge, and rewrite hooks through their tested gates", async () => {
+    await expect(assertLefthookConfigRoutesLifecycleHooksThroughGates()).resolves.toBeUndefined();
   });
 
   it("renders hooks that resolve lefthook from the invoking worktree at runtime", () => {
