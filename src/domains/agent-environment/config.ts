@@ -184,6 +184,10 @@ function unknownConfigFieldError(path: string, field: string): string {
   return `${path}.${field} is not a recognized config field`;
 }
 
+export function harnessEnvironmentUnknownConfigFieldError(field: string): string {
+  return unknownConfigFieldError(HARNESS_ENVIRONMENT_SECTION, field);
+}
+
 function unknownConfigFieldsErrorPrefix(path: string): string {
   return `${path} has unrecognized config fields: `;
 }

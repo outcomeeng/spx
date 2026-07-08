@@ -83,6 +83,23 @@ export function resolveConfigFromReadResult(
   return { ok: true, value: resolved };
 }
 
+export function readConfigSectionFromReadResult(
+  detected: ConfigFileReadResult,
+  section: string,
+): Result<unknown | undefined> {
+  if (detected.kind === "ambiguous") {
+    return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
+  }
+
+  if (detected.kind === "absent") {
+    return { ok: true, value: undefined };
+  }
+
+  const sectionsResult = parseConfigFileSections(detected.file);
+  if (!sectionsResult.ok) return sectionsResult;
+  return { ok: true, value: sectionsResult.value[section] };
+}
+
 export async function readProductConfigFile(productDir: string): Promise<Result<ConfigFileReadResult>> {
   const detected: ConfigFile[] = [];
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
