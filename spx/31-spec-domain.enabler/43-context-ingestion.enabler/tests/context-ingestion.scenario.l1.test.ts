@@ -5,6 +5,7 @@ import {
   assertSpecContextManifestIgnoresUntrackedScratchNodes,
   assertSpecContextManifestIncludesDocuments,
   assertSpecContextManifestIncludesMethodology,
+  assertSpecContextManifestListsSameAndHigherSiblings,
   assertSpecContextManifestOmitsMissingNodeSpecs,
   assertSpecContextRejectsHarnessMethodologyConfig,
   assertSpecContextRejectsMalformedMethodologyConfig,
@@ -18,6 +19,10 @@ describe("spec context ingestion scenarios", () => {
 
   it("includes deterministic spec-tree documents in the manifest", async () => {
     await assertSpecContextManifestIncludesDocuments();
+  });
+
+  it("lists same-index and higher-index siblings separately", async () => {
+    await assertSpecContextManifestListsSameAndHigherSiblings();
   });
 
   it("excludes untracked node-shaped scratch paths from the manifest", async () => {

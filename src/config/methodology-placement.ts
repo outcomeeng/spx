@@ -1,27 +1,16 @@
 import { type ConfigFileReadResult, readProductConfigFile, resolveConfigFromReadResult } from "@/config/index";
 import { METHODOLOGY_SECTION, type MethodologyConfig, methodologyConfigDescriptor } from "@/config/methodology";
 import type { Result } from "@/config/types";
-import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import {
+  HARNESS_ENVIRONMENT_SECTION,
+  harnessEnvironmentConfigDescriptor,
+  isHarnessEnvironmentUnknownConfigFieldError,
+} from "@/domains/agent-environment/config";
 
 export const LEGACY_METHODOLOGY_CONFIG_SECTION = HARNESS_ENVIRONMENT_SECTION;
 
 export function isLegacyHarnessMethodologyConfigError(error: string): boolean {
-  const directPath = `${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`;
-  const singleFieldError = `${directPath} is not a recognized config field`;
-  const pluralPrefix =
-    `${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${LEGACY_METHODOLOGY_CONFIG_SECTION} has unrecognized config fields: `;
-  if (
-    error === singleFieldError
-    || error === `${LEGACY_METHODOLOGY_CONFIG_SECTION}: ${singleFieldError}`
-  ) {
-    return true;
-  }
-  if (!error.startsWith(pluralPrefix)) return false;
-  return error
-    .slice(pluralPrefix.length)
-    .split(",")
-    .map((field) => field.trim())
-    .includes(METHODOLOGY_SECTION);
+  return isHarnessEnvironmentUnknownConfigFieldError(error, METHODOLOGY_SECTION);
 }
 
 function rejectLegacyHarnessMethodologyConfig(detected: ConfigFileReadResult): Result<undefined> {
