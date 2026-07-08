@@ -626,11 +626,41 @@ function gitCommandAssociatesBranch(words: readonly string[], branch: string): b
     if (gitCommand === null) {
       return false;
     }
-    const args = gitCommand.slice(1);
+    const args = stripGitGlobalOptions(gitCommand);
+    if (args === null) {
+      return false;
+    }
     return gitSwitchCommandAssociatesBranch(args, branch)
       || gitCheckoutCommandAssociatesBranch(args, branch)
       || gitWorktreeAddCommandAssociatesBranch(args, branch);
   });
+}
+
+function stripGitGlobalOptions(words: readonly string[]): readonly string[] | null {
+  if (words[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE) {
+    return null;
+  }
+  let index = 1;
+  while (index < words.length) {
+    if (words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY) {
+      index += 2;
+      continue;
+    }
+    if (words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG) {
+      index += 2;
+      continue;
+    }
+    if (words[index].startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY}=`)) {
+      index += 1;
+      continue;
+    }
+    if (words[index].startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG}=`)) {
+      index += 1;
+      continue;
+    }
+    break;
+  }
+  return words.slice(index);
 }
 
 function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
@@ -730,6 +760,7 @@ const WORKTREE_CREATE_FLAGS = CHECKOUT_CREATE_FLAGS;
 const CHECKOUT_ALLOWED_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
@@ -769,6 +800,7 @@ const CHECKOUT_ALLOWED_OPTIONS: GitAllowedOptions = {
 const SWITCH_ALLOWED_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
@@ -808,6 +840,7 @@ const WORKTREE_ALLOWED_FLAGS = [
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
   AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
   AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
+  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
   AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
   AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
   AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT_WORKTREE,
