@@ -349,12 +349,7 @@ async function collectTopLevelBranchAssociations(
       continue;
     }
     const core = parseHead(head);
-    if (
-      core === null
-      || !core.interactive
-      || core.subagent
-      || !coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? [])
-    ) {
+    if (core === null || !core.interactive || core.subagent) {
       continue;
     }
     if (core.branch === branch) {
@@ -824,6 +819,8 @@ const SHELL_BASH_COMMAND = "bash";
 const SHELL_COMMAND_STRING_FLAG = "-c";
 const SHELL_LOGIN_COMMAND_STRING_FLAG = "-lc";
 const SHELL_ENV_ASSIGNMENT_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*=.*$/u;
+const SHELL_REDIRECTION_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)$/u;
+const SHELL_DUPLICATED_DESCRIPTOR_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)&?\d+$/u;
 
 function shellCommandSegments(words: readonly string[]): readonly (readonly string[])[] {
   const segments: string[][] = [[]];
@@ -855,7 +852,8 @@ function normalizeGitCommandSegment(words: readonly string[]): readonly string[]
       .map((segment) => normalizeGitCommandSegment(segment))
       .find((segment): segment is readonly string[] => segment !== null) ?? null;
   }
-  return words[index] === AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE ? words.slice(index) : null;
+  const command = stripShellRedirections(words.slice(index));
+  return command[0] === AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE ? command : null;
 }
 
 function shellCommandWrapperWords(words: readonly string[]): readonly string[] | null {
@@ -873,8 +871,25 @@ function shellCommandWrapperWords(words: readonly string[]): readonly string[] |
 function isShellCommandSeparator(word: string): boolean {
   return word === `${SHELL_OPERATOR_AMPERSAND}${SHELL_OPERATOR_AMPERSAND}`
     || word === `${SHELL_OPERATOR_PIPE}${SHELL_OPERATOR_PIPE}`
+    || word === SHELL_OPERATOR_AMPERSAND
     || word === SHELL_OPERATOR_PIPE
     || word === SHELL_COMMAND_SEPARATOR.SEQUENCE;
+}
+
+function stripShellRedirections(words: readonly string[]): readonly string[] {
+  const command: string[] = [];
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    if (SHELL_DUPLICATED_DESCRIPTOR_PATTERN.test(word)) {
+      continue;
+    }
+    if (SHELL_REDIRECTION_PATTERN.test(word)) {
+      index += 1;
+      continue;
+    }
+    command.push(word);
+  }
+  return command;
 }
 
 function parseGitBranchArgs(
@@ -988,11 +1003,11 @@ function isTrackOption(value: string): boolean {
     || value.startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK}=`);
 }
 
-const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(&&|\|\||[;|])|([^\s;&|]+)/gu;
+const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\d*(?:>>?|<<<?|>&|<&|&>|&>>)&?\d*)|(&&|\|\||[;&|])|([^\s;&|<>]+)/gu;
 
 function shellWords(command: string): readonly string[] {
   return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) =>
-    match.at(1) ?? match.at(2) ?? match.at(3) ?? match[0]
+    match.at(1) ?? match.at(2) ?? match.at(3) ?? match.at(4) ?? match[0]
   );
 }
 
