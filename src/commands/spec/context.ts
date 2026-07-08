@@ -150,13 +150,14 @@ function lowerIndexSiblingsForContextNodes(
       seen.add(sibling.id);
     }
   }
-  return lowerSiblings.sort((left, right) => {
+  lowerSiblings.sort((left, right) => {
     const parentComparison = (left.parentId ?? "").localeCompare(right.parentId ?? "");
     if (parentComparison !== 0) return parentComparison;
     const orderComparison = left.order - right.order;
     if (orderComparison !== 0) return orderComparison;
     return left.id.localeCompare(right.id);
-  }).filter((node) => nodesById.has(node.id));
+  });
+  return lowerSiblings.filter((node) => nodesById.has(node.id));
 }
 
 function decisionsFor(
