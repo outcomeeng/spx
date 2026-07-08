@@ -6,6 +6,7 @@ import {
   assertManifestMethodologyDiagnoseIsHealthy,
   assertMethodologyProbePreservesMixedCacheReadErrors,
   assertMethodologyProbeReadErrorsReachUnknownDiagnose,
+  assertMethodologyRunnerHandlesMissingMethodologyFact,
   assertUnavailableMethodologyDiagnose,
   assertUnknownMethodologyDiagnose,
 } from "@testing/harnesses/diagnose/methodology-context";
@@ -29,6 +30,10 @@ describe("methodology-context diagnose scenarios", () => {
 
   it("reports unknown methodology context", async () => {
     await assertUnknownMethodologyDiagnose();
+  });
+
+  it("reports missing methodology facts as unknown", async () => {
+    await assertMethodologyRunnerHandlesMissingMethodologyFact();
   });
 
   it("reports methodology probe read errors as unknown", async () => {

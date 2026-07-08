@@ -97,8 +97,18 @@ export function methodologyContextRunner(probe: MethodologyContextProbe): CheckR
         errored: true,
       });
     }
+    if (manifest.methodology === undefined) {
+      return classifyMethodologyContext({
+        configured: false,
+        configuredSource: null,
+        configuredVersion: null,
+        observedSource: null,
+        observedVersion: null,
+        errored: true,
+      });
+    }
 
-    const methodology = manifest.methodology!;
+    const methodology = manifest.methodology;
     const observation = await probe.probe(methodology);
     return classifyMethodologyContext({
       configured: true,
