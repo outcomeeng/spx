@@ -16,7 +16,7 @@ import {
   type MethodologyContextObservation,
   methodologyContextRunner,
 } from "@/domains/diagnose/checks/methodology-context";
-import type { CheckRegistry } from "@/domains/diagnose/engine";
+import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT } from "@/domains/diagnose/types";
@@ -274,6 +274,26 @@ export async function assertUnknownMethodologyDiagnose(): Promise<void> {
   expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
   expectReadings(check, methodology, observation);
   expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
+}
+
+export async function assertMethodologyRunnerHandlesMissingMethodologyFact(): Promise<void> {
+  const result = await runDiagnose({
+    checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
+  }, {
+    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner({
+      probe: () => {
+        throw new Error("missing methodology facts must not call the methodology probe");
+      },
+    }),
+  });
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error(result.error);
+  const check = firstCheck(result.value as unknown as Record<string, unknown>);
+  expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+  expect(check.readings).toEqual(expect.objectContaining({
+    configured: String(false),
+  }));
+  expect(result.value.overall).toBe(OVERALL_VERDICT.UNKNOWN);
 }
 
 export async function assertMethodologyProbeReadErrorsReachUnknownDiagnose(): Promise<void> {
