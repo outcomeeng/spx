@@ -28,14 +28,14 @@ const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
 const SIMILAR_HARNESS_FIELD = "methodologySource";
 const STRAY_HARNESS_FIELD = "strayHarnessField";
 
-function generatedMethodologySection(): Record<string, unknown> {
+export function generatedMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
   };
 }
 
-function generatedMethodologySource(): string {
+export function generatedMethodologySource(): string {
   return [
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
