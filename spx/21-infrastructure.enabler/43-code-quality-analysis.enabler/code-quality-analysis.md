@@ -1,6 +1,6 @@
 # Code Quality Analysis
 
-PROVIDES a repository-root SonarQube Cloud configuration and MCP server registration — server-side automatic analysis of the product's own source on every push and pull request, with deliberate test-fixture inputs excluded, and an agent-queryable findings interface
+PROVIDES a repository-root SonarQube Cloud configuration, project-side fixture exclusion scope, and MCP server registration — server-side automatic analysis of the product's own source on every push and pull request, with deliberate test-fixture inputs excluded, and an agent-queryable findings interface
 SO THAT the product's maintainers and the agents working on it
 CAN surface code-quality, security, and reliability findings on the source without a continuous-integration analysis step, and inspect those findings through SonarQube tooling
 
@@ -9,7 +9,7 @@ CAN surface code-quality, security, and reliability findings on the source witho
 ### Compliance
 
 - ALWAYS: a repository-root `.sonarcloud.properties` configures SonarQube Cloud automatic analysis — the only in-repository artifact the server-side analysis requires ([audit])
-- ALWAYS: deliberate test-fixture inputs under `testing/fixtures` are excluded from analysis through a single `testing/fixtures/**` scope so fixtures are not analyzed as product source ([audit])
+- ALWAYS: deliberate test-fixture inputs under `testing/fixtures` are excluded from analysis through the SonarQube Cloud project Analysis Scope with a single `testing/fixtures/**` scope so fixtures are not analyzed as product source ([audit])
 - ALWAYS: a repository-root `.mcp.json` registers a SonarQube MCP server bound to the product's SonarQube Cloud project so agents can query its findings ([audit])
 - NEVER: a continuous-integration workflow performs the SonarQube Cloud analysis — automatic analysis runs server-side, so no GitHub Actions job runs it ([audit])
 - ALWAYS: the project's SonarQube Cloud quality gate fails on any new issue, any new duplicated line, or any unreviewed new security hotspot ([audit])
