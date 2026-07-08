@@ -4,6 +4,7 @@ import {
   assertExactMethodologyVersionMismatchDiagnose,
   assertInstalledMethodologyDiagnoseIsHealthy,
   assertManifestMethodologyDiagnoseIsHealthy,
+  assertMethodologyProbePreservesMixedCacheReadErrors,
   assertMethodologyProbeReadErrorsReachUnknownDiagnose,
   assertUnavailableMethodologyDiagnose,
   assertUnknownMethodologyDiagnose,
@@ -32,5 +33,9 @@ describe("methodology-context diagnose scenarios", () => {
 
   it("reports methodology probe read errors as unknown", async () => {
     await assertMethodologyProbeReadErrorsReachUnknownDiagnose();
+  });
+
+  it("reports mixed methodology cache read errors as unknown", async () => {
+    await assertMethodologyProbePreservesMixedCacheReadErrors();
   });
 });

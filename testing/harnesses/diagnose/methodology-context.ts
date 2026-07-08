@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { expect } from "vitest";
 
 import { diagnoseCommand } from "@/commands/diagnose";
-import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
+import {
+  createMethodologyContextProbe,
+  defaultMethodologyContextProbe,
+  METHODOLOGY_CONTEXT_HOME_ENV,
+} from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import {
@@ -28,6 +32,31 @@ const EXACT_NON_VERSION_DIRECTORY = "stable";
 const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
 const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
 const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
+
+async function withAgentHomeEnv(
+  codexHome: string,
+  claudeHome: string,
+  callback: () => Promise<void>,
+): Promise<void> {
+  const previousCodexHome = process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX];
+  const previousClaudeHome = process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE];
+  process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX] = codexHome;
+  process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE] = claudeHome;
+  try {
+    await callback();
+  } finally {
+    if (previousCodexHome === undefined) {
+      delete process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX];
+    } else {
+      process.env[METHODOLOGY_CONTEXT_HOME_ENV.CODEX] = previousCodexHome;
+    }
+    if (previousClaudeHome === undefined) {
+      delete process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE];
+    } else {
+      process.env[METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE] = previousClaudeHome;
+    }
+  }
+}
 
 function generatedMethodology(version = "installed"): MethodologyConfig {
   return {
@@ -260,6 +289,25 @@ export async function assertMethodologyProbeReadErrorsReachUnknownDiagnose(): Pr
   });
 }
 
+export async function assertMethodologyProbePreservesMixedCacheReadErrors(): Promise<void> {
+  const methodology = generatedMethodology(DIFFERENT_VERSION);
+  await withTempDir("spx-methodology-probe-codex-", async (codexHome) => {
+    await withTempDir("spx-methodology-probe-claude-", async (claudeHome) => {
+      await writeFile(join(codexHome, BROKEN_PLUGIN_CACHE_SEGMENT), BROKEN_PLUGIN_CACHE_FILE_CONTENT);
+      await mkdir(join(claudeHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+        recursive: true,
+      });
+      const observation = await createMethodologyContextProbe(codexHome, claudeHome).probe(methodology);
+      const report = await runJson(methodology, observation);
+      const check = firstCheck(report);
+      expect(observation.version).toBe(HIGHER_VERSION);
+      expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
+      expectReadings(check, methodology, observation);
+      expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
+    });
+  });
+}
+
 export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
   const methodology = generatedMethodology();
   const output = await runText(methodology, {
@@ -407,6 +455,21 @@ export async function assertMethodologyProbeReadsSupportedAgentCaches(): Promise
       });
       const observed = await createMethodologyContextProbe(codexHome, claudeHome).probe(methodology);
       expect(observed.version).toBe(HIGHER_VERSION);
+    });
+  });
+}
+
+export async function assertDefaultMethodologyProbeReadsAgentHomesAtProbeTime(): Promise<void> {
+  const methodology = generatedMethodology();
+  await withTempDir("spx-methodology-default-codex-", async (codexHome) => {
+    await withTempDir("spx-methodology-default-claude-", async (claudeHome) => {
+      await mkdir(join(codexHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), HIGHER_VERSION), {
+        recursive: true,
+      });
+      await withAgentHomeEnv(codexHome, claudeHome, async () => {
+        const observed = await defaultMethodologyContextProbe.probe(methodology);
+        expect(observed.version).toBe(HIGHER_VERSION);
+      });
     });
   });
 }

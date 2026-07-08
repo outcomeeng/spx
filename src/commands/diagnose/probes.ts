@@ -55,8 +55,13 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-const CODEX_HOME_ENV = "CODEX_HOME";
-const CLAUDE_HOME_ENV = "CLAUDE_CONFIG_DIR";
+export const METHODOLOGY_CONTEXT_HOME_ENV = {
+  CODEX: "CODEX_HOME",
+  CLAUDE: "CLAUDE_CONFIG_DIR",
+} as const;
+
+const CODEX_HOME_ENV = METHODOLOGY_CONTEXT_HOME_ENV.CODEX;
+const CLAUDE_HOME_ENV = METHODOLOGY_CONTEXT_HOME_ENV.CLAUDE;
 const DEFAULT_CODEX_HOME_DIR = ".codex";
 const DEFAULT_CLAUDE_HOME_DIR = ".claude";
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
@@ -518,7 +523,7 @@ function selectConfiguredVersion(
       ?? null;
   }
   return {
-    errored: version === null && readings.some((reading) => reading.errored),
+    errored: readings.some((reading) => reading.errored),
     version,
   };
 }
@@ -545,7 +550,7 @@ export function createMethodologyContextProbe(...agentHomeDirs: readonly string[
       return {
         source: config.source,
         version: reading.version,
-        errored: false,
+        errored: reading.errored,
       };
     },
   };
@@ -555,4 +560,8 @@ function claudeHome(env: Readonly<Record<string, string | undefined>> = process.
   return env[CLAUDE_HOME_ENV] ?? join(homedir(), DEFAULT_CLAUDE_HOME_DIR);
 }
 
-export const defaultMethodologyContextProbe: MethodologyContextProbe = createMethodologyContextProbe();
+export const defaultMethodologyContextProbe: MethodologyContextProbe = {
+  probe(config): Promise<MethodologyContextObservation> {
+    return createMethodologyContextProbe().probe(config);
+  },
+};
