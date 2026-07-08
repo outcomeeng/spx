@@ -7,7 +7,6 @@ export const METHODOLOGY_CONTEXT_VERDICT = {
   RESOLVED: "resolved",
   VERSION_MISMATCH: "version-mismatch",
   UNAVAILABLE: "unavailable",
-  NOT_APPLICABLE: "not-applicable",
   UNKNOWN: "unknown",
 } as const;
 
@@ -42,7 +41,6 @@ const REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
     "Install the configured methodology version or change the methodology config.",
   [METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE]:
     "Install the configured methodology source or make it visible to the local agent runtime.",
-  [METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE]: "Methodology context is not configured for this diagnose run.",
   [METHODOLOGY_CONTEXT_VERDICT.UNKNOWN]:
     "Re-run diagnose; if it persists, inspect local methodology plugin installation state.",
 };
@@ -75,9 +73,6 @@ export function classifyMethodologyContext(reading: MethodologyContextReading): 
   if (reading.errored) {
     return record(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
   }
-  if (!reading.configured) {
-    return record(METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE, VERDICT_BUCKET.NOT_APPLICABLE, reading);
-  }
   if (reading.observedSource === null || reading.observedVersion === null) {
     return record(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE, VERDICT_BUCKET.UNKNOWN, reading);
   }
@@ -103,22 +98,12 @@ export function methodologyContextRunner(probe: MethodologyContextProbe): CheckR
       });
     }
 
-    if (manifest.methodology === undefined) {
-      return classifyMethodologyContext({
-        configured: false,
-        configuredSource: null,
-        configuredVersion: null,
-        observedSource: null,
-        observedVersion: null,
-        errored: false,
-      });
-    }
-
-    const observation = await probe.probe(manifest.methodology);
+    const methodology = manifest.methodology!;
+    const observation = await probe.probe(methodology);
     return classifyMethodologyContext({
       configured: true,
-      configuredSource: manifest.methodology.source,
-      configuredVersion: manifest.methodology.version,
+      configuredSource: methodology.source,
+      configuredVersion: methodology.version,
       observedSource: observation.source,
       observedVersion: observation.version,
       errored: observation.errored,

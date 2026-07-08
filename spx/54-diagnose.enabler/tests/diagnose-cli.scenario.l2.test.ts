@@ -150,7 +150,7 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
     expectSchemaValidReport(report);
     expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
     const methodologyCheck = report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT);
-    expect(methodologyCheck?.verdict).not.toBe(METHODOLOGY_CONTEXT_VERDICT.NOT_APPLICABLE);
+    expect(Object.values(METHODOLOGY_CONTEXT_VERDICT)).toContain(methodologyCheck?.verdict);
     expect(methodologyCheck?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
     expect(methodologyCheck?.readings.configuredVersion).toBe(DEFAULT_METHODOLOGY_VERSION);
     expect(report.overall).toBe(foldedOverall(report));
