@@ -140,7 +140,6 @@ function lowerIndexSiblingsForContextNodes(
   snapshot: SpecTreeSnapshot,
   contextNodes: readonly SpecTreeNode[],
 ): readonly SpecTreeNode[] {
-  const nodesById = new Map(snapshot.allNodes.map((node) => [node.id, node]));
   const seen = new Set<string>();
   const lowerSiblings: SpecTreeNode[] = [];
   for (const contextNode of contextNodes) {
@@ -157,7 +156,7 @@ function lowerIndexSiblingsForContextNodes(
     if (orderComparison !== 0) return orderComparison;
     return left.id.localeCompare(right.id);
   });
-  return lowerSiblings.filter((node) => nodesById.has(node.id));
+  return lowerSiblings;
 }
 
 function decisionsFor(

@@ -7,7 +7,7 @@ import {
   SPEC_CONTEXT_TEXT_LABEL,
   type SpecContextManifest,
 } from "@/commands/spec/context";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_RESOLUTION, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/git/tracked-paths";
@@ -69,7 +69,6 @@ export async function assertSpecContextManifestIncludesMethodology(): Promise<vo
     expect(manifest.methodology).toMatchObject({
       source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
       version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
-      resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
     });
   });
 }
@@ -263,7 +262,6 @@ export async function assertSpecContextIgnoresUnrelatedHarnessConfigDefects(): P
     expect(manifest.methodology).toMatchObject({
       source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
       version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
-      resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
     });
   });
 }

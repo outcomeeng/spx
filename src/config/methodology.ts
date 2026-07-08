@@ -10,20 +10,12 @@ export const METHODOLOGY_CONFIG_FIELDS = {
 export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/spec-tree";
 export const DEFAULT_METHODOLOGY_VERSION = "installed";
 
-export const METHODOLOGY_RESOLUTION = {
-  CONFIGURED: "configured",
-} as const;
-
-export type MethodologyResolution = (typeof METHODOLOGY_RESOLUTION)[keyof typeof METHODOLOGY_RESOLUTION];
-
 export interface MethodologyConfig {
   readonly source: string;
   readonly version: string;
 }
 
-export interface MethodologyIdentity extends MethodologyConfig {
-  readonly resolution: MethodologyResolution;
-}
+export type MethodologyIdentity = MethodologyConfig;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -92,10 +84,7 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
 }
 
 export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
-  return {
-    ...config,
-    resolution: METHODOLOGY_RESOLUTION.CONFIGURED,
-  };
+  return config;
 }
 
 export const methodologyConfigDescriptor: ConfigDescriptor<MethodologyConfig> = {
