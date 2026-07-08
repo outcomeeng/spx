@@ -180,6 +180,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function unknownConfigFieldError(path: string, field: string): string {
+  return `${path}.${field} is not a recognized config field`;
+}
+
+function unknownConfigFieldsErrorPrefix(path: string): string {
+  return `${path} has unrecognized config fields: `;
+}
+
+function unknownConfigFieldsError(path: string, fields: readonly string[]): string {
+  return `${unknownConfigFieldsErrorPrefix(path)}${fields.join(", ")}`;
+}
+
+export function isHarnessEnvironmentUnknownConfigFieldError(error: string, field: string): boolean {
+  const descriptorPrefix = `${HARNESS_ENVIRONMENT_SECTION}: `;
+  const normalized = error.startsWith(descriptorPrefix) ? error.slice(descriptorPrefix.length) : error;
+  if (normalized === unknownConfigFieldError(HARNESS_ENVIRONMENT_SECTION, field)) {
+    return true;
+  }
+  const fieldsPrefix = unknownConfigFieldsErrorPrefix(HARNESS_ENVIRONMENT_SECTION);
+  if (!normalized.startsWith(fieldsPrefix)) return false;
+  return normalized
+    .slice(fieldsPrefix.length)
+    .split(",")
+    .map((candidate) => candidate.trim())
+    .includes(field);
+}
+
 function rejectUnknownFields(
   path: string,
   value: Record<string, unknown>,
@@ -187,10 +214,11 @@ function rejectUnknownFields(
 ): Result<undefined> {
   const unknownFields = Object.keys(value).filter((field) => !allowed.has(field));
   if (unknownFields.length === 1) {
-    return { ok: false, error: `${path}.${unknownFields[0]} is not a recognized config field` };
+    const [unknownField] = unknownFields;
+    return { ok: false, error: unknownConfigFieldError(path, unknownField) };
   }
   if (unknownFields.length > 1) {
-    return { ok: false, error: `${path} has unrecognized config fields: ${unknownFields.join(", ")}` };
+    return { ok: false, error: unknownConfigFieldsError(path, unknownFields) };
   }
   return { ok: true, value: undefined };
 }

@@ -61,6 +61,11 @@ function lowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): stri
   return `${fixture.root.order - 1}-${rootDirectory.slice(orderPrefix.length)}`;
 }
 
+function sameIndexSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
+  const definition = KIND_REGISTRY[fixture.root.kind];
+  return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
+}
+
 export async function assertSpecContextManifestIncludesMethodology(): Promise<void> {
   const methodology = generatedMethodologySection();
   await withSpecTreeEnv({
@@ -115,6 +120,30 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     expect(productIndex).toBeGreaterThanOrEqual(0);
     expect(targetIndex).toBeGreaterThan(productIndex);
     expect(manifest.documents.length).toBeGreaterThan(0);
+  });
+}
+
+export async function assertSpecContextManifestListsSameAndHigherSiblings(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+    const sameIndexSibling = sameIndexSiblingDirectoryName(env.fixture);
+    const higherIndexSibling = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.peer);
+    await env.writeRaw(`spx/${sameIndexSibling}/${env.fixture.root.slug}-same.md`, "# Same sibling\n");
+
+    const manifest = parseContextManifest(await contextCommand({ target, cwd: env.productDir }));
+    const output = await contextTextCommand({ target, cwd: env.productDir });
+
+    expect(manifest.siblings.sameIndex).toContain(`spx/${sameIndexSibling}`);
+    expect(manifest.siblings.higherIndex).toContain(`spx/${higherIndexSibling}`);
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.SAME_INDEX_SIBLINGS}:`);
+    expect(output).toContain(`  - spx/${sameIndexSibling}`);
+    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.HIGHER_INDEX_SIBLINGS}:`);
+    expect(output).toContain(`  - spx/${higherIndexSibling}`);
   });
 }
 
