@@ -6,22 +6,6 @@
 # reflects the merged code. They rebuild only in the main worktree; linked
 # worktrees are dev checkouts and skip it.
 
-# SonarQube Cloud CLI analysis requires paid-plan access for this project, so it
-# is opt-in. Free-plan contributors still get local static analysis through
-# `pnpm run validate` and server-side SonarQube Cloud automatic analysis after
-# push. Set SPX_SONAR_CLI_ANALYZE=1 to run the paid-plan CLI check before push.
-pre-push:
-  commands:
-    sonar-analyze:
-      run: |
-        env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR sh -c '
-          if [ "$SPX_SONAR_CLI_ANALYZE" != "1" ]; then
-            echo "sonar-analyze: skipped (set SPX_SONAR_CLI_ANALYZE=1 to run SonarQube Cloud CLI analysis)"
-            exit 0
-          fi
-          exec sonar analyze --base origin/main --project outcomeeng_spx --force
-        '
-
 # git fires post-checkout after git switch, git checkout, and git worktree add
 # with three arguments: the previous HEAD ref, the new HEAD ref, and a flag that
 # is 1 for a branch-or-HEAD checkout and 0 for a file checkout. Lefthook forwards
