@@ -209,10 +209,10 @@ function arbitraryCoverageGapAuditClassKind(): fc.Arbitrary<AuditClassKind> {
 
 function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
   return arbitraryExecutedAuditClassKind().chain((kind) =>
-    fc
-      .record({
-        unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-        parentUnitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    STATE_STORE_TEST_GENERATOR.scopeToken().chain((unitId) =>
+      fc.record({
+        unitId: fc.constant(unitId),
+        parentUnitId: STATE_STORE_TEST_GENERATOR.scopeToken().filter((parentUnitId) => parentUnitId !== unitId),
         subject: arbitrarySourceFilePath(),
         coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
         coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
@@ -225,6 +225,7 @@ function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
         recordedByRunDriver: arbitraryAuditProducerIdentity(),
         producerProvenance: arbitraryAuditProducerProvenance(),
       })
+    )
       .map((unit) => ({
         ...unit,
         auditClass: kind.auditClass,
