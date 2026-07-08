@@ -91,6 +91,16 @@ interface CodexSubagentBranchAssociation {
 
 type BranchAssociatedSessionIds = ReadonlySet<string>;
 
+interface AgentSearchMatch {
+  readonly reasons: readonly AgentSearchMatchReason[];
+  readonly subagentBranchAssociation: CodexSubagentBranchAssociation | null;
+}
+
+interface BranchSearchMatch {
+  readonly reasons: readonly AgentSearchMatchReason[];
+  readonly subagentBranchAssociation: CodexSubagentBranchAssociation | null;
+}
+
 export function pickupIdSearchLiteral(pickupId: string): string {
   return formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, pickupId);
 }
@@ -195,7 +205,7 @@ async function collectMatchingSessions(
     const core = parseHead(head);
     if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
     if (!coreMatchesSearchInputScope(core, options)) continue;
-    const matches = await matchReasons(
+    const match = await matchReasons(
       agent,
       core,
       file.path,
@@ -203,18 +213,17 @@ async function collectMatchingSessions(
       branchAssociatedSessionIds,
       subagentBranchAssociations,
     );
-    if (matches.length === 0) continue;
-    const subagentBranchAssociation = subagentBranchAssociationForResult(core, options, subagentBranchAssociations);
+    if (match === null) continue;
     seen.add(core.sessionId);
     results.push({
       agent,
       sessionId: core.sessionId,
-      cwd: subagentBranchAssociation?.cwd ?? core.cwd,
+      cwd: match.subagentBranchAssociation?.cwd ?? core.cwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
       updatedAt: core.updatedAt,
       branch: core.branch,
-      matches,
+      matches: match.reasons,
     });
   }
   return results;
@@ -227,9 +236,12 @@ async function matchReasons(
   options: AgentSearchOptions,
   branchAssociatedSessionIds: BranchAssociatedSessionIds,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): Promise<AgentSearchMatchReason[]> {
+): Promise<AgentSearchMatch | null> {
   if (!hasSearchSelector(options.query)) {
-    return [AGENT_SEARCH_MATCH_REASON.ALL];
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.ALL],
+      subagentBranchAssociation: null,
+    };
   }
   const metadataMatches = metadataMatchReasons(
     agent,
@@ -237,7 +249,7 @@ async function matchReasons(
     options.query,
   );
   if (metadataMatches === null) {
-    return [];
+    return null;
   }
   const branchMatches = branchMetadataOrWorktreeMatchReasons(
     core,
@@ -248,17 +260,20 @@ async function matchReasons(
   const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
   const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
   if (content === null) {
-    return [];
+    return null;
   }
   const resolvedBranchMatches = branchMatches ?? branchTranscriptCommandMatchReasons(content, options);
   if (resolvedBranchMatches === null) {
-    return [];
+    return null;
   }
   const contentMatches = contentMatchReasons(content, options.query);
   if (contentMatches === null) {
-    return [];
+    return null;
   }
-  return [...metadataMatches, ...resolvedBranchMatches, ...contentMatches];
+  return {
+    reasons: [...metadataMatches, ...resolvedBranchMatches.reasons, ...contentMatches],
+    subagentBranchAssociation: resolvedBranchMatches.subagentBranchAssociation,
+  };
 }
 
 function hasSearchSelector(query: AgentSearchQuery): boolean {
@@ -296,41 +311,41 @@ function branchMetadataOrWorktreeMatchReasons(
   options: AgentSearchOptions,
   branchAssociatedSessionIds: BranchAssociatedSessionIds,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): AgentSearchMatchReason[] | null {
+): BranchSearchMatch | null {
   const branch = options.query.branch;
   if (branch === null) {
-    return [];
+    return {
+      reasons: [],
+      subagentBranchAssociation: null,
+    };
   }
   if (core.branch === branch) {
-    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
   }
   const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
   if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
-    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
   }
   if (branchAssociatedSessionIds.has(core.sessionId)) {
-    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
   }
-  if (subagentBranchAssociations.has(core.sessionId)) {
-    return [AGENT_SEARCH_MATCH_REASON.BRANCH];
+  const subagentBranchAssociation = subagentBranchAssociations.get(core.sessionId) ?? null;
+  if (subagentBranchAssociation !== null) {
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation,
+    };
   }
   return null;
-}
-
-function subagentBranchAssociationForResult(
-  core: AgentSessionHead,
-  options: AgentSearchOptions,
-  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): CodexSubagentBranchAssociation | null {
-  const branch = options.query.branch;
-  if (branch === null || core.branch === branch) {
-    return null;
-  }
-  const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
-  if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
-    return null;
-  }
-  return subagentBranchAssociations.get(core.sessionId) ?? null;
 }
 
 async function collectTopLevelBranchAssociations(
@@ -410,13 +425,19 @@ function addCodexSubagentBranchAssociation(
 function branchTranscriptCommandMatchReasons(
   content: string | undefined,
   options: AgentSearchOptions,
-): AgentSearchMatchReason[] | null {
+): BranchSearchMatch | null {
   const branch = options.query.branch;
   if (branch === null) {
-    return [];
+    return {
+      reasons: [],
+      subagentBranchAssociation: null,
+    };
   }
   return content !== undefined && transcriptHasAcceptedBranchCommand(content, branch)
-    ? [AGENT_SEARCH_MATCH_REASON.BRANCH]
+    ? {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    }
     : null;
 }
 
