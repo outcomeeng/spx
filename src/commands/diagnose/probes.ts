@@ -555,18 +555,4 @@ function claudeHome(env: Readonly<Record<string, string | undefined>> = process.
   return env[CLAUDE_HOME_ENV] ?? join(homedir(), DEFAULT_CLAUDE_HOME_DIR);
 }
 
-export const defaultMethodologyContextProbe: MethodologyContextProbe = {
-  async probe(config): Promise<MethodologyContextObservation> {
-    const sourcePaths = [codexHome(), claudeHome()]
-      .map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
-    const reading = await configuredVersionDirectory(sourcePaths, config);
-    if (reading.version === null) {
-      return { source: null, version: null, errored: reading.errored };
-    }
-    return {
-      source: config.source,
-      version: reading.version,
-      errored: false,
-    };
-  },
-};
+export const defaultMethodologyContextProbe: MethodologyContextProbe = createMethodologyContextProbe();
