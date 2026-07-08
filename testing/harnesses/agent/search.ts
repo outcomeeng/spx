@@ -251,6 +251,7 @@ const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
   SHELL_DONE_MARKER: "done",
   SHELL_TEE_COMMAND: "tee",
   SHELL_TEE_PATH: "branch-search.log",
+  SHELL_REDIRECT_PATH: "/dev/null",
   CODEX_CALL_ID: "call_agent_search_branch_command",
   CLAUDE_TOOL_USE_ID: "toolu_agent_search_branch_command",
   UNSUPPORTED_TRACK_MODE_FLAG: "--track=bogus",
@@ -844,6 +845,18 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   expect(transcriptHasAcceptedBranchCommand(
     codexExecCommandRows(
       `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_PIPE}${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_TEE_COMMAND} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_TEE_PATH}`,
+    ),
+    branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} > ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_REDIRECT_PATH}`,
+    ),
+    branch,
+  )).toBe(true);
+  expect(transcriptHasAcceptedBranchCommand(
+    codexExecCommandRows(
+      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_AMPERSAND} echo ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_DONE_MARKER}`,
     ),
     branch,
   )).toBe(true);
@@ -1875,6 +1888,7 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
       otherBranch,
       [AGENT_SEARCH_MATCH_REASON.BRANCH],
     ],
+    [outsideSessionId, cwd, expect.any(String), nowMs - 2, otherBranch, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
 }
 
