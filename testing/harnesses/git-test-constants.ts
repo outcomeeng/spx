@@ -56,10 +56,6 @@ export const GIT_TEST_EXECUTABLE = {
   NODE: "node",
 } as const;
 
-export const LEFTHOOK_TEST_OUTPUT = {
-  SKIP_NO_MATCHING_STAGED_FILES: "sonarqube-cloud-exclusions (skip) no matching staged files",
-} as const;
-
 export const GIT_TEST_CONFIG = {
   EMAIL: "test@test.local",
   EMAIL_KEY: "user.email",

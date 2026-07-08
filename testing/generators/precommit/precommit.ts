@@ -23,11 +23,6 @@ export const PRECOMMIT_TEST_GENERATOR = {
   nonBranchCheckoutFlag: arbitraryNonBranchCheckoutFlag,
 } as const;
 
-export const PRECOMMIT_TEST_FIXTURE = {
-  FAILING_TEST_NAME: "intentionally fails to test pre-commit blocking",
-  PASSING_TEST_NAME: "correctly tests addition",
-} as const;
-
 export function samplePrecommitTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
   if (value === undefined) throw new Error("Precommit test generator returned no sample");

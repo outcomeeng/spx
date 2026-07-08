@@ -16,10 +16,6 @@ export const PRECOMMIT_ENTRYPOINT = {
     sourceSuffix: "/install-hooks.ts",
     argvFragment: "precommit/install-hooks",
   },
-  SONARQUBE_CLOUD_EXCLUSIONS: {
-    sourceSuffix: "/check-fixture-exclusions.ts",
-    argvFragment: "sonarqube-cloud/check-fixture-exclusions",
-  },
 } as const satisfies Record<string, PrecommitEntrypoint>;
 
 export function isDirectPrecommitEntrypoint(
