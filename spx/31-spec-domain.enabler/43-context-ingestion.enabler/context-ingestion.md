@@ -8,7 +8,7 @@ CAN receive methodology identity, product root, ancestor specs, decisions, lower
 
 ### Compliance
 
-- ALWAYS: context ingestion reads tracked `spx/` files from the worktree-local product directory ([review])
+- ALWAYS: context ingestion reads tracked `spx/` files from the worktree-local product directory ([test](tests/context-ingestion.scenario.l1.test.ts))
 - ALWAYS: context manifests include configured methodology identity, product spec, ancestor specs, applicable decisions, lower-index sibling specs, co-located evidence links, and node-local PLAN or ISSUES files ([test](tests/context-ingestion.scenario.l1.test.ts))
 - ALWAYS: context ingestion exposes machine-readable manifest output for automation and human-readable output for terminal inspection when the requested output mode names each format ([test](tests/context-ingestion.scenario.l1.test.ts))
 - ALWAYS: same-index siblings are listed as independent and higher-index siblings are listed without being read as constraints ([review])

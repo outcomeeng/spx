@@ -31,6 +31,10 @@ function rejectLegacyHarnessMethodologyConfig(detected: ConfigFileReadResult): R
   return { ok: true, value: undefined };
 }
 
+export function isLegacyHarnessMethodologyConfigError(error: string): boolean {
+  return error.startsWith(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+}
+
 export async function resolveMethodologyConfig(productDir: string): Promise<Result<MethodologyConfig>> {
   const detected = await readProductConfigFile(productDir);
   if (!detected.ok) return detected;
