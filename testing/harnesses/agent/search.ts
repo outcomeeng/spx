@@ -1786,9 +1786,9 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
 
   expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
     [sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-    [foreignSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
-  expect(results.map((result) => result.cwd)).toEqual([cwd, foreignCwd]);
+  expect(results.map((result) => result.cwd)).toEqual([cwd]);
+  expect(results.map((result) => result.sessionId)).not.toContain(foreignSessionId);
   expect(wrongBranchResults).toEqual([]);
 }
 
@@ -1858,9 +1858,7 @@ export async function assertAgentSearchIncludesWorktreeRootBranchAssociation(): 
     [sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
   expect(results.map((result) => result.cwd)).toEqual([cwd]);
-  expect(missingRootResults.map((result) => [result.sessionId, result.cwd, result.matches])).toEqual([
-    [sessionId, subagentCwd, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
+  expect(missingRootResults).toEqual([]);
 }
 
 export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResults(): Promise<void> {

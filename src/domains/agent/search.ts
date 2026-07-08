@@ -158,9 +158,7 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
-  const acceptsClaudeDir = options.query.branch === null
-    ? claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots)
-    : () => true;
+  const acceptsClaudeDir = claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots);
   const paths = agent === AGENT_SESSION_KIND.CODEX
     ? await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs)
     : await claudeTranscriptFiles(
@@ -285,8 +283,7 @@ function coreMatchesSearchInputScope(
   core: AgentSessionHead,
   options: AgentSearchOptions,
 ): boolean {
-  return options.query.branch !== null
-    || coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
+  return coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
 }
 
 function metadataMatchReasons(
