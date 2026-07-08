@@ -86,7 +86,7 @@ export function resolveConfigFromReadResult(
 export function readConfigSectionFromReadResult(
   detected: ConfigFileReadResult,
   section: string,
-): Result<unknown | undefined> {
+): Result<unknown> {
   if (detected.kind === "ambiguous") {
     return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
   }
