@@ -19,6 +19,17 @@ describe("snapshot store — scenarios", () => {
     expect(await readSnapshot(captured.value, { fs })).toEqual({ ok: true, value: document });
   });
 
+  it("reports an empty enumeration and no latest document for a scope holding no snapshot", async () => {
+    const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+    const snapshotDomain = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const fs = createInMemoryStateStoreFileSystem();
+
+    // The fold-from-snapshot consumer reads every node before its first capture, so an
+    // absent runs directory resolves to no document rather than failing.
+    expect(await listSnapshots(scopeDir, snapshotDomain, { fs })).toEqual({ ok: true, value: [] });
+    expect(await readLatestSnapshot(scopeDir, snapshotDomain, { fs })).toEqual({ ok: true, value: undefined });
+  });
+
   it("retains both snapshots and resolves the latest by write order even when the run-token order disagrees", async () => {
     const [firstDocument, secondDocument] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
     const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
