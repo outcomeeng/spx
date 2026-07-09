@@ -2,6 +2,7 @@ import type { Command } from "commander";
 
 import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import { releaseNotesCommand } from "@/commands/release";
+import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
@@ -29,10 +30,16 @@ export const releaseDomain: Domain = {
       .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, "Changelog path within the product working tree")
       .action(async (options: { changelogPath?: string }) => {
         try {
+          const productDir = invocation.resolveProductContext().productDir;
+          const agentRunner = new ClaudeAgentRunner();
           const output = await releaseNotesCommand({
-            productDir: invocation.resolveProductContext().productDir,
+            productDir,
             config: { changelogPath: options.changelogPath },
-            agentRunner: new ClaudeAgentRunner(),
+            agentRunner,
+            faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(
+              agentRunner,
+              productDir,
+            ),
           });
           invocation.io.writeStdout(`${output}\n`);
         } catch (error) {

@@ -13,6 +13,7 @@ import {
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
+import { approvingReleaseNotesFaithfulnessAuditor } from "@testing/harnesses/release/release-notes-assertions";
 import { withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
 
 export function registerReleaseNotesScenarioTests(): void {
@@ -70,6 +71,7 @@ export function registerReleaseNotesScenarioTests(): void {
             readArtifact,
             createArtifactStage,
             promoteArtifact,
+            faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
             canonicalizePath,
             isSymbolicLink,
             isFile,
@@ -100,6 +102,7 @@ export function registerReleaseNotesScenarioTests(): void {
             config,
             releaseData,
             agentRunner,
+            faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
             filesystem: env,
           }),
         ).resolves.toBe(`Generated release notes: ${resolvedPath}`);

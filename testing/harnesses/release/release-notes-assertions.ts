@@ -36,6 +36,7 @@ import { independentKeepAChangelogConformance } from "@testing/harnesses/release
 import { type ReleaseNotesEnv, withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
 
 type ReleaseNotesAgentRunner = Parameters<typeof composeReleaseNotes>[0]["agentRunner"];
+type ReleaseNotesFaithfulnessAuditor = Parameters<typeof composeReleaseNotes>[0]["faithfulnessAuditor"];
 
 export interface ReleaseNotesCompositionFixture {
   readonly releaseData: ReleaseData;
@@ -52,6 +53,7 @@ interface ComposeReleaseNotesInEnvOptions {
   readonly canonicalizePath?: PathCanonicalizer;
   readonly createArtifactStage?: ReleaseNotesEnv["createArtifactStage"];
   readonly promoteArtifact?: ReleaseNotesEnv["promoteArtifact"];
+  readonly faithfulnessAuditor?: ReleaseNotesFaithfulnessAuditor;
 }
 
 export function sampleReleaseNotesCompositionFixture(
@@ -78,6 +80,7 @@ export async function composeReleaseNotesInEnv(
     canonicalizePath = env.canonicalizePath,
     createArtifactStage = env.createArtifactStage,
     promoteArtifact = env.promoteArtifact,
+    faithfulnessAuditor = approvingReleaseNotesFaithfulnessAuditor,
   }: ComposeReleaseNotesInEnvOptions,
 ): Promise<void> {
   await composeReleaseNotes({
@@ -88,11 +91,14 @@ export async function composeReleaseNotesInEnv(
     readArtifact,
     createArtifactStage,
     promoteArtifact,
+    faithfulnessAuditor,
     canonicalizePath,
     isSymbolicLink: env.isSymbolicLink,
     isFile: env.isFile,
   });
 }
+
+export const approvingReleaseNotesFaithfulnessAuditor: ReleaseNotesFaithfulnessAuditor = async () => {};
 
 export function recordingReleaseNotesAgent(
   workingDirectory: string,
@@ -194,6 +200,7 @@ export async function assertReleaseNotesPromptPreservesExistingSections(): Promi
         readArtifact,
         createArtifactStage,
         promoteArtifact,
+        faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
         canonicalizePath,
         isSymbolicLink,
         isFile,
@@ -266,6 +273,7 @@ export async function assertReleaseNotesValidationRejectsDeletedExistingSection(
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -317,6 +325,7 @@ export async function assertReleaseNotesValidationRejectsFencedExistingSection()
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -363,6 +372,7 @@ export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -410,6 +420,7 @@ export async function assertReleaseNotesValidationRejectsTruncatedInSectionRefer
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -457,6 +468,7 @@ export async function assertReleaseNotesValidationAcceptsPreservedInSectionRefer
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -504,6 +516,7 @@ export async function assertReleaseNotesValidationRejectsTruncatedFencedReferenc
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -552,6 +565,7 @@ export async function rejectChangelogWithDuplicateCurrentVersion(): Promise<void
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,
@@ -594,6 +608,7 @@ export async function expectRejectedReleaseNotesReadBack({
           readArtifact,
           createArtifactStage,
           promoteArtifact,
+          faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
           canonicalizePath,
           isSymbolicLink,
           isFile,

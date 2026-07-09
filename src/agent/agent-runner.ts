@@ -26,6 +26,16 @@ export interface AgentRunner {
   run(request: AgentRunRequest): Promise<void>;
 }
 
+export interface AgentAuditRequest {
+  readonly prompt: string;
+  readonly workingDirectory: string;
+  readonly maxTurns: number;
+}
+
+export interface AgentAuditor {
+  audit(request: AgentAuditRequest): Promise<string>;
+}
+
 export const AGENT_RUN_TOOLS = {
   READ: "Read",
   WRITE: "Write",
