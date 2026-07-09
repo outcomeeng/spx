@@ -21,7 +21,13 @@ jobs:
   publish:
     name: Publish
     needs: deterministic
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # Pinned to a GitHub-hosted runner, deliberately outside the RUNNER_X2 /
+    # RUNNER_X4 switch the other workflows use. npm Trusted Publishing accepts
+    # cloud-hosted runners only; third-party runners (Blacksmith, self-hosted)
+    # register as self-hosted and their OIDC token carries a runner_environment
+    # claim npm rejects. The `deterministic` gate above is unconstrained — only
+    # the OIDC publish step is. Do not route this job through the variables.
+    runs-on: ubuntu-latest
     environment: npm-publish
     permissions:
       contents: read
