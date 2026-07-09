@@ -10,11 +10,9 @@ import type { JournalEvent } from "@/lib/agent-run-journal";
 import {
   branchScopeDir,
   branchScopesDir,
-  compareAsciiStrings,
-  isRunFileName,
   runFileName,
   runsDir,
-  STATE_STORE_PATH,
+  runTokenFromRunFileName,
   validateBranchSlug,
   validateScopeToken,
 } from "@/lib/state-store";
@@ -118,14 +116,8 @@ export function journalRunTypeFromEntry(name: string, isDirectory: boolean): str
 
 export function journalRunFileNameFromEntry(name: string, isFile: boolean): JournalRunFileNameResult | undefined {
   if (!isFile) return undefined;
-  const runToken = journalRunTokenFromFileName(name);
+  const runToken = runTokenFromRunFileName(name);
   return runToken === undefined ? undefined : { runFileName: name, runToken };
-}
-
-export function journalRunTokenFromFileName(name: string): string | undefined {
-  return isRunFileName(name)
-    ? name.slice(STATE_STORE_PATH.RUN_FILE_PREFIX.length, -STATE_STORE_PATH.JSONL_EXTENSION.length)
-    : undefined;
 }
 
 export function journalRunTerminalState(
@@ -136,31 +128,12 @@ export function journalRunTerminalState(
   return folded.ok ? folded.value.status : folded.reason;
 }
 
-export function journalRunStartedAt(runToken: string): string {
-  const separatorIndex = runToken.lastIndexOf("-");
-  return separatorIndex < 0 ? runToken : runToken.slice(0, separatorIndex);
-}
-
 export function journalRunMetadataMatches(scope: JournalRunListScope, metadata: JournalRunMetadata): boolean {
   const sealed = scope.sealed ?? JOURNAL_RUN_SEALED_FILTER.ANY;
   if (sealed === JOURNAL_RUN_SEALED_FILTER.SEALED && !metadata.sealed) return false;
   if (sealed === JOURNAL_RUN_SEALED_FILTER.UNSEALED && metadata.sealed) return false;
   const terminalState = scope.terminalState ?? JOURNAL_RUN_TERMINAL_FILTER.ANY;
   return terminalState === JOURNAL_RUN_TERMINAL_FILTER.ANY || metadata.terminalState === terminalState;
-}
-
-export function compareJournalRunsNewestFirst(left: JournalRunMetadata, right: JournalRunMetadata): number {
-  const startedAtOrder = compareAsciiStrings(left.startedAt, right.startedAt);
-  if (startedAtOrder !== 0) return -startedAtOrder;
-  const createdAtOrder = left.createdAtMs - right.createdAtMs;
-  return createdAtOrder === 0 ? -compareAsciiStrings(left.runToken, right.runToken) : -createdAtOrder;
-}
-
-export function compareJournalRunsOldestFirst(left: JournalRunMetadata, right: JournalRunMetadata): number {
-  const startedAtOrder = compareAsciiStrings(left.startedAt, right.startedAt);
-  if (startedAtOrder !== 0) return startedAtOrder;
-  const createdAtOrder = left.createdAtMs - right.createdAtMs;
-  return createdAtOrder === 0 ? compareAsciiStrings(left.runToken, right.runToken) : createdAtOrder;
 }
 
 /**

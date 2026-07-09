@@ -1,7 +1,5 @@
 import type { Result } from "@/config/types";
 import {
-  compareJournalRunsNewestFirst,
-  compareJournalRunsOldestFirst,
   journalBranchScopesDir,
   journalRunBranchSlugFromEntry,
   type JournalRunDirectoryScope,
@@ -11,7 +9,6 @@ import {
   type JournalRunMetadata,
   journalRunMetadataMatches,
   journalRunsDir,
-  journalRunStartedAt,
   journalRunTerminalState,
   journalRunTypeFromEntry,
   type SealedJournalRun,
@@ -22,11 +19,14 @@ import { toMessage } from "@/lib/error-message";
 import {
   branchScopeDir,
   compareAsciiStrings,
+  compareRunRecencyNewestFirst,
+  compareRunRecencyOldestFirst,
   createJsonlRunFile,
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   runFileName,
+  runTokenStartedAt,
   type StateStoreFileSystem,
   validateBranchSlug,
   validateScopeToken,
@@ -190,7 +190,7 @@ async function readRunMetadata(
       runToken,
       runFilePath: runFile.value,
       runFileName,
-      startedAt: journalRunStartedAt(runToken),
+      startedAt: runTokenStartedAt(runToken),
       createdAtMs: stats.birthtimeMs,
       sealed,
       eventCount: events.length,
@@ -304,7 +304,7 @@ export async function listJournalRuns(
     if (!branchRuns.ok) return branchRuns;
     runs.push(...branchRuns.value);
   }
-  const sorted = runs.sort(compareJournalRunsNewestFirst);
+  const sorted = runs.sort(compareRunRecencyNewestFirst);
   return { ok: true, value: applyJournalRunListLimit(sorted, scope.limit) };
 }
 
@@ -328,9 +328,9 @@ export async function readSealedJournalRunSet(
   return {
     ok: true,
     value: runs
-      .sort((left, right) => compareJournalRunsNewestFirst(left.metadata, right.metadata))
+      .sort((left, right) => compareRunRecencyNewestFirst(left.metadata, right.metadata))
       .slice(0, scope.limit)
-      .sort((left, right) => compareJournalRunsOldestFirst(left.metadata, right.metadata))
+      .sort((left, right) => compareRunRecencyOldestFirst(left.metadata, right.metadata))
       .map((run) => ({
         runToken: run.metadata.runToken,
         metadata: run.metadata,

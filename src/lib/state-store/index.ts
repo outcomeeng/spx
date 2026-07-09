@@ -406,6 +406,17 @@ export function runFileName(runToken: string): string {
   return `${STATE_STORE_PATH.RUN_FILE_PREFIX}${runToken}${STATE_STORE_PATH.JSONL_EXTENSION}`;
 }
 
+/**
+ * The capture-timestamp (`startedAt`) prefix of a run token — the inverse of the
+ * `${startedAt}${SLUG_SEPARATOR}${runId}` composition in `createStateStoreRunToken`.
+ * The run-token format is source-owned here, so consumers parse it through this
+ * function rather than re-deriving the separator split.
+ */
+export function runTokenStartedAt(runToken: string): string {
+  const separatorIndex = runToken.lastIndexOf(SLUG_SEPARATOR);
+  return separatorIndex < 0 ? runToken : runToken.slice(0, separatorIndex);
+}
+
 export function isRunFileName(name: string): boolean {
   return name.startsWith(STATE_STORE_PATH.RUN_FILE_PREFIX)
     && name.endsWith(STATE_STORE_PATH.JSONL_EXTENSION)
@@ -413,6 +424,17 @@ export function isRunFileName(name: string): boolean {
       STATE_STORE_PATH.RUN_FILE_PREFIX.length,
       -STATE_STORE_PATH.JSONL_EXTENSION.length,
     ));
+}
+
+/**
+ * The run token carried by a run-file name — the inverse of `runFileName`.
+ * Returns `undefined` when the name is not a run file, so consumers enumerate a
+ * directory and recover run tokens through one source-owned parser.
+ */
+export function runTokenFromRunFileName(name: string): string | undefined {
+  return isRunFileName(name)
+    ? name.slice(STATE_STORE_PATH.RUN_FILE_PREFIX.length, -STATE_STORE_PATH.JSONL_EXTENSION.length)
+    : undefined;
 }
 
 export async function createJsonlRunFile(
@@ -540,6 +562,32 @@ export function compareAsciiStrings(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;
+}
+
+/**
+ * A run's recency signals: the capture-timestamp prefix of its token, the
+ * filesystem creation time in milliseconds, and the run token. Ordering run
+ * records by recency is source-owned here so every consumer breaks same-timestamp
+ * ties by true creation time rather than the token's random suffix.
+ */
+export interface RunRecency {
+  readonly startedAt: string;
+  readonly createdAtMs: number;
+  readonly runToken: string;
+}
+
+export function compareRunRecencyNewestFirst(left: RunRecency, right: RunRecency): number {
+  const startedAtOrder = compareAsciiStrings(left.startedAt, right.startedAt);
+  if (startedAtOrder !== 0) return -startedAtOrder;
+  const createdAtOrder = left.createdAtMs - right.createdAtMs;
+  return createdAtOrder === 0 ? -compareAsciiStrings(left.runToken, right.runToken) : -createdAtOrder;
+}
+
+export function compareRunRecencyOldestFirst(left: RunRecency, right: RunRecency): number {
+  const startedAtOrder = compareAsciiStrings(left.startedAt, right.startedAt);
+  if (startedAtOrder !== 0) return startedAtOrder;
+  const createdAtOrder = left.createdAtMs - right.createdAtMs;
+  return createdAtOrder === 0 ? compareAsciiStrings(left.runToken, right.runToken) : createdAtOrder;
 }
 
 export function formatStateStoreError(code: StateStoreErrorCode, detail?: string): string {
