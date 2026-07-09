@@ -9,6 +9,7 @@ CAN retain, read back, enumerate, and compare successive runs without appending 
 ### Scenarios
 
 - Given a resolved `.spx/` scope, when a snapshot document is written to a fresh run address and read back by that address, then the read returns the exact document written ([test](tests/snapshot-store.scenario.l1.test.ts))
+- Given a scope holding no snapshot, when its snapshots are enumerated and its latest is read, then the enumeration is empty and the latest resolves to no document rather than an error ([test](tests/snapshot-store.scenario.l1.test.ts))
 - Given two snapshots written under one resolved scope, when the scope's snapshots are read, then both are retained and independently readable, the latest is resolvable, and neither run clobbers the other ([test](tests/snapshot-store.scenario.l1.test.ts))
 
 ### Compliance
