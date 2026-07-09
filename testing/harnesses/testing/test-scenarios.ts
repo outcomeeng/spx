@@ -46,7 +46,12 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { CHANGED_SET_PLANNING_GENERATOR } from "@testing/generators/testing/changed-set-planning";
-import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  nodeOperand,
+  sampleDispatchValue,
+  specFileUnder,
+  TEST_DISPATCH_GENERATOR,
+} from "@testing/generators/testing/dispatch";
 import { GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
@@ -528,6 +533,23 @@ export function registerTestScenarioTests(): void {
         changedPath: testPath,
         dirtyWorktreePaths: [testPath],
         fixturePaths: [testPath],
+      });
+    });
+
+    it("rejects staged node selection when the node spec file has unstaged tracked changes", async () => {
+      const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
+      const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+      const testPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+      const specPath = specFileUnder(nodePath);
+
+      await expectStagedDirtySelectionRejection({
+        runner,
+        headSha,
+        changedPath: testPath,
+        dirtyWorktreePaths: [specPath],
+        targets: { operands: [nodeOperand(nodePath)], recursive: false },
+        fixturePaths: [testPath, specPath],
       });
     });
 

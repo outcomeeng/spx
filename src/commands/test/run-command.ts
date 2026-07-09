@@ -72,6 +72,9 @@ const PRODUCT_INPUT_FIELDS = {
 const SPEC_TREE_ROOT_OPERAND = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const PATH_SEPARATOR = "/";
 const SPEC_TREE_TESTS_PATH_SEGMENT = `${PATH_SEPARATOR}${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}${PATH_SEPARATOR}`;
+const NODE_INDEX_SEPARATOR = "-";
+const NODE_KIND_SEPARATOR = ".";
+const MARKDOWN_FILE_EXTENSION = ".md";
 export const CHANGED_TEST_RELATED_DEPS_ERROR = "spx test --changed requires related-test dependencies";
 export const CHANGED_TEST_STAGED_DIRTY_WORKTREE_ERROR =
   "spx test --changed --staged requires selected staged test inputs to match the index";
@@ -340,11 +343,38 @@ function dirtyPathAffectsOperand(path: string, operand: string, recursive: boole
   if (normalizedPath === normalizedOperand) {
     return true;
   }
+  if (isNodeSpecPathForOperand(normalizedPath, normalizedOperand)) {
+    return true;
+  }
   if (normalizedPath.startsWith(`${normalizedOperand}${SPEC_TREE_TESTS_PATH_SEGMENT}`)) {
     return true;
   }
   return recursive && normalizedPath.startsWith(`${normalizedOperand}${PATH_SEPARATOR}`)
     && isSpecTreeTestPath(normalizedPath);
+}
+
+function isNodeSpecPathForOperand(path: string, operand: string): boolean {
+  if (!path.startsWith(`${operand}${PATH_SEPARATOR}`)) {
+    return false;
+  }
+  const relativePath = path.slice(operand.length + PATH_SEPARATOR.length);
+  if (relativePath.includes(PATH_SEPARATOR)) {
+    return false;
+  }
+  const nodeSegment = operand.split(PATH_SEPARATOR).at(-1);
+  if (nodeSegment === undefined) {
+    return false;
+  }
+  const slugStart = nodeSegment.indexOf(NODE_INDEX_SEPARATOR);
+  if (slugStart < 0) {
+    return false;
+  }
+  const nodeKindSeparator = nodeSegment.lastIndexOf(NODE_KIND_SEPARATOR);
+  if (nodeKindSeparator <= slugStart) {
+    return false;
+  }
+  const slug = nodeSegment.slice(slugStart + NODE_INDEX_SEPARATOR.length, nodeKindSeparator);
+  return relativePath === `${slug}${MARKDOWN_FILE_EXTENSION}`;
 }
 
 function stagedRunAffectedDirtyPaths(

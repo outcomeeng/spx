@@ -29,6 +29,7 @@ export type TestingCliCommanderParseSource = NonNullable<
 const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const TESTS_DIRECTORY = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
+const NODE_INDEX_SEPARATOR = "-";
 
 // The descriptors the dispatch composes; generated matching paths derive their
 // shape from each descriptor's own patterns, and unmatched paths are filtered
@@ -40,6 +41,7 @@ export const TEST_DISPATCH_GENERATOR = {
   nodePath: arbitraryNodePath,
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
+  specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
   supportFileUnder: arbitrarySupportFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
@@ -61,6 +63,19 @@ export function testingCliCommanderParseSource(): TestingCliCommanderParseSource
 // derived from the source-owned spec-tree root so tests never compose it by hand.
 export function nodeOperand(nodePath: string): string {
   return `${SPEC_ROOT}${PATH_SEPARATOR}${nodePath}`;
+}
+
+export function specFileUnder(nodePath: string): string {
+  const nodeSegment = nodePath.split(PATH_SEPARATOR).at(-1);
+  if (nodeSegment === undefined) {
+    throw new Error("specFileUnder: node path has no final segment");
+  }
+  const slugStart = nodeSegment.indexOf(NODE_INDEX_SEPARATOR);
+  if (slugStart < 0 || !nodeSegment.endsWith(ENABLER_SUFFIX)) {
+    throw new Error(`specFileUnder: invalid generated enabler segment: ${nodeSegment}`);
+  }
+  const slug = nodeSegment.slice(slugStart + NODE_INDEX_SEPARATOR.length, -ENABLER_SUFFIX.length);
+  return `${nodeOperand(nodePath)}${PATH_SEPARATOR}${slug}.md`;
 }
 
 function arbitraryNodeSegment(): fc.Arbitrary<string> {
