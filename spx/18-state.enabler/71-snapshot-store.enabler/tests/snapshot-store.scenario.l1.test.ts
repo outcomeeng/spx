@@ -18,24 +18,45 @@ describe("snapshot store — scenarios", () => {
     expect(await readSnapshot(captured.value, { fs })).toEqual({ ok: true, value: document });
   });
 
-  it("retains multiple snapshots under one scope, reads each back, and resolves the latest", async () => {
+  it("retains both snapshots and resolves the latest by write order even when the run-token order disagrees", async () => {
     const [firstDocument, secondDocument] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
     const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+    const capturedAt = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runDate());
     const fs = createInMemoryStateStoreFileSystem();
 
-    const first = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, firstDocument, { fs });
-    const second = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, secondDocument, { fs });
+    // Both captures share one millisecond, and the LATER write is given the lexically
+    // smaller random suffix, so run-token order and write order disagree. Only a real
+    // creation-order signal (filesystem birthtime) resolves the true latest here — a
+    // token-only ordering would pick the first-written snapshot.
+    const [highSuffixBytes, lowSuffixBytes] = sampleStateStoreTestValue(
+      STATE_STORE_TEST_GENERATOR.runIdBytesDescendingPair(),
+    );
+
+    const first = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, firstDocument, {
+      fs,
+      now: () => capturedAt,
+      randomBytes: () => highSuffixBytes,
+    });
+    const second = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, secondDocument, {
+      fs,
+      now: () => capturedAt,
+      randomBytes: () => lowSuffixBytes,
+    });
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     if (!first.ok) throw new Error(first.error);
     if (!second.ok) throw new Error(second.error);
 
+    // Premise of the oracle: the later write sorts EARLIER by run token, so a token-only
+    // ordering would resolve the wrong snapshot as latest.
+    expect(compareAsciiStrings(second.value.runToken, first.value.runToken)).toBeLessThan(0);
+
     // Both snapshots are retained and independently readable — neither clobbers the other.
     expect(await readSnapshot(first.value, { fs })).toEqual({ ok: true, value: firstDocument });
     expect(await readSnapshot(second.value, { fs })).toEqual({ ok: true, value: secondDocument });
 
-    // Enumeration reports both addresses, and the latest resolves to its own document.
+    // Enumeration reports both addresses.
     const listed = await listSnapshots(scopeDir, STATE_STORE_DOMAIN.TEST, { fs });
     expect(listed.ok).toBe(true);
     if (!listed.ok) throw new Error(listed.error);
@@ -43,10 +64,11 @@ describe("snapshot store — scenarios", () => {
       [first.value.runToken, second.value.runToken].sort(compareAsciiStrings),
     );
 
-    const latestDocument = second.value.runToken > first.value.runToken ? secondDocument : firstDocument;
+    // The latest resolves to the document written LAST, not the one whose run token sorts last.
+    expect(listed.value[0].runToken).toBe(second.value.runToken);
     expect(await readLatestSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, { fs })).toEqual({
       ok: true,
-      value: latestDocument,
+      value: secondDocument,
     });
   });
 });
