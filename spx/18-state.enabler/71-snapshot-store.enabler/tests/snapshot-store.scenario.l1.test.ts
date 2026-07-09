@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { captureSnapshot, listSnapshots, readLatestSnapshot, readSnapshot } from "@/lib/snapshot-store";
-import { compareAsciiStrings, STATE_STORE_DOMAIN } from "@/lib/state-store";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
@@ -9,9 +9,10 @@ describe("snapshot store — scenarios", () => {
   it("reads back the exact document written to a fresh snapshot address", async () => {
     const [document] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
     const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+    const snapshotDomain = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const fs = createInMemoryStateStoreFileSystem();
 
-    const captured = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, document, { fs });
+    const captured = await captureSnapshot(scopeDir, snapshotDomain, document, { fs });
 
     expect(captured.ok).toBe(true);
     if (!captured.ok) throw new Error(captured.error);
@@ -21,6 +22,7 @@ describe("snapshot store — scenarios", () => {
   it("retains both snapshots and resolves the latest by write order even when the run-token order disagrees", async () => {
     const [firstDocument, secondDocument] = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.jsonRecordPair());
     const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
+    const snapshotDomain = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
     const capturedAt = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.runDate());
     const fs = createInMemoryStateStoreFileSystem();
 
@@ -32,12 +34,12 @@ describe("snapshot store — scenarios", () => {
       STATE_STORE_TEST_GENERATOR.runIdBytesDescendingPair(),
     );
 
-    const first = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, firstDocument, {
+    const first = await captureSnapshot(scopeDir, snapshotDomain, firstDocument, {
       fs,
       now: () => capturedAt,
       randomBytes: () => highSuffixBytes,
     });
-    const second = await captureSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, secondDocument, {
+    const second = await captureSnapshot(scopeDir, snapshotDomain, secondDocument, {
       fs,
       now: () => capturedAt,
       randomBytes: () => lowSuffixBytes,
@@ -57,7 +59,7 @@ describe("snapshot store — scenarios", () => {
     expect(await readSnapshot(second.value, { fs })).toEqual({ ok: true, value: secondDocument });
 
     // Enumeration reports both addresses.
-    const listed = await listSnapshots(scopeDir, STATE_STORE_DOMAIN.TEST, { fs });
+    const listed = await listSnapshots(scopeDir, snapshotDomain, { fs });
     expect(listed.ok).toBe(true);
     if (!listed.ok) throw new Error(listed.error);
     expect([...listed.value.map((address) => address.runToken)].sort(compareAsciiStrings)).toEqual(
@@ -66,7 +68,7 @@ describe("snapshot store — scenarios", () => {
 
     // The latest resolves to the document written LAST, not the one whose run token sorts last.
     expect(listed.value[0].runToken).toBe(second.value.runToken);
-    expect(await readLatestSnapshot(scopeDir, STATE_STORE_DOMAIN.TEST, { fs })).toEqual({
+    expect(await readLatestSnapshot(scopeDir, snapshotDomain, { fs })).toEqual({
       ok: true,
       value: secondDocument,
     });
