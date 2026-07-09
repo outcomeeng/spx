@@ -15,8 +15,6 @@ export const VALIDATION_STAGE_DISPLAY_NAMES = {
 
 export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
-  CIRCULAR_REASON: "skip-circular",
-  LITERAL_REASON: "skip-literal",
   DISABLED_BY_PREFIX: "disabled by",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
@@ -43,21 +41,13 @@ export const VALIDATION_COMMAND_OUTPUT = {
   FORMATTING_FAILURE_SUMMARY: `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: unformatted files found`,
 } as const;
 
-export const CIRCULAR_SKIP_OUTPUT =
-  `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (--${VALIDATION_SKIP_LABELS.CIRCULAR_REASON})`;
+export function formatValidationStageSkipOutput(stageName: string, reason: string): string {
+  return `${stageName}: skipped (${reason})`;
+}
 
-export const CIRCULAR_SKIP_JSON_OUTPUT = JSON.stringify({
-  skipped: true,
-  reason: VALIDATION_SKIP_LABELS.CIRCULAR_REASON,
-});
-
-export const LITERAL_SKIP_OUTPUT =
-  `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (--${VALIDATION_SKIP_LABELS.LITERAL_REASON})`;
-
-export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
-  skipped: true,
-  reason: VALIDATION_SKIP_LABELS.LITERAL_REASON,
-});
+export function formatValidationStageSkipJsonOutput(reason: string): string {
+  return JSON.stringify({ skipped: true, reason });
+}
 
 // Matches a pipeline step line `[N/M]`; the step count derives from the registry,
 // so the denominator is matched generically rather than pinned to a constant.

@@ -5,11 +5,7 @@ import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import {
-  CIRCULAR_SKIP_JSON_OUTPUT,
-  CIRCULAR_SKIP_OUTPUT,
   formatTypeScriptAbsentSkipMessage,
-  LITERAL_SKIP_JSON_OUTPUT,
-  LITERAL_SKIP_OUTPUT,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -18,13 +14,13 @@ import {
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
 import {
-  allValidationCliOptions,
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
@@ -151,6 +147,19 @@ const OUTPUT_LINE_SEPARATOR = "\n";
 const VALIDATION_STEP_OUTCOME_PASS = "pass";
 const VALIDATION_STEP_OUTCOME_SKIP = "skip";
 const VALIDATION_STEP_OUTCOME_FAIL = "fail";
+const CIRCULAR_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
+const LITERAL_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
+const SKIPPED_JSON_PREFIX = "{\"skipped\":true,\"reason\":\"";
+const SKIPPED_JSON_SUFFIX = "\"}";
+
+function validationStageOverride(stageName: string): ValidationStageParticipationOverride {
+  const stage = validationPipelineStages.find((candidate) => candidate.name === stageName);
+  const override = stage?.participation.override;
+  if (override === undefined) {
+    throw new Error(`Validation stage ${stageName} does not declare a full-pipeline override`);
+  }
+  return override;
+}
 
 export interface ValidationCliPropertyOptions {
   readonly numRuns: number;
@@ -237,12 +246,12 @@ export const VALIDATION_PIPELINE_DATA = {
   summaryStatus: VALIDATION_SUMMARY_STATUS,
   circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
   circularFixtureDetailPaths: CIRCULAR_FIXTURE_DETAIL_PATHS,
-  circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
-  circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
-  skipCircularFlag: allValidationCliOptions.skipCircular.flag,
-  literalSkipOutput: LITERAL_SKIP_OUTPUT,
-  literalSkipJsonOutput: LITERAL_SKIP_JSON_OUTPUT,
-  skipLiteralFlag: allValidationCliOptions.skipLiteral.flag,
+  circularSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${CIRCULAR_OVERRIDE.flag})`,
+  circularSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${CIRCULAR_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
+  skipCircularFlag: CIRCULAR_OVERRIDE.flag,
+  literalSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (${LITERAL_OVERRIDE.flag})`,
+  literalSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${LITERAL_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
+  skipLiteralFlag: LITERAL_OVERRIDE.flag,
   quietFlag: "--quiet",
   jsonFlag: "--json",
   scopeFlag: "--scope",

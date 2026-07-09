@@ -9,6 +9,27 @@
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import type { ValidationScope } from "@/validation/types";
 
+export const VALIDATION_STAGE_PARTICIPATION = {
+  RUN: "run",
+  SKIP: "skip",
+} as const;
+
+export type ValidationStageParticipation =
+  (typeof VALIDATION_STAGE_PARTICIPATION)[keyof typeof VALIDATION_STAGE_PARTICIPATION];
+
+export interface ValidationStageParticipationOverride {
+  readonly flag: `--${string}`;
+  readonly description: string;
+  readonly participation: ValidationStageParticipation;
+  readonly reason: string;
+}
+
+export interface ValidationStageParticipationPolicy {
+  readonly default: ValidationStageParticipation;
+  readonly defaultSkipReason?: string;
+  readonly override?: ValidationStageParticipationOverride;
+}
+
 /** Context threaded to every stage runner by the orchestrator. */
 export interface ValidationStageContext {
   /** Working directory of the project under validation. */
@@ -23,10 +44,6 @@ export interface ValidationStageContext {
   readonly quiet?: boolean;
   /** Emit machine-readable output. */
   readonly json?: boolean;
-  /** Skip circular dependency detection for this full-pipeline run. */
-  readonly skipCircular?: boolean;
-  /** Skip literal-reuse detection for this full-pipeline run. */
-  readonly skipLiteral?: boolean;
 }
 
 /** A single validation stage a language contributes to the pipeline. */
@@ -37,6 +54,8 @@ export interface ValidationStage {
   readonly run: (context: ValidationStageContext) => Promise<ValidationCommandResult>;
   /** Whether a non-zero exit from this stage fails the overall pipeline. */
   readonly failsPipeline: boolean;
+  /** Default full-pipeline participation plus any invocation-local override. */
+  readonly participation: ValidationStageParticipationPolicy;
 }
 
 /** A language's quality-gate participation: the ordered stages it contributes. */

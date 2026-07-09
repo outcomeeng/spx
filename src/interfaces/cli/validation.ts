@@ -17,7 +17,9 @@ import {
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
+import { validationPipelineStages } from "@/validation/registry";
 import type { ValidationScope } from "@/validation/types";
 
 interface ValidationDomainCommandDefinition {
@@ -161,22 +163,95 @@ export const literalValidationCliOptions = {
   },
 } as const;
 
-export const allValidationCliOptions = {
-  skipCircular: {
-    flag: "--skip-circular",
-    description: "Skip circular dependency detection for this validation all run",
-  },
-  skipLiteral: {
-    flag: "--skip-literal",
-    description: "Skip literal reuse detection for this validation all run",
-  },
-} as const;
+export interface ValidationAllOverrideCliOption {
+  readonly stageName: string;
+  readonly flag: `--${string}`;
+  readonly description: string;
+  readonly reason: string;
+  readonly optionPropertyName: string;
+}
+
+const LONG_OPTION_PREFIX = "--";
+const OPTION_PROPERTY_WORD_SEPARATOR_PATTERN = /-([a-z0-9])/g;
+const VALIDATION_ALL_OVERRIDE_FLAG_PATTERN = /^--(?!no-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 export const validationCommonCliOptions = {
   scope: {
     flag: "--scope",
   },
+  quiet: {
+    flag: "--quiet",
+  },
+  json: {
+    flag: "--json",
+  },
 } as const;
+
+export const validationAllBuiltInCliOptions = {
+  fix: {
+    flag: "--fix",
+  },
+} as const;
+
+const validationAllReservedOverrideFlags: ReadonlySet<string> = new Set([
+  ...Object.values(validationCommonCliOptions).map((option) => option.flag),
+  ...Object.values(validationAllBuiltInCliOptions).map((option) => option.flag),
+  validationCliDefinition.commanderHelpOperands.longFlag,
+]);
+
+export function validationOptionPropertyName(flag: `--${string}`): string {
+  return flag.slice(LONG_OPTION_PREFIX.length)
+    .replace(OPTION_PROPERTY_WORD_SEPARATOR_PATTERN, (_match, character: string) => character.toUpperCase());
+}
+
+export function deriveValidationAllOverrideCliOptions(
+  stages: readonly ValidationStage[],
+): readonly ValidationAllOverrideCliOption[] {
+  const optionPropertyNames = new Set<string>();
+  return stages.flatMap((stage) => {
+    validateStageParticipationMetadata(stage);
+    const override = stage.participation.override;
+    if (override === undefined) return [];
+    const optionPropertyName = validationOptionPropertyName(override.flag);
+    if (optionPropertyNames.has(optionPropertyName)) {
+      throw new Error(`duplicate validation all override option property: ${optionPropertyName}`);
+    }
+    optionPropertyNames.add(optionPropertyName);
+    return [{
+      stageName: stage.name,
+      flag: override.flag,
+      description: override.description,
+      reason: override.reason,
+      optionPropertyName,
+    }];
+  });
+}
+
+function validateStageParticipationMetadata(stage: ValidationStage): void {
+  if (
+    stage.participation.default === VALIDATION_STAGE_PARTICIPATION.SKIP
+    && (stage.participation.defaultSkipReason === undefined || stage.participation.defaultSkipReason.length === 0)
+  ) {
+    throw new Error(`validation stage ${stage.name} default skip participation requires a reason`);
+  }
+  const override = stage.participation.override;
+  if (override === undefined) return;
+  if (!VALIDATION_ALL_OVERRIDE_FLAG_PATTERN.test(override.flag)) {
+    throw new Error(`validation stage ${stage.name} override flag must be a bare long kebab-case boolean flag`);
+  }
+  if (validationAllReservedOverrideFlags.has(override.flag)) {
+    throw new Error(`validation stage ${stage.name} override flag collides with a validation all built-in option`);
+  }
+  if (override.description.length === 0) {
+    throw new Error(`validation stage ${stage.name} override flag requires a description`);
+  }
+  if (override.reason.length === 0) {
+    throw new Error(`validation stage ${stage.name} override flag requires a skip reason`);
+  }
+}
+
+export const validationAllOverrideCliOptions: readonly ValidationAllOverrideCliOption[] =
+  deriveValidationAllOverrideCliOptions(validationPipelineStages);
 
 const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
   (subcommand) => {
@@ -214,8 +289,7 @@ interface LiteralOptions extends CommonOptions {
 
 interface AllOptions extends CommonOptions {
   fix?: boolean;
-  skipCircular?: boolean;
-  skipLiteral?: boolean;
+  readonly [key: string]: boolean | string | undefined;
 }
 
 interface ValidationCliResult {
@@ -237,9 +311,9 @@ function addCommonOptions(cmd: Command): Command {
   const { pathOperands } = validationCliDefinition;
   return cmd
     .argument(pathOperands.optionalVariadic, pathOperands.description)
-    .option("--scope <scope>", "Validation scope (full|production)", "full")
-    .option("--quiet", "Suppress progress output")
-    .option("--json", "Output results as JSON");
+    .option(`${validationCommonCliOptions.scope.flag} <scope>`, "Validation scope (full|production)", "full")
+    .option(validationCommonCliOptions.quiet.flag, "Suppress progress output")
+    .option(validationCommonCliOptions.json.flag, "Output results as JSON");
 }
 
 function normalizeProductPathOperand(
@@ -312,6 +386,12 @@ function addValidationSubcommand(
   }
 
   return subcommand;
+}
+
+function selectedValidationAllOverrides(options: AllOptions): readonly `--${string}`[] {
+  return validationAllOverrideCliOptions
+    .filter((option) => options[option.optionPropertyName] === true)
+    .map((option) => option.flag);
 }
 
 /**
@@ -465,24 +545,24 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   addCommonOptions(formatCmd);
 
   // all command
-  const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
-    .option("--fix", "Auto-fix ESLint issues")
-    .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
-    .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
-    .action(async (pathOperands: string[], options: AllOptions) => {
-      const paths = resolveValidationPaths(invocation, pathOperands);
-      const result = await allCommand({
-        cwd: paths.productDir,
-        scope: options.scope,
-        files: paths.files,
-        fix: options.fix,
-        skipCircular: options.skipCircular,
-        skipLiteral: options.skipLiteral,
-        quiet: options.quiet,
-        json: options.json,
-      });
-      emitValidationResult(result, invocation.io);
+  let allCmd = addValidationSubcommand(validationCmd, subcommands.all)
+    .option(validationAllBuiltInCliOptions.fix.flag, "Auto-fix ESLint issues");
+  for (const option of validationAllOverrideCliOptions) {
+    allCmd = allCmd.option(option.flag, option.description);
+  }
+  allCmd = allCmd.action(async (pathOperands: string[], options: AllOptions) => {
+    const paths = resolveValidationPaths(invocation, pathOperands);
+    const result = await allCommand({
+      cwd: paths.productDir,
+      scope: options.scope,
+      files: paths.files,
+      fix: options.fix,
+      participationOverrides: selectedValidationAllOverrides(options),
+      quiet: options.quiet,
+      json: options.json,
     });
+    emitValidationResult(result, invocation.io);
+  });
   addCommonOptions(allCmd);
 }
 

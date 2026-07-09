@@ -1,8 +1,20 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import {
+  deriveValidationAllOverrideCliOptions,
+  validationAllBuiltInCliOptions,
+  validationAllOverrideCliOptions,
+  validationCliDefinition,
+  validationCommonCliOptions,
+} from "@/interfaces/cli/validation";
+import { formattingValidationLanguage } from "@/validation/languages/formatting";
+import { markdownValidationLanguage } from "@/validation/languages/markdown";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
+import { typescriptValidationLanguage } from "@/validation/languages/typescript";
+import { validationRegistry } from "@/validation/registry";
 import {
   isValidationPipelineComplianceScenario,
   VALIDATION_PIPELINE_DATA,
@@ -13,6 +25,166 @@ import {
 } from "@testing/generators/validation/validation";
 import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const VALIDATION_ROOT = resolve(__dirname, "../../../spx/41-validation.enabler");
+const EXPECTED_PIPELINE_STAGE_COUNT_FROM_SPEC_MAPPING = 7;
+const OVERRIDE_METADATA_TEST_STAGE_NAME = "Override metadata test";
+const OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test";
+const OVERRIDE_METADATA_TEST_DESCRIPTION = "Override metadata test flag";
+const OVERRIDE_METADATA_TEST_REASON = "override-metadata-test";
+const NEGATED_OVERRIDE_METADATA_TEST_FLAG = "--no-override-metadata-test";
+const VALUE_OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test <value>";
+const ALIASED_OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test, -o";
+const CAMEL_CASE_OVERRIDE_METADATA_TEST_FLAG = "--overrideMetadataTest";
+const COLLIDING_OVERRIDE_METADATA_TEST_FLAG = "--overrideMetadata-test";
+
+export function expectValidationRegistryDescriptors(): void {
+  expect(validationRegistry.languages.length).toBeGreaterThan(0);
+  for (const language of validationRegistry.languages) {
+    expect(language.name.length).toBeGreaterThan(0);
+    expect(language.stages.length).toBeGreaterThan(0);
+    for (const stage of language.stages) {
+      expect(stage.name.length).toBeGreaterThan(0);
+      expect(stage.run).toBeInstanceOf(Function);
+      expect(Object.values(VALIDATION_STAGE_PARTICIPATION)).toContain(stage.participation.default);
+    }
+  }
+}
+
+export function expectValidationRegistryLanguageSet(): void {
+  expect(validationRegistry.languages).toEqual([
+    typescriptValidationLanguage,
+    markdownValidationLanguage,
+    formattingValidationLanguage,
+  ]);
+}
+
+export function expectValidationPipelineTotalStageCount(): void {
+  expect(registeredValidationStages()).toHaveLength(
+    EXPECTED_PIPELINE_STAGE_COUNT_FROM_SPEC_MAPPING,
+  );
+}
+
+export function expectValidationAllOverrideOptionsDerived(): void {
+  const descriptorOwnedOptions = registeredValidationStages()
+    .flatMap((stage) => {
+      const override = stage.participation.override;
+      if (override === undefined) return [];
+      return [{
+        stageName: stage.name,
+        flag: override.flag,
+        description: override.description,
+        reason: override.reason,
+        optionPropertyName: descriptorOverrideOptionPropertyName(override.flag),
+      }];
+    });
+
+  expect(validationAllOverrideCliOptions).toEqual(descriptorOwnedOptions);
+  expect(validationAllOverrideCliOptions).toHaveLength(
+    registeredValidationStages().filter((stage) => stage.participation.override !== undefined).length,
+  );
+}
+
+export function expectValidationAllOverrideMetadataRejectsUnsupportedFlags(): void {
+  for (
+    const flag of [
+      NEGATED_OVERRIDE_METADATA_TEST_FLAG,
+      VALUE_OVERRIDE_METADATA_TEST_FLAG,
+      ALIASED_OVERRIDE_METADATA_TEST_FLAG,
+      CAMEL_CASE_OVERRIDE_METADATA_TEST_FLAG,
+    ]
+  ) {
+    expect(() =>
+      deriveValidationAllOverrideCliOptions([
+        validationOverrideMetadataTestStage({ flag: invalidOverrideMetadataFlag(flag) }),
+      ])
+    ).toThrow();
+  }
+  expect(() =>
+    deriveValidationAllOverrideCliOptions([
+      validationOverrideMetadataTestStage({ flag: OVERRIDE_METADATA_TEST_FLAG }),
+      validationOverrideMetadataTestStage({ flag: COLLIDING_OVERRIDE_METADATA_TEST_FLAG }),
+    ])
+  ).toThrow();
+  for (
+    const flag of [
+      validationAllBuiltInCliOptions.fix.flag,
+      validationCommonCliOptions.scope.flag,
+      validationCommonCliOptions.quiet.flag,
+      validationCommonCliOptions.json.flag,
+      validationCliDefinition.commanderHelpOperands.longFlag,
+    ]
+  ) {
+    expect(() =>
+      deriveValidationAllOverrideCliOptions([
+        validationOverrideMetadataTestStage({ flag: invalidOverrideMetadataFlag(flag) }),
+      ])
+    ).toThrow();
+  }
+  expect(() =>
+    deriveValidationAllOverrideCliOptions([
+      validationOverrideMetadataTestStage({
+        defaultParticipation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+        defaultSkipReason: undefined,
+        includeOverride: false,
+      }),
+    ])
+  ).toThrow();
+}
+
+function invalidOverrideMetadataFlag(flag: string): `--${string}` {
+  return flag as `--${string}`;
+}
+
+interface ValidationOverrideMetadataTestStageOptions {
+  readonly flag?: `--${string}`;
+  readonly defaultParticipation?: ValidationStage["participation"]["default"];
+  readonly defaultSkipReason?: string;
+  readonly includeOverride?: boolean;
+  readonly override?: ValidationStage["participation"]["override"];
+}
+
+function validationOverrideMetadataTestStage(
+  options: ValidationOverrideMetadataTestStageOptions = {},
+): ValidationStage {
+  return {
+    name: OVERRIDE_METADATA_TEST_STAGE_NAME,
+    failsPipeline: true,
+    participation: {
+      default: options.defaultParticipation ?? VALIDATION_STAGE_PARTICIPATION.RUN,
+      defaultSkipReason: options.defaultSkipReason,
+      ...(options.includeOverride === false
+        ? {}
+        : options.override === undefined
+        ? {
+          override: {
+            flag: options.flag ?? OVERRIDE_METADATA_TEST_FLAG,
+            description: OVERRIDE_METADATA_TEST_DESCRIPTION,
+            participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+            reason: OVERRIDE_METADATA_TEST_REASON,
+          },
+        }
+        : { override: options.override }),
+    },
+    run: async () => ({
+      exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+      output: "",
+    }),
+  };
+}
+
+function descriptorOverrideOptionPropertyName(flag: `--${string}`): string {
+  const words = flag.slice(2).split("-");
+  return words
+    .map((word, index) => (index === 0 ? word : `${word[0].toUpperCase()}${word.slice(1)}`))
+    .join("");
+}
+
+function registeredValidationStages(): readonly ValidationStage[] {
+  return validationRegistry.languages.flatMap((language) => language.stages);
+}
 
 export function registerValidationPipelineScenarioTests(): void {
   registerValidationPipelineTests((scenario) => !isValidationPipelineComplianceScenario(scenario));

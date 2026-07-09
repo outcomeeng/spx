@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { expect } from "vitest";
 
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -8,7 +8,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
-import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
@@ -25,6 +25,9 @@ import {
 } from "@testing/generators/validation/markdown";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { withMarkdownEnv } from "@testing/harnesses/with-markdown-env";
+
+const SPEC_NODE_DIRECTORY_SUFFIX_PATTERN = /\.(?:enabler|outcome)$/u;
+const PRODUCT_SPEC_TREE_DIRECTORY = "spx";
 
 export async function runMarkdownValidationScenario(scenario: MarkdownValidationScenario): Promise<void> {
   switch (scenario.kind) {
@@ -50,6 +53,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runExcludeExactOnlyScenario();
     case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET:
       return runExcludeScopedTargetScenario();
+    case MARKDOWN_SCENARIO_KIND.CURRENT_EXCLUDE_MATCHES_FAILURES:
+      return runCurrentExcludeMatchesFailuresScenario();
     case MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS:
       return runDuplicateHeadingsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER:
@@ -241,6 +246,40 @@ async function runExcludeScopedTargetScenario(): Promise<void> {
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
     expect(result.errors.some((error) => error.file === childFile)).toBe(true);
   });
+}
+
+async function runCurrentExcludeMatchesFailuresScenario(): Promise<void> {
+  const projectRoot = process.cwd();
+  const spxDir = join(projectRoot, PRODUCT_SPEC_TREE_DIRECTORY);
+  const unexcludedResult = await validateMarkdown({
+    targets: [markdownDirectoryTarget(spxDir)],
+    projectRoot,
+    applyNodeStatusExcludes: false,
+  });
+  const failingNodePaths = new Set(
+    unexcludedResult.errors.map((error) => specNodePathForMarkdownError(projectRoot, error.file)),
+  );
+  const excludedNodePaths = new Set(createNodeStatusExcludeReader(projectRoot).entries());
+  const excludedResult = await validateMarkdown({
+    targets: [markdownDirectoryTarget(spxDir)],
+    projectRoot,
+  });
+
+  expect([...excludedNodePaths].sort((left, right) => left.localeCompare(right))).toEqual(
+    [...failingNodePaths].sort((left, right) => left.localeCompare(right)),
+  );
+  expect(excludedResult.success).toBe(true);
+}
+
+function specNodePathForMarkdownError(projectRoot: string, file: string): string {
+  const relativeFile = relative(projectRoot, file);
+  const segments = relativeFile.split("/");
+  for (let index = segments.length - 2; index >= 1; index -= 1) {
+    if (SPEC_NODE_DIRECTORY_SUFFIX_PATTERN.test(segments[index])) {
+      return segments.slice(1, index + 1).join("/");
+    }
+  }
+  throw new Error(`Markdown failure is not inside a spec node: ${relativeFile}`);
 }
 
 async function runDuplicateHeadingsScenario(scenario: MarkdownValidationScenario): Promise<void> {

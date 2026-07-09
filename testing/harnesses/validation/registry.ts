@@ -4,6 +4,10 @@ import { formattingValidationLanguage } from "@/validation/languages/formatting"
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationRegistry } from "@/validation/registry";
+import {
+  expectValidationAllOverrideMetadataRejectsUnsupportedFlags,
+  expectValidationAllOverrideOptionsDerived,
+} from "@testing/harnesses/validation/pipeline";
 
 describe("validation language registry composition", () => {
   it("exposes language descriptors with at least one named, callable stage each", () => {
@@ -36,5 +40,13 @@ describe("validation language registry composition", () => {
     // regression could fail.
     const expectedFromSpecMapping = 5 + 1 + 1;
     expect(totalStagesFromRegistry).toBe(expectedFromSpecMapping);
+  });
+
+  it("derives validation all override flags from stage participation metadata", () => {
+    expectValidationAllOverrideOptionsDerived();
+  });
+
+  it("rejects unsupported validation all override metadata shapes", () => {
+    expectValidationAllOverrideMetadataRejectsUnsupportedFlags();
   });
 });

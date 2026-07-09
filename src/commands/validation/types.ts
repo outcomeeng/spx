@@ -63,8 +63,6 @@ export interface FormattingCommandOptions {
 export interface AllCommandOptions extends CommonValidationOptions {
   /** Auto-fix ESLint issues */
   fix?: boolean;
-  /** Skip circular dependency detection for this full-pipeline run */
-  skipCircular?: boolean;
-  /** Skip literal reuse detection for this full-pipeline run */
-  skipLiteral?: boolean;
+  /** Invocation-local stage participation override flags selected by the CLI. */
+  participationOverrides?: readonly `--${string}`[];
 }

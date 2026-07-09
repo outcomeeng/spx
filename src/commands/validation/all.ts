@@ -5,8 +5,14 @@
  * registry order and reporting every stage's result. Stage participation and
  * step count derive entirely from the registry — no stage is dispatched by name.
  */
+import {
+  VALIDATION_STAGE_PARTICIPATION,
+  type ValidationStage,
+  type ValidationStageParticipation,
+} from "@/validation/languages/types";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { formatDuration, formatSummary } from "./format";
+import { formatValidationStageSkipJsonOutput, formatValidationStageSkipOutput } from "./messages";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
 
 /**
@@ -28,6 +34,47 @@ function formatStepWithTiming(
   return `[${stepNumber}/${VALIDATION_PIPELINE_TOTAL_STEPS}] ${result.output}${timing}`;
 }
 
+interface ResolvedStageParticipation {
+  readonly participation: ValidationStageParticipation;
+  readonly reason?: string;
+  readonly flag?: string;
+}
+
+function resolveStageParticipation(
+  stage: ValidationStage,
+  participationOverrides: ReadonlySet<string>,
+): ResolvedStageParticipation {
+  const override = stage.participation.override;
+  if (override !== undefined && participationOverrides.has(override.flag)) {
+    return {
+      participation: override.participation,
+      reason: override.reason,
+      flag: override.flag,
+    };
+  }
+  return {
+    participation: stage.participation.default,
+    reason: stage.participation.defaultSkipReason,
+  };
+}
+
+function skippedStageResult(
+  stage: ValidationStage,
+  participation: ResolvedStageParticipation,
+  json?: boolean,
+): ValidationCommandResult {
+  const reason = participation.reason;
+  if (reason === undefined) {
+    throw new Error(`validation stage ${stage.name} skipped without a configured reason`);
+  }
+  return {
+    exitCode: 0,
+    output: json
+      ? formatValidationStageSkipJsonOutput(reason)
+      : formatValidationStageSkipOutput(stage.name, participation.flag ?? reason),
+  };
+}
+
 /**
  * Run all validation steps.
  *
@@ -35,17 +82,25 @@ function formatStepWithTiming(
  * @returns Command result with exit code and output
  */
 export async function allCommand(options: AllCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, scope, files, fix, quiet = false, json, skipCircular = false, skipLiteral = false } = options;
+  const { cwd, scope, files, fix, quiet = false, json, participationOverrides = [] } = options;
   const startTime = Date.now();
   const outputs: string[] = [];
   let hasFailure = false;
 
-  const context = { cwd, scope, files, fix, quiet, json, skipCircular, skipLiteral };
+  const context = { cwd, scope, files, fix, quiet, json };
+  const overrideFlags = new Set(participationOverrides);
 
   let stepNumber = 0;
   for (const stage of validationPipelineStages) {
     stepNumber += 1;
-    const result = await stage.run(context);
+    const stageStartTime = Date.now();
+    const participation = resolveStageParticipation(stage, overrideFlags);
+    const stageResult = participation.participation === VALIDATION_STAGE_PARTICIPATION.RUN
+      ? await stage.run(context)
+      : skippedStageResult(stage, participation, json);
+    const result = stageResult.durationMs === undefined
+      ? { ...stageResult, durationMs: Date.now() - stageStartTime }
+      : stageResult;
     const stepOutput = formatStepWithTiming(stepNumber, result, quiet);
     if (stepOutput) outputs.push(stepOutput);
     if (stage.failsPipeline && result.exitCode !== 0) hasFailure = true;

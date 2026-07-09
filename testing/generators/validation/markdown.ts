@@ -53,6 +53,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   EXCLUDE_NODE: "excludeNode",
   EXCLUDE_NODE_EXACT_ONLY: "excludeNodeExactOnly",
   EXCLUDE_NODE_SCOPED_TARGET: "excludeNodeScopedTarget",
+  CURRENT_EXCLUDE_MATCHES_FAILURES: "currentExcludeMatchesFailures",
   DUPLICATE_HEADINGS: "duplicateHeadings",
   CONFIG_BUILDER: "configBuilder",
   COMMAND_DEFAULTS: "commandDefaults",
@@ -196,6 +197,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "excluded spec nodes are skipped when directly targeted",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "current exclude entries match direct node markdown failures",
+      kind: MARKDOWN_SCENARIO_KIND.CURRENT_EXCLUDE_MATCHES_FAILURES,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
