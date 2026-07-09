@@ -43,20 +43,26 @@ jobs:
     # maintain, or write permission on this repository (queried via the GitHub
     # API). External contributors are rejected with a clear error.
     #
-    # Every entry below is ACTIVE — the `vars.SPEC_TREE_*` lookup with the
-    # fallback after `||` (or the boolean comparison) reproduces the
-    # reusable's documented default when the variable is unset. Set the
-    # variable in repo Settings → Secrets and variables → Actions →
-    # Variables to override; the workflow file does not need to change.
+    # Every entry below is ACTIVE — the `vars.*` lookup with the fallback
+    # after `||` (or the boolean comparison) supplies the value when the
+    # variable is unset. Set the variable in Settings → Secrets and variables
+    # → Actions → Variables to override; the workflow file does not need to
+    # change. One entry deviates from the reusable's documented default on
+    # purpose: `runner` reads the org-wide RUNNER_X2 switch and falls back to
+    # `ubuntu-latest` rather than the reusable's `ubuntu-slim`.
 
     with:
-      # Runner. Single label (`ubuntu-slim`, `ubuntu-latest`, `self-hosted`)
-      # or a JSON-array string for multi-label selectors like
-      # `'["self-hosted","laptop"]'`. The reusable detects which form was
-      # passed and dispatches correctly. Security: self-hosted runners must
-      # not be used on public repos or repos that accept PRs/comments from
-      # untrusted contributors.
-      runner: ${{ vars.SPEC_TREE_RUNNER || 'ubuntu-slim' }}
+      # Runner, shared with every other workflow in this repo via the org-level
+      # RUNNER_X2 switch, so a provider outage is a variable flip rather than a
+      # pull request. Unset it to fall back to GitHub-hosted `ubuntu-latest`.
+      # The reusable takes a single label or a JSON-array string for multi-label
+      # selectors, and dispatches on whichever form it receives; it also asserts
+      # `gh` and `jq` exist on the image before doing anything else. The
+      # reusable's own default is `ubuntu-slim`, which this repo does not use.
+      #
+      # Security: self-hosted runners must not be used on public repos or repos
+      # that accept pull requests or comments from untrusted contributors.
+      runner: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
 
       # Mention trigger phrase. Defaults to `@spec-tree`.
       trigger_phrase: ${{ vars.SPEC_TREE_TRIGGER_PHRASE || '@spec-tree' }}
