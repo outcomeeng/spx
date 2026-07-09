@@ -1,5 +1,6 @@
 import { isAbsolute } from "node:path";
 
+import { releaseNotesCommand } from "@/commands/release";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
@@ -78,6 +79,35 @@ export function registerReleaseNotesScenarioTests(): void {
           expect(written).toContain(oracleChangelogVersionHeading(releaseData.version));
         },
       );
+    });
+  });
+
+  describe("releaseNotesCommand wires release-note composition into the release workflow", () => {
+    it("writes the changelog through the production command handler", async () => {
+      await withReleaseNotesEnv(async (env) => {
+        const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const config = {};
+        const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, config);
+        const changelogContent = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(env.workingDirectory, resolvedPath, changelogContent);
+
+        await expect(
+          releaseNotesCommand({
+            productDir: env.workingDirectory,
+            config,
+            releaseData,
+            agentRunner,
+            filesystem: env,
+          }),
+        ).resolves.toBe(`Generated release notes: ${resolvedPath}`);
+
+        await expect(env.readArtifact(resolvedPath)).resolves.toContain(
+          oracleChangelogVersionHeading(releaseData.version),
+        );
+      });
     });
   });
 }
