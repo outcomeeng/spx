@@ -14,6 +14,7 @@ Binding the snapshot store to the agent-run journal's `SnapshotBackend` port is 
 - Each capture reserves a fresh run address through exclusive create and writes its document once; a capture that resolves onto an already-written address rejects and leaves the persisted document unchanged.
 - Multiple snapshots persist independently under one scope; enumeration is deterministic and the latest is resolvable.
 - A snapshot's run address is a pure function of the resolved scope and run token; the store composes no `.spx/` path from git state itself.
+- A snapshot domain is disjoint from every other node's run-file domain within a scope, so enumeration returns only snapshots.
 
 ## Verification
 
@@ -22,6 +23,7 @@ Binding the snapshot store to the agent-run journal's `SnapshotBackend` port is 
 - ALWAYS: every filesystem read and write flows through an injected `StateStoreFileSystem` parameter — enables `l1` verification over a controlled filesystem without a real repository ([audit])
 - ALWAYS: the store resolves run addresses within a caller-supplied `.spx/` scope produced by `spx/18-state.enabler/32-scope-addressing.enabler` and reuses the record-store run-file mechanics of `src/lib/state-store/` for write-once and enumeration ([audit])
 - ALWAYS: a snapshot write reserves a fresh run file and records the document once, retaining prior snapshots under the scope rather than overwriting them ([audit])
+- NEVER: a capture's `(scope, domain)` address shares a run-file directory another node owns — `spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md` reserves `.spx/worktree/test/runs/` for testing last-run evidence, and the store's enumeration cannot distinguish a foreign run record from a snapshot, so a test-verification capture takes a domain distinct from `test` ([audit])
 - NEVER: the module imports `src/lib/agent-run-journal/` or the appendable-journal-store binding, or binds the journal `SnapshotBackend` or `AppendableBackend` port — snapshot persistence is independent of the event journal ([audit])
 - NEVER: the module imports `node:fs`, `node:fs/promises`, process globals, or a network client, or re-derives git topology or `.spx/` layout — all I/O is the injected filesystem's, per `spx/17-state.adr.md` ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or module interception substitutes for the filesystem — tests inject a controlled `StateStoreFileSystem` and exercise the real store code paths ([audit])
