@@ -1,51 +1,163 @@
 <objective>
-The vocabulary and classification tests for assigning current behavior to target methodology roles.
+The six-kind vocabulary and ordered decision procedure for projecting current behavior into the next methodology target structure.
 </objective>
 
-<roles>
+<table_of_contents>
 
-| Role       | Owns                                                                                                                                     | Does not own                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Substrate  | Primitive runtime, platform, process, filesystem, Git, network, hook, package, and external-service mechanics used by other roles.       | Product semantics, retained product records, user-facing command contracts, or domain workflows. |
-| Capability | Reusable product behavior consumed by one or more domains, interfaces, or surfaces.                                                      | Surface binding or one-off workflow wording.                                                     |
-| Domain     | Semantically composed product workflows and rules over capabilities.                                                                     | Primitive substrate mechanics or concrete rendering.                                             |
-| Interface  | Stable consumption contracts over domains or capabilities, such as API shapes, protocol contracts, and projections consumed by surfaces. | Terminal text, UI layout, or command help.                                                       |
-| Surface    | Concrete user-facing or consumer-facing interaction boundary: CLI, MCP, web API, UI.                                                     | Reusable semantics, persistence, verification logic, or backend implementation.                  |
+1. `<kinds>`: six node kinds and ownership boundaries
+2. `<ordered_kind_decision>`: first-match decision procedure
+3. `<kind_order>`: foundational order for output kinds
+4. `<containment>`: parent/child admissibility
+5. `<openings>`: current authoring-compatible opening forms
+6. `<operational_terms>`: persistence, delivery, backend, and node state
+7. `<maturity_state_terms>`: maturity, base node states, and status claims
+8. `<top_level_projection>`: product-named top-level nodes without role buckets
+9. `<classification_output>`: required concern-classification row fields
+10. `<banned_receiver_language>`: forbidden ambiguous receiver phrases
+11. `<success_criteria>`: checks for vocabulary use
 
-</roles>
+</table_of_contents>
 
-<persistence_terms>
+<kinds>
 
-| Term        | Meaning                                                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| Persistence | Durable retained data: records, journals, snapshots, caches, artifacts, and history with a retention lifecycle.       |
-| Delivery    | Ephemeral projection to a surface or external venue: terminal output, PR comments, UI display, webhook message.       |
-| Backend     | Adapter or implementation that realizes a capability against a substrate, such as local filesystem or GitHub Actions. |
-| Node state  | Spec-tree lifecycle standing derived from declarations and evidence.                                                  |
+| Kind          | Role                 | Owns                                                                                                                        | Does not own                                                                                          |
+| ------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `.substrate`  | Primitive mechanics  | Runtime, process, filesystem, workflow, hook, tool execution, and platform primitives with zero product-domain semantics.   | Product semantics, product records, consumption contracts, or concrete product boundaries.            |
+| `.capability` | Reusable behavior    | One reusable product behavior with meaning outside any one consumer.                                                        | A semantic world, concrete rendering, or one-off workflow wording.                                    |
+| `.domain`     | Bounded semantics    | A bounded semantic context with vocabulary, rules, and invariants other nodes speak.                                        | Primitive mechanics, medium-specific contracts, or concrete rendering.                                |
+| `.interface`  | Consumption contract | Resources, verbs, selectors, payload shapes, lifecycle contracts, and error semantics that adapt providers for consumption. | Terminal text, UI layout, command help, or protocol rendering.                                        |
+| `.surface`    | Provided boundary    | One concrete outside boundary: CLI, MCP, web API, UI, or agentic interface grammar, rendering, invocation, and protocol.    | Reusable semantics, persistence semantics, verification logic, or backend implementation.             |
+| `.outcome`    | Product bet          | A hypothesis that specified output produces measurable behavior change and impact.                                          | Locally verifiable assertions, tests, evals, audits, maturity, or per-reference verification results. |
 
-</persistence_terms>
+</kinds>
 
-<outcome_terms>
+<ordered_kind_decision>
 
-| Term        | Meaning                                                                                                                                                     |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Outcome bet | Behavior-change bet whose output is uncertain; record it as a facet attached to the substrate, capability, domain, interface, or surface that owns the bet. |
+Apply these tests top to bottom. The first matching test fixes the kind:
 
-</outcome_terms>
+1. `.outcome`: Is this a genuine bet whose whole output could be replaced while the belief stands, and whose success only real usage can validate?
+2. `.substrate`: Does this carry zero product-domain semantics under the transplant test? If moved to an unrelated product, does it keep its full meaning?
+3. `.surface`: Is this one concrete outside boundary owning grammar, rendering, invocation, and protocol, with no semantic vocabulary of its own?
+4. `.interface`: Is this a medium-agnostic consumption contract with resources, verbs, selectors, payloads, lifecycle, and errors, but no rendering?
+5. `.domain`: Does this own a bounded semantic context: vocabulary, rules, and invariants that other nodes speak?
+6. `.capability`: This is the floor: one reusable product behavior with meaning outside any one consumer and no semantic world of its own.
 
-<classification_tests>
+Do not classify by who consumes a behavior. Placement follows what the node is.
 
-- If behavior can be reused by multiple domains or surfaces, classify it as capability unless it is primitive substrate.
-- If behavior describes a concrete command, flag, help screen, terminal rendering, or UI interaction, classify it as surface.
-- If behavior defines a stable contract consumed by several surfaces, classify it as interface.
-- If behavior retains records, events, snapshots, caches, or artifacts beyond a single delivery act, record a persistence facet and assign the target role from the behavior's reusable contract.
-- If behavior publishes a projection to a terminal, pull request comment, UI, or response body, record a delivery facet and assign the target role from the behavior's surface or interface contract.
-- If behavior carries a behavior-change bet, record an outcome-bet facet and assign the target role from the area that owns the bet.
-- If behavior implements local, GitHub, or other environment-specific mechanics behind a port, classify it by the contract it implements: substrate for primitive mechanics, capability for reusable persistence or delivery adapters, or domain/interface only when the backend carries product semantics or a consumption contract.
-- If behavior derives spec-tree standing, stale/fresh status, or traversal over declarations and evidence, classify it as capability and name `spec-tree` as the candidate receiver.
-- If behavior coordinates validation, test, eval, audit, or review standing, classify it as domain and name `verification` as the candidate receiver.
+</ordered_kind_decision>
 
-</classification_tests>
+<kind_order>
+
+The output kinds have this foundational order:
+
+```text
+substrate  <  capability  <  domain  <  interface  <  surface
+```
+
+A provider is never more outward than the node depending on it. If a substrate appears to depend on a surface, or a capability appears to depend on a domain, resolve the misclassification or inverted dependency before assigning an index.
+
+`.outcome` sits outside the foundational output-kind order. It attaches only to a bet owner: the product root, a `.domain`, a `.surface`, or another `.outcome`.
+
+</kind_order>
+
+<containment>
+
+| Parent        | Admits as child nodes                                |
+| ------------- | ---------------------------------------------------- |
+| Product root  | Any output kind, `.outcome`                          |
+| `.substrate`  | `.substrate`                                         |
+| `.capability` | `.substrate`, `.capability`                          |
+| `.domain`     | `.substrate`, `.capability`, `.domain`, `.outcome`   |
+| `.interface`  | `.substrate`, `.capability`, `.domain`, `.interface` |
+| `.surface`    | Any output kind, `.outcome`                          |
+| `.outcome`    | Any output kind, `.outcome`                          |
+
+Decision records are files in a node's shared index space, not child nodes.
+
+</containment>
+
+<openings>
+
+The next methodology admits six node kinds, but the current product-root spec-file contract admits only these opening forms:
+
+| Kind         | Current authoring-compatible opening               |
+| ------------ | -------------------------------------------------- |
+| Output kinds | `PROVIDES ... SO THAT ... CAN ...`                 |
+| `.outcome`   | `WE BELIEVE THAT ... WILL ... CONTRIBUTING TO ...` |
+
+Output kinds are `.substrate`, `.capability`, `.domain`, `.interface`, and `.surface`.
+
+Do not invent kind-specific opening verbs while working in this product repository. A future methodology or product-root rule can change the opening contract, but this skill must not teach agents to author files that the current product root rejects.
+
+Provider names in openings are product-language names, never filesystem paths. Structure resolves providers by lower index.
+
+</openings>
+
+<operational_terms>
+
+| Term        | Meaning                                                                                                                                                       | Placement question                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Persistence | Retained product artifacts plus addressing and retention policy: records, journals, snapshots, caches, artifacts, and history.                                | Which node owns the retained artifact's semantics?                |
+| Delivery    | Ephemeral projection of a result to an external surface: terminal output, PR comment, UI display, API response, webhook, or observability sink.               | Which node owns the projection contract?                          |
+| Backend     | Concrete environment boundary that provides a persistence or delivery contract: local files, Git history, hosted artifacts, platform APIs, or hosted service. | Which node owns the environment-specific implementation contract? |
+| Node state  | Evidence-derived standing against declared maturity.                                                                                                          | Which node owns lifecycle vocabulary and projection?              |
+
+Persistence, delivery, and backend are reserved terms. They form no extra node kinds.
+
+</operational_terms>
+
+<maturity_state_terms>
+
+| Term         | Meaning                                                                                                                                                                                             |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Maturity     | A declared output-node bar: `prototype`, `experimental`, or `production`. Absent maturity defaults to `production`.                                                                                 |
+| Declared     | Spec exists; no evidence for the node's bar is referenced, and the bar has not passed.                                                                                                              |
+| Specified    | Assertion evidence for the node's bar is referenced but does not yet pass.                                                                                                                          |
+| Passing      | Current foundation term for a node whose required verification passes.                                                                                                                              |
+| Implemented  | Next-methodology term for a node whose required verification for its maturity bar passes; compatible with current `Passing` during migration.                                                       |
+| Failing      | A reference with a recorded passing result no longer passes.                                                                                                                                        |
+| Status claim | `spx.status.json`, the committed machine-written claim carrying state, maturity, and per-reference results for output nodes; outcome claims roll up from output children and omit maturity/results. |
+
+No product mints additional base node states. Qualified compounds such as run terminal state or journal sealed state specialize another artifact's lifecycle.
+
+</maturity_state_terms>
+
+<top_level_projection>
+
+Product top level is product-named nodes carrying role suffixes. Role-named wrapper directories do not exist.
+
+Wrong:
+
+```text
+spx/
+  NN-enablers.capability/
+    spec-tree.capability/
+```
+
+Right:
+
+```text
+spx/
+  NN-spec-tree.capability/
+```
+
+</top_level_projection>
+
+<classification_output>
+
+For every concern, record:
+
+| Field              | Meaning                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| Current behavior   | The behavior observed in the current tree or proposed by the product spec.             |
+| Current path       | Inventory path, or `new` for not-yet-represented behavior.                             |
+| Kind decision      | First matching decision-procedure test.                                                |
+| Operational facets | Persistence, delivery, backend, node-state, maturity/status-claim impact, or none.     |
+| Candidate receiver | Product-named target node with kind suffix, unnumbered until ordering evidence exists. |
+| Evidence           | Product spec, decision, spec assertion, implementation fact, or operator statement.    |
+| Status             | Active, parked, or unresolved.                                                         |
+
+</classification_output>
 
 <banned_receiver_language>
 
@@ -54,19 +166,22 @@ These phrases are too vague to appear as receivers:
 - provider behavior
 - semantic owner
 - lower target area
-- move to spec-tree or persistence or verification, when used as an unresolved multi-target receiver instead of a concrete receiver row with role, owned behavior, and evidence
+- move to spec-tree or persistence or verification, when used as an unresolved multi-target receiver instead of a concrete receiver row with kind, owned behavior, and evidence
 - shared logic
 - common layer
 - materialization, except when quoted as current inventory or when explaining the rename to backend
+- enablers bucket, domains bucket, interfaces bucket, surfaces bucket, or any other role-named wrapper directory
 
-Replace each phrase with a named role, receiver, and owned behavior list.
+Replace each phrase with a product-named receiver carrying one of the six kind suffixes.
 
 </banned_receiver_language>
 
 <success_criteria>
 
-- [ ] Every behavior has one role classification or is marked unresolved.
-- [ ] Receiver names are concrete target destinations classified by role, not bare roles or current holding paths.
-- [ ] Outcome bet, persistence, delivery, backend, and node state remain separate in every row.
+- [ ] Every behavior is classified by the ordered six-kind decision procedure or marked unresolved.
+- [ ] Receiver names are product-named target nodes with kind suffixes, not bare roles, buckets, or current holding paths.
+- [ ] Outcome, persistence, delivery, backend, node state, maturity, and status-claim concerns remain separate in every row.
+- [ ] Containment is valid for every parent/child projection.
+- [ ] No `.outcome` row carries locally verifiable assertions or maturity.
 
 </success_criteria>
