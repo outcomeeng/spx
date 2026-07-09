@@ -1,6 +1,6 @@
 # Issues: State
 
-## FOLLOW-UP — STATE_STORE_DOMAIN may retire entirely once compact and test adopt opaque-token scopes
+## DEBT — STATE_STORE_DOMAIN may retire entirely once compact and test adopt opaque-token scopes
 
 The verification restructure removed the `audit` and `review` entries from
 `STATE_STORE_DOMAIN` (`src/lib/state-store/index.ts`): the journal channel takes

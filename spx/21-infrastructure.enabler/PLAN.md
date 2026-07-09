@@ -8,6 +8,16 @@ Before applying this plan to agent-run journal generators, hook/session helpers,
 
 This coordination note records the infrastructure part of the root migration plan.
 
+## Git utility consolidation consumer note
+
+The provider plan for shared git utility placement lives in
+`spx/18-state.enabler/PLAN.md#git-utility-consolidation-queued` because
+`spx/18-state.enabler` is lower than infrastructure and already owns the
+product-root, worktree-topology, default-branch, and injected git-runner
+contracts. Infrastructure consumers such as precommit should consume that
+provider instead of keeping imports from `src/git/*` or command-local git
+plumbing.
+
 ## Ownership target
 
 Infrastructure should own runtime and operational mechanics. External Outcome Engineering methodology owns shared methodology vocabulary; SPX will consume that vocabulary through structured configuration and context injection once that support exists.
