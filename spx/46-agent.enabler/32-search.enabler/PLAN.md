@@ -74,7 +74,10 @@ Command-sequence search is feasible when it is treated as bounded forensic evide
 - `src/domains/agent/search/query.ts` owns query construction and pickup marker literals.
 - `src/domains/agent/search/results.ts` owns result collection, selector matching, product-scope filtering, and sorting.
 - `src/domains/agent/search/render.ts` owns JSON and text rendering.
-- `src/domains/agent/search/branch-association.ts` owns branch-association predicates, top-level and subagent association precomputation, and transcript command-evidence parsing.
+- `src/domains/agent/search/branch-association.ts` owns branch-association predicates plus top-level and subagent association precomputation.
+- `src/domains/agent/search/transcript-command-evidence.ts` owns structured transcript command extraction and success evidence checks.
+- `src/domains/agent/search/git-branch-evidence.ts` owns git branch command recognition, git option parsing, and rejection of commands whose git context changes cannot be scoped.
+- `src/domains/agent/search/shell-command.ts` owns bounded shell tokenization, wrapper extraction, redirection stripping, and success-proving shell segment selection.
 - `src/commands/agent/search.ts` resolves branch-associated worktree roots and passes them into the pure search domain as data.
 
 ### Verification
