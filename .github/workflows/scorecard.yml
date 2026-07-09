@@ -13,7 +13,12 @@ permissions: {}
 jobs:
   scorecard:
     name: OpenSSF Scorecard
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # Pinned to a GitHub-hosted runner, deliberately outside the RUNNER_X2 /
+    # RUNNER_X4 switch. ossf/scorecard-action requires an Ubuntu hosted runner
+    # when publish_results is true: it signs the result with the job's OIDC
+    # token, and the OpenSSF API rejects tokens minted on self-hosted runners.
+    # Do not route this job through the variables.
+    runs-on: ubuntu-latest
     permissions:
       security-events: write # Upload SARIF to Security tab
       id-token: write # Sigstore attestation
