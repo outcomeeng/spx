@@ -1,35 +1,59 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { Options, SDKMessage, SDKResultMessage, SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentRunner, AgentRunRequest } from "./agent-runner";
+import { AGENT_PERMISSION_MODES } from "./agent-runner";
+import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "./agent-runner";
 
-export class ClaudeAgentRunner implements AgentRunner {
+export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
   async run(request: AgentRunRequest): Promise<void> {
-    let result: SDKResultMessage | undefined;
-    for await (
-      const message of query({
-        prompt: request.prompt,
-        options: {
-          cwd: request.workingDirectory,
-          settingSources: [],
-          tools: [...request.tools],
-          allowedTools: [...request.allowedTools],
-          permissionMode: request.permissionMode,
-          maxTurns: request.maxTurns,
-        },
-      })
-    ) {
-      if (isResultMessage(message)) {
-        result = message;
-      }
-    }
-    if (result === undefined) {
-      throw new Error("Claude agent run completed without a result message");
-    }
-    if (result.subtype !== "success") {
-      throw new Error(`Claude agent run failed: ${result.errors.join("; ")}`);
+    await runClaudeQuery(
+      request.prompt,
+      {
+        cwd: request.workingDirectory,
+        settingSources: [],
+        tools: [...request.tools],
+        allowedTools: [...request.allowedTools],
+        permissionMode: request.permissionMode,
+        maxTurns: request.maxTurns,
+      },
+    );
+  }
+
+  async audit(request: AgentAuditRequest): Promise<string> {
+    const result = await runClaudeQuery(
+      request.prompt,
+      {
+        cwd: request.workingDirectory,
+        settingSources: [],
+        tools: [],
+        allowedTools: [],
+        permissionMode: AGENT_PERMISSION_MODES.DONT_ASK,
+        maxTurns: request.maxTurns,
+      },
+    );
+    return result.result;
+  }
+}
+
+async function runClaudeQuery(prompt: string, options: Options): Promise<SDKResultSuccess> {
+  let result: SDKResultMessage | undefined;
+  for await (
+    const message of query({
+      prompt,
+      options,
+    })
+  ) {
+    if (isResultMessage(message)) {
+      result = message;
     }
   }
+  if (result === undefined) {
+    throw new Error("Claude agent run completed without a result message");
+  }
+  if (result.subtype !== "success") {
+    throw new Error(`Claude agent run failed: ${result.errors.join("; ")}`);
+  }
+  return result;
 }
 
 function isResultMessage(message: SDKMessage): message is SDKResultMessage {

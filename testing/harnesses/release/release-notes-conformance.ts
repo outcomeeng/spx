@@ -24,6 +24,7 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
+  approvingReleaseNotesFaithfulnessAuditor,
   expectRejectedReleaseNotesReadBack,
   rejectChangelogWithDuplicateCurrentVersion,
   rejectChangelogWithH1BoundaryBeforeChangeGroup,
@@ -60,6 +61,7 @@ async function composeCase(env: ReleaseNotesEnv, { releaseData, content }: Relea
       readArtifact: env.readArtifact,
       createArtifactStage: env.createArtifactStage,
       promoteArtifact: env.promoteArtifact,
+      faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
       canonicalizePath: env.canonicalizePath,
       isSymbolicLink: env.isSymbolicLink,
       isFile: env.isFile,
