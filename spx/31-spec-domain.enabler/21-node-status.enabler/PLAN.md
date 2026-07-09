@@ -41,3 +41,18 @@ Spec-domain should consume spec-tree status operations and render the result for
 ## Next action
 
 Do not add more implementation under this node until the provider and backend nodes exist. Use this node only to guide migration and to remove consumer-owned business logic.
+
+## Claim-side of the test verification recording program
+
+The full, all-slice plan lives in `spx/34-verification.enabler/PLAN.md` ("Program: test verification recording and claim"). This node owns the claim-side work; the summary below is its share, reconciled against this node's evacuation intent above (the authored-status contract may ultimately land in the future backend/spec-tree home, not here).
+
+**Slice 1 (additive fold).** `spx spec status --update` gains a fold-from-snapshot path beside the existing path: it reads the latest snapshot the snapshot store (`spx/18-state.enabler/71-snapshot-store.enabler`, per that program plan) records for a node and folds real per-reference outcomes into `spx.status.json`, mapping test file → node via existing spec-tree evidence references. It **executes nothing** — the relic where `--update` re-runs per-node tests (`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`) is what this replaces.
+
+**Slice 2 (authored lifecycle status; retire `spx/EXCLUDE`).**
+
+- `spx.status.json` carries an **authored** lifecycle field (`declared`/`specified`) beside the machine-folded per-reference evidence outcomes: the author owns the lifecycle intent; `--update` owns the evidence.
+- `--update` folds evidence but **never overwrites the authored lifecycle status**; a `specified` node stays `specified` when evidence is absent or failing, never downgraded to `failing`.
+- The verification run and discovery **skip** nodes authored `declared`/`specified` — no wasted discovery, no failing record for absent implementations.
+- CI honors the authored status: `declared`/`specified` nodes are not run and pass the gate; CI reproduces/refutes only nodes whose authored status expects passing.
+- **`spx/EXCLUDE` is removed** — the per-node claim scopes the gate in its own committed record.
+- Governed by `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` and `spx/31-spec-domain.enabler/21-node-status.enabler/21-node-status-architecture.adr.md`; the `CLAUDE.md` no-hand-edit rule updates so the lifecycle field is authorable while `passed`/`failed`/`not-run` evidence values stay machine-only.
