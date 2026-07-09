@@ -21,6 +21,7 @@ export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-
 interface ReleaseNotesEnvOptions {
   readonly beforeArtifactRead?: (path: string) => Promise<void>;
   readonly beforeDirectoryCreate?: (path: string) => Promise<void>;
+  readonly beforeArtifactPromotionOpen?: (path: string) => Promise<void>;
   readonly beforeArtifactPromotion?: (path: string) => Promise<void>;
   readonly beforeFinalArtifactWrite?: (path: string) => Promise<void>;
   readonly beforeStageArtifactRead?: (path: string) => Promise<void>;
@@ -64,6 +65,7 @@ export async function withReleaseNotesEnv(
     const filesystem = createReleaseNotesFilesystem({
       beforeArtifactRead: options.beforeArtifactRead,
       beforeDirectoryCreate: options.beforeDirectoryCreate,
+      beforeArtifactPromotionOpen: options.beforeArtifactPromotionOpen,
       beforeArtifactPromotion: options.beforeArtifactPromotion,
       beforeFinalArtifactWrite: options.beforeFinalArtifactWrite,
       beforeStageArtifactRead: options.beforeStageArtifactRead,

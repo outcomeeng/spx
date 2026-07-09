@@ -41,6 +41,7 @@ export interface ReleaseNotesFilesystem {
 export interface ReleaseNotesFilesystemOptions {
   readonly beforeArtifactRead?: (path: string) => Promise<void>;
   readonly beforeDirectoryCreate?: (path: string) => Promise<void>;
+  readonly beforeArtifactPromotionOpen?: (path: string) => Promise<void>;
   readonly beforeArtifactPromotion?: (path: string) => Promise<void>;
   readonly beforeFinalArtifactWrite?: (path: string) => Promise<void>;
   readonly beforeStageArtifactRead?: (path: string) => Promise<void>;
@@ -152,6 +153,9 @@ async function promoteIntoVerifiedDirectory(
   const directoryHandle = await openVerifiedDirectory(targetDirectory, RETARGETED_PROMOTION_ERROR);
   let artifactHandle: FileHandle | undefined;
   try {
+    await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
+    await assertPromotionTargetStillMatches(targetCanonicalPath);
+    await options.beforeArtifactPromotionOpen?.(targetCanonicalPath);
     await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
     await assertPromotionTargetStillMatches(targetCanonicalPath);
     artifactHandle = await openWritableArtifact(targetCanonicalPath, RETARGETED_PROMOTION_ERROR);
