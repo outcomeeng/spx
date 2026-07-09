@@ -16,7 +16,7 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 
 ### Mappings
 
-- `--pickup-id <id>` maps to an exact content search for `<PICKUP_ID><id></PICKUP_ID>`, `--contains <literal>` maps to a literal transcript content search, `--session-id <id>` maps to agent session metadata, `--branch <name>` maps to branch association from transcript branch metadata across agent-native stores, same-product worktree checkout roots, and accepted transcript command evidence, `--agent <kind>` maps to the selected agent adapter set, `--limit <n>` maps to the maximum result count, and `--all` maps to removal of the recent-session time bound ([test](tests/search.mapping.l1.test.ts))
+- `--pickup-id <id>` maps to an exact content search for `<PICKUP_ID><id></PICKUP_ID>`, `--contains <literal>` maps to a literal transcript content search, `--session-id <id>` maps to agent session metadata, `--branch <name>` maps to branch association from transcript branch metadata across agent-native stores, same-product worktree checkout roots, accepted transcript command evidence, and Codex subagent transcript branch evidence attributed to the parent top-level session, `--agent <kind>` maps to the selected agent adapter set, `--limit <n>` maps to the maximum result count, and `--all` maps to removal of the recent-session time bound ([test](tests/search.mapping.l1.test.ts))
 
 ### Compliance
 

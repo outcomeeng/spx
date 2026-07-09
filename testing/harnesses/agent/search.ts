@@ -17,7 +17,6 @@ import {
   AGENT_SESSION_ROW_TYPE,
   AGENT_TRANSCRIPT_CODEX_OUTPUT,
   AGENT_TRANSCRIPT_CONTENT_TYPE,
-  AGENT_TRANSCRIPT_GIT_COMMAND,
   AGENT_TRANSCRIPT_PAYLOAD_TYPE,
   AGENT_TRANSCRIPT_TOOL_NAME,
 } from "@/domains/agent/protocol";
@@ -58,6 +57,13 @@ import {
   arbitraryUnsafeAgentSearchLimit,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+import {
+  AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE,
+  agentSearchBranchCommandEvidenceCases,
+  agentSearchSwitchCommand,
+  agentSearchSwitchCreateCommand,
+  agentSearchWorktreeResetAddCommand,
+} from "@testing/generators/agent/search";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 import {
@@ -117,6 +123,8 @@ const SEARCH_SAMPLE = {
   UNSAFE_LIMIT: 41,
   PARTIAL_LIMIT_CWD: 42,
   PARTIAL_LIMIT: 43,
+  MAPPING_LIMIT_FIXTURE: 44,
+  MAPPING_ALL_FIXTURE: 47,
   COMPLIANCE_HOME_DIR: 70,
   COMPLIANCE_PRODUCT_SCOPE_ROOT: 71,
   COMPLIANCE_FOREIGN_ROOT: 72,
@@ -215,6 +223,7 @@ const SEARCH_SAMPLE = {
   STALE_BRANCH_EVIDENCE_COMMAND_SUBAGENT_TRANSCRIPT_ID: 194,
   STALE_BRANCH_EVIDENCE_FUTURE_SESSION_ID: 195,
   STALE_BRANCH_EVIDENCE_FUTURE_TRANSCRIPT_ID: 196,
+  STALE_BRANCH_EVIDENCE_OUTSIDE_SUBAGENT_TRANSCRIPT_ID: 197,
   BRANCH_METADATA_HOME_DIR: 155,
   BRANCH_METADATA_PRODUCT_SCOPE_ROOT: 156,
   BRANCH_METADATA_CWD: 157,
@@ -222,6 +231,8 @@ const SEARCH_SAMPLE = {
   BRANCH_METADATA_TARGET_BRANCH: 159,
   BRANCH_METADATA_OTHER_BRANCH: 160,
   BRANCH_METADATA_SESSION_ID: 161,
+  BRANCH_METADATA_CLAUDE_CWD: 173,
+  BRANCH_METADATA_CLAUDE_SESSION_ID: 174,
   BRANCH_METADATA_FOREIGN_ROOT: 170,
   BRANCH_METADATA_FOREIGN_CWD: 171,
   BRANCH_METADATA_FOREIGN_SESSION_ID: 172,
@@ -240,39 +251,6 @@ const SEARCH_SAMPLE = {
   MAPPING_CONTAINS: 1,
   MAPPING_SESSION_ID: 2,
   MAPPING_BRANCH: 3,
-} as const;
-
-const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
-  START_POINT: "origin/main",
-  WORKTREE_ADD_PATH: "../branch-worktree",
-  SHELL_CD_PATH: "../repo",
-  GIT_CONFIG_ASSIGNMENT: "protocol.version=2",
-  SHELL_ENV_ASSIGNMENT: "SPX_BRANCH_SEARCH=1",
-  SHELL_AMPERSAND: "&",
-  SHELL_SEQUENCE: ";",
-  SHELL_PIPE: "|",
-  SHELL_OR: "||",
-  SHELL_COMMAND_WRAPPER: "command",
-  SHELL_SUDO_WRAPPER: "sudo",
-  SHELL_FALSE_COMMAND: "false",
-  SHELL_BOURNE_WRAPPER: "sh",
-  SHELL_BASH_WRAPPER: "bash",
-  SHELL_COMMAND_STRING_FLAG: "-c",
-  SHELL_LOGIN_COMMAND_STRING_FLAG: "-lc",
-  SHELL_DONE_MARKER: "done",
-  SHELL_TEE_COMMAND: "tee",
-  SHELL_TEE_PATH: "branch-search.log",
-  SHELL_REDIRECT_PATH: "/dev/null",
-  CODEX_CALL_ID: "call_agent_search_branch_command",
-  CLAUDE_TOOL_USE_ID: "toolu_agent_search_branch_command",
-  UNSUPPORTED_TRACK_MODE_FLAG: "--track=bogus",
-  LOCK_REASON: "agent-search-branch-lock",
-  SUBMODULE_CHECKOUT_MODE: "on-demand",
-  CONFLICT_STYLE: "zdiff3",
-  GIT_DIR_PATH: "../repo/.git",
-  GIT_WORK_TREE_PATH: "../repo",
-  GIT_NAMESPACE: "agent-search",
-  GIT_CONFIG_ENV: "protocol.version=SPX_PROTOCOL_VERSION",
 } as const;
 
 function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT): SearchFixture {
@@ -715,9 +693,7 @@ export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEviden
     cwd,
     timestamp,
     branch: otherBranch,
-    marker: codexExecCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${targetBranch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-    ),
+    marker: codexExecCommandRows(agentSearchSwitchCreateCommand(targetBranch)),
     modifiedAtMs: nowMs,
   });
   writeClaudeProjectTranscriptFile(fs, homeDir, {
@@ -725,9 +701,7 @@ export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEviden
     cwd,
     timestamp,
     branch: otherBranch,
-    marker: claudeBashCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${targetBranch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-    ),
+    marker: claudeBashCommandRows(agentSearchWorktreeResetAddCommand(targetBranch)),
     modifiedAtMs: nowMs - 1,
   });
 
@@ -832,455 +806,8 @@ export function assertAgentSearchOptionMappings(): void {
 
 export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
-  const impliedWorktreeBranch = branch.split("/").at(-1) ?? branch;
-  const shellAnd =
-    `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_AMPERSAND}${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_AMPERSAND}`;
-  const commandCases: Array<{
-    readonly command: string;
-    readonly expected: boolean;
-    readonly branch?: string;
-  }> = [
-    {
-      command: `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_CONFIG_ASSIGNMENT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_DIR_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_WORK_TREE_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_DIR_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_WORK_TREE_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.NAMESPACE}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_NAMESPACE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG_ENV} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.GIT_CONFIG_ENV} ${AGENT_TRANSCRIPT_GIT_COMMAND.NO_OPTIONAL_LOCKS} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `env ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_ENV_ASSIGNMENT} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_ENV_ASSIGNMENT} env ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `cd ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH}${shellAnd}${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_FALSE_COMMAND} ${shellAnd} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_PIPE}${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_TEE_COMMAND} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_TEE_PATH}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} > ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_REDIRECT_PATH}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_AMPERSAND} echo ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_DONE_MARKER}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_OR} echo ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_DONE_MARKER}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_SEQUENCE} echo ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_DONE_MARKER}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_BOURNE_WRAPPER} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_COMMAND_STRING_FLAG} '${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}'`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_BASH_WRAPPER} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_LOGIN_COMMAND_STRING_FLAG} '${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}'`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_COMMAND_WRAPPER} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_SUDO_WRAPPER} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK} origin/${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} origin/${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.UNSUPPORTED_TRACK_MODE_FLAG} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.REASON} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.LOCK_REASON} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.MERGE} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SUBMODULE_CHECKOUT_MODE} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT}=${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CONFLICT_STYLE} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG}=${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG}${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG}=${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN}=${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG}=`,
-      expected: false,
-    },
-    {
-      command: `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: false,
-    },
-    {
-      command: `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} -p ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT}${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.UNSUPPORTED_TRACK_MODE_FLAG} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CONFLICT_STYLE} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT}${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN}=${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch} ${shellAnd} echo ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_DONE_MARKER}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT}${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.LOCK} ${AGENT_TRANSCRIPT_GIT_COMMAND.REASON} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.LOCK_REASON} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.LOCK} ${AGENT_TRANSCRIPT_GIT_COMMAND.REASON} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT}${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
-      expected: true,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ../${impliedWorktreeBranch}`,
-      expected: true,
-      branch: impliedWorktreeBranch,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.WORKTREE_ADD_PATH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.DETACH} ${branch}`,
-      expected: false,
-    },
-    {
-      command:
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE} ${AGENT_TRANSCRIPT_GIT_COMMAND.ADD} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
-      expected: false,
-    },
-    { command: `echo ${branch}`, expected: false },
-    {
-      command: `echo ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      expected: false,
-    },
-  ];
 
-  for (const testCase of commandCases) {
+  for (const testCase of agentSearchBranchCommandEvidenceCases(branch)) {
     expect(transcriptHasAcceptedBranchCommand(
       codexExecCommandRows(testCase.command),
       testCase.branch ?? branch,
@@ -1289,12 +816,8 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
 
   for (
     const failedRows of [
-      failedCodexExecCommandRows(
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      ),
-      failedClaudeBashCommandRows(
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      ),
+      failedCodexExecCommandRows(agentSearchSwitchCommand(branch)),
+      failedClaudeBashCommandRows(agentSearchSwitchCommand(branch)),
     ]
   ) {
     expect(transcriptHasAcceptedBranchCommand(failedRows, branch)).toBe(false);
@@ -1302,16 +825,88 @@ export function assertAgentSearchBranchCommandEvidenceMappings(): void {
 
   for (
     const incompleteRows of [
-      codexExecFunctionCallRow(
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      ),
-      claudeBashToolUseRow(
-        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
-      ),
+      codexExecFunctionCallRow(agentSearchSwitchCommand(branch)),
+      claudeBashToolUseRow(agentSearchSwitchCommand(branch)),
     ]
   ) {
     expect(transcriptHasAcceptedBranchCommand(incompleteRows, branch)).toBe(false);
   }
+}
+
+export async function assertAgentSearchBranchAssociationSignalMappings(): Promise<void> {
+  await assertAgentSearchIncludesTranscriptMetadataBranchAssociation();
+  await assertAgentSearchIncludesWorktreeRootBranchAssociation();
+  await assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence();
+  await assertAgentSearchExcludesSubagentsFromBranchAssociatedResults();
+}
+
+export async function assertAgentSearchOptionBehaviorMappings(): Promise<void> {
+  await assertAgentSearchAppliesExplicitLimit();
+  await assertAgentSearchAllIncludesOlderScopedSessions();
+}
+
+async function assertAgentSearchAppliesExplicitLimit(): Promise<void> {
+  const fixture = searchFixture(SEARCH_SAMPLE.MAPPING_LIMIT_FIXTURE);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), SEARCH_SAMPLE.LIMIT_CWD);
+  const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), SEARCH_SAMPLE.PICKUP_ID);
+  const marker = pickupIdSearchLiteral(pickupId);
+  const explicitLimit = AGENT_SEARCH_DEFAULT_LIMIT + 1;
+  const sessionCount = explicitLimit + 1;
+  const matchingSessionIds = Array.from(
+    { length: sessionCount },
+    (_value, index) => sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CODEX_SESSION_ID + index),
+  );
+
+  for (const [index, sessionId] of matchingSessionIds.entries()) {
+    const modifiedAtMs = fixture.nowMs - index;
+    writeCodexTranscriptFile(fixture.fs, fixture.homeDir, {
+      sessionId,
+      cwd,
+      timestamp: new Date(modifiedAtMs).toISOString(),
+      marker,
+      modifiedAtMs,
+    });
+  }
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(fixture.homeDir),
+    nowMs: fixture.nowMs,
+    productScopeRoot: fixture.productScopeRoot,
+    fs: fixture.fs,
+    query: agentSearchQueryFromOptions({ pickupId, limit: explicitLimit }),
+  });
+
+  expect(results.map((result) => result.sessionId)).toEqual(matchingSessionIds.slice(0, explicitLimit));
+}
+
+async function assertAgentSearchAllIncludesOlderScopedSessions(): Promise<void> {
+  const fixture = searchFixture(SEARCH_SAMPLE.MAPPING_ALL_FIXTURE);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), SEARCH_SAMPLE.CODEX_CWD);
+  const recentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CODEX_SESSION_ID);
+  const staleSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.COMPLIANCE_STALE_SESSION_ID);
+
+  writeCodexTranscriptFile(fixture.fs, fixture.homeDir, {
+    sessionId: recentSessionId,
+    cwd,
+    timestamp: fixture.timestamp,
+    modifiedAtMs: fixture.nowMs,
+  });
+  writeCodexTranscriptFile(fixture.fs, fixture.homeDir, {
+    sessionId: staleSessionId,
+    cwd,
+    timestamp: new Date(0).toISOString(),
+    modifiedAtMs: 0,
+  });
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(fixture.homeDir),
+    nowMs: fixture.nowMs,
+    productScopeRoot: fixture.productScopeRoot,
+    fs: fixture.fs,
+    query: agentSearchQueryFromOptions({ all: true }),
+  });
+
+  expect(results.map((result) => result.sessionId)).toEqual([recentSessionId, staleSessionId]);
 }
 
 export function assertAgentSearchDefaultsToRecentBoundedAllAgentSearch(): void {
@@ -1718,6 +1313,10 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
     arbitraryAgentSessionCwd(productScopeRoot),
     SEARCH_SAMPLE.BRANCH_METADATA_CWD,
   );
+  const claudeCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(productScopeRoot),
+    SEARCH_SAMPLE.BRANCH_METADATA_CLAUDE_CWD,
+  );
   const foreignRoot = sampleAgentResumeValue(
     arbitraryAgentWorktreeRoot(),
     SEARCH_SAMPLE.BRANCH_METADATA_FOREIGN_ROOT,
@@ -1735,6 +1334,10 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
   const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.BRANCH_METADATA_TARGET_BRANCH);
   const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.BRANCH_METADATA_OTHER_BRANCH);
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.BRANCH_METADATA_SESSION_ID);
+  const claudeSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.BRANCH_METADATA_CLAUDE_SESSION_ID,
+  );
   const subagentTranscriptId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
     SEARCH_SAMPLE.BRANCH_METADATA_SUBAGENT_TRANSCRIPT_ID,
@@ -1750,6 +1353,13 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
     timestamp,
     branch: targetBranch,
     modifiedAtMs: nowMs,
+  });
+  writeClaudeProjectTranscriptFile(fs, homeDir, {
+    sessionId: claudeSessionId,
+    cwd: claudeCwd,
+    timestamp,
+    branch: targetBranch,
+    modifiedAtMs: nowMs - 3,
   });
   writeCodexSubagentTranscriptFile(fs, homeDir, {
     sessionId,
@@ -1786,8 +1396,9 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
 
   expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
     [sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+    [claudeSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
-  expect(results.map((result) => result.cwd)).toEqual([cwd]);
+  expect(results.map((result) => result.cwd)).toEqual([cwd, claudeCwd]);
   expect(results.map((result) => result.sessionId)).not.toContain(foreignSessionId);
   expect(wrongBranchResults).toEqual([]);
 }
@@ -1896,9 +1507,7 @@ export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResu
     cwd: evidenceCwd,
     timestamp,
     branch: targetBranch,
-    marker: codexExecCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
-    ),
+    marker: codexExecCommandRows(agentSearchSwitchCommand(targetBranch)),
     modifiedAtMs: nowMs,
   });
 
@@ -1992,9 +1601,7 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     cwd,
     timestamp: staleTimestamp,
     branch: otherBranch,
-    marker: codexExecCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
-    ),
+    marker: codexExecCommandRows(agentSearchSwitchCommand(targetBranch)),
     modifiedAtMs: 0,
   });
   writeCodexSubagentTranscriptFile(fs, homeDir, {
@@ -2036,9 +1643,18 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     cwd: outsideCwd,
     timestamp: staleTimestamp,
     branch: otherBranch,
-    marker: codexExecCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
+    marker: codexExecCommandRows(agentSearchSwitchCommand(targetBranch)),
+    modifiedAtMs: 0,
+  });
+  writeCodexSubagentTranscriptFile(fs, homeDir, {
+    sessionId: outsideSessionId,
+    transcriptId: sampleAgentResumeValue(
+      arbitraryAgentSessionId(),
+      SEARCH_SAMPLE.STALE_BRANCH_EVIDENCE_OUTSIDE_SUBAGENT_TRANSCRIPT_ID,
     ),
+    cwd: outsideCwd,
+    timestamp: staleTimestamp,
+    branch: targetBranch,
     modifiedAtMs: 0,
   });
   writeCodexTranscriptFile(fs, homeDir, {
@@ -2054,9 +1670,7 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     cwd,
     timestamp,
     branch: otherBranch,
-    marker: codexExecCommandRows(
-      `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${targetBranch}`,
-    ),
+    marker: codexExecCommandRows(agentSearchSwitchCommand(targetBranch)),
     modifiedAtMs: nowMs + 1,
   });
 
@@ -2085,8 +1699,8 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
       otherBranch,
       [AGENT_SEARCH_MATCH_REASON.BRANCH],
     ],
-    [outsideSessionId, cwd, expect.any(String), nowMs - 2, otherBranch, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
   ]);
+  expect(results.map((result) => result.sessionId)).not.toContain(outsideSessionId);
   expect(results.map((result) => result.sessionId)).not.toContain(futureSessionId);
 }
 

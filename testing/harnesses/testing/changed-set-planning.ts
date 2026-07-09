@@ -793,7 +793,7 @@ export function registerChangedSetPlanningScenarioTests(): void {
       await expectStagedTypeScriptPlan(git, [paths.testPath]);
     });
 
-    it("keeps walking changed helper imports to resolve transitive source files", async () => {
+    it("keeps walking direct changed helper hits to resolve transitive source files", async () => {
       const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.aliasFixture());
       const harness = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.harnessAliasFixture());
       const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());

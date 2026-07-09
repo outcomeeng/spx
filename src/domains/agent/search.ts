@@ -166,12 +166,17 @@ async function searchAgentStore(
       options.fs,
       acceptsClaudeDir,
     );
-  const allFiles = await storeFiles(paths, options.fs, options.nowMs, true);
-  const files = options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs);
-  const branchEvidenceFiles = nonFutureStoreFiles(allFiles, options.nowMs);
   const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
-  const branchAssociatedSessionIds = await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser);
-  const subagentBranchAssociations = agent === AGENT_SESSION_KIND.CODEX
+  const needsBranchEvidence = options.query.branch !== null;
+  const allFiles = needsBranchEvidence ? await storeFiles(paths, options.fs, options.nowMs, true) : [];
+  const files = needsBranchEvidence
+    ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs)
+    : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
+  const branchEvidenceFiles = needsBranchEvidence ? nonFutureStoreFiles(allFiles, options.nowMs) : [];
+  const branchAssociatedSessionIds = needsBranchEvidence
+    ? await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser)
+    : new Set<string>();
+  const subagentBranchAssociations = needsBranchEvidence && agent === AGENT_SESSION_KIND.CODEX
     ? await collectCodexSubagentBranchAssociations(branchEvidenceFiles, options)
     : new Map<string, CodexSubagentBranchAssociation>();
   return collectMatchingSessions(agent, files, options, parser, branchAssociatedSessionIds, subagentBranchAssociations);
@@ -362,7 +367,12 @@ async function collectTopLevelBranchAssociations(
       continue;
     }
     const core = parseHead(head);
-    if (core === null || !core.interactive || core.subagent) {
+    if (
+      core === null
+      || !core.interactive
+      || core.subagent
+      || !coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? [])
+    ) {
       continue;
     }
     if (core.branch === branch) {
@@ -392,7 +402,11 @@ async function collectCodexSubagentBranchAssociations(
       continue;
     }
     const core = parseCodexHead(head);
-    if (core === null || !core.subagent) {
+    if (
+      core === null
+      || !core.subagent
+      || !coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? [])
+    ) {
       continue;
     }
     const branchMetadataMatches = core.branch === branch;
@@ -719,14 +733,7 @@ function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: 
   if (parsed.positionals.length === 2) {
     return parsed.positionals[1] === branch;
   }
-  return parsed.positionals.length === 1 && impliedWorktreeBranchName(parsed.positionals[0]) === branch;
-}
-
-function impliedWorktreeBranchName(path: string): string | null {
-  const trimmed = path.replace(/[\\/]+$/u, "");
-  const lastSeparator = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-  const basename = trimmed.slice(lastSeparator + 1);
-  return basename.length > 0 && basename !== "." && basename !== ".." ? basename : null;
+  return false;
 }
 
 interface ParsedGitBranchArgs {
