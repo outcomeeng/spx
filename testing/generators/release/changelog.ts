@@ -62,6 +62,7 @@ const MALFORMED_FENCE_TAIL = "note";
 const ORACLE_MARKDOWN_LIST_ITEM = "- release summary";
 const ORACLE_MARKDOWN_TAB_PADDED_LIST_ITEM = `-${ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR}release summary`;
 const ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT = "  ";
+const ORACLE_CHANGELOG_POST_REFERENCE_ENTRY = "- follow-up historical note";
 
 const CHANGELOG_DIR_PATTERN = /^[a-z][a-z0-9-]{2,8}$/;
 const CHANGELOG_BASENAME_PATTERN = /^[A-Z][A-Z0-9-]{2,10}$/;
@@ -240,6 +241,70 @@ export function changelogWithPrependedReleaseAndFooterReferences(
     changelogReferenceDefinition(currentVersion),
     changelogReferenceDefinition(priorVersion),
     BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+function changelogVersionSectionWithInSectionReference(
+  version: string,
+  subjects: readonly string[],
+): readonly string[] {
+  return [
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    changelogReferenceDefinition(version),
+    ORACLE_CHANGELOG_POST_REFERENCE_ENTRY,
+    BLANK_LINE,
+  ];
+}
+
+function truncatedChangelogVersionSectionAfterInSectionReference(
+  version: string,
+  subjects: readonly string[],
+): readonly string[] {
+  return [
+    oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    changelogReferenceDefinition(version),
+    BLANK_LINE,
+  ];
+}
+
+export function changelogWithInSectionReferenceDefinition(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSectionWithInSectionReference(version, subjects),
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithPrependedReleaseAndTruncatedInSectionReference(
+  currentVersion: string,
+  priorVersion: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(currentVersion, subjects),
+    ...truncatedChangelogVersionSectionAfterInSectionReference(priorVersion, subjects),
+  ].join(LINE_SEPARATOR);
+}
+
+export function changelogWithPrependedReleaseAndInSectionReference(
+  currentVersion: string,
+  priorVersion: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    ...changelogVersionSection(currentVersion, subjects),
+    ...changelogVersionSectionWithInSectionReference(priorVersion, subjects),
   ].join(LINE_SEPARATOR);
 }
 
