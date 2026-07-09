@@ -1054,6 +1054,80 @@ export function registerReleaseNotesComplianceTests(): void {
       );
     });
 
+    it("rejects an ancestor directory swap before final promotion opens the target", async () => {
+      let targetPathToSwap: string | undefined;
+      let actualDirectoryToSwap: string | undefined;
+      let outsideDirectoryToSwap: string | undefined;
+      let promotionOpenAttempted = false;
+
+      await withReleaseNotesEnv(
+        async (env) => {
+          const { readArtifact, canonicalizePath } = env;
+          await withTempDir(
+            RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
+            async (outsideDirectory) => {
+              await withSymlinkedReleaseNotesFixture(
+                env,
+                outsideDirectory,
+                async ({
+                  releaseData,
+                  config,
+                  agentRunner,
+                  actualDirectory,
+                  canonicalArtifactPath,
+                  outsideArtifactPath,
+                }) => {
+                  const outsideCanonicalPath = await canonicalizePath(outsideArtifactPath);
+                  if (outsideCanonicalPath === undefined) {
+                    throw new Error("Outside artifact path cannot be canonicalized");
+                  }
+                  const outsideOriginalContent = await readArtifact(
+                    outsideArtifactPath,
+                    outsideCanonicalPath,
+                  );
+                  targetPathToSwap = canonicalArtifactPath;
+                  actualDirectoryToSwap = actualDirectory;
+                  outsideDirectoryToSwap = outsideDirectory;
+
+                  await expect(
+                    composeReleaseNotesInEnv(env, {
+                      releaseData,
+                      config,
+                      agentRunner,
+                    }),
+                  ).rejects.toThrow(ReleaseNotesError);
+
+                  expect(promotionOpenAttempted).toBe(true);
+                  expect(await canonicalizePath(canonicalArtifactPath)).toBe(
+                    outsideCanonicalPath,
+                  );
+                  expect(
+                    await readArtifact(outsideArtifactPath, outsideCanonicalPath),
+                  ).toBe(outsideOriginalContent);
+                },
+              );
+            },
+          );
+        },
+        {
+          beforeArtifactPromotionOpen: async (path) => {
+            if (path === targetPathToSwap) {
+              promotionOpenAttempted = true;
+              if (actualDirectoryToSwap === undefined || outsideDirectoryToSwap === undefined) {
+                throw new Error("Release-notes promotion-open swap fixture is incomplete");
+              }
+              await rm(actualDirectoryToSwap, { recursive: true });
+              await symlink(
+                outsideDirectoryToSwap,
+                actualDirectoryToSwap,
+                RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+              );
+            }
+          },
+        },
+      );
+    });
+
     it("rejects an ancestor directory swap before final promotion writes", async () => {
       let targetPathToSwap: string | undefined;
       let actualDirectoryToSwap: string | undefined;

@@ -11,6 +11,7 @@ export class ClaudeAgentRunner implements AgentRunner {
         prompt: request.prompt,
         options: {
           cwd: request.workingDirectory,
+          settingSources: [],
           tools: [...request.tools],
           allowedTools: [...request.allowedTools],
           permissionMode: request.permissionMode,
