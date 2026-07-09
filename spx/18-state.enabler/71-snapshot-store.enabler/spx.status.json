@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.compliance.l1.test.ts": "passed",
+      "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.scenario.l1.test.ts": "passed"
+    }
+  }
+}
