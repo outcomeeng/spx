@@ -1,12 +1,7 @@
-import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
-import type { AgentHomeDirs } from "./home";
 import {
   AGENT_RESUME_LIMITS,
-  AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
-  AGENT_SESSION_KIND,
-  AGENT_SESSION_LABEL,
   AGENT_SESSION_ROW_TYPE,
   AGENT_TRANSCRIPT_CODEX_OUTPUT,
   AGENT_TRANSCRIPT_CONTENT_TYPE,
@@ -14,350 +9,60 @@ import {
   AGENT_TRANSCRIPT_PAYLOAD_TYPE,
   AGENT_TRANSCRIPT_TOOL_NAME,
   type AgentSearchMatchReason,
-  type AgentSessionKind,
-} from "./protocol";
+} from "../protocol";
 import {
-  type AgentSessionFileStat,
   type AgentSessionFileSystem,
   type AgentSessionHead,
   type AgentStoreFile,
-  CLAUDE_PROJECT_ENCODED_SEPARATOR,
-  claudeCodeSessionStoreDir,
-  claudeProjectDirName,
-  claudeTranscriptFiles,
-  codexSessionStoreDir,
-  collectJsonlFiles,
   isPathInsideOrEqual,
-  isRecentAgentSessionMtime,
-  mapWithConcurrency,
-  parseClaudeHead,
   parseCodexHead,
-} from "./resume";
-import { firstString, isRecord, parseJsonObject, valueAtPath } from "./transcript-json";
+} from "../resume";
+import { firstString, isRecord, parseJsonObject, valueAtPath } from "../transcript-json";
 
-export interface AgentSearchFileSystem extends AgentSessionFileSystem {
+export type AgentHeadParser = (head: string) => AgentSessionHead | null;
+
+export interface AgentSearchReadableFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
 }
 
-export interface AgentSearchContentNeedle {
-  readonly reason: AgentSearchMatchReason;
-  readonly value: string;
-}
-
-export interface AgentSearchQuery {
-  readonly contentNeedles: readonly AgentSearchContentNeedle[];
-  readonly sessionId: string | null;
-  readonly branch: string | null;
-  readonly agent: AgentSessionKind | null;
-  readonly includeAll: boolean;
-  readonly limit: number;
-}
-
-export interface AgentSearchQueryOptions {
-  readonly pickupId?: string;
-  readonly contains?: string;
-  readonly sessionId?: string;
-  readonly branch?: string;
-  readonly agent?: AgentSessionKind;
-  readonly all?: boolean;
-  readonly limit?: number;
-}
-
-export interface AgentSearchOptions {
-  readonly agentHomeDirs: AgentHomeDirs;
-  readonly nowMs: number;
+export interface BranchAssociationOptions {
   readonly productScopeRoot: string;
   readonly branchAssociatedWorktreeRoots?: readonly string[];
-  readonly fs: AgentSearchFileSystem;
-  readonly query: AgentSearchQuery;
+  readonly fs: AgentSearchReadableFileSystem;
+  readonly query: {
+    readonly branch: string | null;
+  };
 }
 
-export interface AgentSearchResult {
-  readonly agent: AgentSessionKind;
-  readonly sessionId: string;
-  readonly cwd: string;
-  readonly sourcePath: string;
-  readonly modifiedAtMs: number;
-  readonly updatedAt: string | null;
-  readonly branch: string | null;
-  readonly matches: readonly AgentSearchMatchReason[];
-}
-
-type AgentHeadParser = (head: string) => AgentSessionHead | null;
-
-interface CodexSubagentBranchAssociation {
+export interface CodexSubagentBranchAssociation {
   readonly cwd: string;
 }
 
-type BranchAssociatedSessionIds = ReadonlySet<string>;
-
-interface AgentSearchMatch {
+export interface BranchSearchMatch {
   readonly reasons: readonly AgentSearchMatchReason[];
   readonly subagentBranchAssociation: CodexSubagentBranchAssociation | null;
 }
 
-interface BranchSearchMatch {
-  readonly reasons: readonly AgentSearchMatchReason[];
-  readonly subagentBranchAssociation: CodexSubagentBranchAssociation | null;
+export interface TopLevelBranchAssociations {
+  readonly associatedSessionIds: ReadonlySet<string>;
+  readonly commandCheckedSessionIds: ReadonlySet<string>;
 }
 
-export function pickupIdSearchLiteral(pickupId: string): string {
-  return formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, pickupId);
+interface MutableTopLevelBranchAssociations {
+  readonly associatedSessionIds: Set<string>;
+  readonly commandCheckedSessionIds: Set<string>;
 }
 
-export function agentSearchQueryFromOptions(options: AgentSearchQueryOptions): AgentSearchQuery {
-  const contentNeedles: AgentSearchContentNeedle[] = [];
-  if (options.pickupId !== undefined) {
-    contentNeedles.push({
-      reason: AGENT_SEARCH_MATCH_REASON.PICKUP_ID,
-      value: pickupIdSearchLiteral(options.pickupId),
-    });
-  }
-  if (options.contains !== undefined) {
-    contentNeedles.push({ reason: AGENT_SEARCH_MATCH_REASON.CONTAINS, value: options.contains });
-  }
-  return {
-    contentNeedles,
-    sessionId: options.sessionId ?? null,
-    branch: options.branch ?? null,
-    agent: options.agent ?? null,
-    includeAll: options.all === true,
-    limit: options.limit ?? AGENT_SEARCH_DEFAULT_LIMIT,
-  };
-}
-
-export async function searchAgentSessions(options: AgentSearchOptions): Promise<AgentSearchResult[]> {
-  const selectedAgents = options.query.agent === null
-    ? [AGENT_SESSION_KIND.CODEX, AGENT_SESSION_KIND.CLAUDE_CODE]
-    : [options.query.agent];
-  const perAgent = await Promise.all(
-    selectedAgents.map((agent) => searchAgentStore(agent, options)),
-  );
-  return perAgent
-    .flat()
-    .sort(compareSearchResults)
-    .slice(0, Math.max(0, options.query.limit));
-}
-
-export function renderAgentSearchJson(results: readonly AgentSearchResult[]): string {
-  return JSON.stringify(results, null, 2);
-}
-
-export function renderAgentSearchList(results: readonly AgentSearchResult[]): string {
-  if (results.length === 0) {
-    return "No matching agent sessions found.";
-  }
-  return results.map((result) => {
-    const updatedAt = result.updatedAt ?? new Date(result.modifiedAtMs).toISOString();
-    return `${updatedAt} ${AGENT_SESSION_LABEL[result.agent]} ${result.sessionId} ${result.cwd}`;
-  }).join("\n");
-}
-
-async function searchAgentStore(
-  agent: AgentSessionKind,
-  options: AgentSearchOptions,
-): Promise<AgentSearchResult[]> {
-  const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
-  const acceptsClaudeDir = claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots);
-  const paths = agent === AGENT_SESSION_KIND.CODEX
-    ? await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs)
-    : await claudeTranscriptFiles(
-      claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
-      options.fs,
-      acceptsClaudeDir,
-    );
-  const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
-  const needsBranchEvidence = options.query.branch !== null;
-  const allFiles = needsBranchEvidence ? await storeFiles(paths, options.fs, options.nowMs, true) : [];
-  const files = needsBranchEvidence
-    ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs)
-    : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
-  const branchEvidenceFiles = needsBranchEvidence ? nonFutureStoreFiles(allFiles, options.nowMs) : [];
-  const branchAssociatedSessionIds = needsBranchEvidence
-    ? await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser)
-    : new Set<string>();
-  const subagentBranchAssociations = needsBranchEvidence && agent === AGENT_SESSION_KIND.CODEX
-    ? await collectCodexSubagentBranchAssociations(branchEvidenceFiles, options)
-    : new Map<string, CodexSubagentBranchAssociation>();
-  return collectMatchingSessions(agent, files, options, parser, branchAssociatedSessionIds, subagentBranchAssociations);
-}
-
-function claudeDirAcceptsProductScope(
-  productScopeRoot: string,
-  branchAssociatedWorktreeRoots: readonly string[],
-): (dirName: string) => boolean {
-  const projectPrefixes = [productScopeRoot, ...branchAssociatedWorktreeRoots].map(claudeProjectDirName);
-  return (dirName) =>
-    projectPrefixes.some((projectPrefix) =>
-      dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`)
-    );
-}
-
-async function collectMatchingSessions(
-  agent: AgentSessionKind,
+export async function collectTopLevelBranchAssociations(
   files: readonly AgentStoreFile[],
-  options: AgentSearchOptions,
+  options: BranchAssociationOptions,
   parseHead: AgentHeadParser,
-  branchAssociatedSessionIds: BranchAssociatedSessionIds,
-  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): Promise<AgentSearchResult[]> {
-  const results: AgentSearchResult[] = [];
-  const seen = new Set<string>();
-  for (const file of files) {
-    const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
-    if (head === null) continue;
-    const core = parseHead(head);
-    if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
-    if (!coreMatchesSearchInputScope(core, options)) continue;
-    const match = await matchReasons(
-      agent,
-      core,
-      file.path,
-      options,
-      branchAssociatedSessionIds,
-      subagentBranchAssociations,
-    );
-    if (match === null) continue;
-    seen.add(core.sessionId);
-    results.push({
-      agent,
-      sessionId: core.sessionId,
-      cwd: match.subagentBranchAssociation?.cwd ?? core.cwd,
-      sourcePath: file.path,
-      modifiedAtMs: file.modifiedAtMs,
-      updatedAt: core.updatedAt,
-      branch: core.branch,
-      matches: match.reasons,
-    });
-  }
-  return results;
-}
-
-async function matchReasons(
-  agent: AgentSessionKind,
-  core: AgentSessionHead,
-  path: string,
-  options: AgentSearchOptions,
-  branchAssociatedSessionIds: BranchAssociatedSessionIds,
-  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): Promise<AgentSearchMatch | null> {
-  if (!hasSearchSelector(options.query)) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.ALL],
-      subagentBranchAssociation: null,
-    };
-  }
-  const metadataMatches = metadataMatchReasons(
-    agent,
-    core,
-    options.query,
-  );
-  if (metadataMatches === null) {
-    return null;
-  }
-  const branchMatches = branchMetadataOrWorktreeMatchReasons(
-    core,
-    options,
-    branchAssociatedSessionIds,
-    subagentBranchAssociations,
-  );
-  const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
-  const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
-  if (content === null) {
-    return null;
-  }
-  const resolvedBranchMatches = branchMatches ?? branchTranscriptCommandMatchReasons(content, options);
-  if (resolvedBranchMatches === null) {
-    return null;
-  }
-  const contentMatches = contentMatchReasons(content, options.query);
-  if (contentMatches === null) {
-    return null;
-  }
-  return {
-    reasons: [...metadataMatches, ...resolvedBranchMatches.reasons, ...contentMatches],
-    subagentBranchAssociation: resolvedBranchMatches.subagentBranchAssociation,
+): Promise<TopLevelBranchAssociations> {
+  const branch = options.query.branch;
+  const associated: MutableTopLevelBranchAssociations = {
+    associatedSessionIds: new Set<string>(),
+    commandCheckedSessionIds: new Set<string>(),
   };
-}
-
-function hasSearchSelector(query: AgentSearchQuery): boolean {
-  return query.contentNeedles.length > 0 || query.sessionId !== null || query.branch !== null || query.agent !== null;
-}
-
-function coreMatchesSearchInputScope(
-  core: AgentSessionHead,
-  options: AgentSearchOptions,
-): boolean {
-  return coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
-}
-
-function metadataMatchReasons(
-  agent: AgentSessionKind,
-  core: AgentSessionHead,
-  query: AgentSearchQuery,
-): AgentSearchMatchReason[] | null {
-  const matches: AgentSearchMatchReason[] = [];
-  if (query.agent !== null) {
-    if (agent !== query.agent) return null;
-    matches.push(AGENT_SEARCH_MATCH_REASON.AGENT);
-  }
-  if (query.sessionId !== null && core.sessionId === query.sessionId) {
-    matches.push(AGENT_SEARCH_MATCH_REASON.SESSION_ID);
-  } else if (query.sessionId !== null) {
-    return null;
-  }
-  return matches;
-}
-
-function branchMetadataOrWorktreeMatchReasons(
-  core: AgentSessionHead,
-  options: AgentSearchOptions,
-  branchAssociatedSessionIds: BranchAssociatedSessionIds,
-  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-): BranchSearchMatch | null {
-  const branch = options.query.branch;
-  if (branch === null) {
-    return {
-      reasons: [],
-      subagentBranchAssociation: null,
-    };
-  }
-  if (core.branch === branch) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
-  }
-  const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
-  if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
-  }
-  if (branchAssociatedSessionIds.has(core.sessionId)) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
-  }
-  const subagentBranchAssociation = subagentBranchAssociations.get(core.sessionId) ?? null;
-  if (subagentBranchAssociation !== null) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation,
-    };
-  }
-  return null;
-}
-
-async function collectTopLevelBranchAssociations(
-  files: readonly AgentStoreFile[],
-  options: AgentSearchOptions,
-  parseHead: AgentHeadParser,
-): Promise<BranchAssociatedSessionIds> {
-  const branch = options.query.branch;
-  const associated = new Set<string>();
   if (branch === null) {
     return associated;
   }
@@ -376,20 +81,24 @@ async function collectTopLevelBranchAssociations(
       continue;
     }
     if (core.branch === branch) {
-      associated.add(core.sessionId);
+      associated.associatedSessionIds.add(core.sessionId);
       continue;
     }
     const content = await options.fs.readText(file.path).catch(() => null);
-    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
-      associated.add(core.sessionId);
+    if (content === null) {
+      continue;
+    }
+    associated.commandCheckedSessionIds.add(core.sessionId);
+    if (transcriptHasAcceptedBranchCommand(content, branch)) {
+      associated.associatedSessionIds.add(core.sessionId);
     }
   }
   return associated;
 }
 
-async function collectCodexSubagentBranchAssociations(
+export async function collectCodexSubagentBranchAssociations(
   files: readonly AgentStoreFile[],
-  options: AgentSearchOptions,
+  options: BranchAssociationOptions,
 ): Promise<ReadonlyMap<string, CodexSubagentBranchAssociation>> {
   const branch = options.query.branch;
   const associated = new Map<string, CodexSubagentBranchAssociation>();
@@ -409,8 +118,7 @@ async function collectCodexSubagentBranchAssociations(
     ) {
       continue;
     }
-    const branchMetadataMatches = core.branch === branch;
-    if (branchMetadataMatches) {
+    if (core.branch === branch) {
       addCodexSubagentBranchAssociation(associated, core);
       continue;
     }
@@ -422,23 +130,51 @@ async function collectCodexSubagentBranchAssociations(
   return associated;
 }
 
-function addCodexSubagentBranchAssociation(
-  associated: Map<string, CodexSubagentBranchAssociation>,
+export function branchMetadataOrWorktreeMatchReasons(
   core: AgentSessionHead,
-): void {
-  if (associated.has(core.sessionId)) {
-    return;
+  branch: string | null,
+  branchAssociatedWorktreeRoots: readonly string[],
+  topLevelBranchAssociations: TopLevelBranchAssociations,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
+): BranchSearchMatch | null {
+  if (branch === null) {
+    return {
+      reasons: [],
+      subagentBranchAssociation: null,
+    };
   }
-  associated.set(core.sessionId, {
-    cwd: core.cwd,
-  });
+  if (core.branch === branch) {
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
+  }
+  if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
+  }
+  if (topLevelBranchAssociations.associatedSessionIds.has(core.sessionId)) {
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation: null,
+    };
+  }
+  const subagentBranchAssociation = subagentBranchAssociations.get(core.sessionId) ?? null;
+  if (subagentBranchAssociation !== null) {
+    return {
+      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      subagentBranchAssociation,
+    };
+  }
+  return null;
 }
 
-function branchTranscriptCommandMatchReasons(
+export function branchTranscriptCommandMatchReasons(
   content: string | undefined,
-  options: AgentSearchOptions,
+  branch: string | null,
 ): BranchSearchMatch | null {
-  const branch = options.query.branch;
   if (branch === null) {
     return {
       reasons: [],
@@ -453,10 +189,31 @@ function branchTranscriptCommandMatchReasons(
     : null;
 }
 
+export function coreMatchesSearchScope(
+  core: AgentSessionHead,
+  productScopeRoot: string,
+  branchAssociatedWorktreeRoots: readonly string[],
+): boolean {
+  return isPathInsideOrEqual(productScopeRoot, core.cwd)
+    || branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd));
+}
+
 export function transcriptHasAcceptedBranchCommand(content: string, branch: string): boolean {
   return transcriptBranchCommandEvidence(content).some((evidence) =>
     evidence.completed && !evidence.failed && gitCommandAssociatesBranch(evidence.words, branch)
   );
+}
+
+function addCodexSubagentBranchAssociation(
+  associated: Map<string, CodexSubagentBranchAssociation>,
+  core: AgentSessionHead,
+): void {
+  if (associated.has(core.sessionId)) {
+    return;
+  }
+  associated.set(core.sessionId, {
+    cwd: core.cwd,
+  });
 }
 
 interface TranscriptBranchCommandEvidence {
@@ -932,7 +689,6 @@ const SHELL_OPERATOR_AND = "&&";
 const SHELL_OPERATOR_OR = "||";
 const SHELL_OPERATOR_AMPERSAND = "&";
 const SHELL_OPERATOR_PIPE = "|";
-const SHELL_CHANGE_DIRECTORY_COMMAND = "cd";
 const SHELL_ENV_COMMAND = "env";
 const SHELL_COMMAND_WRAPPER_COMMAND = "command";
 const SHELL_SUDO_COMMAND = "sudo";
@@ -957,14 +713,18 @@ function shellSuccessProvingCommandSegments(words: readonly string[]): readonly 
     segments[segments.length - 1].push(word);
   }
   const populatedSegments = segments.filter((segment) => segment.length > 0);
-  return populatedSegments.filter((_segment, index) =>
-    index === 0 || populatedSegments.slice(0, index).every(isShellReachabilityPreservingSetupSegment)
-  );
+  const reachableSegments: string[][] = [];
+  for (const segment of populatedSegments) {
+    reachableSegments.push(segment);
+    if (isShellKnownFailingSegment(segment)) {
+      break;
+    }
+  }
+  return reachableSegments;
 }
 
-function isShellReachabilityPreservingSetupSegment(words: readonly string[]): boolean {
-  const command = stripShellRedirections(words);
-  return command[0] === SHELL_CHANGE_DIRECTORY_COMMAND && command.length === 2;
+function isShellKnownFailingSegment(words: readonly string[]): boolean {
+  return stripShellRedirections(words)[0] === "false";
 }
 
 function normalizeGitCommandSegment(words: readonly string[]): readonly string[] | null {
@@ -1161,64 +921,4 @@ function shellWords(command: string): readonly string[] {
   return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) =>
     match.at(1) ?? match.at(2) ?? match.at(3) ?? match.at(4) ?? match[0]
   );
-}
-
-function contentMatchReasons(
-  content: string | undefined,
-  query: AgentSearchQuery,
-): AgentSearchMatchReason[] | null {
-  if (query.contentNeedles.length === 0) {
-    return [];
-  }
-  return content === undefined ? null : matchingContentNeedles(content, query.contentNeedles);
-}
-
-function matchingContentNeedles(
-  content: string,
-  needles: readonly AgentSearchContentNeedle[],
-): AgentSearchMatchReason[] | null {
-  const matches = needles
-    .filter((needle) => content.includes(needle.value))
-    .map((needle) => needle.reason);
-  return matches.length === needles.length ? matches : null;
-}
-
-function coreMatchesSearchScope(
-  core: AgentSessionHead,
-  productScopeRoot: string,
-  branchAssociatedWorktreeRoots: readonly string[],
-): boolean {
-  return isPathInsideOrEqual(productScopeRoot, core.cwd)
-    || branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd));
-}
-
-async function storeFiles(
-  paths: readonly string[],
-  fs: AgentSessionFileSystem,
-  nowMs: number,
-  includeAll: boolean,
-): Promise<AgentStoreFile[]> {
-  const files = await mapWithConcurrency(paths, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (path) => {
-    const stat = await fs.stat(path).catch((): AgentSessionFileStat | null => null);
-    if (stat === null) return null;
-    if (!includeAll && !isRecentAgentSessionMtime(stat.mtimeMs, nowMs)) return null;
-    return { path, modifiedAtMs: stat.mtimeMs };
-  });
-  return files
-    .filter((file): file is AgentStoreFile => file !== null)
-    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
-}
-
-function recentStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
-  return files.filter((file) => isRecentAgentSessionMtime(file.modifiedAtMs, nowMs));
-}
-
-function nonFutureStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
-  return files.filter((file) => file.modifiedAtMs <= nowMs);
-}
-
-function compareSearchResults(left: AgentSearchResult, right: AgentSearchResult): number {
-  const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
-  if (modifiedDiff !== 0) return modifiedDiff;
-  return `${left.agent}:${left.sessionId}`.localeCompare(`${right.agent}:${right.sessionId}`);
 }
