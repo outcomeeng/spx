@@ -2,16 +2,17 @@ import { join } from "node:path";
 
 import type { Result } from "@/config/types";
 import {
-  compareAsciiStrings,
+  compareRunRecencyNewestFirst,
   createJsonlRunFile,
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
-  isRunFileName,
   type JsonRecord,
   readLatestJsonlRecord,
+  type RunRecency,
   runsDir,
-  STATE_STORE_PATH,
+  runTokenFromRunFileName,
+  runTokenStartedAt,
   type StateStoreFileEntry,
   type StateStoreFileSystem,
   writeJsonlRunRecord,
@@ -88,9 +89,13 @@ export async function readSnapshot(
 }
 
 /**
- * List a scope domain's retained snapshot addresses, newest first. The run token
- * carries the capture timestamp, so descending token order resolves the latest
- * snapshot. An absent runs directory yields an empty list, not an error.
+ * List a scope domain's retained snapshot addresses, newest first. Ordering is by
+ * capture timestamp, then by filesystem creation time (`birthtimeMs`) for captures
+ * that share a millisecond, then by run token — so the latest snapshot resolves by
+ * true creation order even when concurrent captures land in the same millisecond,
+ * where the run token's random suffix carries no ordering signal. Ordering uses the
+ * source-owned `compareRunRecencyNewestFirst`. An absent runs directory yields an
+ * empty list, not an error.
  */
 export async function listSnapshots(
   scopeDir: string,
@@ -110,11 +115,15 @@ export async function listSnapshots(
   }
 
   const addresses = entries
-    .filter((entry) => entry.isFile() && isRunFileName(entry.name))
+    .filter((entry) => entry.isFile())
     .map((entry) => snapshotAddress(domainRunsDir.value, entry.name))
-    .sort((left, right) => compareAsciiStrings(right.runToken, left.runToken));
+    .filter((address): address is SnapshotAddress => address !== undefined);
 
-  return { ok: true, value: addresses };
+  try {
+    return { ok: true, value: await orderSnapshotsNewestFirst(addresses, fs) };
+  } catch (error) {
+    return { ok: false, error: listError(error) };
+  }
 }
 
 /** Read the document of the latest retained snapshot in a scope domain; `undefined` when none exists. */
@@ -130,20 +139,42 @@ export async function readLatestSnapshot(
   return readSnapshot(listed.value[0], options);
 }
 
-function snapshotAddress(domainRunsDir: string, runFileNameValue: string): SnapshotAddress {
+interface DatedSnapshot extends RunRecency {
+  readonly address: SnapshotAddress;
+}
+
+/**
+ * Resolve each address's filesystem creation time through the injected filesystem
+ * and order the addresses newest first. Reading `birthtimeMs` supplies the true
+ * creation-order signal that the run token lacks within a single millisecond.
+ */
+async function orderSnapshotsNewestFirst(
+  addresses: readonly SnapshotAddress[],
+  fs: StateStoreFileSystem,
+): Promise<readonly SnapshotAddress[]> {
+  const dated = await Promise.all(
+    addresses.map(async (address): Promise<DatedSnapshot> => {
+      const stats = await fs.lstat(address.runFilePath);
+      return {
+        address,
+        startedAt: runTokenStartedAt(address.runToken),
+        createdAtMs: stats.birthtimeMs,
+        runToken: address.runToken,
+      };
+    }),
+  );
+  return [...dated].sort(compareRunRecencyNewestFirst).map((entry) => entry.address);
+}
+
+function snapshotAddress(domainRunsDir: string, runFileNameValue: string): SnapshotAddress | undefined {
+  const runToken = runTokenFromRunFileName(runFileNameValue);
+  if (runToken === undefined) return undefined;
   return {
-    runToken: runTokenFromRunFileName(runFileNameValue),
+    runToken,
     runFileName: runFileNameValue,
     runsDir: domainRunsDir,
     runFilePath: join(domainRunsDir, runFileNameValue),
   };
-}
-
-function runTokenFromRunFileName(runFileNameValue: string): string {
-  return runFileNameValue.slice(
-    STATE_STORE_PATH.RUN_FILE_PREFIX.length,
-    runFileNameValue.length - STATE_STORE_PATH.JSONL_EXTENSION.length,
-  );
 }
 
 function listError(error: unknown): string {
