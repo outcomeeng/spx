@@ -274,6 +274,7 @@ async function changedSourcesReachableFromText(
     const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
     if (directMatches.length > 0) {
       for (const candidate of directMatches) matched.add(candidate);
+      continue;
     }
     for (const candidate of candidates) {
       if (!isConcreteSourcePath(candidate) || !isTraversableModulePath(candidate)) continue;
