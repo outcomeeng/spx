@@ -246,7 +246,12 @@ export async function assertReleaseNotesValidationRejectsDeletedExistingSection(
               CHANGELOG_PATH_DATA_BLOCK_CLOSE,
             ),
           );
-          stagedInput = await readArtifact(stagedPath, stagedPath);
+          const stagedCanonicalPath = await canonicalizePath(stagedPath);
+          if (stagedCanonicalPath === undefined) {
+            throw new Error("Release-notes staged artifact cannot be canonicalized");
+          }
+          expect(stagedCanonicalPath).toBe(stagedPath);
+          stagedInput = await readArtifact(stagedPath, stagedCanonicalPath);
           await writingAgentRunner.run(request);
         },
       };

@@ -20,6 +20,10 @@ export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-
 
 interface ReleaseNotesEnvOptions {
   readonly beforeArtifactRead?: (path: string) => Promise<void>;
+  readonly beforeDirectoryCreate?: (path: string) => Promise<void>;
+  readonly beforeArtifactPromotion?: (path: string) => Promise<void>;
+  readonly beforeFinalArtifactWrite?: (path: string) => Promise<void>;
+  readonly beforeStageArtifactRead?: (path: string) => Promise<void>;
 }
 
 /** A real temp working tree plus the production filesystem reader for release-notes composition tests. */
@@ -57,8 +61,12 @@ export async function withReleaseNotesEnv(
         `Release-notes working directory cannot be canonicalized: ${workingDirectory}`,
       );
     }
-    const filesystem = createReleaseNotesFilesystem(canonicalWorkingDirectory, {
+    const filesystem = createReleaseNotesFilesystem({
       beforeArtifactRead: options.beforeArtifactRead,
+      beforeDirectoryCreate: options.beforeDirectoryCreate,
+      beforeArtifactPromotion: options.beforeArtifactPromotion,
+      beforeFinalArtifactWrite: options.beforeFinalArtifactWrite,
+      beforeStageArtifactRead: options.beforeStageArtifactRead,
     });
     await callback({
       workingDirectory: canonicalWorkingDirectory,

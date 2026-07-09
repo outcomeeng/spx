@@ -29,10 +29,13 @@ export class RecordingWritingAgentRunner implements AgentRunner {
 
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
-    if (!isInsideOrEqual(this.expectedWorkingDirectory, request.workingDirectory)) {
+    const outputPath = promptChangelogPath(request.prompt) ?? this.outputPath;
+    if (!isInsideOrEqual(request.workingDirectory, outputPath)) {
+      throw new Error("Agent runner double received a working directory outside the staged output path");
+    }
+    if (outputPath === this.outputPath && !isInsideOrEqual(this.expectedWorkingDirectory, request.workingDirectory)) {
       throw new Error("Agent runner double received the wrong working directory");
     }
-    const outputPath = promptChangelogPath(request.prompt) ?? this.outputPath;
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(outputPath, this.changelogContent);
   }

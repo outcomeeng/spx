@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { AgentRunner } from "@/agent/agent-runner";
-import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import { composeReleaseNotes, type ReleaseNotesConfig, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import type { GitDependencies } from "@/git/root";
@@ -17,7 +16,7 @@ export interface ReleaseNotesCommandOptions {
   readonly packageVersion?: string;
   readonly releaseData?: ReleaseData;
   readonly gitDeps?: GitDependencies;
-  readonly agentRunner?: AgentRunner;
+  readonly agentRunner: AgentRunner;
   readonly filesystem?: ReleaseNotesFilesystem;
 }
 
@@ -27,12 +26,12 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     packageVersion: options.packageVersion ?? await readPackageVersion(options.productDir),
     deps: options.gitDeps,
   });
-  const filesystem = options.filesystem ?? createReleaseNotesFilesystem(options.productDir);
+  const filesystem = options.filesystem ?? createReleaseNotesFilesystem();
   await composeReleaseNotes({
     releaseData,
     config: options.config,
     workingDirectory: options.productDir,
-    agentRunner: options.agentRunner ?? new ClaudeAgentRunner(),
+    agentRunner: options.agentRunner,
     readArtifact: filesystem.readArtifact,
     createArtifactStage: filesystem.createArtifactStage,
     promoteArtifact: filesystem.promoteArtifact,
