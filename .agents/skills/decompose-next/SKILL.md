@@ -30,7 +30,7 @@ A decompose-next request routed to its matching projection, split, audit, slice,
 - Assign an index only from the consumer-side question: what does this node depend on? Same-index peers are the default when no edge is proven. Existing siblings and current code layout are never precedents.
 - Keep surfaces thin. A surface owns one concrete provided boundary: grammar, rendering, invocation, and protocol. A surface that owns semantic vocabulary, rules, or invariants is misclassified.
 - Keep outcomes assertion-free. An outcome is a product bet with evidence-of-success measures; locally verifiable assertions live in output-kind children.
-- Keep persistence, delivery, backend, and node state distinct. Persistence retains records, journals, snapshots, and durable artifacts. Delivery publishes ephemeral projections. Backend implements an environment boundary. Node state is evidence-derived standing against maturity.
+- Keep persistence, delivery, backend, and node state distinct. Persistence retains records, journals, snapshots, and durable artifacts. Delivery publishes ephemeral projections. Backend implements an environment boundary. Node state is evidence-derived standing against tier.
 - Treat coordination notes as fallible workflow memory. `ISSUES.md` records known defects, contradictions, and gaps with settlement triggers. `PLAN.md` records pending node steps for work already in flight. Neither decides product truth.
 - For context projection, lower-index siblings are read as constraints; same-index and higher-index siblings are listed but not read as constraints.
 
@@ -60,13 +60,13 @@ Wait for response before proceeding.
 
 <routing>
 
-| Request                                                                         | Workflow                                             |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| "project", "target structure", "post-migration", "what will the tree look like" | `${SKILL_DIR}/workflows/project-target-structure.md` |
-| "split", "cut apart", "fused node", "current node"                              | `${SKILL_DIR}/workflows/split-fused-node.md`         |
-| "audit", "review projection", "check tree", "is this target view valid"         | `${SKILL_DIR}/workflows/audit-projection.md`         |
-| "slice", "next migration", "what can we do now"                                 | `${SKILL_DIR}/workflows/derive-migration-slice.md`   |
-| "update PLAN", "update ISSUES", "coordination note", "write the plan"           | `${SKILL_DIR}/workflows/update-coordination-note.md` |
+| Request                                                                         | Workflow                                                    |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| "project", "target structure", "post-migration", "what will the tree look like" | `${CLAUDE_SKILL_DIR}/workflows/project-target-structure.md` |
+| "split", "cut apart", "fused node", "current node"                              | `${CLAUDE_SKILL_DIR}/workflows/split-fused-node.md`         |
+| "audit", "review projection", "check tree", "is this target view valid"         | `${CLAUDE_SKILL_DIR}/workflows/audit-projection.md`         |
+| "slice", "next migration", "what can we do now"                                 | `${CLAUDE_SKILL_DIR}/workflows/derive-migration-slice.md`   |
+| "update PLAN", "update ISSUES", "coordination note", "write the plan"           | `${CLAUDE_SKILL_DIR}/workflows/update-coordination-note.md` |
 
 After selecting a workflow, read it completely and follow it exactly.
 
@@ -74,7 +74,7 @@ After selecting a workflow, read it completely and follow it exactly.
 
 <quick_reference>
 
-`${SKILL_DIR}/references/projection-views.md` is the canonical view catalog. Use it as the source of truth.
+`${CLAUDE_SKILL_DIR}/references/projection-views.md` is the canonical view catalog. Use it as the source of truth.
 
 Before emitting a target tree, migration slice, audit verdict, or coordination-note edit, confirm the workflow emits or marks N/A for these commonly missed views:
 
@@ -89,7 +89,7 @@ Before emitting a target tree, migration slice, audit verdict, or coordination-n
 
 <reference_index>
 
-All in `${SKILL_DIR}/references/`:
+All in `${CLAUDE_SKILL_DIR}/references/`:
 
 | File                   | Purpose                                                                            |
 | ---------------------- | ---------------------------------------------------------------------------------- |
@@ -101,7 +101,7 @@ All in `${SKILL_DIR}/references/`:
 
 <workflows_index>
 
-All in `${SKILL_DIR}/workflows/`:
+All in `${CLAUDE_SKILL_DIR}/workflows/`:
 
 | Workflow                      | Purpose                                                                                      |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
@@ -121,7 +121,7 @@ Claude emitted a target tree with ordered children before building the dependenc
 
 Why it failed: list order implied context reach without proving provider/consumer, logical prerequisite, shared substrate, vertical-slice value delivery, feature extension, or ADR/PDR constraint edges.
 
-How to avoid: produce the unordered projection first, then assign indices only where `${SKILL_DIR}/references/ordering-evidence.md` has a row with a concrete consequence if absent.
+How to avoid: produce the unordered projection first, then assign indices only where `${CLAUDE_SKILL_DIR}/references/ordering-evidence.md` has a row with a concrete consequence if absent.
 
 </failure_mode>
 

@@ -1,6 +1,6 @@
 <required_reading>
 
-Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/target-vocabulary.md`, and `${SKILL_DIR}/references/ordering-evidence.md` before auditing a projection.
+Read `${CLAUDE_SKILL_DIR}/references/projection-views.md`, `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`, and `${CLAUDE_SKILL_DIR}/references/ordering-evidence.md` before auditing a projection.
 
 </required_reading>
 
@@ -14,15 +14,15 @@ Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/tar
 6. For `spx/` projections, check whether the projection includes product top-level mapping from the product spec.
 7. Flag current holding paths presented as target receivers.
 8. Flag target receivers that do not map to `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, or `.outcome`.
-9. Flag vague receiver language listed in `${SKILL_DIR}/references/target-vocabulary.md`.
+9. Flag vague receiver language listed in `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`.
 10. Flag role-named wrapper directories such as enablers, domains, interfaces, or surfaces buckets.
 11. Flag projections that read same-index or higher-index siblings as constraints instead of listing them as unread visibility.
 12. Check every numeric order against a dependency-evidence row built from the consumer's dependency question.
 13. Flag output-kind ordering that violates the kind-order guard.
 14. Flag invalid containment.
 15. Flag surface nodes that own semantic vocabulary, reusable semantics, persistence semantics, backend implementation, or verification logic.
-16. Flag `.outcome` nodes that own locally verifiable assertions, tests, evals, audits, maturity, or per-reference status results.
-17. Flag persistence, delivery, backend, node-state, maturity, and status-claim confusion.
+16. Flag `.outcome` nodes that own locally verifiable assertions, tests, evals, audits, tier, or per-reference status results.
+17. Flag persistence, delivery, backend, node-state, tier, and status-claim confusion.
 18. Flag state vocabulary outside Declared, Specified, Passing, Implemented, and Failing unless it is a qualified compound for another artifact lifecycle.
 19. Produce corrected intermediate views for the smallest area needed to resolve each finding.
 
@@ -32,17 +32,17 @@ Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/tar
 
 Each gate must report PASS before emitting an approval. A FAIL creates a `BLOCKING` finding.
 
-| Gate                 | PASS condition                                                                                                                      | FAIL condition                                                                                           |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Scope gate           | Projection scope is concrete and contextualized.                                                                                    | Scope is implied, stale, or lacks contextualization.                                                     |
-| Required-views gate  | Projection includes all views required for its scope, including product top-level mapping for `spx/` scope.                         | A required view is absent or stale.                                                                      |
-| Vocabulary gate      | Receivers use only valid kind suffixes and avoid banned receiver language.                                                          | Current paths, role buckets, vague receivers, or invalid suffixes drive placement.                       |
-| Ordering gate        | Every numeric order has a canonical dependency-evidence row from the consumer dependency question.                                  | Any numeric order lacks evidence or uses a basis outside `${SKILL_DIR}/references/ordering-evidence.md`. |
-| Kind-order gate      | Output-kind dependency direction is same-or-more-foundational provider to consumer.                                                 | A more outward kind is treated as provider for a more foundational kind.                                 |
-| Containment gate     | Every proposed child satisfies the containment table.                                                                               | Any parent/child pair violates or lacks containment evidence.                                            |
-| Surface/outcome gate | Surfaces avoid semantic ownership and outcomes avoid locally verifiable assertions, maturity, and per-reference results.            | A surface owns domain/capability/interface behavior, or an outcome owns output-node verification.        |
-| State/facet gate     | Persistence, delivery, backend, node state, maturity, and status-claim concerns are separated and use the defined state vocabulary. | Operational facets are mixed, or state vocabulary is minted outside defined base states.                 |
-| Correction gate      | Every finding has corrected intermediate-view rows or an unresolved decision owner.                                                 | Corrections are prose-only, absent, or hide decisions local evidence cannot settle.                      |
+| Gate                 | PASS condition                                                                                                                  | FAIL condition                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Scope gate           | Projection scope is concrete and contextualized.                                                                                | Scope is implied, stale, or lacks contextualization.                                                            |
+| Required-views gate  | Projection includes all views required for its scope, including product top-level mapping for `spx/` scope.                     | A required view is absent or stale.                                                                             |
+| Vocabulary gate      | Receivers use only valid kind suffixes and avoid banned receiver language.                                                      | Current paths, role buckets, vague receivers, or invalid suffixes drive placement.                              |
+| Ordering gate        | Every numeric order has a canonical dependency-evidence row from the consumer dependency question.                              | Any numeric order lacks evidence or uses a basis outside `${CLAUDE_SKILL_DIR}/references/ordering-evidence.md`. |
+| Kind-order gate      | Output-kind dependency direction is same-or-more-foundational provider to consumer.                                             | A more outward kind is treated as provider for a more foundational kind.                                        |
+| Containment gate     | Every proposed child satisfies the containment table.                                                                           | Any parent/child pair violates or lacks containment evidence.                                                   |
+| Surface/outcome gate | Surfaces avoid semantic ownership and outcomes avoid locally verifiable assertions, tier, and per-reference results.            | A surface owns domain/capability/interface behavior, or an outcome owns output-node verification.               |
+| State/facet gate     | Persistence, delivery, backend, node state, tier, and status-claim concerns are separated and use the defined state vocabulary. | Operational facets are mixed, or state vocabulary is minted outside defined base states.                        |
+| Correction gate      | Every finding has corrected intermediate-view rows or an unresolved decision owner.                                             | Corrections are prose-only, absent, or hide decisions local evidence cannot settle.                             |
 
 </verification_gates>
 
