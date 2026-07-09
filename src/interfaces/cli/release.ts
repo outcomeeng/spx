@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 
+import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import { releaseNotesCommand } from "@/commands/release";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -31,6 +32,7 @@ export const releaseDomain: Domain = {
           const output = await releaseNotesCommand({
             productDir: invocation.resolveProductContext().productDir,
             config: { changelogPath: options.changelogPath },
+            agentRunner: new ClaudeAgentRunner(),
           });
           invocation.io.writeStdout(`${output}\n`);
         } catch (error) {

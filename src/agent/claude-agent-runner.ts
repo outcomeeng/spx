@@ -3,9 +3,6 @@ import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sd
 
 import type { AgentRunner, AgentRunRequest } from "./agent-runner";
 
-const RELEASE_ARTIFACT_TOOLS = ["Read", "Write", "Edit"] as const;
-const RELEASE_AGENT_MAX_TURNS = 12;
-
 export class ClaudeAgentRunner implements AgentRunner {
   async run(request: AgentRunRequest): Promise<void> {
     let result: SDKResultMessage | undefined;
@@ -14,10 +11,10 @@ export class ClaudeAgentRunner implements AgentRunner {
         prompt: request.prompt,
         options: {
           cwd: request.workingDirectory,
-          tools: [...RELEASE_ARTIFACT_TOOLS],
-          allowedTools: [...RELEASE_ARTIFACT_TOOLS],
-          permissionMode: "dontAsk",
-          maxTurns: RELEASE_AGENT_MAX_TURNS,
+          tools: [...request.tools],
+          allowedTools: [...request.allowedTools],
+          permissionMode: request.permissionMode,
+          maxTurns: request.maxTurns,
         },
       })
     ) {

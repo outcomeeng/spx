@@ -1,6 +1,7 @@
 import { isAbsolute, resolve, sep } from "node:path";
 
-import type { AgentRunner } from "@/agent/agent-runner";
+import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS } from "@/agent/agent-runner";
+import type { AgentPermissionMode, AgentRunner, AgentRunTool } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 
@@ -23,6 +24,8 @@ export interface ArtifactStage {
   readonly workingDirectory: string;
   /** The checked canonical artifact path the agent writes before promotion. */
   readonly path: string;
+  /** Removes the isolated staging workspace after promotion or failure. */
+  readonly cleanup: () => Promise<void>;
 }
 
 export type ArtifactStager = (
@@ -107,6 +110,13 @@ export const COMMIT_SUBJECTS_JSON_INDENT = 2;
 export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
+export const RELEASE_NOTES_AGENT_TOOLS = [
+  AGENT_RUN_TOOLS.READ,
+  AGENT_RUN_TOOLS.WRITE,
+  AGENT_RUN_TOOLS.EDIT,
+] as const satisfies readonly AgentRunTool[];
+export const RELEASE_NOTES_AGENT_PERMISSION_MODE = AGENT_PERMISSION_MODES.DONT_ASK satisfies AgentPermissionMode;
+export const RELEASE_NOTES_AGENT_MAX_TURNS = 12;
 
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
@@ -354,52 +364,63 @@ export async function composeReleaseNotes(
     preAgentCanonicalChangelogPath,
     existingNotes,
   );
-  const prompt = buildReleaseNotesPrompt(
-    releaseData,
-    stage.path,
-  );
-  await agentRunner.run({ prompt, workingDirectory: stage.workingDirectory });
-  const postAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
-    workingDirectory,
-    configuredPath,
-    changelogPath,
-    canonicalizePath,
-    isSymbolicLink,
-    isFile,
-  );
-  if (postAgentCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
-    throw new ReleaseNotesError(
-      `Configured changelog path changed after agent write: ${changelogPath}`,
+  try {
+    const prompt = buildReleaseNotesPrompt(
+      releaseData,
+      stage.path,
     );
-  }
-  const stagedNotes = await readArtifact(stage.path, stage.path);
-  const postReadCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
-    workingDirectory,
-    configuredPath,
-    changelogPath,
-    canonicalizePath,
-    isSymbolicLink,
-    isFile,
-  );
-  if (postReadCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
-    throw new ReleaseNotesError(
-      `Configured changelog path changed after agent write: ${changelogPath}`,
+    await agentRunner.run({
+      prompt,
+      workingDirectory: stage.workingDirectory,
+      tools: RELEASE_NOTES_AGENT_TOOLS,
+      allowedTools: RELEASE_NOTES_AGENT_TOOLS,
+      permissionMode: RELEASE_NOTES_AGENT_PERMISSION_MODE,
+      maxTurns: RELEASE_NOTES_AGENT_MAX_TURNS,
+    });
+    const postAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
+      workingDirectory,
+      configuredPath,
+      changelogPath,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
     );
-  }
-  assertConformsToKeepAChangelog(stagedNotes, releaseData.version, existingNotes);
-  await promoteArtifact(
-    stage.path,
-    preAgentCanonicalChangelogPath,
-    stagedNotes,
-  );
-  const promotedNotes = await readArtifact(
-    preAgentCanonicalChangelogPath,
-    preAgentCanonicalChangelogPath,
-  );
-  if (promotedNotes !== stagedNotes) {
-    throw new ReleaseNotesError(
-      `Promoted changelog content differs from staged release notes: ${changelogPath}`,
+    if (postAgentCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
+      throw new ReleaseNotesError(
+        `Configured changelog path changed after agent write: ${changelogPath}`,
+      );
+    }
+    const stagedNotes = await readArtifact(stage.path, stage.path);
+    const postReadCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
+      workingDirectory,
+      configuredPath,
+      changelogPath,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
     );
+    if (postReadCanonicalChangelogPath !== preAgentCanonicalChangelogPath) {
+      throw new ReleaseNotesError(
+        `Configured changelog path changed after agent write: ${changelogPath}`,
+      );
+    }
+    assertConformsToKeepAChangelog(stagedNotes, releaseData.version, existingNotes);
+    await promoteArtifact(
+      stage.path,
+      preAgentCanonicalChangelogPath,
+      stagedNotes,
+    );
+    const promotedNotes = await readArtifact(
+      preAgentCanonicalChangelogPath,
+      preAgentCanonicalChangelogPath,
+    );
+    if (promotedNotes !== stagedNotes) {
+      throw new ReleaseNotesError(
+        `Promoted changelog content differs from staged release notes: ${changelogPath}`,
+      );
+    }
+  } finally {
+    await stage.cleanup();
   }
 }
 
