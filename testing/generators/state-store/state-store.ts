@@ -1,6 +1,11 @@
 import * as fc from "fast-check";
 
-import { createStateStoreRunToken, slugBranchIdentity, STATE_STORE_RUN_TOKEN } from "@/lib/state-store";
+import {
+  createStateStoreRunToken,
+  type RunRecency,
+  slugBranchIdentity,
+  STATE_STORE_RUN_TOKEN,
+} from "@/lib/state-store";
 
 const SAMPLE_SEED = 0x535458;
 const HEX_ALPHABET = [..."0123456789abcdef"] as const;
@@ -70,6 +75,30 @@ export const STATE_STORE_TEST_GENERATOR = {
       minLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
       maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
     }).map((bytes) => Buffer.from(bytes)),
+  // A pair of run-id byte buffers whose hex encodings strictly descend (first greater
+  // than second). Assigning the first to an earlier write and the second to a later
+  // write makes run-token order disagree with write order, so only a true creation-order
+  // signal can resolve the later write as the latest.
+  runIdBytesDescendingPair: (): fc.Arbitrary<readonly [Buffer, Buffer]> =>
+    fc.tuple(
+      fc.uint8Array({ minLength: STATE_STORE_RUN_TOKEN.ID_BYTES, maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES }),
+      fc.uint8Array({ minLength: STATE_STORE_RUN_TOKEN.ID_BYTES, maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES }),
+    )
+      .map(([left, right]) => [Buffer.from(left), Buffer.from(right)] as const)
+      .filter(([left, right]) => left.toString("hex") !== right.toString("hex"))
+      .map(([left, right]) =>
+        left.toString("hex") > right.toString("hex") ? [left, right] as const : [right, left] as const
+      ),
+  // A run's recency signals, with `startedAt` and `runToken` drawn from one composed
+  // run token so the timestamp prefix is a real capture timestamp, and `createdAtMs`
+  // an independent filesystem creation time.
+  runRecency: (): fc.Arbitrary<RunRecency> =>
+    fc.tuple(STATE_STORE_TEST_GENERATOR.runDate(), STATE_STORE_TEST_GENERATOR.runIdBytes(), fc.nat()).map(
+      ([date, idBytes, createdAtMs]) => {
+        const created = createStateStoreRunToken({ date, randomBytes: () => idBytes });
+        return { startedAt: created.startedAt, createdAtMs, runToken: created.runToken };
+      },
+    ),
   jsonRecordPair: (): fc.Arbitrary<readonly [{ readonly [key: string]: string }, { readonly [key: string]: string }]> =>
     fc.tuple(
       stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
