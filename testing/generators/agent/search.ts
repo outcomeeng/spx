@@ -26,6 +26,8 @@ export const AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE = {
   SHELL_DONE_MARKER: "done",
   SHELL_TEE_COMMAND: "tee",
   SHELL_TEE_PATH: "branch-search.log",
+  SHELL_ECHO_COMMAND: "echo",
+  SHELL_ECHO_VALUE: "ready",
   SHELL_REDIRECT_PATH: "/dev/null",
   CODEX_CALL_ID: "call_agent_search_branch_command",
   CLAUDE_TOOL_USE_ID: "toolu_agent_search_branch_command",
@@ -101,6 +103,11 @@ export function agentSearchBranchCommandEvidenceCases(
     {
       command:
         `cd ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_CD_PATH}${shellAnd}${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch}`,
+      expected: true,
+    },
+    {
+      command:
+        `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_ECHO_COMMAND} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_ECHO_VALUE} ${shellAnd} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH} ${branch}`,
       expected: true,
     },
     {

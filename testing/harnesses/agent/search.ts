@@ -207,6 +207,10 @@ const SEARCH_SAMPLE = {
   BRANCH_SUBAGENT_SESSION_ID: 154,
   BRANCH_SUBAGENT_TRANSCRIPT_ID: 173,
   BRANCH_SUBAGENT_OTHER_BRANCH: 174,
+  BRANCH_SUBAGENT_COMMAND_CWD: 198,
+  BRANCH_SUBAGENT_COMMAND_EVIDENCE_CWD: 199,
+  BRANCH_SUBAGENT_COMMAND_SESSION_ID: 200,
+  BRANCH_SUBAGENT_COMMAND_TRANSCRIPT_ID: 201,
   STALE_BRANCH_EVIDENCE_HOME_DIR: 176,
   STALE_BRANCH_EVIDENCE_PRODUCT_SCOPE_ROOT: 177,
   STALE_BRANCH_EVIDENCE_CWD: 178,
@@ -838,6 +842,7 @@ export async function assertAgentSearchBranchAssociationSignalMappings(): Promis
   await assertAgentSearchIncludesWorktreeRootBranchAssociation();
   await assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence();
   await assertAgentSearchExcludesSubagentsFromBranchAssociatedResults();
+  await assertAgentSearchAttributesCodexSubagentCommandEvidenceToParent();
 }
 
 export async function assertAgentSearchOptionBehaviorMappings(): Promise<void> {
@@ -1507,6 +1512,64 @@ export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResu
     cwd: evidenceCwd,
     timestamp,
     branch: targetBranch,
+    modifiedAtMs: nowMs,
+  });
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    productScopeRoot,
+    fs,
+    query: agentSearchQueryFromOptions({ branch: targetBranch }),
+  });
+
+  expect(results.map((result) => [result.sessionId, result.cwd, result.sourcePath, result.matches])).toEqual([
+    [sessionId, evidenceCwd, parentSourcePath, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+  ]);
+  expect(results.map((result) => result.sessionId)).not.toContain(subagentTranscriptId);
+}
+
+async function assertAgentSearchAttributesCodexSubagentCommandEvidenceToParent(): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_SUBAGENT_HOME_DIR);
+  const productScopeRoot = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    SEARCH_SAMPLE.BRANCH_SUBAGENT_PRODUCT_SCOPE_ROOT,
+  );
+  const cwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(productScopeRoot),
+    SEARCH_SAMPLE.BRANCH_SUBAGENT_COMMAND_CWD,
+  );
+  const evidenceCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(productScopeRoot),
+    SEARCH_SAMPLE.BRANCH_SUBAGENT_COMMAND_EVIDENCE_CWD,
+  );
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), SEARCH_SAMPLE.BRANCH_SUBAGENT_NOW_MS);
+  const timestamp = new Date(nowMs).toISOString();
+  const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.BRANCH_SUBAGENT_TARGET_BRANCH);
+  const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.BRANCH_SUBAGENT_OTHER_BRANCH);
+  const sessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.BRANCH_SUBAGENT_COMMAND_SESSION_ID,
+  );
+  const subagentTranscriptId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.BRANCH_SUBAGENT_COMMAND_TRANSCRIPT_ID,
+  );
+
+  const parentSourcePath = writeCodexTranscriptFile(fs, homeDir, {
+    sessionId,
+    cwd,
+    timestamp,
+    branch: otherBranch,
+    modifiedAtMs: nowMs - 1,
+  });
+  writeCodexSubagentTranscriptFile(fs, homeDir, {
+    sessionId,
+    transcriptId: subagentTranscriptId,
+    cwd: evidenceCwd,
+    timestamp,
+    branch: otherBranch,
     marker: codexExecCommandRows(agentSearchSwitchCommand(targetBranch)),
     modifiedAtMs: nowMs,
   });

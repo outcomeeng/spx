@@ -68,6 +68,15 @@ SPX returns top-level Codex and Claude Code agent-native sessions associated wit
 
 Command-sequence search is feasible when it is treated as bounded forensic evidence rather than free-text inference. Codex transcripts store tool calls and tool outputs as structured JSONL rows, and Claude Code transcripts carry command-related rows with session metadata. The implementation should parse structured rows where possible and accept only command executions that name the requested branch and have successful or non-failing evidence. Plain prose mentions of a branch name do not count as branch association.
 
+### Architecture
+
+- `src/domains/agent/search/index.ts` is the public export boundary.
+- `src/domains/agent/search/query.ts` owns query construction and pickup marker literals.
+- `src/domains/agent/search/results.ts` owns result collection, selector matching, product-scope filtering, and sorting.
+- `src/domains/agent/search/render.ts` owns JSON and text rendering.
+- `src/domains/agent/search/branch-association.ts` owns branch-association predicates, top-level and subagent association precomputation, and transcript command-evidence parsing.
+- `src/commands/agent/search.ts` resolves branch-associated worktree roots and passes them into the pure search domain as data.
+
 ### Verification
 
 - Co-located tests cover worktree-root branch association, metadata branch association, accepted command evidence, branch-existence-only exclusion, and subagent exclusion.
