@@ -31,6 +31,8 @@ import {
   collectCodexSubagentBranchAssociations,
   collectTopLevelBranchAssociations,
   coreMatchesSearchScope,
+  currentMetadataBranchAssociationCwd,
+  cwdMatchesSearchScope,
   type TopLevelBranchAssociations,
 } from "./branch-association";
 import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector } from "./query";
@@ -122,12 +124,22 @@ async function collectMatchingSessions(
 ): Promise<AgentSearchResult[]> {
   const results: AgentSearchResult[] = [];
   const seen = new Set<string>();
+  const currentMetadataSessionIds = new Set<string>();
+  const currentMetadataBranchAssociationCwds = new Map<string, string>();
   for (const file of files) {
     const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
     if (head === null) continue;
     const core = parseHead(head);
     if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
-    if (!coreMatchesSearchInputScope(core, options)) continue;
+    const candidateMetadataIsCurrent = !currentMetadataSessionIds.has(core.sessionId);
+    currentMetadataSessionIds.add(core.sessionId);
+    recordCurrentMetadataBranchAssociation(
+      core,
+      options,
+      candidateMetadataIsCurrent,
+      currentMetadataBranchAssociationCwds,
+    );
+    if (!coreCanHaveScopedSearchResult(core, options, subagentBranchAssociations)) continue;
     const match = await matchReasons(
       agent,
       core,
@@ -135,13 +147,16 @@ async function collectMatchingSessions(
       options,
       topLevelBranchAssociations,
       subagentBranchAssociations,
+      currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
     );
     if (match === null) continue;
+    const effectiveCwd = match.effectiveCwd ?? core.cwd;
+    if (!cwdMatchesSearchInputScope(effectiveCwd, options)) continue;
     seen.add(core.sessionId);
     results.push({
       agent,
       sessionId: core.sessionId,
-      cwd: match.subagentBranchAssociation?.cwd ?? core.cwd,
+      cwd: effectiveCwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
       updatedAt: core.updatedAt,
@@ -152,6 +167,34 @@ async function collectMatchingSessions(
   return results;
 }
 
+function recordCurrentMetadataBranchAssociation(
+  core: AgentSessionHead,
+  options: AgentSearchOptions,
+  candidateMetadataIsCurrent: boolean,
+  currentMetadataBranchAssociationCwds: Map<string, string>,
+): void {
+  if (!candidateMetadataIsCurrent) {
+    return;
+  }
+  const branchAssociationCwd = currentMetadataBranchAssociationCwd(
+    core,
+    options.query.branch,
+    options.branchAssociatedWorktreeRoots ?? [],
+  );
+  if (branchAssociationCwd !== null && cwdMatchesSearchInputScope(branchAssociationCwd, options)) {
+    currentMetadataBranchAssociationCwds.set(core.sessionId, branchAssociationCwd);
+  }
+}
+
+function coreCanHaveScopedSearchResult(
+  core: AgentSessionHead,
+  options: AgentSearchOptions,
+  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
+): boolean {
+  return coreMatchesSearchInputScope(core, options)
+    || subagentBranchAssociations.has(core.sessionId);
+}
+
 async function matchReasons(
   agent: AgentSessionKind,
   core: AgentSessionHead,
@@ -159,24 +202,24 @@ async function matchReasons(
   options: AgentSearchOptions,
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
+  candidateMetadataBranchAssociationCwd: string | null,
 ): Promise<BranchSearchMatch | null> {
   if (!hasSearchSelector(options.query)) {
     return {
       reasons: [AGENT_SEARCH_MATCH_REASON.ALL],
-      subagentBranchAssociation: null,
+      effectiveCwd: null,
     };
   }
   const metadataMatches = metadataMatchReasons(agent, core, options.query);
   if (metadataMatches === null) {
     return null;
   }
-  const branchAssociatedWorktreeRoots = options.branchAssociatedWorktreeRoots ?? [];
   const branchMatches = branchMetadataOrWorktreeMatchReasons(
     core,
     options.query.branch,
-    branchAssociatedWorktreeRoots,
     topLevelBranchAssociations,
     subagentBranchAssociations,
+    candidateMetadataBranchAssociationCwd,
   );
   if (branchMatches === null && topLevelBranchAssociations.commandCheckedSessionIds.has(core.sessionId)) {
     return null;
@@ -196,7 +239,7 @@ async function matchReasons(
   }
   return {
     reasons: [...metadataMatches, ...resolvedBranchMatches.reasons, ...contentMatches],
-    subagentBranchAssociation: resolvedBranchMatches.subagentBranchAssociation,
+    effectiveCwd: resolvedBranchMatches.effectiveCwd,
   };
 }
 
@@ -205,6 +248,13 @@ function coreMatchesSearchInputScope(
   options: AgentSearchOptions,
 ): boolean {
   return coreMatchesSearchScope(core, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
+}
+
+function cwdMatchesSearchInputScope(
+  cwd: string,
+  options: AgentSearchOptions,
+): boolean {
+  return cwdMatchesSearchScope(cwd, options.productScopeRoot, options.branchAssociatedWorktreeRoots ?? []);
 }
 
 function metadataMatchReasons(
@@ -272,7 +322,7 @@ function nonFutureStoreFiles(files: readonly AgentStoreFile[], nowMs: number): A
 
 function emptyTopLevelBranchAssociations(): TopLevelBranchAssociations {
   return {
-    associatedSessionIds: new Set<string>(),
+    commandAssociatedSessionIds: new Set<string>(),
     commandCheckedSessionIds: new Set<string>(),
   };
 }

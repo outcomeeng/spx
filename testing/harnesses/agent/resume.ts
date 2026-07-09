@@ -1,8 +1,9 @@
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { expect } from "vitest";
 
 import { listAgentResumeSessions } from "@/commands/agent/resume";
-import { jsonAgentSearchSessions } from "@/commands/agent/search";
+import { defaultAgentSearchCommandDeps, jsonAgentSearchSessions } from "@/commands/agent/search";
 import {
   AGENT_HOME_ENV,
   type AgentHomeDirs,
@@ -130,6 +131,7 @@ const CONFIGURED_AGENT_HOME_SAMPLE = {
   CLAUDE_SESSION_ID: 408,
   DEFAULT_SESSION_ID: 409,
   NOW_MS: 410,
+  DEFAULT_CLAUDE_SESSION_ID: 411,
 } as const;
 
 export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
@@ -1153,22 +1155,70 @@ export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void>
 
 export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
   const fixture = createConfiguredAgentHomeFixture();
-  const output = await jsonAgentSearchSessions({
-    cwd: fixture.codexCwd,
-    fallbackProductScopeRoot: fixture.worktreeRoot,
-    query: agentSearchQueryFromOptions({}),
-    deps: {
-      fs: fixture.fs,
-      agentHomeDirs: () => fixture.agentHomeDirs,
-      nowMs: () => fixture.nowMs,
-      resolveProductScopeRoot: async () => fixture.worktreeRoot,
-      resolveBranchAssociatedWorktreeRoots: async () => [],
-    },
-  });
+  const configuredOutput = await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
+    jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }));
+  const defaultOutput = await withAgentHomeEnvironment(null, () =>
+    jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }));
 
-  expect(output).toContain(fixture.codexSessionId);
-  expect(output).toContain(fixture.claudeSessionId);
-  expect(output).not.toContain(fixture.defaultSessionId);
+  expect(configuredOutput).toContain(fixture.codexSessionId);
+  expect(configuredOutput).toContain(fixture.claudeSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).toContain(fixture.defaultSessionId);
+  expect(defaultOutput).toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).not.toContain(fixture.codexSessionId);
+  expect(defaultOutput).not.toContain(fixture.claudeSessionId);
+}
+
+async function withAgentHomeEnvironment<T>(
+  agentHomeDirs: AgentHomeDirs | null,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const originalCodexHome = process.env[AGENT_HOME_ENV.CODEX];
+  const originalClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
+  if (agentHomeDirs === null) {
+    delete process.env[AGENT_HOME_ENV.CODEX];
+    delete process.env[AGENT_HOME_ENV.CLAUDE];
+  } else {
+    process.env[AGENT_HOME_ENV.CODEX] = agentHomeDirs.codex;
+    process.env[AGENT_HOME_ENV.CLAUDE] = agentHomeDirs.claudeCode;
+  }
+  try {
+    return await callback();
+  } finally {
+    restoreEnvironmentVariable(AGENT_HOME_ENV.CODEX, originalCodexHome);
+    restoreEnvironmentVariable(AGENT_HOME_ENV.CLAUDE, originalClaudeHome);
+  }
+}
+
+function restoreEnvironmentVariable(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
 
 interface ConfiguredAgentHomeFixture {
@@ -1180,6 +1230,7 @@ interface ConfiguredAgentHomeFixture {
   readonly codexSessionId: string;
   readonly claudeSessionId: string;
   readonly defaultSessionId: string;
+  readonly defaultClaudeSessionId: string;
   readonly nowMs: number;
 }
 
@@ -1212,7 +1263,12 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
   );
+  const defaultClaudeSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
+  );
   const timestamp = new Date(nowMs).toISOString();
+  const defaultHomeDirs = agentHomeDirsFromHomeDir(homedir());
 
   fs.writeFile(
     codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
@@ -1234,6 +1290,20 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     timestamp,
     modifiedAtMs: nowMs,
   });
+  fs.writeFile(
+    codexTranscriptPathFromAgentHome(defaultHomeDirs.codex, agentSessionJsonlName(defaultSessionId)),
+    codexTranscript({ sessionId: defaultSessionId, cwd: codexCwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    claudeProjectTranscriptPathFromAgentHome(
+      defaultHomeDirs.claudeCode,
+      claudeCwd,
+      agentSessionJsonlName(defaultClaudeSessionId),
+    ),
+    claudeCodeTranscript({ sessionId: defaultClaudeSessionId, cwd: claudeCwd, timestamp }),
+    nowMs,
+  );
 
   return {
     fs,
@@ -1244,6 +1314,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     codexSessionId,
     claudeSessionId,
     defaultSessionId,
+    defaultClaudeSessionId,
     nowMs,
   };
 }

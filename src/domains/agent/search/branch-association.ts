@@ -1,15 +1,4 @@
-import {
-  AGENT_RESUME_LIMITS,
-  AGENT_SEARCH_MATCH_REASON,
-  AGENT_SESSION_JSON_FIELDS,
-  AGENT_SESSION_ROW_TYPE,
-  AGENT_TRANSCRIPT_CODEX_OUTPUT,
-  AGENT_TRANSCRIPT_CONTENT_TYPE,
-  AGENT_TRANSCRIPT_GIT_COMMAND,
-  AGENT_TRANSCRIPT_PAYLOAD_TYPE,
-  AGENT_TRANSCRIPT_TOOL_NAME,
-  type AgentSearchMatchReason,
-} from "../protocol";
+import { AGENT_RESUME_LIMITS, AGENT_SEARCH_MATCH_REASON, type AgentSearchMatchReason } from "../protocol";
 import {
   type AgentSessionFileSystem,
   type AgentSessionHead,
@@ -17,7 +6,7 @@ import {
   isPathInsideOrEqual,
   parseCodexHead,
 } from "../resume";
-import { firstString, isRecord, parseJsonObject, valueAtPath } from "../transcript-json";
+import { transcriptHasAcceptedBranchCommand } from "./transcript-command-evidence";
 
 export type AgentHeadParser = (head: string) => AgentSessionHead | null;
 
@@ -40,16 +29,16 @@ export interface CodexSubagentBranchAssociation {
 
 export interface BranchSearchMatch {
   readonly reasons: readonly AgentSearchMatchReason[];
-  readonly subagentBranchAssociation: CodexSubagentBranchAssociation | null;
+  readonly effectiveCwd: string | null;
 }
 
 export interface TopLevelBranchAssociations {
-  readonly associatedSessionIds: ReadonlySet<string>;
+  readonly commandAssociatedSessionIds: ReadonlySet<string>;
   readonly commandCheckedSessionIds: ReadonlySet<string>;
 }
 
 interface MutableTopLevelBranchAssociations {
-  readonly associatedSessionIds: Set<string>;
+  readonly commandAssociatedSessionIds: Set<string>;
   readonly commandCheckedSessionIds: Set<string>;
 }
 
@@ -60,7 +49,7 @@ export async function collectTopLevelBranchAssociations(
 ): Promise<TopLevelBranchAssociations> {
   const branch = options.query.branch;
   const associated: MutableTopLevelBranchAssociations = {
-    associatedSessionIds: new Set<string>(),
+    commandAssociatedSessionIds: new Set<string>(),
     commandCheckedSessionIds: new Set<string>(),
   };
   if (branch === null) {
@@ -80,17 +69,13 @@ export async function collectTopLevelBranchAssociations(
     ) {
       continue;
     }
-    if (core.branch === branch) {
-      associated.associatedSessionIds.add(core.sessionId);
-      continue;
-    }
     const content = await options.fs.readText(file.path).catch(() => null);
     if (content === null) {
       continue;
     }
     associated.commandCheckedSessionIds.add(core.sessionId);
     if (transcriptHasAcceptedBranchCommand(content, branch)) {
-      associated.associatedSessionIds.add(core.sessionId);
+      associated.commandAssociatedSessionIds.add(core.sessionId);
     }
   }
   return associated;
@@ -133,42 +118,24 @@ export async function collectCodexSubagentBranchAssociations(
 export function branchMetadataOrWorktreeMatchReasons(
   core: AgentSessionHead,
   branch: string | null,
-  branchAssociatedWorktreeRoots: readonly string[],
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
+  currentMetadataBranchAssociationCwd: string | null,
 ): BranchSearchMatch | null {
   if (branch === null) {
     return {
       reasons: [],
-      subagentBranchAssociation: null,
+      effectiveCwd: null,
     };
   }
-  if (core.branch === branch) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
+  if (currentMetadataBranchAssociationCwd !== null) {
+    return branchSearchMatch(currentMetadataBranchAssociationCwd);
   }
-  if (branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd))) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
-  }
-  if (topLevelBranchAssociations.associatedSessionIds.has(core.sessionId)) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    };
+  if (topLevelBranchAssociations.commandAssociatedSessionIds.has(core.sessionId)) {
+    return branchSearchMatch(null);
   }
   const subagentBranchAssociation = subagentBranchAssociations.get(core.sessionId) ?? null;
-  if (subagentBranchAssociation !== null) {
-    return {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation,
-    };
-  }
-  return null;
+  return subagentBranchAssociation === null ? null : branchSearchMatch(subagentBranchAssociation.cwd);
 }
 
 export function branchTranscriptCommandMatchReasons(
@@ -178,14 +145,11 @@ export function branchTranscriptCommandMatchReasons(
   if (branch === null) {
     return {
       reasons: [],
-      subagentBranchAssociation: null,
+      effectiveCwd: null,
     };
   }
   return content !== undefined && transcriptHasAcceptedBranchCommand(content, branch)
-    ? {
-      reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
-      subagentBranchAssociation: null,
-    }
+    ? branchSearchMatch(null)
     : null;
 }
 
@@ -194,14 +158,39 @@ export function coreMatchesSearchScope(
   productScopeRoot: string,
   branchAssociatedWorktreeRoots: readonly string[],
 ): boolean {
-  return isPathInsideOrEqual(productScopeRoot, core.cwd)
-    || branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd));
+  return cwdMatchesSearchScope(core.cwd, productScopeRoot, branchAssociatedWorktreeRoots);
 }
 
-export function transcriptHasAcceptedBranchCommand(content: string, branch: string): boolean {
-  return transcriptBranchCommandEvidence(content).some((evidence) =>
-    evidence.completed && !evidence.failed && gitCommandAssociatesBranch(evidence.words, branch)
-  );
+export function currentMetadataBranchAssociationCwd(
+  core: AgentSessionHead,
+  branch: string | null,
+  branchAssociatedWorktreeRoots: readonly string[],
+): string | null {
+  if (branch === null) {
+    return null;
+  }
+  if (core.branch === branch) {
+    return core.cwd;
+  }
+  return branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd)) ? core.cwd : null;
+}
+
+export function cwdMatchesSearchScope(
+  cwd: string,
+  productScopeRoot: string,
+  branchAssociatedWorktreeRoots: readonly string[],
+): boolean {
+  return isPathInsideOrEqual(productScopeRoot, cwd)
+    || branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, cwd));
+}
+
+function branchSearchMatch(
+  effectiveCwd: string | null,
+): BranchSearchMatch {
+  return {
+    reasons: [AGENT_SEARCH_MATCH_REASON.BRANCH],
+    effectiveCwd,
+  };
 }
 
 function addCodexSubagentBranchAssociation(
@@ -214,711 +203,4 @@ function addCodexSubagentBranchAssociation(
   associated.set(core.sessionId, {
     cwd: core.cwd,
   });
-}
-
-interface TranscriptBranchCommandEvidence {
-  readonly words: readonly string[];
-  completed: boolean;
-  failed: boolean;
-}
-
-function transcriptBranchCommandEvidence(content: string): readonly TranscriptBranchCommandEvidence[] {
-  const evidence: TranscriptBranchCommandEvidence[] = [];
-  const codexCalls = new Map<string, TranscriptBranchCommandEvidence>();
-  const claudeToolUses = new Map<string, TranscriptBranchCommandEvidence>();
-  const completedCodexCallIds = new Set<string>();
-  const completedClaudeToolUseIds = new Set<string>();
-  const failedCodexCallIds = new Set<string>();
-  const failedClaudeToolUseIds = new Set<string>();
-  for (const line of content.split("\n")) {
-    const row = parseJsonObject(line);
-    if (row === null) {
-      continue;
-    }
-    collectCodexCommandEvidence(row, evidence, codexCalls, completedCodexCallIds, failedCodexCallIds);
-    collectClaudeCommandEvidence(row, evidence, claudeToolUses, completedClaudeToolUseIds, failedClaudeToolUseIds);
-  }
-  return evidence;
-}
-
-function collectCodexCommandEvidence(
-  row: Record<string, unknown>,
-  evidence: TranscriptBranchCommandEvidence[],
-  calls: Map<string, TranscriptBranchCommandEvidence>,
-  completedCallIds: Set<string>,
-  failedCallIds: Set<string>,
-): void {
-  if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.CODEX_RESPONSE_ITEM) {
-    return;
-  }
-  const payload = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.PAYLOAD]);
-  if (!isRecord(payload)) {
-    return;
-  }
-  const payloadType = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.TYPE]]);
-  if (payloadType === AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL) {
-    const command = codexFunctionCallWords(payload);
-    if (command === null) {
-      return;
-    }
-    const rowEvidence: TranscriptBranchCommandEvidence = {
-      words: command,
-      completed: false,
-      failed: false,
-    };
-    const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
-    if (callId !== null) {
-      rowEvidence.completed = completedCallIds.has(callId);
-      rowEvidence.failed = failedCallIds.has(callId);
-      calls.set(callId, rowEvidence);
-    }
-    evidence.push(rowEvidence);
-    return;
-  }
-  if (payloadType !== AGENT_TRANSCRIPT_PAYLOAD_TYPE.FUNCTION_CALL_OUTPUT) {
-    return;
-  }
-  const callId = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.CALL_ID]]);
-  if (callId === null) {
-    return;
-  }
-  completedCallIds.add(callId);
-  const command = calls.get(callId);
-  if (command !== undefined) {
-    command.completed = true;
-  }
-  if (!codexFunctionCallOutputFailed(payload)) {
-    return;
-  }
-  failedCallIds.add(callId);
-  if (command !== undefined) {
-    command.failed = true;
-  }
-}
-
-function codexFunctionCallWords(payload: Record<string, unknown>): readonly string[] | null {
-  const toolName = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.NAME]]);
-  if (toolName !== AGENT_TRANSCRIPT_TOOL_NAME.CODEX_EXEC_COMMAND) {
-    return null;
-  }
-  const rawArguments = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.ARGUMENTS]]);
-  if (rawArguments === null) {
-    return null;
-  }
-  const args = parseJsonObject(rawArguments);
-  if (args === null) {
-    return null;
-  }
-  const command = firstString(args, [
-    [AGENT_SESSION_JSON_FIELDS.CMD],
-    [AGENT_SESSION_JSON_FIELDS.COMMAND],
-  ]);
-  if (command !== null) {
-    return shellWords(command);
-  }
-  const commandArgs = valueAtPath(args, [AGENT_SESSION_JSON_FIELDS.ARGS]);
-  return stringArray(commandArgs);
-}
-
-const CODEX_OUTPUT_EXIT_CODE_PATTERN = new RegExp(
-  String.raw`${AGENT_TRANSCRIPT_CODEX_OUTPUT.PROCESS_EXITED_WITH_CODE}\s+(\d+)`,
-  "u",
-);
-
-function codexFunctionCallOutputFailed(payload: Record<string, unknown>): boolean {
-  const output = firstString(payload, [[AGENT_SESSION_JSON_FIELDS.OUTPUT]]);
-  if (output === null) {
-    return false;
-  }
-  const match = CODEX_OUTPUT_EXIT_CODE_PATTERN.exec(output);
-  return match !== null && Number(match[1]) !== 0;
-}
-
-function collectClaudeCommandEvidence(
-  row: Record<string, unknown>,
-  evidence: TranscriptBranchCommandEvidence[],
-  toolUses: Map<string, TranscriptBranchCommandEvidence>,
-  completedToolUseIds: Set<string>,
-  failedToolUseIds: Set<string>,
-): void {
-  const content = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.MESSAGE, AGENT_SESSION_JSON_FIELDS.CONTENT]);
-  if (!Array.isArray(content)) {
-    return;
-  }
-  for (const item of content) {
-    if (!isRecord(item)) {
-      continue;
-    }
-    const itemType = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TYPE]]);
-    if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_USE) {
-      collectClaudeToolUse(item, evidence, toolUses, completedToolUseIds, failedToolUseIds);
-    } else if (itemType === AGENT_TRANSCRIPT_CONTENT_TYPE.TOOL_RESULT) {
-      collectClaudeToolResult(item, toolUses, completedToolUseIds, failedToolUseIds);
-    }
-  }
-}
-
-function collectClaudeToolUse(
-  item: Record<string, unknown>,
-  evidence: TranscriptBranchCommandEvidence[],
-  toolUses: Map<string, TranscriptBranchCommandEvidence>,
-  completedToolUseIds: Set<string>,
-  failedToolUseIds: Set<string>,
-): void {
-  const toolName = firstString(item, [[AGENT_SESSION_JSON_FIELDS.NAME]]);
-  if (toolName !== AGENT_TRANSCRIPT_TOOL_NAME.CLAUDE_BASH) {
-    return;
-  }
-  const command = firstString(item, [[AGENT_SESSION_JSON_FIELDS.INPUT, AGENT_SESSION_JSON_FIELDS.COMMAND]]);
-  if (command === null) {
-    return;
-  }
-  const rowEvidence: TranscriptBranchCommandEvidence = {
-    words: shellWords(command),
-    completed: false,
-    failed: false,
-  };
-  const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.ID]]);
-  if (toolUseId !== null) {
-    rowEvidence.completed = completedToolUseIds.has(toolUseId);
-    rowEvidence.failed = failedToolUseIds.has(toolUseId);
-    toolUses.set(toolUseId, rowEvidence);
-  }
-  evidence.push(rowEvidence);
-}
-
-function collectClaudeToolResult(
-  item: Record<string, unknown>,
-  toolUses: Map<string, TranscriptBranchCommandEvidence>,
-  completedToolUseIds: Set<string>,
-  failedToolUseIds: Set<string>,
-): void {
-  const toolUseId = firstString(item, [[AGENT_SESSION_JSON_FIELDS.TOOL_USE_ID]]);
-  if (toolUseId === null) {
-    return;
-  }
-  completedToolUseIds.add(toolUseId);
-  const command = toolUses.get(toolUseId);
-  if (command !== undefined) {
-    command.completed = true;
-  }
-  if (valueAtPath(item, [AGENT_SESSION_JSON_FIELDS.IS_ERROR]) !== true) {
-    return;
-  }
-  failedToolUseIds.add(toolUseId);
-  if (command !== undefined) {
-    command.failed = true;
-  }
-}
-
-function gitCommandAssociatesBranch(words: readonly string[], branch: string): boolean {
-  return shellSuccessProvingCommandSegments(words).some((segment) => {
-    const gitCommand = normalizeGitCommandSegment(segment);
-    if (gitCommand === null) {
-      return false;
-    }
-    const args = stripGitGlobalOptions(gitCommand);
-    if (args === null) {
-      return false;
-    }
-    return gitSwitchCommandAssociatesBranch(args, branch)
-      || gitCheckoutCommandAssociatesBranch(args, branch)
-      || gitWorktreeAddCommandAssociatesBranch(args, branch);
-  });
-}
-
-function stripGitGlobalOptions(words: readonly string[]): readonly string[] | null {
-  if (words[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE) {
-    return null;
-  }
-  let index = 1;
-  while (index < words.length) {
-    const optionConsumption = gitOptionConsumption(words, index, GIT_GLOBAL_OPTIONS);
-    if (optionConsumption === GIT_OPTION_CONSUMPTION.INVALID) {
-      return null;
-    }
-    if (optionConsumption === GIT_OPTION_CONSUMPTION.NOT_ALLOWED) {
-      break;
-    }
-    index += optionConsumption + 1;
-  }
-  return words.slice(index);
-}
-
-function gitSwitchCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
-  if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.SWITCH) {
-    return false;
-  }
-  const parsed = parseGitBranchArgs(args.slice(1), SWITCH_CREATE_FLAGS, SWITCH_ALLOWED_OPTIONS);
-  if (parsed.invalid) {
-    return false;
-  }
-  if (parsed.createdBranch !== null) {
-    return parsed.createdBranch === branch && parsed.positionals.length <= 1;
-  }
-  return parsed.positionals.length === 1 && positionalBranchMatches(parsed.positionals[0], parsed, branch);
-}
-
-function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
-  if (args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT) {
-    return false;
-  }
-  const parsed = parseGitBranchArgs(args.slice(1), CHECKOUT_CREATE_FLAGS, CHECKOUT_ALLOWED_OPTIONS);
-  if (parsed.invalid) {
-    return false;
-  }
-  if (parsed.createdBranch !== null) {
-    return parsed.createdBranch === branch && parsed.positionals.length <= 1;
-  }
-  return parsed.positionals.length === 1 && positionalBranchMatches(parsed.positionals[0], parsed, branch);
-}
-
-function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: string): boolean {
-  if (
-    args[0] !== AGENT_TRANSCRIPT_GIT_COMMAND.WORKTREE
-    || args[1] !== AGENT_TRANSCRIPT_GIT_COMMAND.ADD
-  ) {
-    return false;
-  }
-  const parsed = parseGitBranchArgs(args.slice(2), WORKTREE_CREATE_FLAGS, WORKTREE_ALLOWED_OPTIONS);
-  if (parsed.invalid) {
-    return false;
-  }
-  if (parsed.createdBranch !== null) {
-    return parsed.createdBranch === branch && parsed.positionals.length >= 1 && parsed.positionals.length <= 2;
-  }
-  if (parsed.positionals.length === 2) {
-    return parsed.positionals[1] === branch;
-  }
-  return false;
-}
-
-interface ParsedGitBranchArgs {
-  readonly createdBranch: string | null;
-  readonly positionals: readonly string[];
-  readonly usesTrack: boolean;
-  readonly invalid: boolean;
-}
-
-interface GitAllowedOptions {
-  readonly flags: readonly string[];
-  readonly valueFlags: readonly string[];
-  readonly optionalValueFlags: readonly string[];
-}
-
-const GIT_OPTION_CONSUMPTION = {
-  INVALID: "invalid",
-  NOT_ALLOWED: "not-allowed",
-} as const;
-
-type GitOptionConsumption = number | (typeof GIT_OPTION_CONSUMPTION)[keyof typeof GIT_OPTION_CONSUMPTION];
-
-interface GitCreateBranchParse {
-  readonly branch: string;
-  readonly consumed: number;
-}
-
-const SWITCH_CREATE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_LONG,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_LONG,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SWITCH_RESET_LONG,
-  AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN,
-] as const;
-
-const CHECKOUT_CREATE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.ORPHAN,
-] as const;
-
-const WORKTREE_CREATE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_RESET_SHORT,
-] as const;
-
-const CHECKOUT_ALLOWED_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.OVERLAY,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERLAY,
-  AGENT_TRANSCRIPT_GIT_COMMAND.PROGRESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PROGRESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_REFLOG_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.OVERWRITE_IGNORE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERWRITE_IGNORE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.IGNORE_OTHER_WORKTREES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_IGNORE_OTHER_WORKTREES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RECURSE_SUBMODULES,
-] as const;
-
-const CHECKOUT_ALLOWED_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT,
-] as const;
-
-const CHECKOUT_ALLOWED_OPTIONAL_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES,
-] as const;
-
-const CHECKOUT_ALLOWED_OPTIONS: GitAllowedOptions = {
-  flags: CHECKOUT_ALLOWED_FLAGS,
-  valueFlags: CHECKOUT_ALLOWED_VALUE_FLAGS,
-  optionalValueFlags: CHECKOUT_ALLOWED_OPTIONAL_VALUE_FLAGS,
-};
-
-const SWITCH_ALLOWED_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_DIRECT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_INHERIT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.DISCARD_CHANGES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_DISCARD_CHANGES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.PROGRESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PROGRESS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.OVERWRITE_IGNORE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OVERWRITE_IGNORE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.IGNORE_OTHER_WORKTREES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_IGNORE_OTHER_WORKTREES,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RECURSE_SUBMODULES,
-] as const;
-
-const SWITCH_ALLOWED_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT,
-] as const;
-
-const SWITCH_ALLOWED_OPTIONAL_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES,
-] as const;
-
-const SWITCH_ALLOWED_OPTIONS: GitAllowedOptions = {
-  flags: SWITCH_ALLOWED_FLAGS,
-  valueFlags: SWITCH_ALLOWED_VALUE_FLAGS,
-  optionalValueFlags: SWITCH_ALLOWED_OPTIONAL_VALUE_FLAGS,
-};
-
-const WORKTREE_ALLOWED_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.FORCE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_TRACK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET,
-  AGENT_TRANSCRIPT_GIT_COMMAND.QUIET_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT_WORKTREE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_CHECKOUT_WORKTREE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.LOCK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_LOCK,
-  AGENT_TRANSCRIPT_GIT_COMMAND.GUESS_REMOTE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_GUESS_REMOTE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.RELATIVE_PATHS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_RELATIVE_PATHS,
-] as const;
-
-const WORKTREE_ALLOWED_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.REASON,
-] as const;
-
-const WORKTREE_ALLOWED_OPTIONS: GitAllowedOptions = {
-  flags: WORKTREE_ALLOWED_FLAGS,
-  valueFlags: WORKTREE_ALLOWED_VALUE_FLAGS,
-  optionalValueFlags: [],
-};
-
-const GIT_GLOBAL_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.HTML_PATH,
-  AGENT_TRANSCRIPT_GIT_COMMAND.MAN_PATH,
-  AGENT_TRANSCRIPT_GIT_COMMAND.INFO_PATH,
-  AGENT_TRANSCRIPT_GIT_COMMAND.PAGINATE_SHORT,
-  AGENT_TRANSCRIPT_GIT_COMMAND.PAGINATE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_PAGER,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_REPLACE_OBJECTS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_LAZY_FETCH,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_OPTIONAL_LOCKS,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NO_ADVICE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.BARE,
-] as const;
-
-const GIT_GLOBAL_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.CHANGE_DIRECTORY,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG,
-  AGENT_TRANSCRIPT_GIT_COMMAND.GIT_DIR,
-  AGENT_TRANSCRIPT_GIT_COMMAND.WORK_TREE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.NAMESPACE,
-  AGENT_TRANSCRIPT_GIT_COMMAND.CONFIG_ENV,
-] as const;
-
-const GIT_GLOBAL_OPTIONAL_VALUE_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.EXEC_PATH,
-] as const;
-
-const GIT_GLOBAL_OPTIONS: GitAllowedOptions = {
-  flags: GIT_GLOBAL_FLAGS,
-  valueFlags: GIT_GLOBAL_VALUE_FLAGS,
-  optionalValueFlags: GIT_GLOBAL_OPTIONAL_VALUE_FLAGS,
-};
-
-const DISALLOWED_BRANCH_ASSOCIATION_FLAGS = [
-  AGENT_TRANSCRIPT_GIT_COMMAND.DETACH,
-  AGENT_TRANSCRIPT_GIT_COMMAND.PATHSPEC_SEPARATOR,
-] as const;
-
-const SHELL_COMMAND_SEPARATOR = {
-  SEQUENCE: ";",
-} as const;
-
-const SHELL_OPERATOR_AND = "&&";
-const SHELL_OPERATOR_OR = "||";
-const SHELL_OPERATOR_AMPERSAND = "&";
-const SHELL_OPERATOR_PIPE = "|";
-const SHELL_ENV_COMMAND = "env";
-const SHELL_COMMAND_WRAPPER_COMMAND = "command";
-const SHELL_SUDO_COMMAND = "sudo";
-const SHELL_BOURNE_COMMAND = "sh";
-const SHELL_BASH_COMMAND = "bash";
-const SHELL_COMMAND_STRING_FLAG = "-c";
-const SHELL_LOGIN_COMMAND_STRING_FLAG = "-lc";
-const SHELL_ENV_ASSIGNMENT_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*=.*$/u;
-const SHELL_REDIRECTION_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)$/u;
-const SHELL_DUPLICATED_DESCRIPTOR_PATTERN = /^\d*(?:>>?|<<<?|>&|<&|&>|&>>)&?\d+$/u;
-
-function shellSuccessProvingCommandSegments(words: readonly string[]): readonly (readonly string[])[] {
-  const segments: string[][] = [[]];
-  for (const word of words) {
-    if (isShellUnsafeSuccessSeparator(word)) {
-      return [];
-    }
-    if (word === SHELL_OPERATOR_AND) {
-      segments.push([]);
-      continue;
-    }
-    segments[segments.length - 1].push(word);
-  }
-  const populatedSegments = segments.filter((segment) => segment.length > 0);
-  const reachableSegments: string[][] = [];
-  for (const segment of populatedSegments) {
-    reachableSegments.push(segment);
-    if (isShellKnownFailingSegment(segment)) {
-      break;
-    }
-  }
-  return reachableSegments;
-}
-
-function isShellKnownFailingSegment(words: readonly string[]): boolean {
-  return stripShellRedirections(words)[0] === "false";
-}
-
-function normalizeGitCommandSegment(words: readonly string[]): readonly string[] | null {
-  let index = 0;
-  while (index < words.length) {
-    if (words[index] === SHELL_ENV_COMMAND || SHELL_ENV_ASSIGNMENT_PATTERN.test(words[index])) {
-      index += 1;
-      continue;
-    }
-    break;
-  }
-  if (words[index] === SHELL_COMMAND_WRAPPER_COMMAND || words[index] === SHELL_SUDO_COMMAND) {
-    return normalizeGitCommandSegment(words.slice(index + 1));
-  }
-  const shellCommandWords = shellCommandWrapperWords(words.slice(index));
-  if (shellCommandWords !== null) {
-    return shellSuccessProvingCommandSegments(shellCommandWords)
-      .map((segment) => normalizeGitCommandSegment(segment))
-      .find((segment): segment is readonly string[] => segment !== null) ?? null;
-  }
-  const command = stripShellRedirections(words.slice(index));
-  return command[0] === AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE ? command : null;
-}
-
-function shellCommandWrapperWords(words: readonly string[]): readonly string[] | null {
-  const executable = words[0];
-  if (executable !== SHELL_BOURNE_COMMAND && executable !== SHELL_BASH_COMMAND) {
-    return null;
-  }
-  const commandIndex = words.findIndex((word) =>
-    word === SHELL_COMMAND_STRING_FLAG || word === SHELL_LOGIN_COMMAND_STRING_FLAG
-  );
-  const command = commandIndex === -1 ? undefined : words.at(commandIndex + 1);
-  return command === undefined ? null : shellWords(command);
-}
-
-function isShellUnsafeSuccessSeparator(word: string): boolean {
-  return word === SHELL_OPERATOR_OR
-    || word === SHELL_OPERATOR_AMPERSAND
-    || word === SHELL_OPERATOR_PIPE
-    || word === SHELL_COMMAND_SEPARATOR.SEQUENCE;
-}
-
-function stripShellRedirections(words: readonly string[]): readonly string[] {
-  const command: string[] = [];
-  for (let index = 0; index < words.length; index += 1) {
-    const word = words[index];
-    if (SHELL_DUPLICATED_DESCRIPTOR_PATTERN.test(word)) {
-      continue;
-    }
-    if (SHELL_REDIRECTION_PATTERN.test(word)) {
-      index += 1;
-      continue;
-    }
-    command.push(word);
-  }
-  return command;
-}
-
-function parseGitBranchArgs(
-  args: readonly string[],
-  createFlags: readonly string[],
-  allowedOptions: GitAllowedOptions,
-): ParsedGitBranchArgs {
-  const positionals: string[] = [];
-  let createdBranch: string | null = null;
-  let usesTrack = false;
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (tupleIncludes(DISALLOWED_BRANCH_ASSOCIATION_FLAGS, arg)) {
-      return { createdBranch, positionals, usesTrack, invalid: true };
-    }
-    const createBranch = gitCreateBranchParse(args, index, createFlags);
-    if (createBranch === GIT_OPTION_CONSUMPTION.INVALID) {
-      return { createdBranch, positionals, usesTrack, invalid: true };
-    }
-    if (createBranch !== null) {
-      createdBranch = createBranch.branch;
-      index += createBranch.consumed;
-      continue;
-    }
-    const optionConsumption = gitOptionConsumption(args, index, allowedOptions);
-    if (optionConsumption === GIT_OPTION_CONSUMPTION.INVALID) {
-      return { createdBranch, positionals, usesTrack, invalid: true };
-    }
-    if (optionConsumption !== GIT_OPTION_CONSUMPTION.NOT_ALLOWED) {
-      usesTrack ||= isTrackOption(arg);
-      index += optionConsumption;
-      continue;
-    }
-    if (arg.startsWith("-")) {
-      return { createdBranch, positionals, usesTrack, invalid: true };
-    }
-    positionals.push(arg);
-  }
-  return { createdBranch, positionals, usesTrack, invalid: false };
-}
-
-function positionalBranchMatches(positional: string, parsed: ParsedGitBranchArgs, branch: string): boolean {
-  return positional === branch || parsed.usesTrack && remoteTrackingBranchLocalName(positional) === branch;
-}
-
-function remoteTrackingBranchLocalName(ref: string): string | null {
-  const firstSlash = ref.indexOf("/");
-  return firstSlash > 0 && firstSlash < ref.length - 1 ? ref.slice(firstSlash + 1) : null;
-}
-
-function gitCreateBranchParse(
-  args: readonly string[],
-  index: number,
-  createFlags: readonly string[],
-): GitCreateBranchParse | typeof GIT_OPTION_CONSUMPTION.INVALID | null {
-  const arg = args[index];
-  for (const flag of createFlags) {
-    if (arg === flag) {
-      const branch = args.at(index + 1);
-      return parseCreatedBranch(branch, 1);
-    }
-    if (isInlineValueFlag([flag], arg)) {
-      return parseCreatedBranch(arg.slice(flag.length + 1), 0);
-    }
-    if (isShortFlagWithAttachedValue(flag, arg)) {
-      return parseCreatedBranch(arg.slice(flag.length), 0);
-    }
-  }
-  return null;
-}
-
-function parseCreatedBranch(
-  branch: string | undefined,
-  consumed: number,
-): GitCreateBranchParse | typeof GIT_OPTION_CONSUMPTION.INVALID {
-  if (branch === undefined || branch.length === 0 || branch.startsWith("-")) {
-    return GIT_OPTION_CONSUMPTION.INVALID;
-  }
-  return {
-    branch,
-    consumed,
-  };
-}
-
-function isShortFlagWithAttachedValue(flag: string, arg: string): boolean {
-  return flag.length === 2 && arg.startsWith(flag) && arg.length > flag.length;
-}
-
-function gitOptionConsumption(
-  args: readonly string[],
-  index: number,
-  allowedOptions: GitAllowedOptions,
-): GitOptionConsumption {
-  const arg = args[index];
-  if (isInlineValueFlag(allowedOptions.valueFlags, arg)) {
-    return 0;
-  }
-  if (tupleIncludes(allowedOptions.valueFlags, arg)) {
-    const value = args.at(index + 1);
-    if (value === undefined || value.startsWith("-")) {
-      return GIT_OPTION_CONSUMPTION.INVALID;
-    }
-    return 1;
-  }
-  if (isInlineValueFlag(allowedOptions.optionalValueFlags, arg) || tupleIncludes(allowedOptions.flags, arg)) {
-    return 0;
-  }
-  if (tupleIncludes(allowedOptions.optionalValueFlags, arg)) {
-    return 0;
-  }
-  return GIT_OPTION_CONSUMPTION.NOT_ALLOWED;
-}
-
-function stringArray(value: unknown): readonly string[] | null {
-  return Array.isArray(value) && value.every((item): item is string => typeof item === "string" && item.length > 0)
-    ? value
-    : null;
-}
-
-function tupleIncludes(values: readonly string[], value: string): boolean {
-  return values.includes(value);
-}
-
-function isInlineValueFlag(flags: readonly string[], value: string): boolean {
-  return flags.some((flag) => value.startsWith(`${flag}=`) && value.length > flag.length + 1);
-}
-
-function isTrackOption(value: string): boolean {
-  return value === AGENT_TRANSCRIPT_GIT_COMMAND.TRACK
-    || value === AGENT_TRANSCRIPT_GIT_COMMAND.TRACK_SHORT
-    || value.startsWith(`${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK}=`);
-}
-
-const SHELL_WORD_PATTERN = /"([^"]*)"|'([^']*)'|(\d*(?:>>?|<<<?|>&|<&|&>|&>>)&?\d*)|(&&|\|\||[;&|])|([^\s;&|<>]+)/gu;
-
-function shellWords(command: string): readonly string[] {
-  return [...command.matchAll(SHELL_WORD_PATTERN)].map((match) =>
-    match.at(1) ?? match.at(2) ?? match.at(3) ?? match.at(4) ?? match[0]
-  );
 }
