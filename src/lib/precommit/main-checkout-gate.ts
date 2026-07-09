@@ -12,7 +12,7 @@
  * @module lib/precommit/main-checkout-gate
  */
 
-import { gatherGitFacts, type GitFacts, isMainCheckout } from "@/git/root";
+import { gatherGitFacts, type GitFacts, isMainCheckout } from "@/lib/git/root";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
 /** Exit codes emitted by the main-checkout gate. */

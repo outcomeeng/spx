@@ -16,7 +16,7 @@
  */
 
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
-import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 
 /** Exit codes emitted by the post-checkout dependency-install gate. */

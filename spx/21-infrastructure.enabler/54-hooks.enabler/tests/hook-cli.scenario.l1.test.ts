@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { EventEmitter } from "node:events";
 
 import type { Result } from "@/config/types";
-import { defaultGitDependencies } from "@/git/root";
 import {
   createProcessHookIo,
   ERROR_DETAIL_SEPARATOR,
@@ -13,6 +12,7 @@ import {
   STDIN_READ_ERROR,
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
+import { defaultGitDependencies } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createProcessTable } from "@testing/harnesses/worktree/harness";

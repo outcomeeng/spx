@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GIT_ROOT_COMMAND } from "@/git/root";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import {
   arbitraryBarePoolLayoutCase,
   sampleMainCheckoutTestValue,

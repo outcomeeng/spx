@@ -49,7 +49,7 @@ export async function detectProductRootsInChildProcess(
   envOverrides: GitTestEnvironmentOverrides,
 ): Promise<DetectedProductRoots> {
   const script = `
-    import { detectWorktreeProductRoot, detectGitCommonDirProductRoot } from "@/git/root";
+    import { detectWorktreeProductRoot, detectGitCommonDirProductRoot } from "@/lib/git/root";
     async function main() {
       const cwd = process.env.${PRODUCT_ROOT_TEST_CWD_ENV};
       if (cwd === undefined) {

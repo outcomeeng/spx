@@ -1,11 +1,14 @@
 import { CONFIG_FILENAMES } from "@/config/filenames";
-import { GIT_ROOT_COMMAND, type GitDependencies, resolveDefaultBranch, resolveRefSha } from "@/git/root";
 import {
-  GIT_NAME_STATUS_FLAG,
-  GIT_NULL_DELIMITED_FLAG,
-  pathsFromNameStatus,
-  pathsFromNulDelimited,
-} from "@/lib/git/name-status";
+  changedPathsForStagedComparison,
+  changedPathsForWorktreeComparison,
+  GIT_DIFF_CACHED_FLAG,
+  GIT_LS_FILES_COMMAND,
+  GIT_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  GIT_LS_FILES_OTHERS_FLAG,
+} from "@/lib/git/changed-paths";
+import { GIT_NAME_STATUS_FLAG, GIT_NULL_DELIMITED_FLAG, pathsFromNulDelimited } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND, type GitDependencies, resolveDefaultBranch, resolveRefSha } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
@@ -17,14 +20,14 @@ import type { TargetSelection } from "@/domains/test/targeting";
 import { discoverTestFiles } from "./discovery";
 
 export const CHANGED_TEST_DIFF_COMMAND = "diff";
-export const CHANGED_TEST_DIFF_CACHED_FLAG = "--cached";
-export const CHANGED_TEST_LS_FILES_COMMAND = "ls-files";
+export const CHANGED_TEST_DIFF_CACHED_FLAG = GIT_DIFF_CACHED_FLAG;
+export const CHANGED_TEST_LS_FILES_COMMAND = GIT_LS_FILES_COMMAND;
 export const CHANGED_TEST_SHOW_COMMAND = "show";
 export const CHANGED_TEST_INDEX_PATH_PREFIX = ":";
 export const CHANGED_TEST_DIFF_NAME_STATUS_FLAG = GIT_NAME_STATUS_FLAG;
 export const CHANGED_TEST_NULL_DELIMITED_FLAG = GIT_NULL_DELIMITED_FLAG;
-export const CHANGED_TEST_LS_FILES_OTHERS_FLAG = "--others";
-export const CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG = "--exclude-standard";
+export const CHANGED_TEST_LS_FILES_OTHERS_FLAG = GIT_LS_FILES_OTHERS_FLAG;
+export const CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG = GIT_LS_FILES_EXCLUDE_STANDARD_FLAG;
 export const CHANGED_TEST_LS_FILES_CACHED_FLAG = "--cached";
 const HEAD_REF = "HEAD";
 const ORIGIN_REMOTE = "origin";
@@ -69,8 +72,6 @@ export interface ChangedTestSelectionDependencies {
   readonly relatedDepsFor: (languageName: string) => RelatedTestDependencies;
 }
 
-export const changedPathsFromNameStatus = pathsFromNameStatus;
-
 interface StagedSnapshotReadError extends Error {
   readonly code: string;
 }
@@ -113,51 +114,13 @@ async function changedPaths(
   staged: boolean,
   git?: GitDependencies,
 ): Promise<readonly string[]> {
-  const runner = git?.execa;
-  if (runner === undefined) {
+  if (git === undefined) {
     throw new Error("changed test planning requires injected git access");
   }
-  const result = await runner(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [
-      CHANGED_TEST_DIFF_COMMAND,
-      ...(staged
-        ? [CHANGED_TEST_DIFF_CACHED_FLAG, CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG]
-        : [CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG]),
-      baseSha,
-    ],
-    { cwd: productDir, reject: false },
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(`failed to diff changed paths for test planning: ${result.stderr}`);
-  }
-  const diffPaths = changedPathsFromNameStatus(result.stdout);
   if (staged) {
-    return diffPaths;
+    return await changedPathsForStagedComparison({ productDir, base: baseSha, git });
   }
-  const untrackedPaths = await untrackedWorktreePaths(productDir, git);
-  return [...new Set([...diffPaths, ...untrackedPaths])].sort(compareAsciiStrings);
-}
-
-async function untrackedWorktreePaths(productDir: string, git?: GitDependencies): Promise<readonly string[]> {
-  const runner = git?.execa;
-  if (runner === undefined) {
-    throw new Error("changed test planning requires injected git access");
-  }
-  const result = await runner(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [
-      CHANGED_TEST_LS_FILES_COMMAND,
-      CHANGED_TEST_LS_FILES_OTHERS_FLAG,
-      CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
-      CHANGED_TEST_NULL_DELIMITED_FLAG,
-    ],
-    { cwd: productDir, reject: false },
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(`failed to list untracked paths for changed test planning: ${result.stderr}`);
-  }
-  return pathsFromNulDelimited(result.stdout);
+  return await changedPathsForWorktreeComparison({ productDir, base: baseSha, git });
 }
 
 function isSpecTestPath(path: string): boolean {

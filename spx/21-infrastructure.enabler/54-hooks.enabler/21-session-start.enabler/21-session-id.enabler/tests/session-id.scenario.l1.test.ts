@@ -11,9 +11,9 @@ import {
 } from "@/domains/hooks/session-start";
 import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import type { RandomBytes } from "@/lib/atomic-file-write";
+import { defaultGitDependencies } from "@/lib/git/root";
 import {
   samplePathUnsafeAgentSessionIdentity,
   sampleWhitespaceAgentSessionIdentity,

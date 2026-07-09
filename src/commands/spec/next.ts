@@ -1,5 +1,5 @@
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
-import type { GitDependencies } from "@/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import {
   createFilesystemSpecTreeSource,
   findNextSpecTreeNode,

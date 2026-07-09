@@ -15,7 +15,7 @@ import {
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
 import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 

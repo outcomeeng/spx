@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 
-import { withoutGitEnvironment } from "@/git/environment";
+import { withoutGitEnvironment } from "@/lib/git/environment";
 
 export const GIT_TEST_COMMAND = "git";
 

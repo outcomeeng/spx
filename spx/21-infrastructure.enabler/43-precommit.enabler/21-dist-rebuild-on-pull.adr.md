@@ -12,7 +12,7 @@ The global `spx` executable resolves through the main checkout's built `dist/`, 
 
 - ALWAYS: `post-merge.rebuild-dist` installs dependencies with `pnpm install --frozen-lockfile`, invokes `pnpm exec tsx src/lib/precommit/main-checkout-gate.ts`, and runs `pnpm run build` only when that gate exits successfully ([audit])
 - ALWAYS: `post-rewrite.rebuild-dist` performs the rebuild path only for the `rebase` hook argument and skips every other hook argument ([audit])
-- ALWAYS: `src/lib/precommit/main-checkout-gate.ts` delegates complete main-checkout classification to `isMainCheckout` from `src/git/root.ts`, which is governed by `spx/15-worktree-management.pdr.md`, and maps incomplete bare-pool worktree-list facts to the rebuild exit code ([audit])
+- ALWAYS: `src/lib/precommit/main-checkout-gate.ts` delegates complete main-checkout classification to `isMainCheckout` from `src/lib/git/root.ts`, which is governed by `spx/15-worktree-management.pdr.md`, and maps incomplete bare-pool worktree-list facts to the rebuild exit code ([audit])
 - ALWAYS: TypeScript code governed by this decision keeps main-checkout classification fact-shaped and reachable through exported functions so tests exercise explicit worktree facts rather than lefthook shell side effects ([audit])
 - NEVER: lefthook shell snippets re-derive the main-checkout topology from branch names, `.git` path shape, or duplicated repository-layout predicates ([audit])
-- NEVER: tests for this gate replace `src/git/root.ts` through framework-level module replacement; they exercise real exported functions or explicit process boundaries ([audit])
+- NEVER: tests for this gate replace `src/lib/git/root.ts` through framework-level module replacement; they exercise real exported functions or explicit process boundaries ([audit])

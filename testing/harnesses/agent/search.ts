@@ -40,7 +40,7 @@ import {
   GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE,
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";

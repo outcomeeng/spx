@@ -73,7 +73,7 @@ import {
   SESSION_STATUSES,
   type SessionPriority,
 } from "@/domains/session/types";
-import { GIT_ROOT_COMMAND } from "@/git/root";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";

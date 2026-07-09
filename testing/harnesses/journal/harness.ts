@@ -7,8 +7,8 @@
  */
 
 import type { JournalStreamSink } from "@/commands/journal/runtime";
-import type { GitDependencies } from "@/git/root";
 import type { JournalEvent } from "@/lib/agent-run-journal";
+import type { GitDependencies } from "@/lib/git/root";
 
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 

@@ -4,9 +4,13 @@ import { join } from "node:path";
 import { type MethodologyIdentity, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
-import { defaultGitDependencies } from "@/git/root";
-import type { GitDependencies } from "@/git/root";
-import { createTrackedPathInclusion, listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/git/tracked-paths";
+import { defaultGitDependencies } from "@/lib/git/root";
+import type { GitDependencies } from "@/lib/git/root";
+import {
+  createTrackedPathInclusion,
+  listTrackedPaths,
+  TRACKED_PATH_DIRECTORY_SEPARATOR,
+} from "@/lib/git/tracked-paths";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,

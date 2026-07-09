@@ -19,7 +19,7 @@ import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   type GitDependencies,
   parseGitWorktreePorcelainRecords,
-} from "@/git/root";
+} from "@/lib/git/root";
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;

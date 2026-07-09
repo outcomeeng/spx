@@ -16,7 +16,7 @@ import { DEFAULT_SESSION_METADATA } from "@/domains/session/list";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
+import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import {
   sampleDistinctPathUnsafeAgentSessionIdentities,

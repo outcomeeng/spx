@@ -12,9 +12,9 @@ import {
 import { CONTROLLING_PID_ENV, CONTROLLING_PROCESS_ERROR } from "@/domains/worktree/controlling-process";
 import { readClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { defaultGitDependencies } from "@/git/root";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import type { RandomBytes } from "@/lib/atomic-file-write";
+import { defaultGitDependencies } from "@/lib/git/root";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 

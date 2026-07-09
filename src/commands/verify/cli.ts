@@ -46,17 +46,16 @@ import {
   type VerifyRunScope,
   verifyRunsDir,
 } from "@/domains/verify/verify";
+import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
+import { writeFileAtomic } from "@/lib/atomic-file-write";
+import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
-  GIT_ROOT_COMMAND,
   type GitDependencies,
-} from "@/git/root";
-import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
-import { writeFileAtomic } from "@/lib/atomic-file-write";
-import { changesetNameStatusArgs, pathsFromNameStatus } from "@/lib/git/name-status";
+} from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
   ERROR_CODE_NOT_FOUND,
@@ -309,14 +308,19 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
 async function resolveChangedScope(scope: ChangesetScope, deps: VerifyCliDeps): Promise<Result<readonly string[]>> {
   const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
   const git = deps.git ?? defaultGitDependencies;
-  const diff = await git.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...changesetNameStatusArgs(scope.base, scope.head)], {
-    cwd,
-    reject: false,
-  });
-  if (diff.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGED_SCOPE_FAILED}: ${diff.stderr}` };
+  try {
+    return {
+      ok: true,
+      value: await changedPathsForCommittedRange({
+        productDir: cwd,
+        base: scope.base,
+        head: scope.head,
+        git,
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGED_SCOPE_FAILED}: ${(error as Error).message}` };
   }
-  return { ok: true, value: pathsFromNameStatus(diff.stdout) };
 }
 
 async function persistInputRecord(

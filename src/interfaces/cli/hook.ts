@@ -24,7 +24,6 @@ import {
   resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
 import type { Domain } from "@/domains/types";
-import { defaultGitDependencies } from "@/git/root";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
   ERROR_DETAIL_SEPARATOR,
@@ -34,6 +33,7 @@ import {
   runHookCli,
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_ERROR, HOOK_EVENT, isHookEvent } from "@/interfaces/hooks/registry";
+import { defaultGitDependencies } from "@/lib/git/root";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";

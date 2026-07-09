@@ -9,8 +9,8 @@ import {
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
-import { TRACKED_PATH_NUL_SEPARATOR } from "@/git/tracked-paths";
+import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
+import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import {
   type RepresentativeSpecTreeFixture,

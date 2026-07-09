@@ -1,5 +1,5 @@
 import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
-import { defaultGitDependencies, type GitDependencies } from "@/git/root";
+import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,

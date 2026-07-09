@@ -2,8 +2,12 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { defaultGitDependencies, type GitDependencies } from "@/git/root";
-import { createTrackedPathInclusion, listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/git/tracked-paths";
+import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
+import {
+  createTrackedPathInclusion,
+  listTrackedPaths,
+  TRACKED_PATH_DIRECTORY_SEPARATOR,
+} from "@/lib/git/tracked-paths";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,

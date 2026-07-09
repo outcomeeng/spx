@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { expect } from "vitest";
 
-import { type ExecResult, type GitDependencies } from "@/git/root";
+import { type ExecResult, type GitDependencies } from "@/lib/git/root";
 import {
   BRANCH_CHECKOUT_FLAG,
   type CheckoutFacts,

@@ -7,7 +7,7 @@ import { classifyWorktreePool, WORKTREE_POOL_VERDICT } from "@/domains/diagnose/
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
+import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";

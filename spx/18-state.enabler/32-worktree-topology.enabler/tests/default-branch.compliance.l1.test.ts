@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDefaultBranch } from "@/git/root";
+import { resolveDefaultBranch } from "@/lib/git/root";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";

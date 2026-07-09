@@ -9,7 +9,7 @@ import { basename, dirname, resolve } from "node:path";
 
 import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/git/root";
+import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/lib/git/root";
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
 
 export const WORKTREE_RESOLVE_ERROR = {

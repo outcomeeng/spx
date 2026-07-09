@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
-import { withoutGitEnvironment } from "@/git/environment";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
+import { withoutGitEnvironment } from "@/lib/git/environment";
 
 import type { IgnoreSourceOverrides } from "./types";
 

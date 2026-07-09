@@ -1,6 +1,6 @@
 # Changed-Set Resolution
 
-The `--changed` planner resolves its affected test set by diffing the worktree against a base ref that defaults to `origin/<default-branch>` resolved through the shared `src/git/root.ts` primitives, with `--staged` switching that diff to the staged snapshot, partitioning each changed path into one of two routes — a changed spec or test file under `spx/<node>/` becomes an affected-node selection input by path alone and is resolved to discovered test-file paths in that node subtree, and a changed source file is resolved to its related test file paths by the registered language adapter's related-test capability reached only through `src/test/registry.ts` — and feeds the deduplicated test-file union into the `spx/41-test.enabler/90-targeted-execution.enabler` selection so `--changed` is one more operand source, never a parallel dispatch. A registered language whose adapter declares no related-test capability contributes nothing from its changed source files, and that degradation is reported rather than silently dropped.
+The `--changed` planner resolves its affected test set by diffing the worktree against a base ref that defaults to `origin/<default-branch>` resolved through the shared `src/lib/git/root.ts` primitives, with `--staged` switching that diff to the staged snapshot, partitioning each changed path into one of two routes — a changed spec or test file under `spx/<node>/` becomes an affected-node selection input by path alone and is resolved to discovered test-file paths in that node subtree, and a changed source file is resolved to its related test file paths by the registered language adapter's related-test capability reached only through `src/test/registry.ts` — and feeds the deduplicated test-file union into the `spx/41-test.enabler/90-targeted-execution.enabler` selection so `--changed` is one more operand source, never a parallel dispatch. A registered language whose adapter declares no related-test capability contributes nothing from its changed source files, and that degradation is reported rather than silently dropped.
 
 ## Rationale
 
@@ -20,7 +20,7 @@ A static "expensive node" list or precommit-ownership rule is rejected: selectio
 
 ### Testing
 
-- ALWAYS: when `--base` is omitted, the planner resolves the base ref to `origin/<default-branch>` through the shared `src/git/root.ts` primitives, and an explicit `--base <ref>` overrides it ([compliance])
+- ALWAYS: when `--base` is omitted, the planner resolves the base ref to `origin/<default-branch>` through the shared `src/lib/git/root.ts` primitives, and an explicit `--base <ref>` overrides it ([compliance])
 - ALWAYS: when `--staged` is present, the planner reads changed paths, candidate test paths, and candidate test content from the staged snapshot with the same base-ref resolution path ([compliance])
 - ALWAYS: a changed spec or test file under `spx/<node>/` yields an affected-node selection input by path alone and resolves to discovered test-file paths without reporting no-test node paths as unresolved explicit operands ([mapping])
 - ALWAYS: a changed source file whose registered language adapter declares a related-test capability resolves to that adapter's related test file paths through `src/test/registry.ts` ([mapping])

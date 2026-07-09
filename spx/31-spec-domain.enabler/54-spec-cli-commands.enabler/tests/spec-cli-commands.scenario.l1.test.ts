@@ -15,8 +15,8 @@ import {
 } from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/git/root";
 import { createRunnerDepsFor } from "@/interfaces/cli/test-runner-deps";
+import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
   createNodeStatusFile,

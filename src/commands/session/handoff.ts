@@ -45,7 +45,7 @@ import {
   originBranchExists,
   resolveDefaultBranch,
   resolveRefSha,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { resolveSessionConfig } from "./resolve-config";
 
 /**

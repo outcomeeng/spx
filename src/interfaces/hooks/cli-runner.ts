@@ -9,8 +9,8 @@ import type { HookSessionStartEnv } from "@/domains/hooks/session-start";
 import type { ControllingProcessEnv } from "@/domains/worktree/controlling-process";
 import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
-import type { GitDependencies } from "@/git/root";
 import type { RandomBytes } from "@/lib/atomic-file-write";
+import type { GitDependencies } from "@/lib/git/root";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import { HOOK_ERROR, isHookEvent, runHookEvent, type RunHookEventOptions } from "./registry";

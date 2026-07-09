@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SessionDirectoryConfig } from "@/domains/session/show";
-import { type GitDependencies } from "@/git/root";
+import { type GitDependencies } from "@/lib/git/root";
 import { resolveSessionsScopeDir } from "@/lib/state-store";
 
 /** Options for resolving session directory configuration. */

@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/git/root";
+import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/lib/git/root";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { createFailingGitDeps, createScriptedGitDeps, STATE_GIT_FAILURE_MODE } from "@testing/harnesses/state/git-deps";
 

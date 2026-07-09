@@ -19,8 +19,8 @@ import {
 } from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import { CONFIG_FILENAMES } from "@/config/index";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
