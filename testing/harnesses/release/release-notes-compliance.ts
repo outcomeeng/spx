@@ -39,10 +39,12 @@ import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-ru
 import {
   assertAbsoluteInTreeConfiguredChangelogUsesCheckedCanonicalPath,
   assertReleaseNotesPromptPreservesExistingSections,
+  assertReleaseNotesValidationAcceptsPreservedInSectionReferenceNotes,
   assertReleaseNotesValidationAcceptsUpdatedFooterReferences,
   assertReleaseNotesValidationRejectsDeletedExistingSection,
   assertReleaseNotesValidationRejectsFencedExistingSection,
   assertReleaseNotesValidationRejectsTruncatedFencedReferenceSection,
+  assertReleaseNotesValidationRejectsTruncatedInSectionReferenceNotes,
   composeReleaseNotesInEnv,
   expectedCanonicalRelativeChangelogPath,
   recordingReleaseNotesAgent,
@@ -252,6 +254,16 @@ export function registerReleaseNotesComplianceTests(): void {
     it(
       "rejects generated notes that truncate an existing fenced reference-definition section",
       assertReleaseNotesValidationRejectsTruncatedFencedReferenceSection,
+    );
+
+    it(
+      "rejects generated notes that truncate an existing section after an in-section reference definition",
+      assertReleaseNotesValidationRejectsTruncatedInSectionReferenceNotes,
+    );
+
+    it(
+      "accepts generated notes that preserve an existing section after an in-section reference definition",
+      assertReleaseNotesValidationAcceptsPreservedInSectionReferenceNotes,
     );
 
     it("uses a checked canonical staged path in the prompt when a symlink ancestor is followed by parent traversal", async () => {

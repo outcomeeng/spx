@@ -21,7 +21,10 @@ import {
   arbitraryNestedConfiguredChangelogPath,
   changelogWithFencedReferenceDefinition,
   changelogWithFooterReferences,
+  changelogWithInSectionReferenceDefinition,
   changelogWithPrependedReleaseAndFooterReferences,
+  changelogWithPrependedReleaseAndInSectionReference,
+  changelogWithPrependedReleaseAndTruncatedInSectionReference,
   changelogWithTruncatedFencedReferenceDefinitionSection,
   sampleDuplicateCurrentVersionReleaseNotesChangelogCase,
   sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase,
@@ -333,6 +336,100 @@ export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences
       const priorVersion = `${releaseData.version}-prior`;
       const existingNotes = changelogWithFooterReferences(priorVersion, subjects);
       const generatedNotes = changelogWithPrependedReleaseAndFooterReferences(
+        releaseData.version,
+        priorVersion,
+        subjects,
+      );
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        generatedNotes,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          createArtifactStage,
+          promoteArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).resolves.toBeUndefined();
+      await expect(readArtifact(resolvedPath)).resolves.toBe(generatedNotes);
+    },
+  );
+}
+
+export async function assertReleaseNotesValidationRejectsTruncatedInSectionReferenceNotes(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      createArtifactStage,
+      promoteArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = changelogWithInSectionReferenceDefinition(priorVersion, subjects);
+      const generatedNotes = changelogWithPrependedReleaseAndTruncatedInSectionReference(
+        releaseData.version,
+        priorVersion,
+        subjects,
+      );
+      const config = {};
+      const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
+      const agentRunner = new RecordingWritingAgentRunner(
+        workingDirectory,
+        resolvedPath,
+        generatedNotes,
+      );
+      await writeFile(resolvedPath, existingNotes);
+
+      await expect(
+        composeReleaseNotes({
+          releaseData,
+          config,
+          workingDirectory,
+          agentRunner,
+          readArtifact,
+          createArtifactStage,
+          promoteArtifact,
+          canonicalizePath,
+          isSymbolicLink,
+          isFile,
+        }),
+      ).rejects.toThrow(ReleaseNotesError);
+      await expect(readArtifact(resolvedPath)).resolves.toBe(existingNotes);
+    },
+  );
+}
+
+export async function assertReleaseNotesValidationAcceptsPreservedInSectionReferenceNotes(): Promise<void> {
+  await withReleaseNotesEnv(
+    async ({
+      workingDirectory,
+      readArtifact,
+      createArtifactStage,
+      promoteArtifact,
+      canonicalizePath,
+      isSymbolicLink,
+      isFile,
+    }) => {
+      const { releaseData, subjects } = sampleReleaseNotesCompositionFixture();
+      const priorVersion = `${releaseData.version}-prior`;
+      const existingNotes = changelogWithInSectionReferenceDefinition(priorVersion, subjects);
+      const generatedNotes = changelogWithPrependedReleaseAndInSectionReference(
         releaseData.version,
         priorVersion,
         subjects,

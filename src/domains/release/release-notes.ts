@@ -1239,6 +1239,7 @@ function changelogVersionSections(notes: string): readonly ChangelogSection[] {
   const lines = notes.split("\n");
   const headings = markdownHeadingLines(lines);
   const referenceDefinitions = markdownReferenceDefinitionLineIndexes(lines);
+  const referenceDefinitionIndexes = new Set(referenceDefinitions);
   const titleHeading = headings.at(0);
   if (titleHeading === undefined) {
     return [];
@@ -1254,23 +1255,72 @@ function changelogVersionSections(notes: string): readonly ChangelogSection[] {
       heading,
       content: lines.slice(
         heading.index,
-        nextVersionSectionBoundaryLineIndex(referenceDefinitions, headings, heading.index),
+        nextVersionSectionBoundaryLineIndex(
+          lines,
+          referenceDefinitions,
+          referenceDefinitionIndexes,
+          headings,
+          heading.index,
+        ),
       ).join("\n"),
     }));
 }
 
 function nextVersionSectionBoundaryLineIndex(
+  lines: readonly string[],
   referenceDefinitions: readonly number[],
+  referenceDefinitionIndexes: ReadonlySet<number>,
   headings: readonly MarkdownHeading[],
   sectionLineIndex: number,
 ): number {
   const nextHeadingIndex = nextSectionLineIndex(headings, sectionLineIndex);
-  const footerIndex = referenceDefinitions.find(
-    (index) =>
-      index > sectionLineIndex
-      && index < nextHeadingIndex,
+  const footerIndex = trailingReferenceFooterStartLineIndex(
+    lines,
+    referenceDefinitions,
+    referenceDefinitionIndexes,
+    sectionLineIndex,
+    nextHeadingIndex,
   );
   return footerIndex ?? nextHeadingIndex;
+}
+
+function trailingReferenceFooterStartLineIndex(
+  lines: readonly string[],
+  referenceDefinitions: readonly number[],
+  referenceDefinitionIndexes: ReadonlySet<number>,
+  sectionLineIndex: number,
+  nextHeadingIndex: number,
+): number | undefined {
+  return referenceDefinitions.find(
+    (index) =>
+      index > sectionLineIndex
+      && index < nextHeadingIndex
+      && isTrailingReferenceFooter(
+        lines,
+        referenceDefinitionIndexes,
+        index,
+        nextHeadingIndex,
+      ),
+  );
+}
+
+function isTrailingReferenceFooter(
+  lines: readonly string[],
+  referenceDefinitionIndexes: ReadonlySet<number>,
+  footerStartIndex: number,
+  nextHeadingIndex: number,
+): boolean {
+  const boundaryIndex = Math.min(nextHeadingIndex, lines.length);
+  for (let lineIndex = footerStartIndex; lineIndex < boundaryIndex; lineIndex += 1) {
+    const line = normalizeLineEnding(lines[lineIndex]) ?? "";
+    if (line.trim().length === 0) {
+      continue;
+    }
+    if (!referenceDefinitionIndexes.has(lineIndex)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function nextSectionLineIndex(
