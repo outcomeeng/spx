@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   dependency-review:
     name: Dependency Security Check
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
       pull-requests: write

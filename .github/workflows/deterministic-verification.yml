@@ -5,6 +5,12 @@ name: Deterministic Verification
 # The fast source checks group into one validation job (the validate-all
 # pipeline); circular, build, test, and packaged checks are separate jobs so
 # they run in parallel, fanning out from a single shared build artifact.
+#
+# Runner selection goes through the org-level `RUNNER_X2` / `RUNNER_X4`
+# variables so a provider outage is a variable flip, not a pull request. Unset
+# both to fall back to GitHub-hosted `ubuntu-latest`; note that on a public
+# repo `ubuntu-latest` is itself 4-core, so the fallback silently upgrades the
+# X2 jobs rather than starving them.
 
 on:
   push:
@@ -29,7 +35,7 @@ permissions: {}
 jobs:
   validation:
     name: Validation
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -46,7 +52,7 @@ jobs:
 
   circular:
     name: Circular dependencies
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -61,7 +67,7 @@ jobs:
 
   build:
     name: Build packaged CLI
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -84,7 +90,7 @@ jobs:
   test-and-status:
     name: Test + status projection
     needs: build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X4 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -137,7 +143,7 @@ jobs:
   validate-published:
     name: Validation (packaged CLI)
     needs: build
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -158,7 +164,7 @@ jobs:
   circular-published:
     name: Circular dependencies (packaged CLI)
     needs: build
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -179,7 +185,7 @@ jobs:
   package:
     name: Package contents
     needs: build
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
