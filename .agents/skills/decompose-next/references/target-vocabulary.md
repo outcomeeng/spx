@@ -10,7 +10,7 @@ The six-kind vocabulary and ordered decision procedure for projecting current be
 4. `<containment>`: parent/child admissibility
 5. `<openings>`: current authoring-compatible opening forms
 6. `<operational_terms>`: persistence, delivery, backend, and node state
-7. `<maturity_state_terms>`: maturity, base node states, and status claims
+7. `<tier_state_terms>`: tier, base node states, and status claims
 8. `<top_level_projection>`: product-named top-level nodes without role buckets
 9. `<classification_output>`: required concern-classification row fields
 10. `<banned_receiver_language>`: forbidden ambiguous receiver phrases
@@ -20,14 +20,14 @@ The six-kind vocabulary and ordered decision procedure for projecting current be
 
 <kinds>
 
-| Kind          | Role                 | Owns                                                                                                                        | Does not own                                                                                          |
-| ------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `.substrate`  | Primitive mechanics  | Runtime, process, filesystem, workflow, hook, tool execution, and platform primitives with zero product-domain semantics.   | Product semantics, product records, consumption contracts, or concrete product boundaries.            |
-| `.capability` | Reusable behavior    | One reusable product behavior with meaning outside any one consumer.                                                        | A semantic world, concrete rendering, or one-off workflow wording.                                    |
-| `.domain`     | Bounded semantics    | A bounded semantic context with vocabulary, rules, and invariants other nodes speak.                                        | Primitive mechanics, medium-specific contracts, or concrete rendering.                                |
-| `.interface`  | Consumption contract | Resources, verbs, selectors, payload shapes, lifecycle contracts, and error semantics that adapt providers for consumption. | Terminal text, UI layout, command help, or protocol rendering.                                        |
-| `.surface`    | Provided boundary    | One concrete outside boundary: CLI, MCP, web API, UI, or agentic interface grammar, rendering, invocation, and protocol.    | Reusable semantics, persistence semantics, verification logic, or backend implementation.             |
-| `.outcome`    | Product bet          | A hypothesis that specified output produces measurable behavior change and impact.                                          | Locally verifiable assertions, tests, evals, audits, maturity, or per-reference verification results. |
+| Kind          | Role                 | Owns                                                                                                                        | Does not own                                                                                      |
+| ------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `.substrate`  | Primitive mechanics  | Runtime, process, filesystem, workflow, hook, tool execution, and platform primitives with zero product-domain semantics.   | Product semantics, product records, consumption contracts, or concrete product boundaries.        |
+| `.capability` | Reusable behavior    | One reusable product behavior with meaning outside any one consumer.                                                        | A semantic world, concrete rendering, or one-off workflow wording.                                |
+| `.domain`     | Bounded semantics    | A bounded semantic context with vocabulary, rules, and invariants other nodes speak.                                        | Primitive mechanics, medium-specific contracts, or concrete rendering.                            |
+| `.interface`  | Consumption contract | Resources, verbs, selectors, payload shapes, lifecycle contracts, and error semantics that adapt providers for consumption. | Terminal text, UI layout, command help, or protocol rendering.                                    |
+| `.surface`    | Provided boundary    | One concrete outside boundary: CLI, MCP, web API, UI, or agentic interface grammar, rendering, invocation, and protocol.    | Reusable semantics, persistence semantics, verification logic, or backend implementation.         |
+| `.outcome`    | Product bet          | A hypothesis that specified output produces measurable behavior change and impact.                                          | Locally verifiable assertions, tests, evals, audits, tier, or per-reference verification results. |
 
 </kinds>
 
@@ -100,27 +100,27 @@ Provider names in openings are product-language names, never filesystem paths. S
 | Persistence | Retained product artifacts plus addressing and retention policy: records, journals, snapshots, caches, artifacts, and history.                                | Which node owns the retained artifact's semantics?                |
 | Delivery    | Ephemeral projection of a result to an external surface: terminal output, PR comment, UI display, API response, webhook, or observability sink.               | Which node owns the projection contract?                          |
 | Backend     | Concrete environment boundary that provides a persistence or delivery contract: local files, Git history, hosted artifacts, platform APIs, or hosted service. | Which node owns the environment-specific implementation contract? |
-| Node state  | Evidence-derived standing against declared maturity.                                                                                                          | Which node owns lifecycle vocabulary and projection?              |
+| Node state  | Evidence-derived standing against declared tier.                                                                                                              | Which node owns lifecycle vocabulary and projection?              |
 
 Persistence, delivery, and backend are reserved terms. They form no extra node kinds.
 
 </operational_terms>
 
-<maturity_state_terms>
+<tier_state_terms>
 
-| Term         | Meaning                                                                                                                                                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Maturity     | A declared output-node bar: `prototype`, `experimental`, or `production`. Absent maturity defaults to `production`.                                                                                 |
-| Declared     | Spec exists; no evidence for the node's bar is referenced, and the bar has not passed.                                                                                                              |
-| Specified    | Assertion evidence for the node's bar is referenced but does not yet pass.                                                                                                                          |
-| Passing      | Current foundation term for a node whose required verification passes.                                                                                                                              |
-| Implemented  | Next-methodology term for a node whose required verification for its maturity bar passes; compatible with current `Passing` during migration.                                                       |
-| Failing      | A reference with a recorded passing result no longer passes.                                                                                                                                        |
-| Status claim | `spx.status.json`, the committed machine-written claim carrying state, maturity, and per-reference results for output nodes; outcome claims roll up from output children and omit maturity/results. |
+| Term         | Meaning                                                                                                                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier         | A declared output-node bar: `prototype`, `experimental`, or `production`. Absent tier defaults to `production`.                                                                             |
+| Declared     | Spec exists; no evidence for the node's bar is referenced, and the bar has not passed.                                                                                                      |
+| Specified    | Assertion evidence for the node's bar is referenced but does not yet pass.                                                                                                                  |
+| Passing      | Current foundation term for a node whose required verification passes.                                                                                                                      |
+| Implemented  | Next-methodology term for a node whose required verification for its tier passes; compatible with current `Passing` during migration.                                                       |
+| Failing      | A reference with a recorded passing result no longer passes.                                                                                                                                |
+| Status claim | `spx.status.json`, the committed machine-written claim carrying state, tier, and per-reference results for output nodes; outcome claims roll up from output children and omit tier/results. |
 
 No product mints additional base node states. Qualified compounds such as run terminal state or journal sealed state specialize another artifact's lifecycle.
 
-</maturity_state_terms>
+</tier_state_terms>
 
 <top_level_projection>
 
@@ -152,7 +152,7 @@ For every concern, record:
 | Current behavior   | The behavior observed in the current tree or proposed by the product spec.             |
 | Current path       | Inventory path, or `new` for not-yet-represented behavior.                             |
 | Kind decision      | First matching decision-procedure test.                                                |
-| Operational facets | Persistence, delivery, backend, node-state, maturity/status-claim impact, or none.     |
+| Operational facets | Persistence, delivery, backend, node-state, tier/status-claim impact, or none.         |
 | Candidate receiver | Product-named target node with kind suffix, unnumbered until ordering evidence exists. |
 | Evidence           | Product spec, decision, spec assertion, implementation fact, or operator statement.    |
 | Status             | Active, parked, or unresolved.                                                         |
@@ -180,8 +180,8 @@ Replace each phrase with a product-named receiver carrying one of the six kind s
 
 - [ ] Every behavior is classified by the ordered six-kind decision procedure or marked unresolved.
 - [ ] Receiver names are product-named target nodes with kind suffixes, not bare roles, buckets, or current holding paths.
-- [ ] Outcome, persistence, delivery, backend, node state, maturity, and status-claim concerns remain separate in every row.
+- [ ] Outcome, persistence, delivery, backend, node state, tier, and status-claim concerns remain separate in every row.
 - [ ] Containment is valid for every parent/child projection.
-- [ ] No `.outcome` row carries locally verifiable assertions or maturity.
+- [ ] No `.outcome` row carries locally verifiable assertions or tier.
 
 </success_criteria>

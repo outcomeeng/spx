@@ -1,6 +1,6 @@
 <required_reading>
 
-Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/target-vocabulary.md`, and `${SKILL_DIR}/references/ordering-evidence.md` before producing any tree.
+Read `${CLAUDE_SKILL_DIR}/references/projection-views.md`, `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`, and `${CLAUDE_SKILL_DIR}/references/ordering-evidence.md` before producing any tree.
 
 </required_reading>
 
@@ -13,9 +13,9 @@ Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/tar
 5. Build the authority view. Separate methodology, product truth, governing decisions, operator direction, status claims, and coordination notes.
 6. When scope is `spx/`, build the product top-level mapping view from the product spec and mark missing product-spec structure as a product-spec gap.
 7. Build the current inventory view from the in-scope files. Label every current path as inventory.
-8. Build the target vocabulary view. Name the six kinds, operational terms, maturity/state vocabulary, and terms that must not drive placement.
+8. Build the target vocabulary view. Name the six kinds, operational terms, tier/state vocabulary, and terms that must not drive placement.
 9. Build the kind decision view. Apply the ordered decision procedure before assigning a receiver.
-10. Build the operational concern placement view for persistence, delivery, backend, node state, maturity, and status-claim concerns.
+10. Build the operational concern placement view for persistence, delivery, backend, node state, tier, and status-claim concerns.
 11. Build the receiver view. Receivers stay unnumbered and name owned kind-classified concerns. Reject role-named wrapper directories.
 12. Build the containment view. Check every proposed parent/child against the six-kind containment table.
 13. Build the dependency-evidence view. Record every proposed ordering edge from the consumer's dependency question with basis, evidence, consequence if absent, and kind-order check.
@@ -37,7 +37,7 @@ Each gate must report PASS before moving to the next output phase. A FAIL stops 
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Scope gate                | Invocation scope names the concrete root or node, exclusions, and whether edits are allowed.                                                        | Scope, exclusions, or edit mode is implied or omitted.                                                 |
 | Authority gate            | Authority view separates methodology source, product truth, governing decisions, operator direction, status claims, and coordination notes.         | Any authority class is missing or a coordination note is treated as product truth.                     |
-| Vocabulary gate           | Target vocabulary view names six kinds, ordered kind decision, containment, operational terms, and maturity/state/status-claim terms.               | A projection proceeds from role buckets, current path names, or undefined operational terms.           |
+| Vocabulary gate           | Target vocabulary view names six kinds, ordered kind decision, containment, operational terms, and tier/state/status-claim terms.                   | A projection proceeds from role buckets, current path names, or undefined operational terms.           |
 | Mapping gate              | For `spx/` scope, product top-level mapping is present; for non-root scope, the gate records `N/A`.                                                 | Root scope lacks product-owned top-level mapping or treats inventory clustering as product placement.  |
 | Inventory gate            | Current inventory labels every current path as inventory or holding path.                                                                           | A current path is used as a target receiver before kind decision.                                      |
 | Kind and containment gate | Every behavior has a kind-decision row and every proposed parent/child has a containment row.                                                       | Any receiver lacks a kind decision or any child lacks containment evidence.                            |

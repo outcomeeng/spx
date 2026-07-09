@@ -1,6 +1,6 @@
 <required_reading>
 
-Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/target-vocabulary.md`, and `${SKILL_DIR}/references/ordering-evidence.md` before proposing split rows.
+Read `${CLAUDE_SKILL_DIR}/references/projection-views.md`, `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`, and `${CLAUDE_SKILL_DIR}/references/ordering-evidence.md` before proposing split rows.
 
 </required_reading>
 
@@ -9,12 +9,12 @@ Read `${SKILL_DIR}/references/projection-views.md`, `${SKILL_DIR}/references/tar
 1. Require a concrete fused-node path before reading product files.
 2. Invoke `/understand` when the live foundation marker is absent.
 3. Invoke `/contextualize <node>` before inspecting node contents.
-4. Scope the fused node and explicit exclusions.
+4. Scope the fused node, explicit exclusions, and edit mode.
 5. Build the authority view. Separate methodology source, product truth, operator direction, coordination notes, and current-node evidence.
-6. Inventory every behavior inside the node: specs, decisions, status claims, tests, evals, audits, implementation, CLI entrypoints, persistence, delivery, backend mechanics, maturity, and node-state projection.
+6. Inventory every behavior inside the node: specs, decisions, status claims, tests, evals, audits, implementation, CLI entrypoints, persistence, delivery, backend mechanics, tier, and node-state projection.
 7. Build the target vocabulary view for the split. Name six-kind terms that apply and terms that must not drive placement.
-8. Classify each behavior by ordered kind decision using `${SKILL_DIR}/references/target-vocabulary.md`.
-9. Assign operational facets: persistence, delivery, backend, node state, maturity, status claim, or none.
+8. Classify each behavior by ordered kind decision using `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`.
+9. Assign operational facets: persistence, delivery, backend, node state, tier, status claim, or none.
 10. Identify receivers for classified behavior. Use product-named target nodes with kind suffixes, not vague receiver language or role buckets.
 11. Check proposed parent/child containment and outcome attachment.
 12. Mark behavior that remains temporarily in the current path as "holding path" with the condition that releases it.
@@ -37,7 +37,7 @@ Each gate must report PASS before emitting active split rows. A FAIL stops the s
 | Authority gate      | Authority view separates methodology source, product truth, operator direction, coordination notes, and current-node evidence.                                     | Any authority class is missing or a coordination note is treated as product truth.                    |
 | Inventory gate      | Every observed spec, decision, status claim, test, eval, audit, implementation behavior, CLI entrypoint, persistence, delivery, backend, and state item is listed. | Any behavior inside the fused node is absent from the inventory.                                      |
 | Vocabulary gate     | Target vocabulary view names applicable six-kind terms and banned receiver language.                                                                               | A split row uses current placement, role bucket, or undefined receiver language as placement basis.   |
-| Kind and facet gate | Every behavior has kind decision and operational facets.                                                                                                           | A behavior lacks kind decision or persistence/delivery/backend/node-state/maturity/status treatment.  |
+| Kind and facet gate | Every behavior has kind decision and operational facets.                                                                                                           | A behavior lacks kind decision or persistence/delivery/backend/node-state/tier/status treatment.      |
 | Containment gate    | Every proposed receiver relationship has a containment verdict.                                                                                                    | A proposed parent/child lacks containment evidence or violates the containment table.                 |
 | Holding-path gate   | Temporarily retained behavior is labeled holding path with release condition.                                                                                      | Retained behavior is described as valid target structure without a release condition.                 |
 | Ordering gate       | Any active row that implies ordering has dependency evidence; same-index or unresolved rows stay unordered; no-order splits report `N/A`.                          | A split assigns order without evidence, or omits `N/A` when no ordering claim exists.                 |
@@ -107,8 +107,8 @@ Then return:
 - [ ] The split includes scope, exclusions, and edit mode.
 - [ ] The split includes an authority view that downstream freshness checks can compare.
 - [ ] The verification gates table is reported with PASS/N/A or a blocking FAIL.
-- [ ] No row uses banned receiver language from `${SKILL_DIR}/references/target-vocabulary.md`.
-- [ ] No `.outcome` receiver carries locally verifiable assertions or maturity.
+- [ ] No row uses banned receiver language from `${CLAUDE_SKILL_DIR}/references/target-vocabulary.md`.
+- [ ] No `.outcome` receiver carries locally verifiable assertions or tier.
 - [ ] No role-named wrapper receiver appears.
 - [ ] Every proposed child satisfies containment.
 - [ ] Context visibility is reported.
