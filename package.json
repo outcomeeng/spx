@@ -92,6 +92,9 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.205",
+    "@anthropic-ai/sdk": "^0.110.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@typescript-eslint/parser": "^8.59.1",
     "@typescript-eslint/visitor-keys": "^8.59.1",
     "chalk": "^5.6.2",
@@ -106,7 +109,8 @@
     "react": "^19.2.7",
     "smol-toml": "^1.6.1",
     "typescript": "^5.9.3",
-    "yaml": "^2.8.3"
+    "yaml": "^2.8.3",
+    "zod": "^4.4.3"
   },
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1"
 }

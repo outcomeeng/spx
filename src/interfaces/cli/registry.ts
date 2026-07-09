@@ -7,6 +7,7 @@ import { configDomain } from "./config";
 import { diagnoseDomain } from "./diagnose";
 import { hookDomain } from "./hook";
 import { journalDomain } from "./journal";
+import { releaseDomain } from "./release";
 import { sessionDomain } from "./session";
 import { specDomain } from "./spec";
 import { testingDomain } from "./test";
@@ -23,6 +24,7 @@ export const CLI_DOMAINS: readonly Domain[] = [
   diagnoseDomain,
   hookDomain,
   journalDomain,
+  releaseDomain,
   sessionDomain,
   specDomain,
   testingDomain,
