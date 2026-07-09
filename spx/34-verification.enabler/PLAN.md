@@ -39,6 +39,8 @@ Node set (`/apply` order; existing = reuse, NEW = compose):
 5. **REUSE/extend** `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler` — `--verification-type=test` wiring.
 6. **REUSE/extend** `spx/31-spec-domain.enabler/21-node-status.enabler` — additive fold-from-snapshot path in `--update` (beside the existing path); maps test file → node via existing spec-tree evidence references.
 
+**Snapshot domain reservation (binding on the consumer that captures):** the snapshot store addresses `{scope}/{domain}/runs/run-*.jsonl`, and `spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md` reserves `.spx/worktree/test/runs/` — the `test` domain at the worktree scope — for testing last-run evidence. Enumeration cannot tell a foreign run record from a snapshot, so the test-verification capture takes a domain distinct from `test` (never `STATE_STORE_DOMAIN.TEST`, which `src/test/run-state.ts` already occupies). Reserve that domain when node 2 or node 4 lands, or reconcile the two decision records first.
+
 Reused untouched: the journal backend, existing discovery / `spx/41-test.enabler/95-changed-set-planning.enabler` (add nothing).
 
 Boundaries — **in:** TypeScript only; one vitest invocation; atomic JSON → per-case snapshot; the snapshot-store node; the `test` type; `--update` fold; `spx/EXCLUDE` still in force. **out:** streaming observability; the graph; `EXCLUDE` removal; `TestRunState` retirement; Python; any journal/agent coupling; moving `spx test` under `spx verification run`.
