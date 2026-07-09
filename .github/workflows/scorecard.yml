@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   scorecard:
     name: OpenSSF Scorecard
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       security-events: write # Upload SARIF to Security tab
       id-token: write # Sigstore attestation

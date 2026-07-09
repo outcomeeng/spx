@@ -21,7 +21,7 @@ jobs:
   publish:
     name: Publish
     needs: deterministic
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     environment: npm-publish
     permissions:
       contents: read
