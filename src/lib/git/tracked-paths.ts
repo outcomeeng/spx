@@ -1,4 +1,4 @@
-import { type ExecResult, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+import { type ExecResult, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
 const GIT_LS_FILES_SUBCOMMAND = "ls-files";
 const GIT_NUL_TERMINATED_FLAG = "-z";

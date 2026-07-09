@@ -1,13 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import type { ExecResult, GitDependencies } from "@/git/root";
+import type { ExecResult, GitDependencies } from "@/lib/git/root";
 import {
   GIT_SUCCESS_EXIT_CODE,
   listTrackedPaths,
   TRACKED_PATH_DIRECTORY_SEPARATOR,
   TRACKED_PATH_NUL_SEPARATOR,
-} from "@/git/tracked-paths";
+} from "@/lib/git/tracked-paths";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
 const trackedFile = fc

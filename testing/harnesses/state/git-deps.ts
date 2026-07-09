@@ -1,4 +1,4 @@
-import { type GitDependencies } from "@/git/root";
+import { type GitDependencies } from "@/lib/git/root";
 
 /** One scripted git command result for {@link createScriptedGitDeps}. */
 export interface ScriptedGitResponse {

@@ -266,7 +266,7 @@ export const VALIDATION_ESLINT_FILES = {
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
   configCwdModule: "src/domains/config/cwd.ts",
-  gitRoot: "src/git/root.ts",
+  gitRoot: "src/lib/git/root.ts",
   precommitGate: "src/lib/precommit/main-checkout-gate.ts",
   domainRunner: "src/some-domain/runner.ts",
   domainTypes: "src/some-domain/types.ts",

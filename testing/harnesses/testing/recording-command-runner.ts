@@ -3,6 +3,7 @@ import { expect } from "vitest";
 
 import type { TestRunnerDependencies } from "@/test/languages/types";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 // The recording command runner each language test-harness provides: it captures the commands
 // the runner constructs and returns a configured outcome. The structure is identical across
@@ -25,25 +26,26 @@ export type RecordingCommandRunnerFactory = (options: {
 export async function assertRecordingCommandRunnerContract(
   createRunner: RecordingCommandRunnerFactory,
   generators: { readonly present: fc.Arbitrary<boolean>; readonly exitCode: fc.Arbitrary<number> },
-  projectRoot: string,
+  productDir: string,
 ): Promise<void> {
-  await fc.assert(
-    fc.asyncProperty(
+  await assertProperty(
+    fc.tuple(
       generators.present,
       generators.exitCode,
       fc.array(fc.tuple(arbitraryDomainLiteral(), fc.array(arbitraryDomainLiteral()))),
-      async (present, exitCode, invocations) => {
-        const runner = createRunner({ present, exitCode });
-
-        expect(runner.isLanguagePresent?.(projectRoot)).toBe(present);
-
-        for (const [command, args] of invocations) {
-          const result = await runner.runCommand(command, args);
-          expect(result.exitCode).toBe(exitCode);
-        }
-
-        expect(runner.calls).toEqual(invocations.map(([command, args]) => ({ command, args })));
-      },
     ),
+    async ([present, exitCode, invocations]) => {
+      const runner = createRunner({ present, exitCode });
+
+      expect(runner.isLanguagePresent?.(productDir)).toBe(present);
+
+      for (const [command, args] of invocations) {
+        const result = await runner.runCommand(command, args);
+        expect(result.exitCode).toBe(exitCode);
+      }
+
+      expect(runner.calls).toEqual(invocations.map(([command, args]) => ({ command, args })));
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
 }

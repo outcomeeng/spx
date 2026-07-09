@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { mainCheckoutPath } from "@/git/root";
+import { mainCheckoutPath } from "@/lib/git/root";
 import {
   arbitraryMainCheckoutFacts,
   arbitraryMainCheckoutPathCase,

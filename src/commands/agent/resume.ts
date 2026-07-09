@@ -12,7 +12,7 @@ import {
   renderAgentResumeList,
   resolveAgentHomeDirs,
 } from "@/domains/agent";
-import { detectWorktreeProductRoot } from "@/git/root";
+import { detectWorktreeProductRoot } from "@/lib/git/root";
 
 export interface AgentResumeCommandDeps {
   readonly fs: AgentResumeSessionFileSystem;

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { withoutGitEnvironment } from "@/git/environment";
+import { withoutGitEnvironment } from "@/lib/git/environment";
 import { SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
 import { NODE_SUFFIXES, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";

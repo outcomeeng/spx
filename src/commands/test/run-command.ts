@@ -18,7 +18,7 @@ import {
   getHeadSha,
   GIT_ROOT_COMMAND,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { compareAsciiStrings, hasErrorCode } from "@/lib/state-store";
 import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import type {
@@ -45,17 +45,11 @@ import {
   writeTerminalTestRunState,
 } from "@/test/run-state";
 
-import { pathsFromNameStatus, pathsFromNulDelimited } from "@/lib/git/name-status";
+import { changedPathsForDirtyWorktree } from "@/lib/git/changed-paths";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
-  CHANGED_TEST_DIFF_COMMAND,
-  CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
   CHANGED_TEST_INDEX_PATH_PREFIX,
-  CHANGED_TEST_LS_FILES_COMMAND,
-  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
-  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
-  CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
   CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
@@ -327,35 +321,7 @@ function stagedSnapshotFileReader(productDir: string, git: GitDependencies): Sna
 }
 
 async function dirtyWorktreePaths(productDir: string, git: GitDependencies): Promise<readonly string[]> {
-  const tracked = await git.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [CHANGED_TEST_DIFF_COMMAND, CHANGED_TEST_DIFF_NAME_STATUS_FLAG, CHANGED_TEST_NULL_DELIMITED_FLAG],
-    { cwd: productDir, reject: false },
-  );
-  if (tracked.exitCode !== 0) {
-    throw new Error(`failed to diff worktree paths for staged test planning: ${tracked.stderr}`);
-  }
-
-  const untracked = await git.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [
-      CHANGED_TEST_LS_FILES_COMMAND,
-      CHANGED_TEST_LS_FILES_OTHERS_FLAG,
-      CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
-      CHANGED_TEST_NULL_DELIMITED_FLAG,
-    ],
-    { cwd: productDir, reject: false },
-  );
-  if (untracked.exitCode !== 0) {
-    throw new Error(`failed to list untracked paths for staged test planning: ${untracked.stderr}`);
-  }
-
-  return [
-    ...new Set([
-      ...pathsFromNameStatus(tracked.stdout),
-      ...pathsFromNulDelimited(untracked.stdout),
-    ]),
-  ].sort(compareAsciiStrings);
+  return await changedPathsForDirtyWorktree({ productDir, git });
 }
 
 function isSpecTreeTestPath(path: string): boolean {

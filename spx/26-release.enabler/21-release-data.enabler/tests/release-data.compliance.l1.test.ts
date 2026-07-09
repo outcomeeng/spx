@@ -2,8 +2,8 @@ import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
 import { computeReleaseData } from "@/domains/release/release-data";
-import { withoutGitEnvironment } from "@/git/environment";
-import { type ExecResult, type GitDependencies } from "@/git/root";
+import { withoutGitEnvironment } from "@/lib/git/environment";
+import { type ExecResult, type GitDependencies } from "@/lib/git/root";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";

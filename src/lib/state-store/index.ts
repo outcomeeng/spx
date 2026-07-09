@@ -11,7 +11,7 @@ import {
 import { dirname, join } from "node:path";
 
 import type { Result } from "@/config/types";
-import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
+import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
 
 export const STATE_STORE_SCOPE_PATH = {
   SPX_DIR: ".spx",

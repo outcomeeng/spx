@@ -1,5 +1,5 @@
 import { currentStalenessInputs, discoverTestFiles, runNodeCommand } from "@/commands/test";
-import type { GitDependencies } from "@/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   type NodeOutcomeResolver,

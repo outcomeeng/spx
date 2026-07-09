@@ -45,8 +45,8 @@ import {
 } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { gatherGitFacts, type GitFacts } from "@/git/root";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
+import { gatherGitFacts, type GitFacts } from "@/lib/git/root";
 import { compareNumericVersionIdentifiers } from "@/lib/spec-tree/config";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";

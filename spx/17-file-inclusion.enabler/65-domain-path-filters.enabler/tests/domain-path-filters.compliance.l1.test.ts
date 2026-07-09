@@ -25,7 +25,7 @@ import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
-import type { GitDependencies } from "@/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 
 function invokedArgs(
   runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },

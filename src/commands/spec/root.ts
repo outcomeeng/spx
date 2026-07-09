@@ -1,4 +1,4 @@
-import { detectWorktreeProductRoot, type GitDependencies } from "@/git/root";
+import { detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 
 export const SPEC_PRODUCT_DIR_WARNING = {

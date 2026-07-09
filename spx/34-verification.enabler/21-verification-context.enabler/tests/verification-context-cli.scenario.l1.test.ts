@@ -20,7 +20,7 @@ import {
   GIT_HEAD_SHA_ARGS,
   GIT_SHOW_TOPLEVEL_ARGS,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { slugBranchIdentity, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {

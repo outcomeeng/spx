@@ -15,14 +15,14 @@ import {
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
+import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
 import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   GIT_WORKTREE_PORCELAIN_BARE_LINE,
   GIT_WORKTREE_PORCELAIN_PRUNABLE_LINE,
   GIT_WORKTREE_PORCELAIN_PRUNABLE_PREFIX,
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
-} from "@/git/root";
-import { WORKTREE_CLI } from "@/interfaces/cli/worktree";
+} from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { readGit } from "@testing/harnesses/git-test-constants";

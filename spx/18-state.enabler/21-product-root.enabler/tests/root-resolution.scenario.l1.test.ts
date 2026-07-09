@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/git/root";
+import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   arbitraryBarePoolLayoutCase,
   sampleMainCheckoutTestValue,

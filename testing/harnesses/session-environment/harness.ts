@@ -11,7 +11,7 @@ import { gatherWorktreePoolSnapshot, type WorktreePoolSnapshot } from "@/command
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { type WorktreeClaimRecord, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
+import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";

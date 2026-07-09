@@ -2,7 +2,7 @@ import { realpath } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { detectMainCheckout, gatherGitFacts } from "@/git/root";
+import { detectMainCheckout, gatherGitFacts } from "@/lib/git/root";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import {

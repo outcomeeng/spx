@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveSessionConfig } from "@/commands/session/resolve-config";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { GIT_DIR_BASENAME } from "@/git/root";
+import { GIT_DIR_BASENAME } from "@/lib/git/root";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { createScriptedGitDeps } from "@testing/harnesses/state/git-deps";
 

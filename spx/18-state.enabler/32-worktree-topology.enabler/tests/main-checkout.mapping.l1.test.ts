@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { isMainCheckout } from "@/git/root";
+import { isMainCheckout } from "@/lib/git/root";
 import {
   arbitraryNonBareLinkedFacts,
   arbitraryNonBareMainFacts,

@@ -4,7 +4,7 @@
  * by a resuming agent.
  *
  * Pure over the supplied git facts — the handler gathers the facts via the
- * git primitives in `@/git/root` and the descriptor owns process I/O. A refused
+ * git primitives in `@/lib/git/root` and the descriptor owns process I/O. A refused
  * non-main-checkout handoff throws {@link SessionHandoffBaseError} carrying the
  * resolved facts and the per-prerequisite evaluation; a non-git base throws it
  * marked `silent`, so the descriptor writes nothing; any other git refusal

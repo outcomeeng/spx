@@ -27,7 +27,7 @@ import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-output/styled-output";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";

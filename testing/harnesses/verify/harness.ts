@@ -72,15 +72,6 @@ import {
   verifyInputRecordPath,
   verifyRunsDir,
 } from "@/domains/verify/verify";
-import {
-  type ExecResult,
-  GIT_COMMON_DIR_ARGS,
-  GIT_CURRENT_BRANCH_ARGS,
-  GIT_DIR_BASENAME,
-  GIT_HEAD_SHA_ARGS,
-  GIT_SHOW_TOPLEVEL_ARGS,
-  type GitDependencies,
-} from "@/git/root";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
@@ -96,6 +87,15 @@ import {
   appendableJournalSealMarkerPath,
 } from "@/lib/appendable-journal-store";
 import { GIT_NAME_STATUS_FLAG, pathsFromNameStatus } from "@/lib/git/name-status";
+import {
+  type ExecResult,
+  GIT_COMMON_DIR_ARGS,
+  GIT_CURRENT_BRANCH_ARGS,
+  GIT_DIR_BASENAME,
+  GIT_HEAD_SHA_ARGS,
+  GIT_SHOW_TOPLEVEL_ARGS,
+  type GitDependencies,
+} from "@/lib/git/root";
 import {
   ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,

@@ -33,7 +33,7 @@ import {
   GIT_STATUS_PORCELAIN_ARGS,
   type GitDependencies,
   REMOTE_ORIGIN_REF_PREFIX,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, gitArgsEqual } from "@testing/harnesses/git-test-constants";
@@ -228,7 +228,7 @@ export function createSessionGitDeps(overrides: SessionGitDepsOverrides = {}): G
         stderr: "",
       });
 
-      // Each branch matches the exact production arg vector from `@/git/root`,
+      // Each branch matches the exact production arg vector from `@/lib/git/root`,
       // so the double tracks the pinned command set rather than substrings and
       // the three-arg `--abbrev-ref HEAD` form cannot collide with `rev-parse HEAD`.
       if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) return ok(toplevel);

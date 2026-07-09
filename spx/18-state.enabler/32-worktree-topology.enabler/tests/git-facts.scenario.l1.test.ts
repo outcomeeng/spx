@@ -16,7 +16,7 @@ import {
   type GitDependencies,
   isMainCheckout,
   mainCheckoutPath,
-} from "@/git/root";
+} from "@/lib/git/root";
 import {
   arbitraryNonBareMainFacts,
   arbitraryPoolFactsSample,

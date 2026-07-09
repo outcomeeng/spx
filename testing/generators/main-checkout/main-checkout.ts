@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 
-import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/git/root";
+import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { SEED_BRANCH, type WorktreeLayoutSpec } from "@testing/harnesses/worktree-layout/worktree-layout";
 

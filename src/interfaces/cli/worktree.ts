@@ -8,8 +8,8 @@ import type { Command } from "commander";
 
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
-import { defaultGitDependencies } from "@/git/root";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
+import { defaultGitDependencies } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";

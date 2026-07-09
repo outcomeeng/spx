@@ -25,7 +25,6 @@ import {
   SESSION_STATUSES,
   type SessionStatus,
 } from "@/domains/session/types";
-import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/git/root";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { sessionDomain as sessionDomainDescriptor } from "@/interfaces/cli/session";
 import {
@@ -33,6 +32,7 @@ import {
   sessionOptionToken,
   sessionSubcommandOptions,
 } from "@/interfaces/cli/session/definition";
+import { GIT_HEAD_SHA_ARGS, NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   arbitraryBarePoolLayoutCase,

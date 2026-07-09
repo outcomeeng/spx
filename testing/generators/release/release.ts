@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import { VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
-import { RELEASE_TAG_PREFIX } from "@/git/release";
+import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 
 const VERSION_COMPONENT_MIN = 0;

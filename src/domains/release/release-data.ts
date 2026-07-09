@@ -5,8 +5,8 @@ import {
   type GitCommit,
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
-} from "@/git/release";
-import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
+} from "@/lib/git/release";
+import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
 /** The semantic-version component a release advances relative to its previous tag. */
 export const VERSION_DELTA = {

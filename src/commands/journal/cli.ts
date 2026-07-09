@@ -14,16 +14,16 @@ import {
   type JournalRunSealedFilter,
   type JournalRunTerminalFilter,
 } from "@/domains/journal/run-scope";
+import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
+import { artifactJournalRunArtifactName, hydratePriorRuns } from "@/lib/artifact-journal-store";
+import { toMessage } from "@/lib/error-message";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
-} from "@/git/root";
-import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
-import { artifactJournalRunArtifactName, hydratePriorRuns } from "@/lib/artifact-journal-store";
-import { toMessage } from "@/lib/error-message";
+} from "@/lib/git/root";
 import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
 import {
   defaultStateStoreFileSystem,

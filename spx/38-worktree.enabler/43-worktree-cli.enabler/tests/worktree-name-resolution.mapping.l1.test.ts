@@ -16,7 +16,7 @@ import {
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
-} from "@/git/root";
+} from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
