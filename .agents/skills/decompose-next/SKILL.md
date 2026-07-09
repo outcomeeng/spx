@@ -2,9 +2,10 @@
 name: decompose-next
 description: >-
   ALWAYS invoke this skill when projecting a next-methodology target structure,
-  splitting current spec-tree nodes into target roles, auditing a proposed
+  splitting current spec-tree nodes into target kinds, auditing a proposed
   target tree, deriving migration slices from a projection, or updating
   coordination notes from reviewed structure views.
+argument-hint: "<scope> [intent]"
 allowed-tools:
   - Read
   - Glob
@@ -15,25 +16,33 @@ allowed-tools:
 ---
 
 <objective>
-Target-structure projection with intermediate views, ordering evidence, and migration rows that distinguish current inventory from target receivers.
+A decompose-next request routed to its matching projection, split, audit, slice, or coordination-note workflow.
 </objective>
 
 <essential_principles>
 
 - Current paths are inventory. A current node proves where behavior lives now, never where it belongs in the target structure.
-- Target receivers come from the active methodology area roles: substrate, capability, domain, interface, and surface.
-- Produce intermediate views before producing a target tree. A tree emitted without scope, authority, inventory, vocabulary, classification, receiver, and dependency-evidence views is unsupported.
+- Target receivers come from the active methodology node kinds: `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, and `.outcome`.
+- A node's kind, role, and directory suffix are one thing. Do not project role-named wrapper directories such as `enablers.capability/` or `surfaces.surface/` that contain the actual role nodes.
+- Classify with the ordered kind decision procedure: outcome, substrate, surface, interface, domain, capability. The first matching kind wins.
+- Produce intermediate views before producing a target tree. A tree emitted without scope, authority, inventory, vocabulary, kind decision, receiver, containment, and dependency-evidence views is unsupported.
 - Produce an unordered projection before a numbered projection. Numeric order is a claim about dependency and context reach.
-- Assign an index only from an ordering-evidence row. Same-index peers are the default when no edge is proven.
-- Keep surfaces thin. A surface owns command, API, UI, or protocol binding; it does not own reusable semantics, persistence, or verification logic.
-- Keep persistence, delivery, backend, and node state distinct. Persistence retains records, journals, snapshots, and durable artifacts. Delivery publishes ephemeral projections. Backend implements an adapter. Node state is spec-tree lifecycle standing.
-- Treat coordination notes as fallible workflow memory. Plans and issues can inform inventory, but they never decide product truth.
+- Assign an index only from the consumer-side question: what does this node depend on? Same-index peers are the default when no edge is proven. Existing siblings and current code layout are never precedents.
+- Keep surfaces thin. A surface owns one concrete provided boundary: grammar, rendering, invocation, and protocol. A surface that owns semantic vocabulary, rules, or invariants is misclassified.
+- Keep outcomes assertion-free. An outcome is a product bet with evidence-of-success measures; locally verifiable assertions live in output-kind children.
+- Keep persistence, delivery, backend, and node state distinct. Persistence retains records, journals, snapshots, and durable artifacts. Delivery publishes ephemeral projections. Backend implements an environment boundary. Node state is evidence-derived standing against maturity.
+- Treat coordination notes as fallible workflow memory. `ISSUES.md` records known defects, contradictions, and gaps with settlement triggers. `PLAN.md` records pending node steps for work already in flight. Neither decides product truth.
+- For context projection, lower-index siblings are read as constraints; same-index and higher-index siblings are listed but not read as constraints.
 
 </essential_principles>
 
 <intake>
 
-Input form: `<scope> [intent]`.
+Input form: `$ARGUMENTS`.
+
+Interpret `$ARGUMENTS` as `<scope> [intent]`. Empty `$ARGUMENTS` means no scope or workflow was supplied; ask for both before reading product files.
+
+When `$ARGUMENTS` names multiple intents, route one workflow at a time in dependency order: project or split first, audit second, derive slice third, update coordination note last. Stop after the first workflow that produces a blocking gate failure or unresolved decision.
 
 When the request does not name a workflow, ask which view to produce:
 
@@ -57,7 +66,7 @@ Wait for response before proceeding.
 | "split", "cut apart", "fused node", "current node"                              | `${SKILL_DIR}/workflows/split-fused-node.md`         |
 | "audit", "review projection", "check tree", "is this target view valid"         | `${SKILL_DIR}/workflows/audit-projection.md`         |
 | "slice", "next migration", "what can we do now"                                 | `${SKILL_DIR}/workflows/derive-migration-slice.md`   |
-| "update PLAN", "coordination note", "write the plan"                            | `${SKILL_DIR}/workflows/update-coordination-note.md` |
+| "update PLAN", "update ISSUES", "coordination note", "write the plan"           | `${SKILL_DIR}/workflows/update-coordination-note.md` |
 
 After selecting a workflow, read it completely and follow it exactly.
 
@@ -65,21 +74,16 @@ After selecting a workflow, read it completely and follow it exactly.
 
 <quick_reference>
 
-Projection workflows draw from this shared view catalog. A workflow emits the subset its purpose requires and names unresolved decisions only when local evidence cannot settle them:
+`${SKILL_DIR}/references/projection-views.md` is the canonical view catalog. Use it as the source of truth.
 
-1. Invocation scope
-2. Authority
-3. Current inventory
-4. Target vocabulary
-5. Concern classification
-6. Receiver
-7. Dependency evidence
-8. Unordered target projection
-9. Numbered target projection
-10. Active migration
-11. Parked scope
-12. Contradiction
-13. Unresolved decision
+Before emitting a target tree, migration slice, audit verdict, or coordination-note edit, confirm the workflow emits or marks N/A for these commonly missed views:
+
+- Product top-level mapping when scope is `spx/`
+- Dependency evidence
+- Context visibility
+- Active migration
+- Parked scope
+- Contradiction and unresolved decision
 
 </quick_reference>
 
@@ -87,11 +91,11 @@ Projection workflows draw from this shared view catalog. A workflow emits the su
 
 All in `${SKILL_DIR}/references/`:
 
-| File                   | Purpose                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| `projection-views.md`  | The intermediate views every projection builds and iterates.                          |
-| `target-vocabulary.md` | Target-role vocabulary, classification tests, and banned ambiguous receiver language. |
-| `ordering-evidence.md` | Dependency-evidence matrix fields, valid ordering bases, and index assignment rules.  |
+| File                   | Purpose                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `projection-views.md`  | The intermediate views every projection builds and iterates.                       |
+| `target-vocabulary.md` | Six-kind vocabulary, ordered kind decision, containment, and banned receiver text. |
+| `ordering-evidence.md` | Dependency-evidence matrix fields, valid ordering bases, and index assignment.     |
 
 </reference_index>
 
@@ -99,13 +103,13 @@ All in `${SKILL_DIR}/references/`:
 
 All in `${SKILL_DIR}/workflows/`:
 
-| Workflow                      | Purpose                                                                                       |
-| ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `project-target-structure.md` | Produce a target projection from authority, inventory, classification, and ordering evidence. |
-| `split-fused-node.md`         | Classify a current fused node into target roles and active/parked split rows.                 |
-| `audit-projection.md`         | Review a proposed projection for unsupported receivers, ordering, and vocabulary confusion.   |
-| `derive-migration-slice.md`   | Convert reviewed views into one executable migration slice.                                   |
-| `update-coordination-note.md` | Patch `PLAN.md` or `ISSUES.md` from reviewed views without turning coordination into truth.   |
+| Workflow                      | Purpose                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `project-target-structure.md` | Produce a target projection from authority, inventory, kind decision, and ordering evidence. |
+| `split-fused-node.md`         | Classify a current fused node into target kinds and active/parked split rows.                |
+| `audit-projection.md`         | Review a proposed projection for unsupported receivers, ordering, and vocabulary confusion.  |
+| `derive-migration-slice.md`   | Convert reviewed views into one executable migration slice.                                  |
+| `update-coordination-note.md` | Patch `PLAN.md` or `ISSUES.md` from reviewed views without turning coordination into truth.  |
 
 </workflows_index>
 
@@ -115,7 +119,7 @@ All in `${SKILL_DIR}/workflows/`:
 
 Claude emitted a target tree with ordered children before building the dependency-evidence matrix.
 
-Why it failed: list order implied context reach without proving provider/consumer, prerequisite, shared-substrate, vertical-slice, feature-extension, or decision-reach edges.
+Why it failed: list order implied context reach without proving provider/consumer, logical prerequisite, shared substrate, vertical-slice value delivery, feature extension, or ADR/PDR constraint edges.
 
 How to avoid: produce the unordered projection first, then assign indices only where `${SKILL_DIR}/references/ordering-evidence.md` has a row with a concrete consequence if absent.
 
@@ -127,7 +131,27 @@ Claude named an existing path such as `spx/23-spec-tree.enabler` as a receiver w
 
 Why it failed: the current path was inventory. It did not prove that the node survives as a target receiver.
 
-How to avoid: classify the behavior into substrate, capability, domain, interface, or surface before naming a receiver. When behavior carries an outcome bet, record that as a facet attached to the owning area role. Label current paths as holding paths when they remain only until SPX can represent the target structure.
+How to avoid: classify the behavior through the ordered six-kind decision procedure before naming a receiver. Label current paths as holding paths when they remain only until SPX can represent the target structure.
+
+</failure_mode>
+
+<failure_mode name="role-bucket-projection">
+
+Claude projected role-named wrapper directories such as `enablers.capability/`, `domains.domain/`, or `surfaces.surface/`.
+
+Why it failed: the next methodology forbids role buckets. Top-level nodes are product-named nodes carrying role suffixes.
+
+How to avoid: project product concerns directly as named `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, or `.outcome` nodes.
+
+</failure_mode>
+
+<failure_mode name="outcome-as-output-node">
+
+Claude placed locally verifiable assertions, tests, evals, or audits on an `.outcome`.
+
+Why it failed: an outcome is a bet, not an output node. Its output lives in output-kind children.
+
+How to avoid: extract the locally verifiable output into a child `.substrate`, `.capability`, `.domain`, `.interface`, or `.surface` node, or reclassify the node when the bet is forced.
 
 </failure_mode>
 
@@ -137,7 +161,7 @@ Claude patched `spx/PLAN.md` from a partially formed projection.
 
 Why it failed: the edit encoded unresolved structure as coordination, giving future readers a plan whose receivers and active scope had not been reviewed.
 
-How to avoid: build and review the classification, receiver, active migration, parked scope, and contradiction views before editing a coordination note.
+How to avoid: build and review the kind decision, receiver, active migration, parked scope, and contradiction views before editing a coordination note.
 
 </failure_mode>
 
@@ -148,11 +172,14 @@ How to avoid: build and review the classification, receiver, active migration, p
 A decompose-next result is sound when:
 
 - [ ] Current holding paths are labeled as inventory, not target receivers.
-- [ ] Every behavior in scope is classified by target role or parked with a re-entry condition.
-- [ ] Every target receiver owns a named set of classified concerns.
+- [ ] The output includes the product top-level mapping view when scope is `spx/`.
+- [ ] Every behavior in scope is classified by the ordered six-kind decision procedure or parked with a re-entry condition.
+- [ ] Every target receiver is a product-named node with one of the six kind suffixes.
+- [ ] Every target receiver owns a named set of kind-classified concerns and satisfies containment.
+- [ ] The output includes a context visibility view separating lower-index constraints from listed same-index and higher-index siblings.
 - [ ] Every numeric order traces to an ordering-evidence row.
 - [ ] Unresolved edges stay unordered or same-index rather than guessed.
-- [ ] Active migration rows name the current area, receiver, next edit, prerequisite support, and verification route.
+- [ ] Active migration rows name the current path, receiver, next edit, prerequisite support, and verification route.
 - [ ] Coordination-note edits contain only reviewed structure and pending work, not product truth.
 
 </success_criteria>
