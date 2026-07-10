@@ -1,6 +1,4 @@
-import { realpath } from "node:fs/promises";
-
-import { createReleaseNotesFilesystem } from "@/commands/release";
+import { canonicalizeExistingPath, createReleaseNotesFilesystem } from "@/commands/release";
 import {
   type ArtifactPromoter,
   type ArtifactReader,
@@ -13,7 +11,6 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-release-notes-";
-const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
 export const RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE = "dir";
 export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
@@ -80,21 +77,4 @@ export async function withReleaseNotesEnv(
       isFile: filesystem.isFile,
     });
   });
-}
-
-async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
-  try {
-    return await realpath(path);
-  } catch (error) {
-    if (isMissingPathError(error)) {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
-function isMissingPathError(error: unknown): boolean {
-  return error instanceof Error
-    && "code" in error
-    && error.code === FILE_NOT_FOUND_ERROR_CODE;
 }

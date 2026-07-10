@@ -557,7 +557,23 @@ export function conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
     ORACLE_CHANGELOG_TITLE,
     BLANK_LINE,
     ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG,
+    BLANK_LINE,
     oracleChangelogVersionHeading(version),
+    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
+}
+
+function changelogWithStandaloneInlineHtmlBeforeChangeGroup(
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    ORACLE_CHANGELOG_TITLE,
+    BLANK_LINE,
+    oracleChangelogVersionHeading(version),
+    ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG,
     oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
@@ -975,6 +991,10 @@ export function nonConformantChangelogCases(
         entries,
         BLANK_LINE,
       ].join(LINE_SEPARATOR),
+    },
+    {
+      label: "hides the change-group heading inside a standalone HTML block",
+      content: changelogWithStandaloneInlineHtmlBeforeChangeGroup(version, subjects),
     },
     {
       label: "puts the version section inside a fenced code block",
