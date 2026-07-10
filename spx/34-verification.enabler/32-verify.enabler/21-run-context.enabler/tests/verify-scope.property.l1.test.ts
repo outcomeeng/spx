@@ -5,10 +5,9 @@ import {
   assertChangesetReconstructionChangesContextDigest,
   assertChangesetScopeDerivesChangedFiles,
   assertRunLocatorMapsResolvedSelectors,
-  assertWorkingTreeScopeIsRejected,
 } from "@testing/harnesses/verify/harness";
 
-describe("verify changeset scope mapping", () => {
+describe("verify changeset scope properties", () => {
   it("resolves any changeset into the derived changed-file scope", async () => {
     await assertChangesetScopeDerivesChangedFiles();
   });
@@ -23,9 +22,5 @@ describe("verify changeset scope mapping", () => {
 
   it("maps resolved selectors and run target to the reported run token", async () => {
     await assertRunLocatorMapsResolvedSelectors();
-  });
-
-  it("rejects a working-tree scope type that the verification-context substrate cannot represent", async () => {
-    await assertWorkingTreeScopeIsRejected();
   });
 });

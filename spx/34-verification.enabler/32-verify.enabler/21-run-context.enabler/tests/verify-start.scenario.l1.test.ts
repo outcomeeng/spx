@@ -2,6 +2,7 @@ import { describe, it } from "vitest";
 
 import {
   assertStartCreatesRunContextAndLocator,
+  assertStartFromLinkedWorktreeSeparatesStateAndDiffRoots,
   assertStartFromNestedDirectoryUsesProductRelativeChangedScope,
   assertStartPersistsRunJournalAtLocatorTarget,
 } from "@testing/harnesses/verify/harness";
@@ -17,5 +18,9 @@ describe("verify start run context", () => {
 
   it("reports product-relative changed scope when started from a nested directory", async () => {
     await assertStartFromNestedDirectoryUsesProductRelativeChangedScope();
+  });
+
+  it("uses the linked worktree for diffs and the common root for state", async () => {
+    await assertStartFromLinkedWorktreeSeparatesStateAndDiffRoots();
   });
 });

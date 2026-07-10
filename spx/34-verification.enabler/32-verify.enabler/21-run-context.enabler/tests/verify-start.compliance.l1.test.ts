@@ -11,6 +11,7 @@ import {
   assertStartReportsInputReadFailuresBeforeOpeningRun,
   assertStartReportsPersistableRunLocator,
   assertStartRequiresNonBlankInputSource,
+  assertWorkingTreeScopeIsRejected,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify start compliance", () => {
@@ -52,5 +53,9 @@ describe("verify start compliance", () => {
 
   it("reports every run-locator selector a caller persists to replay the run identity", async () => {
     await assertStartReportsPersistableRunLocator();
+  });
+
+  it("rejects a working-tree scope type that the verification-context substrate cannot represent", async () => {
+    await assertWorkingTreeScopeIsRejected();
   });
 });

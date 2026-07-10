@@ -231,6 +231,7 @@ export interface VerifyRenderReport {
 
 interface VerifyResolvedScope {
   readonly productDir: string;
+  readonly worktreeRoot: string;
   readonly branchSlug: string;
   readonly backendIdentity: JournalEdgeBackend;
 }
@@ -298,6 +299,7 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
     ok: true,
     value: {
       productDir: product.productDir,
+      worktreeRoot: product.worktreeRoot,
       branchSlug: slugBranchIdentity(branchIdentity),
       backendIdentity: backend.value,
     },
@@ -549,7 +551,7 @@ export async function verifyStartCommand(
   const inputDigest = digestRunInput(options.input, inputContent.value);
   if (!inputDigest.ok) return errorResult(inputDigest.error);
 
-  const changedScope = await resolveChangedScope(scope.value, resolved.value.productDir, deps);
+  const changedScope = await resolveChangedScope(scope.value, resolved.value.worktreeRoot, deps);
   if (!changedScope.ok) return errorResult(changedScope.error);
 
   const context = await verificationContextCreateCommand(
