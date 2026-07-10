@@ -94,13 +94,23 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     const decisionSuffix = KIND_REGISTRY[env.fixture.decision.kind].suffix;
     const targetDecisionPath =
       `spx/${target.id}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const productDecisionPath = `spx/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const higherTargetDecisionPath =
+      `spx/${target.id}/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const productDecisionPath = `spx/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const higherProductDecisionPath = `spx/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const ancestorDecisionPath =
+      `spx/${target.parentId}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const higherAncestorDecisionPath =
+      `spx/${target.parentId}/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
     await env.writeRaw(`spx/${lowerSibling}/${env.fixture.root.slug}.md`, "# Lower sibling\n");
     await env.writeRaw(`spx/${target.id}/PLAN.md`, "# Plan\n");
     await env.writeRaw(`spx/${target.id}/ISSUES.md`, "# Issues\n");
     await env.writeRaw(evidencePath, "import { describe, it } from \"vitest\";\n");
     await env.writeRaw(targetDecisionPath, "# Target decision\n");
+    await env.writeRaw(higherTargetDecisionPath, "# Higher target decision\n");
     await env.writeRaw(productDecisionPath, "# Product decision\n");
+    await env.writeRaw(higherProductDecisionPath, "# Higher product decision\n");
+    await env.writeRaw(higherAncestorDecisionPath, "# Higher ancestor decision\n");
     const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
     const productPath = snapshot.product?.ref?.path;
     const ancestorPath = snapshot.allNodes.find((node) => node.id === target.parentId)?.ref?.path;
@@ -139,9 +149,19 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
       role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
     });
     expect(manifest.documents).toContainEqual({
+      path: higherTargetDecisionPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
+    });
+    expect(manifest.documents).toContainEqual({
       path: productDecisionPath,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
     });
+    expect(manifest.documents).toContainEqual({
+      path: ancestorDecisionPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
+    });
+    expect(manifest.documents.map((document) => document.path)).not.toContain(higherProductDecisionPath);
+    expect(manifest.documents.map((document) => document.path)).not.toContain(higherAncestorDecisionPath);
     const productIndex = manifest.documents.findIndex((document) =>
       document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT
     );
