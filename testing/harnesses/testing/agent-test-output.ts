@@ -309,7 +309,7 @@ export function expectAgentSummaryReportsNoRunnerReportsAsFailure(): void {
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${NO_RUNNER_INVOCATION_EXIT_CODE}`);
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
+  expect(output).toContain("skippedTests");
   expect(output).toContain(selectedPath);
 }
 
@@ -445,7 +445,7 @@ export function expectAgentSummaryReportsUnmatchedPaths(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNMATCHED);
+  expect(output).toContain("unmatched");
   expect(output).toContain(unmatchedPath);
 }
 
@@ -468,7 +468,7 @@ export function expectAgentSummaryReportsUnresolvedTargets(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS);
+  expect(output).toContain("unresolvedTargets");
   expect(output).toContain(unresolvedOperand);
 }
 
@@ -491,7 +491,7 @@ export function expectAgentSummaryReportsUnresolvedChangedSources(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_CHANGED_SOURCE_FILES);
+  expect(output).toContain("unresolvedChangedSourceFiles");
   expect(output).toContain(unresolvedSourcePath);
 }
 

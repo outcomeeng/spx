@@ -34,6 +34,20 @@ const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMe
   VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
 );
 
+export interface LintCommandDependencies {
+  readonly detectTypeScript: typeof detectTypeScript;
+  readonly discoverTool: typeof discoverTool;
+  readonly resolveConfig: typeof resolveConfig;
+  readonly validateESLint: typeof validateESLint;
+}
+
+const defaultLintCommandDependencies: LintCommandDependencies = {
+  detectTypeScript,
+  discoverTool,
+  resolveConfig,
+  validateESLint,
+};
+
 /**
  * Run ESLint validation.
  *
@@ -45,12 +59,15 @@ const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMe
  * @param options - Command options
  * @returns Command result with exit code and output
  */
-export async function lintCommand(options: LintCommandOptions): Promise<ValidationCommandResult> {
+export async function lintCommand(
+  options: LintCommandOptions,
+  deps: LintCommandDependencies = defaultLintCommandDependencies,
+): Promise<ValidationCommandResult> {
   const { cwd, scope = "full", files, fix, outputStreams, quiet } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
-  const tsDetection = detectTypeScript(cwd);
+  const tsDetection = deps.detectTypeScript(cwd);
   if (!tsDetection.present) {
     return {
       exitCode: 0,
@@ -72,7 +89,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     };
   }
 
-  const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
+  const loaded = await deps.resolveConfig(cwd, [validationConfigDescriptor]);
   if (!loaded.ok) {
     return {
       exitCode: 1,
@@ -116,7 +133,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   }
 
   // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
-  const toolResult = await discoverTool("eslint", { projectRoot: cwd });
+  const toolResult = await deps.discoverTool("eslint", { projectRoot: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -136,7 +153,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   };
 
   // Run ESLint validation
-  const result = await validateESLint(context, undefined, outputStreams);
+  const result = await deps.validateESLint(context, undefined, outputStreams);
   const durationMs = Date.now() - startTime;
 
   return formatLintResult(result, quiet, durationMs);

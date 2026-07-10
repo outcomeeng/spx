@@ -223,13 +223,14 @@ export async function planChangedTestSelection(
   ]);
   const paths = await changedPaths(options.productDir, baseSha, options.staged === true, deps.git);
   const partition = partitionChangedPaths(paths, changedTestProductInputPaths(deps.registry));
-  const testPaths = partition.sourceFiles.length > 0 || partition.operands.length > 0
+  const testPaths = !partition.productInputChanged
+      && (partition.sourceFiles.length > 0 || partition.operands.length > 0)
     ? await candidateTestPaths(options, deps.git)
     : [];
-  const pathSelectedTests = partition.operands.length === 0
+  const pathSelectedTests = partition.productInputChanged || partition.operands.length === 0
     ? []
     : resolveTargetedTestFiles(testPaths, { operands: partition.operands, recursive: true }).selected;
-  const related = partition.sourceFiles.length === 0
+  const related = partition.productInputChanged || partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
     : await relatedTestPaths(partition.sourceFiles, options, baseRef, testPaths, deps);
   const dispatchOperands = mergeChangedSetOperands(pathSelectedTests, related.testPaths);

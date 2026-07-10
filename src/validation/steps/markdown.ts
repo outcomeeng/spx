@@ -30,13 +30,19 @@ const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown
 export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
 /** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */
-const ENABLED_RULES = {
+export const MARKDOWN_ENABLED_BUILTIN_RULES = {
   MD001: true,
   MD003: true,
   MD009: true,
   MD010: true,
   MD025: true,
   MD047: true,
+} as const;
+
+export const MARKDOWN_CONFIG_CONTROL_KEYS = {
+  DEFAULT: "default",
+  DUPLICATE_HEADINGS: "MD024",
+  CUSTOM_RULES: "customRules",
 } as const;
 
 /** Directories where MD024 is disabled entirely (generated/repetitive headings are normal). */
@@ -150,10 +156,10 @@ export function buildMarkdownlintConfig(directoryName: string): {
   );
 
   return {
-    default: false,
-    ...ENABLED_RULES,
-    MD024: md024Disabled ? false : { siblings_only: true },
-    customRules: [relativeLinksRule],
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DEFAULT]: false,
+    ...MARKDOWN_ENABLED_BUILTIN_RULES,
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: md024Disabled ? false : { siblings_only: true },
+    [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [relativeLinksRule],
   };
 }
 

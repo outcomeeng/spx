@@ -3,7 +3,7 @@ import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { lstat, mkdir, mkdtemp, open, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 
 import {
   type ArtifactPromoter,
@@ -130,17 +130,51 @@ async function ensureCanonicalDirectory(
     }
     return;
   }
-  const nearestDirectory = await nearestExistingVerifiedDirectory(targetDirectory);
-  await options.beforeDirectoryCreate?.(targetDirectory);
-  await assertDirectoryStillMatches(
-    nearestDirectory.path,
-    nearestDirectory.stats,
-    RETARGETED_PROMOTION_ERROR,
-  );
-  await mkdir(targetDirectory, { recursive: true });
-  const createdCanonicalDirectory = await canonicalizeExistingPath(targetDirectory);
-  if (createdCanonicalDirectory !== targetDirectory) {
+  const nearestDirectory = await nearestExistingVerifiedDirectoryPath(targetDirectory);
+  await createVerifiedDirectoryDescendants(nearestDirectory, targetDirectory, options);
+}
+
+async function createVerifiedDirectoryDescendants(
+  parentCanonicalPath: string,
+  targetDirectory: string,
+  options: ReleaseNotesFilesystemOptions,
+): Promise<void> {
+  if (parentCanonicalPath === targetDirectory) return;
+  const [nextSegment] = relative(parentCanonicalPath, targetDirectory).split(sep);
+  if (nextSegment.length === 0) {
     throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${targetDirectory}`);
+  }
+  const childCanonicalPath = join(parentCanonicalPath, nextSegment);
+  await createVerifiedDirectoryChild(parentCanonicalPath, childCanonicalPath, options);
+  await createVerifiedDirectoryDescendants(childCanonicalPath, targetDirectory, options);
+}
+
+async function createVerifiedDirectoryChild(
+  parentCanonicalPath: string,
+  childCanonicalPath: string,
+  options: ReleaseNotesFilesystemOptions,
+): Promise<void> {
+  const parentHandle = await openVerifiedDirectory(parentCanonicalPath, RETARGETED_PROMOTION_ERROR);
+  try {
+    await options.beforeDirectoryCreate?.(childCanonicalPath);
+    await assertDirectoryStillMatches(parentCanonicalPath, parentHandle.stats, RETARGETED_PROMOTION_ERROR);
+    try {
+      await mkdir(childCanonicalPath);
+    } catch (error) {
+      if (!isFileAlreadyExistsError(error)) {
+        throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${childCanonicalPath}`);
+      }
+    }
+    await assertDirectoryStillMatches(parentCanonicalPath, parentHandle.stats, RETARGETED_PROMOTION_ERROR);
+  } finally {
+    await parentHandle.handle.close();
+  }
+
+  const childHandle = await openVerifiedDirectory(childCanonicalPath, RETARGETED_PROMOTION_ERROR);
+  try {
+    await assertDirectoryStillMatches(childCanonicalPath, childHandle.stats, RETARGETED_PROMOTION_ERROR);
+  } finally {
+    await childHandle.handle.close();
   }
 }
 
@@ -206,11 +240,6 @@ interface VerifiedDirectoryHandle {
   readonly stats: Stats;
 }
 
-interface VerifiedDirectory {
-  readonly path: string;
-  readonly stats: Stats;
-}
-
 async function openVerifiedDirectory(
   directoryCanonicalPath: string,
   errorMessage: string,
@@ -226,20 +255,19 @@ async function openVerifiedDirectory(
   }
 }
 
-async function nearestExistingVerifiedDirectory(targetDirectory: string): Promise<VerifiedDirectory> {
+async function nearestExistingVerifiedDirectoryPath(targetDirectory: string): Promise<string> {
   const existingDirectoryPath = await nearestExistingDirectoryPath(targetDirectory);
   const canonicalPath = await canonicalizeExistingPath(existingDirectoryPath);
   if (canonicalPath !== existingDirectoryPath) {
     throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${targetDirectory}`);
   }
-  const stats = await stat(existingDirectoryPath);
-  if (!stats.isDirectory()) {
-    throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${targetDirectory}`);
+  const directoryHandle = await openVerifiedDirectory(existingDirectoryPath, RETARGETED_PROMOTION_ERROR);
+  try {
+    await assertDirectoryStillMatches(existingDirectoryPath, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
+  } finally {
+    await directoryHandle.handle.close();
   }
-  return {
-    path: existingDirectoryPath,
-    stats,
-  };
+  return existingDirectoryPath;
 }
 
 async function nearestExistingDirectoryPath(path: string): Promise<string> {

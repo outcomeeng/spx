@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 

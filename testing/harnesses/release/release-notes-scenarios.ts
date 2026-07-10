@@ -13,7 +13,7 @@ import {
   oracleResolvedChangelogPath,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
-import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
+import { promptReleaseVersion, RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { approvingReleaseNotesFaithfulnessAuditor } from "@testing/harnesses/release/release-notes-assertions";
 import {
   RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
@@ -23,6 +23,20 @@ import {
 const COMMAND_REPORT_ACTUAL_DIRECTORY = "actual";
 const COMMAND_REPORT_CHILD_DIRECTORY = "child";
 const COMMAND_REPORT_SYMLINK = "link";
+
+function releaseDataDrivenAgentRunner(
+  workingDirectory: string,
+  outputPath: string,
+  subjects: readonly string[],
+): RecordingWritingAgentRunner {
+  return new RecordingWritingAgentRunner(workingDirectory, outputPath, (request) => {
+    const version = promptReleaseVersion(request.prompt);
+    if (version === undefined) {
+      throw new Error("release-notes prompt omitted release-version data");
+    }
+    return sampleReleaseTestValue(arbitraryConformantChangelog(version, subjects));
+  });
+}
 
 export function registerReleaseNotesScenarioTests(): void {
   describe("resolveReleaseNotesPath resolves the changelog within the product working tree", () => {
@@ -66,10 +80,7 @@ export function registerReleaseNotesScenarioTests(): void {
           const subjects = releaseData.commits.map((commit) => commit.subject);
           const config = {};
           const resolvedPath = resolveReleaseNotesPath(workingDirectory, config);
-          const changelogContent = sampleReleaseTestValue(
-            arbitraryConformantChangelog(releaseData.version, subjects),
-          );
-          const agentRunner = new RecordingWritingAgentRunner(workingDirectory, resolvedPath, changelogContent);
+          const agentRunner = releaseDataDrivenAgentRunner(workingDirectory, resolvedPath, subjects);
 
           await composeReleaseNotes({
             releaseData,
@@ -99,10 +110,7 @@ export function registerReleaseNotesScenarioTests(): void {
         const subjects = releaseData.commits.map((commit) => commit.subject);
         const config = {};
         const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, config);
-        const changelogContent = sampleReleaseTestValue(
-          arbitraryConformantChangelog(releaseData.version, subjects),
-        );
-        const agentRunner = new RecordingWritingAgentRunner(env.workingDirectory, resolvedPath, changelogContent);
+        const agentRunner = releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath, subjects);
 
         await expect(
           releaseNotesCommand({
@@ -132,13 +140,10 @@ export function registerReleaseNotesScenarioTests(): void {
         const config = { changelogPath };
         const lexicalResolvedPath = resolveReleaseNotesPath(env.workingDirectory, config);
         const canonicalArtifactPath = join(actualDirectory, DEFAULT_CHANGELOG_PATH);
-        const changelogContent = sampleReleaseTestValue(
-          arbitraryConformantChangelog(releaseData.version, subjects),
-        );
-        const agentRunner = new RecordingWritingAgentRunner(
+        const agentRunner = releaseDataDrivenAgentRunner(
           env.workingDirectory,
           canonicalArtifactPath,
-          changelogContent,
+          subjects,
         );
         await mkdir(actualChildDirectory, { recursive: true });
         await symlink(

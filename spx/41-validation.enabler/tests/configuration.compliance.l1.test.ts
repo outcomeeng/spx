@@ -1,1 +1,1 @@
-import "@testing/harnesses/validation/configuration";
+import "@testing/harnesses/validation/configuration-compliance";

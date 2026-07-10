@@ -68,6 +68,7 @@
   "author": "Outcome Engineering",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@faker-js/faker": "^10.4.0",
     "@types/estree": "^1.0.8",
     "@types/markdown-it": "^14.1.2",

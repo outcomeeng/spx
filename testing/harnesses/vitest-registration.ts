@@ -3,7 +3,6 @@ export { expect } from "vitest";
 
 const SUITE_TITLE_SEPARATOR = " / ";
 const CASE_VALUE_PLACEHOLDER = "%s";
-export const HARNESS_TEST_TITLE_PATTERN = "$title";
 
 export interface HarnessTestCase {
   readonly title: string;
@@ -116,27 +115,10 @@ export function collectHarnessTestCases(registerTests: () => void): readonly Har
 }
 
 export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]): void {
-  for (const testCase of testCases) {
-    registerHarnessTestCase(testCase.title, () => runHarnessTestCase(testCase), testCase.timeout);
-  }
-}
-
-export function requireNonEmptyHarnessTestCases(
-  testCases: readonly HarnessTestCase[],
-): readonly HarnessTestCase[] {
   if (testCases.length === 0) {
     throw new Error("harness test collection registered no cases");
   }
-  return testCases;
-}
-
-export async function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
-  await testCase.run();
-}
-
-export function maxHarnessTestCaseTimeout(testCases: readonly HarnessTestCase[]): number | undefined {
-  const timeouts = testCases
-    .map((testCase) => testCase.timeout)
-    .filter((timeout): timeout is number => timeout !== undefined);
-  return timeouts.length === 0 ? undefined : Math.max(...timeouts);
+  for (const testCase of testCases) {
+    registerHarnessTestCase(testCase.title, testCase.run, testCase.timeout);
+  }
 }

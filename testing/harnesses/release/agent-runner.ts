@@ -2,7 +2,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
-import { CHANGELOG_PATH_DATA_BLOCK_CLOSE, CHANGELOG_PATH_DATA_BLOCK_OPEN } from "@/domains/release/release-notes";
+import {
+  CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+  CHANGELOG_PATH_DATA_BLOCK_OPEN,
+  RELEASE_VERSION_DATA_BLOCK_CLOSE,
+  RELEASE_VERSION_DATA_BLOCK_OPEN,
+} from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 
 /**
@@ -24,7 +29,7 @@ export class RecordingWritingAgentRunner implements AgentRunner {
   constructor(
     private readonly expectedWorkingDirectory: string,
     private readonly outputPath: string,
-    private readonly changelogContent: string,
+    private readonly changelogContent: string | ((request: AgentRunRequest) => string),
   ) {}
 
   async run(request: AgentRunRequest): Promise<void> {
@@ -37,7 +42,10 @@ export class RecordingWritingAgentRunner implements AgentRunner {
       throw new Error("Agent runner double received the wrong working directory");
     }
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, this.changelogContent);
+    await writeFile(
+      outputPath,
+      typeof this.changelogContent === "string" ? this.changelogContent : this.changelogContent(request),
+    );
   }
 
   /** The prompt of the most recent request, for inspecting what the composition assembled. */
@@ -50,13 +58,21 @@ export class RecordingWritingAgentRunner implements AgentRunner {
   }
 }
 
+export function promptReleaseVersion(prompt: string): string | undefined {
+  return promptJsonString(prompt, RELEASE_VERSION_DATA_BLOCK_OPEN, RELEASE_VERSION_DATA_BLOCK_CLOSE);
+}
+
 function promptChangelogPath(prompt: string): string | undefined {
-  const openIndex = prompt.indexOf(CHANGELOG_PATH_DATA_BLOCK_OPEN);
+  return promptJsonString(prompt, CHANGELOG_PATH_DATA_BLOCK_OPEN, CHANGELOG_PATH_DATA_BLOCK_CLOSE);
+}
+
+function promptJsonString(prompt: string, openMarker: string, closeMarker: string): string | undefined {
+  const openIndex = prompt.indexOf(openMarker);
   if (openIndex === -1) {
     return undefined;
   }
-  const valueStart = openIndex + CHANGELOG_PATH_DATA_BLOCK_OPEN.length;
-  const closeIndex = prompt.indexOf(CHANGELOG_PATH_DATA_BLOCK_CLOSE, valueStart);
+  const valueStart = openIndex + openMarker.length;
+  const closeIndex = prompt.indexOf(closeMarker, valueStart);
   if (closeIndex === -1) {
     return undefined;
   }

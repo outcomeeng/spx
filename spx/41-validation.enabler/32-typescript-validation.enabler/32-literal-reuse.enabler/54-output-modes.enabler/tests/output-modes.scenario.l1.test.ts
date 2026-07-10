@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatNoProblemsOfKind,
-  LITERAL_PROBLEM_KIND,
-  literalCommand,
-  VERBOSE_PROBLEM_LINE_PREFIX,
-} from "@/commands/validation/literal";
+import { formatNoProblemsOfKind, literalCommand, VERBOSE_PROBLEM_LINE_PREFIX } from "@/commands/validation/literal";
+import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";

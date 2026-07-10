@@ -21,7 +21,7 @@ import { stringify } from "yaml";
 import { allCommand } from "@/commands/validation/all";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import {
   FORMATTING_SCENARIO_KIND,
   FORMATTING_VALIDATION_DATA,

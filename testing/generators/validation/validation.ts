@@ -1,9 +1,9 @@
 import * as fc from "fast-check";
 import { resolve } from "node:path";
 
-import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { NO_PROBLEMS_MESSAGE } from "@/commands/validation/literal";
 import {
   CIRCULAR_SKIP_JSON_OUTPUT,
   CIRCULAR_SKIP_OUTPUT,
@@ -17,13 +17,14 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import {
   allValidationCliOptions,
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
-} from "@/interfaces/cli/validation";
-import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+} from "@/interfaces/cli/validation-contract";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -85,6 +86,11 @@ const RECURSIVE_DEPENDENCY_ROOT_DIRECTORY_NAME = "generated";
 const RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE = "src/generated/output.ts";
 const RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE = "src/feature/generated/output.ts";
 const ABSENT_SCOPE_FILE_PATTERN = "scripts/**/*";
+const TYPESCRIPT_VALIDATION_NODE_SEGMENTS = [
+  "spx",
+  "41-validation.enabler",
+  "32-typescript-validation.enabler",
+] as const;
 const TYPESCRIPT_JSX_SOURCE_FILE_NAME = "component.tsx";
 const MODERN_SOURCE_FILE_NAME = "modern.mts";
 const COMMONJS_SOURCE_FILE_NAME = "commonjs.cts";
@@ -132,10 +138,6 @@ const SECONDARY_SOURCE_DIRECTORY_NAME = "api";
 const SECONDARY_SOURCE_FILE_NAME = "secondary.ts";
 const SECONDARY_SOURCE_CONTENT = "export const secondary = true;\n";
 const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"bad\";\n";
-const SECONDARY_TYPE_ERROR_SOURCE_FILE = "secondary.ts";
-const FIRST_CYCLE_SOURCE_FILE = "cycle-a.ts";
-const SECOND_CYCLE_SOURCE_FILE = "cycle-b.ts";
-const CIRCULAR_FIXTURE_DETAIL_PATHS = ["src/a.ts", "src/b.ts"] as const;
 const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
@@ -169,6 +171,10 @@ export interface ValidationSubprocessScenario {
   readonly stdoutExcludes: readonly string[];
   readonly stderrExcludes: readonly string[];
   readonly combinedExcludes: readonly string[];
+}
+
+export interface ValidationStructuralMappingScenario {
+  readonly title: string;
 }
 
 export interface ExtensionSpecificExcludeScenario {
@@ -236,7 +242,6 @@ export const VALIDATION_PIPELINE_DATA = {
   exitCodes: VALIDATION_EXIT_CODES,
   summaryStatus: VALIDATION_SUMMARY_STATUS,
   circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
-  circularFixtureDetailPaths: CIRCULAR_FIXTURE_DETAIL_PATHS,
   circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
   circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
   skipCircularFlag: allValidationCliOptions.skipCircular.flag,
@@ -273,6 +278,7 @@ export const VALIDATION_PIPELINE_DATA = {
   recursiveDependencyRootExcludedFile: RECURSIVE_DEPENDENCY_ROOT_EXCLUDED_FILE,
   recursiveDependencyNestedExcludedFile: RECURSIVE_DEPENDENCY_NESTED_EXCLUDED_FILE,
   absentScopeFilePattern: ABSENT_SCOPE_FILE_PATTERN,
+  typescriptValidationNodeSegments: TYPESCRIPT_VALIDATION_NODE_SEGMENTS,
   fullTsconfigFile: TSCONFIG_FILES.full,
   sourceDirectoryName: "src",
   cleanSourceFileName: CLEAN_SOURCE_FILE_NAME,
@@ -301,9 +307,6 @@ export const VALIDATION_PIPELINE_DATA = {
   secondarySourceFileName: SECONDARY_SOURCE_FILE_NAME,
   secondarySourceContent: SECONDARY_SOURCE_CONTENT,
   secondaryTypeErrorSourceContent: SECONDARY_TYPE_ERROR_SOURCE_CONTENT,
-  secondaryTypeErrorSourceFile: SECONDARY_TYPE_ERROR_SOURCE_FILE,
-  firstCycleSourceFile: FIRST_CYCLE_SOURCE_FILE,
-  secondCycleSourceFile: SECOND_CYCLE_SOURCE_FILE,
   excludedSourceDirectoryName: EXCLUDED_SOURCE_DIRECTORY_NAME,
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
@@ -345,6 +348,12 @@ export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> 
     .filter((candidate) => !candidate.startsWith(validationOptionPrefix));
 }
 
+export function arbitraryValidationCliUnknownOption(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral()
+    .filter((candidate) => !validationKnownOperands.has(candidate))
+    .map((candidate) => `${validationOptionPrefix}${candidate}`);
+}
+
 export function arbitraryValidationCliEmptyArgument(): fc.Arbitrary<string> {
   return fc.constant(EMPTY_CLI_ARGUMENT);
 }
@@ -367,6 +376,10 @@ export function arbitraryValidationCliUnicodeArgument(): fc.Arbitrary<string> {
 export function arbitraryInvalidLiteralProblemKind(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral()
     .filter((candidate) => !LITERAL_PROBLEM_KINDS.includes(candidate as LiteralProblemKindCandidate));
+}
+
+export function arbitrarySanitizationSensitiveInvalidLiteralProblemKind(): fc.Arbitrary<string> {
+  return arbitraryValidationCliControlArgument();
 }
 
 export function arbitraryValidationCliSubprocessTimeout(): fc.Arbitrary<number> {
@@ -473,11 +486,11 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
       timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [
-        VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
-        VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
-        VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
-        VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-        VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+        VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS,
+        VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
+        VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+        VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
+        NO_PROBLEMS_MESSAGE,
       ],
       combinedIncludes: [],
       stdoutExcludes: runtimeAntiMarkers,
@@ -492,15 +505,23 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
+        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP),
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
-        VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL),
       ],
       combinedIncludes: [],
       stdoutExcludes: runtimeAntiMarkers,
       stderrExcludes: runtimeAntiMarkers,
       combinedExcludes: runtimeAntiMarkers,
+    },
+  ];
+}
+
+export function validationStructuralMappingScenarios(): ValidationStructuralMappingScenario[] {
+  return [
+    {
+      title: "TypeScript registry composition reaches every required executable concern",
     },
   ];
 }
@@ -575,21 +596,14 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
   ];
 }
 
-export function isValidationPipelineComplianceScenario(scenario: ValidationPipelineScenario): boolean {
-  const complianceKinds: readonly ValidationPipelineScenario["kind"][] = [
-    VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
-    VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
-    VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
-  ];
-  return complianceKinds.includes(scenario.kind);
-}
-
 export const VALIDATION_CLI_GENERATOR = {
   unknownSubcommand: arbitraryValidationCliUnknownSubcommand,
+  unknownOption: arbitraryValidationCliUnknownOption,
   emptyArgument: arbitraryValidationCliEmptyArgument,
   controlArgument: arbitraryValidationCliControlArgument,
   unicodeArgument: arbitraryValidationCliUnicodeArgument,
   invalidLiteralProblemKind: arbitraryInvalidLiteralProblemKind,
+  sanitizationSensitiveInvalidLiteralProblemKind: arbitrarySanitizationSensitiveInvalidLiteralProblemKind,
   subprocessTimeout: arbitraryValidationCliSubprocessTimeout,
   propertyOptions: arbitraryValidationCliPropertyOptions,
 } as const;

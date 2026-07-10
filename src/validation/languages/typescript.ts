@@ -24,6 +24,22 @@ import type { ValidationLanguageDescriptor, ValidationStageContext } from "@/val
 
 const TYPESCRIPT_LANGUAGE_NAME = "typescript";
 
+export const TYPESCRIPT_VALIDATION_CONCERN = {
+  LINT: "lint",
+  TYPE_CHECK: "type-check",
+  AST_ENFORCEMENT: "ast-enforcement",
+  CIRCULAR_DEPS: "circular-deps",
+  LITERAL_REUSE: "literal-reuse",
+  UNUSED_CODE: "unused-code",
+} as const;
+
+export type TypeScriptValidationConcern =
+  (typeof TYPESCRIPT_VALIDATION_CONCERN)[keyof typeof TYPESCRIPT_VALIDATION_CONCERN];
+
+interface TypeScriptValidationLanguageDescriptor extends ValidationLanguageDescriptor {
+  readonly concerns: readonly TypeScriptValidationConcern[];
+}
+
 export interface KnipStageDeps {
   readonly knipCommand: typeof knipCommand;
 }
@@ -85,8 +101,9 @@ export async function runKnipStage(
   });
 }
 
-export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
+export const typescriptValidationLanguage: TypeScriptValidationLanguageDescriptor = {
   name: TYPESCRIPT_LANGUAGE_NAME,
+  concerns: Object.values(TYPESCRIPT_VALIDATION_CONCERN),
   stages: [
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
@@ -110,6 +127,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
           fix: context.fix,
           quiet: context.quiet,
           json: context.json,
+          outputStreams: context.outputStreams,
         }),
     },
     {
@@ -122,6 +140,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
           files: context.files,
           quiet: context.quiet,
           json: context.json,
+          outputStreams: context.outputStreams,
         }),
     },
     {

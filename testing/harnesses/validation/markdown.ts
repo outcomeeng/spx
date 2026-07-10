@@ -7,7 +7,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   buildMarkdownlintConfig,
@@ -20,10 +20,14 @@ import {
   MARKDOWN_SCENARIO_KIND,
   MARKDOWN_VALIDATION_DATA,
   markdownDirectoryTarget,
+  markdownE2eScenarios,
   markdownFileTarget,
+  markdownIntegrationScenarios,
+  markdownUnitScenarios,
   type MarkdownValidationScenario,
 } from "@testing/generators/validation/markdown";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { withMarkdownEnv } from "@testing/harnesses/with-markdown-env";
 
 export async function runMarkdownValidationScenario(scenario: MarkdownValidationScenario): Promise<void> {
@@ -32,6 +36,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runCleanTreeScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.DATA_URI_ALLOWED:
       return runDataUriScenario(scenario);
+    case MARKDOWN_SCENARIO_KIND.IGNORED_LINK_TYPES:
+      return runIgnoredLinkTypesScenario();
     case MARKDOWN_SCENARIO_KIND.BROKEN_LINKS:
       return runBrokenLinksScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.BROKEN_FRAGMENT:
@@ -39,7 +45,7 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
     case MARKDOWN_SCENARIO_KIND.ERROR_SHAPE:
       return runErrorShapeScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK:
-      return runProjectAbsoluteLinkScenario(scenario);
+      return runProjectAbsoluteLinkScenario();
     case MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS:
       return runNoSideEffectsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES:
@@ -104,12 +110,37 @@ async function runDataUriScenario(scenario: MarkdownValidationScenario): Promise
   });
 }
 
+async function runIgnoredLinkTypesScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    await mkdir(spxDir, { recursive: true });
+    await writeFile(
+      join(spxDir, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile),
+      MARKDOWN_VALIDATION_DATA.ignoredLinkTypesContent,
+    );
+
+    const result = await validateMarkdown({
+      targets: [markdownDirectoryTarget(spxDir)],
+      projectRoot: path,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
+  });
+}
+
 async function runBrokenLinksScenario(scenario: MarkdownValidationScenario): Promise<void> {
   await withMarkdownScenarioEnv(scenario, async ({ spxDir }) => {
     const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)] });
+    const brokenRelativeError = result.errors.find((error) =>
+      error.file.includes(MARKDOWN_VALIDATION_DATA.sampleMarkdownFile)
+      && error.detail.includes(MARKDOWN_VALIDATION_DATA.brokenRelativeTargetMarker)
+    );
 
     expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThanOrEqual(MARKDOWN_VALIDATION_DATA.three);
+    expect(brokenRelativeError?.file).toContain(MARKDOWN_VALIDATION_DATA.sampleMarkdownFile);
+    expect(brokenRelativeError?.line).toBeGreaterThan(MARKDOWN_VALIDATION_DATA.zero);
+    expect(brokenRelativeError?.detail).toContain(MARKDOWN_VALIDATION_DATA.brokenRelativeTargetMarker);
   });
 }
 
@@ -136,18 +167,23 @@ async function runErrorShapeScenario(scenario: MarkdownValidationScenario): Prom
   });
 }
 
-async function runProjectAbsoluteLinkScenario(scenario: MarkdownValidationScenario): Promise<void> {
-  await withMarkdownScenarioEnv(scenario, async ({ path, spxDir }) => {
-    const result = await validateMarkdown({
-      targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
-    });
-    const absoluteErrors = result.errors.filter((error) =>
-      error.detail.includes(MARKDOWN_VALIDATION_DATA.missingFileMarker)
+async function runProjectAbsoluteLinkScenario(): Promise<void> {
+  await withMarkdownTempProject(async ({ path, spxDir }) => {
+    await mkdir(spxDir, { recursive: true });
+    await writeFile(
+      join(spxDir, MARKDOWN_VALIDATION_DATA.targetMarkdownFile),
+      MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
     );
+    const sourceFile = join(spxDir, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile);
+    await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.projectAbsoluteSourceContent);
 
-    expect(result.success).toBe(false);
-    expect(absoluteErrors.length).toBeGreaterThanOrEqual(MARKDOWN_VALIDATION_DATA.one);
+    const result = await markdownCommand({
+      cwd: path,
+      files: [sourceFile],
+    });
+
+    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
   });
 }
 
@@ -167,10 +203,19 @@ async function runNoSideEffectsScenario(scenario: MarkdownValidationScenario): P
 async function runDefaultDirectoriesScenario(scenario: MarkdownValidationScenario): Promise<void> {
   await withMarkdownScenarioEnv(scenario, async ({ path }) => {
     const dirs = getDefaultDirectories(path);
+    const outsideDirectory = join(path, MARKDOWN_VALIDATION_DATA.outsideDefaultDirectoryName);
+    await mkdir(outsideDirectory, { recursive: true });
+    await writeFile(
+      join(outsideDirectory, MARKDOWN_VALIDATION_DATA.outsideDefaultBrokenFile),
+      MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+    );
+    const result = await markdownCommand({ cwd: path });
 
     expect(dirs).toHaveLength(MARKDOWN_VALIDATION_DATA.two);
     expect(dirs).toContain(join(path, MARKDOWN_VALIDATION_DATA.spxDirectoryName));
     expect(dirs).toContain(join(path, MARKDOWN_VALIDATION_DATA.docsDirectoryName));
+    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).not.toContain(MARKDOWN_VALIDATION_DATA.outsideDefaultBrokenFile);
   });
 }
 
@@ -273,6 +318,8 @@ function runConfigBuilderScenario(): void {
   const spxConfig = buildMarkdownlintConfig(MARKDOWN_VALIDATION_DATA.spxDirectoryName);
   const docsConfig = buildMarkdownlintConfig(MARKDOWN_VALIDATION_DATA.docsDirectoryName);
 
+  expect(Object.keys(spxConfig)).toHaveLength(MARKDOWN_VALIDATION_DATA.expectedConfigKeyCount);
+  expect(Object.keys(docsConfig)).toHaveLength(MARKDOWN_VALIDATION_DATA.expectedConfigKeyCount);
   expect(spxConfig.default).toBe(false);
   expect(spxConfig.MD001).toBe(true);
   expect(spxConfig.MD003).toBe(true);
@@ -287,11 +334,21 @@ function runConfigBuilderScenario(): void {
 }
 
 async function runCommandDefaultsScenario(scenario: MarkdownValidationScenario): Promise<void> {
-  await withMarkdownScenarioEnv(scenario, async ({ path }) => {
+  await withMarkdownScenarioEnv(scenario, async ({ docsDir, path, spxDir }) => {
+    await writeFile(
+      join(spxDir, MARKDOWN_VALIDATION_DATA.defaultSpxBrokenFile),
+      MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+    );
+    await writeFile(
+      join(docsDir, MARKDOWN_VALIDATION_DATA.defaultDocsBrokenFile),
+      MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+    );
     const result = await markdownCommand({ cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
     expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+    expect(result.output).toContain(MARKDOWN_VALIDATION_DATA.defaultSpxBrokenFile);
+    expect(result.output).toContain(MARKDOWN_VALIDATION_DATA.defaultDocsBrokenFile);
   });
 }
 
@@ -316,13 +373,18 @@ async function runFileScopeDocsScenario(scenario: MarkdownValidationScenario): P
 }
 
 async function runFileScopeCleanSpxScenario(scenario: MarkdownValidationScenario): Promise<void> {
-  await withMarkdownScenarioEnv(scenario, async ({ path, spxDir }) => {
+  await withMarkdownScenarioEnv(scenario, async ({ docsDir, path, spxDir }) => {
+    await writeFile(
+      join(docsDir, MARKDOWN_VALIDATION_DATA.explicitScopeDocsDecoyFile),
+      MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+    );
     const result = await markdownCommand({
       cwd: path,
       files: [spxDir],
     });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).not.toContain(MARKDOWN_VALIDATION_DATA.explicitScopeDocsDecoyFile);
   });
 }
 
@@ -538,3 +600,58 @@ async function withMarkdownScenarioEnv(
   }
   await withMarkdownEnv({ fixture: scenario.fixture }, callback);
 }
+
+const MARKDOWN_MAPPING_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([
+  MARKDOWN_SCENARIO_KIND.CLEAN_TREE,
+  MARKDOWN_SCENARIO_KIND.DATA_URI_ALLOWED,
+  MARKDOWN_SCENARIO_KIND.IGNORED_LINK_TYPES,
+  MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+  MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER,
+]);
+const MARKDOWN_COMPLIANCE_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([
+  MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS,
+  MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES,
+  MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE,
+]);
+
+function registerMarkdownScenarios(
+  title: string,
+  scenarios: readonly MarkdownValidationScenario[],
+): void {
+  describe(title, () => {
+    for (const scenario of scenarios) {
+      it(
+        scenario.title,
+        async () => runMarkdownValidationScenario(scenario),
+        scenario.timeout,
+      );
+    }
+  });
+}
+
+export const markdownValidationScenarioL1Cases = collectHarnessTestCases(() => {
+  registerMarkdownScenarios("markdown validation L1 scenarios", markdownUnitScenarios());
+});
+
+export const markdownValidationScenarioL2Cases = collectHarnessTestCases(() => {
+  registerMarkdownScenarios(
+    "markdown validation L2 scenarios",
+    [...markdownIntegrationScenarios(), ...markdownE2eScenarios()],
+  );
+});
+
+export const markdownValidationMappingCases = collectHarnessTestCases(() => {
+  registerMarkdownScenarios(
+    "markdown validation mappings",
+    markdownUnitScenarios().filter((scenario) => MARKDOWN_MAPPING_KINDS.has(scenario.kind)),
+  );
+});
+
+export const markdownValidationComplianceCases = collectHarnessTestCases(() => {
+  registerMarkdownScenarios(
+    "markdown validation compliance",
+    [...markdownUnitScenarios(), ...markdownIntegrationScenarios()].filter((scenario) =>
+      MARKDOWN_COMPLIANCE_KINDS.has(scenario.kind)
+    ),
+  );
+});

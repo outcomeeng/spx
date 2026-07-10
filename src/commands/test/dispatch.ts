@@ -1,4 +1,4 @@
-import { applyPathFilter, type PathFilterConfig } from "@/config/primitives";
+import { applyPathFilter, normalizePathPrefix, type PathFilterConfig } from "@/config/primitives/path-filter";
 import {
   aggregateTestExitCode,
   groupTestFiles,
@@ -6,6 +6,7 @@ import {
   resolveTargetedTestFiles,
   type TargetSelection,
 } from "@/domains/test";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,
@@ -57,9 +58,23 @@ export interface TestDispatchDependencies {
   readonly runnerDepsFor: (language: TestingLanguageDescriptor) => TestRunnerDependencies;
 }
 
-// Passing-scope filtering removes files before grouping; the dispatch passes no
-// runner-level node exclusions, so each runner receives exactly the kept files.
 const NO_EXCLUDED_NODE_PATHS: readonly string[] = [];
+const SPEC_TREE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
+const SPEC_TREE_NODE_SEGMENT_PATTERN = /^\d+-.+\.(?:enabler|outcome)$/u;
+
+function excludedNodePaths(passingScope: PathFilterConfig | undefined): readonly string[] {
+  if (passingScope?.exclude === undefined) return NO_EXCLUDED_NODE_PATHS;
+  const nodePaths = passingScope.exclude.flatMap((path) => {
+    const normalized = normalizePathPrefix(path);
+    if (!normalized.startsWith(SPEC_TREE_ROOT_PREFIX)) return [];
+    const nodePath = normalized.slice(SPEC_TREE_ROOT_PREFIX.length);
+    return nodePath.length > 0
+        && nodePath.split("/").every((segment) => SPEC_TREE_NODE_SEGMENT_PATTERN.test(segment))
+      ? [nodePath]
+      : [];
+  });
+  return [...new Set(nodePaths)];
+}
 
 /**
  * Discovers the spec tree's test files, partitions them by registered language,
@@ -80,6 +95,7 @@ export async function runTests(
     ? targeted.selected
     : applyPathFilter(targeted.selected, options.passingScope);
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
+  const runnerExcludedNodePaths = excludedNodePaths(options.passingScope);
 
   const invocations: TestRunInvocation[] = [];
   const reports: TestRunnerReport[] = [];
@@ -89,7 +105,7 @@ export async function runTests(
       {
         projectRoot: options.productDir,
         testPaths: group.testPaths,
-        excludedNodePaths: NO_EXCLUDED_NODE_PATHS,
+        excludedNodePaths: runnerExcludedNodePaths,
       },
       deps.runnerDepsFor(group.language),
     );
