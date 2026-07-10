@@ -66,7 +66,7 @@ async function composeCase(env: ReleaseNotesEnv, { releaseData, content }: Relea
       isSymbolicLink: env.isSymbolicLink,
       isFile: env.isFile,
     }),
-  ).resolves.toBeUndefined();
+  ).resolves.toEqual({ changelogPath: resolvedPath });
   return resolvedPath;
 }
 

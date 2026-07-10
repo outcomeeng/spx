@@ -7,7 +7,6 @@ import {
   composeReleaseNotes,
   type ReleaseNotesConfig,
   type ReleaseNotesFaithfulnessAuditor,
-  resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
 import type { GitDependencies } from "@/git/root";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
@@ -33,7 +32,7 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     deps: options.gitDeps,
   });
   const filesystem = options.filesystem ?? createReleaseNotesFilesystem();
-  await composeReleaseNotes({
+  const result = await composeReleaseNotes({
     releaseData,
     config: options.config,
     workingDirectory: options.productDir,
@@ -46,7 +45,7 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     isSymbolicLink: filesystem.isSymbolicLink,
     isFile: filesystem.isFile,
   });
-  return `${RELEASE_NOTES_OUTPUT_PREFIX}: ${resolveReleaseNotesPath(options.productDir, options.config)}`;
+  return `${RELEASE_NOTES_OUTPUT_PREFIX}: ${result.changelogPath}`;
 }
 
 async function readPackageVersion(productDir: string): Promise<string> {

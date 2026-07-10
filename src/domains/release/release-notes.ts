@@ -336,6 +336,10 @@ export interface ComposeReleaseNotesOptions {
   readonly isFile: PathFileDetector;
 }
 
+export interface ComposeReleaseNotesResult {
+  readonly changelogPath: string;
+}
+
 /**
  * Generates the release notes: resolves the changelog path within the working
  * tree, assembles a prompt from the release data and resolved configuration only,
@@ -348,7 +352,7 @@ export interface ComposeReleaseNotesOptions {
  */
 export async function composeReleaseNotes(
   options: ComposeReleaseNotesOptions,
-): Promise<void> {
+): Promise<ComposeReleaseNotesResult> {
   const {
     releaseData,
     config,
@@ -440,6 +444,7 @@ export async function composeReleaseNotes(
         `Promoted changelog content differs from staged release notes: ${changelogPath}`,
       );
     }
+    return { changelogPath: preAgentCanonicalChangelogPath };
   } finally {
     await stage.cleanup();
   }
