@@ -1,4 +1,4 @@
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, sep, win32 } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -32,6 +32,7 @@ import {
   PATH_CONTAINMENT_ROOT_CANDIDATE,
 } from "@/lib/file-system/pathContainment";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryBlankConfiguredChangelogPath,
   arbitraryConfiguredChangelogPath,
@@ -59,6 +60,7 @@ import {
   sampleReleaseNotesCompositionFixture,
 } from "@testing/harnesses/release/release-notes-assertions";
 import {
+  partialWriteFailureAtomicFileSystem,
   RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
   RELEASE_NOTES_FILE_SYMLINK_TYPE,
   RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
@@ -1160,6 +1162,31 @@ export function registerReleaseNotesComplianceTests(): void {
             },
           );
         },
+      );
+    });
+
+    it("preserves the existing changelog when atomic promotion cannot finish its temporary write", async () => {
+      const [existingContent, replacementContent] = sampleReleaseTestValue(
+        fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral())
+          .filter(([existing, replacement]) => existing !== replacement),
+      );
+      await withReleaseNotesEnv(
+        async (env) => {
+          const targetPath = join(env.workingDirectory, DEFAULT_CHANGELOG_PATH);
+          await writeFile(targetPath, existingContent);
+          const targetCanonicalPath = await env.canonicalizePath(targetPath);
+          if (targetCanonicalPath === undefined) {
+            throw new Error("Atomic promotion target cannot be canonicalized");
+          }
+
+          await expect(
+            env.promoteArtifact(targetCanonicalPath, targetCanonicalPath, replacementContent),
+          ).rejects.toThrow(ReleaseNotesError);
+
+          expect(await env.readArtifact(targetPath, targetCanonicalPath)).toBe(existingContent);
+          expect(await readdir(env.workingDirectory)).toEqual([DEFAULT_CHANGELOG_PATH]);
+        },
+        { atomicWriteFileSystem: partialWriteFailureAtomicFileSystem() },
       );
     });
 

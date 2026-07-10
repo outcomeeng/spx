@@ -1,7 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import { lstat, mkdir, mkdtemp, open, realpath, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 
@@ -15,6 +16,7 @@ import {
   type PathSymlinkDetector,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
+import { type AtomicWriteFileSystem, type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 
 const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
 const NOT_DIRECTORY_ERROR_CODE = "ENOTDIR";
@@ -28,6 +30,15 @@ const RETARGETED_PROMOTION_ERROR = "Changelog promotion target changed before fi
 const STAGING_DIRECTORY_PREFIX = "spx-release-notes-stage-";
 const STAGING_FILE_NAME = "CHANGELOG.md";
 const FILE_ALREADY_EXISTS_ERROR_CODE = "EEXIST";
+const RELEASE_NOTES_ATOMIC_WRITE_FILE_SYSTEM: AtomicWriteFileSystem = {
+  writeFile: async (path, data) => {
+    await writeFile(path, data, { encoding: ARTIFACT_TEXT_ENCODING });
+  },
+  rename,
+  rm: async (path, options) => {
+    await rm(path, options);
+  },
+};
 
 export interface ReleaseNotesFilesystem {
   readonly readArtifact: ArtifactReader;
@@ -39,6 +50,8 @@ export interface ReleaseNotesFilesystem {
 }
 
 export interface ReleaseNotesFilesystemOptions {
+  readonly atomicWriteFileSystem?: AtomicWriteFileSystem;
+  readonly atomicWriteRandomBytes?: RandomBytes;
   readonly beforeArtifactRead?: (path: string) => Promise<void>;
   readonly beforeDirectoryCreate?: (path: string) => Promise<void>;
   readonly beforeArtifactPromotionOpen?: (path: string) => Promise<void>;
@@ -185,29 +198,66 @@ async function promoteIntoVerifiedDirectory(
 ): Promise<void> {
   const targetDirectory = dirname(targetCanonicalPath);
   const directoryHandle = await openVerifiedDirectory(targetDirectory, RETARGETED_PROMOTION_ERROR);
-  let artifactHandle: FileHandle | undefined;
   try {
     await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
     await assertPromotionTargetStillMatches(targetCanonicalPath);
     await options.beforeArtifactPromotionOpen?.(targetCanonicalPath);
     await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
     await assertPromotionTargetStillMatches(targetCanonicalPath);
-    artifactHandle = await openWritableArtifact(targetCanonicalPath, RETARGETED_PROMOTION_ERROR);
-    const openedArtifact = await artifactHandle.stat();
-    await assertOpenedTargetStillMatches(targetCanonicalPath, openedArtifact, RETARGETED_PROMOTION_ERROR);
-    await options.beforeArtifactPromotion?.(targetCanonicalPath);
+    await options.beforeFinalArtifactWrite?.(targetCanonicalPath);
     await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
     await assertPromotionTargetStillMatches(targetCanonicalPath);
-    await assertOpenedTargetStillMatches(targetCanonicalPath, openedArtifact, RETARGETED_PROMOTION_ERROR);
-    await options.beforeFinalArtifactWrite?.(targetCanonicalPath);
-    await artifactHandle.truncate(0);
-    await artifactHandle.writeFile(content, { encoding: ARTIFACT_TEXT_ENCODING });
-    await assertOpenedTargetStillMatches(targetCanonicalPath, openedArtifact, RETARGETED_PROMOTION_ERROR);
+    await writeFileAtomic(
+      targetCanonicalPath,
+      content,
+      {
+        fs: verifiedPromotionAtomicFileSystem(
+          targetDirectory,
+          targetCanonicalPath,
+          directoryHandle.stats,
+          options,
+        ),
+        randomBytes: options.atomicWriteRandomBytes ?? randomBytes,
+      },
+    );
     await assertDirectoryStillMatches(targetDirectory, directoryHandle.stats, RETARGETED_PROMOTION_ERROR);
+    const promotedCanonicalPath = await canonicalizeExistingPath(targetCanonicalPath);
+    if (promotedCanonicalPath !== targetCanonicalPath) {
+      throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${targetCanonicalPath}`);
+    }
+  } catch (error) {
+    if (error instanceof ReleaseNotesError) throw error;
+    throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${targetCanonicalPath}`);
   } finally {
-    await artifactHandle?.close();
     await directoryHandle.handle.close();
   }
+}
+
+function verifiedPromotionAtomicFileSystem(
+  targetDirectory: string,
+  targetCanonicalPath: string,
+  openedDirectory: Stats,
+  options: ReleaseNotesFilesystemOptions,
+): AtomicWriteFileSystem {
+  const fs = options.atomicWriteFileSystem ?? RELEASE_NOTES_ATOMIC_WRITE_FILE_SYSTEM;
+  return {
+    writeFile: async (path, data) => {
+      await assertDirectoryStillMatches(targetDirectory, openedDirectory, RETARGETED_PROMOTION_ERROR);
+      await fs.writeFile(path, data);
+      await assertDirectoryStillMatches(targetDirectory, openedDirectory, RETARGETED_PROMOTION_ERROR);
+      const temporaryCanonicalPath = await canonicalizeExistingPath(path);
+      if (temporaryCanonicalPath !== path) {
+        throw new ReleaseNotesError(`${RETARGETED_PROMOTION_ERROR}: ${path}`);
+      }
+    },
+    rename: async (from, to) => {
+      await options.beforeArtifactPromotion?.(targetCanonicalPath);
+      await assertDirectoryStillMatches(targetDirectory, openedDirectory, RETARGETED_PROMOTION_ERROR);
+      await assertPromotionTargetStillMatches(targetCanonicalPath);
+      await fs.rename(from, to);
+    },
+    rm: (path, removeOptions) => fs.rm(path, removeOptions),
+  };
 }
 
 async function writeArtifactInVerifiedDirectory(

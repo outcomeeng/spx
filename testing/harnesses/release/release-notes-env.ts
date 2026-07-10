@@ -1,3 +1,5 @@
+import { rename, rm, writeFile } from "node:fs/promises";
+
 import { canonicalizeExistingPath, createReleaseNotesFilesystem } from "@/commands/release";
 import {
   type ArtifactPromoter,
@@ -8,6 +10,7 @@ import {
   type PathSymlinkDetector,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
+import type { AtomicWriteFileSystem } from "@/lib/atomic-file-write";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-release-notes-";
@@ -16,6 +19,7 @@ export const RELEASE_NOTES_FILE_SYMLINK_TYPE = "file";
 export const RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX = "spx-release-notes-outside-";
 
 interface ReleaseNotesEnvOptions {
+  readonly atomicWriteFileSystem?: AtomicWriteFileSystem;
   readonly beforeArtifactRead?: (path: string) => Promise<void>;
   readonly beforeDirectoryCreate?: (path: string) => Promise<void>;
   readonly beforeArtifactPromotionOpen?: (path: string) => Promise<void>;
@@ -60,6 +64,7 @@ export async function withReleaseNotesEnv(
       );
     }
     const filesystem = createReleaseNotesFilesystem({
+      atomicWriteFileSystem: options.atomicWriteFileSystem,
       beforeArtifactRead: options.beforeArtifactRead,
       beforeDirectoryCreate: options.beforeDirectoryCreate,
       beforeArtifactPromotionOpen: options.beforeArtifactPromotionOpen,
@@ -77,4 +82,15 @@ export async function withReleaseNotesEnv(
       isFile: filesystem.isFile,
     });
   });
+}
+
+export function partialWriteFailureAtomicFileSystem(): AtomicWriteFileSystem {
+  return {
+    writeFile: async (path, data) => {
+      await writeFile(path, data.slice(0, Math.floor(data.length / 2)));
+      throw new Error("Injected failure after partial temporary artifact write");
+    },
+    rename,
+    rm: (path, options) => rm(path, options),
+  };
 }
