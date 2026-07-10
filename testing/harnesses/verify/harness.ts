@@ -41,6 +41,8 @@ import {
   VERIFICATION_CONTEXT_PERSISTENCE,
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
+  type VerificationContextDocument,
+  type VerificationContextDocumentResult,
 } from "@/domains/verification-context/context";
 import { verificationContextFilePath } from "@/domains/verification-context/path";
 import {
@@ -604,13 +606,22 @@ function createReviewVerifyRunContextScenario(): VerifyRunContextScenario {
   return withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW);
 }
 
-export async function startReportFor(scenario: VerifyRunContextScenario): Promise<VerifyStartReport> {
+interface StartedVerifyRun {
+  readonly report: VerifyStartReport;
+  readonly fs: VerifyStateStoreFileSystem;
+}
+
+async function startVerifyRun(scenario: VerifyRunContextScenario): Promise<StartedVerifyRun> {
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
     throw new Error(`verify start failed in harness: ${started.output}`);
   }
-  return parseStartReport(started.output);
+  return { report: parseStartReport(started.output), fs };
+}
+
+export async function startReportFor(scenario: VerifyRunContextScenario): Promise<VerifyStartReport> {
+  return (await startVerifyRun(scenario)).report;
 }
 
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {
@@ -674,6 +685,24 @@ export function verifyGitDeps(scenario: VerifyRunContextScenario): GitDependenci
 export interface RecordingGitDeps {
   readonly git: GitDependencies;
   calls(): number;
+}
+
+interface ChangedScopeCwdRecordingGitDeps {
+  readonly git: GitDependencies;
+  changedScopeCwd(): string | undefined;
+}
+
+function createChangedScopeCwdRecordingGitDeps(scenario: VerifyRunContextScenario): ChangedScopeCwdRecordingGitDeps {
+  let changedScopeCwd: string | undefined;
+  return {
+    git: {
+      execa: async (command, args, options) => {
+        if (args.includes(GIT_NAME_STATUS_FLAG)) changedScopeCwd = options?.cwd;
+        return verifyGitDeps(scenario).execa(command, args, options);
+      },
+    },
+    changedScopeCwd: () => changedScopeCwd,
+  };
 }
 
 export function createRecordingGitDeps(): RecordingGitDeps {
@@ -804,7 +833,7 @@ function scenarioRunsDir(scenario: VerifyRunContextScenario): string {
   return runs.value;
 }
 
-function scenarioContextFilePath(scenario: VerifyRunContextScenario): string {
+function scenarioContextDocument(scenario: VerifyRunContextScenario): VerificationContextDocumentResult {
   const branchSlug = slugBranchIdentity(resolveBranchIdentity({
     branchName: scenario.branchIdentity,
     headSha: scenario.headSha,
@@ -828,13 +857,31 @@ function scenarioContextFilePath(scenario: VerifyRunContextScenario): string {
     persistence: VERIFICATION_CONTEXT_PERSISTENCE,
   });
   if (!document.ok) throw new Error(`verify harness: context document failed: ${document.error}`);
+  return document.value;
+}
+
+function scenarioContextFilePath(scenario: VerifyRunContextScenario): string {
+  const branchSlug = slugBranchIdentity(resolveBranchIdentity({
+    branchName: scenario.branchIdentity,
+    headSha: scenario.headSha,
+  }));
+  const document = scenarioContextDocument(scenario);
   const contextPath = verificationContextFilePath({
     productDir: scenario.productDir,
     branchSlug,
-    digest: document.value.digest,
+    digest: document.digest,
   });
   if (!contextPath.ok) throw new Error(`verify harness: context path failed: ${contextPath.error}`);
   return contextPath.value;
+}
+
+async function readScenarioContext(
+  scenario: VerifyRunContextScenario,
+  fs: VerifyStateStoreFileSystem,
+): Promise<VerificationContextDocument> {
+  return JSON.parse(
+    await fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING),
+  ) as VerificationContextDocument;
 }
 
 export function verifyAppendOptions(
@@ -2234,7 +2281,7 @@ export async function assertStartRequiresNonBlankInputSource(): Promise<void> {
 }
 
 export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
-  const scenario = createVerifyRunContextScenario();
+  const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
@@ -2242,7 +2289,11 @@ export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const report = parseStartReport(started.output);
   expect(report.runToken.length).toBeGreaterThan(0);
-  expect(report.contextDigest.length).toBeGreaterThan(0);
+  const expectedContext = scenarioContextDocument(scenario);
+  expect(report.contextDigest).toBe(expectedContext.digest);
+  await expect(fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING)).resolves.toBe(
+    expectedContext.canonicalJson,
+  );
   expect(report.changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
   expect(report.input.source).toBe(VERIFY_INPUT_SOURCE.STDIN);
   expect(report.input.digest).toBe(expectedRunInputDigest(scenario));
@@ -2253,8 +2304,112 @@ export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
   expect(report.locator.runTarget.length).toBeGreaterThan(0);
 }
 
-export async function assertStartPersistsRunJournalAtLocatorTarget(): Promise<void> {
+export async function assertChangesetScopeDerivesChangedFiles(): Promise<void> {
+  const base = createVerifyRunContextScenario();
+  await assertVerifyProperty(
+    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changedPaths()),
+    async ([range, changedPaths]) => {
+      const scenario = withChangedPaths(withScope(base, range.base, range.head), changedPaths);
+      expect((await startReportFor(scenario)).changedScope).toEqual(
+        pathsFromNameStatus(formatNameStatusZ(changedPaths)),
+      );
+    },
+  );
+}
+
+export async function assertChangesetReconstructionChangesContextDigest(): Promise<void> {
+  const base = createVerifyRunContextScenario();
+  await assertVerifyProperty(
+    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changesetRange())
+      .filter(([first, second]) => first.base !== second.base || first.head !== second.head),
+    async ([first, second]) => {
+      const firstScenario = withScope(base, first.base, first.head);
+      const secondScenario = withScope(base, second.base, second.head);
+      const firstStarted = await startVerifyRun(firstScenario);
+      const secondStarted = await startVerifyRun(secondScenario);
+      const firstContext = await readScenarioContext(firstScenario, firstStarted.fs);
+      const secondContext = await readScenarioContext(secondScenario, secondStarted.fs);
+      expect(firstContext.context.subject).toEqual({
+        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+        base: first.base,
+        head: first.head,
+      });
+      expect(secondContext.context.subject).toEqual({
+        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+        base: second.base,
+        head: second.head,
+      });
+      expect(firstContext.digest).toBe(firstStarted.report.contextDigest);
+      expect(secondContext.digest).toBe(secondStarted.report.contextDigest);
+      expect(secondStarted.report.contextDigest).not.toBe(firstStarted.report.contextDigest);
+    },
+  );
+}
+
+export async function assertChangedPathsStayOutsideContextDigest(): Promise<void> {
+  const base = createVerifyRunContextScenario();
+  await assertVerifyProperty(
+    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changedPathsPair()),
+    async ([range, pair]) => {
+      const scoped = withScope(base, range.base, range.head);
+      const first = await startReportFor(withChangedPaths(scoped, pair.first));
+      const second = await startReportFor(withChangedPaths(scoped, pair.second));
+      expect(second.contextDigest).toBe(first.contextDigest);
+      expect(second.changedScope).not.toEqual(first.changedScope);
+    },
+  );
+}
+
+export async function assertRunLocatorMapsResolvedSelectors(): Promise<void> {
+  const base = createVerifyRunContextScenario();
+  await assertVerifyProperty(
+    fc.tuple(VERIFY_TEST_GENERATOR.verificationType(), VERIFY_TEST_GENERATOR.changesetRange()),
+    async ([verificationType, range]) => {
+      const scenario = withVerificationType(withScope(base, range.base, range.head), verificationType);
+      const started = await startVerifyRun(scenario);
+      const namespace = scenarioRunsDir(scenario);
+      expect(started.report.locator).toEqual({
+        runToken: started.report.runToken,
+        verificationType,
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        scopeIdentity: scenario.scope,
+        backendIdentity: JOURNAL_BACKEND.LOCAL,
+        storageNamespace: namespace,
+        runTarget: join(namespace, runFileName(started.report.runToken)),
+      });
+      await expect(started.fs.lstat(started.report.locator.runTarget)).resolves.toMatchObject({});
+    },
+  );
+}
+
+export async function assertWorkingTreeScopeIsRejected(): Promise<void> {
   const scenario = createVerifyRunContextScenario();
+  const started = await verifyStartCommand(
+    { ...verifyStartOptions(scenario), scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE },
+    verifyDeps(scenario, createInMemoryStateStoreFileSystem()),
+  );
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
+}
+
+export async function assertStartFromNestedDirectoryUsesProductRelativeChangedScope(): Promise<void> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const nestedCwd = join(scenario.productDir, sampleLiteralTestValue(arbitrarySourceFilePath()));
+  const recording = createChangedScopeCwdRecordingGitDeps(scenario);
+
+  const started = await verifyStartCommand(
+    verifyStartOptions(scenario),
+    { ...verifyDeps(scenario, fs), cwd: nestedCwd, git: recording.git },
+  );
+
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseStartReport(started.output).changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
+  expect(recording.changedScopeCwd()).toBe(scenario.productDir);
+}
+
+export async function assertStartPersistsRunJournalAtLocatorTarget(): Promise<void> {
+  const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));

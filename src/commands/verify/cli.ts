@@ -305,14 +305,17 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
 }
 
 /** Derive the changeset's changed product paths from a null-delimited name-status diff. */
-async function resolveChangedScope(scope: ChangesetScope, deps: VerifyCliDeps): Promise<Result<readonly string[]>> {
-  const cwd = deps.cwd ?? CONFIG_PROCESS_CWD.read();
+async function resolveChangedScope(
+  scope: ChangesetScope,
+  productDir: string,
+  deps: VerifyCliDeps,
+): Promise<Result<readonly string[]>> {
   const git = deps.git ?? defaultGitDependencies;
   try {
     return {
       ok: true,
       value: await changedPathsForCommittedRange({
-        productDir: cwd,
+        productDir,
         base: scope.base,
         head: scope.head,
         git,
@@ -546,7 +549,7 @@ export async function verifyStartCommand(
   const inputDigest = digestRunInput(options.input, inputContent.value);
   if (!inputDigest.ok) return errorResult(inputDigest.error);
 
-  const changedScope = await resolveChangedScope(scope.value, deps);
+  const changedScope = await resolveChangedScope(scope.value, resolved.value.productDir, deps);
   if (!changedScope.ok) return errorResult(changedScope.error);
 
   const context = await verificationContextCreateCommand(
