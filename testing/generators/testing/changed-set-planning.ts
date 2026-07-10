@@ -396,11 +396,11 @@ function arbitraryRenameFixture(): fc.Arbitrary<ChangedSetRenameFixture> {
       const removedNoTestNode = `${removedParentNode}${PATH_SEPARATOR}21-instructions.enabler`;
       return {
         changedPaths: [
-          specFileUnder(removedParentNode),
-          specFileUnder(removedNoTestNode),
-          specFileUnder(changedParentNode),
-          specFileUnder(changedNoTestNode),
-          specFileUnder(changedChildNode),
+          TEST_DISPATCH_GENERATOR.specFileUnder(removedParentNode),
+          TEST_DISPATCH_GENERATOR.specFileUnder(removedNoTestNode),
+          TEST_DISPATCH_GENERATOR.specFileUnder(changedParentNode),
+          TEST_DISPATCH_GENERATOR.specFileUnder(changedNoTestNode),
+          TEST_DISPATCH_GENERATOR.specFileUnder(changedChildNode),
         ],
         parentTestPath: sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(
           typescriptTestingLanguage,
@@ -460,10 +460,4 @@ function sourceFilePath(root: string, slug: string): string {
 
 function nodeTestsDirectory(nodePath: string): string {
   return ["spx", nodePath, "tests"].join(PATH_SEPARATOR);
-}
-
-function specFileUnder(nodePath: string): string {
-  const nodeSegment = nodePath.split(PATH_SEPARATOR).at(-1) ?? "";
-  const specSlug = nodeSegment.replace(/^\d+-/, "").replace(/\.(?:enabler|outcome)$/, "");
-  return [nodeOperand(nodePath), `${specSlug}.md`].join(PATH_SEPARATOR);
 }

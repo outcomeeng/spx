@@ -280,16 +280,6 @@ function relatedDeps(): RelatedTestDependencies {
   };
 }
 
-function nodeSpecSlug(nodePath: string, suffix: string): string {
-  const nodeSegment = nodePath.split("/").at(-1) ?? "";
-  const unindexedSegment = nodeSegment.replace(/^\d+-/, "");
-  return unindexedSegment.slice(0, -suffix.length);
-}
-
-function specFileUnder(nodePath: string, suffix: string): string {
-  return `${nodeOperand(nodePath)}/${nodeSpecSlug(nodePath, suffix)}.md`;
-}
-
 function nativeStringOrder(paths: readonly string[]): readonly string[] {
   return [...paths].sort(compareAsciiStrings);
 }
@@ -400,8 +390,8 @@ export function registerChangedSetPlanningScenarioTests(): void {
     it("maps a changed spec file and a changed test file to their node operands", () => {
       const enablerNodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const outcomeNodePath = enablerNodePath.replaceAll(KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix);
-      const specPath = specFileUnder(enablerNodePath, KIND_REGISTRY.enabler.suffix);
-      const outcomeSpecPath = specFileUnder(outcomeNodePath, KIND_REGISTRY.outcome.suffix);
+      const specPath = TEST_DISPATCH_GENERATOR.specFileUnder(enablerNodePath);
+      const outcomeSpecPath = TEST_DISPATCH_GENERATOR.specFileUnder(outcomeNodePath);
       const testPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, enablerNodePath),
       );

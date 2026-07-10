@@ -4,11 +4,14 @@ import { releaseNotesScenarioCases } from "@testing/harnesses/release/release-no
 import {
   HARNESS_TEST_TITLE_PATTERN,
   maxHarnessTestCaseTimeout,
+  requireNonEmptyHarnessTestCases,
   runHarnessTestCase,
 } from "@testing/harnesses/vitest-registration";
 
-it.each(releaseNotesScenarioCases)(
+const cases = requireNonEmptyHarnessTestCases(releaseNotesScenarioCases);
+
+it.each(cases)(
   HARNESS_TEST_TITLE_PATTERN,
   runHarnessTestCase,
-  maxHarnessTestCaseTimeout(releaseNotesScenarioCases),
+  maxHarnessTestCaseTimeout(cases),
 );

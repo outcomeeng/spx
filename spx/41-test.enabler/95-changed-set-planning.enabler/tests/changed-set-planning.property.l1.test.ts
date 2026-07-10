@@ -4,11 +4,14 @@ import { changedSetPlanningPropertyCases } from "@testing/harnesses/testing/chan
 import {
   HARNESS_TEST_TITLE_PATTERN,
   maxHarnessTestCaseTimeout,
+  requireNonEmptyHarnessTestCases,
   runHarnessTestCase,
 } from "@testing/harnesses/vitest-registration";
 
-it.each(changedSetPlanningPropertyCases)(
+const cases = requireNonEmptyHarnessTestCases(changedSetPlanningPropertyCases);
+
+it.each(cases)(
   HARNESS_TEST_TITLE_PATTERN,
   runHarnessTestCase,
-  maxHarnessTestCaseTimeout(changedSetPlanningPropertyCases),
+  maxHarnessTestCaseTimeout(cases),
 );

@@ -121,6 +121,15 @@ export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]):
   }
 }
 
+export function requireNonEmptyHarnessTestCases(
+  testCases: readonly HarnessTestCase[],
+): readonly HarnessTestCase[] {
+  if (testCases.length === 0) {
+    throw new Error("harness test collection registered no cases");
+  }
+  return testCases;
+}
+
 export async function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
   await testCase.run();
 }

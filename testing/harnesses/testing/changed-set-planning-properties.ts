@@ -2,7 +2,6 @@ import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesse
 import * as fc from "fast-check";
 
 import { mergeChangedSetOperands, partitionChangedPaths } from "@/domains/test/changed-set-planning";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { nodeOperand, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -25,9 +24,7 @@ interface ChangedOperandMergeCase {
 
 function arbitraryChangedSpecPath(): fc.Arbitrary<ChangedPathEntry> {
   return TEST_DISPATCH_GENERATOR.nodePath().map((node) => {
-    const segment = node.split("/").at(-1) ?? node;
-    const slug = segment.replace(/^\d+-/, "").replace(KIND_REGISTRY.enabler.suffix, "");
-    return { node, path: `${nodeOperand(node)}/${slug}.md` };
+    return { node, path: TEST_DISPATCH_GENERATOR.specFileUnder(node) };
   });
 }
 
