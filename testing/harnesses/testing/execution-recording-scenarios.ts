@@ -23,6 +23,7 @@ import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
+import type { RelatedTestDependencies } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import {
@@ -131,6 +132,14 @@ function testCommandDeps(
   return { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() };
 }
 
+function successfulRelatedTestDependencies(): RelatedTestDependencies {
+  return {
+    isLanguagePresent: () => true,
+    readFile: async () => "",
+    runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+  };
+}
+
 function recordedProductInputDigest(
   recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] },
   descriptorId: string,
@@ -212,11 +221,7 @@ async function expectStagedProductInputDigestMatchesCurrent({
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: () => ({
-              isLanguagePresent: () => true,
-              readFile: async () => "",
-              runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-            }),
+            relatedDepsFor: successfulRelatedTestDependencies,
             git: stagedSnapshotGit(
               [nodeFile, productInputPath],
               new Map([

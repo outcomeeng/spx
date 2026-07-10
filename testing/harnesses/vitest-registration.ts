@@ -1,4 +1,5 @@
-import { describe as vitestDescribe, expect, it as vitestIt } from "vitest";
+import { describe as vitestDescribe, it as vitestIt } from "vitest";
+export { expect } from "vitest";
 
 const SUITE_TITLE_SEPARATOR = " / ";
 const CASE_VALUE_PLACEHOLDER = "%s";
@@ -12,8 +13,6 @@ export interface HarnessTestCase {
 
 let activeCollector: HarnessTestCase[] | undefined;
 const suiteTitleStack: string[] = [];
-
-export { expect };
 
 interface HarnessIt {
   (title: string, run: () => Promise<void> | void, timeout?: number): void;
