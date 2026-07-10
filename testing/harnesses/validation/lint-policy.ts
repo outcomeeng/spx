@@ -3,13 +3,20 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect } from "vitest";
 
+import { lintCommand } from "@/commands/validation/lint";
+import { VALIDATION_EXIT_CODES, VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
+import { resolveConfig } from "@/config";
+import { detectTypeScript } from "@/validation/discovery";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateLintPolicy } from "@/validation/lint-policy";
+import { DEFAULT_ESLINT_CONFIG_FILE, validateESLint } from "@/validation/steps/eslint";
 import {
   VALIDATION_LINT_POLICY_DATA,
   VALIDATION_LINT_POLICY_SCENARIO_KIND,
   type ValidationLintPolicyManifestEntries,
   type ValidationLintPolicyScenario,
 } from "@testing/generators/validation/lint-policy";
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -44,6 +51,8 @@ export async function runValidationLintPolicyScenario(
       return runCorruptBaselineScenario();
     case VALIDATION_LINT_POLICY_SCENARIO_KIND.DEPRECATED_SPEC_NODE_SUFFIX:
       return runDeprecatedSpecNodeSuffixScenario();
+    case VALIDATION_LINT_POLICY_SCENARIO_KIND.CONFIG_LOAD_BOUNDARY:
+      return runConfigLoadBoundaryScenario();
   }
 }
 
@@ -150,19 +159,7 @@ async function runExistingDebtScenario(): Promise<void> {
 
 async function runBranchAdditionScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
-    await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-    await writeBaseDebtFixture(productDir);
-    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
-
-    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
-    await writePolicyManifest(productDir, {
-      testLintDebtNodes: [
-        VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
-        VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
-      ],
-    });
-    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+    await prepareBranchAdditionPolicyProject(productDir);
 
     const result = validateLintPolicy(productDir);
 
@@ -171,6 +168,65 @@ async function runBranchAdditionScenario(): Promise<void> {
       expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES.file);
       expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
     }
+
+    await writeFile(
+      join(productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
+      JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+    );
+    await writeFile(join(productDir, DEFAULT_ESLINT_CONFIG_FILE), "");
+    const commandResult = await lintCommand(
+      { cwd: productDir },
+      {
+        detectTypeScript,
+        discoverTool: async () => ({
+          found: true,
+          location: {
+            tool: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+            path: productDir,
+            source: TOOL_DISCOVERY.SOURCES.PROJECT,
+          },
+        }),
+        resolveConfig,
+        validateESLint,
+      },
+    );
+    expect(commandResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(commandResult.output).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
+  });
+}
+
+async function prepareBranchAdditionPolicyProject(productDir: string): Promise<void> {
+  await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
+  await writeBaseDebtFixture(productDir);
+  await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
+  await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+  await writePolicyManifest(productDir, {
+    testLintDebtNodes: [
+      VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
+      VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
+    ],
+  });
+  await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+}
+
+async function runConfigLoadBoundaryScenario(): Promise<void> {
+  await withPolicyProject(async (productDir) => {
+    await prepareBranchAdditionPolicyProject(productDir);
+    await writeFile(
+      join(productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
+      JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
+    );
+    const configUrl = pathToFileURL(join(process.cwd(), DEFAULT_ESLINT_CONFIG_FILE)).href;
+    const script = `
+      process.chdir(${JSON.stringify(productDir)});
+      await import(${JSON.stringify(configUrl)});
+      console.log(${JSON.stringify(VALIDATION_LINT_POLICY_DATA.configLoadSuccessMarker)});
+    `;
+
+    await expect(runTsxEval(process.cwd(), script)).resolves.toContain(
+      VALIDATION_LINT_POLICY_DATA.configLoadSuccessMarker,
+    );
   });
 }
 

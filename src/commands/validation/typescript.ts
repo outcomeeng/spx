@@ -40,7 +40,7 @@ export const TYPESCRIPT_VALIDATION_MESSAGES = {
  * @returns Command result with exit code and output
  */
 export async function typescriptCommand(options: TypeScriptCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, scope = "full", files, quiet } = options;
+  const { cwd, scope = "full", files, outputStreams, quiet } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -93,6 +93,8 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     scope,
     projectRoot: cwd,
     scopeConfig,
+  }, {
+    outputStreams,
   });
   const durationMs = Date.now() - startTime;
 

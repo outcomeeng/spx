@@ -7,7 +7,7 @@ import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
 
-const SPX_PROGRAM_NAME = "spx";
+export const SPX_PROGRAM_NAME = "spx";
 const SPX_PROGRAM_DESCRIPTION = "Fast, deterministic CLI tool for spec workflow management";
 
 export type CliProgramOptions = Partial<CliIo> & {

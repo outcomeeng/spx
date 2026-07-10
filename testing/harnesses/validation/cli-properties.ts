@@ -1,6 +1,6 @@
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { VALIDATION_CLI_GENERATOR, VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import {
   assertProperty,
@@ -8,10 +8,10 @@ import {
   PROPERTY_SIZE,
   PROPERTY_TIMEOUTS_MS,
 } from "@testing/harnesses/property/property";
-import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { expectValidationDispatchFailureInvokesNoHandler } from "@testing/harnesses/validation/cli";
 
 async function expectUnknownSubcommandRejected(candidate: string): Promise<void> {
-  const result = await runValidationSubprocess([candidate]);
+  const result = await expectValidationDispatchFailureInvokesNoHandler([candidate]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
   expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);

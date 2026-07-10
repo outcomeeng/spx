@@ -517,19 +517,19 @@ export async function runTestsCommand(
   deps: TestCommandDependencies,
 ): Promise<RecordedTestRun> {
   const recording = resolveRecordingDependencies(deps);
-  const relatedDepsFor = deps.relatedDepsFor;
   let changedSelection: Awaited<ReturnType<typeof planChangedTestSelection>> | undefined;
   const changedGit = deps.git ?? defaultGitDependencies;
   if (options.changed !== undefined) {
+    const relatedDepsFor = deps.relatedDepsFor;
+    if (relatedDepsFor === undefined) {
+      throw new Error(CHANGED_TEST_RELATED_DEPS_ERROR);
+    }
     changedSelection = await planChangedTestSelection(
       { productDir: options.productDir, baseRef: options.changed.baseRef, staged: options.changed.staged },
       {
         git: changedGit,
         registry: deps.registry,
         relatedDepsFor: (languageName) => {
-          if (relatedDepsFor === undefined) {
-            throw new Error(CHANGED_TEST_RELATED_DEPS_ERROR);
-          }
           const language = deps.registry.languages.find((candidate) => candidate.name === languageName);
           if (language === undefined) {
             throw new Error(`failed to resolve related-test dependencies for ${languageName}`);

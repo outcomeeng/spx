@@ -7,6 +7,7 @@
  * referencing any language or stage by name.
  */
 import type { ValidationCommandResult } from "@/commands/validation/types";
+import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
 /** Context threaded to every stage runner by the orchestrator. */
@@ -27,6 +28,8 @@ export interface ValidationStageContext {
   readonly skipCircular?: boolean;
   /** Skip literal-reuse detection for this full-pipeline run. */
   readonly skipLiteral?: boolean;
+  /** Parent streams that receive validation subprocess output. */
+  readonly outputStreams?: ValidationSubprocessOutputStreams;
 }
 
 /** A single validation stage a language contributes to the pipeline. */

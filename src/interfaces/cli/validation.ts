@@ -8,190 +8,25 @@ import {
   formattingCommand,
   knipCommand,
   lintCommand,
-  LITERAL_PROBLEM_KIND,
   literalCommand,
-  type LiteralProblemKind,
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
+import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
+import {
+  allValidationCliOptions,
+  literalValidationCliOptions,
+  validationCliDefinition,
+  validationLiteralProblemKinds,
+  type ValidationSubcommandDefinition,
+} from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import type { ValidationScope } from "@/validation/types";
-
-interface ValidationDomainCommandDefinition {
-  readonly commandName: string;
-  readonly alias: string;
-  readonly description: string;
-}
-
-interface ValidationSubcommandDefinition {
-  readonly commandName: string;
-  readonly alias?: string;
-  readonly description: string;
-}
-
-interface ValidationCliDefinition {
-  readonly domain: ValidationDomainCommandDefinition;
-  readonly subcommands: {
-    readonly typescript: ValidationSubcommandDefinition;
-    readonly lint: ValidationSubcommandDefinition;
-    readonly circular: ValidationSubcommandDefinition;
-    readonly knip: ValidationSubcommandDefinition;
-    readonly literal: ValidationSubcommandDefinition;
-    readonly markdown: ValidationSubcommandDefinition;
-    readonly format: ValidationSubcommandDefinition;
-    readonly all: ValidationSubcommandDefinition;
-  };
-  readonly commanderHelpOperands: {
-    readonly subcommand: string;
-    readonly longFlag: string;
-    readonly shortFlag: string;
-  };
-  readonly pathOperands: {
-    readonly optionalVariadic: string;
-    readonly description: string;
-  };
-  readonly diagnostics: {
-    readonly unknownSubcommand: {
-      readonly messageLabel: string;
-      readonly exitCode: number;
-    };
-    readonly unknownLiteralProblemKind: {
-      readonly messageLabel: string;
-      readonly exitCode: number;
-    };
-    readonly invalidPathOperand: {
-      readonly messageLabel: string;
-      readonly reason: string;
-      readonly exitCode: number;
-    };
-  };
-}
-
-export const validationCliDefinition: ValidationCliDefinition = {
-  domain: {
-    commandName: "validation",
-    alias: "v",
-    description: "Run code validation tools",
-  },
-  subcommands: {
-    typescript: {
-      commandName: "typescript",
-      alias: "ts",
-      description: "Run TypeScript type checking",
-    },
-    lint: {
-      commandName: "lint",
-      description: "Run ESLint",
-    },
-    circular: {
-      commandName: "circular",
-      description: "Check for circular dependencies",
-    },
-    knip: {
-      commandName: "knip",
-      description: "Detect unused code",
-    },
-    literal: {
-      commandName: "literal",
-      description: "Detect cross-file literal reuse between source and tests",
-    },
-    markdown: {
-      commandName: "markdown",
-      alias: "md",
-      description: "Validate markdown link integrity and structure",
-    },
-    format: {
-      commandName: "format",
-      description: "Check code formatting with dprint",
-    },
-    all: {
-      commandName: "all",
-      description: "Run all validations",
-    },
-  },
-  commanderHelpOperands: {
-    subcommand: "help",
-    longFlag: "--help",
-    shortFlag: "-h",
-  },
-  pathOperands: {
-    optionalVariadic: "[paths...]",
-    description: "Specific files/directories to validate",
-  },
-  diagnostics: {
-    unknownSubcommand: {
-      messageLabel: "unknown subcommand",
-      exitCode: 1,
-    },
-    unknownLiteralProblemKind: {
-      messageLabel: "unknown problem kind",
-      exitCode: 1,
-    },
-    invalidPathOperand: {
-      messageLabel: "invalid path operand",
-      reason: "escapes product directory",
-      exitCode: 1,
-    },
-  },
-} as const;
-
-export const literalValidationCliOptions = {
-  allowlistExisting: {
-    flag: "--allowlist-existing",
-    description: "Append every current problem's value to validation.literal.values.include and exit",
-  },
-  kind: {
-    flag: "--kind <kind>",
-    description: "Only report one problem kind (reuse|dupe)",
-  },
-  filesWithProblems: {
-    flag: "--files-with-problems",
-    description: "Print each affected file path once",
-  },
-  literals: {
-    flag: "--literals",
-    description: "Print each affected literal value once",
-  },
-  verbose: {
-    flag: "--verbose",
-    description: "Print grouped problem details",
-  },
-} as const;
-
-export const allValidationCliOptions = {
-  skipCircular: {
-    flag: "--skip-circular",
-    description: "Skip circular dependency detection for this validation all run",
-  },
-  skipLiteral: {
-    flag: "--skip-literal",
-    description: "Skip literal reuse detection for this validation all run",
-  },
-} as const;
-
-export const validationCommonCliOptions = {
-  scope: {
-    flag: "--scope",
-  },
-} as const;
-
-const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
-  (subcommand) => {
-    const operands = [subcommand.commandName];
-    if (subcommand.alias !== undefined) operands.push(subcommand.alias);
-    return operands;
-  },
-);
-
-export const validationKnownOperands: ReadonlySet<string> = new Set([
-  ...validationSubcommandOperands,
-  ...Object.values(validationCliDefinition.commanderHelpOperands),
-]);
-export const validationOptionPrefix = validationCliDefinition.commanderHelpOperands.longFlag.slice(0, 1);
 
 /** Common options for all validation commands */
 interface CommonOptions {
@@ -223,6 +58,30 @@ interface ValidationCliResult {
   readonly output: string;
   readonly exitCode: number;
 }
+
+export interface ValidationCliDependencies {
+  readonly allCommand: typeof allCommand;
+  readonly allowlistExisting: typeof allowlistExisting;
+  readonly circularCommand: typeof circularCommand;
+  readonly formattingCommand: typeof formattingCommand;
+  readonly knipCommand: typeof knipCommand;
+  readonly lintCommand: typeof lintCommand;
+  readonly literalCommand: typeof literalCommand;
+  readonly markdownCommand: typeof markdownCommand;
+  readonly typescriptCommand: typeof typescriptCommand;
+}
+
+const defaultValidationCliDependencies: ValidationCliDependencies = {
+  allCommand,
+  allowlistExisting,
+  circularCommand,
+  formattingCommand,
+  knipCommand,
+  lintCommand,
+  literalCommand,
+  markdownCommand,
+  typescriptCommand,
+};
 
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
   if (result.output.length > 0) {
@@ -327,14 +186,18 @@ function addValidationSubcommand(
 /**
  * Register validation domain commands
  */
-function registerValidationCommands(validationCmd: Command, invocation: CliInvocation): void {
+function registerValidationCommands(
+  validationCmd: Command,
+  invocation: CliInvocation,
+  deps: ValidationCliDependencies,
+): void {
   const { subcommands } = validationCliDefinition;
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await typescriptCommand({
+      const result = await deps.typescriptCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -350,7 +213,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option("--fix", "Auto-fix issues")
     .action(async (pathOperands: string[], options: LintOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await lintCommand({
+      const result = await deps.lintCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -366,7 +229,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await circularCommand({
+      const result = await deps.circularCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -381,7 +244,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await knipCommand({
+      const result = await deps.knipCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -413,7 +276,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .action(async (pathOperands: string[], options: LiteralOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
       if (options.allowlistExisting) {
-        const result = await allowlistExisting({ productDir: paths.productDir });
+        const result = await deps.allowlistExisting({ productDir: paths.productDir });
         emitValidationResult(result, invocation.io);
       }
       let kind: LiteralProblemKind | undefined;
@@ -427,7 +290,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
       }
-      const result = await literalCommand({
+      const result = await deps.literalCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -452,7 +315,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await markdownCommand({
+      const result = await deps.markdownCommand({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
@@ -465,7 +328,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await formattingCommand({
+      const result = await deps.formattingCommand({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
@@ -481,7 +344,7 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
     .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
     .action(async (pathOperands: string[], options: AllOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await allCommand({
+      const result = await deps.allCommand({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -490,17 +353,16 @@ function registerValidationCommands(validationCmd: Command, invocation: CliInvoc
         skipLiteral: options.skipLiteral,
         quiet: options.quiet,
         json: options.json,
+      }, {
+        writeOutput: (output) => invocation.io.writeStdout(`${output}\n`),
       });
-      emitValidationResult(result, invocation.io);
+      return invocation.io.exit(result.exitCode);
     });
   addCommonOptions(allCmd);
 }
 
 function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined {
-  if (value === LITERAL_PROBLEM_KIND.REUSE || value === LITERAL_PROBLEM_KIND.DUPE) {
-    return value;
-  }
-  return undefined;
+  return validationLiteralProblemKinds.find((problemKind) => problemKind === value);
 }
 
 function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never {
@@ -508,24 +370,33 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
   const sanitized = sanitizeCliArgument(first);
   const { domain, diagnostics } = validationCliDefinition;
   const { unknownSubcommand } = diagnostics;
-  io.writeStderr(`spx ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
+  io.writeStderr(
+    `${SPX_PROGRAM_NAME} ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`,
+  );
   return io.exit(unknownSubcommand.exitCode);
 }
 
-export const validationDomain: Domain = {
-  name: validationCliDefinition.domain.commandName,
-  description: validationCliDefinition.domain.description,
-  register: (program: Command, invocation: CliInvocation) => {
-    const { domain } = validationCliDefinition;
-    const validationCmd = program
-      .command(domain.commandName)
-      .alias(domain.alias)
-      .description(domain.description);
+export function createValidationDomain(
+  overrides: Partial<ValidationCliDependencies> = {},
+): Domain {
+  const deps: ValidationCliDependencies = { ...defaultValidationCliDependencies, ...overrides };
+  return {
+    name: validationCliDefinition.domain.commandName,
+    description: validationCliDefinition.domain.description,
+    register: (program: Command, invocation: CliInvocation) => {
+      const { domain } = validationCliDefinition;
+      const validationCmd = program
+        .command(domain.commandName)
+        .alias(domain.alias)
+        .description(domain.description);
 
-    validationCmd.on("command:*", (operands: readonly string[]) => {
-      handleUnknownSubcommand(operands, invocation.io);
-    });
+      validationCmd.on("command:*", (operands: readonly string[]) => {
+        handleUnknownSubcommand(operands, invocation.io);
+      });
 
-    registerValidationCommands(validationCmd, invocation);
-  },
-};
+      registerValidationCommands(validationCmd, invocation, deps);
+    },
+  };
+}
+
+export const validationDomain: Domain = createValidationDomain();

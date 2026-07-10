@@ -1,6 +1,6 @@
 # State Resolution and Storage
 
-spx resolves where a command runs and where its local execution state lives through one module built from pure functions and thin probes over an injected git runner and filesystem interface. Product-root resolution returns a base `GitProductDirResult` and a Git-common-dir variant that adds a required `worktreeRoot` field; `.spx/` scope addressing, branch identity and slugging, and JSONL run-record mechanics compose on those roots. Every consumer obtains roots, scopes, and records by passing its own domain noun and payload schema, never re-deriving git topology or `.spx/` layout. The two roots are those of [`spx/15-worktree-management.pdr.md`](15-worktree-management.pdr.md): the local worktree root from `git rev-parse --show-toplevel`, and the Git common-dir product root from the parent of `git rev-parse --git-common-dir`.
+spx resolves where a command runs and where its local execution state lives through one module built from pure functions and thin probes over an injected git runner and filesystem interface. Product-root resolution returns a base `GitProductDirResult` and a Git-common-dir variant that adds a required `worktreeRoot` field; `.spx/` scope addressing, branch identity and slugging, and JSONL run-record mechanics compose on those roots. Every consumer obtains roots, scopes, and records by passing its own domain noun and payload schema, never re-deriving git topology or `.spx/` layout. The two roots are those of `spx/15-worktree-management.pdr.md`: the local worktree root from `git rev-parse --show-toplevel`, and the Git common-dir product root from the parent of `git rev-parse --git-common-dir`.
 
 ## Rationale
 
@@ -23,7 +23,7 @@ An async scope resolver returns a result struct carrying the product-root `warni
 ### Testing
 
 - ALWAYS: each `detectGitCommonDirProductRoot` resolution outcome maps to a result whose `worktreeRoot` is the `git rev-parse --show-toplevel` value on the git paths and `cwd` outside a git repository ([mapping])
-- ALWAYS: a Git-common-dir result's `productDir` maps to the parent of `git rev-parse --git-common-dir` per [`spx/15-worktree-management.pdr.md`](15-worktree-management.pdr.md), falling back to the `--show-toplevel` value when the common-dir read fails ([mapping])
+- ALWAYS: a Git-common-dir result's `productDir` maps to the parent of `git rev-parse --git-common-dir` per `spx/15-worktree-management.pdr.md`, falling back to the `--show-toplevel` value when the common-dir read fails ([mapping])
 - NEVER: a `detectWorktreeProductRoot` result carries `worktreeRoot` — the base `GitProductDirResult` shape omits it and its `productDir` is the worktree root ([mapping])
 - ALWAYS: scope composition is deterministic for the same product roots, tokens, and domain noun ([property])
 - ALWAYS: branch slugging preserves path safety, byte bounds, and deterministic digest suffixes across branch identities ([property])

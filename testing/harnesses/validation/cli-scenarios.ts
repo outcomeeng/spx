@@ -3,12 +3,14 @@ import { basename, dirname, join } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
-import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
+import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
+import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,
   validationCliDefinition,
-} from "@/interfaces/cli/validation";
+  validationLiteralProblemKinds,
+} from "@/interfaces/cli/validation-contract";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -19,32 +21,54 @@ import {
   validationCliSuccessExitCodeUpperBound,
 } from "@testing/generators/validation/validation";
 import {
+  createRecordingValidationDomain,
+  expectedEscapedControlArgument,
+  expectValidationDispatchFailureInvokesNoHandler,
   runValidationInProcess,
   runValidationSubprocess,
   validationCliEmptyOutput,
   validationCliOptionName,
   withEmptyValidationProject,
+  withIsolatedPackagedValidationCli,
 } from "@testing/harnesses/validation/cli";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 async function expectRegisteredSubcommandRuns(): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    await withIsolatedPackagedValidationCli(async ({ executablePath }) => {
+      const result = await runValidationSubprocess([
+        validationCliDefinition.subcommands.all.commandName,
+        allValidationCliOptions.skipCircular.flag,
+        allValidationCliOptions.skipLiteral.flag,
+      ], { cwd: path, executablePath, timeout: VALIDATION_PIPELINE_DATA.allTimeout });
+
+      expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+      expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
+      expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
+    });
+  });
+}
+
+async function expectRegisteredSubcommandPropagatesNonZeroExit(): Promise<void> {
+  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
     const result = await runValidationSubprocess([
       validationCliDefinition.subcommands.all.commandName,
       allValidationCliOptions.skipCircular.flag,
       allValidationCliOptions.skipLiteral.flag,
     ], { cwd: path, timeout: VALIDATION_PIPELINE_DATA.allTimeout });
 
-    expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
-    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES);
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
   });
 }
 
-async function expectRegisteredSubcommandPropagatesNonZeroExit(): Promise<void> {
+async function expectInvalidLiteralKindRejectedBeforeHandler(): Promise<void> {
   await withEmptyValidationProject(async (projectRoot) => {
-    const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
+    const unsafeKind = sampleLiteralTestValue(
+      VALIDATION_CLI_GENERATOR.sanitizationSensitiveInvalidLiteralProblemKind(),
+    );
     const result = await runValidationSubprocess(
       [
         validationCliDefinition.subcommands.literal.commandName,
@@ -55,9 +79,18 @@ async function expectRegisteredSubcommandPropagatesNonZeroExit(): Promise<void> 
     );
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
-    expect(result.stdout).toBe(validationCliEmptyOutput());
+    const recordedResult = await expectValidationDispatchFailureInvokesNoHandler(
+      [
+        validationCliDefinition.subcommands.literal.commandName,
+        validationCliOptionName(literalValidationCliOptions.kind),
+        unsafeKind,
+      ],
+      { processCwd: () => projectRoot },
+    );
+    expect(recordedResult.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
     expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel);
-    expect(result.stderr).toContain(sanitizeCliArgument(unsafeKind));
+    expect(result.stderr).toContain(expectedEscapedControlArgument(unsafeKind));
+    expect(result.stderr).not.toContain(unsafeKind);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
   });
 }
@@ -78,6 +111,13 @@ async function expectEscapingPathOperandsRejected(): Promise<void> {
     expect(result.stderr).toContain(sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand));
     expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
     expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+    await expectValidationDispatchFailureInvokesNoHandler(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        VALIDATION_PIPELINE_DATA.escapingPathOperand,
+      ],
+      { processCwd: () => productRoot },
+    );
   });
 }
 
@@ -95,7 +135,8 @@ async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Pro
       { cwd: symlinkRoot },
     );
 
-    expect(result.exitCode).not.toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
+    expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+    expect(result.stdout.length).toBeGreaterThan(validationCliEmptyOutputLength());
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
   });
@@ -125,6 +166,13 @@ async function expectMissingPathBelowEscapingSymlinkAncestorRejected(): Promise<
     expect(result.stderr).toContain(sanitizeCliArgument(operand));
     expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
     expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+    await expectValidationDispatchFailureInvokesNoHandler(
+      [
+        validationCliDefinition.subcommands.format.commandName,
+        operand,
+      ],
+      { processCwd: () => productRoot },
+    );
   });
 }
 
@@ -133,6 +181,7 @@ async function expectUnknownSubcommandDiagnostic(): Promise<void> {
   const result = await runValidationSubprocess([unknownStage]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+  await expectValidationDispatchFailureInvokesNoHandler([unknownStage]);
   expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
   expect(result.stderr).toContain(unknownStage);
 }
@@ -143,6 +192,9 @@ async function expectEmptyArgumentDiagnostic(): Promise<void> {
   ]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+  await expectValidationDispatchFailureInvokesNoHandler([
+    sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.emptyArgument()),
+  ]);
   expect(result.stderr).toContain(SENTINEL_EMPTY);
 }
 
@@ -151,7 +203,13 @@ async function expectControlCharactersEscaped(): Promise<void> {
   const result = await runValidationSubprocess([unsafeArgument]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
-  expect(result.stderr).toContain(sanitizeCliArgument(unsafeArgument));
+  await expectValidationDispatchFailureInvokesNoHandler([unsafeArgument]);
+  expect(result.stderr).toBe(
+    `${SPX_PROGRAM_NAME} ${validationCliDefinition.domain.commandName}: ${validationCliDefinition.diagnostics.unknownSubcommand.messageLabel}: ${
+      expectedEscapedControlArgument(unsafeArgument)
+    }`,
+  );
+  expect(result.stderr).toContain(expectedEscapedControlArgument(unsafeArgument));
   expect(result.stderr).not.toContain(unsafeArgument);
 }
 
@@ -160,6 +218,7 @@ async function expectUnicodeArgumentsPreserved(): Promise<void> {
   const result = await runValidationSubprocess([unicodeArgument]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+  await expectValidationDispatchFailureInvokesNoHandler([unicodeArgument]);
   expect(result.stderr).toContain(unicodeArgument);
 }
 
@@ -177,8 +236,9 @@ async function expectLiteralHelpListsLiteralFlags(): Promise<void> {
   expect(result.stdout).toContain(literalValidationCliOptions.literals.flag);
   expect(result.stdout).toContain(literalValidationCliOptions.verbose.flag);
   expect(result.stdout).toContain(validationCliDefinition.pathOperands.optionalVariadic);
-  expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.REUSE);
-  expect(result.stdout).toContain(LITERAL_PROBLEM_KIND.DUPE);
+  for (const problemKind of validationLiteralProblemKinds) {
+    expect(result.stdout).toContain(problemKind);
+  }
 }
 
 async function expectValidationAllHelpListsSkipFlags(): Promise<void> {
@@ -227,6 +287,26 @@ async function expectCircularCommandRejectsCircularSkipFlag(): Promise<void> {
   expect(result.stderr).toContain(allValidationCliOptions.skipCircular.flag);
 }
 
+async function expectUnknownOptionInvokesNoHandler(): Promise<void> {
+  const unknownOption = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.unknownOption());
+  const result = await expectValidationDispatchFailureInvokesNoHandler([unknownOption]);
+
+  expect(result.exitCode).not.toBeLessThan(validationCliSuccessExitCodeUpperBound());
+  expect(result.stderr).toContain(unknownOption);
+}
+
+async function expectTypedSubcommandRegistryIsExhaustivelyRegistered(): Promise<void> {
+  for (const definition of Object.values(validationCliDefinition.subcommands)) {
+    const recorder = createRecordingValidationDomain(
+      validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
+    );
+    const result = await runValidationInProcess([definition.commandName], { domain: recorder.domain });
+    expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]?.commandName).toBe(definition.commandName);
+  }
+}
+
 export function registerValidationCliScenarioTests(): void {
   describe("spx validation dispatch — observable scenarios", () => {
     it(
@@ -237,6 +317,11 @@ export function registerValidationCliScenarioTests(): void {
     it(
       "registered subcommand propagates a non-zero handler exit code",
       expectRegisteredSubcommandPropagatesNonZeroExit,
+      VALIDATION_PIPELINE_DATA.allTimeout,
+    );
+    it(
+      "typed subcommand registry is exhaustively registered with the dispatcher",
+      expectTypedSubcommandRegistryIsExhaustivelyRegistered,
     );
     it(
       "path operands that escape the product directory are rejected before validation runs",
@@ -263,3 +348,27 @@ export function registerValidationCliScenarioTests(): void {
 }
 
 export const validationCliScenarioCases = collectHarnessTestCases(registerValidationCliScenarioTests);
+
+export function registerValidationCliComplianceTests(): void {
+  describe("spx validation dispatch compliance", () => {
+    it(
+      "routes every typed registry subcommand to its intended handler",
+      expectTypedSubcommandRegistryIsExhaustivelyRegistered,
+    );
+    it("emits a sanitized unknown-subcommand diagnostic without running a stage", expectUnknownSubcommandDiagnostic);
+    it("escapes control characters in unknown-subcommand diagnostics", expectControlCharactersEscaped);
+    it("rejects invalid literal kinds before literal detection", expectInvalidLiteralKindRejectedBeforeHandler);
+    it("rejects escaping path operands without invoking a handler", expectEscapingPathOperandsRejected);
+    it(
+      "rejects paths below escaping symlink ancestors without invoking a handler",
+      expectMissingPathBelowEscapingSymlinkAncestorRejected,
+    );
+    it("registers literal flags and valid problem kinds", expectLiteralHelpListsLiteralFlags);
+    it("registers validation-all skip flags", expectValidationAllHelpListsSkipFlags);
+    it("keeps literal skip scoped away from the literal command", expectLiteralCommandRejectsLiteralSkipFlag);
+    it("keeps circular skip scoped away from the circular command", expectCircularCommandRejectsCircularSkipFlag);
+    it("rejects unknown options without invoking a handler", expectUnknownOptionInvokesNoHandler);
+  });
+}
+
+export const validationCliComplianceCases = collectHarnessTestCases(registerValidationCliComplianceTests);

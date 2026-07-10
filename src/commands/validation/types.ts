@@ -14,6 +14,32 @@ export interface ValidationCommandResult {
   durationMs?: number;
 }
 
+export const ALL_VALIDATION_JSON_FIELD = {
+  SUCCESS: "success",
+  DURATION_MS: "durationMs",
+  STEPS: "steps",
+  NAME: "name",
+  EXIT_CODE: "exitCode",
+  OUTPUT: "output",
+  STDOUT: "stdout",
+  STDERR: "stderr",
+} as const;
+
+export interface AllValidationJsonStep {
+  readonly name: string;
+  readonly exitCode: number;
+  readonly durationMs?: number;
+  readonly output: unknown;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+export interface AllValidationJsonOutput {
+  readonly success: boolean;
+  readonly durationMs: number;
+  readonly steps: readonly AllValidationJsonStep[];
+}
+
 /** Common options for all validation commands */
 export interface CommonValidationOptions {
   /** Working directory */
@@ -29,7 +55,10 @@ export interface CommonValidationOptions {
 }
 
 /** Options for TypeScript command (same as common options) */
-export type TypeScriptCommandOptions = CommonValidationOptions;
+export interface TypeScriptCommandOptions extends CommonValidationOptions {
+  /** Parent streams that receive TypeScript subprocess output */
+  outputStreams?: ValidationSubprocessOutputStreams;
+}
 
 /** Options for lint command */
 export interface LintCommandOptions extends CommonValidationOptions {

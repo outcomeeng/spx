@@ -11,10 +11,11 @@ import {
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
-import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
+  formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -22,14 +23,17 @@ import {
 import type { KnipCommandOptions, ValidationCommandResult } from "./types";
 
 export interface KnipCommandDeps {
+  readonly detectTypeScript: typeof detectTypeScript;
   readonly discoverTool: typeof discoverTool;
   readonly validateKnip: typeof validateKnip;
 }
 
 export const defaultKnipCommandDeps: KnipCommandDeps = {
+  detectTypeScript,
   discoverTool,
   validateKnip,
 };
+const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP);
 const KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
 );
@@ -46,6 +50,14 @@ export async function knipCommand(
 ): Promise<ValidationCommandResult> {
   const { cwd, files, quiet, scope = VALIDATION_SCOPES.FULL } = options;
   const startTime = Date.now();
+
+  if (!deps.detectTypeScript(cwd).present) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      durationMs: Date.now() - startTime,
+    };
+  }
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
   if (!loaded.ok) {

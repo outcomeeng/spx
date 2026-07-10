@@ -8,6 +8,9 @@ validation:
       include:
         - --idempotency-key <key>
         - --payload <payload-source>
+        - --exclude=
+        - "*.test.ts"
+        - "*.test.tsx"
         - append-finding
         - append-scope
         - event
@@ -15,5 +18,9 @@ validation:
         - journal
         - node_modules
         - scope
+        - skippedTests
+        - unmatched
+        - unresolvedChangedSourceFiles
+        - unresolvedTargets
         - verification
         - verify

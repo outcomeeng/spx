@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path/posix";
+import { basename, dirname, join } from "node:path/posix";
 
 import type { ICruiseResult, IDependency, IModule, IReporterOutput } from "dependency-cruiser";
 import type { ParsedCommandLine } from "typescript";
@@ -15,7 +15,7 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
 import { CONFIG_FILENAMES } from "@/config/index";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import {
   TSCONFIG_FILES,
   TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
@@ -48,6 +48,10 @@ import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-val
 
 const projectRoot = process.cwd();
 const [sourceModule, targetModule] = sampleSourceModulePair();
+const sourceModuleFileName = basename(sourceModule);
+const targetModuleFileName = basename(targetModule);
+const sourceModuleSpecifier = `./${basename(sourceModuleFileName, ".ts")}`;
+const targetModuleSpecifier = `./${basename(targetModuleFileName, ".ts")}`;
 const analyzeDirectory = dirname(sourceModule);
 const nonTypeScriptSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
@@ -337,18 +341,15 @@ async function expectCircularCommandScopes(
 
 async function writeTestOnlyCycle(path: string): Promise<string> {
   const testsDir = join(path, VALIDATION_PIPELINE_DATA.testDirectoryName);
-  const cycleAPath = join(
-    VALIDATION_PIPELINE_DATA.testDirectoryName,
-    VALIDATION_PIPELINE_DATA.firstCycleSourceFile,
-  );
+  const cycleAPath = join(VALIDATION_PIPELINE_DATA.testDirectoryName, sourceModuleFileName);
   await mkdir(testsDir, { recursive: true });
   await writeFile(
     join(path, cycleAPath),
-    `import { cycleB } from "./cycle-b";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
+    `import { cycleB } from "${targetModuleSpecifier}";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
   );
   await writeFile(
-    join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.secondCycleSourceFile),
-    `import { cycleA } from "./cycle-a";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
+    join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, targetModuleFileName),
+    `import { cycleA } from "${sourceModuleSpecifier}";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
   );
   return cycleAPath;
 }
@@ -859,12 +860,12 @@ describe("circular command scope routing", () => {
       );
       await mkdir(generatedDir, { recursive: true });
       await writeFile(
-        join(generatedDir, VALIDATION_PIPELINE_DATA.firstCycleSourceFile),
-        `import { cycleB } from "./cycle-b";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
+        join(generatedDir, sourceModuleFileName),
+        `import { cycleB } from "${targetModuleSpecifier}";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
       );
       await writeFile(
-        join(generatedDir, VALIDATION_PIPELINE_DATA.secondCycleSourceFile),
-        `import { cycleA } from "./cycle-a";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
+        join(generatedDir, targetModuleFileName),
+        `import { cycleA } from "${sourceModuleSpecifier}";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
       );
       await writeFile(
         join(path, TSCONFIG_FILES.full),

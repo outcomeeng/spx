@@ -171,6 +171,14 @@ function successfulRelatedTestDeps(): NonNullable<TestCommandDependencies["relat
   });
 }
 
+function rejectIfChangedSetPlanningStartsGit(): GitDependencies {
+  return {
+    execa: () => {
+      throw new Error("changed-set planning started before dependency validation");
+    },
+  };
+}
+
 function stagedChangedCommandDeps(
   runner: ReturnType<typeof createRecordingCommandRunner>,
   git: GitDependencies,
@@ -260,7 +268,9 @@ export function registerTestScenarioTests(): void {
         });
 
         expect(invokedArgs(tsRunner)).toContain(tsFile);
+        expect(invokedArgs(tsRunner)).not.toContain(pyFile);
         expect(invokedArgs(pyRunner)).toContain(pyFile);
+        expect(invokedArgs(pyRunner)).not.toContain(tsFile);
       });
     });
 
@@ -759,7 +769,7 @@ export function registerTestScenarioTests(): void {
       });
     });
 
-    it("runs path-selected changed sets without related-test dependencies", async () => {
+    it("runs path-selected changed sets with related-test dependencies", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
@@ -777,6 +787,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
+            relatedDepsFor: successfulRelatedTestDeps(),
             git: stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, testPath),
           },
         );
@@ -786,10 +797,8 @@ export function registerTestScenarioTests(): void {
       });
     });
 
-    it("requires related-test dependencies for changed source files", async () => {
+    it("rejects missing related-test dependencies before changed-set planning starts", async () => {
       const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
-      const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-      const changedSourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
 
       await withTestingTempProductDir(async (productDir) => {
         await expect(
@@ -802,7 +811,7 @@ export function registerTestScenarioTests(): void {
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
-              git: stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, changedSourcePath),
+              git: rejectIfChangedSetPlanningStartsGit(),
             },
           ),
         ).rejects.toThrow(CHANGED_TEST_RELATED_DEPS_ERROR);

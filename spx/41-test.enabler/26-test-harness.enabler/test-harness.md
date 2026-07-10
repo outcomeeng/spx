@@ -6,6 +6,10 @@ CAN stage real product directories, drive the real `spx test` parse-and-dispatch
 
 ## Assertions
 
+### Scenarios
+
+- Given a collected harness case list is empty, when the shared Vitest registration boundary receives it, then registration fails before the assertion file can silently contribute zero evidence ([test](tests/test-harness.scenario.l1.test.ts))
+
 ### Properties
 
 - `TEST_DISPATCH_GENERATOR.distinctNodePaths()` yields two distinct node paths where neither is a path-prefix of the other, the precondition a passing-scope independence test relies on ([test](tests/test-harness.property.l1.test.ts))

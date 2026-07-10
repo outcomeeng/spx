@@ -26,6 +26,12 @@ const TARGET_MARKDOWN_FILE = "target.md";
 const SOURCE_MARKDOWN_FILE = "source.md";
 const BROKEN_MARKDOWN_FILE = "broken.md";
 const BROKEN_MARKDOWN_EXTENSION_FILE = "broken.markdown";
+const BROKEN_RELATIVE_TARGET_MARKER = "deleted.md";
+const DEFAULT_SPX_BROKEN_FILE = "default-spx-broken.md";
+const DEFAULT_DOCS_BROKEN_FILE = "default-docs-broken.md";
+const EXPLICIT_SCOPE_DOCS_DECOY_FILE = "explicit-scope-docs-decoy.md";
+const OUTSIDE_DEFAULT_DIRECTORY_NAME = "outside";
+const OUTSIDE_DEFAULT_BROKEN_FILE = "outside-default-broken.md";
 const MISSING_MARKDOWN_SCOPE_FILE = "missing.md";
 const UNRELATED_MARKDOWN_SCOPE_FILE = "notes.txt";
 const GUIDE_DIRECTORY_NAME = "guides";
@@ -34,16 +40,21 @@ const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
+const PROJECT_ABSOLUTE_SOURCE_CONTENT = "# Source\n\n[absolute](/spx/target.md)\n";
+const IGNORED_LINK_TYPES_CONTENT =
+  "# Links\n\n[external](https://example.com/missing)\n\n<a href=\"./missing.html\">HTML</a>\n";
 const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
 const MARKDOWN_HELP_FLAG = "--help";
 const EXPECTED_ZERO = 0;
 const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
 const EXPECTED_THREE = 3;
+const EXPECTED_CONFIG_KEY_COUNT = 9;
 
 export const MARKDOWN_SCENARIO_KIND = {
   CLEAN_TREE: "cleanTree",
   DATA_URI_ALLOWED: "dataUriAllowed",
+  IGNORED_LINK_TYPES: "ignoredLinkTypes",
   BROKEN_LINKS: "brokenLinks",
   BROKEN_FRAGMENT: "brokenFragment",
   ERROR_SHAPE: "errorShape",
@@ -102,6 +113,12 @@ export const MARKDOWN_VALIDATION_DATA = {
   sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
   brokenMarkdownFile: BROKEN_MARKDOWN_FILE,
   brokenMarkdownExtensionFile: BROKEN_MARKDOWN_EXTENSION_FILE,
+  brokenRelativeTargetMarker: BROKEN_RELATIVE_TARGET_MARKER,
+  defaultSpxBrokenFile: DEFAULT_SPX_BROKEN_FILE,
+  defaultDocsBrokenFile: DEFAULT_DOCS_BROKEN_FILE,
+  explicitScopeDocsDecoyFile: EXPLICIT_SCOPE_DOCS_DECOY_FILE,
+  outsideDefaultDirectoryName: OUTSIDE_DEFAULT_DIRECTORY_NAME,
+  outsideDefaultBrokenFile: OUTSIDE_DEFAULT_BROKEN_FILE,
   missingMarkdownScopeFile: MISSING_MARKDOWN_SCOPE_FILE,
   unrelatedMarkdownScopeFile: UNRELATED_MARKDOWN_SCOPE_FILE,
   guideDirectoryName: GUIDE_DIRECTORY_NAME,
@@ -110,12 +127,15 @@ export const MARKDOWN_VALIDATION_DATA = {
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
+  projectAbsoluteSourceContent: PROJECT_ABSOLUTE_SOURCE_CONTENT,
+  ignoredLinkTypesContent: IGNORED_LINK_TYPES_CONTENT,
   unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
   helpFlag: MARKDOWN_HELP_FLAG,
   zero: EXPECTED_ZERO,
   one: EXPECTED_ONE,
   two: EXPECTED_TWO,
   three: EXPECTED_THREE,
+  expectedConfigKeyCount: EXPECTED_CONFIG_KEY_COUNT,
 } as const;
 
 export function markdownDirectoryTarget(path: string): MarkdownValidationTarget {
@@ -147,6 +167,11 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
+      title: "external and HTML links are ignored by relative-link validation",
+      kind: MARKDOWN_SCENARIO_KIND.IGNORED_LINK_TYPES,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
       title: "broken markdown links are reported",
       kind: MARKDOWN_SCENARIO_KIND.BROKEN_LINKS,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
@@ -167,7 +192,6 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "project absolute links resolve from project root",
       kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
@@ -227,7 +251,7 @@ export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
     {
       title: "default markdown command validates default directories",
       kind: MARKDOWN_SCENARIO_KIND.COMMAND_DEFAULTS,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
+      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {

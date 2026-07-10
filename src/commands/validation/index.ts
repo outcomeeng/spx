@@ -23,8 +23,7 @@ export { circularCommand } from "./circular";
 export { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "./formatting";
 export { knipCommand } from "./knip";
 export { lintCommand } from "./lint";
-export { LITERAL_PROBLEM_KIND, literalCommand } from "./literal";
-export type { LiteralProblemKind } from "./literal";
+export { literalCommand } from "./literal";
 export { markdownCommand } from "./markdown";
 export {
   CIRCULAR_SKIP_JSON_OUTPUT,

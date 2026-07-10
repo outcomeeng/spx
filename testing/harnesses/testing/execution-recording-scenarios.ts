@@ -43,6 +43,7 @@ import { CHANGED_SET_PLANNING_GENERATOR } from "@testing/generators/testing/chan
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { testingCommandDependencies } from "@testing/harnesses/testing/command-support";
 import {
   withTestingTempProductDir,
   writeTestFileFixture,
@@ -57,15 +58,6 @@ function invokedArgs(
 }
 
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
-
-// Identity resolution reaches git only through injected deps. A temp product dir is
-// not a git repo, so this stub stands in for branch and head-SHA resolution; the
-// recorded identity values are not asserted, only that a run is recorded.
-function gitIdentityStub(): GitDependencies {
-  return {
-    execa: async () => ({ exitCode: 0, stdout: sampleLiteralTestValue(arbitraryDomainLiteral()), stderr: "" }),
-  };
-}
 
 function nameStatusNulDelimited(paths: readonly string[]): string {
   return paths.map((path) => `${GIT_DELETE_STATUS_EXAMPLE}\0${path}\0`).join("");
@@ -122,16 +114,6 @@ function stagedSnapshotGit(
   };
 }
 
-function testCommandDeps(
-  runner: ReturnType<typeof createRecordingCommandRunner>,
-): {
-  readonly registry: typeof testingRegistry;
-  readonly runnerDepsFor: () => typeof runner;
-  readonly git: GitDependencies;
-} {
-  return { registry: testingRegistry, runnerDepsFor: () => runner, git: gitIdentityStub() };
-}
-
 function successfulRelatedTestDependencies(): RelatedTestDependencies {
   return {
     isLanguagePresent: () => true,
@@ -179,14 +161,14 @@ async function expectProductInputDigestChanges({
         await writeProductInputFile(productDir, productInputPath, firstInputContent);
 
         const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-        const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+        const first = await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(firstRunner));
         const firstDigest = recordedProductInputDigest(first.recorded, descriptorId);
         expect(firstDigest).toBeDefined();
 
         await writeProductInputFile(productDir, productInputPath, secondInputContent);
 
         const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-        const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+        const second = await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(secondRunner));
         const secondDigest = recordedProductInputDigest(second.recorded, descriptorId);
         expect(secondDigest).toBeDefined();
         expect(secondDigest).not.toBe(firstDigest);
@@ -261,7 +243,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, includedFile);
         await writeTestingConfig(productDir, { exclude: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`] });
 
-        await runTestsCommand({ productDir, passing: true }, testCommandDeps(runner));
+        await runTestsCommand({ productDir, passing: true }, testingCommandDependencies(runner));
 
         expect(invokedArgs(runner)).not.toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);
@@ -283,7 +265,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         await writeTestFileFixture(productDir, includedFile);
         await writeTestingConfig(productDir, { exclude: [`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${excludedNode}`] });
 
-        await runTestsCommand({ productDir, passing: false }, testCommandDeps(runner));
+        await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
 
         expect(invokedArgs(runner)).toContain(excludedFile);
         expect(invokedArgs(runner)).toContain(includedFile);
@@ -304,7 +286,7 @@ export function registerExecutionRecordingScenarioTests(): void {
         // A bare node path carries no product-root prefix, so it matches no discovered path.
         await writeTestingConfig(productDir, { exclude: [node] });
 
-        await runTestsCommand({ productDir, passing: true }, testCommandDeps(runner));
+        await runTestsCommand({ productDir, passing: true }, testingCommandDependencies(runner));
 
         expect(invokedArgs(runner)).toContain(nodeFile);
         expect(invokedArgs(runner)).toContain(otherFile);
@@ -319,7 +301,7 @@ export function registerExecutionRecordingScenarioTests(): void {
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, nodeFile);
 
-        await runTestsCommand({ productDir, passing: false }, testCommandDeps(runner));
+        await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
 
         const runs = await readTestingRuns(productDir);
         expect(runs.ok).toBe(true);
@@ -358,7 +340,7 @@ export function registerExecutionRecordingScenarioTests(): void {
             const missingInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const missingInputRun = await runTestsCommand(
               { productDir, passing: false },
-              testCommandDeps(missingInputRunner),
+              testingCommandDependencies(missingInputRunner),
             );
             const missingInputDigest = recordedProductInputDigest(
               missingInputRun.recorded,
@@ -371,7 +353,7 @@ export function registerExecutionRecordingScenarioTests(): void {
             const presentInputRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
             const presentInputRun = await runTestsCommand(
               { productDir, passing: false },
-              testCommandDeps(presentInputRunner),
+              testingCommandDependencies(presentInputRunner),
             );
             const presentInputDigest = recordedProductInputDigest(
               presentInputRun.recorded,
@@ -522,12 +504,18 @@ export function registerExecutionRecordingScenarioTests(): void {
             await writeFile(join(productDir, nodeFile), firstContent);
 
             const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-            const first = await runTestsCommand({ productDir, passing: false }, testCommandDeps(firstRunner));
+            const first = await runTestsCommand(
+              { productDir, passing: false },
+              testingCommandDependencies(firstRunner),
+            );
 
             await writeFile(join(productDir, nodeFile), secondContent);
 
             const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-            const second = await runTestsCommand({ productDir, passing: false }, testCommandDeps(secondRunner));
+            const second = await runTestsCommand(
+              { productDir, passing: false },
+              testingCommandDependencies(secondRunner),
+            );
 
             expect(first.recorded.discoveredTestContentDigest).toBe(
               expectedTestContentDigest(nodeFile, firstContent),
@@ -556,7 +544,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
         const { dispatch, recorded } = await runNodeCommand(
           { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
-          testCommandDeps(runner),
+          testingCommandDependencies(runner),
         );
 
         expect(invokedArgs(runner)).toContain(nodeFile);
@@ -582,7 +570,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
         const { dispatch, recorded } = await runNodeCommand(
           { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${nodePath}` },
-          testCommandDeps(runner),
+          testingCommandDependencies(runner),
         );
 
         // The runner's non-zero exit propagates to the returned result and the
@@ -608,7 +596,7 @@ export function registerExecutionRecordingScenarioTests(): void {
 
         const { recorded } = await runNodeCommand(
           { productDir, nodePath: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${targetNode}` },
-          testCommandDeps(runner),
+          testingCommandDependencies(runner),
         );
 
         // The sibling file is present in the tree but neither runs nor enters the

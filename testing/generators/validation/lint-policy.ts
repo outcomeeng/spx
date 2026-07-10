@@ -15,6 +15,7 @@ const ADDED_DEBT_COMMIT_MESSAGE = "add manifest debt";
 const BASELINE_ABSENT_COMMIT_MESSAGE = "manifests without baseline branch";
 const OUTER_SENTINEL_COMMIT_MESSAGE = "outer sentinel";
 const CORRUPT_BASELINE_COMMIT_MESSAGE = "corrupt baseline manifest";
+const CONFIG_LOAD_SUCCESS_MARKER = "eslint-config-loaded";
 
 export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   UNRELATED_PROJECT: "unrelatedProject",
@@ -24,6 +25,7 @@ export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   HOOK_GIT_VARIABLES: "hookGitVariables",
   CORRUPT_BASELINE: "corruptBaseline",
   DEPRECATED_SPEC_NODE_SUFFIX: "deprecatedSpecNodeSuffix",
+  CONFIG_LOAD_BOUNDARY: "configLoadBoundary",
 } as const;
 
 export type ValidationLintPolicyScenarioKind =
@@ -51,6 +53,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
   outerRepoUserName: OUTER_REPO_USER_NAME,
   outerRepoUserEmail: OUTER_REPO_USER_EMAIL,
   jsonObjectErrorFragment: JSON_OBJECT_ERROR_FRAGMENT,
+  configLoadSuccessMarker: CONFIG_LOAD_SUCCESS_MARKER,
   productDirEnvironmentKey: LINT_POLICY_TEST_PRODUCT_DIR_ENV,
   commitMessages: {
     base: BASE_COMMIT_MESSAGE,
@@ -90,6 +93,10 @@ export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] 
     {
       title: "deprecated spec-tree node suffixes are rejected without a debt manifest escape hatch",
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.DEPRECATED_SPEC_NODE_SUFFIX,
+    },
+    {
+      title: "ESLint config loading does not execute branch lint policy",
+      kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.CONFIG_LOAD_BOUNDARY,
     },
   ];
 }

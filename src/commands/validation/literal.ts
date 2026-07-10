@@ -5,6 +5,7 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
+import { LITERAL_PROBLEM_KIND, type LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import { compareAsciiStrings } from "@/lib/state-store";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
@@ -25,13 +26,6 @@ import {
   validateLiteralReuse,
 } from "@/validation/literal/index";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
-
-export const LITERAL_PROBLEM_KIND = {
-  REUSE: "reuse",
-  DUPE: "dupe",
-} as const;
-
-export type LiteralProblemKind = (typeof LITERAL_PROBLEM_KIND)[keyof typeof LITERAL_PROBLEM_KIND];
 
 export const OUTPUT_MODE_NAME = {
   TEXT: "text",

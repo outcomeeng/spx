@@ -18,19 +18,12 @@ import {
 } from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
 import { partitionChangedPaths } from "@/domains/test/changed-set-planning";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
-import { GIT_DELETE_STATUS_EXAMPLE, GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND } from "@/git/root";
+import { GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX } from "@/lib/git/name-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
-import type {
-  RelatedTestDependencies,
-  RelatedTestRequest,
-  TestingLanguageDescriptor,
-  TestRunInvocation,
-  TestRunRequest,
-} from "@/test/languages/types";
+import type { RelatedTestRequest, TestingLanguageDescriptor } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import type { TestingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import {
   arbitraryDomainLiteral,
@@ -48,100 +41,29 @@ import {
 } from "@testing/generators/testing/changed-set-planning";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import {
+  defaultBaseRef,
+  defaultBaseSha,
+  defaultBranchName,
+  defaultGitCommandResult,
+  descriptorWithoutRelatedTests,
+  descriptorWithRelatedTests,
+  explicitBaseSha,
+  type GitCommandResult,
+  gitRunner,
+  headSha,
+  nameStatusNulDelimited,
+  noRunTests,
+  nulDelimited,
+  type RecordingGitRunner,
+  recordingGitRunner,
+  recordingRelatedTestDescriptor,
+  registry,
+  relatedDeps,
+} from "@testing/harnesses/testing/changed-set-planning-support";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 
-const defaultBranchName = sampleLiteralTestValue(arbitraryDomainLiteral());
-const defaultBaseRef = [GIT_ROOT_COMMAND.ORIGIN, defaultBranchName].join("/");
-const defaultBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-const explicitBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
-
-interface GitCall {
-  readonly command: string;
-  readonly args: readonly string[];
-}
-
-interface RecordingGitRunner {
-  readonly calls: readonly GitCall[];
-  readonly git: GitDependencies;
-}
-
-interface GitCommandResult {
-  readonly exitCode: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-type GitCommandHandler = (
-  command: string,
-  args: readonly string[],
-) => GitCommandResult | Promise<GitCommandResult>;
-
-function nulDelimited(paths: readonly string[]): string {
-  return paths.map((path) => `${path}\0`).join("");
-}
-
-function nameStatusNulDelimited(paths: readonly string[]): string {
-  return paths.map((path) => `${GIT_DELETE_STATUS_EXAMPLE}\0${path}\0`).join("");
-}
-
-function gitRunner(handler: GitCommandHandler): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        return await handler(command, args);
-      },
-    },
-  };
-}
-
-function defaultGitCommandResult(
-  args: readonly string[],
-  resolveExplicitBase = true,
-): GitCommandResult | undefined {
-  if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-    return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-  }
-  const lastArg = args.at(-1);
-  if (lastArg === defaultBaseRef) {
-    return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-  }
-  if (lastArg === GIT_ROOT_COMMAND.HEAD && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
-    return { exitCode: 0, stdout: headSha, stderr: "" };
-  }
-  if (
-    resolveExplicitBase
-    && lastArg !== undefined
-    && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)
-  ) {
-    return { exitCode: 0, stdout: explicitBaseSha, stderr: "" };
-  }
-  return undefined;
-}
-
-function recordingGitRunner(
-  changedPaths: readonly string[],
-  untrackedPaths: readonly string[] = [],
-): RecordingGitRunner {
-  return gitRunner((_command, args) => {
-    const defaultResult = defaultGitCommandResult(args);
-    if (defaultResult !== undefined) return defaultResult;
-    if (args.includes(CHANGED_TEST_DIFF_COMMAND)) {
-      const stdout = args.includes(CHANGED_TEST_DIFF_NAME_STATUS_FLAG)
-        ? nameStatusNulDelimited(changedPaths)
-        : nulDelimited(changedPaths);
-      return { exitCode: 0, stdout, stderr: "" };
-    }
-    if (args.includes(CHANGED_TEST_LS_FILES_COMMAND)) {
-      return { exitCode: 0, stdout: nulDelimited(untrackedPaths), stderr: "" };
-    }
-    return { exitCode: 0, stdout: headSha, stderr: "" };
-  });
-}
 
 function renameGitRunner(oldPath: string, newPath: string): RecordingGitRunner {
   return gitRunner((_command, args) => {
@@ -245,47 +167,8 @@ function stagedSourceRunner({
   });
 }
 
-function descriptorWithRelatedTests(
-  testPaths: readonly string[],
-  resolvedSourcePaths: readonly string[],
-): TestingLanguageDescriptor {
-  return {
-    ...typescriptTestingLanguage,
-    relatedTestPaths: (request: RelatedTestRequest) => {
-      const selectedTestPaths = testPaths.filter((testPath) => request.candidateTestPaths.includes(testPath));
-      return Promise.resolve({
-        testPaths: selectedTestPaths,
-        resolvedSourcePaths: selectedTestPaths.length > 0 ? resolvedSourcePaths : [],
-      });
-    },
-  };
-}
-
-function descriptorWithoutRelatedTests(): TestingLanguageDescriptor {
-  return {
-    ...typescriptTestingLanguage,
-    relatedTestPaths: undefined,
-  };
-}
-
-function registry(languages: readonly TestingLanguageDescriptor[]): TestingRegistry {
-  return { languages };
-}
-
-function relatedDeps(): RelatedTestDependencies {
-  return {
-    isLanguagePresent: () => true,
-    runCommand: () => Promise.resolve({ exitCode: 0, stdout: "", stderr: "" }),
-    readFile: (path) => Promise.resolve(path === TYPESCRIPT_MARKER ? changedSetContent.emptyTsconfig : ""),
-  };
-}
-
 function nativeStringOrder(paths: readonly string[]): readonly string[] {
   return [...paths].sort(compareAsciiStrings);
-}
-
-async function noRunTests(_request: TestRunRequest): Promise<TestRunInvocation> {
-  return { invoked: false };
 }
 
 async function planWithRelatedTest({
@@ -383,6 +266,32 @@ async function planProductInputChange(
     { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
     { git: git.git, registry: registry(languages), relatedDepsFor: () => relatedDeps() },
   );
+}
+
+async function planProductAndSourceInputChange(
+  productInputPath: string,
+  sourcePath: string,
+): Promise<{
+  readonly plan: Awaited<ReturnType<typeof planChangedTestSelection>>;
+  readonly relatedTestCalls: readonly RelatedTestRequest[];
+}> {
+  const git = recordingGitRunner([productInputPath, sourcePath]);
+  const relatedTests = recordingRelatedTestDescriptor();
+  let plan: Awaited<ReturnType<typeof planChangedTestSelection>> | undefined;
+  await withTestingTempProductDir(async (productDir) => {
+    plan = await planChangedTestSelection(
+      { productDir },
+      {
+        git: git.git,
+        registry: registry([relatedTests.language]),
+        relatedDepsFor: () => relatedDeps(),
+      },
+    );
+  });
+  if (plan === undefined) {
+    throw new Error("changed-set product-input plan was not produced");
+  }
+  return { plan, relatedTestCalls: relatedTests.calls };
 }
 
 export function registerChangedSetPlanningScenarioTests(): void {
@@ -763,11 +672,16 @@ helper;
       expect(partition.productInputChanged).toBe(false);
     });
 
-    it("selects the full spec tree when product config changes", async () => {
-      const plan = await planProductInputChange(CONFIG_FILENAMES.yaml);
+    it("selects the full spec tree without resolving source files when product config changes", async () => {
+      const { plan, relatedTestCalls } = await planProductAndSourceInputChange(
+        CONFIG_FILENAMES.yaml,
+        sampleLiteralTestValue(arbitrarySourceFilePath()),
+      );
 
       expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
       expect(plan.fullTreeSelected).toBe(true);
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+      expect(relatedTestCalls).toEqual([]);
     });
 
     for (const productInputPath of typescriptTestingLanguage.productInputPaths) {

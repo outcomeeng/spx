@@ -36,7 +36,6 @@ The TypeScript testing guidance forbids test-owned named constants. Several enab
 
 - `spx/41-validation.enabler/32-typescript-validation.enabler/tests/support.ts` exports `TYPESCRIPT_VALIDATION_TEST_FILE`
 - `spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts` declares output marker constants
-- `spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts` declares output marker constants
 
 The spec-tree fixture support now lives in `testing/generators/spec-tree.ts`; audit that generator as source-side test-data API debt, separate from enabled-test constant cleanup.
 
