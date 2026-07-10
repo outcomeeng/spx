@@ -45,7 +45,7 @@ post-checkout:
 post-merge:
   commands:
     # The main-checkout gate (src/lib/precommit/main-checkout-gate.ts) routes the
-    # decision through the tested isMainCheckout classifier (src/git/root.ts), so
+    # decision through the tested isMainCheckout classifier (src/lib/git/root.ts), so
     # it designates the main checkout correctly in both a non-bare repository and a
     # bare-repository pool. It exits zero in the main checkout, 78 in a non-main
     # checkout, and any other non-zero status for gate failures; an unreadable
@@ -79,7 +79,7 @@ post-merge:
 post-rewrite:
   commands:
     # Same main-checkout gate as post-merge (see above), routed through the tested
-    # isMainCheckout classifier (src/git/root.ts via
+    # isMainCheckout classifier (src/lib/git/root.ts via
     # src/lib/precommit/main-checkout-gate.ts).
     rebuild-dist:
       run: |
