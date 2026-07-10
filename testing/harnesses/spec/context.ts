@@ -1,3 +1,6 @@
+import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
 import { expect } from "vitest";
 
 import {
@@ -9,15 +12,19 @@ import {
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
+import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   type RepresentativeSpecTreeFixture,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
@@ -84,17 +91,39 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
     const lowerSibling = lowerSiblingDirectoryName(env.fixture);
     const evidencePath = `spx/${target.id}/tests/${target.slug}.scenario.l1.test.ts`;
+    const decisionSuffix = KIND_REGISTRY[env.fixture.decision.kind].suffix;
+    const targetDecisionPath =
+      `spx/${target.id}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    const productDecisionPath = `spx/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
     await env.writeRaw(`spx/${lowerSibling}/${env.fixture.root.slug}.md`, "# Lower sibling\n");
     await env.writeRaw(`spx/${target.id}/PLAN.md`, "# Plan\n");
+    await env.writeRaw(`spx/${target.id}/ISSUES.md`, "# Issues\n");
     await env.writeRaw(evidencePath, "import { describe, it } from \"vitest\";\n");
+    await env.writeRaw(targetDecisionPath, "# Target decision\n");
+    await env.writeRaw(productDecisionPath, "# Product decision\n");
     const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
+    const productPath = snapshot.product?.ref?.path;
+    const ancestorPath = snapshot.allNodes.find((node) => node.id === target.parentId)?.ref?.path;
+    expect(productPath).toBeDefined();
+    expect(ancestorPath).toBeDefined();
     const roles = new Set(manifest.documents.map((document) => document.role));
-    expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT)).toBe(true);
+    expect(manifest.documents).toContainEqual({
+      path: productPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT,
+    });
+    expect(manifest.documents).toContainEqual({
+      path: ancestorPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.ANCESTOR,
+    });
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.TARGET)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.DECISION)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE)).toBe(true);
     expect(manifest.documents).toContainEqual({
       path: `spx/${target.id}/PLAN.md`,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
+    });
+    expect(manifest.documents).toContainEqual({
+      path: `spx/${target.id}/ISSUES.md`,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
     });
     expect(manifest.documents).toContainEqual({
@@ -104,6 +133,14 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     expect(manifest.documents).toContainEqual({
       path: evidencePath,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE,
+    });
+    expect(manifest.documents).toContainEqual({
+      path: targetDecisionPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
+    });
+    expect(manifest.documents).toContainEqual({
+      path: productDecisionPath,
+      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
     });
     const productIndex = manifest.documents.findIndex((document) =>
       document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT
@@ -132,6 +169,12 @@ export async function assertSpecContextManifestListsSameAndHigherSiblings(): Pro
 
     expect(manifest.siblings.sameIndex).toContain(`spx/${sameIndexSibling}`);
     expect(manifest.siblings.higherIndex).toContain(`spx/${higherIndexSibling}`);
+    expect(manifest.documents.map((document) => document.path)).not.toContain(
+      `spx/${sameIndexSibling}/${env.fixture.root.slug}-same.md`,
+    );
+    expect(manifest.documents.map((document) => document.path)).not.toContain(
+      `spx/${higherIndexSibling}/${env.fixture.peer.slug}.md`,
+    );
     expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.SAME_INDEX_SIBLINGS}:`);
     expect(output).toContain(`  - spx/${sameIndexSibling}`);
     expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.HIGHER_INDEX_SIBLINGS}:`);
@@ -170,6 +213,63 @@ export async function assertSpecContextManifestIgnoresUntrackedScratchNodes(): P
   });
 }
 
+export async function assertSpecContextUsesLinkedWorktreeRoot(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await runGit(
+      env.productDir,
+      [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL],
+    );
+    await runGit(
+      env.productDir,
+      [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME],
+    );
+    await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
+    await runGit(
+      env.productDir,
+      [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, env.fixture.product.title],
+    );
+
+    const linkedParent = await createTempDir("spx-context-linked-");
+    try {
+      const linkedProductDir = join(linkedParent, "worktree");
+      await runGit(
+        env.productDir,
+        [
+          GIT_TEST_SUBCOMMANDS.WORKTREE,
+          GIT_TEST_SUBCOMMANDS.ADD,
+          GIT_TEST_FLAGS.NEW_BRANCH,
+          `${env.fixture.root.slug}-context`,
+          linkedProductDir,
+        ],
+      );
+      const nestedCwd = join(
+        linkedProductDir,
+        sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.nestedDirectory()),
+      );
+      await mkdir(nestedCwd, { recursive: true });
+      const scratch = lowerSiblingDirectoryName(env.fixture);
+      const scratchPath = `spx/${scratch}/${env.fixture.root.slug}.md`;
+      await mkdir(dirname(join(linkedProductDir, scratchPath)), { recursive: true });
+      await writeFile(join(linkedProductDir, scratchPath), "# Untracked scratch\n");
+
+      const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      const manifest = parseContextManifest(await contextCommand({ target, cwd: nestedCwd }));
+
+      expect(manifest.productDir).toBe(await realpath(linkedProductDir));
+      expect(manifest.target).toBe(`spx/${target}`);
+      expect(manifest.documents.map((document) => document.path)).not.toContain(scratchPath);
+    } finally {
+      await removeTempDir(linkedParent);
+    }
+  });
+}
+
 export async function assertSpecContextManifestOmitsMissingNodeSpecs(): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
@@ -200,11 +300,19 @@ export async function assertSpecContextTextIncludesContext(): Promise<void> {
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes[0];
-    const output = await contextTextCommand({ target: target.id, cwd: env.productDir });
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGET}: spx/${target.id}`);
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS}:`);
+    const textOutput = await contextOutputForFormat(
+      SPEC_CONTEXT_OUTPUT_FORMAT.TEXT,
+      { target: target.id, cwd: env.productDir },
+    );
+    const jsonOutput = await contextOutputForFormat(
+      SPEC_CONTEXT_OUTPUT_FORMAT.JSON,
+      { target: target.id, cwd: env.productDir },
+    );
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGET}: spx/${target.id}`);
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS}:`);
+    expect(parseContextManifest(jsonOutput).target).toBe(`spx/${target.id}`);
   });
 }
 
