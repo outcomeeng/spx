@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.conformance.l1.test.ts": "passed",
+      "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.property.l1.test.ts": "passed"
+    }
+  }
+}
