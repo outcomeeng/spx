@@ -21,6 +21,18 @@ const BRANCH_SEGMENT_JOINER = "/";
 const AGENT_SEARCH_UNSAFE_LIMIT_PREFIX = "limit";
 const AGENT_SEARCH_PARTIAL_NUMERIC_LIMIT_PREFIX = "1";
 const DECIMAL_DIGIT_PATTERN = /^[0-9]+$/;
+const DURATION_HOUR_SUFFIX = "h";
+const INVALID_DURATION_PREFIX = "invalid";
+const MIN_SINCE_HOURS = 1;
+const MAX_SINCE_HOURS = AGENT_RESUME_LIMITS.HOURS_PER_DAY;
+const ZERO_DURATION_HOURS = 0;
+const FRACTIONAL_MILLISECOND_DURATION = "0.5ms";
+const NON_FINITE_DURATION_ZERO_DIGITS = 300;
+
+export interface GeneratedAgentResumeSinceDuration {
+  readonly text: string;
+  readonly durationMs: number;
+}
 
 export function sampleAgentResumeValue<T>(arbitrary: fc.Arbitrary<T>, seedOffset = 0): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED + seedOffset, numRuns: SAMPLE_RUN_COUNT });
@@ -61,6 +73,33 @@ export function arbitraryAgentResumeOverCapCount(): fc.Arbitrary<number> {
 
 export function arbitraryAgentResumeRecentOffsetMs(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_RECENT_OFFSET_MS, max: MAX_RECENT_OFFSET_MS });
+}
+
+export function arbitraryAgentResumeSinceDuration(): fc.Arbitrary<GeneratedAgentResumeSinceDuration> {
+  return fc.integer({ min: MIN_SINCE_HOURS, max: MAX_SINCE_HOURS }).map((hours) => ({
+    text: `${hours}${DURATION_HOUR_SUFFIX}`,
+    durationMs: hours
+      * AGENT_RESUME_LIMITS.MINUTES_PER_HOUR
+      * AGENT_RESUME_LIMITS.SECONDS_PER_MINUTE
+      * AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND,
+  }));
+}
+
+export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<readonly string[]> {
+  return fc
+    .tuple(
+      fc.integer({ min: MIN_SINCE_HOURS, max: MAX_SINCE_HOURS }),
+      arbitraryDomainLiteral(),
+      fc.bigInt({ min: BigInt(Number.MAX_SAFE_INTEGER) + 1n }),
+    )
+    .map(([hours, literal, unsafeMilliseconds]) => [
+      `${ZERO_DURATION_HOURS}${DURATION_HOUR_SUFFIX}`,
+      `-${hours}${DURATION_HOUR_SUFFIX}`,
+      `${INVALID_DURATION_PREFIX}-${literal}`,
+      `1${"0".repeat(NON_FINITE_DURATION_ZERO_DIGITS)}w`,
+      FRACTIONAL_MILLISECOND_DURATION,
+      `${unsafeMilliseconds}ms`,
+    ]);
 }
 
 export function arbitraryAgentLaunchExitCode(): fc.Arbitrary<number> {

@@ -12,11 +12,14 @@ import {
   assertExcludesFutureModifiedSessions,
   assertExcludesNonInteractiveCodexTranscripts,
   assertExcludesStaleModifiedSessions,
+  assertExplicitSinceBoundsTranscriptReadsByMtime,
+  assertExplicitSinceFiltersTranscriptActivity,
   assertIncludesCodexVsCodeTranscripts,
   assertInvocationWorktreeRootResolvedOnce,
   assertNewestSessionsPerAgentWithinScope,
   assertPartialTailSessionSortsAfterTimestamped,
   assertResumeListOrdersByTranscriptActivityAcrossAgents,
+  assertResumeSinceRejectsInvalidDurations,
   assertSkipsClaudeSiblingProjectPrefix,
   assertSourcePathTieBreakSelectsPerAgentCap,
   assertTimestamplessSessionSortsAfterTimestamped,
@@ -82,6 +85,18 @@ describe("agent resume subagent-exclusion compliance", () => {
 });
 
 describe("agent resume recency-window compliance", () => {
+  it("filters explicit windows by bounded transcript activity and excludes unknown activity", async () => {
+    await assertExplicitSinceFiltersTranscriptActivity();
+  });
+
+  it("bounds explicit-window transcript reads by file modification time", async () => {
+    await assertExplicitSinceBoundsTranscriptReadsByMtime();
+  });
+
+  it("rejects invalid, zero, negative, non-finite, and unsafe explicit durations before discovery", async () => {
+    await assertResumeSinceRejectsInvalidDurations();
+  });
+
   it("excludes sessions modified before the recent-activity window", async () => {
     await assertExcludesStaleModifiedSessions();
   });

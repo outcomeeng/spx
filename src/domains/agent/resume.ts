@@ -76,6 +76,7 @@ export interface DiscoverAgentResumeCandidatesOptions {
   readonly agentHomeDirs: AgentHomeDirs;
   readonly nowMs: number;
   readonly scope: AgentResumeScope;
+  readonly sinceMs?: number;
   readonly fs: AgentResumeSessionFileSystem;
   readonly resolveWorktreeRoot: AgentWorktreeRootResolver;
 }
@@ -199,6 +200,7 @@ export async function discoverAgentResumeCandidates(
   }
 
   const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
+  const recentWindowMs = options.sinceMs ?? AGENT_RESUME_RECENT_WINDOW_MS;
   const [codex, claude] = await Promise.all([
     collectAgentCandidates(
       AGENT_SESSION_KIND.CODEX,
@@ -206,11 +208,14 @@ export async function discoverAgentResumeCandidates(
         await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
         options.fs,
         options.nowMs,
+        recentWindowMs,
       ),
       options.fs,
       cap,
       scope.match,
       parseCodexHead,
+      options.nowMs,
+      options.sinceMs,
     ),
     collectAgentCandidates(
       AGENT_SESSION_KIND.CLAUDE_CODE,
@@ -222,11 +227,14 @@ export async function discoverAgentResumeCandidates(
         ),
         options.fs,
         options.nowMs,
+        recentWindowMs,
       ),
       options.fs,
       cap,
       scope.match,
       parseClaudeHead,
+      options.nowMs,
+      options.sinceMs,
     ),
   ]);
 
@@ -303,10 +311,11 @@ async function recentStoreFiles(
   paths: readonly string[],
   fs: AgentSessionFileSystem,
   nowMs: number,
+  recentWindowMs: number,
 ): Promise<AgentStoreFile[]> {
   const stats = await mapWithConcurrency(paths, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (path) => {
     const stat = await fs.stat(path).catch(() => null);
-    if (stat === null || !isRecentAgentSessionMtime(stat.mtimeMs, nowMs)) {
+    if (stat === null || !isRecentAgentSessionMtime(stat.mtimeMs, nowMs, recentWindowMs)) {
       return null;
     }
     return { path, modifiedAtMs: stat.mtimeMs };
@@ -351,6 +360,8 @@ async function collectAgentCandidates(
   cap: number,
   match: (core: AgentSessionHead) => boolean,
   parseHead: (head: string) => AgentSessionHead | null,
+  nowMs: number,
+  sinceMs: number | undefined,
 ): Promise<AgentResumeCandidate[]> {
   const candidates = await mapWithConcurrency(files, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (file) => {
     const head = await fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
@@ -365,13 +376,17 @@ async function collectAgentCandidates(
     if (tail === null) {
       return null;
     }
+    const lastActivityAtMs = latestTranscriptTimestampMs(tail);
+    if (sinceMs !== undefined && !isAgentSessionActivityWithinWindow(lastActivityAtMs, nowMs, sinceMs)) {
+      return null;
+    }
     return {
       agent,
       sessionId: core.sessionId,
       cwd: core.cwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
-      lastActivityAtMs: latestTranscriptTimestampMs(tail),
+      lastActivityAtMs,
       updatedAt: core.updatedAt,
       branch: core.branch,
     };
@@ -403,8 +418,20 @@ export async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem
   return files;
 }
 
-export function isRecentAgentSessionMtime(modifiedAtMs: number, nowMs: number): boolean {
-  return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= AGENT_RESUME_RECENT_WINDOW_MS;
+export function isRecentAgentSessionMtime(
+  modifiedAtMs: number,
+  nowMs: number,
+  recentWindowMs = AGENT_RESUME_RECENT_WINDOW_MS,
+): boolean {
+  return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= recentWindowMs;
+}
+
+export function isAgentSessionActivityWithinWindow(
+  lastActivityAtMs: number | null,
+  nowMs: number,
+  sinceMs: number,
+): boolean {
+  return lastActivityAtMs !== null && lastActivityAtMs <= nowMs && nowMs - lastActivityAtMs <= sinceMs;
 }
 
 export function parseCodexHead(head: string): AgentSessionHead | null {

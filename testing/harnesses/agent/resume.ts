@@ -12,7 +12,9 @@ import {
 } from "@/domains/agent/home";
 import {
   AGENT_RESUME_LIMITS,
+  AGENT_RESUME_MODE,
   AGENT_RESUME_RECENT_WINDOW_MS,
+  AGENT_RESUME_SCOPE,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_ROW_TYPE,
@@ -33,22 +35,26 @@ import {
   worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { agentSearchQueryFromOptions } from "@/domains/agent/search";
-import { createAgentDomain } from "@/interfaces/cli/agent";
+import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
   quitAgentResumePicker,
   selectedAgentResumeCandidate,
 } from "@/interfaces/cli/agent/resume/run-picker";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import {
   arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeOverCapCount,
   arbitraryAgentResumeRecentOffsetMs,
+  arbitraryAgentResumeSinceDuration,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
+  arbitraryRejectedAgentResumeSinceDurations,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 
@@ -981,6 +987,199 @@ export async function assertExcludesFutureModifiedSessions(): Promise<void> {
   expect(fs.maxTailReadBytes(futureTranscriptPath)).toBe(0);
 }
 
+export async function assertExplicitSinceFiltersTranscriptActivity(): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(300);
+  const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), 304);
+  const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 305);
+  const staleActivityId = sampleAgentResumeValue(arbitraryAgentSessionId(), 306);
+  const unknownActivityId = sampleAgentResumeValue(arbitraryAgentSessionId(), 307);
+  const recentActivityAtMs = fixture.nowMs - Math.floor(since.durationMs / 2);
+  const staleActivityAtMs = fixture.nowMs - since.durationMs - 1;
+  fixture.fs.writeFile(
+    codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(recentId)),
+    codexTranscript({
+      sessionId: recentId,
+      cwd: fixture.cwd,
+      timestamp: new Date(recentActivityAtMs).toISOString(),
+    }),
+    fixture.nowMs,
+  );
+  fixture.fs.writeFile(
+    codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(staleActivityId)),
+    codexTranscript({
+      sessionId: staleActivityId,
+      cwd: fixture.cwd,
+      timestamp: new Date(staleActivityAtMs).toISOString(),
+    }),
+    fixture.nowMs,
+  );
+  writeCodexTranscriptWithoutTimestampFile(fixture.fs, fixture.homeDir, {
+    sessionId: unknownActivityId,
+    cwd: fixture.cwd,
+    modifiedAtMs: fixture.nowMs,
+  });
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: fixture.cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(fixture.homeDir),
+    nowMs: fixture.nowMs,
+    sinceMs: since.durationMs,
+    scope: worktreeResumeScope(),
+    fs: fixture.fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
+  });
+
+  expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
+}
+
+export async function assertExplicitSinceBoundsTranscriptReadsByMtime(): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(310);
+  const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), 314);
+  const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 315);
+  const staleFileId = sampleAgentResumeValue(arbitraryAgentSessionId(), 316);
+  const stalePath = codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(staleFileId));
+  fixture.fs.writeFile(
+    codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(recentId)),
+    codexTranscript({ sessionId: recentId, cwd: fixture.cwd, timestamp: new Date(fixture.nowMs).toISOString() }),
+    fixture.nowMs,
+  );
+  fixture.fs.writeFile(
+    stalePath,
+    codexTranscript({ sessionId: staleFileId, cwd: fixture.cwd, timestamp: new Date(fixture.nowMs).toISOString() }),
+    fixture.nowMs - since.durationMs - 1,
+  );
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: fixture.cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(fixture.homeDir),
+    nowMs: fixture.nowMs,
+    sinceMs: since.durationMs,
+    scope: worktreeResumeScope(),
+    fs: fixture.fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
+  });
+
+  expect(candidates.map((candidate) => candidate.sessionId)).toEqual([recentId]);
+  expect(fixture.fs.maxHeadReadBytes(stalePath)).toBe(0);
+  expect(fixture.fs.maxTailReadBytes(stalePath)).toBe(0);
+}
+
+export async function assertResumeSinceComposesWithEveryScopeAndMode(): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(320);
+  const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), 324);
+  const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 325);
+  const recentId = sampleAgentResumeValue(arbitraryAgentSessionId(), 326);
+  const staleId = sampleAgentResumeValue(arbitraryAgentSessionId(), 327);
+  fixture.fs.writeFile(
+    codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(recentId)),
+    codexTranscript({
+      sessionId: recentId,
+      cwd: fixture.cwd,
+      timestamp: new Date(fixture.nowMs).toISOString(),
+      branch: targetBranch,
+    }),
+    fixture.nowMs,
+  );
+  fixture.fs.writeFile(
+    codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(staleId)),
+    codexTranscript({
+      sessionId: staleId,
+      cwd: fixture.cwd,
+      timestamp: new Date(fixture.nowMs - since.durationMs - 1).toISOString(),
+      branch: targetBranch,
+    }),
+    fixture.nowMs,
+  );
+  const combinations = Object.values(AGENT_RESUME_SCOPE).flatMap((scope) =>
+    Object.values(AGENT_RESUME_MODE).map((mode) => ({ scope, mode }))
+  );
+  for (const { scope, mode } of combinations) {
+    const launchedSessionIds: string[] = [];
+    const stdout: string[] = [];
+    const program = createInteractiveResumeProgram({
+      fs: fixture.fs,
+      homeDir: fixture.homeDir,
+      cwd: fixture.cwd,
+      nowMs: fixture.nowMs,
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
+      launchCandidate: async (candidate) => {
+        launchedSessionIds.push(candidate.sessionId);
+        return AGENT_CLI_EXIT.SUCCESS;
+      },
+      pickCandidate: async (candidates) => selectedAgentResumeCandidate(candidates[0]),
+      writeStdout: (output) => stdout.push(output),
+      exit: (exitCode) => {
+        throw new ImmediateExit(exitCode);
+      },
+    });
+    const modeArgs = mode === AGENT_RESUME_MODE.PICK ? [] : [AGENT_CLI.flags[mode]];
+    const scopeArgs = scope === AGENT_RESUME_SCOPE.WORKTREE
+      ? []
+      : [AGENT_CLI.flags.branch, targetBranch];
+
+    const parse = program.parseAsync(
+      [
+        AGENT_CLI.commandName,
+        AGENT_CLI.resumeCommandName,
+        ...modeArgs,
+        ...scopeArgs,
+        AGENT_CLI.flags.since,
+        since.text,
+      ],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+    if (mode === AGENT_RESUME_MODE.LIST || mode === AGENT_RESUME_MODE.JSON) {
+      await parse;
+    } else {
+      await expect(parse).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.SUCCESS });
+    }
+
+    if (mode === AGENT_RESUME_MODE.LIST || mode === AGENT_RESUME_MODE.JSON) {
+      expect(stdout.join("")).toContain(recentId);
+      expect(stdout.join("")).not.toContain(staleId);
+    } else {
+      expect(launchedSessionIds).toEqual([recentId]);
+    }
+  }
+}
+
+export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(330);
+  const rejectedDurations = sampleAgentResumeValue(arbitraryRejectedAgentResumeSinceDurations(), 334);
+  for (const rejectedDuration of rejectedDurations) {
+    const stderr: string[] = [];
+    const program = createInteractiveResumeProgram({
+      fs: discoveryRefusalFileSystem(),
+      homeDir: fixture.homeDir,
+      cwd: fixture.cwd,
+      nowMs: fixture.nowMs,
+      resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
+      launchCandidate: async () => {
+        throw new Error("invalid since duration must not launch an agent");
+      },
+      writeStderr: (output) => stderr.push(output),
+      exit: (exitCode) => {
+        throw new ImmediateExit(exitCode);
+      },
+    });
+    program.exitOverride();
+
+    await expect(
+      program.parseAsync(
+        [
+          AGENT_CLI.commandName,
+          AGENT_CLI.resumeCommandName,
+          AGENT_CLI.flags.list,
+          AGENT_CLI.flags.since,
+          rejectedDuration,
+        ],
+        { from: SPX_COMMANDER_PARSE_SOURCE },
+      ),
+    ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
+    expect(stderr.join("")).toContain(sanitizeCliArgument(rejectedDuration));
+  }
+}
+
 export async function assertSkipsClaudeSiblingProjectPrefix(): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 200);
@@ -1352,7 +1551,7 @@ export function createProgramForResumeFixture(
 }
 
 export function createInteractiveResumeProgram(input: {
-  readonly fs: MemoryAgentSessionFileSystem;
+  readonly fs: AgentResumeSessionFileSystem;
   readonly homeDir: string;
   readonly cwd: string;
   readonly nowMs: number;

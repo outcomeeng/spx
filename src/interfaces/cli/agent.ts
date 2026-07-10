@@ -1,6 +1,7 @@
 import { inspect } from "node:util";
 
 import { type Command } from "commander";
+import parseDuration from "parse-duration-ms";
 
 import {
   type AgentResumeCommandDeps,
@@ -55,6 +56,7 @@ export const AGENT_CLI = {
     sessionId: "--session-id",
     agent: "--agent",
     limit: "--limit",
+    since: "--since",
   },
   optionArgs: {
     branch: "--branch <name>",
@@ -63,6 +65,7 @@ export const AGENT_CLI = {
     sessionId: "--session-id <id>",
     agent: "--agent <kind>",
     limit: "--limit <count>",
+    since: "--since <duration>",
   },
 } as const;
 
@@ -84,6 +87,7 @@ export interface AgentResumeCliOptions {
   readonly list?: boolean;
   readonly json?: boolean;
   readonly branch?: string;
+  readonly since?: string;
 }
 
 export interface AgentSearchCliOptions {
@@ -136,6 +140,14 @@ function parseSearchLimit(value: string): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isSafeInteger(parsed)) {
     throw new Error(`agent search limit must be a positive integer: ${sanitizeCliArgument(value)}`);
+  }
+  return parsed;
+}
+
+function parseResumeSince(value: string): number {
+  const parsed = parseDuration(value);
+  if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0 || !Number.isSafeInteger(parsed)) {
+    throw new Error(`agent resume since must be a positive safe-integer duration: ${sanitizeCliArgument(value)}`);
   }
   return parsed;
 }
@@ -197,6 +209,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         .option(AGENT_CLI.flags.list, "List matching sessions")
         .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
         .option(AGENT_CLI.optionArgs.branch, "Scope to sessions started on the named branch, across worktrees")
+        .option(AGENT_CLI.optionArgs.since, "Include only sessions active within the duration")
         .action(async (options: AgentResumeCliOptions) => {
           let requestedExitCode: number = AGENT_CLI_EXIT.SUCCESS;
           try {
@@ -210,6 +223,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
                 cwd: productContext.effectiveInvocationDir,
                 fallbackWorktreeRoot: productContext.productDir,
                 scope: resumeScopeFromOptions(options),
+                sinceMs: options.since === undefined ? undefined : parseResumeSince(options.since),
                 deps: resolvedDeps.resumeDeps,
               };
 
