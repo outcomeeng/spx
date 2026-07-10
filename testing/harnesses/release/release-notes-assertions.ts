@@ -9,6 +9,7 @@ import {
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   CHANGELOG_PRESERVATION_INSTRUCTION,
   composeReleaseNotes,
+  type ComposeReleaseNotesResult,
   MARKDOWN_FENCE_BACKTICK_MARKER,
   type PathCanonicalizer,
   type ReleaseNotesConfig,
@@ -82,8 +83,8 @@ export async function composeReleaseNotesInEnv(
     promoteArtifact = env.promoteArtifact,
     faithfulnessAuditor = approvingReleaseNotesFaithfulnessAuditor,
   }: ComposeReleaseNotesInEnvOptions,
-): Promise<void> {
-  await composeReleaseNotes({
+): Promise<ComposeReleaseNotesResult> {
+  return await composeReleaseNotes({
     releaseData,
     config,
     workingDirectory,
@@ -377,7 +378,7 @@ export async function assertReleaseNotesValidationAcceptsUpdatedFooterReferences
           isSymbolicLink,
           isFile,
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ changelogPath: resolvedPath });
       await expect(readArtifact(resolvedPath)).resolves.toBe(generatedNotes);
     },
   );
@@ -473,7 +474,7 @@ export async function assertReleaseNotesValidationAcceptsPreservedInSectionRefer
           isSymbolicLink,
           isFile,
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ changelogPath: resolvedPath });
       await expect(readArtifact(resolvedPath)).resolves.toBe(generatedNotes);
     },
   );

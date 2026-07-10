@@ -1049,7 +1049,7 @@ export function registerReleaseNotesComplianceTests(): void {
               auditedSection = request.notes;
             },
           }),
-        ).resolves.toBeUndefined();
+        ).resolves.toEqual({ changelogPath: resolvedPath });
 
         expect(auditedSection?.trimEnd()).toBe(currentSection);
         expect(auditedSection).not.toContain(priorVersion);
@@ -1664,7 +1664,9 @@ export function registerReleaseNotesComplianceTests(): void {
               config: { changelogPath },
               agentRunner,
             }),
-          ).resolves.toBeUndefined();
+          ).resolves.toEqual({
+            changelogPath: join(workingDirectory, DEFAULT_CHANGELOG_PATH),
+          });
           expect(agentRunner.requests).toHaveLength(1);
         },
       );

@@ -1,9 +1,10 @@
-import { isAbsolute } from "node:path";
+import { mkdir, symlink } from "node:fs/promises";
+import { isAbsolute, join, sep } from "node:path";
 
 import { releaseNotesCommand } from "@/commands/release";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
-import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
+import { composeReleaseNotes, DEFAULT_CHANGELOG_PATH, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConfiguredChangelogPath,
@@ -14,7 +15,14 @@ import {
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { approvingReleaseNotesFaithfulnessAuditor } from "@testing/harnesses/release/release-notes-assertions";
-import { withReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
+import {
+  RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+  withReleaseNotesEnv,
+} from "@testing/harnesses/release/release-notes-env";
+
+const COMMAND_REPORT_ACTUAL_DIRECTORY = "actual";
+const COMMAND_REPORT_CHILD_DIRECTORY = "child";
+const COMMAND_REPORT_SYMLINK = "link";
 
 export function registerReleaseNotesScenarioTests(): void {
   describe("resolveReleaseNotesPath resolves the changelog within the product working tree", () => {
@@ -108,6 +116,50 @@ export function registerReleaseNotesScenarioTests(): void {
         ).resolves.toBe(`Generated release notes: ${resolvedPath}`);
 
         await expect(env.readArtifact(resolvedPath)).resolves.toContain(
+          oracleChangelogVersionHeading(releaseData.version),
+        );
+      });
+    });
+
+    it("reports the promoted canonical changelog path", async () => {
+      await withReleaseNotesEnv(async (env) => {
+        const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
+        const subjects = releaseData.commits.map((commit) => commit.subject);
+        const actualDirectory = join(env.workingDirectory, COMMAND_REPORT_ACTUAL_DIRECTORY);
+        const actualChildDirectory = join(actualDirectory, COMMAND_REPORT_CHILD_DIRECTORY);
+        const symlinkPath = join(env.workingDirectory, COMMAND_REPORT_SYMLINK);
+        const changelogPath = `${COMMAND_REPORT_SYMLINK}${sep}..${sep}${DEFAULT_CHANGELOG_PATH}`;
+        const config = { changelogPath };
+        const lexicalResolvedPath = resolveReleaseNotesPath(env.workingDirectory, config);
+        const canonicalArtifactPath = join(actualDirectory, DEFAULT_CHANGELOG_PATH);
+        const changelogContent = sampleReleaseTestValue(
+          arbitraryConformantChangelog(releaseData.version, subjects),
+        );
+        const agentRunner = new RecordingWritingAgentRunner(
+          env.workingDirectory,
+          canonicalArtifactPath,
+          changelogContent,
+        );
+        await mkdir(actualChildDirectory, { recursive: true });
+        await symlink(
+          actualChildDirectory,
+          symlinkPath,
+          RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+        );
+
+        await expect(
+          releaseNotesCommand({
+            productDir: env.workingDirectory,
+            config,
+            releaseData,
+            agentRunner,
+            faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
+            filesystem: env,
+          }),
+        ).resolves.toBe(`Generated release notes: ${canonicalArtifactPath}`);
+
+        expect(canonicalArtifactPath).not.toBe(lexicalResolvedPath);
+        await expect(env.readArtifact(canonicalArtifactPath)).resolves.toContain(
           oracleChangelogVersionHeading(releaseData.version),
         );
       });
