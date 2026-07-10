@@ -2408,6 +2408,34 @@ export async function assertStartFromNestedDirectoryUsesProductRelativeChangedSc
   expect(recording.changedScopeCwd()).toBe(scenario.productDir);
 }
 
+export async function assertStartFromLinkedWorktreeSeparatesStateAndDiffRoots(): Promise<void> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const worktreeRoot = join(scenario.productDir, "linked-worktree");
+  const nestedCwd = join(worktreeRoot, sampleLiteralTestValue(arbitrarySourceFilePath()));
+  let changedScopeCwd: string | undefined;
+  const git: GitDependencies = {
+    execa: async (command, args, options) => {
+      const argLine = args.join(" ");
+      if (argLine === GIT_SHOW_TOPLEVEL_ARGS.join(" ")) return gitSuccess(worktreeRoot);
+      if (argLine === GIT_COMMON_DIR_ARGS.join(" ")) {
+        return gitSuccess(join(scenario.productDir, GIT_DIR_BASENAME));
+      }
+      if (args.includes(GIT_NAME_STATUS_FLAG)) changedScopeCwd = options?.cwd;
+      return verifyGitDeps(scenario).execa(command, args, options);
+    },
+  };
+
+  const started = await verifyStartCommand(
+    verifyStartOptions(scenario),
+    { ...verifyDeps(scenario, fs), cwd: nestedCwd, git },
+  );
+
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(changedScopeCwd).toBe(worktreeRoot);
+  expect(parseStartReport(started.output).locator.runTarget).toContain(scenario.productDir);
+}
+
 export async function assertStartPersistsRunJournalAtLocatorTarget(): Promise<void> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
