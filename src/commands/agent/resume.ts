@@ -25,6 +25,7 @@ export interface AgentResumeCommandOptions {
   readonly cwd: string;
   readonly fallbackWorktreeRoot: string;
   readonly scope: AgentResumeScope;
+  readonly sinceMs?: number;
   readonly deps?: AgentResumeCommandDeps;
 }
 
@@ -85,6 +86,7 @@ export async function loadAgentResumeCandidates(
     agentHomeDirs: deps.agentHomeDirs(),
     nowMs: deps.nowMs(),
     scope: options.scope,
+    sinceMs: options.sinceMs,
     fs: deps.fs,
     resolveWorktreeRoot: (cwd) => deps.resolveWorktreeRoot(cwd, options.fallbackWorktreeRoot),
   });
