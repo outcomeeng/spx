@@ -1,5 +1,6 @@
 export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
 export {
+  canonicalizeExistingPath,
   createReleaseNotesFilesystem,
   type ReleaseNotesFilesystem,
   type ReleaseNotesFilesystemOptions,

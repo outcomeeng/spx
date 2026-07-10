@@ -373,7 +373,7 @@ function isSameArtifactIdentity(openedArtifact: Stats, currentArtifact: Stats): 
     && openedArtifact.ino === currentArtifact.ino;
 }
 
-async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
+export async function canonicalizeExistingPath(path: string): Promise<string | undefined> {
   try {
     return await realpath(path);
   } catch (error) {

@@ -1068,7 +1068,7 @@ function markdownHtmlBlockTag(
   isStandaloneTag: boolean,
 ): string | undefined {
   const tagName = matchedTagName.toLocaleLowerCase(MARKDOWN_HTML_TAG_LOCALE);
-  if (MARKDOWN_HTML_INLINE_VOID_TAGS.has(tagName)) {
+  if (MARKDOWN_HTML_INLINE_VOID_TAGS.has(tagName) && !isStandaloneTag) {
     return undefined;
   }
   return MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
