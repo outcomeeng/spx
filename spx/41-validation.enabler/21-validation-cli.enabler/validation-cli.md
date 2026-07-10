@@ -1,5 +1,3 @@
-# Validation CLI
-
 PROVIDES the `spx validation` CLI surface — subcommand dispatch, validation-specific flag registration, and routing of well-formed subcommands to their stage handlers
 SO THAT operators, agents, and CI pipelines invoking `spx validation <subcommand> [args]`
 CAN trust that well-formed subcommands reach the correct stage and that malformed or adversarial input never runs a stage
@@ -8,8 +6,10 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 
 ### Scenarios
 
-- Given a well-formed subcommand that matches a registered stage, when `spx validation <subcommand>` is invoked, then the subcommand's handler runs and its exit code propagates ([test](tests/dispatch.scenario.l2.test.ts))
-- Given built artifacts exist, when `node bin/spx.js validation <subcommand>` is invoked, then the packaged executable loads the built CLI and routes the subcommand handler ([test](tests/dispatch.scenario.l2.test.ts))
+- Given a well-formed subcommand that matches a registered stage, when its handler succeeds, then the handler runs, its returned output is written to stdout, and its zero exit code propagates ([test](tests/dispatch.scenario.l2.test.ts))
+- Given a well-formed subcommand that matches a registered stage, when its handler fails, then the handler runs, its returned output is written to stderr, and its non-zero exit code propagates ([test](tests/dispatch.scenario.l2.test.ts))
+- Given `spx validation all` streams stage progress before a later stage fails, when dispatch completes, then the streamed progress remains on stdout, the handler's returned failure summary is written to stderr, and the non-zero exit code propagates ([test](tests/dispatch.scenario.l2.test.ts))
+- Given built artifacts exist, when `node bin/spx.js validation circular` is invoked, then the packaged executable routes the circular subcommand handler ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an unknown subcommand, when `spx validation <garbage>` is invoked, then no stage runs, stderr reports "unknown subcommand" with the sanitized argument, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an argument containing ASCII control characters, when `spx validation <arg>` is invoked, then stderr shows each control character as its `\xNN` escape form and no stage runs ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an argument containing multi-byte Unicode code points, when `spx validation <arg>` is invoked, then stderr shows those code points unchanged ([test](tests/dispatch.scenario.l2.test.ts))
@@ -24,7 +24,7 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 
 ### Properties
 
-- Dispatch safety: for every string not in the registered-subcommand set, `spx validation <string>` exits non-zero and invokes no stage handler ([test](tests/dispatch.property.l2.test.ts))
+- Dispatch safety: for every non-option string not in the registered-subcommand set, `spx validation <string>` exits non-zero and invokes no stage handler ([test](tests/dispatch.property.l2.test.ts))
 
 ### Compliance
 

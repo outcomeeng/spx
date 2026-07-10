@@ -1,5 +1,3 @@
-# Validation
-
 PROVIDES a multi-language code quality pipeline that reports each tool's result as it completes
 SO THAT developers and agents running `spx validation all`
 CAN surface security, maintainability, and reliability issues before they reach production
@@ -8,8 +6,8 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 ### Scenarios
 
-- Given a project with no violations, when `spx validation all` runs, then every registered step passes or explicitly skips and the pipeline exits 0 ([test](tests/validation.scenario.l1.test.ts))
-- Given a project with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.scenario.l1.test.ts))
+- Given a product with no violations, when `spx validation all` runs, then every registered stage executes according to its descriptor default, passes or explicitly skips, and the pipeline exits 0 ([test](tests/validation.scenario.l1.test.ts))
+- Given a product with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.scenario.l1.test.ts))
 - Given `--scope production`, when a test-scoped TypeScript failure exists, then `spx validation all` excludes that failure while every registered step completes in order ([test](tests/validation.scenario.l1.test.ts))
 - Given a source directory or file positional operand and an out-of-scope Markdown failure, when `spx validation all` runs, then the out-of-scope failure is excluded while every registered step completes in order ([test](tests/validation.scenario.l1.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l1.test.ts))
@@ -19,7 +17,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 ### Compliance
 
 - ALWAYS: validation runs all configured steps regardless of earlier failures — no short-circuit ([test](tests/validation.compliance.l1.test.ts))
-- ALWAYS: validation exit code is non-zero when any step fails ([test](tests/validation.compliance.l1.test.ts))
+- ALWAYS: validation exit code is non-zero when any participating stage configured to fail the pipeline returns non-zero ([test](tests/validation.compliance.l1.test.ts))
 - ALWAYS: each step uses "problem" as the canonical term for an item requiring developer attention — consistent with ESLint, ruff, and VS Code tooling conventions ([audit])
 - ALWAYS: each step reports its own duration ([test](tests/validation.compliance.l1.test.ts))
 - ALWAYS: TypeScript-derived scope discovery reads product tool configuration and directories from the requested product root ([test](tests/scope-resolution.compliance.l1.test.ts))

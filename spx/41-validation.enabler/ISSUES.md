@@ -25,29 +25,6 @@ validation migration notice.
 
 ---
 
-## Validation CLI output stream alignment
-
-The review on
-[`outcomeeng/spx#200`](https://github.com/outcomeeng/spx/pull/200#issuecomment-4751202797)
-identified that `src/interfaces/cli/validation.ts` writes validation command
-output with `console.log(result.output)` for all exit codes, while the audit CLI
-routes non-zero command output to stderr.
-
-**Impact:** CLI domains have inconsistent output-stream contracts for failures.
-The audit behavior follows the Unix convention: command errors go to stderr.
-
-**Tracking classification:** Follow-up from PR review on June 19, 2026.
-
-**Revisit condition:** Resolve when changing validation CLI rendering, output
-stream routing, or the validation command result interface; align validation
-failure output with the audit CLI stderr-for-errors behavior.
-
-**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
-`typescript:test-typescript`, `typescript:code-typescript`,
-`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
-
----
-
 ## Lint path scopes lack TypeScript-scope intersection
 
 The review on `outcomeeng/spx#211` identified that `circularCommand` and
@@ -104,11 +81,11 @@ out of the JSON capture.
 
 ---
 
-## Validation test evidence filenames still use legacy integration/e2e suffixes
+## Lint test evidence filename still uses a legacy integration suffix
 
-Several validation spec-tree tests still use legacy runner-style filenames rather
-than the canonical `<subject>.<evidence>.<level>.test.ts` model required by the
-testing methodology.
+The lint validation spec-tree test still uses a legacy runner-style filename
+rather than the canonical `<subject>.<evidence>.<level>.test.ts` model required
+by the testing methodology.
 
 Observed on June 28, 2026:
 
@@ -117,28 +94,20 @@ rg --files spx/41-validation.enabler | rg '(integration|e2e)\.test\.ts$'
 ```
 
 ```text
-spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.integration.test.ts
-spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.e2e.test.ts
-spx/41-validation.enabler/tests/validation.integration.test.ts
-spx/41-validation.enabler/32-typescript-validation.enabler/tests/typescript-validation.integration.test.ts
 spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/tests/lint.integration.test.ts
 ```
 
-`spx/41-validation.enabler/65-markdown-validation.enabler/ISSUES.md` and
 `spx/41-validation.enabler/32-typescript-validation.enabler/32-lint.enabler/ISSUES.md`
-track parts of the same naming debt locally; this entry keeps the remaining
-validation-wide cleanup visible from the parent node.
+tracks the same naming debt locally; this entry keeps the remaining cleanup
+visible from the parent node.
 
 **Impact:** the filenames hide which assertion type and execution level each
 file proves, and several specs link many assertion classes to one legacy file.
 That weakens agent routing through `spec-tree:test` and
 `typescript:test-typescript`.
 
-**Resolution:** split or rename each legacy file into canonical evidence files
-such as `validation.scenario.l2.test.ts`,
-`typescript-validation.mapping.l2.test.ts`, and
-`circular-deps.compliance.l2.test.ts`, then update every affected `[test]` link
-in the owning spec.
+**Resolution:** split or rename the legacy lint file into canonical evidence
+files and update every affected `[test]` link in the owning spec.
 
 **Tracking classification:** Tracked deferral, chosen by the operator during
 test-suite agent-output research on June 17, 2026.
