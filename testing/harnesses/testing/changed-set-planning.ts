@@ -1,9 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY_TREE_SHA, planChangedTestSelection } from "@/commands/test/changed-set-planning";
+import {
+  CHANGED_TEST_DIFF_CACHED_FLAG as GIT_DIFF_CACHED_FLAG,
+  CHANGED_TEST_DIFF_COMMAND as GIT_DIFF_COMMAND,
+  CHANGED_TEST_DIFF_NAME_STATUS_FLAG as GIT_NAME_STATUS_FLAG,
+  CHANGED_TEST_INDEX_PATH_PREFIX as GIT_INDEX_PATH_PREFIX,
+  CHANGED_TEST_LS_FILES_COMMAND as GIT_LS_FILES_COMMAND,
+  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG as GIT_LS_FILES_EXCLUDE_STANDARD_FLAG,
+  CHANGED_TEST_LS_FILES_OTHERS_FLAG as GIT_LS_FILES_OTHERS_FLAG,
+  CHANGED_TEST_NULL_DELIMITED_FLAG as GIT_NULL_DELIMITED_FLAG,
+  CHANGED_TEST_PRODUCT_INPUT_PATHS as CHANGED_SET_PRODUCT_INPUT_PATHS,
+  CHANGED_TEST_SHOW_COMMAND as GIT_SHOW_COMMAND,
+  EMPTY_TREE_SHA,
+  planChangedTestSelection,
+} from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
 import { partitionChangedPaths } from "@/domains/test/changed-set-planning";
-import { GIT_RENAME_STATUS_EXAMPLE } from "@/lib/git/name-status";
+import {
+  GIT_DELETE_STATUS_EXAMPLE,
+  GIT_NULL_RECORD_SEPARATOR,
+  GIT_RENAME_STATUS_EXAMPLE,
+  GIT_RENAMED_PATH_SUFFIX,
+} from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
@@ -38,22 +56,6 @@ const defaultBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const explicitBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
-const GIT_DIFF_COMMAND = "diff";
-const GIT_DIFF_CACHED_FLAG = "--cached";
-const GIT_NAME_STATUS_FLAG = "--name-status";
-const GIT_NULL_DELIMITED_FLAG = "-z";
-const GIT_LS_FILES_COMMAND = "ls-files";
-const GIT_LS_FILES_OTHERS_FLAG = "--others";
-const GIT_LS_FILES_EXCLUDE_STANDARD_FLAG = "--exclude-standard";
-const GIT_DELETE_STATUS_EXAMPLE = "D";
-const GIT_RENAMED_PATH_SUFFIX = "-renamed";
-const GIT_NULL_RECORD_SEPARATOR = "\0";
-const GIT_SHOW_COMMAND = "show";
-const GIT_INDEX_PATH_PREFIX = ":";
-const CHANGED_SET_PRODUCT_INPUT_PATHS = [
-  "src/config/filenames.ts",
-  "src/config/source-roots.ts",
-] as const;
 
 interface GitCall {
   readonly command: string;
