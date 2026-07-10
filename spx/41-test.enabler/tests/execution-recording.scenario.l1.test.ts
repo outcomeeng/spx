@@ -4,11 +4,14 @@ import { executionRecordingScenarioCases } from "@testing/harnesses/testing/exec
 import {
   HARNESS_TEST_TITLE_PATTERN,
   maxHarnessTestCaseTimeout,
+  requireNonEmptyHarnessTestCases,
   runHarnessTestCase,
 } from "@testing/harnesses/vitest-registration";
 
-it.each(executionRecordingScenarioCases)(
+const cases = requireNonEmptyHarnessTestCases(executionRecordingScenarioCases);
+
+it.each(cases)(
   HARNESS_TEST_TITLE_PATTERN,
   runHarnessTestCase,
-  maxHarnessTestCaseTimeout(executionRecordingScenarioCases),
+  maxHarnessTestCaseTimeout(cases),
 );
