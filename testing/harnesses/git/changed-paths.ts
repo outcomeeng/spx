@@ -10,9 +10,12 @@ import {
   changedPathsForWorktreeComparison,
   untrackedProductPaths,
 } from "@/lib/git/changed-paths";
-import { pathsFromNameStatus } from "@/lib/git/name-status";
+import { GIT_MODIFY_STATUS_EXAMPLE, pathsFromNameStatus } from "@/lib/git/name-status";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
-import { arbitraryPathSegment, arbitraryWhitespacePathSegment } from "@testing/generators/git-name/git-name";
+import {
+  arbitraryRenameCopyRecords,
+  arbitraryWhitespaceNameStatusRecord,
+} from "@testing/generators/git-changed-paths/changed-paths";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -48,9 +51,6 @@ const GIT_NAME_STATUS_FLAG = "--name-status";
 const GIT_NULL_DELIMITED_FLAG = "-z";
 const GIT_RANGE_SEPARATOR = "..";
 const GIT_NULL_RECORD_SEPARATOR = "\0";
-const GIT_MODIFY_STATUS_EXAMPLE = "M";
-const GIT_RENAME_STATUS_EXAMPLE = "R100";
-const GIT_COPY_STATUS_EXAMPLE = "C100";
 
 interface GitScriptEntry {
   readonly stdout: string;
@@ -192,6 +192,7 @@ async function assertCommittedRangeConformance(): Promise<void> {
     await commitAll(productDir, RANGE_COMMIT_MESSAGE);
     const head = await headRef(productDir);
     await writeProductFile(productDir, secondaryPath, UNTRACKED_CONTENT);
+    await commitAll(productDir, RANGE_COMMIT_MESSAGE);
 
     await expect(changedPathsForCommittedRange({
       productDir,
@@ -215,8 +216,9 @@ async function assertStagedComparisonConformance(): Promise<void> {
     await commitAll(productDir, BASELINE_COMMIT_MESSAGE);
     const base = await headRef(productDir);
     await writeProductFile(productDir, trackedPath, MODIFIED_CONTENT);
-    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, trackedPath]);
+    await commitAll(productDir, RANGE_COMMIT_MESSAGE);
     await writeProductFile(productDir, secondaryPath, UNTRACKED_CONTENT);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, secondaryPath]);
 
     await expect(changedPathsForStagedComparison({
       productDir,
@@ -240,6 +242,7 @@ async function assertWorktreeComparisonConformance(): Promise<void> {
     await commitAll(productDir, BASELINE_COMMIT_MESSAGE);
     const base = await headRef(productDir);
     await writeProductFile(productDir, trackedPath, MODIFIED_CONTENT);
+    await commitAll(productDir, RANGE_COMMIT_MESSAGE);
     await writeProductFile(productDir, secondaryPath, UNTRACKED_CONTENT);
 
     await expect(changedPathsForWorktreeComparison({
@@ -328,10 +331,10 @@ export function registerGitUtilityPropertyTests(): void {
   describe("git utility name-status properties", () => {
     it("preserves whitespace in NUL-delimited path fields", () => {
       assertProperty(
-        arbitraryWhitespacePathSegment(),
-        (segment) => {
-          const path = productPath(segment);
-          expect(pathsFromNameStatus(nameStatusRecord(GIT_MODIFY_STATUS_EXAMPLE, [path]))).toEqual([path]);
+        arbitraryWhitespaceNameStatusRecord(),
+        ({ status, pathSegments }) => {
+          const paths = pathSegments.map(productPath);
+          expect(pathsFromNameStatus(nameStatusRecord(status, paths))).toEqual(uniqueSorted(paths));
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
@@ -339,16 +342,16 @@ export function registerGitUtilityPropertyTests(): void {
 
     it("includes every path named by rename and copy records", async () => {
       await assertProperty(
-        arbitraryPathSegment(),
-        (segment) => {
-          const path = productPath(segment);
-          const renamed = renamedPath(path);
-          const copied = copiedPath(path);
+        arbitraryRenameCopyRecords(),
+        ({ renameStatus, copyStatus, sourceSegment, renamedSegment, copiedSegment }) => {
+          const source = productPath(sourceSegment);
+          const renamed = productPath(renamedSegment);
+          const copied = productPath(copiedSegment);
 
           expect(pathsFromNameStatus([
-            nameStatusRecord(GIT_RENAME_STATUS_EXAMPLE, [path, renamed]),
-            nameStatusRecord(GIT_COPY_STATUS_EXAMPLE, [path, copied]),
-          ].join(""))).toEqual([path, copied, renamed]);
+            nameStatusRecord(renameStatus, [source, renamed]),
+            nameStatusRecord(copyStatus, [source, copied]),
+          ].join(""))).toEqual(uniqueSorted([source, copied, renamed]));
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
