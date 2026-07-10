@@ -11,6 +11,7 @@ import {
   CHANGED_TEST_NULL_DELIMITED_FLAG as GIT_NULL_DELIMITED_FLAG,
   CHANGED_TEST_PRODUCT_INPUT_PATHS as CHANGED_SET_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND as GIT_SHOW_COMMAND,
+  type ChangedTestSelection,
   EMPTY_TREE_SHA,
   planChangedTestSelection,
 } from "@/commands/test/changed-set-planning";
@@ -67,6 +68,14 @@ interface RecordingGitRunner {
   readonly git: GitDependencies;
 }
 
+interface GitResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+type GitResponder = (args: readonly string[]) => GitResult | undefined;
+
 function nulDelimited(paths: readonly string[]): string {
   return paths.map((path) => `${path}${GIT_NULL_RECORD_SEPARATOR}`).join("");
 }
@@ -77,92 +86,80 @@ function nameStatusNulDelimited(paths: readonly string[]): string {
     .join("");
 }
 
+function gitResult(stdout: string, exitCode = 0, stderr = ""): GitResult {
+  return { exitCode, stdout, stderr };
+}
+
+function createRecordingGitRunner(responder: GitResponder): RecordingGitRunner {
+  const calls: GitCall[] = [];
+  return {
+    calls,
+    git: {
+      execa: async (command, args) => {
+        calls.push({ command, args });
+        return responder(args) ?? gitResult(headSha);
+      },
+    },
+  };
+}
+
+function standardRefResult(args: readonly string[]): GitResult | undefined {
+  if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
+    return gitResult(defaultBaseRef);
+  }
+  const lastArg = args.at(-1);
+  if (lastArg === defaultBaseRef) {
+    return gitResult(defaultBaseSha);
+  }
+  if (lastArg !== undefined && lastArg !== headSha && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
+    return gitResult(explicitBaseSha);
+  }
+  return undefined;
+}
+
 function recordingGitRunner(
   changedPaths: readonly string[],
   untrackedPaths: readonly string[] = [],
 ): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-        }
-        const lastArg = args.at(-1);
-        if (lastArg === defaultBaseRef) {
-          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-        }
-        if (lastArg !== undefined && lastArg !== headSha && args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
-          return { exitCode: 0, stdout: explicitBaseSha, stderr: "" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          const stdout = args.includes(GIT_NAME_STATUS_FLAG)
-            ? nameStatusNulDelimited(changedPaths)
-            : nulDelimited(changedPaths);
-          return { exitCode: 0, stdout, stderr: "" };
-        }
-        if (args.includes(GIT_LS_FILES_COMMAND)) {
-          return { exitCode: 0, stdout: nulDelimited(untrackedPaths), stderr: "" };
-        }
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      },
-    },
-  };
+  return createRecordingGitRunner((args) => {
+    const refResult = standardRefResult(args);
+    if (refResult !== undefined) return refResult;
+    if (args.includes(GIT_DIFF_COMMAND)) {
+      return gitResult(
+        args.includes(GIT_NAME_STATUS_FLAG)
+          ? nameStatusNulDelimited(changedPaths)
+          : nulDelimited(changedPaths),
+      );
+    }
+    if (args.includes(GIT_LS_FILES_COMMAND)) return gitResult(nulDelimited(untrackedPaths));
+    return undefined;
+  });
 }
 
 function renameGitRunner(oldPath: string, newPath: string): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-        }
-        const lastArg = args.at(-1);
-        if (lastArg === defaultBaseRef) {
-          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          return {
-            exitCode: 0,
-            stdout: [
-              GIT_RENAME_STATUS_EXAMPLE,
-              oldPath,
-              newPath,
-            ].join(GIT_NULL_RECORD_SEPARATOR) + GIT_NULL_RECORD_SEPARATOR,
-            stderr: "",
-          };
-        }
-        if (args.includes(GIT_LS_FILES_COMMAND)) {
-          return { exitCode: 0, stdout: "", stderr: "" };
-        }
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      },
-    },
-  };
+  return createRecordingGitRunner((args) => {
+    const refResult = standardRefResult(args);
+    if (refResult !== undefined) return refResult;
+    if (args.includes(GIT_DIFF_COMMAND)) {
+      return gitResult(
+        [
+          GIT_RENAME_STATUS_EXAMPLE,
+          oldPath,
+          newPath,
+        ].join(GIT_NULL_RECORD_SEPARATOR) + GIT_NULL_RECORD_SEPARATOR,
+      );
+    }
+    if (args.includes(GIT_LS_FILES_COMMAND)) return gitResult("");
+    return undefined;
+  });
 }
 
 function unbornHeadGitRunner(changedPaths: readonly string[]): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
-          return { exitCode: 1, stdout: "", stderr: "unknown revision" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          return { exitCode: 0, stdout: nameStatusNulDelimited(changedPaths), stderr: "" };
-        }
-        return { exitCode: 0, stdout: "", stderr: "" };
-      },
-    },
-  };
+  return createRecordingGitRunner((args) => {
+    if (args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) return gitResult("", 1, "unknown revision");
+    if (args.includes(GIT_DIFF_COMMAND)) return gitResult(nameStatusNulDelimited(changedPaths));
+    return gitResult("");
+  });
 }
 
 function stagedSourceGitRunner(
@@ -171,33 +168,7 @@ function stagedSourceGitRunner(
   testContent: string,
   tsconfigContent: string = changedSetContent.emptyTsconfig,
 ): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-        }
-        const lastArg = args.at(-1);
-        if (lastArg === defaultBaseRef) {
-          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          return { exitCode: 0, stdout: nameStatusNulDelimited([sourcePath]), stderr: "" };
-        }
-        if (args.includes(GIT_LS_FILES_COMMAND)) {
-          return { exitCode: 0, stdout: nulDelimited([testPath]), stderr: "" };
-        }
-        if (args.includes(GIT_SHOW_COMMAND)) {
-          const path = args.find((arg) => arg.startsWith(GIT_INDEX_PATH_PREFIX))?.slice(1) ?? "";
-          return { exitCode: 0, stdout: path === TYPESCRIPT_MARKER ? tsconfigContent : testContent, stderr: "" };
-        }
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      },
-    },
-  };
+  return stagedSourceCandidatesGitRunner([sourcePath], new Map([[testPath, testContent]]), tsconfigContent);
 }
 
 function stagedMissingCandidateGitRunner(
@@ -206,74 +177,38 @@ function stagedMissingCandidateGitRunner(
   missingStderr: string,
   tsconfigContent: string = changedSetContent.emptyTsconfig,
 ): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-        }
-        const lastArg = args.at(-1);
-        if (lastArg === defaultBaseRef) {
-          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          return { exitCode: 0, stdout: nameStatusNulDelimited([sourcePath]), stderr: "" };
-        }
-        if (args.includes(GIT_LS_FILES_COMMAND)) {
-          return { exitCode: 0, stdout: nulDelimited([testPath]), stderr: "" };
-        }
-        if (args.includes(GIT_SHOW_COMMAND)) {
-          const path = args.find((arg) => arg.startsWith(GIT_INDEX_PATH_PREFIX))?.slice(1) ?? "";
-          if (path === TYPESCRIPT_MARKER) {
-            return { exitCode: 0, stdout: tsconfigContent, stderr: "" };
-          }
-          return { exitCode: 1, stdout: "", stderr: missingStderr };
-        }
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      },
-    },
-  };
+  return stagedSourceCandidatesGitRunner(
+    [sourcePath],
+    new Map([[testPath, gitResult("", 1, missingStderr)]]),
+    tsconfigContent,
+  );
 }
 
 function stagedSourceCandidatesGitRunner(
   sourcePaths: readonly string[],
-  candidateContents: ReadonlyMap<string, string>,
+  candidateContents: ReadonlyMap<string, string | GitResult>,
   tsconfigContent: string = changedSetContent.emptyTsconfig,
 ): RecordingGitRunner {
-  const calls: GitCall[] = [];
-  return {
-    calls,
-    git: {
-      execa: async (command, args) => {
-        calls.push({ command, args });
-        if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-          return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-        }
-        const lastArg = args.at(-1);
-        if (lastArg === defaultBaseRef) {
-          return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-        }
-        if (args.includes(GIT_DIFF_COMMAND)) {
-          return { exitCode: 0, stdout: nameStatusNulDelimited(sourcePaths), stderr: "" };
-        }
-        if (args.includes(GIT_LS_FILES_COMMAND)) {
-          return { exitCode: 0, stdout: nulDelimited([...candidateContents.keys()]), stderr: "" };
-        }
-        if (args.includes(GIT_SHOW_COMMAND)) {
-          const path = args.find((arg) => arg.startsWith(GIT_INDEX_PATH_PREFIX))?.slice(1) ?? "";
-          return {
-            exitCode: 0,
-            stdout: path === TYPESCRIPT_MARKER ? tsconfigContent : candidateContents.get(path) ?? "",
-            stderr: "",
-          };
-        }
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      },
-    },
-  };
+  return createRecordingGitRunner((args) => {
+    const refResult = standardRefResult(args);
+    if (refResult !== undefined) return refResult;
+    if (args.includes(GIT_DIFF_COMMAND)) return gitResult(nameStatusNulDelimited(sourcePaths));
+    if (args.includes(GIT_LS_FILES_COMMAND)) return gitResult(nulDelimited([...candidateContents.keys()]));
+    if (args.includes(GIT_SHOW_COMMAND)) {
+      const path = args.find((arg) => arg.startsWith(GIT_INDEX_PATH_PREFIX))?.slice(1) ?? "";
+      if (path === TYPESCRIPT_MARKER) return gitResult(tsconfigContent);
+      const candidate = candidateContents.get(path) ?? "";
+      return typeof candidate === "string" ? gitResult(candidate) : candidate;
+    }
+    return undefined;
+  });
+}
+
+function planStagedTypescript(git: GitDependencies): Promise<ChangedTestSelection> {
+  return planChangedTestSelection(
+    { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
+    { git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
+  );
 }
 
 function descriptorWithRelatedTests(
@@ -574,10 +509,7 @@ export function registerChangedSetPlanningScenarioTests(): void {
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -604,10 +536,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -623,10 +552,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -643,10 +569,7 @@ helper;
           tsconfigWithPaths(fixture.tsconfigPaths),
         );
 
-        const plan = await planChangedTestSelection(
-          { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-          { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-        );
+        const plan = await planStagedTypescript(git.git);
 
         expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
         expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -664,10 +587,7 @@ helper;
       );
 
       await expect(
-        planChangedTestSelection(
-          { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-          { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-        ),
+        planStagedTypescript(git.git),
       ).rejects.toThrow(TYPESCRIPT_MARKER);
     });
 
@@ -681,10 +601,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([fixture.sourcePath]);
@@ -700,10 +617,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -751,10 +665,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({
         operands: nativeStringOrder([...selectedConsumers.keys()]),
@@ -902,10 +813,7 @@ helper;
         tsconfigWithPaths(fixture.tsconfigPaths),
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([]);
@@ -932,10 +840,7 @@ helper;
         missingMessage,
       );
 
-      const plan = await planChangedTestSelection(
-        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()), staged: true },
-        { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-      );
+      const plan = await planStagedTypescript(git.git);
 
       expect(plan.targets).toEqual({ operands: [], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([paths.sourcePath]);
