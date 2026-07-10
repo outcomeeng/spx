@@ -29,6 +29,8 @@ const GIT_STAGED_AMBIGUOUS_PATH_MESSAGE =
 const GIT_STAGED_NOT_IN_INDEX_MESSAGE = "not in index";
 const BEFORE_SOURCE_VALUE = 1;
 const AFTER_SOURCE_VALUE = 2;
+const BASE_COMMIT_MESSAGE = "base";
+const BRANCH_COMMIT_MESSAGE = "branch change";
 
 export interface ChangedSetAliasFixture {
   readonly sourcePath: string;
@@ -71,6 +73,8 @@ export interface ChangedSetFixtureContent {
   readonly gitStagedNotInIndexMessage: string;
   readonly beforeSourceValue: number;
   readonly afterSourceValue: number;
+  readonly baseCommitMessage: string;
+  readonly branchCommitMessage: string;
 }
 
 export const CHANGED_SET_PLANNING_GENERATOR = {
@@ -98,6 +102,23 @@ export function changedSetSourceFixture(value: number): string {
   return [`export const value = ${value};`, ""].join("\n");
 }
 
+export function changedSetSelectedTestFixture(importSpecifier: string, expectedValue: number): string {
+  return [
+    `import { expect, it } from "vitest";`,
+    `import { value } from "${importSpecifier}";`,
+    `it("passes", () => expect(value).toBe(${expectedValue}));`,
+    "",
+  ].join("\n");
+}
+
+export function changedSetPassingTestFixture(): string {
+  return [
+    `import { expect, it } from "vitest";`,
+    `it("passes", () => expect(true).toBe(true));`,
+    "",
+  ].join("\n");
+}
+
 export function changedSetImportStatement(importSpecifier: string): string {
   return importStatement(importSpecifier);
 }
@@ -117,6 +138,8 @@ export function fixtureContent(): ChangedSetFixtureContent {
     gitStagedNotInIndexMessage: GIT_STAGED_NOT_IN_INDEX_MESSAGE,
     beforeSourceValue: BEFORE_SOURCE_VALUE,
     afterSourceValue: AFTER_SOURCE_VALUE,
+    baseCommitMessage: BASE_COMMIT_MESSAGE,
+    branchCommitMessage: BRANCH_COMMIT_MESSAGE,
   };
 }
 
