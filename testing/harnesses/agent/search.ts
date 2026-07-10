@@ -30,6 +30,9 @@ import {
 } from "@/domains/agent/search";
 import { resolveProductDir } from "@/domains/config/root";
 import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
+import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
 import {
   GIT_COMMON_DIR_ARGS,
   GIT_ROOT_COMMAND,
@@ -41,9 +44,6 @@ import {
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
 } from "@/lib/git/root";
-import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
-import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import {
