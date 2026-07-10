@@ -1,6 +1,7 @@
 /**
  * Shared types for validation commands.
  */
+import type { ValidationStage } from "@/validation/languages/types";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
@@ -28,8 +29,11 @@ export interface CommonValidationOptions {
   json?: boolean;
 }
 
-/** Options for TypeScript command (same as common options) */
-export type TypeScriptCommandOptions = CommonValidationOptions;
+/** Options for TypeScript command */
+export interface TypeScriptCommandOptions extends CommonValidationOptions {
+  /** Parent streams that receive TypeScript subprocess output */
+  outputStreams?: ValidationSubprocessOutputStreams;
+}
 
 /** Options for lint command */
 export interface LintCommandOptions extends CommonValidationOptions {
@@ -63,6 +67,12 @@ export interface FormattingCommandOptions {
 export interface AllCommandOptions extends CommonValidationOptions {
   /** Auto-fix ESLint issues */
   fix?: boolean;
+  /** Registered validation stages to run for this full-pipeline invocation. */
+  validationStages?: readonly ValidationStage[];
   /** Invocation-local stage participation override flags selected by the CLI. */
   participationOverrides?: readonly `--${string}`[];
+  /** Receives each visible stage line as soon as that stage completes. */
+  writeStageOutput?: (output: string) => void;
+  /** Parent streams that receive validation subprocess output. */
+  outputStreams?: ValidationSubprocessOutputStreams;
 }

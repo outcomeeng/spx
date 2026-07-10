@@ -7,6 +7,7 @@
  * referencing any language or stage by name.
  */
 import type { ValidationCommandResult } from "@/commands/validation/types";
+import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
 export const VALIDATION_STAGE_PARTICIPATION = {
@@ -44,6 +45,8 @@ export interface ValidationStageContext {
   readonly quiet?: boolean;
   /** Emit machine-readable output. */
   readonly json?: boolean;
+  /** Parent streams that receive validation subprocess output. */
+  readonly outputStreams?: ValidationSubprocessOutputStreams;
 }
 
 /** A single validation stage a language contributes to the pipeline. */

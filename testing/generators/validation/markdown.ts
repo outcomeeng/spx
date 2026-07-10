@@ -16,8 +16,12 @@ const DECLARED_MARKDOWN_FILE = "declared.md";
 const DECLARED_MARKDOWN_EXTENSION_FILE = "declared.markdown";
 const DECLARED_CHILD_DIRECTORY = "43-child.enabler";
 const DATA_URI_MARKER = "data:";
+const EXTERNAL_URL_MARKER = "https://example.invalid/missing.md";
+const HTML_LINK_MARKER = "<a href=\"./does-not-exist.md\">ignored html link</a>";
 const MISSING_HEADING_MARKER = "nonexistent-heading";
 const MISSING_FILE_MARKER = "does-not-exist";
+const BROKEN_LINK_TARGET_MARKER = "32-child.outcome/deleted.md";
+const BROKEN_LINK_LINE = 11;
 const MD024_RULE_MARKER = "MD024";
 const CHILD_MARKDOWN_FILE = "child.md";
 const COLON_MARKDOWN_FILE = "api:v2.md";
@@ -34,16 +38,31 @@ const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
+const EXTERNAL_URL_MARKDOWN_CONTENT = `# External\n\n[external](${EXTERNAL_URL_MARKER})\n`;
+const HTML_LINK_MARKDOWN_CONTENT = `# Html\n\n${HTML_LINK_MARKER}\n`;
 const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
 const MARKDOWN_HELP_FLAG = "--help";
 const EXPECTED_ZERO = 0;
 const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
 const EXPECTED_THREE = 3;
+const EXPECTED_MARKDOWN_CONFIG_KEYS = [
+  "MD001",
+  "MD003",
+  "MD009",
+  "MD010",
+  "MD024",
+  "MD025",
+  "MD047",
+  "customRules",
+  "default",
+] as const;
 
 export const MARKDOWN_SCENARIO_KIND = {
   CLEAN_TREE: "cleanTree",
   DATA_URI_ALLOWED: "dataUriAllowed",
+  EXTERNAL_URL_ALLOWED: "externalUrlAllowed",
+  HTML_LINK_ALLOWED: "htmlLinkAllowed",
   BROKEN_LINKS: "brokenLinks",
   BROKEN_FRAGMENT: "brokenFragment",
   ERROR_SHAPE: "errorShape",
@@ -93,8 +112,12 @@ export const MARKDOWN_VALIDATION_DATA = {
   declaredMarkdownExtensionFile: DECLARED_MARKDOWN_EXTENSION_FILE,
   declaredChildDirectory: DECLARED_CHILD_DIRECTORY,
   dataUriMarker: DATA_URI_MARKER,
+  externalUrlMarker: EXTERNAL_URL_MARKER,
+  htmlLinkMarker: HTML_LINK_MARKER,
   missingHeadingMarker: MISSING_HEADING_MARKER,
   missingFileMarker: MISSING_FILE_MARKER,
+  brokenLinkTargetMarker: BROKEN_LINK_TARGET_MARKER,
+  brokenLinkLine: BROKEN_LINK_LINE,
   md024RuleMarker: MD024_RULE_MARKER,
   childMarkdownFile: CHILD_MARKDOWN_FILE,
   colonMarkdownFile: COLON_MARKDOWN_FILE,
@@ -111,12 +134,15 @@ export const MARKDOWN_VALIDATION_DATA = {
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
+  externalUrlMarkdownContent: EXTERNAL_URL_MARKDOWN_CONTENT,
+  htmlLinkMarkdownContent: HTML_LINK_MARKDOWN_CONTENT,
   unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
   helpFlag: MARKDOWN_HELP_FLAG,
   zero: EXPECTED_ZERO,
   one: EXPECTED_ONE,
   two: EXPECTED_TWO,
   three: EXPECTED_THREE,
+  expectedMarkdownConfigKeys: EXPECTED_MARKDOWN_CONFIG_KEYS,
 } as const;
 
 export function markdownDirectoryTarget(path: string): MarkdownValidationTarget {
@@ -148,6 +174,16 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
+      title: "external URL links are ignored by relative-link validation",
+      kind: MARKDOWN_SCENARIO_KIND.EXTERNAL_URL_ALLOWED,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
+      title: "HTML href links are ignored by relative-link validation",
+      kind: MARKDOWN_SCENARIO_KIND.HTML_LINK_ALLOWED,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
       title: "broken markdown links are reported",
       kind: MARKDOWN_SCENARIO_KIND.BROKEN_LINKS,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
@@ -162,12 +198,6 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "markdown errors include file line and detail",
       kind: MARKDOWN_SCENARIO_KIND.ERROR_SHAPE,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
-    },
-    {
-      title: "project absolute links resolve from project root",
-      kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
@@ -231,6 +261,12 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
 export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
   return [
     {
+      title: "project absolute links resolve from project root",
+      kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
+      timeout: MARKDOWN_HARNESS_TIMEOUT,
+    },
+    {
       title: "default markdown command validates default directories",
       kind: MARKDOWN_SCENARIO_KIND.COMMAND_DEFAULTS,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
@@ -245,7 +281,6 @@ export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
     {
       title: "markdown command files scope accepts a clean spx directory",
       kind: MARKDOWN_SCENARIO_KIND.FILE_SCOPE_CLEAN_SPX,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {

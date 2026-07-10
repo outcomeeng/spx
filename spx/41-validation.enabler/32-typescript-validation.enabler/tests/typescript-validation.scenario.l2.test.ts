@@ -1,3 +1,7 @@
-import { registerValidationAllTypeScriptSubprocessTests } from "@testing/harnesses/validation/cli";
+import { describe } from "vitest";
 
-registerValidationAllTypeScriptSubprocessTests();
+import { registerTypeScriptValidationScenarioTests } from "@testing/harnesses/validation/typescript";
+
+describe("TypeScript validation pipeline subprocess", () => {
+  registerTypeScriptValidationScenarioTests();
+});

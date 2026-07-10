@@ -4,7 +4,10 @@ import { PassThrough } from "node:stream";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
-import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
+import {
+  VALIDATION_SUBPROCESS_EVENTS,
+  type ValidationSubprocessOutputStreams,
+} from "@/validation/steps/subprocess-output";
 
 /**
  * Validation subprocess spy used when the test needs to observe child-process
@@ -49,4 +52,11 @@ export class RecordingSpawnOptionsRunner implements ProcessRunner {
     queueMicrotask(() => child.closeSuccessfully());
     return child.asChildProcess();
   }
+}
+
+export function createDiscardValidationSubprocessOutputStreams(): ValidationSubprocessOutputStreams {
+  return {
+    stdout: { write: () => true },
+    stderr: { write: () => true },
+  };
 }

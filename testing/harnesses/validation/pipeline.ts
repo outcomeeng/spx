@@ -1,9 +1,11 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { expect, it } from "vitest";
 
+import { allCommand } from "@/commands/validation/all";
+import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import {
+  createValidationDomain,
   deriveValidationAllOverrideCliOptions,
   validationAllBuiltInCliOptions,
   validationAllOverrideCliOptions,
@@ -12,23 +14,32 @@ import {
 } from "@/interfaces/cli/validation";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
-import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
-import { typescriptValidationLanguage } from "@/validation/languages/typescript";
-import { validationRegistry } from "@/validation/registry";
 import {
-  isValidationPipelineComplianceScenario,
+  VALIDATION_STAGE_PARTICIPATION,
+  type ValidationStage,
+  type ValidationStageContext,
+} from "@/validation/languages/types";
+import { typescriptValidationLanguage } from "@/validation/languages/typescript";
+import { VALIDATION_REGISTRY_LANGUAGES, validationPipelineStages, validationRegistry } from "@/validation/registry";
+import {
+  arbitraryGeneratedValidationStageSet,
+  arbitraryRegisteredValidationStageOutcomes,
+  arbitraryValidationPipelineProjectCase,
+  type GeneratedRegisteredValidationStageOutcome,
+  type GeneratedValidationStageSet,
+  type GeneratedValidationStageSpec,
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
+  validationPipelineBehaviorScenarios,
+  validationPipelineComplianceScenarios,
+  type ValidationPipelineProjectCase,
   type ValidationPipelineScenario,
-  validationPipelineScenarios,
   type ValidationStepOutcome,
 } from "@testing/generators/validation/validation";
-import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
-import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { runValidationInProcessWithDomains } from "@testing/harnesses/validation/cli";
+import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const VALIDATION_ROOT = resolve(__dirname, "../../../spx/41-validation.enabler");
 const EXPECTED_PIPELINE_STAGE_COUNT_FROM_SPEC_MAPPING = 7;
 const OVERRIDE_METADATA_TEST_STAGE_NAME = "Override metadata test";
 const OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test";
@@ -39,6 +50,20 @@ const VALUE_OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test <value>";
 const ALIASED_OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test, -o";
 const CAMEL_CASE_OVERRIDE_METADATA_TEST_FLAG = "--overrideMetadataTest";
 const COLLIDING_OVERRIDE_METADATA_TEST_FLAG = "--overrideMetadata-test";
+const STREAMING_PROBE_FIRST_STAGE_NAME = "Streaming probe first stage";
+const STREAMING_PROBE_SECOND_STAGE_NAME = "Streaming probe second stage";
+const STREAMING_PROBE_FIRST_STAGE_OUTPUT = `${STREAMING_PROBE_FIRST_STAGE_NAME}: passed`;
+const STREAMING_PROBE_SECOND_STAGE_OUTPUT = `${STREAMING_PROBE_SECOND_STAGE_NAME}: passed`;
+
+interface RecordedValidationStageCall {
+  readonly context: ValidationStageContext;
+  readonly stageName: string;
+}
+
+interface ValidationPipelineObservedResult {
+  readonly exitCode: number;
+  readonly outcomes: ReadonlyMap<string, ValidationStepOutcome>;
+}
 
 export function expectValidationRegistryDescriptors(): void {
   expect(validationRegistry.languages.length).toBeGreaterThan(0);
@@ -54,17 +79,184 @@ export function expectValidationRegistryDescriptors(): void {
 }
 
 export function expectValidationRegistryLanguageSet(): void {
-  expect(validationRegistry.languages).toEqual([
+  expect(VALIDATION_REGISTRY_LANGUAGES).toEqual([
     typescriptValidationLanguage,
     markdownValidationLanguage,
     formattingValidationLanguage,
   ]);
+  expect(validationRegistry.languages).toBe(VALIDATION_REGISTRY_LANGUAGES);
 }
 
 export function expectValidationPipelineTotalStageCount(): void {
   expect(registeredValidationStages()).toHaveLength(
     EXPECTED_PIPELINE_STAGE_COUNT_FROM_SPEC_MAPPING,
   );
+}
+
+export function registerValidationRuntimeMappingTests(): void {
+  it.each([
+    { stageName: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR },
+    { stageName: VALIDATION_STAGE_DISPLAY_NAMES.KNIP },
+    { stageName: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT },
+    { stageName: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT },
+    { stageName: VALIDATION_STAGE_DISPLAY_NAMES.LITERAL },
+  ])("TypeScript validation includes $stageName", ({ stageName }) => {
+    expect(typescriptValidationLanguage.stages.map((stage) => stage.name)).toContain(stageName);
+    expect(VALIDATION_REGISTRY_LANGUAGES).toContain(typescriptValidationLanguage);
+  });
+
+  it.each([
+    { language: typescriptValidationLanguage },
+    { language: markdownValidationLanguage },
+    { language: formattingValidationLanguage },
+  ])("validation registry composes $language.name descriptors into the full pipeline", ({ language }) => {
+    expect(VALIDATION_REGISTRY_LANGUAGES).toContain(language);
+    expect(validationRegistry.languages).toBe(VALIDATION_REGISTRY_LANGUAGES);
+    for (const stage of language.stages) {
+      expect(validationPipelineStages).toContain(stage);
+    }
+  });
+}
+
+export function registerValidationPipelinePropertyTests(): void {
+  it("validation pipeline orchestration verdicts are deterministic for generated project state and stages", async () => {
+    await assertProperty(
+      arbitraryGeneratedValidationPipelineCase(),
+      observeDeterministicPipelineCase,
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("adding a stage at a generated position preserves existing generated stage verdicts", async () => {
+    await assertProperty(
+      arbitraryGeneratedValidationStageSet().chain((stageSet) =>
+        arbitraryValidationPipelineProjectCase().map((projectCase) => ({ projectCase, stageSet }))
+      ),
+      expectGeneratedStageInsertionPreservesProjectCase,
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+}
+
+export function registerValidationPipelineSyntheticPropertyTests(): void {
+  it("adding a generated stage at a generated position preserves existing generated stage verdicts", async () => {
+    await assertProperty(
+      arbitraryGeneratedValidationStageSet(),
+      async ({ base, added, insertionIndex }) => {
+        const additiveSpecs = [
+          ...base.slice(0, insertionIndex),
+          added,
+          ...base.slice(insertionIndex),
+        ];
+        const baseResult = await allCommand({
+          cwd: process.cwd(),
+          validationStages: base.map(generatedValidationStage),
+        });
+        const additiveResult = await allCommand({
+          cwd: process.cwd(),
+          validationStages: additiveSpecs.map(generatedValidationStage),
+        });
+        const baseOutcomes = extractGeneratedStageOutcomes(baseResult.output, base);
+        const additiveOutcomes = extractGeneratedStageOutcomes(additiveResult.output, base);
+
+        for (const [stageName, outcome] of baseOutcomes) {
+          expect(additiveOutcomes.get(stageName)).toBe(outcome);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+}
+
+function arbitraryGeneratedValidationPipelineCase() {
+  return arbitraryValidationPipelineProjectCase().chain((projectCase) =>
+    arbitraryRegisteredValidationStageOutcomes().map((stageOutcomes) => ({ projectCase, stageOutcomes }))
+  );
+}
+
+async function observeDeterministicPipelineCase(
+  generatedCase: {
+    readonly projectCase: ValidationPipelineProjectCase;
+    readonly stageOutcomes: readonly GeneratedRegisteredValidationStageOutcome[];
+  },
+): Promise<void> {
+  const { projectCase, stageOutcomes } = generatedCase;
+  let observed: ValidationPipelineObservedResult | undefined;
+  await withValidationEnv({ fixture: projectCase.fixture }, async ({ path }) => {
+    await materializeValidationPipelineProjectCase(path, projectCase);
+    const stages = registeredValidationStagesWithOutcomes(stageOutcomes);
+    const first = await allCommand(validationAllCommandOptions(path, stages, projectCase));
+    const second = await allCommand(validationAllCommandOptions(path, stages, projectCase));
+    const firstOutcomes = extractStageOutcomesByName(first.output, stages);
+    const secondOutcomes = extractStageOutcomesByName(second.output, stages);
+
+    expect(second.exitCode).toBe(first.exitCode);
+    expect(secondOutcomes).toEqual(firstOutcomes);
+
+    observed = {
+      exitCode: first.exitCode,
+      outcomes: firstOutcomes,
+    };
+  });
+  if (observed === undefined) {
+    throw new Error(`Validation project case did not run: ${projectCase.title}`);
+  }
+}
+
+async function expectGeneratedStageInsertionPreservesProjectCase(
+  generatedCase: {
+    readonly projectCase: ValidationPipelineProjectCase;
+    readonly stageSet: GeneratedValidationStageSet;
+  },
+): Promise<void> {
+  const { projectCase, stageSet } = generatedCase;
+  await withValidationEnv({ fixture: projectCase.fixture }, async ({ path }) => {
+    await materializeValidationPipelineProjectCase(path, projectCase);
+    const base = stageSet.base.map(generatedValidationStage);
+    const baseOutcomes = extractStageOutcomesByName(
+      (await allCommand(validationAllCommandOptions(path, base, projectCase))).output,
+      base,
+    );
+
+    const addedStage = generatedValidationStage(stageSet.added);
+    const additiveStages = [
+      ...base.slice(0, stageSet.insertionIndex),
+      addedStage,
+      ...base.slice(stageSet.insertionIndex),
+    ];
+    const additiveResult = await allCommand(
+      validationAllCommandOptions(path, additiveStages, projectCase),
+    );
+    const additiveOutcomes = extractStageOutcomesByName(additiveResult.output, base);
+
+    for (const [stageName, outcome] of baseOutcomes) {
+      expect(additiveOutcomes.get(stageName)).toBe(outcome);
+    }
+  });
+}
+
+function validationAllCommandOptions(
+  cwd: string,
+  validationStages: readonly ValidationStage[],
+  projectCase: ValidationPipelineProjectCase,
+): Parameters<typeof allCommand>[0] {
+  return {
+    cwd,
+    validationStages,
+    ...(projectCase.files === undefined ? {} : { files: [...projectCase.files] }),
+    ...(projectCase.scope === undefined ? {} : { scope: projectCase.scope }),
+  };
+}
+
+async function materializeValidationPipelineProjectCase(
+  productDir: string,
+  projectCase: ValidationPipelineProjectCase,
+): Promise<void> {
+  for (const generatedFile of projectCase.generatedFiles) {
+    const generatedPath = join(productDir, generatedFile.path);
+    await mkdir(dirname(generatedPath), { recursive: true });
+    await writeFile(generatedPath, generatedFile.content, VALIDATION_PIPELINE_DATA.fixtureTextEncoding);
+  }
 }
 
 export function expectValidationAllOverrideOptionsDerived(): void {
@@ -187,23 +379,23 @@ function registeredValidationStages(): readonly ValidationStage[] {
 }
 
 export function registerValidationPipelineScenarioTests(): void {
-  registerValidationPipelineTests((scenario) => !isValidationPipelineComplianceScenario(scenario));
+  for (const scenario of validationPipelineBehaviorScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      () => runValidationPipelineScenario(scenario),
+    );
+  }
 }
 
 export function registerValidationPipelineComplianceTests(): void {
-  registerValidationPipelineTests(isValidationPipelineComplianceScenario);
-}
-
-function registerValidationPipelineTests(include: (scenario: ValidationPipelineScenario) => boolean): void {
-  describe("validation pipeline composition", () => {
-    for (const scenario of validationPipelineScenarios().filter(include)) {
-      it(
-        scenario.title,
-        { timeout: scenario.timeout },
-        async () => runValidationPipelineScenario(scenario),
-      );
-    }
-  });
+  for (const scenario of validationPipelineComplianceScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      () => runValidationPipelineScenario(scenario),
+    );
+  }
 }
 
 export async function runValidationPipelineScenario(scenario: ValidationPipelineScenario): Promise<void> {
@@ -230,351 +422,306 @@ export async function runValidationPipelineScenario(scenario: ValidationPipeline
       return runFailureExitCodeScenario(scenario);
     case VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION:
       return runStepDurationScenario(scenario);
-    case VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT:
-      return runStableVerdictScenario(scenario);
-    case VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS:
-      return runAdditiveVerdictsScenario(scenario);
   }
 }
 
-async function runAll(cwd: string, args: readonly string[] = []): Promise<{
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly stdout: string;
-}> {
-  return runValidationSubprocess([validationCliDefinition.subcommands.all.commandName, ...args], {
-    cwd,
-    timeout: VALIDATION_PIPELINE_DATA.allTimeout,
-  });
-}
-
 async function runCleanProjectScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const result = await runAll(path);
-
-    expectValidationSubprocessResult(result, {
-      title: _scenario.title,
-      fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
-      args: [],
-      timeout: _scenario.timeout,
-      expectedExitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-      stdoutIncludes: [`Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.PASSED}`],
-      combinedIncludes: [],
-      stdoutExcludes: [],
-      stderrExcludes: [],
-      combinedExcludes: [],
-    });
-    expectEveryStepToSucceed(result.stdout);
+  const calls: RecordedValidationStageCall[] = [];
+  const result = await allCommand({
+    cwd: process.cwd(),
+    validationStages: recordingValidationStages(calls),
   });
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(calls.map((call) => call.stageName)).toEqual(
+    defaultParticipatingStageNames(),
+  );
+  expectStepSequence(result.output);
+  expect(result.output).toContain(`Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.PASSED}`);
 }
 
 async function runFailureIdentifiesStepScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
-    const result = await runAll(path);
-
-    expectValidationSubprocessResult(result, {
-      title: _scenario.title,
-      fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS,
-      args: [],
-      timeout: _scenario.timeout,
-      expectedExitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
-      stdoutIncludes: [
-        VALIDATION_PIPELINE_DATA.circularOutput.FOUND,
-        `Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.FAILED}`,
-      ],
-      combinedIncludes: [],
-      stdoutExcludes: [],
-      stderrExcludes: [],
-      combinedExcludes: [],
-    });
-    for (const detailPath of VALIDATION_PIPELINE_DATA.circularFixtureDetailPaths) {
-      expect(result.stdout).toContain(detailPath);
-    }
+  const failingStage = validationPipelineStages.find((stage) =>
+    stage.failsPipeline && stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN
+  );
+  if (failingStage === undefined) throw new Error("Validation pipeline has no gating stage");
+  const calls: RecordedValidationStageCall[] = [];
+  const result = await allCommand({
+    cwd: process.cwd(),
+    validationStages: recordingValidationStages(calls, failingStage.name),
   });
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+  expect(result.output).toContain(failingStage.name);
+  expect(result.output).toContain(VALIDATION_PIPELINE_DATA.syntheticStageFailureDetail);
+  expect(result.output).toContain(VALIDATION_PIPELINE_DATA.summaryStatus.FAILED);
 }
 
 async function runProductionScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    await mkdir(join(path, VALIDATION_PIPELINE_DATA.testDirectoryName), { recursive: true });
-    await writeFile(
-      join(path, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
-      JSON.stringify({
-        ...JSON.parse(
-          await readFile(
-            join(path, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
-            VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
-          ),
-        ),
-        include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, VALIDATION_PIPELINE_DATA.testScopeFilePattern],
-      }),
-    );
-    await writeFile(
-      join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
-      VALIDATION_PIPELINE_DATA.productionTsconfigContent,
-    );
-    await writeFile(
-      join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceFile),
-      VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
-    );
-    const fullResult = await runAll(path);
-    expect(fullResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-
-    const result = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.scopeFlag,
-      VALIDATION_PIPELINE_DATA.productionScope,
-    ]);
-
-    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(result.stdout);
+  const calls: RecordedValidationStageCall[] = [];
+  const result = await allCommand({
+    cwd: process.cwd(),
+    scope: VALIDATION_PIPELINE_DATA.productionScope,
+    validationStages: recordingValidationStages(calls),
   });
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(calls.map((call) => call.stageName)).toEqual(defaultParticipatingStageNames());
+  for (const call of calls) {
+    expect(call.context.scope).toBe(VALIDATION_PIPELINE_DATA.productionScope);
+  }
 }
 
 async function runPathDirectoryScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const outOfScopeDirectory = join(path, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownDirectoryName);
-    await mkdir(outOfScopeDirectory, { recursive: true });
-    await writeFile(
-      join(outOfScopeDirectory, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownFileName),
-      VALIDATION_PIPELINE_DATA.outOfScopeMarkdownContent,
-    );
-
-    const unscopedResult = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
-    expect(unscopedResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-    expect(unscopedResult.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.FORMATTING);
-
-    const targetDirectory = VALIDATION_PIPELINE_DATA.sourceDirectoryName;
-    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag, targetDirectory]);
-
-    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(result.stdout);
-  });
+  await expectFileScopeForwardedToEveryStage(
+    VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+  );
 }
 
 async function runPathFileScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const outOfScopeDirectory = join(path, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownDirectoryName);
-    await mkdir(outOfScopeDirectory, { recursive: true });
-    await writeFile(
-      join(outOfScopeDirectory, VALIDATION_PIPELINE_DATA.outOfScopeMarkdownFileName),
-      VALIDATION_PIPELINE_DATA.outOfScopeMarkdownContent,
-    );
-
-    const unscopedResult = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
-    expect(unscopedResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-    expect(unscopedResult.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.FORMATTING);
-
-    const targetFile = join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
-    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag, targetFile]);
-
-    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(result.stdout);
-  });
+  await expectFileScopeForwardedToEveryStage(
+    join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
+  );
 }
 
 async function runStepOrderScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const result = await runAll(path);
+  const streamedOutput: string[] = [];
+  let secondStageSawFirstStageOutput = false;
+  const firstStage: ValidationStage = {
+    name: STREAMING_PROBE_FIRST_STAGE_NAME,
+    failsPipeline: true,
+    participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+    run: async () => ({
+      exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+      output: STREAMING_PROBE_FIRST_STAGE_OUTPUT,
+    }),
+  };
+  const secondStage: ValidationStage = {
+    name: STREAMING_PROBE_SECOND_STAGE_NAME,
+    failsPipeline: true,
+    participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+    run: async () => {
+      secondStageSawFirstStageOutput = streamedOutput.join(VALIDATION_PIPELINE_DATA.outputLineSeparator)
+        .includes(STREAMING_PROBE_FIRST_STAGE_OUTPUT);
+      return {
+        exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+        output: STREAMING_PROBE_SECOND_STAGE_OUTPUT,
+      };
+    },
+  };
 
-    expectStepSequence(result.stdout);
-  });
+  const result = await runValidationInProcessWithDomains(
+    [validationCliDefinition.subcommands.all.commandName],
+    [createValidationDomain({ validationStages: [firstStage, secondStage] })],
+    { onStdout: (output) => streamedOutput.push(output) },
+  );
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(secondStageSawFirstStageOutput).toBe(true);
+  expect(streamedOutput.join(VALIDATION_PIPELINE_DATA.outputLineSeparator).indexOf(STREAMING_PROBE_FIRST_STAGE_OUTPUT))
+    .toBeLessThan(
+      streamedOutput.join(VALIDATION_PIPELINE_DATA.outputLineSeparator).indexOf(STREAMING_PROBE_SECOND_STAGE_OUTPUT),
+    );
 }
 
 async function runSkipCircularScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    await writeCircularSkipFixture(path);
-
-    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipCircularFlag]);
-
-    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(result.stdout);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.CIRCULAR);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.ESLINT);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.LITERAL);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
-    expect(result.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularOutput.FOUND);
-
-    const quietResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.skipCircularFlag,
-      VALIDATION_PIPELINE_DATA.quietFlag,
-    ]);
-
-    expect(quietResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expect(quietResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
-    expect(quietResult.stdout.trim()).toHaveLength(0);
-
-    const jsonResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.skipCircularFlag,
-      VALIDATION_PIPELINE_DATA.jsonFlag,
-    ]);
-
-    expect(jsonResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expect(jsonResult.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipJsonOutput);
-    expect(jsonResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
-
-    const productionResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.scopeFlag,
-      VALIDATION_PIPELINE_DATA.productionScope,
-      VALIDATION_PIPELINE_DATA.skipCircularFlag,
-    ]);
-
-    expect(productionResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(productionResult.stdout);
-    expect(productionResult.stdout).toContain(VALIDATION_PIPELINE_DATA.circularSkipOutput);
-  });
-}
-
-async function writeCircularSkipFixture(path: string): Promise<void> {
-  const srcDir = join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName);
-  await mkdir(srcDir, { recursive: true });
-  await writeFile(
-    join(path, ...VALIDATION_PIPELINE_DATA.circularSkipASourceSegments),
-    `import { circularSkipB } from "./circular-skip-b";\n\nexport function circularSkipA(): string {\n  return \`a-\${circularSkipB()}\`;\n}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(path, ...VALIDATION_PIPELINE_DATA.circularSkipBSourceSegments),
-    `import { circularSkipA } from "./circular-skip-a";\n\nexport function circularSkipB(): string {\n  return \`b-\${circularSkipA()}\`;\n}\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
-    `${VALIDATION_PIPELINE_DATA.productionTsconfigContent}\n`,
-    "utf8",
+  await expectStageOverrideBehavior(
+    VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+    VALIDATION_PIPELINE_DATA.skipCircularFlag,
+    VALIDATION_PIPELINE_DATA.circularSkipOutput,
+    VALIDATION_PIPELINE_DATA.circularSkipJsonOutput,
   );
 }
 
 async function runSkipLiteralScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    await writeLiteralSkipFixture(path);
-
-    const result = await runAll(path, [VALIDATION_PIPELINE_DATA.skipLiteralFlag]);
-
-    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(result.stdout);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.CIRCULAR);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.ESLINT);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.LITERAL);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.literalSkipOutput);
-
-    const quietResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.skipLiteralFlag,
-      VALIDATION_PIPELINE_DATA.quietFlag,
-    ]);
-
-    expect(quietResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expect(quietResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.literalSkipOutput);
-    expect(quietResult.stdout.trim()).toHaveLength(0);
-
-    const jsonResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.skipLiteralFlag,
-      VALIDATION_PIPELINE_DATA.jsonFlag,
-    ]);
-
-    expect(jsonResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expect(jsonResult.stdout).toContain(VALIDATION_PIPELINE_DATA.literalSkipJsonOutput);
-    expect(jsonResult.stdout).not.toContain(VALIDATION_PIPELINE_DATA.literalSkipOutput);
-
-    const productionResult = await runAll(path, [
-      VALIDATION_PIPELINE_DATA.scopeFlag,
-      VALIDATION_PIPELINE_DATA.productionScope,
-      VALIDATION_PIPELINE_DATA.skipLiteralFlag,
-    ]);
-
-    expect(productionResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-    expectStepSequence(productionResult.stdout);
-    expect(productionResult.stdout).toContain(VALIDATION_PIPELINE_DATA.literalSkipOutput);
-  });
+  await expectStageOverrideBehavior(
+    VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+    VALIDATION_PIPELINE_DATA.skipLiteralFlag,
+    VALIDATION_PIPELINE_DATA.literalSkipOutput,
+    VALIDATION_PIPELINE_DATA.literalSkipJsonOutput,
+  );
 }
 
 async function runNoShortCircuitScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS }, async ({ path }) => {
-    const result = await runAll(path);
+  for (const failingStage of defaultParticipatingGatingStages()) {
+    const calls: RecordedValidationStageCall[] = [];
+    const result = await allCommand({
+      cwd: process.cwd(),
+      validationStages: recordingValidationStages(calls, failingStage.name),
+    });
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-    expectStepSequence(result.stdout);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN);
-    expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.LITERAL);
-  });
+    expect(calls.map((call) => call.stageName)).toEqual(
+      defaultParticipatingStageNames(),
+    );
+  }
 }
 
 async function runFailureExitCodeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
-    const result = await runAll(path);
+  for (const stage of defaultParticipatingGatingStages()) {
+    const result = await allCommand({
+      cwd: process.cwd(),
+      validationStages: recordingValidationStages([], stage.name),
+    });
 
     expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-  });
+  }
 }
 
 async function runStepDurationScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const result = await runAll(path);
-    const lines = result.stdout.split(VALIDATION_PIPELINE_DATA.outputLineSeparator)
-      .filter((line) => [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].length > 0);
+  const runningResult = await allCommand({
+    cwd: process.cwd(),
+    validationStages: recordingValidationStages([]),
+  });
+  expectEveryStepLineHasDuration(runningResult.output);
 
-    expect(lines).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
-    for (const line of lines) {
-      expect(line).toMatch(VALIDATION_PIPELINE_DATA.stepDurationPattern);
-    }
+  const overriddenStage = validationPipelineStages.find((stage) =>
+    stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN
+    && stage.participation.override !== undefined
+  );
+  if (overriddenStage?.participation.override === undefined) {
+    throw new Error("Validation pipeline has no default-running stage with an override");
+  }
+  const skippedResult = await allCommand({
+    cwd: process.cwd(),
+    participationOverrides: [overriddenStage.participation.override.flag],
+    validationStages: recordingValidationStages([]),
+  });
+  expectEveryStepLineHasDuration(skippedResult.output);
+}
+
+function recordingValidationStages(
+  calls: RecordedValidationStageCall[],
+  failingStageName?: string,
+): readonly ValidationStage[] {
+  return validationPipelineStages.map((stage) => ({
+    ...stage,
+    run: async (context) => {
+      calls.push({ context, stageName: stage.name });
+      const failed = stage.name === failingStageName;
+      return {
+        exitCode: failed
+          ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
+          : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+        output: `${stage.name}: ${
+          failed
+            ? VALIDATION_PIPELINE_DATA.syntheticStageFailureDetail
+            : VALIDATION_PIPELINE_DATA.summaryStatus.PASSED
+        }`,
+      };
+    },
+  }));
+}
+
+function registeredValidationStagesWithOutcomes(
+  outcomes: readonly GeneratedRegisteredValidationStageOutcome[],
+): readonly ValidationStage[] {
+  return validationPipelineStages.map((stage, index) => {
+    const outcome = outcomes[index];
+    return {
+      ...stage,
+      run: async () => ({
+        ...outcome,
+        output: `${stage.name}: ${outcome.output}`,
+      }),
+    };
   });
 }
 
-async function runStableVerdictScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-    const first = await runAll(path);
-    const second = await runAll(path);
-
-    expect(second.exitCode).toBe(first.exitCode);
-    expect(extractStepOutcomes(second.stdout)).toEqual(extractStepOutcomes(first.stdout));
+async function expectFileScopeForwardedToEveryStage(target: string): Promise<void> {
+  const calls: RecordedValidationStageCall[] = [];
+  const result = await allCommand({
+    cwd: process.cwd(),
+    files: [target],
+    validationStages: recordingValidationStages(calls),
   });
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(calls.map((call) => call.stageName)).toEqual(defaultParticipatingStageNames());
+  for (const call of calls) {
+    expect(call.context.files).toEqual([target]);
+  }
 }
 
-async function runAdditiveVerdictsScenario(_scenario: ValidationPipelineScenario): Promise<void> {
-  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
-    const withFailure = await runAll(path);
-    const failingOutcomes = extractStepOutcomes(withFailure.stdout);
+async function expectStageOverrideBehavior(
+  stageName: string,
+  overrideFlag: `--${string}`,
+  skipOutput: string,
+  skipJsonOutput: string,
+): Promise<void> {
+  const expectedCalledStages = validationPipelineStages
+    .filter((stage) => stage.name !== stageName && stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN)
+    .map((stage) => stage.name);
 
-    const typeErrorFile = join(path, ...VALIDATION_PIPELINE_DATA.typeErrorSourceSegments);
-    const original = await readFile(typeErrorFile, "utf8");
-    const fixed = original.replace(
-      VALIDATION_PIPELINE_DATA.typeErrorReplacementPattern,
-      VALIDATION_PIPELINE_DATA.typeErrorReplacement,
-    );
-    await writeFile(typeErrorFile, fixed, "utf8");
-
-    const withoutFailure = await runAll(path);
-    const passingOutcomes = extractStepOutcomes(withoutFailure.stdout);
-
-    for (const stepNumber of VALIDATION_PIPELINE_DATA.stepsIndependentOfTypeScript) {
-      expect(passingOutcomes.get(stepNumber)).toBe(failingOutcomes.get(stepNumber));
-    }
+  const humanCalls: RecordedValidationStageCall[] = [];
+  const humanResult = await allCommand({
+    cwd: process.cwd(),
+    participationOverrides: [overrideFlag],
+    validationStages: recordingValidationStages(humanCalls),
   });
+  expect(humanResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(humanCalls.map((call) => call.stageName)).toEqual(expectedCalledStages);
+  expect(humanResult.output).toContain(skipOutput);
+  expectStepSequence(humanResult.output);
+
+  const quietCalls: RecordedValidationStageCall[] = [];
+  const quietResult = await allCommand({
+    cwd: process.cwd(),
+    participationOverrides: [overrideFlag],
+    quiet: true,
+    validationStages: recordingValidationStages(quietCalls),
+  });
+  expect(quietResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(quietCalls.map((call) => call.stageName)).toEqual(expectedCalledStages);
+  expect(quietResult.output).toHaveLength(0);
+
+  const jsonCalls: RecordedValidationStageCall[] = [];
+  const jsonResult = await allCommand({
+    cwd: process.cwd(),
+    json: true,
+    participationOverrides: [overrideFlag],
+    validationStages: recordingValidationStages(jsonCalls),
+  });
+  expect(jsonResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(jsonCalls.map((call) => call.stageName)).toEqual(expectedCalledStages);
+  expect(jsonResult.output).toContain(skipJsonOutput);
+  expect(jsonResult.output).not.toContain(skipOutput);
+
+  const productionCalls: RecordedValidationStageCall[] = [];
+  const productionResult = await allCommand({
+    cwd: process.cwd(),
+    scope: VALIDATION_PIPELINE_DATA.productionScope,
+    participationOverrides: [overrideFlag],
+    validationStages: recordingValidationStages(productionCalls),
+  });
+  expect(productionResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(productionCalls.map((call) => call.stageName)).toEqual(expectedCalledStages);
+  expect(productionResult.output).toContain(skipOutput);
+  for (const call of productionCalls) {
+    expect(call.context.scope).toBe(VALIDATION_PIPELINE_DATA.productionScope);
+  }
 }
 
-async function writeLiteralSkipFixture(path: string): Promise<void> {
-  const srcDir = join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName);
-  const testDir = join(path, ...VALIDATION_PIPELINE_DATA.literalSkipTestSegments.slice(0, -1));
-  await mkdir(srcDir, { recursive: true });
-  await mkdir(testDir, { recursive: true });
-  await writeFile(
-    join(path, ...VALIDATION_PIPELINE_DATA.literalSkipSourceSegments),
-    `export const TOKEN = "${VALIDATION_PIPELINE_DATA.literalSkipToken}";\n`,
-    "utf8",
+function defaultParticipatingStageNames(): readonly string[] {
+  return validationPipelineStages
+    .filter((stage) => stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN)
+    .map((stage) => stage.name);
+}
+
+function defaultParticipatingGatingStages(): readonly ValidationStage[] {
+  return validationPipelineStages.filter((stage) =>
+    stage.failsPipeline && stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN
   );
-  await writeFile(
-    join(path, ...VALIDATION_PIPELINE_DATA.literalSkipTestSegments),
-    `expect(value).toBe("${VALIDATION_PIPELINE_DATA.literalSkipToken}");\n`,
-    "utf8",
-  );
-  await writeFile(
-    join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
-    `${VALIDATION_PIPELINE_DATA.productionTsconfigContent}\n`,
-    "utf8",
-  );
+}
+
+function expectEveryStepLineHasDuration(output: string): void {
+  const lines = output.split(VALIDATION_PIPELINE_DATA.outputLineSeparator)
+    .filter((line) => [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].length > 0);
+
+  expect(lines).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
+  for (const line of lines) {
+    expect(line).toMatch(VALIDATION_PIPELINE_DATA.stepDurationPattern);
+  }
 }
 
 function expectStepSequence(stdout: string): void {
@@ -589,28 +736,64 @@ function expectStepSequence(stdout: string): void {
   );
 }
 
-function expectEveryStepToSucceed(stdout: string): void {
-  const outcomes = [...extractStepOutcomes(stdout).values()];
-  expect(outcomes).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
-  expect(outcomes).not.toContain(VALIDATION_PIPELINE_DATA.outcome.fail);
+function generatedValidationStage(spec: GeneratedValidationStageSpec): ValidationStage {
+  return {
+    name: spec.name,
+    failsPipeline: spec.failsPipeline,
+    participation: {
+      default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    },
+    run: async () => ({
+      exitCode: spec.exitCode,
+      output: `${spec.name}: ${spec.output}`,
+    }),
+  };
 }
 
-function extractStepOutcomes(stdout: string): Map<number, ValidationStepOutcome> {
-  const outcomes = new Map<number, ValidationStepOutcome>();
+function extractStageOutcomesByName(
+  stdout: string,
+  stages: readonly ValidationStage[],
+): Map<string, ValidationStepOutcome> {
+  const namedOutcomes = new Map<string, ValidationStepOutcome>();
   for (const line of stdout.split(VALIDATION_PIPELINE_DATA.outputLineSeparator)) {
     const match = [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].at(0);
     if (!match) continue;
-    const step = Number(match[1]);
-    if (
-      line.includes("✓") || line.includes("No issues found") || line.includes("No cycles")
-      || line.includes("No type errors") || line.includes("None found")
-    ) {
-      outcomes.set(step, VALIDATION_PIPELINE_DATA.outcome.pass);
-    } else if (line.includes("⏭") || line.startsWith("Skipping") || line.includes("skipped")) {
-      outcomes.set(step, VALIDATION_PIPELINE_DATA.outcome.skip);
-    } else {
-      outcomes.set(step, VALIDATION_PIPELINE_DATA.outcome.fail);
+    const stage = stages.find((candidate) => line.includes(candidate.name));
+    if (stage === undefined) continue;
+    const outcome = validationStepOutcomeFromLine(line);
+    if (outcome !== undefined) namedOutcomes.set(stage.name, outcome);
+  }
+  return namedOutcomes;
+}
+
+function extractGeneratedStageOutcomes(
+  stdout: string,
+  stages: readonly GeneratedValidationStageSpec[],
+): Map<string, ValidationStepOutcome> {
+  const outcomes = new Map<string, ValidationStepOutcome>();
+  for (const line of stdout.split(VALIDATION_PIPELINE_DATA.outputLineSeparator)) {
+    const stage = stages.find((candidate) => line.includes(`${candidate.name}:`));
+    if (stage === undefined) continue;
+    const outcome = validationStepOutcomeFromLine(line);
+    if (outcome !== undefined) {
+      outcomes.set(stage.name, outcome);
     }
   }
   return outcomes;
+}
+
+function validationStepOutcomeFromLine(line: string): ValidationStepOutcome | undefined {
+  if (
+    line.includes("✓") || line.includes("No issues found") || line.includes("No cycles")
+    || line.includes("No type errors") || line.includes("None found")
+  ) {
+    return VALIDATION_PIPELINE_DATA.outcome.pass;
+  }
+  if (line.includes("⏭") || line.startsWith("Skipping") || line.includes("skipped")) {
+    return VALIDATION_PIPELINE_DATA.outcome.skip;
+  }
+  if ([...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].length > 0) {
+    return VALIDATION_PIPELINE_DATA.outcome.fail;
+  }
+  return undefined;
 }

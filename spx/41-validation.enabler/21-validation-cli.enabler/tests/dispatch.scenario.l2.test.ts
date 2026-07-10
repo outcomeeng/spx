@@ -2,13 +2,14 @@ import { describe, it } from "vitest";
 
 import {
   expectAsciiControlCharactersEscapedBeforeStderr,
-  expectCircularCommandRejectsFullPipelineCircularOverride,
   expectEmptyArgumentReportsSentinel,
-  expectLiteralCommandRejectsFullPipelineLiteralOverride,
+  expectFullPipelineStageParticipationFollowsCliOverrides,
+  expectFullPipelineStreamsProgressBeforeFailureSummary,
   expectLiteralCommandRejectsInvalidKindBeforeStageWork,
   expectLiteralHelpListsLiteralFlagsAndProblemKinds,
   expectLiteralHelpOmitsValidationAllOverrideFlags,
   expectMultiByteUnicodePreservedInStderr,
+  expectPackagedCircularSubcommandRoutesHandler,
   expectPathEscapeRejectedBeforeValidation,
   expectRegisteredSubcommandPropagatesNonZeroExitCode,
   expectRegisteredSubcommandRunsHandlerWithoutDispatchFailure,
@@ -24,6 +25,14 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("registered subcommand propagates a non-zero handler exit code", async () => {
     await expectRegisteredSubcommandPropagatesNonZeroExitCode();
+  });
+
+  it("validation all keeps streamed progress on stdout before returning a failure summary", async () => {
+    await expectFullPipelineStreamsProgressBeforeFailureSummary();
+  });
+
+  it("packaged executable routes validation circular through the built CLI", async () => {
+    await expectPackagedCircularSubcommandRoutesHandler();
   });
 
   it("registered subcommand rejects invalid options before stage work", async () => {
@@ -62,15 +71,11 @@ describe("spx validation dispatch — observable scenarios", () => {
     await expectValidationAllHelpListsOverrideFlags();
   });
 
+  it("validation all override flags control one full-pipeline invocation", async () => {
+    await expectFullPipelineStageParticipationFollowsCliOverrides();
+  });
+
   it("literal help omits full-pipeline override flags", async () => {
     await expectLiteralHelpOmitsValidationAllOverrideFlags();
-  });
-
-  it("literal command rejects the full-pipeline literal override flag", async () => {
-    await expectLiteralCommandRejectsFullPipelineLiteralOverride();
-  });
-
-  it("circular command rejects the full-pipeline circular override flag", async () => {
-    await expectCircularCommandRejectsFullPipelineCircularOverride();
   });
 });

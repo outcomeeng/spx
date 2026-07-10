@@ -11,10 +11,11 @@ import {
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
-import { discoverTool, formatSkipMessage } from "@/validation/discovery/index";
-import { validateKnip } from "@/validation/steps/knip";
+import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { KNIP_COMMAND_TOKENS, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
+  formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -30,7 +31,11 @@ export const defaultKnipCommandDeps: KnipCommandDeps = {
   discoverTool,
   validateKnip,
 };
+export const KNIP_VALIDATION_STEP_NAME = "unused code detection";
 const KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+);
+const KNIP_TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
 );
 
@@ -46,6 +51,14 @@ export async function knipCommand(
 ): Promise<ValidationCommandResult> {
   const { cwd, files, quiet, scope = VALIDATION_SCOPES.FULL } = options;
   const startTime = Date.now();
+
+  if (!detectTypeScript(cwd).present) {
+    return {
+      exitCode: 0,
+      output: quiet ? "" : KNIP_TYPESCRIPT_ABSENT_MESSAGE,
+      durationMs: Date.now() - startTime,
+    };
+  }
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
   if (!loaded.ok) {
@@ -63,9 +76,9 @@ export async function knipCommand(
   }
 
   // Discover knip
-  const toolResult = await deps.discoverTool("knip", { projectRoot: cwd });
+  const toolResult = await deps.discoverTool(KNIP_COMMAND_TOKENS.COMMAND, { projectRoot: cwd });
   if (!toolResult.found) {
-    const skipMessage = formatSkipMessage("unused code detection", toolResult);
+    const skipMessage = formatSkipMessage(KNIP_VALIDATION_STEP_NAME, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 

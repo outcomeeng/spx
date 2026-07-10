@@ -101,8 +101,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-      // Knip is informational: unused-code findings never fail the pipeline.
-      failsPipeline: false,
+      failsPipeline: true,
       participation: RUN_BY_DEFAULT,
       run: runKnipStage,
     },
@@ -118,6 +117,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
           fix: context.fix,
           quiet: context.quiet,
           json: context.json,
+          outputStreams: context.outputStreams,
         }),
     },
     {
@@ -131,6 +131,7 @@ export const typescriptValidationLanguage: ValidationLanguageDescriptor = {
           files: context.files,
           quiet: context.quiet,
           json: context.json,
+          outputStreams: context.outputStreams,
         }),
     },
     {

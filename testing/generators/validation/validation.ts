@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { LITERAL_PROBLEM_KIND } from "@/commands/validation";
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { NO_PROBLEMS_MESSAGE } from "@/commands/validation/literal";
 import {
   formatTypeScriptAbsentSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -13,16 +14,15 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import {
-  validationCliDefinition,
-  validationKnownOperands,
-  validationOptionPrefix,
-} from "@/interfaces/cli/validation";
-import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { validationCliDefinition, validationKnownOperands, validationOptionPrefix } from "@/interfaces/cli/validation";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
+import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { DPRINT_CONFIG_FILENAME } from "@/validation/steps/formatting";
+import type { ValidationScope } from "@/validation/types";
+import { arbitraryDomainLiteral, arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
 const PROPERTY_RUN_COUNT_MIN = 8;
@@ -37,15 +37,19 @@ const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
 const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
-const ESCAPING_PATH_OPERAND = "../outside.ts";
+const ESCAPING_PATH_OPERAND = "../out\x01side.ts";
 const OPTION_OPERAND_SEPARATOR = " ";
 const PROCESS_EXIT_UNAVAILABLE = -1;
 const PACKAGED_CLI_DIRECTORY = "bin";
 const PACKAGED_CLI_FILENAME = "spx.js";
 const PIPELINE_SUBPROCESS_TIMEOUT_MS = 120_000;
+const STREAMING_OBSERVATION_DELAY_MS = 50;
+const SYNTHETIC_STAGE_FAILURE_DETAIL = "synthetic validation stage detail";
 const LITERAL_SKIP_SOURCE_SEGMENTS = ["src", "literal-skip.ts"] as const;
 const CIRCULAR_SKIP_A_SOURCE_SEGMENTS = ["src", "circular-skip-a.ts"] as const;
 const CIRCULAR_SKIP_B_SOURCE_SEGMENTS = ["src", "circular-skip-b.ts"] as const;
+const CIRCULAR_DEPENDENCY_DETAIL_A_TO_B = "src/a.ts → src/b.ts → src/a.ts";
+const CIRCULAR_DEPENDENCY_DETAIL_B_TO_A = "src/b.ts → src/a.ts → src/b.ts";
 const LITERAL_SKIP_TEST_SEGMENTS = [
   "spx",
   "21-literal-skip.enabler",
@@ -128,10 +132,7 @@ const SECONDARY_SOURCE_DIRECTORY_NAME = "api";
 const SECONDARY_SOURCE_FILE_NAME = "secondary.ts";
 const SECONDARY_SOURCE_CONTENT = "export const secondary = true;\n";
 const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"bad\";\n";
-const SECONDARY_TYPE_ERROR_SOURCE_FILE = "secondary.ts";
-const FIRST_CYCLE_SOURCE_FILE = "cycle-a.ts";
-const SECOND_CYCLE_SOURCE_FILE = "cycle-b.ts";
-const CIRCULAR_FIXTURE_DETAIL_PATHS = ["src/a.ts", "src/b.ts"] as const;
+const GENERATED_VALID_SOURCE_CONTENT = "export const generatedValidationValue = true;\n";
 const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
@@ -151,6 +152,19 @@ const CIRCULAR_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES
 const LITERAL_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
 const SKIPPED_JSON_PREFIX = "{\"skipped\":true,\"reason\":\"";
 const SKIPPED_JSON_SUFFIX = "\"}";
+const DPRINT_TYPESCRIPT_PLUGIN =
+  "https://plugins.dprint.dev/typescript-0.95.13.wasm@d353247b160c1e81eb043930de6f940adcd3d713651221d3a0284d4c30ea43c4";
+const CLEAN_FORMATTING_CONFIG_CONTENT = `${
+  JSON.stringify(
+    {
+      includes: [PRODUCTION_SCOPE_FILE_PATTERN],
+      typescript: {},
+      plugins: [DPRINT_TYPESCRIPT_PLUGIN],
+    },
+    null,
+    2,
+  )
+}\n`;
 
 function validationStageOverride(stageName: string): ValidationStageParticipationOverride {
   const stage = validationPipelineStages.find((candidate) => candidate.name === stageName);
@@ -180,6 +194,48 @@ export interface ValidationSubprocessScenario {
   readonly combinedExcludes: readonly string[];
 }
 
+export interface GeneratedValidationStageSpec {
+  readonly name: string;
+  readonly exitCode: number;
+  readonly failsPipeline: boolean;
+  readonly output: string;
+}
+
+export interface GeneratedRegisteredValidationStageOutcome {
+  readonly exitCode: number;
+  readonly output: string;
+}
+
+export interface GeneratedValidationStageSet {
+  readonly base: readonly GeneratedValidationStageSpec[];
+  readonly added: GeneratedValidationStageSpec;
+  readonly insertionIndex: number;
+}
+
+export interface GeneratedValidationStageInsertion {
+  readonly added: GeneratedValidationStageSpec;
+  readonly insertionIndex: number;
+}
+
+export interface ValidationPipelineProjectCase {
+  readonly title: string;
+  readonly fixture: FixtureName;
+  readonly args: readonly string[];
+  readonly generatedFiles: readonly GeneratedValidationProjectFile[];
+  readonly scope?: ValidationScope;
+  readonly files?: readonly string[];
+}
+
+export interface GeneratedValidationProjectFile {
+  readonly path: string;
+  readonly content: string;
+}
+
+export interface GeneratedValidationStageInsertionCase {
+  readonly projectCase: ValidationPipelineProjectCase;
+  readonly insertion: GeneratedValidationStageInsertion;
+}
+
 export interface ExtensionSpecificExcludeScenario {
   readonly excludePattern: string;
   readonly sourceFileName: string;
@@ -197,8 +253,6 @@ export const VALIDATION_PIPELINE_SCENARIO_KIND = {
   NO_SHORT_CIRCUIT: "noShortCircuit",
   FAILURE_EXIT_CODE: "failureExitCode",
   STEP_DURATION: "stepDuration",
-  STABLE_VERDICT: "stableVerdict",
-  ADDITIVE_VERDICTS: "additiveVerdicts",
 } as const;
 
 export type ValidationPipelineScenarioKind =
@@ -227,7 +281,7 @@ const EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS: readonly ExtensionSpecificExcludeSce
 
 export const VALIDATION_PIPELINE_DATA = {
   allTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
-  repeatedRunTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS * 2,
+  streamingObservationDelayMs: STREAMING_OBSERVATION_DELAY_MS,
   totalSteps: VALIDATION_PIPELINE_TOTAL_STEPS,
   stepLinePattern: VALIDATION_STEP_LINE_PATTERN,
   stepDurationPattern: VALIDATION_STEP_DURATION_PATTERN,
@@ -244,14 +298,20 @@ export const VALIDATION_PIPELINE_DATA = {
   stageNames: VALIDATION_STAGE_DISPLAY_NAMES,
   exitCodes: VALIDATION_EXIT_CODES,
   summaryStatus: VALIDATION_SUMMARY_STATUS,
-  circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
-  circularFixtureDetailPaths: CIRCULAR_FIXTURE_DETAIL_PATHS,
+  syntheticStageFailureDetail: SYNTHETIC_STAGE_FAILURE_DETAIL,
+  circularOutput: {
+    ...CIRCULAR_DEPENDENCY_OUTPUT,
+    DETAIL_A_TO_B: CIRCULAR_DEPENDENCY_DETAIL_A_TO_B,
+    DETAIL_B_TO_A: CIRCULAR_DEPENDENCY_DETAIL_B_TO_A,
+  },
   circularSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${CIRCULAR_OVERRIDE.flag})`,
   circularSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${CIRCULAR_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
   skipCircularFlag: CIRCULAR_OVERRIDE.flag,
   literalSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (${LITERAL_OVERRIDE.flag})`,
   literalSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${LITERAL_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
   skipLiteralFlag: LITERAL_OVERRIDE.flag,
+  formattingConfigFileName: DPRINT_CONFIG_FILENAME,
+  cleanFormattingConfigContent: CLEAN_FORMATTING_CONFIG_CONTENT,
   quietFlag: "--quiet",
   jsonFlag: "--json",
   scopeFlag: "--scope",
@@ -310,9 +370,6 @@ export const VALIDATION_PIPELINE_DATA = {
   secondarySourceFileName: SECONDARY_SOURCE_FILE_NAME,
   secondarySourceContent: SECONDARY_SOURCE_CONTENT,
   secondaryTypeErrorSourceContent: SECONDARY_TYPE_ERROR_SOURCE_CONTENT,
-  secondaryTypeErrorSourceFile: SECONDARY_TYPE_ERROR_SOURCE_FILE,
-  firstCycleSourceFile: FIRST_CYCLE_SOURCE_FILE,
-  secondCycleSourceFile: SECOND_CYCLE_SOURCE_FILE,
   excludedSourceDirectoryName: EXCLUDED_SOURCE_DIRECTORY_NAME,
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
@@ -349,7 +406,16 @@ export type ValidationStepOutcome =
   (typeof VALIDATION_PIPELINE_DATA.outcome)[keyof typeof VALIDATION_PIPELINE_DATA.outcome];
 
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
-  return arbitraryDomainLiteral()
+  return fc.oneof(
+    arbitraryDomainLiteral()
+      .filter((candidate) => !validationKnownOperands.has(candidate))
+      .filter((candidate) => !candidate.startsWith(validationOptionPrefix)),
+    arbitraryDomainLiteral()
+      .map((candidate) => ` ${candidate}\t`)
+      .filter((candidate) => !validationKnownOperands.has(candidate.trim()))
+      .filter((candidate) => !candidate.trim().startsWith(validationOptionPrefix)),
+    fc.constantFrom("???", "literal:bad", "unknown/subcommand", "unicodeé\x01stage"),
+  )
     .filter((candidate) => !validationKnownOperands.has(candidate))
     .filter((candidate) => !candidate.startsWith(validationOptionPrefix));
 }
@@ -374,8 +440,10 @@ export function arbitraryValidationCliUnicodeArgument(): fc.Arbitrary<string> {
 }
 
 export function arbitraryInvalidLiteralProblemKind(): fc.Arbitrary<string> {
-  return arbitraryDomainLiteral()
-    .filter((candidate) => !LITERAL_PROBLEM_KINDS.includes(candidate as LiteralProblemKindCandidate));
+  return fc.oneof(
+    arbitraryDomainLiteral(),
+    arbitraryValidationCliControlArgument(),
+  ).filter((candidate) => !LITERAL_PROBLEM_KINDS.includes(candidate as LiteralProblemKindCandidate));
 }
 
 export function arbitraryValidationCliSubprocessTimeout(): fc.Arbitrary<number> {
@@ -386,6 +454,91 @@ export function arbitraryValidationCliPropertyOptions(): fc.Arbitrary<Validation
   return fc.record({
     numRuns: fc.integer({ min: PROPERTY_RUN_COUNT_MIN, max: PROPERTY_RUN_COUNT_MAX }),
     timeout: fc.integer({ min: PROPERTY_TIMEOUT_MS_MIN, max: PROPERTY_TIMEOUT_MS_MAX }),
+  });
+}
+
+export function arbitraryGeneratedValidationStageSpec(): fc.Arbitrary<GeneratedValidationStageSpec> {
+  return fc.record({
+    name: arbitraryDomainLiteral().map((value) => `Generated validation stage ${value}`),
+    exitCode: fc.constantFrom(VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE),
+    failsPipeline: fc.boolean(),
+    output: fc.constantFrom("✓ Generated validation stage passed", "✗ Generated validation stage failed"),
+  });
+}
+
+export function arbitraryGeneratedValidationStageSpecs(): fc.Arbitrary<readonly GeneratedValidationStageSpec[]> {
+  return fc.uniqueArray(
+    arbitraryGeneratedValidationStageSpec(),
+    {
+      minLength: 1,
+      maxLength: 5,
+      selector: (stage) => stage.name,
+    },
+  );
+}
+
+export function arbitraryRegisteredValidationStageOutcomes(): fc.Arbitrary<
+  readonly GeneratedRegisteredValidationStageOutcome[]
+> {
+  return fc.array(
+    fc.record({
+      exitCode: fc.constantFrom(VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE),
+      output: fc.constantFrom("✓ Registered validation stage passed", "✗ Registered validation stage failed"),
+    }),
+    {
+      minLength: validationPipelineStages.length,
+      maxLength: validationPipelineStages.length,
+    },
+  );
+}
+
+export function arbitraryGeneratedValidationStageSet(): fc.Arbitrary<GeneratedValidationStageSet> {
+  return arbitraryGeneratedValidationStageSpecs().chain((base) =>
+    arbitraryGeneratedValidationStageSpec()
+      .filter((added) => !base.some((stage) => stage.name === added.name))
+      .chain((added) =>
+        fc.record({
+          base: fc.constant(base),
+          added: fc.constant(added),
+          insertionIndex: fc.integer({ min: 0, max: base.length }),
+        })
+      )
+  );
+}
+
+export function arbitraryGeneratedValidationStageInsertion(
+  maxInsertionIndex: number,
+): fc.Arbitrary<GeneratedValidationStageInsertion> {
+  return fc.record({
+    added: arbitraryGeneratedValidationStageSpec(),
+    insertionIndex: fc.integer({ min: 0, max: maxInsertionIndex }),
+  });
+}
+
+export function arbitraryValidationPipelineProjectCase(): fc.Arbitrary<ValidationPipelineProjectCase> {
+  return fc.record({
+    explicitFileScope: fc.boolean(),
+    sourceFilePath: arbitrarySourceFilePath(),
+  }).map(({ explicitFileScope, sourceFilePath }) => ({
+    title: explicitFileScope
+      ? "generated clean project explicit file validation scope"
+      : "generated clean project full validation scope",
+    fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+    args: explicitFileScope ? [sourceFilePath] : [],
+    ...(explicitFileScope ? { files: [sourceFilePath] } : {}),
+    generatedFiles: [{
+      path: sourceFilePath,
+      content: GENERATED_VALID_SOURCE_CONTENT,
+    }],
+  }));
+}
+
+export function arbitraryGeneratedValidationStageInsertionCase(
+  maxInsertionIndex: number,
+): fc.Arbitrary<GeneratedValidationStageInsertionCase> {
+  return fc.record({
+    projectCase: arbitraryValidationPipelineProjectCase(),
+    insertion: arbitraryGeneratedValidationStageInsertion(maxInsertionIndex),
   });
 }
 
@@ -470,48 +623,44 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
   ];
 }
 
-export function validationAllTypeScriptSubprocessScenarios(): ValidationSubprocessScenario[] {
+export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessScenario {
   const args = [validationCliDefinition.subcommands.all.commandName];
   const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
 
-  return [
-    {
-      title: "clean TypeScript fixture runs every validation stage",
-      fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
-      args,
-      timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
-      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [
-        VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
-        VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
-        VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
-        VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-        VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
-      ],
-      combinedIncludes: [],
-      stdoutExcludes: runtimeAntiMarkers,
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-    {
-      title: "Python fixture skips TypeScript validation stages",
-      fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
-      args,
-      timeout: HARNESS_TIMEOUT,
-      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [
-        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
-        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
-        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
-        VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
-        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL),
-      ],
-      combinedIncludes: [],
-      stdoutExcludes: runtimeAntiMarkers,
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-  ];
+  return {
+    title: "clean TypeScript fixture runs every validation stage",
+    fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+    args,
+    timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
+    expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
+    stdoutIncludes: [
+      VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
+      VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
+      VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS,
+      VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+      NO_PROBLEMS_MESSAGE,
+    ],
+    combinedIncludes: [],
+    stdoutExcludes: runtimeAntiMarkers,
+    stderrExcludes: runtimeAntiMarkers,
+    combinedExcludes: runtimeAntiMarkers,
+  };
+}
+
+export function validationAllTypeScriptComplianceEvidence(): ValidationSubprocessScenario {
+  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
+  return {
+    title: "TypeScript-absent fixture skips every TypeScript validation stage",
+    fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
+    args: [validationCliDefinition.subcommands.all.commandName],
+    timeout: HARNESS_TIMEOUT,
+    expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
+    stdoutIncludes: typescriptValidationLanguage.stages.map((stage) => formatTypeScriptAbsentSkipMessage(stage.name)),
+    combinedIncludes: [],
+    stdoutExcludes: runtimeAntiMarkers,
+    stderrExcludes: runtimeAntiMarkers,
+    combinedExcludes: runtimeAntiMarkers,
+  };
 }
 
 export function validationPipelineScenarios(): ValidationPipelineScenario[] {
@@ -571,26 +720,27 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
       timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
-    {
-      title: "repeated clean runs produce the same verdicts",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT,
-      timeout: VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
-    },
-    {
-      title: "fixing TypeScript errors leaves other step verdicts unchanged",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS,
-      timeout: VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
-    },
   ];
 }
 
-export function isValidationPipelineComplianceScenario(scenario: ValidationPipelineScenario): boolean {
-  const complianceKinds: readonly ValidationPipelineScenario["kind"][] = [
+export function validationPipelineBehaviorScenarios(): ValidationPipelineScenario[] {
+  return validationPipelineScenarios().filter((scenario) =>
+    !validationPipelineComplianceScenarioKinds().has(scenario.kind)
+  );
+}
+
+export function validationPipelineComplianceScenarios(): ValidationPipelineScenario[] {
+  return validationPipelineScenarios().filter((scenario) =>
+    validationPipelineComplianceScenarioKinds().has(scenario.kind)
+  );
+}
+
+function validationPipelineComplianceScenarioKinds(): ReadonlySet<ValidationPipelineScenarioKind> {
+  return new Set([
     VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
     VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
     VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
-  ];
-  return complianceKinds.includes(scenario.kind);
+  ]);
 }
 
 export const VALIDATION_CLI_GENERATOR = {

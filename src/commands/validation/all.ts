@@ -10,7 +10,7 @@ import {
   type ValidationStage,
   type ValidationStageParticipation,
 } from "@/validation/languages/types";
-import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
+import { validationPipelineStages } from "@/validation/registry";
 import { formatDuration, formatSummary } from "./format";
 import { formatValidationStageSkipJsonOutput, formatValidationStageSkipOutput } from "./messages";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
@@ -25,13 +25,14 @@ import type { AllCommandOptions, ValidationCommandResult } from "./types";
  */
 function formatStepWithTiming(
   stepNumber: number,
+  totalSteps: number,
   result: ValidationCommandResult,
   quiet: boolean,
 ): string {
   if (quiet || !result.output) return "";
 
   const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
-  return `[${stepNumber}/${VALIDATION_PIPELINE_TOTAL_STEPS}] ${result.output}${timing}`;
+  return `[${stepNumber}/${totalSteps}] ${result.output}${timing}`;
 }
 
 interface ResolvedStageParticipation {
@@ -75,6 +76,20 @@ function skippedStageResult(
   };
 }
 
+function recordStepOutput(
+  stepOutput: string,
+  outputs: string[],
+  writeStageOutput: ((output: string) => void) | undefined,
+): boolean {
+  if (stepOutput.length === 0) return false;
+  if (writeStageOutput === undefined) {
+    outputs.push(stepOutput);
+  } else {
+    writeStageOutput(`${stepOutput}\n`);
+  }
+  return true;
+}
+
 /**
  * Run all validation steps.
  *
@@ -82,16 +97,28 @@ function skippedStageResult(
  * @returns Command result with exit code and output
  */
 export async function allCommand(options: AllCommandOptions): Promise<ValidationCommandResult> {
-  const { cwd, scope, files, fix, quiet = false, json, participationOverrides = [] } = options;
+  const {
+    cwd,
+    scope,
+    files,
+    fix,
+    quiet = false,
+    json,
+    participationOverrides = [],
+    validationStages = validationPipelineStages,
+    writeStageOutput,
+    outputStreams,
+  } = options;
   const startTime = Date.now();
   const outputs: string[] = [];
+  let wroteStageOutput = false;
   let hasFailure = false;
 
-  const context = { cwd, scope, files, fix, quiet, json };
+  const context = { cwd, scope, files, fix, quiet, json, outputStreams };
   const overrideFlags = new Set(participationOverrides);
 
   let stepNumber = 0;
-  for (const stage of validationPipelineStages) {
+  for (const stage of validationStages) {
     stepNumber += 1;
     const stageStartTime = Date.now();
     const participation = resolveStageParticipation(stage, overrideFlags);
@@ -101,8 +128,8 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
     const result = stageResult.durationMs === undefined
       ? { ...stageResult, durationMs: Date.now() - stageStartTime }
       : stageResult;
-    const stepOutput = formatStepWithTiming(stepNumber, result, quiet);
-    if (stepOutput) outputs.push(stepOutput);
+    const stepOutput = formatStepWithTiming(stepNumber, validationStages.length, result, quiet);
+    wroteStageOutput = recordStepOutput(stepOutput, outputs, writeStageOutput) || wroteStageOutput;
     if (stage.failsPipeline && result.exitCode !== 0) hasFailure = true;
   }
 
@@ -112,7 +139,8 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   // Add summary line
   if (!quiet) {
     const summary = formatSummary({ success: !hasFailure, totalDurationMs });
-    outputs.push("", summary); // Empty line before summary
+    const summaryPrefix = writeStageOutput === undefined || !wroteStageOutput ? "" : "\n";
+    outputs.push(`${summaryPrefix}${summary}`);
   }
 
   return {
