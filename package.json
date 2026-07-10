@@ -100,6 +100,7 @@
     "ink": "^7.0.6",
     "markdownlint-cli2": "^0.23.0",
     "markdownlint-rule-relative-links": "^5.1.0",
+    "parse-duration-ms": "^0.1.0",
     "react": "^19.2.7",
     "smol-toml": "^1.6.1",
     "typescript": "^5.9.3",
