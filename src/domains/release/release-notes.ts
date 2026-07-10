@@ -1071,12 +1071,14 @@ function markdownHtmlBlockTag(
   if (MARKDOWN_HTML_INLINE_VOID_TAGS.has(tagName) && !isStandaloneTag) {
     return undefined;
   }
-  return MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
-      || MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS.has(tagName)
-    ? tagName
-    : isStandaloneTag
-    ? tagName
-    : undefined;
+  if (
+    MARKDOWN_HTML_BLOCK_EXPLICIT_CLOSE_TAGS.has(tagName)
+    || MARKDOWN_HTML_BLANK_TERMINATED_BLOCK_TAGS.has(tagName)
+    || isStandaloneTag
+  ) {
+    return tagName;
+  }
+  return undefined;
 }
 
 function parseMarkdownHtmlDeclarationClose(line: string): string | undefined {

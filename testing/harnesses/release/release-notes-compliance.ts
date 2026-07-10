@@ -166,6 +166,88 @@ async function withSymlinkedReleaseNotesFixture(
   });
 }
 
+async function expectFinalSymlinkSwapBeforePromotionRejected(
+  env: ReleaseNotesEnv,
+  {
+    releaseData,
+    config,
+    agentRunner,
+    canonicalArtifactPath,
+    outsideArtifactPath,
+  }: SymlinkedReleaseNotesFixture,
+): Promise<void> {
+  const { readArtifact, canonicalizePath } = env;
+  let swappedReadCompleted = false;
+
+  await expect(
+    composeReleaseNotesInEnv(env, {
+      releaseData,
+      config,
+      agentRunner,
+      readArtifact: async (path, expectedCanonicalPath) => {
+        if (path === canonicalArtifactPath) {
+          await rm(path);
+          await symlink(
+            outsideArtifactPath,
+            path,
+            RELEASE_NOTES_FILE_SYMLINK_TYPE,
+          );
+        }
+        const content = await readArtifact(path, expectedCanonicalPath);
+        swappedReadCompleted = true;
+        return content;
+      },
+    }),
+  ).rejects.toThrow();
+
+  expect(swappedReadCompleted).toBe(true);
+  expect(await canonicalizePath(canonicalArtifactPath)).toBe(
+    await canonicalizePath(outsideArtifactPath),
+  );
+}
+
+async function expectAncestorDirectorySwapBeforePromotionRejected(
+  env: ReleaseNotesEnv,
+  outsideDirectory: string,
+  {
+    releaseData,
+    config,
+    agentRunner,
+    actualDirectory,
+    canonicalArtifactPath,
+    outsideArtifactPath,
+  }: SymlinkedReleaseNotesFixture,
+): Promise<void> {
+  const { readArtifact, canonicalizePath } = env;
+  let ancestorSwapReadCompleted = false;
+
+  await expect(
+    composeReleaseNotesInEnv(env, {
+      releaseData,
+      config,
+      agentRunner,
+      readArtifact: async (path, expectedCanonicalPath) => {
+        if (path === canonicalArtifactPath) {
+          await rm(actualDirectory, { recursive: true });
+          await symlink(
+            outsideDirectory,
+            actualDirectory,
+            RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
+          );
+        }
+        const content = await readArtifact(path, expectedCanonicalPath);
+        ancestorSwapReadCompleted = true;
+        return content;
+      },
+    }),
+  ).rejects.toThrow(ReleaseNotesError);
+
+  expect(ancestorSwapReadCompleted).toBe(true);
+  expect(await canonicalizePath(canonicalArtifactPath)).toBe(
+    await canonicalizePath(outsideArtifactPath),
+  );
+}
+
 async function expectConfiguredPathRejectedBeforeAgent(
   changelogPath: string,
   releaseData: ReturnType<typeof sampleReleaseNotesCompositionFixture>["releaseData"],
@@ -1084,51 +1166,13 @@ export function registerReleaseNotesComplianceTests(): void {
     it("rejects a checked canonical path swapped to a final symlink before accepting promotion", async () => {
       await withReleaseNotesEnv(
         async (env) => {
-          const { readArtifact, canonicalizePath } = env;
           await withTempDir(
             RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
             async (outsideDirectory) => {
               await withSymlinkedReleaseNotesFixture(
                 env,
                 outsideDirectory,
-                async ({
-                  releaseData,
-                  config,
-                  agentRunner,
-                  canonicalArtifactPath,
-                  outsideArtifactPath,
-                }) => {
-                  let swappedReadCompleted = false;
-
-                  await expect(
-                    composeReleaseNotesInEnv(env, {
-                      releaseData,
-                      config,
-                      agentRunner,
-                      readArtifact: async (path, expectedCanonicalPath) => {
-                        if (path === canonicalArtifactPath) {
-                          await rm(path);
-                          await symlink(
-                            outsideArtifactPath,
-                            path,
-                            RELEASE_NOTES_FILE_SYMLINK_TYPE,
-                          );
-                        }
-                        const content = await readArtifact(
-                          path,
-                          expectedCanonicalPath,
-                        );
-                        swappedReadCompleted = true;
-                        return content;
-                      },
-                    }),
-                  ).rejects.toThrow();
-
-                  expect(swappedReadCompleted).toBe(true);
-                  expect(await canonicalizePath(canonicalArtifactPath)).toBe(
-                    await canonicalizePath(outsideArtifactPath),
-                  );
-                },
+                async (fixture) => expectFinalSymlinkSwapBeforePromotionRejected(env, fixture),
               );
             },
           );
@@ -1139,52 +1183,18 @@ export function registerReleaseNotesComplianceTests(): void {
     it("rejects an ancestor directory swap before accepting promotion", async () => {
       await withReleaseNotesEnv(
         async (env) => {
-          const { readArtifact, canonicalizePath } = env;
           await withTempDir(
             RELEASE_NOTES_OUTSIDE_TEMP_DIR_PREFIX,
             async (outsideDirectory) => {
               await withSymlinkedReleaseNotesFixture(
                 env,
                 outsideDirectory,
-                async ({
-                  releaseData,
-                  config,
-                  agentRunner,
-                  actualDirectory,
-                  canonicalArtifactPath,
-                  outsideArtifactPath,
-                }) => {
-                  let ancestorSwapReadCompleted = false;
-
-                  await expect(
-                    composeReleaseNotesInEnv(env, {
-                      releaseData,
-                      config,
-                      agentRunner,
-                      readArtifact: async (path, expectedCanonicalPath) => {
-                        if (path === canonicalArtifactPath) {
-                          await rm(actualDirectory, { recursive: true });
-                          await symlink(
-                            outsideDirectory,
-                            actualDirectory,
-                            RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
-                          );
-                        }
-                        const content = await readArtifact(
-                          path,
-                          expectedCanonicalPath,
-                        );
-                        ancestorSwapReadCompleted = true;
-                        return content;
-                      },
-                    }),
-                  ).rejects.toThrow(ReleaseNotesError);
-
-                  expect(ancestorSwapReadCompleted).toBe(true);
-                  expect(await canonicalizePath(canonicalArtifactPath)).toBe(
-                    await canonicalizePath(outsideArtifactPath),
-                  );
-                },
+                async (fixture) =>
+                  expectAncestorDirectorySwapBeforePromotionRejected(
+                    env,
+                    outsideDirectory,
+                    fixture,
+                  ),
               );
             },
           );

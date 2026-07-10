@@ -213,7 +213,7 @@ async function expectStagedDirtySelectionRejection({
   readonly changedPath: string;
   readonly dirtyWorktreePaths: readonly string[];
   readonly untrackedWorktreePaths?: readonly string[];
-  readonly targets?: TestCommandRequest["targets"];
+  readonly targets?: NonNullable<TestCommandRequest["targets"]>;
   readonly fixturePaths: readonly string[];
 }): Promise<void> {
   await withTestingTempProductDir(async (productDir) => {
