@@ -44,6 +44,9 @@ importers:
       markdownlint-rule-relative-links:
         specifier: ^5.1.0
         version: 5.1.1
+      parse-duration-ms:
+        specifier: ^0.1.0
+        version: 0.1.0
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -2478,6 +2481,10 @@ packages:
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
+
+  parse-duration-ms@0.1.0:
+    resolution: {integrity: sha512-6yvHGGtBLcxF7pXLOxDOSCD8hnAycp1uiS+4vJ2x5O01wxC0mbEg5Zyc1Ru/+Sj5He/D+IwvQTFQ1SuJ/yAL0g==}
+    engines: {node: '>=20'}
 
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
@@ -5540,6 +5547,8 @@ snapshots:
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
+
+  parse-duration-ms@0.1.0: {}
 
   parse-entities@4.0.2:
     dependencies:
