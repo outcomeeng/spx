@@ -167,10 +167,15 @@ function decisionsFor(
   snapshot: SpecTreeSnapshot,
   contextNodes: readonly SpecTreeNode[],
 ): readonly SpecTreeDecision[] {
-  const contextNodeIds = new Set(contextNodes.map((node) => node.id));
-  return snapshot.decisions.filter(
-    (decision) => decision.parentId === undefined || contextNodeIds.has(decision.parentId),
+  const constrainingOrderByParentId = new Map(
+    contextNodes.map((node) => [node.parentId, node.order] as const),
   );
+  const targetId = contextNodes.at(-1)?.id;
+  return snapshot.decisions.filter((decision) => {
+    if (decision.parentId === targetId) return true;
+    const constrainingOrder = constrainingOrderByParentId.get(decision.parentId);
+    return constrainingOrder !== undefined && decision.order < constrainingOrder;
+  });
 }
 
 function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeEvidenceSourceEntry[] {
