@@ -71,7 +71,9 @@ function gitCheckoutCommandAssociatesBranch(args: readonly string[], branch: str
   if (parsed.createdBranch !== null) {
     return parsed.createdBranch === branch && parsed.positionals.length <= 1;
   }
-  return parsed.positionals.length === 1 && positionalBranchMatches(parsed.positionals[0], parsed, branch);
+  return parsed.usesTrack
+    && parsed.positionals.length === 1
+    && remoteTrackingBranchLocalName(parsed.positionals[0]) === branch;
 }
 
 function gitWorktreeAddCommandAssociatesBranch(args: readonly string[], branch: string): boolean {

@@ -58,7 +58,7 @@ SPX returns top-level Codex and Claude Code agent-native sessions associated wit
 - A top-level session matches the branch when any accepted signal associates the session with the branch:
   - the parsed agent-native transcript head records the requested branch;
   - the session `cwd` is inside a worktree currently checked out on the requested branch within the same product worktree pool;
-  - the top-level transcript contains an accepted branch creation or branch switch command for the requested branch, such as `git switch <branch>`, `git switch -c <branch>`, `git checkout <branch>`, `git checkout -b <branch>`, or `git worktree add <path> <branch>`.
+  - the top-level transcript contains an accepted branch creation or branch switch command for the requested branch, such as `git switch <branch>`, `git switch -c <branch>`, `git checkout -b <branch>`, `git checkout --track origin/<branch>`, or `git worktree add <path> <branch>`.
 - Branch existence alone is not enough to return a session; the branch must be associated with a session through metadata, worktree location, or parsed command evidence.
 - Subagent transcripts remain excluded as returned sessions. Codex subagent transcript branch evidence can associate the parent top-level session with the requested branch when the parent session exists; the result uses the parent session id and the branch-evidence current working directory rather than returning the subagent transcript as a row.
 - The result keeps the existing JSON shape and uses `branch` in `matches` when any branch-association signal matched.
@@ -91,5 +91,5 @@ Command-sequence search is feasible when it is treated as bounded forensic evide
 - `spx diagnose sessions` consumes the search library and joins SPX handoff session records, worktree claims, and agent-native transcript hits into a triage report.
 - PR-number search becomes a named selector after the transcript patterns for PR references are settled; until then, `--contains` covers literal forensic search without embedding one platform's wording.
 - Resume integration can use search results as input only after the search surface proves the result shape and bounds.
-- High-volume `--all --contains` search can switch to a two-pass scan that sorts head metadata first and reads full transcript content only for the bounded newest candidate set when operators report expensive stores.
+- High-volume content and branch-evidence searches can switch to a two-pass scan that sorts head metadata first and reads full transcript content only for the bounded newest candidate set when operators report expensive stores, or can require `--all` before full-history command-evidence reads.
 - Lineage-based subagent association requires a spec that declares how subagent transcripts map back to top-level sessions without returning subagent rows as sessions.

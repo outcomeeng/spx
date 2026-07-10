@@ -165,7 +165,7 @@ export function agentSearchBranchCommandEvidenceCases(
     {
       command:
         `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_BASH_WRAPPER} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_LOGIN_COMMAND_STRING_FLAG} '${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}'`,
-      expected: true,
+      expected: false,
     },
     {
       command:
@@ -189,7 +189,7 @@ export function agentSearchBranchCommandEvidenceCases(
     {
       command:
         `${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.SHELL_SUDO_WRAPPER} ${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
-      expected: true,
+      expected: false,
     },
     {
       command:
@@ -314,7 +314,7 @@ export function agentSearchBranchCommandEvidenceCases(
     },
     {
       command: `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${branch}`,
-      expected: true,
+      expected: false,
     },
     {
       command:
@@ -357,6 +357,11 @@ export function agentSearchBranchCommandEvidenceCases(
     },
     {
       command:
+        `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.TRACK} origin/${branch}`,
+      expected: true,
+    },
+    {
+      command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.UNSUPPORTED_TRACK_MODE_FLAG} ${AGENT_TRANSCRIPT_GIT_COMMAND.CREATE_BRANCH_SHORT} ${branch} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.START_POINT}`,
       expected: false,
     },
@@ -368,17 +373,17 @@ export function agentSearchBranchCommandEvidenceCases(
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.MERGE_SHORT} ${branch}`,
-      expected: true,
+      expected: false,
     },
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.RECURSE_SUBMODULES} ${branch}`,
-      expected: true,
+      expected: false,
     },
     {
       command:
         `${AGENT_TRANSCRIPT_GIT_COMMAND.EXECUTABLE} ${AGENT_TRANSCRIPT_GIT_COMMAND.CHECKOUT} ${AGENT_TRANSCRIPT_GIT_COMMAND.CONFLICT} ${AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE.CONFLICT_STYLE} ${branch}`,
-      expected: true,
+      expected: false,
     },
     {
       command:
