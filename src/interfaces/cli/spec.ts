@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-import { contextCommand, contextTextCommand } from "@/commands/spec/context";
+import { contextCommand, type ContextOptions, contextTextCommand } from "@/commands/spec/context";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -24,6 +24,13 @@ export const SPEC_DOMAIN_CLI = {
 export const SPEC_STATUS_FORMAT_MESSAGE = {
   INVALID_PREFIX: "Invalid format",
 } as const;
+
+export const SPEC_CONTEXT_OUTPUT_FORMAT = {
+  TEXT: "text",
+  JSON: "json",
+} as const;
+
+export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
 
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
@@ -61,6 +68,16 @@ function handleCommandError(io: CliIo, error: unknown): never {
   return io.exit(1);
 }
 
+/** Routes a named context output format to its deterministic renderer. */
+export async function contextOutputForFormat(
+  format: SpecContextOutputFormat,
+  options: ContextOptions,
+): Promise<string> {
+  return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON
+    ? contextCommand(options)
+    : contextTextCommand(options);
+}
+
 function resolveStatusFormat(options: { json?: boolean; format?: string }): OutputFormat {
   if (options.json === true) {
     return "json";
@@ -92,9 +109,10 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .action(async (target: string, options: { json?: boolean }) => {
       try {
-        const output = options.json === true
-          ? await contextCommand({ target, cwd: productDir(), onWarning })
-          : await contextTextCommand({ target, cwd: productDir(), onWarning });
+        const format = options.json === true
+          ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
+          : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
+        const output = await contextOutputForFormat(format, { target, cwd: productDir(), onWarning });
         writeOutput(invocation.io, output);
       } catch (error) {
         handleCommandError(invocation.io, error);

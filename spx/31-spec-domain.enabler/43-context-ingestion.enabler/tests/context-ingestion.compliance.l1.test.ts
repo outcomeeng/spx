@@ -10,9 +10,10 @@ import {
   assertSpecContextRejectsHarnessMethodologyConfig,
   assertSpecContextRejectsMalformedMethodologyConfig,
   assertSpecContextTextIncludesContext,
+  assertSpecContextUsesLinkedWorktreeRoot,
 } from "@testing/harnesses/spec/context";
 
-describe("spec context ingestion scenarios", () => {
+describe("spec context ingestion compliance", () => {
   it("includes configured methodology identity in the manifest", async () => {
     await assertSpecContextManifestIncludesMethodology();
   });
@@ -27,6 +28,10 @@ describe("spec context ingestion scenarios", () => {
 
   it("excludes untracked node-shaped scratch paths from the manifest", async () => {
     await assertSpecContextManifestIgnoresUntrackedScratchNodes();
+  });
+
+  it("reads tracked context from the linked worktree root", async () => {
+    await assertSpecContextUsesLinkedWorktreeRoot();
   });
 
   it("omits missing node spec paths from the manifest", async () => {

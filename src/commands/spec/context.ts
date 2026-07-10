@@ -167,14 +167,10 @@ function decisionsFor(
   snapshot: SpecTreeSnapshot,
   contextNodes: readonly SpecTreeNode[],
 ): readonly SpecTreeDecision[] {
-  const contextByParentId = new Map<string | undefined, number>();
-  for (const node of contextNodes) {
-    contextByParentId.set(node.parentId, node.order);
-  }
-  return snapshot.decisions.filter((decision) => {
-    const constrainedOrder = contextByParentId.get(decision.parentId);
-    return constrainedOrder !== undefined && decision.order < constrainedOrder;
-  });
+  const contextNodeIds = new Set(contextNodes.map((node) => node.id));
+  return snapshot.decisions.filter(
+    (decision) => decision.parentId === undefined || contextNodeIds.has(decision.parentId),
+  );
 }
 
 function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeEvidenceSourceEntry[] {
