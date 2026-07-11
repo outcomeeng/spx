@@ -403,7 +403,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         "",
       );
       await env.writeRaw(
-        join(VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.firstCycleSourceFile),
+        join(VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
         "",
       );
       await env.writeRaw(

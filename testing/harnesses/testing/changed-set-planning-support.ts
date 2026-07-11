@@ -3,8 +3,8 @@ import {
   CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
   CHANGED_TEST_LS_FILES_COMMAND,
 } from "@/commands/test/changed-set-planning";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/git/root";
 import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import type {
   RelatedTestDependencies,
   RelatedTestRequest,

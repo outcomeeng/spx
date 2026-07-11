@@ -12,14 +12,13 @@ import {
   CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_PRODUCT_INPUT_PATHS,
   CHANGED_TEST_SHOW_COMMAND,
-  changedPathsFromNameStatus,
   EMPTY_TREE_SHA,
   planChangedTestSelection,
 } from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
 import { partitionChangedPaths } from "@/domains/test/changed-set-planning";
-import { GIT_ROOT_COMMAND } from "@/git/root";
-import { GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX } from "@/lib/git/name-status";
+import { GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX, pathsFromNameStatus } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestRequest, TestingLanguageDescriptor } from "@/test/languages/types";
@@ -776,7 +775,7 @@ helper;
       const oldPath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${pathTab}`;
       const newPath = `${sampleLiteralTestValue(arbitrarySourceFilePath())}${GIT_RENAMED_PATH_SUFFIX}${pathNewline}`;
 
-      expect(changedPathsFromNameStatus(`${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0`)).toEqual(
+      expect(pathsFromNameStatus(`${GIT_RENAME_STATUS_EXAMPLE}\0${oldPath}\0${newPath}\0`)).toEqual(
         nativeStringOrder([oldPath, newPath]),
       );
     });
