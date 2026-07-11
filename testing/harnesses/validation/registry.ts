@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
+import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationRegistry } from "@/validation/registry";
 import {
@@ -18,6 +19,7 @@ describe("validation language registry composition", () => {
       for (const stage of language.stages) {
         expect(stage.name.length).toBeGreaterThan(0);
         expect(stage.run).toBeInstanceOf(Function);
+        expect(Object.values(VALIDATION_STAGE_PARTICIPATION)).toContain(stage.participation.default);
       }
     }
   });

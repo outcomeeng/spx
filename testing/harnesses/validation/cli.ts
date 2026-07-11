@@ -416,6 +416,25 @@ export async function expectValidationAllForwardsFileScope(): Promise<void> {
   });
 }
 
+export async function expectValidationAllForwardsDirectoryScope(): Promise<void> {
+  await withEmptyValidationProject(async (productDir) => {
+    const directory = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+    const observed = observedValidationCommandHandlers();
+    const result = await runValidationInProcessWithDomains(
+      [validationCliDefinition.subcommands.all.commandName, directory],
+      [createValidationDomain({ commandHandlers: observed.commandHandlers })],
+      { processCwd: () => productDir },
+    );
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(observed.calls).toEqual([{
+      commandName: validationCliDefinition.subcommands.all.commandName,
+      files: [directory],
+      scope: VALIDATION_SCOPES.FULL,
+    }]);
+  });
+}
+
 export async function expectLiteralCommandRejectsInvalidKindBeforeStageWork(): Promise<void> {
   await withEmptyValidationProject(async (productDir) => {
     const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());

@@ -22,11 +22,12 @@ import {
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { VALIDATION_REGISTRY_LANGUAGES, validationPipelineStages, validationRegistry } from "@/validation/registry";
 import {
+  arbitraryGeneratedValidationStageInsertion,
   arbitraryGeneratedValidationStageSet,
   arbitraryRegisteredValidationStageOutcomes,
   arbitraryValidationPipelineProjectCase,
   type GeneratedRegisteredValidationStageOutcome,
-  type GeneratedValidationStageSet,
+  type GeneratedValidationStageInsertion,
   type GeneratedValidationStageSpec,
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
@@ -127,12 +128,15 @@ export function registerValidationPipelinePropertyTests(): void {
     );
   });
 
-  it("adding a stage at a generated position preserves existing generated stage verdicts", async () => {
+  it("adding a conforming stage at any position preserves registered stage verdicts", async () => {
     await assertProperty(
-      arbitraryGeneratedValidationStageSet().chain((stageSet) =>
-        arbitraryValidationPipelineProjectCase().map((projectCase) => ({ projectCase, stageSet }))
+      arbitraryRegisteredValidationStageOutcomes().chain((outcomes) =>
+        arbitraryGeneratedValidationStageInsertion(validationPipelineStages.length).map((insertion) => ({
+          insertion,
+          outcomes,
+        }))
       ),
-      expectGeneratedStageInsertionPreservesProjectCase,
+      expectGeneratedStageInsertionPreservesRegisteredOutcomes,
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
@@ -203,36 +207,27 @@ async function observeDeterministicPipelineCase(
   }
 }
 
-async function expectGeneratedStageInsertionPreservesProjectCase(
+async function expectGeneratedStageInsertionPreservesRegisteredOutcomes(
   generatedCase: {
-    readonly projectCase: ValidationPipelineProjectCase;
-    readonly stageSet: GeneratedValidationStageSet;
+    readonly insertion: GeneratedValidationStageInsertion;
+    readonly outcomes: readonly GeneratedRegisteredValidationStageOutcome[];
   },
 ): Promise<void> {
-  const { projectCase, stageSet } = generatedCase;
-  await withValidationEnv({ fixture: projectCase.fixture }, async ({ path }) => {
-    await materializeValidationPipelineProjectCase(path, projectCase);
-    const base = stageSet.base.map(generatedValidationStage);
-    const baseOutcomes = extractStageOutcomesByName(
-      (await allCommand(validationAllCommandOptions(path, base, projectCase))).output,
-      base,
-    );
+  const { insertion, outcomes } = generatedCase;
+  const base = registeredValidationStagesWithOutcomes(outcomes);
+  const baseResult = await allCommand({ cwd: process.cwd(), validationStages: base });
+  const additiveStages = [
+    ...base.slice(0, insertion.insertionIndex),
+    generatedValidationStage(insertion.added),
+    ...base.slice(insertion.insertionIndex),
+  ];
+  const additiveResult = await allCommand({ cwd: process.cwd(), validationStages: additiveStages });
+  const baseOutcomes = extractStageOutcomesByName(baseResult.output, base);
+  const additiveOutcomes = extractStageOutcomesByName(additiveResult.output, base);
 
-    const addedStage = generatedValidationStage(stageSet.added);
-    const additiveStages = [
-      ...base.slice(0, stageSet.insertionIndex),
-      addedStage,
-      ...base.slice(stageSet.insertionIndex),
-    ];
-    const additiveResult = await allCommand(
-      validationAllCommandOptions(path, additiveStages, projectCase),
-    );
-    const additiveOutcomes = extractStageOutcomesByName(additiveResult.output, base);
-
-    for (const [stageName, outcome] of baseOutcomes) {
-      expect(additiveOutcomes.get(stageName)).toBe(outcome);
-    }
-  });
+  for (const [stageName, outcome] of baseOutcomes) {
+    expect(additiveOutcomes.get(stageName)).toBe(outcome);
+  }
 }
 
 function validationAllCommandOptions(
