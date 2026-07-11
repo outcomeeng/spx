@@ -2,7 +2,7 @@
 
 PROVIDES lefthook-managed local hook machinery: a main-checkout-gated dist rebuild path for pull and rebase events and a post-checkout dependency-install gate for checkout events
 SO THAT `lefthook`'s rebuild-dist hooks and post-checkout hook
-CAN keep the main checkout's packaged `dist/` current after incoming changes, skip rebuilds in non-main worktrees, install dependencies in any worktree advanced to a new commit when the checkout changes the lockfile, and leave build, validation, test execution, and SonarQube fixture-exclusion synchronization to CI, cloud analysis, or explicit operator and agent commands
+CAN keep the main checkout's packaged `dist/` current after incoming changes, preserve its default-branch occupancy while product self-release instructions verify tags and refresh the operator-visible CLI, skip rebuilds in non-main worktrees, install dependencies in any worktree advanced to a new commit when the checkout changes the lockfile, and leave build, validation, test execution, and SonarQube fixture-exclusion synchronization to CI, cloud analysis, or explicit operator and agent commands
 
 ## Assertions
 
@@ -28,3 +28,4 @@ CAN keep the main checkout's packaged `dist/` current after incoming changes, sk
 - ALWAYS: the rendered portable lefthook hook prefers the worktree-local lefthook binary over a `PATH` lefthook binary, while still honoring `LEFTHOOK_BIN` as the explicit override ([test](tests/hook-install.compliance.l1.test.ts))
 - ALWAYS: obsolete-hook cleanup deletes any de-configured Git hook that carries the portable lefthook shim marker, while never deleting a handwritten hook that lacks the marker ([test](tests/hook-install.compliance.l1.test.ts))
 - ALWAYS: subprocess commands spawned from precommit integration tests through the git environment harness run with `GITHUB_ACTIONS` stripped from the environment — test invocations that lefthook triggers inside the fixture report their results through the process exit code only, never by posting annotations to the parent GitHub Actions run ([test](tests/subprocess-env.compliance.l1.test.ts))
+- ALWAYS: product self-release instructions keep the default branch checked out in the main checkout, verify release tags without checking them out, and refresh the operator-visible CLI by fast-forwarding and building that checkout, so Git refuses the occupied default branch to linked worktrees ([test](tests/main-checkout-occupancy.compliance.l1.test.ts))
