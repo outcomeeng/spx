@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
 
 import { TOOL_DISCOVERY, type ToolSource } from "./constants";

@@ -1,7 +1,6 @@
 import { isAbsolute, win32 } from "node:path";
 
 import type { CliCommandResult } from "@/config/types";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   createVerificationContextDocument,
   VERIFICATION_CONTEXT_PERSISTENCE,
@@ -9,6 +8,7 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,

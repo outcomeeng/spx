@@ -12,17 +12,9 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - Given a project with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.integration.test.ts))
 - Given `--scope production`, when `spx validation all` runs, then only production-scoped checks execute ([test](tests/validation.integration.test.ts))
 - Given `path/to/file.ts` is supplied as a positional operand, when `spx validation all` runs, then checks target only the specified files ([test](tests/validation.integration.test.ts))
-- Given a step completes, when subsequent steps are still running, then the completed step's result is already visible in output ([test](tests/validation.integration.test.ts))
-
-### Mappings
-
-- TypeScript has lint, type check, AST enforcement, circular dependency detection, and literal reuse stages ([test](tests/validation.mapping.l1.test.ts))
-- Python has lint, type check, and AST enforcement stages ([test](tests/validation.mapping.l1.test.ts))
-
-### Properties
-
-- Validation results are deterministic: the same codebase always produces the same pass/fail verdict ([test](tests/validation.integration.test.ts))
-- Validation is additive: adding a new step never changes the verdict of existing steps ([test](tests/validation.integration.test.ts))
+- Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.integration.test.ts))
+- Given a TypeScript failure is repaired, when validation runs again, then every other step preserves its prior verdict ([test](tests/validation.integration.test.ts))
+- Given the same clean codebase is validated twice, when both runs complete, then every step returns the same pass/fail verdict ([test](tests/validation.integration.test.ts))
 
 ### Compliance
 

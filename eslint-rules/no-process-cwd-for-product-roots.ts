@@ -9,7 +9,7 @@ export const NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID =
   `${SPX_RULE_PREFIX}${NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_NAME}` as const;
 export const PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID = "processCwdForProductRoot";
 
-const CONFIG_CWD_MODULE_PATH = "src/domains/config/cwd.ts";
+const CONFIG_CWD_MODULE_PATH = "src/lib/config/cwd.ts";
 const PATH_SEPARATOR_PATTERN = /[/\\]+/gu;
 const PROCESS_IDENTIFIER_PATTERN = /^process$/u;
 
@@ -56,7 +56,7 @@ const rule: Rule.RuleModule = {
     },
     messages: {
       [PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID]:
-        "Do not read process.cwd() directly for product roots. Use CONFIG_PROCESS_CWD from @/domains/config/cwd or pass an explicit config-owned product context.",
+        "Do not read process.cwd() directly for product roots. Use CONFIG_PROCESS_CWD from @/lib/config/cwd or pass an explicit config-owned product context.",
     },
   },
   create(context: Rule.RuleContext): Rule.RuleListener {

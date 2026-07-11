@@ -1,8 +1,8 @@
 import { Command } from "commander";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";

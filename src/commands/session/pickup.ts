@@ -7,7 +7,6 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
@@ -23,6 +22,7 @@ import {
   SESSION_STATUSES,
   SessionStatus,
 } from "@/domains/session/types";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions after being claimed. */

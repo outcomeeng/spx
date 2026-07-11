@@ -15,7 +15,6 @@ import { join, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type AgentSessionEnvironment, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { SESSION_FRONT_MATTER_CLOSE, SESSION_FRONT_MATTER_OPEN } from "@/domains/session/create";
 import {
@@ -33,6 +32,7 @@ import {
   SESSION_FRONT_MATTER,
   SESSION_OUTPUT_MARKER,
 } from "@/domains/session/types";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   gatherGitFacts,
   getCurrentBranch,

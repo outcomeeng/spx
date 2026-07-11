@@ -6,8 +6,8 @@ import {
   CHANGED_TEST_LS_FILES_COMMAND,
   planChangedTestSelection,
 } from "@/commands/test/changed-set-planning";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { GIT_DELETE_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { KIND_REGISTRY } from "@/lib/spec-tree/config";

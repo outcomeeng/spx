@@ -1,7 +1,7 @@
 import { execa } from "execa";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 
 import { withoutGitEnvironment } from "./environment";
 
