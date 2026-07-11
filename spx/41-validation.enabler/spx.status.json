@@ -7,7 +7,8 @@
       "spx/41-validation.enabler/tests/registry.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts": "passed",
-      "spx/41-validation.enabler/tests/validation.integration.test.ts": "passed"
+      "spx/41-validation.enabler/tests/validation.compliance.l1.test.ts": "passed",
+      "spx/41-validation.enabler/tests/validation.scenario.l1.test.ts": "passed"
     }
   }
 }
