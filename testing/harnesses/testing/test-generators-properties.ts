@@ -94,7 +94,7 @@ function matchesWildcardPattern(path: string, pattern: string): boolean {
   );
 }
 
-export function registerTestHarnessPropertyTests(): void {
+export function registerTestGeneratorPropertyTests(): void {
   describe("dispatch generator node paths", () => {
     it("yields two distinct node paths where neither is a path-prefix of the other", () => {
       assertProperty(
@@ -116,6 +116,6 @@ export function registerTestHarnessPropertyTests(): void {
   });
 }
 
-export const testHarnessPropertyCases = collectHarnessTestCases(
-  registerTestHarnessPropertyTests,
+export const testGeneratorPropertyCases = collectHarnessTestCases(
+  registerTestGeneratorPropertyTests,
 );
