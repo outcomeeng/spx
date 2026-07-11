@@ -66,7 +66,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   BROKEN_LINKS: "brokenLinks",
   BROKEN_FRAGMENT: "brokenFragment",
   ERROR_SHAPE: "errorShape",
-  PROJECT_ABSOLUTE_LINK: "projectAbsoluteLink",
+  PRODUCT_ABSOLUTE_LINK: "productAbsoluteLink",
   NO_SIDE_EFFECTS: "noSideEffects",
   DEFAULT_DIRECTORIES: "defaultDirectories",
   EXCLUDE_NODE: "excludeNode",
@@ -262,7 +262,7 @@ export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
   return [
     {
       title: "product-absolute links resolve from product directory",
-      kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+      kind: MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
       timeout: MARKDOWN_HARNESS_TIMEOUT,
     },

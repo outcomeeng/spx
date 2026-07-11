@@ -94,6 +94,19 @@ export interface ValidateMarkdownOptions {
   validationPathExcludes?: readonly string[];
 }
 
+export interface MarkdownlintRunOptions {
+  readonly directory: string;
+  readonly argv: string[];
+  readonly optionsOverride: Record<string, unknown>;
+  readonly noImport: boolean;
+  readonly logMessage: (message: string) => void;
+  readonly logError: (message: string) => void;
+}
+
+export interface MarkdownValidationDeps {
+  readonly runMarkdownlint: (options: MarkdownlintRunOptions) => Promise<void>;
+}
+
 export interface MarkdownValidationTarget {
   readonly kind: MarkdownValidationTargetKind;
   readonly path: string;
@@ -118,6 +131,12 @@ export interface MarkdownValidationTargetDeps {
 
 const defaultMarkdownValidationTargetDeps: MarkdownValidationTargetDeps = {
   statSync,
+};
+
+const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
+  runMarkdownlint: async (options) => {
+    await markdownlintMain(options);
+  },
 };
 
 // =============================================================================
@@ -351,7 +370,7 @@ function isAsciiWhitespace(value: string): boolean {
  * ```typescript
  * const result = await validateMarkdown({
  *   targets: [{ kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path: "/path/to/spx" }],
- *   productDir: "/path/to/project",
+ *   productDir: "/path/to/product",
  * });
  * if (!result.success) {
  *   for (const error of result.errors) {
@@ -362,6 +381,7 @@ function isAsciiWhitespace(value: string): boolean {
  */
 export async function validateMarkdown(
   options: ValidateMarkdownOptions,
+  deps: MarkdownValidationDeps = defaultMarkdownValidationDeps,
 ): Promise<MarkdownValidationResult> {
   const {
     targets,
@@ -380,7 +400,7 @@ export async function validateMarkdown(
       ...getExcludeGlobsForTarget(target, productDir, specTreeExcludeEntries),
       ...validationPathExcludeGlobsForTarget(target, productDir, validationPathExcludes),
     ];
-    const dirErrors = await validateTarget(target, config, productDir, excludeGlobs);
+    const dirErrors = await validateTarget(target, config, deps, productDir, excludeGlobs);
     errors.push(...dirErrors);
   }
 
@@ -406,6 +426,7 @@ function getExcludeEntries(productDir: string | undefined): readonly string[] {
 async function validateTarget(
   target: MarkdownValidationTarget,
   config: ReturnType<typeof buildMarkdownlintConfig>,
+  deps: MarkdownValidationDeps,
   productDir?: string,
   ignoreGlobs: string[] = [],
 ): Promise<MarkdownError[]> {
@@ -428,7 +449,7 @@ async function validateTarget(
     ...(ignoreGlobs.length > 0 ? { ignores: ignoreGlobs } : {}),
   };
 
-  await markdownlintMain({
+  await deps.runMarkdownlint({
     directory,
     argv,
     optionsOverride,

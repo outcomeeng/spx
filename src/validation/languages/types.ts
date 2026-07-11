@@ -33,7 +33,7 @@ export interface ValidationStageParticipationPolicy {
 
 /** Context threaded to every stage runner by the orchestrator. */
 export interface ValidationStageContext {
-  /** Working directory of the project under validation. */
+  /** Working directory of the product under validation. */
   readonly cwd: string;
   /** Validation scope (`full` or `production`). */
   readonly scope?: ValidationScope;

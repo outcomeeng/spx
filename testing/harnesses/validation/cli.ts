@@ -436,7 +436,7 @@ export async function expectLiteralCommandRejectsInvalidKindBeforeStageWork(): P
 }
 
 export async function expectPathEscapeRejectedBeforeValidation(): Promise<void> {
-  await withEmptyValidationProject(async (productRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [
         validationCliDefinition.subcommands.format.commandName,
@@ -444,7 +444,7 @@ export async function expectPathEscapeRejectedBeforeValidation(): Promise<void> 
       ],
       expectedLabel: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
       expectedSanitizedArgument: sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand),
-      productDir: productRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
@@ -453,11 +453,11 @@ export async function expectPathEscapeRejectedBeforeValidation(): Promise<void> 
 }
 
 export async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Promise<void> {
-  await withEmptyValidationProject(async (productRoot) => {
-    const symlinkRoot = join(dirname(productRoot), `${basename(productRoot)}-link`);
+  await withEmptyValidationProject(async (productDir) => {
+    const symlinkRoot = join(dirname(productDir), `${basename(productDir)}-link`);
     const operand = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const observed = observedValidationCommandHandlers();
-    await symlink(productRoot, symlinkRoot, "dir");
+    await symlink(productDir, symlinkRoot, "dir");
 
     const result = await runValidationInProcessWithDomains(
       [

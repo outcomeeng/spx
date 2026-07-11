@@ -83,7 +83,7 @@ export function registerMarkdownMappingTests(): void {
       },
       {
         title: "product-absolute links resolve from the product directory",
-        kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+        kind: MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK,
         timeout: MARKDOWN_HARNESS_TIMEOUT,
       },
       {
@@ -145,8 +145,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runBrokenFragmentScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.ERROR_SHAPE:
       return runErrorShapeScenario(scenario);
-    case MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK:
-      return runProjectAbsoluteLinkScenario(scenario);
+    case MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK:
+      return runProductAbsoluteLinkScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS:
       return runNoSideEffectsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES:
@@ -291,7 +291,7 @@ async function runErrorShapeScenario(scenario: MarkdownValidationScenario): Prom
   });
 }
 
-async function runProjectAbsoluteLinkScenario(_scenario: MarkdownValidationScenario): Promise<void> {
+async function runProductAbsoluteLinkScenario(_scenario: MarkdownValidationScenario): Promise<void> {
   await withMarkdownTempProject(async ({ path, spxDir }) => {
     const docsDir = join(path, MARKDOWN_VALIDATION_DATA.docsDirectoryName);
     await mkdir(spxDir, { recursive: true });
@@ -301,10 +301,10 @@ async function runProjectAbsoluteLinkScenario(_scenario: MarkdownValidationScena
     await writeFile(targetFile, MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent);
     await writeFile(
       sourceFile,
-      `# Source\n\n[project target](/spx/${MARKDOWN_VALIDATION_DATA.targetMarkdownFile})\n`,
+      `# Source\n\n[product target](/spx/${MARKDOWN_VALIDATION_DATA.targetMarkdownFile})\n`,
     );
 
-    const wrongProjectRoot = await validateMarkdown({
+    const wrongProductDir = await validateMarkdown({
       targets: [markdownDirectoryTarget(docsDir)],
       productDir: docsDir,
     });
@@ -313,8 +313,8 @@ async function runProjectAbsoluteLinkScenario(_scenario: MarkdownValidationScena
       files: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
     });
 
-    expect(wrongProjectRoot.success).toBe(false);
-    expect(wrongProjectRoot.errors.length).toBeGreaterThan(MARKDOWN_VALIDATION_DATA.zero);
+    expect(wrongProductDir.success).toBe(false);
+    expect(wrongProductDir.errors.length).toBeGreaterThan(MARKDOWN_VALIDATION_DATA.zero);
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
     expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
     expect(result.output).not.toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
