@@ -17,12 +17,12 @@ This is the authoritative, all-slice plan for making `test` a first-class verifi
 
 Every piece follows library → domain composition → CLI surface, with reusable libraries under `src/lib/`:
 
-| Layer                               | Modules                                                                                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| library (`src/lib/`)                | reuse `src/lib/state-store/` (`.spx/` addressing); **new** snapshot-store lib over it; `src/lib/spec-tree/` + `src/lib/node-status/` (claim fold) |
-| domain (`src/domains/`)             | `src/domains/verify/` — register the `test` type's snapshot evidence validator + terminal derivation (pure)                                       |
-| command (`src/commands/`)           | `src/commands/verify/` — orchestrate: invoke the test-domain runner, project JSON → snapshot, persist via the snapshot-store lib                  |
-| CLI surface (`src/interfaces/cli/`) | `src/interfaces/cli/verify.ts` — `spx verification run --verification-type=test`. The snapshot store and the journal are **never** exposed.       |
+| Layer                               | Modules                                                                                                                                                                                                                            |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| library (`src/lib/`)                | reuse `src/lib/state-store/` (`.spx/` addressing); **new** snapshot-store lib over it; `src/lib/spec-tree/` + `src/lib/node-status/` (claim fold)                                                                                  |
+| domain (`src/domains/`)             | `src/domains/verify/` — the recorder domain, unchanged; snapshot-shaped `test` derives its terminal outcome from the projected snapshot (pure), registering no journal scope/finding validator (see *Execution surface*)           |
+| command (`src/commands/`)           | `src/commands/verify/` — the recorder, **unchanged**; **new** `src/commands/verification-exec/` — the executor: drive the vitest runner, project JSON → snapshot, persist via the snapshot-store lib                               |
+| CLI surface (`src/interfaces/cli/`) | `src/interfaces/cli/verification.ts` — one descriptor, nouns `run \| validate \| test \| eval`; the `spx verification test` executor noun beside `spx verification run`. The snapshot store and the journal are **never** exposed. |
 
 ### Slice 1 — atomic snapshot vertical (TypeScript)
 
