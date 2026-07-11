@@ -14,6 +14,7 @@ import {
   assertExcludesStaleModifiedSessions,
   assertExplicitSinceBoundsTranscriptReadsByMtime,
   assertExplicitSinceFiltersTranscriptActivity,
+  assertExplicitSinceWidensTranscriptReadsBeyondDefaultWindow,
   assertIncludesCodexVsCodeTranscripts,
   assertInvocationWorktreeRootResolvedOnce,
   assertNewestSessionsPerAgentWithinScope,
@@ -91,6 +92,10 @@ describe("agent resume recency-window compliance", () => {
 
   it("bounds explicit-window transcript reads by file modification time", async () => {
     await assertExplicitSinceBoundsTranscriptReadsByMtime();
+  });
+
+  it("widens transcript reads when the explicit window exceeds the default", async () => {
+    await assertExplicitSinceWidensTranscriptReadsBeyondDefaultWindow();
   });
 
   it("rejects invalid, zero, negative, non-finite, and unsafe explicit durations before discovery", async () => {

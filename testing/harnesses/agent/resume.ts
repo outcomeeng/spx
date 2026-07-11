@@ -1064,6 +1064,41 @@ export async function assertExplicitSinceBoundsTranscriptReadsByMtime(): Promise
   expect(fixture.fs.maxTailReadBytes(stalePath)).toBe(0);
 }
 
+export async function assertExplicitSinceWidensTranscriptReadsBeyondDefaultWindow(): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(317);
+  const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 321);
+  const oneDayMs = AGENT_RESUME_LIMITS.HOURS_PER_DAY
+    * AGENT_RESUME_LIMITS.MINUTES_PER_HOUR
+    * AGENT_RESUME_LIMITS.SECONDS_PER_MINUTE
+    * AGENT_RESUME_LIMITS.MILLISECONDS_PER_SECOND;
+  const sinceMs = AGENT_RESUME_RECENT_WINDOW_MS + oneDayMs;
+  const activityAtMs = fixture.nowMs - AGENT_RESUME_RECENT_WINDOW_MS - 1;
+  const transcriptPath = codexTranscriptPath(fixture.homeDir, agentSessionJsonlName(sessionId));
+  fixture.fs.writeFile(
+    transcriptPath,
+    codexTranscript({
+      sessionId,
+      cwd: fixture.cwd,
+      timestamp: new Date(activityAtMs).toISOString(),
+    }),
+    activityAtMs,
+  );
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: fixture.cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(fixture.homeDir),
+    nowMs: fixture.nowMs,
+    sinceMs,
+    scope: worktreeResumeScope(),
+    fs: fixture.fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
+  });
+
+  expect(candidates.map((candidate) => candidate.sessionId)).toEqual([sessionId]);
+  expect(fixture.fs.maxHeadReadBytes(transcriptPath)).toBe(AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES);
+  expect(fixture.fs.maxTailReadBytes(transcriptPath)).toBe(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES);
+}
+
 export async function assertResumeSinceComposesWithEveryScopeAndMode(): Promise<void> {
   const fixture = createAgentResumeDiscoveryFixture(320);
   const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), 324);
