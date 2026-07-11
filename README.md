@@ -199,22 +199,22 @@ npm view @outcomeeng/spx version
 npm audit signatures
 ```
 
-8. Verify that the release tag is present on current `main`, then rebuild the
+8. Require current `main` to equal the release tag commit, then rebuild the
    operator-visible CLI and confirm it reports the released version:
 
 ```bash
 git fetch --tags origin
-git pull --ff-only origin main
 test "$(git branch --show-current)" = main
-git merge-base --is-ancestor "vX.Y.Z" HEAD
+test "$(git rev-parse HEAD)" = "$(git rev-parse 'vX.Y.Z^{commit}')"
 pnpm run build
 spx --version
 ```
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
 manager update commands during release close-out. The operator-visible binary
-comes from the canonical main checkout after the release tag is verified as an
-ancestor of its current `main` commit. The checkout remains on `main` throughout.
+comes from the canonical main checkout only while its HEAD equals the release
+tag commit. Stop before the build if `main` advanced. The checkout remains on
+`main` throughout.
 
 ## Technical Stack
 
