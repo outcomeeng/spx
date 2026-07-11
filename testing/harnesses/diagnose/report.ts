@@ -13,17 +13,25 @@ import {
 } from "@/domains/diagnose/checks/session-environment";
 import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
-import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import {
-  BUCKET_SEVERITY,
+  classifyWorktreePool,
+  WORKTREE_POOL_VERDICT,
+  type WorktreePoolReading,
+} from "@/domains/diagnose/checks/worktree-pool";
+import {
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
-  OVERALL_SEVERITY,
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
+import {
+  BUCKET_SEVERITY,
+  CANONICAL_CHECKOUT_PROBLEM,
+  type CanonicalCheckoutFailureVerdict,
+  OVERALL_SEVERITY,
+} from "@/domains/diagnose/report-contract";
 import {
   CHECK_RECORD_FIELDS,
   type CheckRecord,
@@ -48,7 +56,7 @@ interface TranslationBranchCase {
 
 interface CanonicalCheckoutFailureCase {
   readonly check: CheckRecord;
-  readonly problem: string;
+  readonly verdict: CanonicalCheckoutFailureVerdict;
 }
 
 function compliantWorktreePoolReading(): WorktreePoolReading {
@@ -139,7 +147,7 @@ function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[
         running: 1,
         free: 8,
       }),
-      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_MISSING_PROBLEM,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING,
     },
     {
       check: classifyWorktreePool({
@@ -153,7 +161,7 @@ function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[
         running: 1,
         free: 8,
       }),
-      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_DETACHED_PROBLEM,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED,
     },
     {
       check: classifyWorktreePool({
@@ -167,7 +175,7 @@ function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[
         running: 1,
         free: 8,
       }),
-      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH,
     },
   ];
 }
@@ -375,11 +383,13 @@ export function assertEveryTranslationBranchHasHeading(): void {
 }
 
 export function assertCanonicalCheckoutFailureTranslations(): void {
-  for (const { check, problem } of canonicalCheckoutFailureCases()) {
+  for (const { check, verdict } of canonicalCheckoutFailureCases()) {
     const lines = renderSingleCheckText(check).split("\n");
     expect(lines).toContain(sectionHeaderLine(check, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID));
     expect(lines).toEqual(
-      expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${problem}`)]),
+      expect.arrayContaining([
+        expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${CANONICAL_CHECKOUT_PROBLEM[verdict]}`),
+      ]),
     );
     expect(lines).not.toEqual(expect.arrayContaining([expect.stringContaining(check.verdict)]));
     expect(lines).toEqual(

@@ -28,18 +28,10 @@ import {
 } from "@/domains/diagnose/checks/spx-reachability";
 import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import {
-  type CheckRecord,
-  type DiagnoseReport,
-  OVERALL_VERDICT,
-  type OverallVerdict,
-  VERDICT_BUCKET,
-  type VerdictBucket,
-} from "@/domains/diagnose/types";
+import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
+import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
 import {
   renderStyledReport,
-  SEVERITY,
-  type Severity,
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
@@ -109,9 +101,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
-  MAIN_CHECKOUT_DETACHED_PROBLEM: "The designated main checkout is not attached to any branch.",
-  MAIN_CHECKOUT_MISSING_PROBLEM: "The designated main checkout could not be found.",
-  MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM: "The designated main checkout is attached to the wrong branch.",
   METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
   METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
   METHODOLOGY_VERSION_MISMATCH_FIX:
@@ -133,23 +122,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
   UNKNOWN_RETRY: "Re-run `spx diagnose`; inspect the relevant command output if this repeats.",
   UNREGISTERED_MARKETPLACE_FIX: "Register the configured plugin marketplace.",
   WORKTREE_POOL_VALID: "Layout is valid for shared session work.",
-} as const;
-
-/** Maps each per-check verdict bucket to the styled-output severity its glyph and color key on. */
-export const BUCKET_SEVERITY: Readonly<Record<VerdictBucket, Severity>> = {
-  [VERDICT_BUCKET.HEALTHY]: SEVERITY.OK,
-  [VERDICT_BUCKET.DEGRADED]: SEVERITY.WARN,
-  [VERDICT_BUCKET.UNKNOWN]: SEVERITY.UNKNOWN,
-  [VERDICT_BUCKET.BROKEN]: SEVERITY.ERROR,
-  [VERDICT_BUCKET.NOT_APPLICABLE]: SEVERITY.MUTED,
-} as const;
-
-/** Maps the overall verdict to the styled-output severity its summary line is colored by. */
-export const OVERALL_SEVERITY: Readonly<Record<OverallVerdict, Severity>> = {
-  [OVERALL_VERDICT.HEALTHY]: SEVERITY.OK,
-  [OVERALL_VERDICT.DEGRADED]: SEVERITY.WARN,
-  [OVERALL_VERDICT.UNKNOWN]: SEVERITY.UNKNOWN,
-  [OVERALL_VERDICT.BROKEN]: SEVERITY.ERROR,
 } as const;
 
 /** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
@@ -328,7 +300,7 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_MISSING_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]}`,
           `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
         ],
       };
@@ -336,7 +308,7 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_DETACHED_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]}`,
           `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
         ],
       };
@@ -344,7 +316,9 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${
+            CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH]
+          }`,
           `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
         ],
       };
