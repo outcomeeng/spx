@@ -5,6 +5,13 @@ import type { ValidationStage } from "@/validation/languages/types";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
+export const VALIDATION_OUTPUT_TARGET = {
+  STDOUT: "stdout",
+  STDERR: "stderr",
+} as const;
+
+export type ValidationOutputTarget = (typeof VALIDATION_OUTPUT_TARGET)[keyof typeof VALIDATION_OUTPUT_TARGET];
+
 /** Result from a validation command */
 export interface ValidationCommandResult {
   /** Exit code (0 = success, 1 = validation failed, 0 with skipped = tool unavailable) */
@@ -17,6 +24,8 @@ export interface ValidationCommandResult {
   structuredOutput?: boolean;
   /** Output the CLI boundary emits when subprocess detail was already streamed. */
   terminalOutput?: string;
+  /** Terminal stream that receives the command payload. */
+  outputTarget?: ValidationOutputTarget;
 }
 
 /** Common options for all validation commands */

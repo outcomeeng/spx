@@ -14,16 +14,18 @@ import {
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
-import type {
-  AllCommandOptions,
-  CircularCommandOptions,
-  CommonValidationOptions,
-  FormattingCommandOptions,
-  KnipCommandOptions,
-  LintCommandOptions,
-  MarkdownCommandOptions,
-  TypeScriptCommandOptions,
-  ValidationCommandResult,
+import {
+  type AllCommandOptions,
+  type CircularCommandOptions,
+  type CommonValidationOptions,
+  type FormattingCommandOptions,
+  type KnipCommandOptions,
+  type LintCommandOptions,
+  type MarkdownCommandOptions,
+  type TypeScriptCommandOptions,
+  VALIDATION_OUTPUT_TARGET,
+  type ValidationCommandResult,
+  type ValidationOutputTarget,
 } from "@/commands/validation/types";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
@@ -312,6 +314,7 @@ export interface ValidationDomainOptions {
 interface ValidationCliResult {
   readonly output: string;
   readonly exitCode: number;
+  readonly outputTarget?: ValidationOutputTarget;
   readonly terminalOutput?: string;
 }
 
@@ -347,7 +350,11 @@ const defaultValidationCommandHandlers: ValidationCommandHandlers = {
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
   const output = result.terminalOutput ?? result.output;
   if (output.length > 0) {
-    const writeOutput = result.exitCode === 0 ? io.writeStdout : io.writeStderr;
+    const outputTarget = result.outputTarget
+      ?? (result.exitCode === 0 ? VALIDATION_OUTPUT_TARGET.STDOUT : VALIDATION_OUTPUT_TARGET.STDERR);
+    const writeOutput = outputTarget === VALIDATION_OUTPUT_TARGET.STDOUT
+      ? io.writeStdout
+      : io.writeStderr;
     writeOutput(`${output}\n`);
   }
   return io.exit(result.exitCode);

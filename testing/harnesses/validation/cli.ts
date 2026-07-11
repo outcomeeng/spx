@@ -38,6 +38,7 @@ import {
   validationCliUnavailableExitCode,
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
@@ -316,6 +317,25 @@ export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Pro
       observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
     );
     expect(observed.calls).toEqual([{ commandName: validationCliDefinition.subcommands.format.commandName }]);
+  });
+}
+
+export async function expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroExit(): Promise<void> {
+  await withLiteralFixtureEnv({}, async (env) => {
+    await env.writeSourceReuseFixture(
+      sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs()),
+    );
+
+    for (const args of literalReportModeArguments()) {
+      const result = await runValidationInProcess([
+        validationCliDefinition.subcommands.literal.commandName,
+        ...args,
+      ], { processCwd: () => env.productDir });
+
+      expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+      expect(result.stdout.length).toBeGreaterThan(validationCliEmptyOutputLength());
+      expect(result.stderr).toBe(validationCliEmptyOutput());
+    }
   });
 }
 
@@ -961,6 +981,15 @@ function observedValidationCommandHandlers(
       all: createHandler(validationCliDefinition.subcommands.all.commandName),
     },
   };
+}
+
+function literalReportModeArguments(): readonly (readonly string[])[] {
+  return [
+    [],
+    [literalValidationCliOptions.filesWithProblems.flag],
+    [literalValidationCliOptions.literals.flag],
+    [validationCommonCliOptions.json.flag],
+  ];
 }
 
 function observedHandlerOutput(commandName: string): string {
