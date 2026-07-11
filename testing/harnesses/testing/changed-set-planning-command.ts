@@ -6,10 +6,10 @@ import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesse
 import { execa } from "execa";
 
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
-import { GIT_ROOT_COMMAND } from "@/git/root";
 import { SOURCE_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TYPESCRIPT_TEST_FILE_SUFFIXES, typescriptTestingLanguage } from "@/test/languages/typescript";
 import type { TestRunState } from "@/test/run-state";

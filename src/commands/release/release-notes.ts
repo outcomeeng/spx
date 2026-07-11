@@ -8,7 +8,7 @@ import {
   type ReleaseNotesConfig,
   type ReleaseNotesFaithfulnessAuditor,
 } from "@/domains/release/release-notes";
-import type { GitDependencies } from "@/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 const PACKAGE_MANIFEST = "package.json";

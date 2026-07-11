@@ -29,9 +29,9 @@ import {
   SUCCESS_EXIT_CODE,
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/test";
-import type { GitDependencies } from "@/git/root";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { GIT_MODIFY_STATUS_EXAMPLE } from "@/lib/git/name-status";
+import type { GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";

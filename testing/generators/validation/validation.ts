@@ -17,7 +17,6 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import {
   allValidationCliOptions,
@@ -25,6 +24,7 @@ import {
   validationKnownOperands,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation-contract";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";

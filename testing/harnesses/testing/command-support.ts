@@ -1,5 +1,5 @@
 import type { TestCommandDependencies } from "@/commands/test";
-import type { GitDependencies } from "@/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import type { TestRunnerDependencies } from "@/test/languages/types";
 import { testingRegistry } from "@/test/registry";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
