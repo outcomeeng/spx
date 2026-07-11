@@ -34,8 +34,72 @@ import {
   sampleDistinctSessionIds,
 } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import {
+  GIT_TEST_ENVIRONMENT_KEYS,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  type GitTestEnvironmentOverrides,
+  runTsxEval,
+} from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { createProcessTable } from "@testing/harnesses/worktree/harness";
+
+const MAIN_CHECKOUT_PROBE_CWD_ENV = "SPX_DIAGNOSE_MAIN_CHECKOUT_PROBE_CWD";
+const MAIN_CHECKOUT_PROBE_BRANCH_ENV = "SPX_DIAGNOSE_MAIN_CHECKOUT_PROBE_BRANCH";
+
+interface MainCheckoutProbeResult {
+  readonly branch: string | null;
+  readonly read: boolean;
+}
+
+async function readMainCheckoutBranchInChildProcess(
+  cwd: string,
+  branch: string,
+  envOverrides: GitTestEnvironmentOverrides,
+): Promise<MainCheckoutProbeResult> {
+  const script = `
+    import { basename, dirname, join } from "node:path";
+    import { gatherWorktreePoolSnapshot } from "@/commands/diagnose/probes";
+    import { GIT_URL_SUFFIX } from "@/lib/git/root";
+    import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+    import { defaultProcessTable } from "@/lib/worktree-process-table";
+
+    async function main() {
+      const cwd = process.env.${MAIN_CHECKOUT_PROBE_CWD_ENV};
+      const branch = process.env.${MAIN_CHECKOUT_PROBE_BRANCH_ENV};
+      if (cwd === undefined || branch === undefined) throw new Error("Missing main-checkout probe input");
+      const repositoryName = basename(cwd);
+      const snapshot = await gatherWorktreePoolSnapshot({
+        env: {},
+        gatherGitFacts: async () => ({
+          worktreeRoot: cwd,
+          worktreeRoots: [cwd],
+          worktreeListRead: true,
+          commonDir: join(dirname(cwd), \`\${repositoryName}\${GIT_URL_SUFFIX}\`),
+          commonDirIsBare: true,
+          originUrl: \`\${repositoryName}\${GIT_URL_SUFFIX}\`,
+        }),
+        resolveDefaultBranch: async () => branch,
+        fs: defaultOccupancyFileSystem,
+        processTable: defaultProcessTable,
+      });
+      console.log(JSON.stringify({ branch: snapshot.mainCheckoutBranch, read: snapshot.mainCheckoutBranchRead }));
+    }
+
+    main().catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  `;
+  return JSON.parse(
+    await runTsxEval(process.cwd(), script, {
+      ...envOverrides,
+      [MAIN_CHECKOUT_PROBE_CWD_ENV]: cwd,
+      [MAIN_CHECKOUT_PROBE_BRANCH_ENV]: branch,
+    }),
+  ) as MainCheckoutProbeResult;
+}
 
 function doingSession(id: string, agentSessionId: string): SessionRecord {
   return {
@@ -227,5 +291,23 @@ export async function assertWorktreeTouchingProbesAvoidStatus(): Promise<void> {
       JSON.parse(line) as readonly string[]
     );
     expect(recorded).toEqual([DIAGNOSE_DOING_SESSION_ARGS]);
+  });
+}
+
+export async function assertMainCheckoutBranchProbeIgnoresGitEnvironment(): Promise<void> {
+  await withGitWorktreeEnv(async (env) => {
+    const branch = await env.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT]);
+    const result = await readMainCheckoutBranchInChildProcess(env.productDir, branch, {
+      [GIT_TEST_ENVIRONMENT_KEYS.DIR]: join(
+        env.productDir,
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      ),
+      [GIT_TEST_ENVIRONMENT_KEYS.WORK_TREE]: join(
+        env.productDir,
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      ),
+    });
+
+    expect(result).toEqual({ branch, read: true });
   });
 }
