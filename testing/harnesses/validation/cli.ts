@@ -228,7 +228,7 @@ export async function runValidationInProcessWithDomains(
 }
 
 export function withEmptyValidationProject(
-  testFn: (projectRoot: string) => Promise<void>,
+  testFn: (productDir: string) => Promise<void>,
 ): Promise<void> {
   return withTempDir(validationCliTempDirectoryPrefix(), testFn);
 }
@@ -280,13 +280,13 @@ export function expectValidationSubprocessResult(
 }
 
 export async function expectRegisteredSubcommandRunsHandlerWithoutDispatchFailure(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     for (const { operand, commandName } of validationRegisteredSubcommandOperands()) {
       const observed = observedValidationCommandHandlers();
       const result = await runValidationInProcessWithDomains(
         [operand],
         [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-        { processCwd: () => projectRoot },
+        { processCwd: () => productDir },
       );
 
       expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
@@ -299,12 +299,12 @@ export async function expectRegisteredSubcommandRunsHandlerWithoutDispatchFailur
 }
 
 export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const observed = observedValidationCommandHandlers(OBSERVED_HANDLER_EXIT_CODE);
     const result = await runValidationInProcessWithDomains(
       [validationCliDefinition.subcommands.format.commandName],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-      { processCwd: () => projectRoot },
+      { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(OBSERVED_HANDLER_EXIT_CODE);
@@ -377,7 +377,7 @@ export async function expectPackagedCircularSubcommandRoutesHandler(): Promise<v
 }
 
 export async function expectValidationAllForwardsProductionScope(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const observed = observedValidationCommandHandlers();
     const result = await runValidationInProcessWithDomains(
       [
@@ -386,7 +386,7 @@ export async function expectValidationAllForwardsProductionScope(): Promise<void
         VALIDATION_PIPELINE_DATA.productionScope,
       ],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-      { processCwd: () => projectRoot },
+      { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
@@ -398,13 +398,13 @@ export async function expectValidationAllForwardsProductionScope(): Promise<void
 }
 
 export async function expectValidationAllForwardsFileScope(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const file = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const observed = observedValidationCommandHandlers();
     const result = await runValidationInProcessWithDomains(
       [validationCliDefinition.subcommands.all.commandName, file],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-      { processCwd: () => projectRoot },
+      { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
@@ -417,7 +417,7 @@ export async function expectValidationAllForwardsFileScope(): Promise<void> {
 }
 
 export async function expectLiteralCommandRejectsInvalidKindBeforeStageWork(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [
@@ -427,7 +427,7 @@ export async function expectLiteralCommandRejectsInvalidKindBeforeStageWork(): P
       ],
       expectedLabel: validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel,
       expectedSanitizedArgument: sanitizeCliArgument(unsafeKind),
-      projectRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
@@ -444,7 +444,7 @@ export async function expectPathEscapeRejectedBeforeValidation(): Promise<void> 
       ],
       expectedLabel: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
       expectedSanitizedArgument: sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand),
-      projectRoot: productRoot,
+      productDir: productRoot,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
@@ -486,12 +486,12 @@ export async function expectUnknownSubcommandReachesSanitizedDiagnostic(): Promi
     VALIDATION_CLI_GENERATOR.unknownSubcommand()
       .filter((candidate) => !candidate.startsWith(validationOptionPrefix)),
   );
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [unknownStage],
       expectedLabel: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
       expectedSanitizedArgument: sanitizeCliArgument(unknownStage),
-      projectRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -500,12 +500,12 @@ export async function expectUnknownSubcommandReachesSanitizedDiagnostic(): Promi
 
 export async function expectEmptyArgumentReportsSentinel(): Promise<void> {
   const emptyArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.emptyArgument());
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [emptyArgument],
       expectedLabel: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
       expectedSanitizedArgument: SENTINEL_EMPTY,
-      projectRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -514,12 +514,12 @@ export async function expectEmptyArgumentReportsSentinel(): Promise<void> {
 
 export async function expectAsciiControlCharactersEscapedBeforeStderr(): Promise<void> {
   const unsafeArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.controlArgument());
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [unsafeArgument],
       expectedLabel: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
       expectedSanitizedArgument: expectedCliEscapedArgument(unsafeArgument),
-      projectRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -529,12 +529,12 @@ export async function expectAsciiControlCharactersEscapedBeforeStderr(): Promise
 
 export async function expectMultiByteUnicodePreservedInStderr(): Promise<void> {
   const unicodeArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.unicodeArgument());
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [unicodeArgument],
       expectedLabel: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
       expectedSanitizedArgument: unicodeArgument,
-      projectRoot,
+      productDir,
     });
 
     expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
@@ -546,7 +546,7 @@ export function registerValidationCliDispatchPropertyTests(): void {
     "every unknown subcommand string reaches the unknown-subcommand diagnostic path",
     { timeout: sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.propertyOptions()).timeout },
     async () => {
-      await withEmptyValidationProject(async (projectRoot) => {
+      await withEmptyValidationProject(async (productDir) => {
         await assertProperty(
           VALIDATION_CLI_GENERATOR.unknownSubcommand(),
           async (candidate) => {
@@ -554,7 +554,7 @@ export function registerValidationCliDispatchPropertyTests(): void {
             const result = await runValidationInProcessWithDomains(
               [candidate],
               [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-              { processCwd: () => projectRoot },
+              { processCwd: () => productDir },
             );
 
             expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
@@ -576,7 +576,7 @@ export function registerValidationCliDispatchComplianceTests(): void {
   it(
     "dispatch failures do not enter injected validation handlers",
     async () => {
-      await withEmptyValidationProject(async (projectRoot) => {
+      await withEmptyValidationProject(async (productDir) => {
         const unknownSubcommand = sampleLiteralTestValue(
           VALIDATION_CLI_GENERATOR.unknownSubcommand()
             .filter((candidate) => !candidate.startsWith(validationOptionPrefix)),
@@ -586,7 +586,7 @@ export function registerValidationCliDispatchComplianceTests(): void {
           args: [unknownSubcommand],
           expectedLabel: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
           expectedSanitizedArgument: sanitizeCliArgument(unknownSubcommand),
-          projectRoot,
+          productDir,
         });
         await expectDispatchFailureSkipsInjectedHandlers({
           args: [
@@ -596,7 +596,7 @@ export function registerValidationCliDispatchComplianceTests(): void {
           ],
           expectedLabel: validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel,
           expectedSanitizedArgument: sanitizeCliArgument(invalidKind),
-          projectRoot,
+          productDir,
         });
         await expectDispatchFailureSkipsInjectedHandlers({
           args: [
@@ -605,7 +605,7 @@ export function registerValidationCliDispatchComplianceTests(): void {
           ],
           expectedLabel: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
           expectedSanitizedArgument: sanitizeCliArgument(VALIDATION_PIPELINE_DATA.escapingPathOperand),
-          projectRoot,
+          productDir,
         });
       });
     },
@@ -775,13 +775,13 @@ async function expectDispatchFailureSkipsInjectedHandlers(options: {
   readonly args: readonly string[];
   readonly expectedLabel: string;
   readonly expectedSanitizedArgument: string;
-  readonly projectRoot: string;
+  readonly productDir: string;
 }): Promise<ValidationCliResult> {
   const observed = observedValidationCommandHandlers();
   const result = await runValidationInProcessWithDomains(
     options.args,
     [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-    { processCwd: () => options.projectRoot },
+    { processCwd: () => options.productDir },
   );
 
   expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
@@ -979,7 +979,7 @@ export async function expectCircularCommandRejectsFullPipelineCircularOverride()
 }
 
 async function expectStandaloneCommandsRejectFullPipelineOverrideFlags(): Promise<void> {
-  await withEmptyValidationProject(async (projectRoot) => {
+  await withEmptyValidationProject(async (productDir) => {
     for (const { operand, commandName } of validationRegisteredSubcommandOperands()) {
       if (commandName === validationCliDefinition.subcommands.all.commandName) continue;
       for (const overrideFlag of validationAllOverrideFlagsFromStageDescriptors()) {
@@ -987,7 +987,7 @@ async function expectStandaloneCommandsRejectFullPipelineOverrideFlags(): Promis
         const result = await runValidationInProcessWithDomains(
           [operand, overrideFlag],
           [createValidationDomain({ commandHandlers: observed.commandHandlers })],
-          { processCwd: () => projectRoot },
+          { processCwd: () => productDir },
         );
 
         expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);

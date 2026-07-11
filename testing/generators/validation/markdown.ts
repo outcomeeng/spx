@@ -261,7 +261,7 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
 export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
   return [
     {
-      title: "project absolute links resolve from project root",
+      title: "product-absolute links resolve from product directory",
       kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
       fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
       timeout: MARKDOWN_HARNESS_TIMEOUT,

@@ -193,7 +193,7 @@ export function registerUnusedCodeScenarioTests(): void {
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(recording.validationCalls).toEqual([
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: expectedExplicitScope(sourceFilePath),
           },
         ]);

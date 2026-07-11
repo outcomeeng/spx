@@ -82,7 +82,7 @@ export function registerMarkdownMappingTests(): void {
         timeout: MARKDOWN_HARNESS_TIMEOUT,
       },
       {
-        title: "project absolute links resolve from the project root",
+        title: "product-absolute links resolve from the product directory",
         kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
         timeout: MARKDOWN_HARNESS_TIMEOUT,
       },
@@ -221,7 +221,7 @@ async function runExternalUrlScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(sourceFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(true);
@@ -238,7 +238,7 @@ async function runHtmlLinkScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(sourceFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(true);
@@ -306,7 +306,7 @@ async function runProjectAbsoluteLinkScenario(_scenario: MarkdownValidationScena
 
     const wrongProjectRoot = await validateMarkdown({
       targets: [markdownDirectoryTarget(docsDir)],
-      projectRoot: docsDir,
+      productDir: docsDir,
     });
     const result = await markdownCommand({
       cwd: path,
@@ -363,7 +363,7 @@ async function runExcludeScenario(scenario: MarkdownValidationScenario): Promise
   await withMarkdownScenarioEnv(scenario, async ({ path, spxDir }) => {
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
     const declaredErrors = result.errors.filter((error) =>
       error.file.includes(MARKDOWN_VALIDATION_DATA.declaredNodeFragment)
@@ -395,7 +395,7 @@ async function runExcludeExactOnlyScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
@@ -420,7 +420,7 @@ async function runExcludeScopedTargetScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(declaredNodeDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
@@ -429,20 +429,20 @@ async function runExcludeScopedTargetScenario(): Promise<void> {
 }
 
 async function runCurrentExcludeMatchesFailuresScenario(): Promise<void> {
-  const projectRoot = process.cwd();
-  const spxDir = join(projectRoot, PRODUCT_SPEC_TREE_DIRECTORY);
+  const productDir = process.cwd();
+  const spxDir = join(productDir, PRODUCT_SPEC_TREE_DIRECTORY);
   const unexcludedResult = await validateMarkdown({
     targets: [markdownDirectoryTarget(spxDir)],
-    projectRoot,
+    productDir,
     applyNodeStatusExcludes: false,
   });
   const failingNodePaths = new Set(
-    unexcludedResult.errors.map((error) => specNodePathForMarkdownError(projectRoot, error.file)),
+    unexcludedResult.errors.map((error) => specNodePathForMarkdownError(productDir, error.file)),
   );
-  const excludedNodePaths = new Set(createNodeStatusExcludeReader(projectRoot).entries());
+  const excludedNodePaths = new Set(createNodeStatusExcludeReader(productDir).entries());
   const excludedResult = await validateMarkdown({
     targets: [markdownDirectoryTarget(spxDir)],
-    projectRoot,
+    productDir,
   });
 
   expect([...excludedNodePaths].sort((left, right) => left.localeCompare(right))).toEqual(
@@ -451,8 +451,8 @@ async function runCurrentExcludeMatchesFailuresScenario(): Promise<void> {
   expect(excludedResult.success).toBe(true);
 }
 
-function specNodePathForMarkdownError(projectRoot: string, file: string): string {
-  const relativeFile = relative(projectRoot, file);
+function specNodePathForMarkdownError(productDir: string, file: string): string {
+  const relativeFile = relative(productDir, file);
   const segments = relativeFile.split("/");
   for (let index = segments.length - 2; index >= 1; index -= 1) {
     if (SPEC_NODE_DIRECTORY_SUFFIX_PATTERN.test(segments[index])) {
@@ -535,7 +535,7 @@ async function runFileScopeDocsScenario(scenario: MarkdownValidationScenario): P
     });
     const detailed = await validateMarkdown({
       targets: [markdownDirectoryTarget(docsDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
@@ -646,7 +646,7 @@ async function runDocsDirectFileMd024Scenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(sourceFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(true);
@@ -713,11 +713,11 @@ async function runDirectoryScopeMdOnlyScenario(): Promise<void> {
 
     const directoryResult = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
     const directFileResult = await validateMarkdown({
       targets: [markdownFileTarget(markdownExtensionFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(directoryResult.success).toBe(true);
@@ -735,7 +735,7 @@ async function runColonPathErrorScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(colonFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(false);

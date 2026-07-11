@@ -47,7 +47,7 @@ class BackpressuredWritable extends EventEmitter implements ValidationWritableSt
 
 export function registerTypeCheckScenarioTests(): void {
   it(
-    "S1: GIVEN a TypeScript project with valid types WHEN running typescript THEN tsc exits zero",
+    "S1: GIVEN a TypeScript product with valid types WHEN running typescript THEN tsc exits zero",
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
@@ -72,7 +72,7 @@ export function registerTypeCheckScenarioTests(): void {
   );
 
   it(
-    "S3: GIVEN a TypeScript project with type errors WHEN running typescript THEN exits non-zero and reports errors",
+    "S3: GIVEN a TypeScript product with type errors WHEN running typescript THEN exits non-zero and reports errors",
     { timeout: HARNESS_TIMEOUT },
     async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
@@ -154,7 +154,7 @@ export function registerTypeCheckComplianceTests(): void {
   it("spawns tsc with piped stdio so lifecycle handlers can observe parent output closure", async () => {
     const runner = new RecordingSpawnOptionsRunner();
     const result = await validateTypeScript(
-      { scope: VALIDATION_SCOPES.FULL, projectRoot: process.cwd() },
+      { scope: VALIDATION_SCOPES.FULL, productDir: process.cwd() },
       { runner },
     );
 

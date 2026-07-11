@@ -75,7 +75,7 @@ function formatCircularValidationResult(result: CircularValidationResult, quiet:
  *
  * Gates dependency-cruiser execution on TypeScript language detection:
  * dependency-cruiser walks the TypeScript import graph and has nothing to
- * examine in non-TypeScript projects.
+ * examine in non-TypeScript products.
  *
  * @param options - Command options
  * @returns Command result with exit code and output
@@ -98,7 +98,7 @@ export async function circularCommand(
   }
 
   // Gate 2: tool discovery.
-  const toolResult = await discoverTool(DEPENDENCY_CRUISER_PACKAGE_NAME, { projectRoot: cwd });
+  const toolResult = await discoverTool(DEPENDENCY_CRUISER_PACKAGE_NAME, { productDir: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -114,7 +114,7 @@ export async function circularCommand(
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
   const effectiveScopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter: validationPathFilterForTool(

@@ -16,7 +16,7 @@ import {
   type ValidationPathFilterConfig,
 } from "@/validation/config/descriptor";
 import {
-  toProjectRelativeValidationPath,
+  toProductRelativeValidationPath,
   validationPathFilterExcludes,
   validationPathFilterForTool,
   validationPathFilterIntersections,
@@ -109,7 +109,7 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   // Run markdown validation
   const result = await validateMarkdown({
     targets,
-    projectRoot: cwd,
+    productDir: cwd,
     validationPathExcludes: validationPathFilterExcludes(pathFilter),
   });
   const durationMs = Date.now() - startTime;
@@ -126,7 +126,7 @@ function defaultMarkdownTargets(
   pathFilter: ValidationPathFilterConfig,
 ): MarkdownValidationTarget[] {
   return getDefaultDirectories(productDir).flatMap((directory) =>
-    validationPathFilterIntersections(toProjectRelativeValidationPath(productDir, directory), pathFilter)
+    validationPathFilterIntersections(toProductRelativeValidationPath(productDir, directory), pathFilter)
       .map((intersection) => resolveMarkdownValidationTarget(join(productDir, intersection)).target)
       .filter((target): target is MarkdownValidationTarget => target !== undefined)
   );

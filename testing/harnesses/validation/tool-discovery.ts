@@ -10,8 +10,8 @@ import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generat
 describe("ALWAYS: bundled validation tool discovery recognizes ESM-exported packages", () => {
   it("finds a bundled package through import resolution when package.json is not exported", async () => {
     const tool = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-    const projectRoot = process.cwd();
-    const packageRoot = join(projectRoot, "node_modules", tool);
+    const productDir = process.cwd();
+    const packageRoot = join(productDir, "node_modules", tool);
     const bundledEntryPath = join(
       packageRoot,
       sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()),
@@ -24,7 +24,7 @@ describe("ALWAYS: bundled validation tool discovery recognizes ESM-exported pack
       whichSync: () => null,
     };
 
-    const result = await discoverTool(tool, { projectRoot, deps });
+    const result = await discoverTool(tool, { productDir, deps });
 
     expect(result).toEqual({
       found: true,

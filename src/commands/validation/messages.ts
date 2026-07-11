@@ -16,7 +16,7 @@ export const VALIDATION_STAGE_DISPLAY_NAMES = {
 export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
   DISABLED_BY_PREFIX: "disabled by",
-  TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
+  TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in product",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
   MARKDOWN_NO_SCOPE_REASON: "no markdown files in explicit path scope",
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
@@ -32,7 +32,7 @@ export const VALIDATION_COMMAND_OUTPUT = {
   KNIP_FAILURE: "Unused code found",
   ESLINT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✓ No errors found`,
   ESLINT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT} validation failed`,
-  ESLINT_MISSING_CONFIG: "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
+  ESLINT_MISSING_CONFIG: "ESLint config not found: product has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
   TYPESCRIPT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✓ No type errors`,
   TYPESCRIPT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT} validation failed`,
   MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,

@@ -33,7 +33,7 @@ export const TYPESCRIPT_VALIDATION_MESSAGES = {
  * Run TypeScript type checking.
  *
  * Gates tsc execution on language detection: without a `tsconfig.json` in the
- * project root there is nothing to type-check, and invoking tsc regardless
+ * product directory there is nothing to type-check, and invoking tsc regardless
  * causes it to walk up and compile an ancestor project instead.
  *
  * @param options - Command options
@@ -63,7 +63,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   }
   const validationConfig = loaded.value[validationConfigDescriptor.section] as ValidationConfig;
   const scopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter: validationPathFilterForTool(
@@ -83,7 +83,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   }
 
   // Gate 2: tool discovery — ensure tsc itself is available somewhere.
-  const toolResult = await discoverTool("typescript", { projectRoot: cwd });
+  const toolResult = await discoverTool("typescript", { productDir: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -91,7 +91,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
 
   const result = await validateTypeScript({
     scope,
-    projectRoot: cwd,
+    productDir: cwd,
     scopeConfig,
   }, {
     outputStreams,

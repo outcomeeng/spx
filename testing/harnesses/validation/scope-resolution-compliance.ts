@@ -71,8 +71,8 @@ import {
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 export function registerValidationScopeResolutionComplianceTests(): void {
-  describe("ALWAYS: TypeScript scope resolution uses the requested project root", () => {
-    it("discovers TypeScript directories under the requested project root", async () => {
+  describe("ALWAYS: TypeScript scope resolution uses the requested product directory", () => {
+    it("discovers TypeScript directories under the requested product directory", async () => {
       await withTestEnv({}, async (env) => {
         await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
 
@@ -358,14 +358,14 @@ export function registerValidationScopeResolutionComplianceTests(): void {
       });
     });
 
-    it("runs TypeScript validation from the requested project root", async () => {
+    it("runs TypeScript validation from the requested product directory", async () => {
       await withTestEnv({}, async (env) => {
         const runner = new RecordingSpawnOptionsRunner();
         const checkedPaths: string[] = [];
         const deps = createRootRecordingDeps(env.productDir, checkedPaths);
 
         const result = await validateTypeScript(
-          { scope: VALIDATION_SCOPES.FULL, projectRoot: env.productDir },
+          { scope: VALIDATION_SCOPES.FULL, productDir: env.productDir },
           { runner, deps },
         );
 
@@ -376,7 +376,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
       });
     });
 
-    it("runs file-scoped TypeScript validation from the requested project root", async () => {
+    it("runs file-scoped TypeScript validation from the requested product directory", async () => {
       await withTestEnv({}, async (env) => {
         const runner = new RecordingSpawnOptionsRunner();
         const checkedPaths: string[] = [];
@@ -385,7 +385,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await validateTypeScript(
           {
             scope: VALIDATION_SCOPES.FULL,
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
           },
           { runner, deps },
@@ -415,7 +415,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await validateTypeScript(
           {
             scope: VALIDATION_SCOPES.FULL,
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             scopeConfig: {
               directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
               filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -448,7 +448,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await validateTypeScript(
           {
             scope: VALIDATION_SCOPES.FULL,
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             scopeConfig: {
               directories: [],
               filePatterns: [],
@@ -486,7 +486,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
           );
           await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
           const scopeConfig = resolveTypeScriptValidationScope({
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             scope: VALIDATION_SCOPES.FULL,
             paths: [testFilePath],
             validationPathFilter: validationPathFilterForTool(
@@ -582,7 +582,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         );
 
         const scopeConfig = resolveTypeScriptValidationScope({
-          projectRoot: path,
+          productDir: path,
           scope: VALIDATION_SCOPES.FULL,
           paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
           validationPathFilter: validationPathFilterForTool(
@@ -669,7 +669,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         );
 
         const scopeConfig = resolveTypeScriptValidationScope({
-          projectRoot: path,
+          productDir: path,
           scope: VALIDATION_SCOPES.FULL,
           paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
           validationPathFilter: validationPathFilterForTool(
@@ -754,7 +754,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         const result = await validateKnip(
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: {
               directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
               filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -805,7 +805,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         const result = await validateKnip(
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: {
               directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
               filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -830,7 +830,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         const result = await validateKnip(
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: {
               directories: [],
               filePatterns: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
@@ -867,7 +867,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         const result = await validateKnip(
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: {
               directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
               filePatterns: [nestedSourceFile],
@@ -974,7 +974,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await validateTypeScript(
           {
             scope: VALIDATION_SCOPES.FULL,
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             scopeConfig: {
               directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
               filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -1002,7 +1002,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await validateTypeScript(
           {
             scope: VALIDATION_SCOPES.FULL,
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
           },
           { runner, deps },

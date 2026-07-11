@@ -7,6 +7,7 @@ import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import { NO_PROBLEMS_MESSAGE } from "@/commands/validation/literal";
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationStageSkipJsonOutput,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -14,8 +15,8 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { validationCliDefinition, validationKnownOperands, validationOptionPrefix } from "@/interfaces/cli/validation";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
@@ -132,6 +133,7 @@ const SECONDARY_SOURCE_DIRECTORY_NAME = "api";
 const SECONDARY_SOURCE_FILE_NAME = "secondary.ts";
 const SECONDARY_SOURCE_CONTENT = "export const secondary = true;\n";
 const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"bad\";\n";
+const FIRST_CYCLE_SOURCE_FILE = "cycle-a.ts";
 const GENERATED_VALID_SOURCE_CONTENT = "export const generatedValidationValue = true;\n";
 const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
@@ -150,8 +152,6 @@ const VALIDATION_STEP_OUTCOME_SKIP = "skip";
 const VALIDATION_STEP_OUTCOME_FAIL = "fail";
 const CIRCULAR_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 const LITERAL_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
-const SKIPPED_JSON_PREFIX = "{\"skipped\":true,\"reason\":\"";
-const SKIPPED_JSON_SUFFIX = "\"}";
 const DPRINT_TYPESCRIPT_PLUGIN =
   "https://plugins.dprint.dev/typescript-0.95.13.wasm@d353247b160c1e81eb043930de6f940adcd3d713651221d3a0284d4c30ea43c4";
 const CLEAN_FORMATTING_CONFIG_CONTENT = `${
@@ -305,10 +305,10 @@ export const VALIDATION_PIPELINE_DATA = {
     DETAIL_B_TO_A: CIRCULAR_DEPENDENCY_DETAIL_B_TO_A,
   },
   circularSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${CIRCULAR_OVERRIDE.flag})`,
-  circularSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${CIRCULAR_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
+  circularSkipJsonOutput: formatValidationStageSkipJsonOutput(CIRCULAR_OVERRIDE.reason, 0),
   skipCircularFlag: CIRCULAR_OVERRIDE.flag,
   literalSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (${LITERAL_OVERRIDE.flag})`,
-  literalSkipJsonOutput: `${SKIPPED_JSON_PREFIX}${LITERAL_OVERRIDE.reason}${SKIPPED_JSON_SUFFIX}`,
+  literalSkipJsonOutput: formatValidationStageSkipJsonOutput(LITERAL_OVERRIDE.reason, 0),
   skipLiteralFlag: LITERAL_OVERRIDE.flag,
   formattingConfigFileName: DPRINT_CONFIG_FILENAME,
   cleanFormattingConfigContent: CLEAN_FORMATTING_CONFIG_CONTENT,
@@ -370,6 +370,7 @@ export const VALIDATION_PIPELINE_DATA = {
   secondarySourceFileName: SECONDARY_SOURCE_FILE_NAME,
   secondarySourceContent: SECONDARY_SOURCE_CONTENT,
   secondaryTypeErrorSourceContent: SECONDARY_TYPE_ERROR_SOURCE_CONTENT,
+  firstCycleSourceFile: FIRST_CYCLE_SOURCE_FILE,
   excludedSourceDirectoryName: EXCLUDED_SOURCE_DIRECTORY_NAME,
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,

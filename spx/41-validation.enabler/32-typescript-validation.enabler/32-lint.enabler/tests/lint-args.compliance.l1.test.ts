@@ -67,7 +67,7 @@ class OutputRunner implements ProcessRunner {
 
 function createValidationContext(): ValidationContext {
   return {
-    projectRoot: process.cwd(),
+    productDir: process.cwd(),
     scope: VALIDATION_SCOPES.FULL,
     scopeConfig: {
       directories: [],

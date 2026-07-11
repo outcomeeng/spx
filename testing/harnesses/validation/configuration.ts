@@ -38,7 +38,7 @@ import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
 
 interface KnipValidationCall {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly typescriptScope: ScopeConfig;
 }
 
@@ -53,7 +53,7 @@ function validationConfigSection(section: string, enabled: boolean): Config {
 }
 
 function createRecordingKnipCommandDeps(
-  projectRoot: string,
+  productDir: string,
   validationCalls: KnipValidationCall[],
 ) {
   return {
@@ -61,7 +61,7 @@ function createRecordingKnipCommandDeps(
       found: true,
       location: {
         tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
-        path: projectRoot,
+        path: productDir,
         source: TOOL_DISCOVERY.SOURCES.PROJECT,
       },
     }),
@@ -119,6 +119,8 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     await withLiteralFixtureEnv(
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
       async (env) => {
+        await env.writeTsConfigMarker();
+
         const result = await knipCommand({ cwd: env.productDir });
 
         expect(result.exitCode).toBe(0);
@@ -147,7 +149,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(validationCalls).toEqual([
           {
-            projectRoot: env.productDir,
+            productDir: env.productDir,
             typescriptScope: {
               directories: [],
               filePatterns: [sourceFilePath],

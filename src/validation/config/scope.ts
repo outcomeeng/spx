@@ -100,7 +100,7 @@ export interface ExplicitTypeScriptScopeTarget {
 }
 
 export interface ExplicitTypeScriptScopeTargetFilter {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly paths: readonly string[] | undefined;
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly scopeConfig: ScopeConfig;
@@ -109,7 +109,7 @@ export interface ExplicitTypeScriptScopeTargetFilter {
 }
 
 export interface TypeScriptValidationScopeFilter {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly scope: ValidationScope;
   readonly paths?: readonly string[];
   readonly validationPathFilter: ValidationPathFilterConfig;
@@ -118,7 +118,7 @@ export interface TypeScriptValidationScopeFilter {
 }
 
 interface TypeScriptFileDiscoveryOptions {
-  readonly projectRoot?: string;
+  readonly productDir?: string;
   readonly excludePatterns?: readonly string[];
 }
 
@@ -127,8 +127,8 @@ interface PatternDirectoryAdvance {
   readonly recursiveGlobConsumedDirectory: boolean;
 }
 
-function resolveProjectPath(projectRoot: string, path: string): string {
-  return isAbsolute(path) ? path : join(projectRoot, path);
+function resolveProductPath(productDir: string, path: string): string {
+  return isAbsolute(path) ? path : join(productDir, path);
 }
 
 // =============================================================================
@@ -168,15 +168,15 @@ export function parseTypeScriptConfig(
  */
 export function resolveTypeScriptConfig(
   scope: ValidationScope,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): TypeScriptConfig {
   const configFile = TSCONFIG_FILES[scope];
-  const config = parseTypeScriptConfig(resolveProjectPath(projectRoot, configFile), deps);
+  const config = parseTypeScriptConfig(resolveProductPath(productDir, configFile), deps);
 
   if (config.extends) {
     const baseConfigs = normalizeExtends(config.extends)
-      .map((extendedConfig) => parseTypeScriptConfig(resolveProjectPath(projectRoot, extendedConfig), deps));
+      .map((extendedConfig) => parseTypeScriptConfig(resolveProductPath(productDir, extendedConfig), deps));
     // TypeScript applies later extended configs after earlier ones; include
     // and exclude arrays replace instead of merge, so the last inherited
     // field wins.
@@ -248,11 +248,11 @@ function pathPassesTypeScriptFileDiscoveryExcludes(
   path: string,
   options: TypeScriptFileDiscoveryOptions,
 ): boolean {
-  const { excludePatterns = [], projectRoot } = options;
-  if (projectRoot === undefined) {
+  const { excludePatterns = [], productDir } = options;
+  if (productDir === undefined) {
     return true;
   }
-  const projectRelativePath = toProjectRelativeTypeScriptScopePath(projectRoot, path);
+  const projectRelativePath = toProductRelativeTypeScriptScopePath(productDir, path);
   return !excludePatterns.some((pattern) => pathMatchesTypeScriptPattern(projectRelativePath, pattern));
 }
 
@@ -265,27 +265,27 @@ function pathPassesTypeScriptFileDiscoveryExcludes(
  */
 export function getTopLevelDirectoriesWithTypeScript(
   config: TypeScriptConfig,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): string[] {
   const directories = new Set<string>();
 
-  for (const dir of listTopLevelDirectories(projectRoot, deps)) {
-    if (directoryContributesTypeScriptScope(dir, config, projectRoot, deps)) {
+  for (const dir of listTopLevelDirectories(productDir, deps)) {
+    if (directoryContributesTypeScriptScope(dir, config, productDir, deps)) {
       directories.add(dir);
     }
   }
 
-  for (const dir of explicitIncludeTopLevelDirectories(config, projectRoot, deps)) {
+  for (const dir of explicitIncludeTopLevelDirectories(config, productDir, deps)) {
     directories.add(dir);
   }
 
   return Array.from(directories).sort(compareAsciiStrings);
 }
 
-// Top-level directories under the project root, excluding hidden directories.
-function listTopLevelDirectories(projectRoot: string, deps: ScopeDeps): string[] {
-  return deps.readdirSync(projectRoot, { withFileTypes: true })
+// Top-level directories under the product directory, excluding hidden directories.
+function listTopLevelDirectories(productDir: string, deps: ScopeDeps): string[] {
+  return deps.readdirSync(productDir, { withFileTypes: true })
     .filter((item) => item.isDirectory())
     .map((item) => item.name)
     .filter((name) => !name.startsWith("."));
@@ -297,16 +297,16 @@ function listTopLevelDirectories(projectRoot: string, deps: ScopeDeps): string[]
 function directoryContributesTypeScriptScope(
   dir: string,
   config: TypeScriptConfig,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps,
 ): boolean {
-  if (!directoryPassesIncludePatterns(dir, config.include ?? [], projectRoot, deps)) {
+  if (!directoryPassesIncludePatterns(dir, config.include ?? [], productDir, deps)) {
     return false;
   }
   try {
-    return hasTypeScriptFilesRecursive(join(projectRoot, dir), 2, deps, {
+    return hasTypeScriptFilesRecursive(join(productDir, dir), 2, deps, {
       excludePatterns: config.exclude,
-      projectRoot,
+      productDir,
     });
   } catch {
     return false;
@@ -317,7 +317,7 @@ function directoryContributesTypeScriptScope(
 // "scripts/**/*.ts", which the directory scan above does not surface on its own.
 function explicitIncludeTopLevelDirectories(
   config: TypeScriptConfig,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps,
 ): string[] {
   if (!config.include) {
@@ -326,7 +326,7 @@ function explicitIncludeTopLevelDirectories(
   const directories: string[] = [];
   for (const pattern of config.include) {
     if (
-      includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
+      includePatternTargetsTypeScriptScope(pattern, productDir, deps)
       && pattern.includes(PATH_SEGMENT_SEPARATOR)
     ) {
       const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
@@ -349,12 +349,12 @@ function getLiteralTopLevelPatternDirectory(pattern: string): string | null {
 function directoryPassesIncludePatterns(
   directory: string,
   patterns: readonly string[],
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps,
 ): boolean {
   return patterns.length === 0
     || patterns.some((pattern) =>
-      includePatternTargetsTypeScriptScope(pattern, projectRoot, deps)
+      includePatternTargetsTypeScriptScope(pattern, productDir, deps)
       && typeScriptScopePatternIntersectsDirectory(pattern, directory)
     );
 }
@@ -567,15 +567,15 @@ export function typeScriptScopePatternTargetsTypeScriptSource(pattern: string): 
     && !TERMINAL_EXTENSION_PATTERN.test(terminalSegment);
 }
 
-function includePatternTargetsTypeScriptScope(pattern: string, projectRoot: string, deps: ScopeDeps): boolean {
-  return includePatternIsLiteralDirectory(pattern, projectRoot, deps)
+function includePatternTargetsTypeScriptScope(pattern: string, productDir: string, deps: ScopeDeps): boolean {
+  return includePatternIsLiteralDirectory(pattern, productDir, deps)
     || typeScriptScopePatternTargetsTypeScriptSource(pattern);
 }
 
-function includePatternIsLiteralDirectory(pattern: string, projectRoot: string, deps: ScopeDeps): boolean {
+function includePatternIsLiteralDirectory(pattern: string, productDir: string, deps: ScopeDeps): boolean {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
   return !typeScriptScopePatternHasGlob(normalizedPattern)
-    && pathIsDirectory(resolveProjectPath(projectRoot, normalizedPattern), deps);
+    && pathIsDirectory(resolveProductPath(productDir, normalizedPattern), deps);
 }
 
 function pathIsDirectory(path: string, deps: ScopeDeps): boolean {
@@ -587,9 +587,9 @@ function pathIsDirectory(path: string, deps: ScopeDeps): boolean {
   }
 }
 
-function normalizeActiveIncludePattern(pattern: string, projectRoot: string, deps: ScopeDeps): string {
+function normalizeActiveIncludePattern(pattern: string, productDir: string, deps: ScopeDeps): string {
   const normalizedPattern = normalizeTypeScriptScopePath(pattern);
-  return includePatternIsLiteralDirectory(normalizedPattern, projectRoot, deps)
+  return includePatternIsLiteralDirectory(normalizedPattern, productDir, deps)
     ? `${normalizedPattern}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`
     : pattern;
 }
@@ -597,15 +597,15 @@ function normalizeActiveIncludePattern(pattern: string, projectRoot: string, dep
 function filterActiveIncludePatterns(
   patterns: readonly string[],
   excludePatterns: readonly string[],
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps,
 ): string[] {
   return patterns
-    .map((pattern) => normalizeActiveIncludePattern(pattern, projectRoot, deps))
+    .map((pattern) => normalizeActiveIncludePattern(pattern, productDir, deps))
     .filter((pattern) => typeScriptScopePatternTargetsTypeScriptSource(pattern))
     .filter((pattern) => {
       const topLevelDir = getLiteralTopLevelPatternDirectory(pattern);
-      return topLevelDir === null || deps.existsSync(join(projectRoot, topLevelDir));
+      return topLevelDir === null || deps.existsSync(join(productDir, topLevelDir));
     })
     .filter((pattern) => pathPassesValidationFilter(pattern, { exclude: excludePatterns }));
 }
@@ -619,17 +619,17 @@ function filterActiveIncludePatterns(
  */
 export function getValidationDirectories(
   scope: ValidationScope,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): string[] {
   // Get TypeScript configuration for the specified mode
-  const config = resolveTypeScriptConfig(scope, projectRoot, deps);
+  const config = resolveTypeScriptConfig(scope, productDir, deps);
 
   // Get directories that contain TypeScript files and respect tsconfig exclude patterns
-  const configDirectories = getTopLevelDirectoriesWithTypeScript(config, projectRoot, deps);
+  const configDirectories = getTopLevelDirectoriesWithTypeScript(config, productDir, deps);
 
   // Only include directories that actually exist
-  const existingDirectories = configDirectories.filter((dir) => deps.existsSync(join(projectRoot, dir)));
+  const existingDirectories = configDirectories.filter((dir) => deps.existsSync(join(productDir, dir)));
 
   return existingDirectories;
 }
@@ -646,24 +646,24 @@ export function getValidationDirectories(
  *
  * @example
  * ```typescript
- * const scopeConfig = getTypeScriptScope("full", projectRoot);
+ * const scopeConfig = getTypeScriptScope("full", productDir);
  * console.log(scopeConfig.directories); // ["src", "tests", "scripts"]
  * ```
  */
 export function getTypeScriptScope(
   scope: ValidationScope,
-  projectRoot: string,
+  productDir: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): ScopeConfig {
   // Use validation-focused directory selection
-  const directories = getValidationDirectories(scope, projectRoot, deps);
+  const directories = getValidationDirectories(scope, productDir, deps);
 
   // Read TypeScript config for patterns
-  const config = resolveTypeScriptConfig(scope, projectRoot, deps);
+  const config = resolveTypeScriptConfig(scope, productDir, deps);
 
   return {
     directories,
-    filePatterns: filterActiveIncludePatterns(config.include ?? [], config.exclude ?? [], projectRoot, deps),
+    filePatterns: filterActiveIncludePatterns(config.include ?? [], config.exclude ?? [], productDir, deps),
     excludePatterns: config.exclude ?? [],
   };
 }
@@ -679,29 +679,29 @@ export function pathPassesTypeScriptScope(path: string, scopeConfig: ScopeConfig
   return included && !excluded;
 }
 
-export function pathStaysInsideTypeScriptScopeRoot(projectRoot: string, path: string): boolean {
-  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
-  const relativePath = relative(projectRoot, resolvedPath);
+export function pathStaysInsideTypeScriptScopeRoot(productDir: string, path: string): boolean {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(productDir, path);
+  const relativePath = relative(productDir, resolvedPath);
   const segments = normalizeTypeScriptScopePath(relativePath).split(PATH_SEGMENT_SEPARATOR);
   return relativePath.length === 0 || (!segments.includes("..") && !isAbsolute(relativePath));
 }
 
-export function toProjectRelativeTypeScriptScopePath(projectRoot: string, path: string): string {
-  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(projectRoot, path);
-  const relativePath = relative(projectRoot, resolvedPath);
+export function toProductRelativeTypeScriptScopePath(productDir: string, path: string): string {
+  const resolvedPath = isAbsolute(path) ? resolve(path) : resolve(productDir, path);
+  const relativePath = relative(productDir, resolvedPath);
   return relativePath.length === 0
     ? TYPESCRIPT_SCOPE_PROJECT_ROOT
     : normalizeTypeScriptScopePath(relativePath);
 }
 
 export function toExplicitTypeScriptScopeTarget(
-  projectRoot: string,
+  productDir: string,
   originalPath: string,
   deps: ScopeDeps = defaultScopeDeps,
 ): ExplicitTypeScriptScopeTarget {
-  const path = toProjectRelativeTypeScriptScopePath(projectRoot, originalPath);
+  const path = toProductRelativeTypeScriptScopePath(productDir, originalPath);
   return {
-    kind: pathIsDirectory(resolveProjectPath(projectRoot, path), deps)
+    kind: pathIsDirectory(resolveProductPath(productDir, path), deps)
       ? EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.DIRECTORY
       : EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE,
     path,
@@ -709,11 +709,11 @@ export function toExplicitTypeScriptScopeTarget(
 }
 
 function explicitTypeScriptScopeTargetExists(
-  projectRoot: string,
+  productDir: string,
   target: ExplicitTypeScriptScopeTarget,
   deps: ScopeDeps,
 ): boolean {
-  return deps.existsSync(resolveProjectPath(projectRoot, target.path));
+  return deps.existsSync(resolveProductPath(productDir, target.path));
 }
 
 export function filterExplicitTypeScriptScopeTargets(
@@ -722,7 +722,7 @@ export function filterExplicitTypeScriptScopeTargets(
 ): ExplicitTypeScriptScopeTarget[] | undefined {
   const {
     paths,
-    projectRoot,
+    productDir,
     requireExistingPaths = true,
     scopeConfig,
     validationPathFilter,
@@ -732,9 +732,9 @@ export function filterExplicitTypeScriptScopeTargets(
     return undefined;
   }
   return paths
-    .filter((path) => pathStaysInsideTypeScriptScopeRoot(projectRoot, path))
-    .map((path) => toExplicitTypeScriptScopeTarget(projectRoot, path, deps))
-    .filter((target) => !requireExistingPaths || explicitTypeScriptScopeTargetExists(projectRoot, target, deps))
+    .filter((path) => pathStaysInsideTypeScriptScopeRoot(productDir, path))
+    .map((path) => toExplicitTypeScriptScopeTarget(productDir, path, deps))
+    .filter((target) => !requireExistingPaths || explicitTypeScriptScopeTargetExists(productDir, target, deps))
     .filter((target) => explicitTypeScriptScopeTargetPassesSourceKind(target))
     .filter((target) =>
       bypassValidationPathFilter
@@ -883,12 +883,12 @@ export function resolveTypeScriptValidationScope(
   filter: TypeScriptValidationScopeFilter,
   deps: ScopeDeps = defaultScopeDeps,
 ): ScopeConfig {
-  const baseScopeConfig = getTypeScriptScope(filter.scope, filter.projectRoot, deps);
+  const baseScopeConfig = getTypeScriptScope(filter.scope, filter.productDir, deps);
   const scopeConfig = applyValidationPathFilterToScope(baseScopeConfig, filter.validationPathFilter);
   const explicitTargetScopeConfig = filter.bypassExplicitPathValidationFilter === true ? baseScopeConfig : scopeConfig;
   const explicitTargets = filterExplicitTypeScriptScopeTargets({
     paths: filter.paths,
-    projectRoot: filter.projectRoot,
+    productDir: filter.productDir,
     validationPathFilter: filter.validationPathFilter,
     scopeConfig: explicitTargetScopeConfig,
     bypassValidationPathFilter: filter.bypassExplicitPathValidationFilter,

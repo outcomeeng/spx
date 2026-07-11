@@ -1,7 +1,7 @@
 /**
  * TypeScript validation language descriptor.
  *
- * Declares the validation stages a TypeScript project contributes to the
+ * Declares the validation stages a TypeScript product contributes to the
  * pipeline: circular-dependency detection, unused-code detection, ESLint,
  * type checking, and literal-reuse detection. The registry imports this
  * descriptor with an explicit import statement; orchestration never names

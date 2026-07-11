@@ -28,7 +28,7 @@ function createValidationScopeConfig(): ScopeConfig {
 
 function createValidationContext(scopeConfig: ScopeConfig = createValidationScopeConfig()): ValidationContext {
   return {
-    projectRoot: process.cwd(),
+    productDir: process.cwd(),
     scope: VALIDATION_SCOPES.FULL,
     scopeConfig,
     mode: EXECUTION_MODES.READ,
@@ -90,7 +90,7 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     const result = await validateTypeScript(
       {
         scope: VALIDATION_SCOPES.FULL,
-        projectRoot: process.cwd(),
+        productDir: process.cwd(),
       },
       { runner },
     );
@@ -101,12 +101,12 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
   it("Knip subprocess output is owned by parent-owned pipes", async () => {
     const runner = new RecordingSpawnOptionsRunner();
-    const projectRoot = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+    const productDir = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
 
-    const result = await validateKnip({ projectRoot, typescriptScope: createValidationScopeConfig() }, runner);
+    const result = await validateKnip({ productDir, typescriptScope: createValidationScopeConfig() }, runner);
 
     expect(result.success).toBe(true);
-    expect(runner.spawnOptions?.cwd).toBe(projectRoot);
+    expect(runner.spawnOptions?.cwd).toBe(productDir);
     expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
   });
 });

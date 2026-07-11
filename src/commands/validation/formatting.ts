@@ -92,7 +92,7 @@ export async function formattingCommand(
   // dprint runs with cwd === productDir and resolves relative paths against it,
   // so a relative scope passes through unchanged while an absolute scope is
   // relativized to the product directory — an absolute path does not match dprint's
-  // project-relative include globs.
+  // product-relative include globs.
   const hasExplicitScope = files !== undefined && files.length > 0;
   const contexts = formattingValidationContexts(cwd, files, pathFilter);
   const scopedFiles = contexts.flatMap((context) => context.files ?? []);

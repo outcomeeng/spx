@@ -76,14 +76,14 @@ export async function knipCommand(
   }
 
   // Discover knip
-  const toolResult = await deps.discoverTool(KNIP_COMMAND_TOKENS.COMMAND, { projectRoot: cwd });
+  const toolResult = await deps.discoverTool(KNIP_COMMAND_TOKENS.COMMAND, { productDir: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(KNIP_VALIDATION_STEP_NAME, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
   const scopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter: validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP),
@@ -99,7 +99,7 @@ export async function knipCommand(
   }
 
   // Run knip validation
-  const result = await deps.validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });
+  const result = await deps.validateKnip({ productDir: cwd, typescriptScope: scopeConfig });
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

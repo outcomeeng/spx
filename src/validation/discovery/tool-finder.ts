@@ -143,10 +143,10 @@ function bundledToolPath(resolvedPath: string, existsSync: (path: string) => boo
  */
 export interface DiscoverToolOptions {
   /**
-   * Project root directory for checking project-local node_modules.
+   * Product directory directory for checking project-local node_modules.
    * Defaults to current working directory.
    */
-  projectRoot?: string;
+  productDir?: string;
 
   /**
    * Dependencies for tool discovery.
@@ -164,7 +164,7 @@ export interface DiscoverToolOptions {
  * 3. **Global**: Check system PATH via `which` command
  *
  * @param tool - The tool name to discover (e.g., "eslint", "typescript", "dependency-cruiser")
- * @param options - Discovery options including projectRoot and dependencies
+ * @param options - Discovery options including productDir and dependencies
  * @returns Discovery result with found location or not found reason
  *
  * @example
@@ -182,7 +182,7 @@ export async function discoverTool(
   tool: string,
   options: DiscoverToolOptions = {},
 ): Promise<ToolDiscoveryResult> {
-  const { projectRoot = CONFIG_PROCESS_CWD.read(), deps = defaultToolDiscoveryDeps } = options;
+  const { productDir = CONFIG_PROCESS_CWD.read(), deps = defaultToolDiscoveryDeps } = options;
 
   // Tier 1: Check if bundled with spx-cli
   const bundledPath = deps.resolveModule(`${tool}/package.json`) ?? deps.resolveImport?.(tool);
@@ -198,13 +198,13 @@ export async function discoverTool(
   }
 
   // Tier 2: Check project's node_modules/.bin
-  const projectBinPath = path.join(projectRoot, "node_modules", ".bin", tool);
-  if (deps.existsSync(projectBinPath)) {
+  const productBinPath = path.join(productDir, "node_modules", ".bin", tool);
+  if (deps.existsSync(productBinPath)) {
     return {
       found: true,
       location: {
         tool,
-        path: projectBinPath,
+        path: productBinPath,
         source: TOOL_DISCOVERY.SOURCES.PROJECT,
       },
     };

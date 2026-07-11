@@ -57,18 +57,18 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-function createRootRecordingDeps(projectRoot: string, checkedPaths: string[]): TypeScriptDeps {
+export function createRootRecordingDeps(productDir: string, checkedPaths: string[]): TypeScriptDeps {
   return {
     ...defaultTypeScriptDeps,
     existsSync(path) {
       const checkedPath = path.toString();
       checkedPaths.push(checkedPath);
-      return checkedPath.startsWith(projectRoot);
+      return checkedPath.startsWith(productDir);
     },
   };
 }
 
-function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGraphRunner>> {
+export function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGraphRunner>> {
   return {
     output: {
       modules: [],
@@ -87,11 +87,11 @@ function createDependencyGraphResult(): Awaited<ReturnType<CircularDependencyGra
   };
 }
 
-function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
+export function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
   return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
 }
 
-function expectedKnipDirectorySourcePatterns(directory: string): string[] {
+export function expectedKnipDirectorySourcePatterns(directory: string): string[] {
   return TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => join(directory, pattern));
 }
 
@@ -107,7 +107,7 @@ interface RecordingTypeScriptDepsContext {
   readonly deps: TypeScriptDeps;
 }
 
-function createRecordingKnipDeps(): RecordingKnipDepsContext {
+export function createRecordingKnipDeps(): RecordingKnipDepsContext {
   const writtenConfigs: string[] = [];
   const writtenConfigPaths: string[] = [];
   return {
@@ -126,7 +126,7 @@ function createRecordingKnipDeps(): RecordingKnipDepsContext {
   };
 }
 
-function createRecordingTypeScriptDeps(): RecordingTypeScriptDepsContext {
+export function createRecordingTypeScriptDeps(): RecordingTypeScriptDepsContext {
   const writtenConfigs: string[] = [];
   const writtenConfigPaths: string[] = [];
   return {
@@ -143,12 +143,12 @@ function createRecordingTypeScriptDeps(): RecordingTypeScriptDepsContext {
   };
 }
 
-function expectTemporaryConfigPathInsideNodeModules(productDir: string, configPath: string | undefined): void {
+export function expectTemporaryConfigPathInsideNodeModules(productDir: string, configPath: string | undefined): void {
   expect(configPath?.startsWith(join(productDir, "node_modules"))).toBe(true);
   expect(configPath?.startsWith(join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS))).toBe(true);
 }
 
-const narrowSourceDirectory = join(
+export const narrowSourceDirectory = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.narrowSourceDirectoryName,
 );
@@ -157,18 +157,18 @@ const deepSourceDirectory = join(
   VALIDATION_PIPELINE_DATA.deepSourceDirectoryName,
   VALIDATION_PIPELINE_DATA.nestedSourceDirectoryName,
 );
-const topLevelSourceFile = join(
+export const topLevelSourceFile = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.cleanSourceFileName,
 );
-const nestedSourceFile = join(narrowSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
-const deepSourceFile = join(deepSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
-const extensionlessNestedPath = join(
+export const nestedSourceFile = join(narrowSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+export const deepSourceFile = join(deepSourceDirectory, VALIDATION_PIPELINE_DATA.cleanSourceFileName);
+export const extensionlessNestedPath = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
 );
 
-class ErrorThenCloseRunner implements ProcessRunner {
+export class ErrorThenCloseRunner implements ProcessRunner {
   readonly options: SpawnOptions[] = [];
 
   constructor(private readonly errorMessage: string) {}
@@ -184,8 +184,8 @@ class ErrorThenCloseRunner implements ProcessRunner {
   }
 }
 
-describe("ALWAYS: TypeScript scope resolution uses the requested project root", () => {
-  it("discovers TypeScript directories under the requested project root", async () => {
+describe("ALWAYS: TypeScript scope resolution uses the requested product directory", () => {
+  it("discovers TypeScript directories under the requested product directory", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile, "");
 
@@ -472,14 +472,14 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("runs TypeScript validation from the requested project root", async () => {
+  it("runs TypeScript validation from the requested product directory", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
       const deps = createRootRecordingDeps(env.productDir, checkedPaths);
 
       const result = await validateTypeScript(
-        { scope: VALIDATION_SCOPES.FULL, projectRoot: env.productDir },
+        { scope: VALIDATION_SCOPES.FULL, productDir: env.productDir },
         { runner, deps },
       );
 
@@ -490,7 +490,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("runs file-scoped TypeScript validation from the requested project root", async () => {
+  it("runs file-scoped TypeScript validation from the requested product directory", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
       const checkedPaths: string[] = [];
@@ -499,7 +499,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
         },
         { runner, deps },
@@ -529,7 +529,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           scopeConfig: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -562,7 +562,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           scopeConfig: {
             directories: [],
             filePatterns: [],
@@ -600,7 +600,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         );
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
         const scopeConfig = resolveTypeScriptValidationScope({
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           scope: VALIDATION_SCOPES.FULL,
           paths: [testFilePath],
           validationPathFilter: validationPathFilterForTool(
@@ -690,7 +690,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       const scopeConfig = resolveTypeScriptValidationScope({
-        projectRoot: path,
+        productDir: path,
         scope: VALIDATION_SCOPES.FULL,
         paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
         validationPathFilter: validationPathFilterForTool(
@@ -774,7 +774,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
       );
 
       const scopeConfig = resolveTypeScriptValidationScope({
-        projectRoot: path,
+        productDir: path,
         scope: VALIDATION_SCOPES.FULL,
         paths: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
         validationPathFilter: validationPathFilterForTool(
@@ -859,7 +859,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -910,7 +910,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -935,7 +935,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           typescriptScope: {
             directories: [],
             filePatterns: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
@@ -972,7 +972,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
       const result = await validateKnip(
         {
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [nestedSourceFile],
@@ -1077,7 +1077,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           scopeConfig: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -1105,7 +1105,7 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
       const result = await validateTypeScript(
         {
           scope: VALIDATION_SCOPES.FULL,
-          projectRoot: env.productDir,
+          productDir: env.productDir,
           files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
         },
         { runner, deps },

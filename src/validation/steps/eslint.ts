@@ -159,8 +159,8 @@ export async function validateESLint(
   error?: string;
   skipped?: boolean;
 }> {
-  const { projectRoot, scope, validatedFiles, mode, eslintConfigFile } = context;
-  const lintPolicy = validateLintPolicy(projectRoot);
+  const { productDir, scope, validatedFiles, mode, eslintConfigFile } = context;
+  const lintPolicy = validateLintPolicy(productDir);
 
   if (!lintPolicy.ok) {
     return { success: false, error: lintPolicy.error };
@@ -180,11 +180,11 @@ export async function validateESLint(
   });
 
   return new Promise((resolve) => {
-    const localBin = join(projectRoot, ...ESLINT_LOCAL_BIN_SEGMENTS);
+    const localBin = join(productDir, ...ESLINT_LOCAL_BIN_SEGMENTS);
     const binary = existsSync(localBin) ? localBin : "npx";
     const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
     const eslintProcess = spawnManagedSubprocess(runner, binary, spawnArgs, {
-      cwd: projectRoot,
+      cwd: productDir,
     });
     forwardValidationSubprocessOutput(eslintProcess, outputStreams);
 

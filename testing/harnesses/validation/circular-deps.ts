@@ -59,7 +59,7 @@ import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-const projectRoot = process.cwd();
+const productDir = process.cwd();
 
 const [sourceModule, targetModule] = sampleSourceModulePair();
 
@@ -277,7 +277,7 @@ async function validateCircularScopeWithRecording(scopeConfig: ScopeConfig): Pro
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     scopeConfig,
-    projectRoot,
+    productDir,
     recording.deps,
   );
   return { dependencyGraphCalls: recording.dependencyGraphCalls, result };
@@ -403,7 +403,7 @@ export async function runCircularDepsScenarioL1Case001(): Promise<void> {
   await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     deps,
   );
 
@@ -413,7 +413,7 @@ export async function runCircularDepsScenarioL1Case001(): Promise<void> {
   const javascriptSourceModule = sourceModule.replace(extname(sourceModule), javascriptExtension);
   expect(paths.some((pattern) => matchesGlob(sourceModule, pattern))).toBe(true);
   expect(paths.every((pattern) => !matchesGlob(javascriptSourceModule, pattern))).toBe(true);
-  expect(config?.baseDir).toBe(projectRoot);
+  expect(config?.baseDir).toBe(productDir);
   expect(config?.exclude).toEqual({ path: [DEPENDENCY_CRUISER_PACKAGE_EXCLUDE_PATTERN] });
   const includeOnly = config?.includeOnly;
   const includeOnlyPath = typeof includeOnly === "object" && !Array.isArray(includeOnly)
@@ -425,7 +425,7 @@ export async function runCircularDepsScenarioL1Case001(): Promise<void> {
   expect(new RegExp(includeOnlyPath).test(javascriptSourceModule)).toBe(false);
   expect(config?.enhancedResolveOptions?.extensions).toContain(extname(sourceModule));
   expect(config?.enhancedResolveOptions?.extensions).not.toContain(javascriptExtension);
-  expect(config?.tsConfig?.fileName).toBe(join(projectRoot, TSCONFIG_FILES.full));
+  expect(config?.tsConfig?.fileName).toBe(join(productDir, TSCONFIG_FILES.full));
   expect(resolveOptions).toBeUndefined();
   expect(transpileOptions?.tsConfig).toBe(emptyTypescriptConfig);
 }
@@ -697,7 +697,7 @@ export async function runCircularDepsScenarioL1Case017(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createReporterOutputDeps(sampleLiteralTestValue(arbitraryDomainLiteral())),
   );
 
@@ -711,7 +711,7 @@ export async function runCircularDepsScenarioL1Case018(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createReporterOutputDeps(null),
   );
 
@@ -736,7 +736,7 @@ export async function runCircularDepsScenarioL1Case019(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -757,7 +757,7 @@ export async function runCircularDepsScenarioL1Case020(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -778,7 +778,7 @@ export async function runCircularDepsScenarioL1Case021(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -794,7 +794,7 @@ export async function runCircularDepsScenarioL1Case022(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -811,7 +811,7 @@ export async function runCircularDepsScenarioL1Case023(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -834,7 +834,7 @@ export async function runCircularDepsScenarioL1Case024(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -867,7 +867,7 @@ export async function runCircularDepsScenarioL1Case025(): Promise<void> {
   const result = await validateCircularDependencies(
     VALIDATION_SCOPES.FULL,
     typescriptScope,
-    projectRoot,
+    productDir,
     createDeps(createCruiseResult(dependency)),
   );
 
@@ -957,15 +957,15 @@ export async function runCircularDepsScenarioL1Case031(): Promise<void> {
     const validationCalls: Array<{
       readonly scope: string;
       readonly typescriptScope: ScopeConfig;
-      readonly projectRoot: string;
+      readonly productDir: string;
     }> = [];
     const deps: CircularCommandDeps = {
       validateCircularDependencies: async (
         scope,
         scopeConfig,
-        projectRoot,
+        productDir,
       ) => {
-        validationCalls.push({ scope, typescriptScope: scopeConfig, projectRoot });
+        validationCalls.push({ scope, typescriptScope: scopeConfig, productDir });
         return { success: true };
       },
     };
@@ -990,7 +990,7 @@ export async function runCircularDepsScenarioL1Case031(): Promise<void> {
           ],
           excludePatterns: [],
         },
-        projectRoot: path,
+        productDir: path,
       },
     ]);
   });

@@ -64,7 +64,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
 export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] {
   return [
     {
-      title: "unrelated TypeScript projects do not require product policy manifests",
+      title: "unrelated TypeScript products do not require product policy manifests",
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.UNRELATED_PROJECT,
     },
     {

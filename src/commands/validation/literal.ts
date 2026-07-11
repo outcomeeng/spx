@@ -196,7 +196,7 @@ function resolveExplicitLiteralTypeScriptScope(
     return undefined;
   }
   return resolveTypeScriptValidationScope({
-    projectRoot: options.cwd,
+    productDir: options.cwd,
     scope: options.scope ?? VALIDATION_SCOPES.FULL,
     paths: options.files,
     validationPathFilter: pathConfig,

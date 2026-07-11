@@ -9,7 +9,7 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { toProjectRelativeValidationPath, validationPathFilterForTool } from "@/validation/config/path-filter";
+import { toProductRelativeValidationPath, validationPathFilterForTool } from "@/validation/config/path-filter";
 import {
   EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
   filterExplicitTypeScriptScopeTargets,
@@ -87,7 +87,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   );
   const explicitMode = files !== undefined && files.length > 0;
   const scopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter,
@@ -97,14 +97,14 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   const explicitTargets = explicitMode
     ? filterExplicitTypeScriptScopeTargets({
       paths: files,
-      projectRoot: cwd,
+      productDir: cwd,
       validationPathFilter,
       scopeConfig: getTypeScriptScope(scope, cwd),
       bypassValidationPathFilter: true,
     })
     : undefined;
   const validatedFiles = explicitTargets?.every((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
-    ? explicitTargets.map((target) => formatLintValidationOperand(toProjectRelativeValidationPath(cwd, target.path)))
+    ? explicitTargets.map((target) => formatLintValidationOperand(toProductRelativeValidationPath(cwd, target.path)))
     : undefined;
 
   if (scopeConfig.filteredByValidationPathNoMatches) {
@@ -116,7 +116,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   }
 
   // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
-  const toolResult = await discoverTool("eslint", { projectRoot: cwd });
+  const toolResult = await discoverTool("eslint", { productDir: cwd });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -124,7 +124,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
 
   // Build validation context
   const context: ValidationContext = {
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     scopeConfig,
     mode: fix ? "write" : "read",
