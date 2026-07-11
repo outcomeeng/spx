@@ -26,6 +26,10 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 
 - Dispatch safety: for every non-empty, non-option string not in the registered-subcommand set, `spx validation <string>` exits non-zero and invokes no stage handler ([test](tests/dispatch.property.l2.test.ts))
 
+### Mappings
+
+- Literal report output modes map findings to a non-zero exit code with the report on stdout and no report content on stderr ([test](tests/dispatch.mapping.l2.test.ts))
+
 ### Compliance
 
 - ALWAYS: route every `spx validation <subcommand>` invocation against the registered subcommand set; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.compliance.l2.test.ts))
