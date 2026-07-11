@@ -87,9 +87,10 @@ function record(
 
 /**
  * Classifies the worktree-pool reading into a check record. The verdict is a
- * function of layout alone — linked worktrees on a non-bare repository are
- * broken, every other resolved layout is compliant — and never of occupancy:
- * the `running`/`free` counts are reported as information, not as a fault.
+ * function of layout and canonical-checkout standing: invalid topology and an
+ * unusable canonical checkout are broken, unavailable observations are
+ * unknown, and occupancy remains informational. The `running`/`free` counts
+ * never change the verdict.
  */
 export function classifyWorktreePool(reading: WorktreePoolReading): CheckRecord {
   if (reading.errored) {
