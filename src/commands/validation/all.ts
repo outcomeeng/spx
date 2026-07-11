@@ -95,6 +95,12 @@ function recordStepOutput(
   return true;
 }
 
+export function resolveFullPipelineStages(
+  validationStages: readonly ValidationStage[] | undefined,
+): readonly ValidationStage[] {
+  return validationStages ?? validationPipelineStages;
+}
+
 /**
  * Run all validation steps.
  *
@@ -110,10 +116,11 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
     quiet = false,
     json,
     participationOverrides = [],
-    validationStages = validationPipelineStages,
+    validationStages: requestedValidationStages,
     writeStageOutput,
     outputStreams,
   } = options;
+  const validationStages = resolveFullPipelineStages(requestedValidationStages);
   const startTime = Date.now();
   const outputs: string[] = [];
   let wroteStageOutput = false;

@@ -22,7 +22,7 @@ import type { ValidationStageParticipationOverride } from "@/validation/language
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { DPRINT_CONFIG_FILENAME } from "@/validation/steps/formatting";
-import type { ValidationScope } from "@/validation/types";
+import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 import { arbitraryDomainLiteral, arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
@@ -519,13 +519,15 @@ export function arbitraryGeneratedValidationStageInsertion(
 export function arbitraryValidationPipelineProjectCase(): fc.Arbitrary<ValidationPipelineProjectCase> {
   return fc.record({
     explicitFileScope: fc.boolean(),
+    scope: fc.constantFrom(VALIDATION_SCOPES.FULL, VALIDATION_SCOPES.PRODUCTION),
     sourceFilePath: arbitrarySourceFilePath(),
-  }).map(({ explicitFileScope, sourceFilePath }) => ({
+  }).map(({ explicitFileScope, scope, sourceFilePath }) => ({
     title: explicitFileScope
       ? "generated clean project explicit file validation scope"
       : "generated clean project full validation scope",
     fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
     args: explicitFileScope ? [sourceFilePath] : [],
+    scope,
     ...(explicitFileScope ? { files: [sourceFilePath] } : {}),
     generatedFiles: [{
       path: sourceFilePath,
