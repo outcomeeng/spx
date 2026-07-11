@@ -58,6 +58,16 @@ interface CanonicalStandingCase {
   readonly bucket: CheckRecord["bucket"];
 }
 
+function mainCheckoutBranchForCase(
+  testCase: CanonicalStandingCase,
+  defaultBranch: string,
+  wrongBranch: string,
+): string | null {
+  if (testCase.detached) return null;
+  if (testCase.wrongBranch) return wrongBranch;
+  return defaultBranch;
+}
+
 function reading(overrides: Partial<WorktreePoolReading>): WorktreePoolReading {
   return {
     errored: false,
@@ -254,11 +264,7 @@ async function assertCanonicalStandingCase(testCase: CanonicalStandingCase): Pro
       resolveDefaultBranch: async () => testCase.defaultBranchAvailable ? defaultBranch : null,
       readMainCheckoutBranch: async () => ({
         read: testCase.branchRead,
-        branch: testCase.detached
-          ? null
-          : testCase.wrongBranch
-          ? wrongBranch
-          : defaultBranch,
+        branch: mainCheckoutBranchForCase(testCase, defaultBranch, wrongBranch),
       }),
       fs: defaultOccupancyFileSystem,
       processTable: createProcessTable({
