@@ -145,11 +145,49 @@ function renderSingleCheckText(check: CheckRecord): string {
   return renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false });
 }
 
+function canonicalCheckoutFailureRecords(): readonly CheckRecord[] {
+  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+  return [
+    classifyWorktreePool({
+      errored: false,
+      bareRepository: true,
+      linkedWorktrees: false,
+      mainCheckoutPath: null,
+      defaultBranch,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: true,
+      running: 1,
+      free: 8,
+    }),
+    classifyWorktreePool({
+      errored: false,
+      bareRepository: true,
+      linkedWorktrees: false,
+      mainCheckoutPath: defaultBranch,
+      defaultBranch,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: true,
+      running: 1,
+      free: 8,
+    }),
+    classifyWorktreePool({
+      errored: false,
+      bareRepository: true,
+      linkedWorktrees: false,
+      mainCheckoutPath: defaultBranch,
+      defaultBranch,
+      mainCheckoutBranch: wrongBranch,
+      mainCheckoutBranchRead: true,
+      running: 1,
+      free: 8,
+    }),
+  ];
+}
+
 function supportedTranslationBranches(): readonly TranslationBranchCase[] {
   const spxReading = reusableSpxReading();
   const sessionReading = workingSessionReading();
   const marketplaceReading = configuredMarketplaceReading();
-  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
   return [
     { check: classifySpxReachability(spxReading, "0.6.0"), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
     { check: classifySpxReachability(spxReading, undefined), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
@@ -199,48 +237,10 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
       }),
       header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
     },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: null,
-        defaultBranch,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
+    ...canonicalCheckoutFailureRecords().map((check) => ({
+      check,
       header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: wrongBranch,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    },
+    })),
     {
       check: classifyWorktreePool({
         errored: true,
@@ -380,6 +380,18 @@ export function assertUnknownTranslationHidesMachineFields(): void {
 export function assertEveryTranslationBranchHasHeading(): void {
   for (const branch of supportedTranslationBranches()) {
     expect(renderSingleCheckText(branch.check).split("\n")).toContain(sectionHeaderLine(branch.check, branch.header));
+  }
+}
+
+export function assertCanonicalCheckoutFailureTranslations(): void {
+  for (const check of canonicalCheckoutFailureRecords()) {
+    const lines = renderSingleCheckText(check).split("\n");
+    expect(lines).toContain(sectionHeaderLine(check, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID));
+    expect(lines).toEqual(expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.PROBLEM}:`)]));
+    expect(lines).toEqual(expect.arrayContaining([expect.stringContaining(check.verdict)]));
+    expect(lines).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`)]),
+    );
   }
 }
 
