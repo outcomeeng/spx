@@ -13,6 +13,8 @@ export interface ValidationCommandResult {
   output: string;
   /** Duration in milliseconds (optional for backward compatibility) */
   durationMs?: number;
+  /** Output is already a complete machine-readable record. */
+  structuredOutput?: boolean;
 }
 
 /** Common options for all validation commands */

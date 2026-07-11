@@ -30,6 +30,7 @@ function formatStepWithTiming(
   quiet: boolean,
 ): string {
   if (quiet || !result.output) return "";
+  if (result.structuredOutput === true) return result.output;
 
   const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
   return `[${stepNumber}/${totalSteps}] ${result.output}${timing}`;
@@ -73,6 +74,7 @@ function skippedStageResult(
     output: json
       ? formatValidationStageSkipJsonOutput(reason)
       : formatValidationStageSkipOutput(stage.name, participation.flag ?? reason),
+    structuredOutput: json,
   };
 }
 

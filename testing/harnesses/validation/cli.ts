@@ -4,7 +4,11 @@ import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
 
-import { LITERAL_PROBLEM_KIND, VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
+import {
+  formatValidationStageSkipOutput,
+  LITERAL_PROBLEM_KIND,
+  VALIDATION_COMMAND_OUTPUT,
+} from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
@@ -664,6 +668,9 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   expect(quietStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
   expect(jsonResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expectStructuredSkippedSentinel(jsonResult.stdout, SYNTHETIC_OVERRIDE_REASON);
+  expect(jsonResult.stdout).not.toContain(
+    formatValidationStageSkipOutput(SYNTHETIC_OVERRIDE_STAGE_NAME, SYNTHETIC_OVERRIDE_FLAG),
+  );
   expect(jsonResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
   expect(jsonResult.stdout).toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(jsonStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
@@ -775,10 +782,9 @@ async function expectDispatchFailureSkipsInjectedHandlers(options: {
 }
 
 function expectStructuredSkippedSentinel(stdout: string, reason: string): void {
-  const match = stdout.match(/\{"skipped":true,"reason":"[^"]+"\}/u);
-  expect(match).not.toBeNull();
-  const [json] = match ?? [validationCliEmptyOutput()];
-  expect(JSON.parse(json)).toEqual({ skipped: true, reason });
+  const structuredLine = stdout.split("\n").find((line) => line.startsWith("{"));
+  expect(structuredLine).toBeDefined();
+  expect(JSON.parse(structuredLine ?? validationCliEmptyOutput())).toEqual({ skipped: true, reason });
 }
 
 function validationCommonJsonFlag(): string {
