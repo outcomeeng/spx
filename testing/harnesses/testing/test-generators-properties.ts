@@ -38,6 +38,15 @@ function expectDistinctNonPrefixNodePaths(
   }
 }
 
+function expectParentAndDescendantNodePaths(
+  paths: readonly [string, string],
+): void {
+  const [parent, descendant] = paths;
+  expect(descendant).not.toBe(parent);
+  expect(isPathPrefix(parent, descendant)).toBe(true);
+  expect(isPathPrefix(descendant, parent)).toBe(false);
+}
+
 function arbitraryGeneratedDispatchFiles(): fc.Arbitrary<GeneratedDispatchFiles> {
   return fc
     .constantFrom(...testingRegistry.languages)
@@ -100,6 +109,14 @@ export function registerTestGeneratorPropertyTests(): void {
       assertProperty(
         TEST_DISPATCH_GENERATOR.distinctNodePaths(),
         expectDistinctNonPrefixNodePaths,
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    });
+
+    it("yields a descendant node path below its generated parent", () => {
+      assertProperty(
+        TEST_DISPATCH_GENERATOR.nodeWithDescendant(),
+        expectParentAndDescendantNodePaths,
         { level: PROPERTY_LEVEL.L1 },
       );
     });
