@@ -109,6 +109,9 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
+  MAIN_CHECKOUT_DETACHED_PROBLEM: "The designated main checkout is not attached to any branch.",
+  MAIN_CHECKOUT_MISSING_PROBLEM: "The designated main checkout could not be found.",
+  MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM: "The designated main checkout is attached to the wrong branch.",
   METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
   METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
   METHODOLOGY_VERSION_MISMATCH_FIX:
@@ -322,12 +325,26 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_MISSING_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+        ],
+      };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_DETACHED_PROBLEM}`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+        ],
+      };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: canonical checkout health is ${check.verdict}.`,
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM}`,
           `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
         ],
       };
