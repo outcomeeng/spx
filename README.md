@@ -177,7 +177,12 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 ### Publishing a Release
 
-1. Sync `main` with `origin/main`: `git pull --ff-only origin main`
+Run every step in the canonical main checkout. Keep `main` checked out there for
+the entire release so Git refuses attempts to check out `main` in a linked
+worktree.
+
+1. Confirm `git branch --show-current` reports `main`, then sync it with
+   `origin/main`: `git pull --ff-only origin main`
 2. Bump the version with `pnpm version patch --no-git-tag-version`, unless the
    release request specifies `minor`, `major`, or an exact version
 3. Run `pnpm run publish:check`
@@ -194,22 +199,22 @@ npm view @outcomeeng/spx version
 npm audit signatures
 ```
 
-8. Refresh the operator-visible CLI from the release tag in the main worktree
-   and confirm it reports the released version:
+8. Verify that the release tag is present on current `main`, then rebuild the
+   operator-visible CLI and confirm it reports the released version:
 
 ```bash
 git fetch --tags origin
-git switch --detach vX.Y.Z
+git pull --ff-only origin main
+test "$(git branch --show-current)" = main
+git merge-base --is-ancestor "vX.Y.Z" HEAD
 pnpm run build
 spx --version
-git switch main
-git pull --ff-only origin main
 ```
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
 manager update commands during release close-out. The operator-visible binary
-comes from the release tag after the main worktree checks out that tag and
-rebuilds it; return the worktree to current main after the version check.
+comes from the canonical main checkout after the release tag is verified as an
+ancestor of its current `main` commit. The checkout remains on `main` throughout.
 
 ## Technical Stack
 

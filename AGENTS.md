@@ -168,16 +168,18 @@ Before publishing or tagging a release:
 
 When a changeset reaching `main` adds a new CLI subcommand, verb, or option, merge completes the PR and then release work begins: drive a release, autonomous up to the publish gate.
 
+Run every release step in the canonical main checkout defined by `spx/15-worktree-management.pdr.md`. That checkout permanently keeps `main` checked out, which makes Git refuse attempts to check out `main` in a linked worktree. Never detach the canonical main checkout, switch it away from `main`, or move `main` to another worktree. Stop the release if the canonical main checkout cannot remain on `main`.
+
 Agent release sequence:
 
-1. On `main` synced to `origin/main` via `/sync-base`, run `pnpm version patch --no-git-tag-version` unless directed otherwise. This updates `package.json` only.
+1. In the canonical main checkout, confirm `git branch --show-current` reports `main`, sync it to `origin/main` via `/sync-base`, and run `pnpm version patch --no-git-tag-version` unless directed otherwise. This updates `package.json` only.
 2. Run `pnpm run publish:check`.
 3. Use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`.
 4. Tag `vX.Y.Z` with `git tag vX.Y.Z`.
 5. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
 6. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for.
 7. After approval, verify the registry with `npm view @outcomeeng/spx version` and provenance with `npm audit signatures`.
-8. Complete the operator-visible CLI update from the release tag in the main worktree: run `git fetch --tags origin`, `git switch --detach vX.Y.Z`, `pnpm run build`, verify `spx --version` reports `X.Y.Z`, then run `git switch main` and `git pull --ff-only origin main`.
+8. Complete the operator-visible CLI update in the canonical main checkout: run `git fetch --tags origin`, `git pull --ff-only origin main`, confirm `git branch --show-current` still reports `main`, verify the release commit is present with `git merge-base --is-ancestor "vX.Y.Z" HEAD`, run `pnpm run build`, and verify `spx --version` reports `X.Y.Z`.
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package-manager update commands during release close-out.
 
