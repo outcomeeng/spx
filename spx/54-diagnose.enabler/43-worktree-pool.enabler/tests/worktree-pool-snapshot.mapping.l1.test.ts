@@ -10,6 +10,7 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { GIT_DIR_BASENAME, GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { arbitraryOriginUrl, sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { createProcessTable } from "@testing/harnesses/worktree/harness";
@@ -69,7 +70,7 @@ describe("the worktree-pool snapshot maps git facts and occupancy into the workt
           ? join(productDir, `${runningName}${GIT_URL_SUFFIX}`)
           : join(productDir, GIT_DIR_BASENAME),
         commonDirIsBare: testCase.commonDirIsBare,
-        originUrl: null,
+        originUrl: testCase.commonDirIsBare ? sampleMainCheckoutTestValue(arbitraryOriginUrl(runningName)) : null,
       };
       const worktreesDir = worktreesScopeDir(productDir);
 
@@ -86,6 +87,8 @@ describe("the worktree-pool snapshot maps git facts and occupancy into the workt
 
       const snapshot = await gatherWorktreePoolSnapshot({
         gatherGitFacts: async () => facts,
+        resolveDefaultBranch: async () => runningName,
+        readMainCheckoutBranch: async () => ({ read: true, branch: runningName }),
         fs: defaultOccupancyFileSystem,
         processTable: createProcessTable({
           host: liveClaim.host,
@@ -104,6 +107,10 @@ describe("the worktree-pool snapshot maps git facts and occupancy into the workt
         errored: false,
         bareRepository: testCase.expectedBareRepository,
         linkedWorktrees: testCase.expectedLinkedWorktrees,
+        mainCheckoutPath: testCase.commonDirIsBare ? runningRoot : productDir,
+        defaultBranch: testCase.commonDirIsBare ? runningName : null,
+        mainCheckoutBranch: testCase.commonDirIsBare ? runningName : null,
+        mainCheckoutBranchRead: true,
         running: testCase.expectedRunning,
         free: testCase.expectedFree,
       });

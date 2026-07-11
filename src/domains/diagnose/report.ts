@@ -321,6 +321,16 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
           `${DIAGNOSE_TEXT_LABEL.FIX}: convert to a bare-repository worktree pool or remove the linked worktrees.`,
         ],
       };
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: canonical checkout health is ${check.verdict}.`,
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+        ],
+      };
     case WORKTREE_POOL_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,

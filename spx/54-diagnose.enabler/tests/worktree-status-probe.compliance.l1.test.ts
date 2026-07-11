@@ -49,10 +49,15 @@ describe("diagnose worktree-touching probes comply with the shared snapshot boun
       process.env.SPX_DIAGNOSE_RECORD_ARGS = recordPath;
       try {
         const worktreeRoot = join(productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()));
+        const defaultBranch = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
         const provider = snapshotProvider({
           errored: false,
           bareRepository: true,
           linkedWorktrees: false,
+          mainCheckoutPath: worktreeRoot,
+          defaultBranch,
+          mainCheckoutBranch: defaultBranch,
+          mainCheckoutBranchRead: true,
           worktrees: [
             {
               root: worktreeRoot,
