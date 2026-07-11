@@ -48,6 +48,16 @@ interface WorktreePoolPropertyInput {
   readonly tempPrefix: string;
 }
 
+interface CanonicalStandingCase {
+  readonly designated: boolean;
+  readonly defaultBranchAvailable: boolean;
+  readonly branchRead: boolean;
+  readonly detached: boolean;
+  readonly wrongBranch: boolean;
+  readonly verdict: WorktreePoolVerdict;
+  readonly bucket: CheckRecord["bucket"];
+}
+
 function reading(overrides: Partial<WorktreePoolReading>): WorktreePoolReading {
   return {
     errored: false,
@@ -221,6 +231,101 @@ async function assertSnapshotCase(commonDirIsBare: boolean, writeClaims: boolean
 export async function assertWorktreePoolSnapshotMapping(): Promise<void> {
   await assertSnapshotCase(true, true);
   await assertSnapshotCase(false, false);
+  await assertCanonicalStandingMapping();
+}
+
+async function assertCanonicalStandingCase(testCase: CanonicalStandingCase): Promise<void> {
+  const [repositoryName, alternateName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+
+  await withTempDir(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()), async (productDir) => {
+    const observedName = testCase.designated ? repositoryName : alternateName;
+    const observedRoot = join(productDir, observedName);
+    const facts: GitFacts = {
+      worktreeRoot: observedRoot,
+      worktreeRoots: [observedRoot],
+      worktreeListRead: true,
+      commonDir: join(productDir, `${repositoryName}${GIT_URL_SUFFIX}`),
+      commonDirIsBare: true,
+      originUrl: sampleMainCheckoutTestValue(arbitraryOriginUrl(repositoryName)),
+    };
+    const snapshot = await gatherWorktreePoolSnapshot({
+      gatherGitFacts: async () => facts,
+      resolveDefaultBranch: async () => testCase.defaultBranchAvailable ? defaultBranch : null,
+      readMainCheckoutBranch: async () => ({
+        read: testCase.branchRead,
+        branch: testCase.detached
+          ? null
+          : testCase.wrongBranch
+          ? wrongBranch
+          : defaultBranch,
+      }),
+      fs: defaultOccupancyFileSystem,
+      processTable: createProcessTable({
+        host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
+        processes: new Map(),
+      }),
+    });
+    const record = classifyWorktreePool(worktreePoolReadingFromSnapshot(snapshot));
+
+    expect(snapshot.mainCheckoutPath).toBe(testCase.designated ? observedRoot : null);
+    expect(snapshot.defaultBranch).toBe(testCase.defaultBranchAvailable ? defaultBranch : null);
+    expect(snapshot.mainCheckoutBranchRead).toBe(testCase.designated ? testCase.branchRead : true);
+    expect(record.verdict).toBe(testCase.verdict);
+    expect(record.bucket).toBe(testCase.bucket);
+  });
+}
+
+async function assertCanonicalStandingMapping(): Promise<void> {
+  const cases: readonly CanonicalStandingCase[] = [
+    {
+      designated: false,
+      defaultBranchAvailable: true,
+      branchRead: true,
+      detached: false,
+      wrongBranch: false,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
+    {
+      designated: true,
+      defaultBranchAvailable: true,
+      branchRead: true,
+      detached: true,
+      wrongBranch: false,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
+    {
+      designated: true,
+      defaultBranchAvailable: true,
+      branchRead: true,
+      detached: false,
+      wrongBranch: true,
+      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
+    {
+      designated: true,
+      defaultBranchAvailable: false,
+      branchRead: true,
+      detached: false,
+      wrongBranch: false,
+      verdict: WORKTREE_POOL_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+    },
+    {
+      designated: true,
+      defaultBranchAvailable: true,
+      branchRead: false,
+      detached: false,
+      wrongBranch: false,
+      verdict: WORKTREE_POOL_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+    },
+  ];
+
+  for (const testCase of cases) await assertCanonicalStandingCase(testCase);
 }
 
 function worktreePoolPropertyInput(): fc.Arbitrary<WorktreePoolPropertyInput> {
