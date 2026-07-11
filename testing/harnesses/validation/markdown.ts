@@ -25,12 +25,36 @@ import {
   markdownE2eScenarios,
   markdownFileTarget,
   markdownIntegrationScenarios,
+  type MarkdownScenarioKind,
   markdownUnitScenarios,
   type MarkdownValidationScenario,
 } from "@testing/generators/validation/markdown";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
-import { withMarkdownEnv } from "@testing/harnesses/with-markdown-env";
+import {
+  MARKDOWN_FIXTURES,
+  MARKDOWN_HARNESS_TIMEOUT,
+  type MarkdownFixtureName,
+  withMarkdownEnv,
+} from "@testing/harnesses/with-markdown-env";
+
+const MARKDOWN_E2E_TEMP_PREFIX = "mdlint-e2e-";
+const MISSING_MARKDOWN_FIXTURE_DIAGNOSTIC = "Markdown validation scenario has no fixture";
+const MARKDOWN_FIXTURE_BY_SCENARIO_KIND: Partial<Record<MarkdownScenarioKind, MarkdownFixtureName>> = {
+  [MARKDOWN_SCENARIO_KIND.CLEAN_TREE]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.DATA_URI_ALLOWED]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.BROKEN_LINKS]: MARKDOWN_FIXTURES.BROKEN_LINKS,
+  [MARKDOWN_SCENARIO_KIND.BROKEN_FRAGMENT]: MARKDOWN_FIXTURES.BROKEN_LINKS,
+  [MARKDOWN_SCENARIO_KIND.ERROR_SHAPE]: MARKDOWN_FIXTURES.BROKEN_LINKS,
+  [MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE]: MARKDOWN_FIXTURES.WITH_EXCLUDE,
+  [MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS]: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS,
+  [MARKDOWN_SCENARIO_KIND.COMMAND_DEFAULTS]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.FILE_SCOPE_DOCS]: MARKDOWN_FIXTURES.BROKEN_LINKS,
+  [MARKDOWN_SCENARIO_KIND.FILE_SCOPE_CLEAN_SPX]: MARKDOWN_FIXTURES.CLEAN_TREE,
+  [MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE]: MARKDOWN_FIXTURES.BROKEN_LINKS,
+};
 
 export async function runMarkdownValidationScenario(scenario: MarkdownValidationScenario): Promise<void> {
   switch (scenario.kind) {
@@ -593,7 +617,7 @@ async function writeValidMarkdownPair(spxDir: string): Promise<string> {
 function withMarkdownTempProject(
   callback: (context: { readonly path: string; readonly spxDir: string }) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(MARKDOWN_VALIDATION_DATA.e2eTempPrefix, (path) =>
+  return withTempDir(MARKDOWN_E2E_TEMP_PREFIX, (path) =>
     callback({
       path,
       spxDir: join(path, MARKDOWN_VALIDATION_DATA.spxDirectoryName),
@@ -604,10 +628,11 @@ async function withMarkdownScenarioEnv(
   scenario: MarkdownValidationScenario,
   callback: Parameters<typeof withMarkdownEnv>[1],
 ): Promise<void> {
-  if (scenario.fixture === undefined) {
-    throw new Error(`${MARKDOWN_VALIDATION_DATA.missingFixtureDiagnostic}: ${scenario.title}`);
+  const fixture = MARKDOWN_FIXTURE_BY_SCENARIO_KIND[scenario.kind];
+  if (fixture === undefined) {
+    throw new Error(`${MISSING_MARKDOWN_FIXTURE_DIAGNOSTIC}: ${scenario.title}`);
   }
-  await withMarkdownEnv({ fixture: scenario.fixture }, callback);
+  await withMarkdownEnv({ fixture }, callback);
 }
 
 const MARKDOWN_MAPPING_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([
@@ -632,7 +657,7 @@ function registerMarkdownScenarios(
       it(
         scenario.title,
         async () => runMarkdownValidationScenario(scenario),
-        scenario.timeout,
+        MARKDOWN_HARNESS_TIMEOUT,
       );
     }
   });

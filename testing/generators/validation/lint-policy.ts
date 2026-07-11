@@ -1,6 +1,5 @@
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 
-const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.capability";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
@@ -42,7 +41,6 @@ export interface ValidationLintPolicyManifestEntries {
 }
 
 export const VALIDATION_LINT_POLICY_DATA = {
-  tempPrefix: LINT_POLICY_TEMP_PREFIX,
   manifests: LINT_POLICY_MANIFESTS,
   baseRefs: LINT_POLICY_BASE_REFS,
   deprecatedSpecNodePath: DEPRECATED_SPEC_NODE_PATH,

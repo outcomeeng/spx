@@ -55,7 +55,11 @@ import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generat
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
-import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import {
+  PROJECT_FIXTURES,
+  VALIDATION_FIXTURE_TEXT_ENCODING,
+  withValidationEnv,
+} from "@testing/harnesses/with-validation-env";
 
 function createRootRecordingDeps(
   projectRoot: string,
@@ -838,7 +842,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
             ...JSON.parse(
               await readFile(
                 join(path, TSCONFIG_FILES.full),
-                VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+                VALIDATION_FIXTURE_TEXT_ENCODING,
               ),
             ),
             include: [
@@ -891,7 +895,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
             ...JSON.parse(
               await readFile(
                 join(path, TSCONFIG_FILES.full),
-                VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+                VALIDATION_FIXTURE_TEXT_ENCODING,
               ),
             ),
             include: [

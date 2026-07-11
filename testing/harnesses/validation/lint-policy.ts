@@ -28,6 +28,8 @@ import {
 } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
+const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
+
 interface SerializedLintPolicyResult {
   readonly ok: boolean;
   readonly error?: string;
@@ -57,7 +59,7 @@ export async function runValidationLintPolicyScenario(
 }
 
 function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
-  return withTempDir(VALIDATION_LINT_POLICY_DATA.tempPrefix, callback);
+  return withTempDir(LINT_POLICY_TEMP_PREFIX, callback);
 }
 
 async function writePolicyManifest(

@@ -8,6 +8,7 @@ import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,
+  VALIDATION_EMPTY_CLI_OPERAND,
   validationCliDefinition,
   validationLiteralProblemKinds,
 } from "@/interfaces/cli/validation-contract";
@@ -17,7 +18,6 @@ import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generat
 import {
   VALIDATION_CLI_GENERATOR,
   VALIDATION_PIPELINE_DATA,
-  validationCliEmptyOutputLength,
   validationCliSuccessExitCodeUpperBound,
 } from "@testing/generators/validation/validation";
 import {
@@ -26,6 +26,7 @@ import {
   expectValidationDispatchFailureInvokesNoHandler,
   runValidationInProcess,
   runValidationSubprocess,
+  VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
   validationCliEmptyOutput,
   validationCliOptionName,
   withEmptyValidationProject,
@@ -40,7 +41,7 @@ async function expectRegisteredSubcommandRuns(): Promise<void> {
         validationCliDefinition.subcommands.all.commandName,
         allValidationCliOptions.skipCircular.flag,
         allValidationCliOptions.skipLiteral.flag,
-      ], { cwd: path, executablePath, timeout: VALIDATION_PIPELINE_DATA.allTimeout });
+      ], { cwd: path, executablePath, timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT });
 
       expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
       expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
@@ -56,7 +57,7 @@ async function expectRegisteredSubcommandPropagatesNonZeroExit(): Promise<void> 
       validationCliDefinition.subcommands.all.commandName,
       allValidationCliOptions.skipCircular.flag,
       allValidationCliOptions.skipLiteral.flag,
-    ], { cwd: path, timeout: VALIDATION_PIPELINE_DATA.allTimeout });
+    ], { cwd: path, timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT });
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
     expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT);
@@ -136,7 +137,7 @@ async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Pro
     );
 
     expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-    expect(result.stdout.length).toBeGreaterThan(validationCliEmptyOutputLength());
+    expect(result.stdout.length).toBeGreaterThan(VALIDATION_EMPTY_CLI_OPERAND.length);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
   });
@@ -188,12 +189,12 @@ async function expectUnknownSubcommandDiagnostic(): Promise<void> {
 
 async function expectEmptyArgumentDiagnostic(): Promise<void> {
   const result = await runValidationSubprocess([
-    sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.emptyArgument()),
+    VALIDATION_EMPTY_CLI_OPERAND,
   ]);
 
   expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
   await expectValidationDispatchFailureInvokesNoHandler([
-    sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.emptyArgument()),
+    VALIDATION_EMPTY_CLI_OPERAND,
   ]);
   expect(result.stderr).toContain(SENTINEL_EMPTY);
 }
@@ -229,7 +230,7 @@ async function expectLiteralHelpListsLiteralFlags(): Promise<void> {
   ]);
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
+  expect(result.stderr).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
   expect(result.stdout).toContain(literalValidationCliOptions.allowlistExisting.flag);
   expect(result.stdout).toContain(literalValidationCliOptions.kind.flag);
   expect(result.stdout).toContain(literalValidationCliOptions.filesWithProblems.flag);
@@ -248,7 +249,7 @@ async function expectValidationAllHelpListsSkipFlags(): Promise<void> {
   ]);
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
+  expect(result.stderr).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
   expect(result.stdout).toContain(allValidationCliOptions.skipCircular.flag);
   expect(result.stdout).toContain(allValidationCliOptions.skipLiteral.flag);
 }
@@ -260,7 +261,7 @@ async function expectLiteralHelpOmitsSkipFlags(): Promise<void> {
   ]);
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
+  expect(result.stderr).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
   expect(result.stdout).not.toContain(allValidationCliOptions.skipCircular.flag);
   expect(result.stdout).not.toContain(allValidationCliOptions.skipLiteral.flag);
 }
@@ -312,12 +313,12 @@ export function registerValidationCliScenarioTests(): void {
     it(
       "registered subcommand runs its handler without dispatch failure",
       expectRegisteredSubcommandRuns,
-      VALIDATION_PIPELINE_DATA.allTimeout,
+      VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
     );
     it(
       "registered subcommand propagates a non-zero handler exit code",
       expectRegisteredSubcommandPropagatesNonZeroExit,
-      VALIDATION_PIPELINE_DATA.allTimeout,
+      VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
     );
     it(
       "typed subcommand registry is exhaustively registered with the dispatcher",

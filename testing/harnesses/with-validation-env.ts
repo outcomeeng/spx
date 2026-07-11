@@ -21,6 +21,7 @@ const PRODUCT_ROOT = resolve(__dirname, "../..");
  * Symlinked node_modules makes setup fast, but validation tools still need time.
  */
 export const HARNESS_TIMEOUT = 30_000;
+export const VALIDATION_FIXTURE_TEXT_ENCODING = "utf8";
 
 export const PROJECT_FIXTURES = {
   WITH_TYPE_ERRORS: "projects/with-type-errors",

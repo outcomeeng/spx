@@ -6,10 +6,8 @@
       "spx/41-validation.enabler/tests/configuration.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts": "passed",
-      "spx/41-validation.enabler/tests/validation.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/validation.compliance.l2.test.ts": "passed",
       "spx/41-validation.enabler/tests/validation.property.l2.test.ts": "passed",
-      "spx/41-validation.enabler/tests/validation.scenario.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/validation.scenario.l2.test.ts": "passed"
     }
   }

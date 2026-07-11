@@ -1,5 +1,4 @@
 import * as fc from "fast-check";
-import { resolve } from "node:path";
 
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
@@ -20,34 +19,18 @@ import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-d
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import {
   allValidationCliOptions,
+  VALIDATION_EMPTY_CLI_OPERAND,
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation-contract";
-import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
-
-const PROPERTY_RUN_COUNT_MIN = 8;
-const PROPERTY_RUN_COUNT_MAX = 15;
-const SUBPROCESS_TIMEOUT_MS_MIN = 10_000;
-const SUBPROCESS_TIMEOUT_MS_MAX = 15_000;
-const PROPERTY_TIMEOUT_MS_MIN = 60_000;
-const PROPERTY_TIMEOUT_MS_MAX = 75_000;
-
-const EMPTY_CLI_ARGUMENT = "";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
-const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
 const ESCAPING_PATH_OPERAND = "../outside.ts";
-const OPTION_OPERAND_SEPARATOR = " ";
-const PROCESS_EXIT_UNAVAILABLE = -1;
-const PACKAGED_CLI_DIRECTORY = "bin";
-const PACKAGED_CLI_FILENAME = "spx.js";
-const PIPELINE_SUBPROCESS_TIMEOUT_MS = 120_000;
 const LITERAL_SKIP_SOURCE_SEGMENTS = ["src", "literal-skip.ts"] as const;
 const CIRCULAR_SKIP_A_SOURCE_SEGMENTS = ["src", "circular-skip-a.ts"] as const;
 const CIRCULAR_SKIP_B_SOURCE_SEGMENTS = ["src", "circular-skip-b.ts"] as const;
@@ -142,7 +125,6 @@ const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
 const NARROWED_SOURCE_FILE_NAME = "narrowed.ts";
-const FIXTURE_TEXT_ENCODING = "utf8";
 const OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME = "docs";
 const OUT_OF_SCOPE_MARKDOWN_FILE_NAME = "unformatted.md";
 const OUT_OF_SCOPE_MARKDOWN_CONTENT = "# Broken\n\n[missing](./missing.md)\n";
@@ -154,16 +136,10 @@ const VALIDATION_STEP_OUTCOME_PASS = "pass";
 const VALIDATION_STEP_OUTCOME_SKIP = "skip";
 const VALIDATION_STEP_OUTCOME_FAIL = "fail";
 
-export interface ValidationCliPropertyOptions {
-  readonly numRuns: number;
-  readonly timeout: number;
-}
-
 export interface ValidationSubprocessScenario {
   readonly title: string;
-  readonly fixture: FixtureName;
+  readonly kind: ValidationSubprocessScenarioKind;
   readonly args: readonly string[];
-  readonly timeout: number;
   readonly expectedExitCode?: number;
   readonly unexpectedExitCode?: number;
   readonly stdoutIncludes: readonly string[];
@@ -204,8 +180,19 @@ export type ValidationPipelineScenarioKind =
 export interface ValidationPipelineScenario {
   readonly title: string;
   readonly kind: ValidationPipelineScenarioKind;
-  readonly timeout: number;
 }
+
+export const VALIDATION_SUBPROCESS_SCENARIO_KIND = {
+  LINT_CLEAN_PROJECT: "lintCleanProject",
+  LINT_PYTHON_PROJECT: "lintPythonProject",
+  LINT_BARE_PROJECT: "lintBareProject",
+  LINT_MISSING_CONFIG: "lintMissingConfig",
+  ALL_CLEAN_PROJECT: "allCleanProject",
+  ALL_PYTHON_PROJECT: "allPythonProject",
+} as const;
+
+export type ValidationSubprocessScenarioKind =
+  (typeof VALIDATION_SUBPROCESS_SCENARIO_KIND)[keyof typeof VALIDATION_SUBPROCESS_SCENARIO_KIND];
 
 const EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS: readonly ExtensionSpecificExcludeScenario[] = [
   {
@@ -223,8 +210,6 @@ const EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS: readonly ExtensionSpecificExcludeSce
 ];
 
 export const VALIDATION_PIPELINE_DATA = {
-  allTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
-  repeatedRunTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS * 2,
   totalSteps: VALIDATION_PIPELINE_TOTAL_STEPS,
   stepLinePattern: VALIDATION_STEP_LINE_PATTERN,
   stepDurationPattern: VALIDATION_STEP_DURATION_PATTERN,
@@ -311,7 +296,6 @@ export const VALIDATION_PIPELINE_DATA = {
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
   narrowedSourceFileName: NARROWED_SOURCE_FILE_NAME,
-  fixtureTextEncoding: FIXTURE_TEXT_ENCODING,
   outOfScopeMarkdownDirectoryName: OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME,
   outOfScopeMarkdownFileName: OUT_OF_SCOPE_MARKDOWN_FILE_NAME,
   outOfScopeMarkdownContent: OUT_OF_SCOPE_MARKDOWN_CONTENT,
@@ -354,22 +338,18 @@ export function arbitraryValidationCliUnknownOption(): fc.Arbitrary<string> {
     .map((candidate) => `${validationOptionPrefix}${candidate}`);
 }
 
-export function arbitraryValidationCliEmptyArgument(): fc.Arbitrary<string> {
-  return fc.constant(EMPTY_CLI_ARGUMENT);
-}
-
 export function arbitraryValidationCliControlArgument(): fc.Arbitrary<string> {
   return fc.shuffledSubarray([...CONTROL_ARGUMENT_PARTS], {
     minLength: CONTROL_ARGUMENT_PARTS.length,
     maxLength: CONTROL_ARGUMENT_PARTS.length,
-  }).map((parts) => parts.join(EMPTY_CLI_ARGUMENT));
+  }).map((parts) => parts.join(VALIDATION_EMPTY_CLI_OPERAND));
 }
 
 export function arbitraryValidationCliUnicodeArgument(): fc.Arbitrary<string> {
   return fc.shuffledSubarray([...UNICODE_ARGUMENT_PARTS], {
     minLength: UNICODE_ARGUMENT_PARTS.length,
     maxLength: UNICODE_ARGUMENT_PARTS.length,
-  }).map((parts) => parts.join(EMPTY_CLI_ARGUMENT))
+  }).map((parts) => parts.join(VALIDATION_EMPTY_CLI_OPERAND))
     .filter((candidate) => !validationKnownOperands.has(candidate));
 }
 
@@ -382,39 +362,8 @@ export function arbitrarySanitizationSensitiveInvalidLiteralProblemKind(): fc.Ar
   return arbitraryValidationCliControlArgument();
 }
 
-export function arbitraryValidationCliSubprocessTimeout(): fc.Arbitrary<number> {
-  return fc.integer({ min: SUBPROCESS_TIMEOUT_MS_MIN, max: SUBPROCESS_TIMEOUT_MS_MAX });
-}
-
-export function arbitraryValidationCliPropertyOptions(): fc.Arbitrary<ValidationCliPropertyOptions> {
-  return fc.record({
-    numRuns: fc.integer({ min: PROPERTY_RUN_COUNT_MIN, max: PROPERTY_RUN_COUNT_MAX }),
-    timeout: fc.integer({ min: PROPERTY_TIMEOUT_MS_MIN, max: PROPERTY_TIMEOUT_MS_MAX }),
-  });
-}
-
 export function validationCliSuccessExitCodeUpperBound(): number {
   return validationCliDefinition.diagnostics.unknownSubcommand.exitCode;
-}
-
-export function validationCliEmptyOutputLength(): number {
-  return EMPTY_CLI_ARGUMENT.length;
-}
-
-export function validationCliTempDirectoryPrefix(): string {
-  return VALIDATION_CLI_TEMP_PREFIX;
-}
-
-export function validationCliOptionOperandSeparator(): string {
-  return OPTION_OPERAND_SEPARATOR;
-}
-
-export function validationCliUnavailableExitCode(): number {
-  return PROCESS_EXIT_UNAVAILABLE;
-}
-
-export function validationCliPackagedExecutablePath(): string {
-  return resolve(CONFIG_PROCESS_CWD.read(), PACKAGED_CLI_DIRECTORY, PACKAGED_CLI_FILENAME);
 }
 
 export function validationLintSubprocessScenarios(): ValidationSubprocessScenario[] {
@@ -425,9 +374,8 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
   return [
     {
       title: "clean TypeScript fixture runs ESLint",
-      fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_CLEAN_PROJECT,
       args,
-      timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [VALIDATION_STAGE_DISPLAY_NAMES.ESLINT],
       combinedIncludes: [],
@@ -437,9 +385,8 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
     },
     {
       title: "Python fixture skips ESLint",
-      fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_PYTHON_PROJECT,
       args,
-      timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [lintSkip],
       combinedIncludes: [],
@@ -449,9 +396,8 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
     },
     {
       title: "bare fixture skips ESLint",
-      fixture: PROJECT_FIXTURES.BARE_PROJECT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_BARE_PROJECT,
       args,
-      timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [lintSkip],
       combinedIncludes: [],
@@ -461,9 +407,8 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
     },
     {
       title: "TypeScript fixture without ESLint config reports the missing config",
-      fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_ESLINT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_MISSING_CONFIG,
       args,
-      timeout: HARNESS_TIMEOUT,
       unexpectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [],
       combinedIncludes: [VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG],
@@ -481,9 +426,8 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
   return [
     {
       title: "clean TypeScript fixture runs every validation stage",
-      fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_CLEAN_PROJECT,
       args,
-      timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [
         VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS,
@@ -499,9 +443,8 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
     },
     {
       title: "Python fixture skips TypeScript validation stages",
-      fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_PYTHON_PROJECT,
       args,
-      timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
       stdoutIncludes: [
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
@@ -531,67 +474,54 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
     {
       title: "clean project passes the full validation pipeline",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.CLEAN_PROJECT,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "pipeline failure output identifies the failed step",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_IDENTIFIES_STEP,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "production scope runs every step in sequence",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.PRODUCTION_SCOPE,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "path directory scope runs every step in sequence",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "path file scope runs every step in sequence",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_FILE_SCOPE,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "step completion lines stay in pipeline order",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "skip circular suppresses circular detection and respects quiet and json output",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "skip literal suppresses literal detection and respects quiet and json output",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_LITERAL,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "later steps still run after the first step fails",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "any step failure makes the pipeline exit non-zero",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "every step line carries a duration annotation",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
     },
     {
       title: "repeated clean runs produce the same verdicts",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT,
-      timeout: VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
     },
     {
       title: "fixing TypeScript errors leaves other step verdicts unchanged",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS,
-      timeout: VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
     },
   ];
 }
@@ -599,13 +529,10 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
 export const VALIDATION_CLI_GENERATOR = {
   unknownSubcommand: arbitraryValidationCliUnknownSubcommand,
   unknownOption: arbitraryValidationCliUnknownOption,
-  emptyArgument: arbitraryValidationCliEmptyArgument,
   controlArgument: arbitraryValidationCliControlArgument,
   unicodeArgument: arbitraryValidationCliUnicodeArgument,
   invalidLiteralProblemKind: arbitraryInvalidLiteralProblemKind,
   sanitizationSensitiveInvalidLiteralProblemKind: arbitrarySanitizationSensitiveInvalidLiteralProblemKind,
-  subprocessTimeout: arbitraryValidationCliSubprocessTimeout,
-  propertyOptions: arbitraryValidationCliPropertyOptions,
 } as const;
 
 type LiteralProblemKindCandidate = (typeof LITERAL_PROBLEM_KINDS)[number];
