@@ -52,6 +52,7 @@ const defaultKnipDeps: KnipDeps = {
 export interface KnipValidationContext {
   readonly productDir: string;
   readonly typescriptScope: ScopeConfig;
+  readonly toolPath?: string;
 }
 
 // =============================================================================
@@ -82,7 +83,7 @@ export async function validateKnip(
   error?: string;
 }> {
   try {
-    const { productDir, typescriptScope } = context;
+    const { productDir, typescriptScope, toolPath } = context;
     // Use TypeScript-derived directories for perfect scope alignment
     const analyzeTargets = [
       ...typescriptScope.directories,
@@ -93,7 +94,7 @@ export async function validateKnip(
       return { success: true };
     }
 
-    return await runKnipSubprocess(productDir, typescriptScope, runner, deps);
+    return await runKnipSubprocess(productDir, typescriptScope, runner, deps, toolPath);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
@@ -105,12 +106,13 @@ async function runKnipSubprocess(
   typescriptScope: ScopeConfig,
   runner: ProcessRunner,
   deps: KnipDeps,
+  toolPath?: string,
 ): Promise<{ success: boolean; error?: string }> {
   const scopedTsconfig = typescriptScope.filteredByValidationPaths
     ? await createScopedKnipTsconfig(productDir, typescriptScope, deps)
     : undefined;
   const localBin = join(productDir, "node_modules", ".bin", "knip");
-  const binary = deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND;
+  const binary = toolPath ?? (deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND);
   const baseArgs = scopedTsconfig === undefined
     ? []
     : [

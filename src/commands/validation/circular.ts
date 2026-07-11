@@ -11,7 +11,7 @@ import {
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
-import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import { detectTypeScript } from "@/validation/discovery/index";
 import { validateCircularDependencies } from "@/validation/steps/circular";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
@@ -40,8 +40,6 @@ export interface CircularCommandDeps {
 export const defaultCircularCommandDeps: CircularCommandDeps = {
   validateCircularDependencies,
 };
-
-const DEPENDENCY_CRUISER_PACKAGE_NAME = "dependency-cruiser";
 
 function formatCircularValidationResult(result: CircularValidationResult, quiet: boolean): {
   readonly exitCode: number;
@@ -95,13 +93,6 @@ export async function circularCommand(
       output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
       durationMs: Date.now() - startTime,
     };
-  }
-
-  // Gate 2: tool discovery.
-  const toolResult = await discoverTool(DEPENDENCY_CRUISER_PACKAGE_NAME, { productDir: cwd });
-  if (!toolResult.found) {
-    const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);

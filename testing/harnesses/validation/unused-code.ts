@@ -195,6 +195,7 @@ export function registerUnusedCodeScenarioTests(): void {
           {
             productDir: env.productDir,
             typescriptScope: expectedExplicitScope(sourceFilePath),
+            toolPath: env.productDir,
           },
         ]);
       });

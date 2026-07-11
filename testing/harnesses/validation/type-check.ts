@@ -18,7 +18,11 @@ import {
 } from "@/validation/steps/subprocess-output";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  arbitraryDomainLiteral,
+  LITERAL_TEST_GENERATOR,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
@@ -153,12 +157,14 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("spawns tsc with piped stdio so lifecycle handlers can observe parent output closure", async () => {
     const runner = new RecordingSpawnOptionsRunner();
+    const toolPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const result = await validateTypeScript(
       { scope: VALIDATION_SCOPES.FULL, productDir: process.cwd() },
-      { runner },
+      { runner, toolPath },
     );
 
     expect(result.success).toBe(true);
+    expect(runner.commands).toEqual([toolPath]);
     expect(runner.spawnOptions?.stdio).toEqual(EXPECTED_PIPED_STDIO);
   });
 

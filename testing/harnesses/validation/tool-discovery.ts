@@ -35,4 +35,33 @@ describe("ALWAYS: bundled validation tool discovery recognizes ESM-exported pack
       },
     });
   });
+
+  it("returns the exact bundled executable path when supplied its package subpath", async () => {
+    const tool = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const executableName = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const executableSpecifier = `${tool}/${executableName}`;
+    const executablePath = join(process.cwd(), "node_modules", tool, executableName);
+    const deps: ToolDiscoveryDeps = {
+      resolveModule: (modulePath) => modulePath === executableSpecifier ? executablePath : null,
+      resolveImport: () => null,
+      existsSync: () => false,
+      whichSync: () => null,
+    };
+
+    const result = await discoverTool(tool, {
+      productDir: process.cwd(),
+      executableName,
+      bundledExecutable: executableSpecifier,
+      deps,
+    });
+
+    expect(result).toEqual({
+      found: true,
+      location: {
+        tool,
+        path: executablePath,
+        source: TOOL_DISCOVERY.SOURCES.BUNDLED,
+      },
+    });
+  });
 });

@@ -67,6 +67,7 @@ export interface TypeScriptValidationContext {
 export interface TypeScriptValidationOptions {
   readonly runner?: ProcessRunner;
   readonly deps?: TypeScriptDeps;
+  readonly toolPath?: string;
   readonly outputStreams?: ValidationSubprocessOutputStreams;
 }
 
@@ -251,6 +252,7 @@ export async function validateTypeScript(
   const {
     runner = defaultTypeScriptProcessRunner,
     deps = defaultTypeScriptDeps,
+    toolPath,
     outputStreams = defaultValidationSubprocessOutputStreams,
   } = options;
   const configFile = TSCONFIG_FILES[scope];
@@ -260,7 +262,7 @@ export async function validateTypeScript(
     try {
       return await runTypeScriptInvocation(
         productDir,
-        resolveProjectTscInvocation(productDir, deps, ["--project", configPath]),
+        resolveTscInvocation(productDir, deps, ["--project", configPath], toolPath),
         runner,
         outputStreams,
         cleanup,
@@ -280,7 +282,7 @@ export async function validateTypeScript(
     const { configPath, cleanup } = await createScopeFilteredTsconfig(scope, productDir, scopeConfig, deps);
     return runTypeScriptInvocation(
       productDir,
-      resolveProjectTscInvocation(productDir, deps, ["--project", configPath]),
+      resolveTscInvocation(productDir, deps, ["--project", configPath], toolPath),
       runner,
       outputStreams,
       cleanup,
@@ -289,17 +291,21 @@ export async function validateTypeScript(
 
   return runTypeScriptInvocation(
     productDir,
-    resolveProjectTscInvocation(productDir, deps, buildTypeScriptArgs({ scope, configFile }).slice(1)),
+    resolveTscInvocation(productDir, deps, buildTypeScriptArgs({ scope, configFile }).slice(1), toolPath),
     runner,
     outputStreams,
   );
 }
 
-function resolveProjectTscInvocation(
+function resolveTscInvocation(
   productDir: string,
   deps: TypeScriptDeps,
   tscArgs: readonly string[],
+  toolPath?: string,
 ): TypeScriptCommandInvocation {
+  if (toolPath !== undefined) {
+    return { tool: toolPath, args: tscArgs };
+  }
   const tscBin = join(productDir, "node_modules", ".bin", "tsc");
   const tool = deps.existsSync(tscBin) ? tscBin : "npx";
   return {

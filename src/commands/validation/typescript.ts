@@ -83,7 +83,11 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   }
 
   // Gate 2: tool discovery — ensure tsc itself is available somewhere.
-  const toolResult = await discoverTool("typescript", { productDir: cwd });
+  const toolResult = await discoverTool("typescript", {
+    productDir: cwd,
+    executableName: "tsc",
+    bundledExecutable: "typescript/bin/tsc",
+  });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -94,6 +98,7 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
     productDir: cwd,
     scopeConfig,
   }, {
+    toolPath: toolResult.location.path,
     outputStreams,
   });
   const durationMs = Date.now() - startTime;

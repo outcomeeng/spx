@@ -5,11 +5,13 @@
  * injected process runner. dprint resolves its `dprint.jsonc` by upward
  * discovery from the working directory and applies the pinned formatter
  * plugins, so the stage obtains dprint's own multi-language verdict without
- * reimplementing any formatter. The binary is the bare `dprint` command
- * resolved from `PATH` — a required tool like `git` or `python3`.
+ * reimplementing any formatter. The binary resolves from the exact-pinned
+ * runtime dependency shipped with the CLI.
  *
  * @module validation/steps/formatting
  */
+
+import { createRequire } from "node:module";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import {
@@ -18,8 +20,9 @@ import {
   type ValidationSubprocessOutputStreams,
 } from "./subprocess-output";
 
-/** Bare command resolved from `PATH`; check mode reports without rewriting. */
-export const DPRINT_COMMAND = "dprint";
+export const DPRINT_EXECUTABLE_SPECIFIER = "dprint/bin.cjs";
+/** Executable from the runtime dependency shipped with the published CLI. */
+export const DPRINT_COMMAND = createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER);
 export const DPRINT_CHECK_SUBCOMMAND = "check";
 export const DPRINT_EXCLUDES_OPTION = "--excludes";
 export const DPRINT_OPTIONS_TERMINATOR = "--";

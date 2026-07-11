@@ -159,7 +159,7 @@ export async function validateESLint(
   error?: string;
   skipped?: boolean;
 }> {
-  const { productDir, scope, validatedFiles, mode, eslintConfigFile } = context;
+  const { productDir, scope, validatedFiles, mode, eslintConfigFile, toolPath } = context;
   const lintPolicy = validateLintPolicy(productDir);
 
   if (!lintPolicy.ok) {
@@ -181,7 +181,7 @@ export async function validateESLint(
 
   return new Promise((resolve) => {
     const localBin = join(productDir, ...ESLINT_LOCAL_BIN_SEGMENTS);
-    const binary = existsSync(localBin) ? localBin : "npx";
+    const binary = toolPath ?? (existsSync(localBin) ? localBin : "npx");
     const spawnArgs = binary === "npx" ? eslintArgs : eslintArgs.slice(1);
     const eslintProcess = spawnManagedSubprocess(runner, binary, spawnArgs, {
       cwd: productDir,

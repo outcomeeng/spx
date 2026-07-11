@@ -116,7 +116,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   }
 
   // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
-  const toolResult = await discoverTool("eslint", { productDir: cwd });
+  const toolResult = await discoverTool("eslint", { productDir: cwd, includeBundled: false });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -133,6 +133,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
     validatedFileIgnorePatterns: undefined,
     isFileSpecificMode: Boolean(validatedFiles && validatedFiles.length > 0),
     eslintConfigFile,
+    toolPath: toolResult.location.path,
   };
 
   // Run ESLint validation

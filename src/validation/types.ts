@@ -97,6 +97,7 @@ export interface ValidationContext {
   isFileSpecificMode: boolean;
   /** ESLint flat config file name, determined by language detection */
   eslintConfigFile?: string;
+  toolPath?: string;
 }
 
 // =============================================================================

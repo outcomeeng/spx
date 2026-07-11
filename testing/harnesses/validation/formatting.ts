@@ -28,6 +28,7 @@ import { typescriptValidationLanguage } from "@/validation/languages/typescript"
 import { composeValidationPipelineStages, validationPipelineStages, validationRegistry } from "@/validation/registry";
 import {
   buildDprintCheckArgs,
+  DPRINT_COMMAND,
   type FormattingValidationContext,
   type FormattingValidationResult,
   validateFormatting,
@@ -46,7 +47,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const execFileAsync = promisify(execFile);
 
-const DPRINT_COMMAND_NAME = "dprint";
+const DPRINT_COMMAND_NAME = DPRINT_COMMAND;
 const DPRINT_FORMAT_SUBCOMMAND = "fmt";
 
 interface FormattingFixture {
@@ -187,6 +188,7 @@ export function registerFormattingPropertyEvidence(): void {
 
 export function registerFormattingComplianceEvidence(): void {
   describe("formatting configuration is reproducible", () => {
+    it("spawns the executable from the packaged dprint dependency", () => runPackagedDprintCompliance());
     it("runs dprint from the supplied product directory", () => runFormattingProductDirCompliance());
     it("derives include and exclude scope from resolved validation configuration", async () => {
       await runFormattingDispatchContractCompliance();
@@ -205,6 +207,12 @@ export function registerFormattingComplianceEvidence(): void {
     it("forwards output through parent streams while retaining captured output", () =>
       runFormattingOutputStreamingCompliance());
   });
+}
+
+async function runPackagedDprintCompliance(): Promise<void> {
+  const runner = new RecordingSpawnOptionsRunner();
+  await validateFormatting({ productDir: process.cwd() }, runner);
+  expect(runner.commands).toEqual([DPRINT_COMMAND]);
 }
 
 async function runFormattingDispatchContractCompliance(): Promise<void> {
