@@ -1,3 +1,3 @@
-import { registerValidationPipelineTests } from "@testing/harnesses/validation/pipeline";
+import { registerValidationPipelineScenarioTests } from "@testing/harnesses/validation/pipeline";
 
-registerValidationPipelineTests();
+registerValidationPipelineScenarioTests();

@@ -135,6 +135,7 @@ const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"
 const SECONDARY_TYPE_ERROR_SOURCE_FILE = "secondary.ts";
 const FIRST_CYCLE_SOURCE_FILE = "cycle-a.ts";
 const SECOND_CYCLE_SOURCE_FILE = "cycle-b.ts";
+const CIRCULAR_FIXTURE_DETAIL_PATHS = ["src/a.ts", "src/b.ts"] as const;
 const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
@@ -235,6 +236,7 @@ export const VALIDATION_PIPELINE_DATA = {
   exitCodes: VALIDATION_EXIT_CODES,
   summaryStatus: VALIDATION_SUMMARY_STATUS,
   circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
+  circularFixtureDetailPaths: CIRCULAR_FIXTURE_DETAIL_PATHS,
   circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
   circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
   skipCircularFlag: allValidationCliOptions.skipCircular.flag,
@@ -571,6 +573,15 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
       timeout: VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
     },
   ];
+}
+
+export function isValidationPipelineComplianceScenario(scenario: ValidationPipelineScenario): boolean {
+  const complianceKinds: readonly ValidationPipelineScenario["kind"][] = [
+    VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
+    VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
+    VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
+  ];
+  return complianceKinds.includes(scenario.kind);
 }
 
 export const VALIDATION_CLI_GENERATOR = {
