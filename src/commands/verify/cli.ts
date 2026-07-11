@@ -13,7 +13,6 @@ import {
 import { isJournalRunSealed, JOURNAL_RUNTIME_ERROR } from "@/commands/journal/runtime";
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { CliCommandResult, Result } from "@/config/types";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import {
@@ -48,6 +47,7 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { writeFileAtomic } from "@/lib/atomic-file-write";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
 import {
   defaultGitDependencies,

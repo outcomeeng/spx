@@ -15,7 +15,7 @@
  * @module lib/precommit/deps-install-gate
  */
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { isDirectPrecommitEntrypoint, PRECOMMIT_ENTRYPOINT } from "./entrypoint";
 

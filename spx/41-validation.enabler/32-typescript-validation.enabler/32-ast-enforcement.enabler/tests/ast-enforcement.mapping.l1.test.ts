@@ -15,18 +15,17 @@ import {
 } from "@testing/generators/validation/ast-enforcement";
 import {
   installValidationRuleTesterHooks,
-  runValidationBuiltinRuleTester,
+  runValidationBuiltinRuleTesterRuns,
   runValidationRuleTester,
+  runValidationRuleTesterRuns,
 } from "@testing/harnesses/validation/eslint";
 
 installValidationRuleTesterHooks();
 
 describe("restricted syntax selectors", () => {
-  for (const run of astRestrictedSyntaxRuns()) {
-    it(run.title, () => {
-      expect(() => runValidationBuiltinRuleTester(run)).not.toThrow();
-    });
-  }
+  it("accepts and rejects the registered restricted syntax cases", () => {
+    expect(() => runValidationBuiltinRuleTesterRuns(astRestrictedSyntaxRuns())).not.toThrow();
+  });
 });
 
 describe("import hygiene rule modules", () => {
@@ -59,27 +58,13 @@ describe("import hygiene rule modules", () => {
 });
 
 describe("spec reference rule module", () => {
-  for (const run of astNoSpecReferencesRuns()) {
-    it(run.title, () => {
-      expect(() =>
-        runValidationRuleTester({
-          ...run,
-          rule: noSpecReferences,
-        })
-      ).not.toThrow();
-    });
-  }
+  it("accepts and rejects the registered spec reference cases", () => {
+    expect(() => runValidationRuleTesterRuns(astNoSpecReferencesRuns(), noSpecReferences)).not.toThrow();
+  });
 });
 
 describe("try catch assertion rule module", () => {
-  for (const run of astBddTryCatchRuns()) {
-    it(run.title, () => {
-      expect(() =>
-        runValidationRuleTester({
-          ...run,
-          rule: noBddTryCatchAntiPattern,
-        })
-      ).not.toThrow();
-    });
-  }
+  it("accepts and rejects the registered try-catch assertion cases", () => {
+    expect(() => runValidationRuleTesterRuns(astBddTryCatchRuns(), noBddTryCatchAntiPattern)).not.toThrow();
+  });
 });

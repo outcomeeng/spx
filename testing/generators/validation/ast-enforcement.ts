@@ -8,7 +8,10 @@ import { SESSION_FRONT_MATTER } from "@/domains/session/types";
 import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "@/validation/lint-policy-constants";
 import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
-import { ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID } from "@eslint-rules/no-async-spawn-outside-lifecycle";
+import {
+  ASYNC_SPAWN_OUTSIDE_LIFECYCLE_MESSAGE_ID,
+  NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID,
+} from "@eslint-rules/no-async-spawn-outside-lifecycle";
 import {
   BARE_STRING_UNION_MESSAGE_ID,
   NO_BARE_STRING_UNIONS_RULE_ID,
@@ -246,10 +249,6 @@ function firstManifestedNodePath(
   return first;
 }
 
-function isSameOrDescendantPath(path: string, parent: string): boolean {
-  return path === parent || path.startsWith(`${parent}/`);
-}
-
 export const VALIDATION_ESLINT_FILES = {
   genericTest: "test.test.ts",
   genericSpec: "state.spec.ts",
@@ -265,12 +264,13 @@ export const VALIDATION_ESLINT_FILES = {
   sessionTypes: "src/domains/session/types.ts",
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
-  configCwdModule: "src/domains/config/cwd.ts",
+  configCwdModule: "src/lib/config/cwd.ts",
   gitRoot: "src/lib/git/root.ts",
   precommitGate: "src/lib/precommit/main-checkout-gate.ts",
   domainRunner: "src/some-domain/runner.ts",
   domainTypes: "src/some-domain/types.ts",
   sessionCommandExample: "src/commands/session/example.ts",
+  sessionSpecTest: "spx/36-session.enabler/tests/session.scenario.l1.test.ts",
   eslintStep: "src/validation/steps/eslint.ts",
   unmanifestedSpecTest: "spx/31-spec-domain.enabler/tests/new.mapping.l1.test.ts",
   manifestCoveredSpecTest: `${
@@ -308,6 +308,9 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   generatedHelper: `const generatedNodeKind = sampleNodeKind(registry);`,
   localGeneratedConstant:
     `it("uses generated input", () => { const GENERATED_KIND = sampleNodeKind(registry); expect(GENERATED_KIND).toBeDefined(); });`,
+  uppercaseEnumMember: `enum NodeKind { ENABLER = "enabler" }`,
+  stateTitle: `describe("declared", () => {}); it("specified", () => {}); test("passing", () => {});`,
+  kindTitle: `describe("enabler", () => {}); it("outcome", () => {}); test("enabler", () => {});`,
   productionUppercaseConstant: `const NODE_KIND = "enabler";`,
   uppercaseConstant: `const NODE_KIND = "enabler";`,
   exportedUppercaseConstant: `export const NODE_KIND = "enabler";`,
@@ -330,8 +333,7 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   bareStringUnion: `type Tier = "free" | "pro";`,
   internalSourceExtension: `import "./local.js";`,
   deepParentImport: `import "../../config";`,
-  configProcessCwdRead:
-    `import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd"; const cwd = CONFIG_PROCESS_CWD.read();`,
+  configProcessCwdRead: `import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd"; const cwd = CONFIG_PROCESS_CWD.read();`,
   explicitCwdParameter: `function resolveRoot(cwd: string): string { return cwd; }`,
   processCwdCall: `const cwd = process.cwd();`,
   testOwnedConstantDeclaration: `const NODE_KIND = "enabler";`,
@@ -480,6 +482,11 @@ export function noTestOwnedDomainConstantsCases(): ValidationGeneratedRuleTester
         filename: VALIDATION_ESLINT_FILES.sourceOwnedSpecTest,
       },
       {
+        name: "GIVEN uppercase enum member WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.uppercaseEnumMember,
+        filename: VALIDATION_ESLINT_FILES.sourceOwnedSpecTest,
+      },
+      {
         name: "GIVEN production uppercase constant WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.productionUppercaseConstant,
         filename: VALIDATION_ESLINT_FILES.productionSource,
@@ -559,6 +566,11 @@ export function noHardcodedSpecTreeNodeStatesCases(): ValidationGeneratedRuleTes
       {
         name: "GIVEN object with state as key WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.stateObjectKeys,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
+      {
+        name: "GIVEN state literals in test titles WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.stateTitle,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
       {
@@ -682,6 +694,11 @@ export function noHardcodedSpecTreeNodeKindsCases(): ValidationGeneratedRuleTest
       {
         name: "GIVEN object with kind as key WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.kindObjectKeys,
+        filename: VALIDATION_ESLINT_FILES.genericTest,
+      },
+      {
+        name: "GIVEN kind literals in test titles WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.kindTitle,
         filename: VALIDATION_ESLINT_FILES.genericTest,
       },
     ],
@@ -1024,7 +1041,7 @@ export function noProcessCwdForProductRootsCases(): ValidationGeneratedRuleTeste
       {
         name: "GIVEN config cwd module uses Windows separators WHEN linting THEN no error",
         code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
-        filename: String.raw`src\domains\config\cwd.ts`,
+        filename: String.raw`src\lib\config\cwd.ts`,
       },
       {
         name: "GIVEN source imports config cwd boundary WHEN linting THEN no error",
@@ -1047,7 +1064,7 @@ export function noProcessCwdForProductRootsCases(): ValidationGeneratedRuleTeste
       {
         name: "GIVEN another root has a cwd boundary suffix WHEN linting THEN error",
         code: VALIDATION_ESLINT_SNIPPETS.processCwdCall,
-        filename: "other-package/src/domains/config/cwd.ts",
+        filename: "other-package/src/lib/config/cwd.ts",
         errors: [{ messageId: PROCESS_CWD_FOR_PRODUCT_ROOT_MESSAGE_ID }],
       },
     ],
@@ -1092,6 +1109,10 @@ export function astNoSpecReferencesRuns(): ValidationGeneratedRuleTesterRun[] {
           },
           {
             code: "const msg = `Per ADR-32 requirements`;",
+            errors: [{ messageId: SPEC_REFERENCE_MESSAGE_ID }],
+          },
+          {
+            code: "// See PDR-21 for the policy\nconst value = true;",
             errors: [{ messageId: SPEC_REFERENCE_MESSAGE_ID }],
           },
         ],
@@ -1158,7 +1179,15 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
     {
       title: "spec-tree domain rules are registered",
       filePath: validationTestFilePath(),
-      ruleIds: [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID, NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID],
+      ruleIds: [
+        NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
+        NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
+      ],
+    },
+    {
+      title: "session frontmatter rule is registered",
+      filePath: VALIDATION_ESLINT_FILES.sessionSpecTest,
+      ruleIds: [NO_HARDCODED_SESSION_FRONTMATTER_KEYS_RULE_ID],
     },
     {
       title: "test-owned constant rule is registered for spec tests",
@@ -1190,17 +1219,15 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
       filePath: validationSourceFilePath(),
       ruleIds: [NO_RESTRICTED_SYNTAX_RULE_ID],
     },
+    {
+      title: "process lifecycle rule is registered",
+      filePath: VALIDATION_ESLINT_FILES.domainRunner,
+      ruleIds: [NO_ASYNC_SPAWN_OUTSIDE_LIFECYCLE_RULE_ID],
+    },
   ];
 }
 
 export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSeverityScenario[] {
-  const testOwnedConstantDebtNode = firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES);
-  const lintDebtNode = firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES);
-  const registryRuleSeverityForTestOwnedConstantDebtNode =
-    isSameOrDescendantPath(testOwnedConstantDebtNode, lintDebtNode)
-      ? VALIDATION_ESLINT_EXPECTED.warningSeverity
-      : VALIDATION_ESLINT_EXPECTED.errorSeverity;
-
   return [
     {
       title: "test-owned constant debt manifest downgrades the test-owned constant rule",
@@ -1212,11 +1239,11 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
         },
         {
           ruleId: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID,
-          severity: registryRuleSeverityForTestOwnedConstantDebtNode,
+          severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
         },
         {
           ruleId: NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID,
-          severity: registryRuleSeverityForTestOwnedConstantDebtNode,
+          severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
         },
       ],
     },

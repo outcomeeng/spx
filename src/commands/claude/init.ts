@@ -5,7 +5,7 @@
  */
 import { execa } from "execa";
 
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 
 /**
  * Options for init command

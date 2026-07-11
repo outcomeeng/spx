@@ -17,13 +17,13 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   allValidationCliOptions,
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -47,10 +47,6 @@ const PROCESS_EXIT_UNAVAILABLE = -1;
 const PACKAGED_CLI_DIRECTORY = "bin";
 const PACKAGED_CLI_FILENAME = "spx.js";
 const PIPELINE_SUBPROCESS_TIMEOUT_MS = 120_000;
-const VALIDATION_ENABLER_SUFFIX = ".enabler";
-const VALIDATION_INDEX_SLUG_PATTERN = /^\d+-(.+)\.enabler$/;
-const TYPESCRIPT_VALIDATION_NODE = "32-typescript-validation.enabler";
-const PYTHON_VALIDATION_NODE = "32-python-validation.enabler";
 const LITERAL_SKIP_SOURCE_SEGMENTS = ["src", "literal-skip.ts"] as const;
 const CIRCULAR_SKIP_A_SOURCE_SEGMENTS = ["src", "circular-skip-a.ts"] as const;
 const CIRCULAR_SKIP_B_SOURCE_SEGMENTS = ["src", "circular-skip-b.ts"] as const;
@@ -136,6 +132,9 @@ const SECONDARY_SOURCE_DIRECTORY_NAME = "api";
 const SECONDARY_SOURCE_FILE_NAME = "secondary.ts";
 const SECONDARY_SOURCE_CONTENT = "export const secondary = true;\n";
 const SECONDARY_TYPE_ERROR_SOURCE_CONTENT = "export const secondary: number = \"bad\";\n";
+const SECONDARY_TYPE_ERROR_SOURCE_FILE = "secondary.ts";
+const FIRST_CYCLE_SOURCE_FILE = "cycle-a.ts";
+const SECOND_CYCLE_SOURCE_FILE = "cycle-b.ts";
 const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
@@ -169,21 +168,6 @@ export interface ValidationSubprocessScenario {
   readonly stdoutExcludes: readonly string[];
   readonly stderrExcludes: readonly string[];
   readonly combinedExcludes: readonly string[];
-}
-
-export const VALIDATION_STRUCTURAL_MAPPING_KIND = {
-  TYPESCRIPT: "typescript",
-  PYTHON: "python",
-} as const;
-
-export type ValidationStructuralMappingKind =
-  (typeof VALIDATION_STRUCTURAL_MAPPING_KIND)[keyof typeof VALIDATION_STRUCTURAL_MAPPING_KIND];
-
-export interface ValidationStructuralMappingScenario {
-  readonly title: string;
-  readonly kind: ValidationStructuralMappingKind;
-  readonly nodeDirectory: string;
-  readonly expectedChildren: ReadonlySet<string>;
 }
 
 export interface ExtensionSpecificExcludeScenario {
@@ -232,18 +216,6 @@ const EXTENSION_SPECIFIC_EXCLUDE_SCENARIOS: readonly ExtensionSpecificExcludeSce
 ];
 
 export const VALIDATION_PIPELINE_DATA = {
-  enablerSuffix: VALIDATION_ENABLER_SUFFIX,
-  indexSlugPattern: VALIDATION_INDEX_SLUG_PATTERN,
-  typeScriptNodeDirectory: TYPESCRIPT_VALIDATION_NODE,
-  pythonNodeDirectory: PYTHON_VALIDATION_NODE,
-  typeScriptExpectedChildren: new Set([
-    "lint",
-    "type-check",
-    "ast-enforcement",
-    "circular-deps",
-    "literal-reuse",
-  ]),
-  pythonExpectedChildren: new Set(["lint", "type-check", "ast-enforcement"]),
   allTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
   repeatedRunTimeout: PIPELINE_SUBPROCESS_TIMEOUT_MS * 2,
   totalSteps: VALIDATION_PIPELINE_TOTAL_STEPS,
@@ -327,6 +299,9 @@ export const VALIDATION_PIPELINE_DATA = {
   secondarySourceFileName: SECONDARY_SOURCE_FILE_NAME,
   secondarySourceContent: SECONDARY_SOURCE_CONTENT,
   secondaryTypeErrorSourceContent: SECONDARY_TYPE_ERROR_SOURCE_CONTENT,
+  secondaryTypeErrorSourceFile: SECONDARY_TYPE_ERROR_SOURCE_FILE,
+  firstCycleSourceFile: FIRST_CYCLE_SOURCE_FILE,
+  secondCycleSourceFile: SECOND_CYCLE_SOURCE_FILE,
   excludedSourceDirectoryName: EXCLUDED_SOURCE_DIRECTORY_NAME,
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
@@ -499,6 +474,7 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
         VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
         VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
         VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+        VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
         VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
       ],
       combinedIncludes: [],
@@ -516,29 +492,13 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
         formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
-        VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+        VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
+        formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL),
       ],
       combinedIncludes: [],
       stdoutExcludes: runtimeAntiMarkers,
       stderrExcludes: runtimeAntiMarkers,
       combinedExcludes: runtimeAntiMarkers,
-    },
-  ];
-}
-
-export function validationStructuralMappingScenarios(): ValidationStructuralMappingScenario[] {
-  return [
-    {
-      title: "TypeScript validation node has the declared leaf enabler children",
-      kind: VALIDATION_STRUCTURAL_MAPPING_KIND.TYPESCRIPT,
-      nodeDirectory: VALIDATION_PIPELINE_DATA.typeScriptNodeDirectory,
-      expectedChildren: VALIDATION_PIPELINE_DATA.typeScriptExpectedChildren,
-    },
-    {
-      title: "Python validation node has the declared leaf enabler children",
-      kind: VALIDATION_STRUCTURAL_MAPPING_KIND.PYTHON,
-      nodeDirectory: VALIDATION_PIPELINE_DATA.pythonNodeDirectory,
-      expectedChildren: VALIDATION_PIPELINE_DATA.pythonExpectedChildren,
     },
   ];
 }

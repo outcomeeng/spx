@@ -1,5 +1,4 @@
 import type { CliCommandResult, Result } from "@/config/types";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
 import {
   JOURNAL_BACKEND,
   type JournalEdgeBackend,
@@ -16,6 +15,7 @@ import {
 } from "@/domains/journal/run-scope";
 import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
 import { artifactJournalRunArtifactName, hydratePriorRuns } from "@/lib/artifact-journal-store";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { toMessage } from "@/lib/error-message";
 import {
   defaultGitDependencies,

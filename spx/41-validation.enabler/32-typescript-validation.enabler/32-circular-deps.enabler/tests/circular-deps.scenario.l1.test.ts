@@ -337,14 +337,17 @@ async function expectCircularCommandScopes(
 
 async function writeTestOnlyCycle(path: string): Promise<string> {
   const testsDir = join(path, VALIDATION_PIPELINE_DATA.testDirectoryName);
-  const cycleAPath = join(VALIDATION_PIPELINE_DATA.testDirectoryName, "cycle-a.ts");
+  const cycleAPath = join(
+    VALIDATION_PIPELINE_DATA.testDirectoryName,
+    VALIDATION_PIPELINE_DATA.firstCycleSourceFile,
+  );
   await mkdir(testsDir, { recursive: true });
   await writeFile(
     join(path, cycleAPath),
     `import { cycleB } from "./cycle-b";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
   );
   await writeFile(
-    join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, "cycle-b.ts"),
+    join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.secondCycleSourceFile),
     `import { cycleA } from "./cycle-a";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
   );
   return cycleAPath;
@@ -856,11 +859,11 @@ describe("circular command scope routing", () => {
       );
       await mkdir(generatedDir, { recursive: true });
       await writeFile(
-        join(generatedDir, "cycle-a.ts"),
+        join(generatedDir, VALIDATION_PIPELINE_DATA.firstCycleSourceFile),
         `import { cycleB } from "./cycle-b";\n\nexport function cycleA(): string {\n  return cycleB();\n}\n`,
       );
       await writeFile(
-        join(generatedDir, "cycle-b.ts"),
+        join(generatedDir, VALIDATION_PIPELINE_DATA.secondCycleSourceFile),
         `import { cycleA } from "./cycle-a";\n\nexport function cycleB(): string {\n  return cycleA();\n}\n`,
       );
       await writeFile(

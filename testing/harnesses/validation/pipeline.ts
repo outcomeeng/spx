@@ -1,28 +1,28 @@
-import { readdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
   type ValidationPipelineScenario,
+  validationPipelineScenarios,
   type ValidationStepOutcome,
-  type ValidationStructuralMappingScenario,
 } from "@testing/generators/validation/validation";
 import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const VALIDATION_ROOT = resolve(__dirname, "../../../spx/41-validation.enabler");
-
-export function expectValidationStructuralMapping(scenario: ValidationStructuralMappingScenario): void {
-  const slugs = listEnablerChildSlugs(resolve(VALIDATION_ROOT, scenario.nodeDirectory));
-
-  expect(slugs).toEqual(scenario.expectedChildren);
+export function registerValidationPipelineTests(): void {
+  describe("validation pipeline composition", () => {
+    for (const scenario of validationPipelineScenarios()) {
+      it(
+        scenario.title,
+        { timeout: scenario.timeout },
+        async () => runValidationPipelineScenario(scenario),
+      );
+    }
+  });
 }
 
 export async function runValidationPipelineScenario(scenario: ValidationPipelineScenario): Promise<void> {
@@ -54,19 +54,6 @@ export async function runValidationPipelineScenario(scenario: ValidationPipeline
     case VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS:
       return runAdditiveVerdictsScenario(scenario);
   }
-}
-
-function listEnablerChildSlugs(directory: string): Set<string> {
-  const entries = readdirSync(directory, { withFileTypes: true });
-  const slugs = new Set<string>();
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (!entry.name.endsWith(VALIDATION_PIPELINE_DATA.enablerSuffix)) continue;
-    const match = entry.name.match(VALIDATION_PIPELINE_DATA.indexSlugPattern);
-    if (!match) continue;
-    slugs.add(match[1]);
-  }
-  return slugs;
 }
 
 async function runAll(cwd: string, args: readonly string[] = []): Promise<{
@@ -123,11 +110,19 @@ async function runFailureIdentifiesStepScenario(_scenario: ValidationPipelineSce
 
 async function runProductionScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    await writeFile(
+      join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceFile),
+      VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
+    );
+    const fullResult = await runAll(path);
+    expect(fullResult.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+
     const result = await runAll(path, [
       VALIDATION_PIPELINE_DATA.scopeFlag,
       VALIDATION_PIPELINE_DATA.productionScope,
     ]);
 
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expectStepSequence(result.stdout);
   });
 }

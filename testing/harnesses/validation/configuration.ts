@@ -1,0 +1,555 @@
+import { describe, expect, it } from "vitest";
+
+import type { KnipCommandOptions } from "@/commands/validation";
+import { knipCommand } from "@/commands/validation/knip";
+import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
+import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
+import {
+  formatValidationPathsNoTargetsSkipMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_EXIT_CODES,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "@/commands/validation/messages";
+import { resolveConfig } from "@/config/index";
+import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import {
+  VALIDATION_ENABLED_FIELD,
+  VALIDATION_KNIP_SUBSECTION,
+  VALIDATION_LITERAL_SUBSECTION,
+  VALIDATION_PATH_TOOL_SUBSECTIONS,
+  VALIDATION_PATHS_SUBSECTION,
+  type ValidationConfig,
+  validationConfigDescriptor,
+} from "@/validation/config/descriptor";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
+import { type KnipStageDeps, runKnipStage } from "@/validation/languages/typescript";
+import { LITERAL_DEFAULTS } from "@/validation/literal/config";
+import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
+import { type ScopeConfig, VALIDATION_SCOPES } from "@/validation/types";
+import {
+  LITERAL_TEST_GENERATOR,
+  sampleDistinctDomainLiterals,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
+import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { type Config } from "@testing/harnesses/spec-tree/spec-tree";
+
+interface KnipValidationCall {
+  readonly projectRoot: string;
+  readonly typescriptScope: ScopeConfig;
+}
+
+function validationConfigSection(section: string, enabled: boolean): Config {
+  return {
+    [validationConfigDescriptor.section]: {
+      [section]: {
+        [VALIDATION_ENABLED_FIELD]: enabled,
+      },
+    },
+  };
+}
+
+function createRecordingKnipCommandDeps(
+  projectRoot: string,
+  validationCalls: KnipValidationCall[],
+) {
+  return {
+    discoverTool: async () => ({
+      found: true,
+      location: {
+        tool: VALIDATION_PIPELINE_DATA.stageNames.KNIP,
+        path: projectRoot,
+        source: TOOL_DISCOVERY.SOURCES.PROJECT,
+      },
+    }),
+    validateKnip: async (context) => {
+      validationCalls.push(context);
+      return { success: true };
+    },
+  } satisfies Parameters<typeof knipCommand>[1];
+}
+
+describe("ALWAYS: validation command participation is driven by spx config", () => {
+  it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
+
+      expect(resolved.ok).toBe(true);
+      if (resolved.ok) {
+        const validationConfig = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
+        expect(validationConfig.literal.enabled).toBe(true);
+        expect(validationConfig.knip.enabled).toBe(false);
+      }
+    });
+  });
+
+  it("skips literal validation when validation.literal.enabled is false", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_LITERAL_SUBSECTION, false),
+      async (env) => {
+        await env.writeTsConfigMarker();
+
+        const result = await literalCommand({ cwd: env.productDir });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
+      },
+    );
+  });
+
+  it("skips injected literal config when injected enabled is false", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      await env.writeTsConfigMarker();
+
+      const result = await literalCommand({
+        cwd: env.productDir,
+        config: LITERAL_DEFAULTS,
+        enabled: false,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
+    });
+  });
+
+  it("skips knip validation when validation.knip.enabled is false", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
+      async (env) => {
+        const result = await knipCommand({ cwd: env.productDir });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
+      },
+    );
+  });
+
+  it("applies explicit file scope during knip execution", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const validationCalls: KnipValidationCall[] = [];
+        await env.writeTsConfigMarker();
+        await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            files: [sourceFilePath],
+          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(validationCalls).toEqual([
+          {
+            projectRoot: env.productDir,
+            typescriptScope: {
+              directories: [],
+              filePatterns: [sourceFilePath],
+              excludePatterns: [],
+              filteredByValidationPaths: true,
+              filteredByValidationPathIncludes: true,
+              filteredByValidationPathNoMatches: false,
+            },
+          },
+        ]);
+      },
+    );
+  });
+
+  it("applies production scope during knip execution", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+        const validationCalls: KnipValidationCall[] = [];
+        await env.writeTsConfigMarker();
+        await env.writeRaw(
+          VALIDATION_PIPELINE_DATA.productionTsconfigFile,
+          VALIDATION_PIPELINE_DATA.productionTsconfigContent,
+        );
+        await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+        await env.writeTestFile(testFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            scope: VALIDATION_SCOPES.PRODUCTION,
+          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(validationCalls).toHaveLength(1);
+        expect(validationCalls[0]?.typescriptScope.filePatterns).toEqual([
+          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
+        ]);
+        expect(validationCalls[0]?.typescriptScope.directories).toEqual([
+          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
+        ]);
+      },
+    );
+  });
+
+  it("reports a knip skip when explicit file scope matches no targets", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+      async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const validationCalls: KnipValidationCall[] = [];
+        await env.writeTsConfigMarker();
+
+        const result = await knipCommand(
+          {
+            cwd: env.productDir,
+            files: [sourceFilePath],
+          },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP));
+        expect(validationCalls).toEqual([]);
+      },
+    );
+  });
+
+  it("threads aggregate validation file scope to the knip stage", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const commandCalls: KnipCommandOptions[] = [];
+      const deps: KnipStageDeps = {
+        knipCommand: async (options) => {
+          commandCalls.push(options);
+          return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS };
+        },
+      };
+
+      const result = await runKnipStage(
+        {
+          cwd: env.productDir,
+          scope: VALIDATION_SCOPES.PRODUCTION,
+          files: [sourceFilePath],
+          quiet: true,
+          json: true,
+        },
+        deps,
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(commandCalls).toEqual([
+        {
+          cwd: env.productDir,
+          scope: VALIDATION_SCOPES.PRODUCTION,
+          files: [sourceFilePath],
+          quiet: true,
+          json: true,
+        },
+      ]);
+    });
+  });
+
+  it("resolves per-tool validation path configuration through the descriptor", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.ESLINT]: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const resolved = await resolveConfig(env.productDir, [validationConfigDescriptor]);
+
+        expect(resolved.ok).toBe(true);
+        if (resolved.ok) {
+          const validationConfig = resolved.value[validationConfigDescriptor.section] as ValidationConfig;
+          expect(validationConfig.paths.eslint?.include).toEqual([VALIDATION_PIPELINE_DATA.sourceDirectoryName]);
+          expect(validationConfig.paths.knip).toBeUndefined();
+        }
+      },
+    );
+  });
+
+  it("applies literal-specific validation paths during literal execution", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.LITERAL]: {
+              include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [reuseLiteral] = sampleDistinctDomainLiterals(1);
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
+        await env.writeTsConfigMarker();
+        await env.writeSourceFile(sourceFilePath, reuseLiteral);
+        await env.writeTestFile(testFilePath, reuseLiteral);
+
+        const result = await literalCommand({ cwd: env.productDir, json: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(JSON.parse(result.output)).toEqual({ srcReuse: [], testDupe: [] });
+      },
+    );
+  });
+
+  it("applies markdown-specific validation paths during markdown execution", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
+        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+        await env.writeRaw(`${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Good\n");
+        await env.writeRaw(`${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`, "# Bad  \n");
+
+        const result = await markdownCommand({ cwd: env.productDir, quiet: true });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      },
+    );
+  });
+
+  it("preserves explicit markdown root directory operands through markdown validation includes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
+        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+        await env.writeRaw(
+          `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+          "# Good\n",
+        );
+        await env.writeRaw(
+          `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+        );
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["."],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
+  it("applies markdown validation excludes to explicit directory operands", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/good.md", "# Good\n");
+        await env.writeRaw("spx/private/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["."],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      },
+    );
+  });
+
+  it("preserves exact explicit markdown directory operands through markdown validation excludes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+            },
+          },
+        },
+      },
+      async (env) => {
+        const markdownPath = [
+          MARKDOWN_VALIDATION_DATA.docsDirectoryName,
+          MARKDOWN_VALIDATION_DATA.brokenMarkdownFile,
+        ].join("/");
+        await env.writeRaw(markdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
+  it("does not widen explicit markdown directory operands to every markdown include", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              include: ["spx/public", "spx/other"],
+              exclude: ["spx/public/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/public/good.md", "# Good\n");
+        await env.writeRaw("spx/public/private/bad.md", "# Bad  \n");
+        await env.writeRaw("spx/other/bad.md", "# Bad  \n");
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/public"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      },
+    );
+  });
+
+  it("does not erase explicit markdown child directories below excluded ancestors", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/private/child/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/private/child"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
+  it("preserves explicit markdown file operands through markdown validation excludes", async () => {
+    await withLiteralFixtureEnv(
+      {
+        [validationConfigDescriptor.section]: {
+          [VALIDATION_PATHS_SUBSECTION]: {
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
+              exclude: ["spx/private"],
+            },
+          },
+        },
+      },
+      async (env) => {
+        await env.writeRaw("spx/private/bad.md", MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+        const result = await markdownCommand({
+          cwd: env.productDir,
+          files: ["spx/private/bad.md"],
+        });
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+        expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      },
+    );
+  });
+
+  it("does not widen explicit markdown directory operands to default markdown roots", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      await env.writeRaw("src/good.md", "# Good\n");
+      await env.writeRaw("docs/bad.md", "# Bad  \n");
+
+      const result = await markdownCommand({
+        cwd: env.productDir,
+        files: ["src"],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+    });
+  });
+
+  it("preserves explicit markdown operands through node-status excludes", async () => {
+    await withLiteralFixtureEnv({}, async (env) => {
+      const excludedNodePath = [
+        MARKDOWN_VALIDATION_DATA.spxDirectoryName,
+        MARKDOWN_VALIDATION_DATA.declaredNodeDirectory,
+      ].join("/");
+      const directMarkdownPath = [
+        excludedNodePath,
+        MARKDOWN_VALIDATION_DATA.declaredMarkdownFile,
+      ].join("/");
+      const childMarkdownPath = [
+        excludedNodePath,
+        MARKDOWN_VALIDATION_DATA.declaredChildDirectory,
+        MARKDOWN_VALIDATION_DATA.childMarkdownFile,
+      ].join("/");
+      await env.writeRaw(
+        [MARKDOWN_VALIDATION_DATA.spxDirectoryName, NODE_STATUS_EXCLUDE_FILENAME].join("/"),
+        `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
+      );
+      await env.writeRaw(directMarkdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+      await env.writeRaw(childMarkdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+      const directoryResult = await markdownCommand({
+        cwd: env.productDir,
+        files: [excludedNodePath],
+      });
+      const fileResult = await markdownCommand({
+        cwd: env.productDir,
+        files: [directMarkdownPath],
+      });
+
+      expect(directoryResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(directoryResult.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+      expect(directoryResult.output).toContain(childMarkdownPath);
+      expect(directoryResult.output).not.toContain(directMarkdownPath);
+      expect(fileResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(fileResult.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+    });
+  });
+});

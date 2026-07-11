@@ -1,6 +1,6 @@
 import { CommanderError } from "commander";
 import { execa } from "execa";
-import { expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -8,6 +8,7 @@ import { validationCliDefinition, validationDomain } from "@/interfaces/cli/vali
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
+  validationAllTypeScriptSubprocessScenarios,
   validationCliEmptyOutputLength,
   validationCliOptionOperandSeparator,
   validationCliPackagedExecutablePath,
@@ -16,6 +17,7 @@ import {
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 export interface ValidationCliResult {
   readonly exitCode: number;
@@ -46,6 +48,25 @@ export async function runValidationSubprocess(
     stderr: result.stderr,
     stdout: result.stdout,
   };
+}
+
+export function registerValidationAllTypeScriptSubprocessTests(): void {
+  describe("TypeScript validation pipeline subprocess", () => {
+    for (const scenario of validationAllTypeScriptSubprocessScenarios()) {
+      it(
+        scenario.title,
+        { timeout: scenario.timeout },
+        async () => {
+          await withValidationEnv({ fixture: scenario.fixture }, async ({ path }) => {
+            expectValidationSubprocessResult(
+              await runValidationSubprocess(scenario.args, { cwd: path, timeout: scenario.timeout }),
+              scenario,
+            );
+          });
+        },
+      );
+    }
+  });
 }
 
 export async function runValidationInProcess(args: readonly string[]): Promise<ValidationCliResult> {

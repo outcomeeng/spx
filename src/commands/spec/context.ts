@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { type MethodologyIdentity, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
-import { CONFIG_PROCESS_CWD } from "@/domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies } from "@/lib/git/root";
 import type { GitDependencies } from "@/lib/git/root";
 import {

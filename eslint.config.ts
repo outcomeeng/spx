@@ -345,6 +345,8 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
     {
       files: testOwnedConstantDebtNodeTestGlobs,
       rules: {
+        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
+        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
         [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
       },
     },

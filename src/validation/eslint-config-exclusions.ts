@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join } from "node:path";
 
-import { CONFIG_PROCESS_CWD } from "../domains/config/cwd";
+import { CONFIG_PROCESS_CWD } from "../lib/config/cwd";
 
 const GLOB_MARKER = "*";
 const FILE_EXTENSION_PATTERN = /\.[^/]+$/;

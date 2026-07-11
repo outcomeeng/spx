@@ -174,6 +174,37 @@ async function runBranchAdditionScenario(): Promise<void> {
   });
 }
 
+export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> {
+  await withPolicyProject(async (productDir) => {
+    await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+    await writePolicyManifest(productDir, {
+      testLintDebtNodes: [],
+      testOwnedConstantDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
+    });
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
+
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
+    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+    await writePolicyManifest(productDir, {
+      testLintDebtNodes: [],
+      testOwnedConstantDebtNodes: [
+        VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
+        VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
+      ],
+    });
+
+    const result = validateLintPolicy(productDir);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(
+        VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES.file,
+      );
+      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
+    }
+  });
+}
+
 async function runBaselineAbsentScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.testBranch);
