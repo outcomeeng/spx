@@ -6,24 +6,14 @@ import * as fc from "fast-check";
 
 import { currentStalenessInputs, NO_GIT_IDENTITY, runNodeCommand, runTestsCommand } from "@/commands/test";
 import {
-  CHANGED_TEST_DIFF_CACHED_FLAG,
-  CHANGED_TEST_DIFF_COMMAND,
-  CHANGED_TEST_INDEX_PATH_PREFIX,
-  CHANGED_TEST_LS_FILES_COMMAND,
-  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
-  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
-  CHANGED_TEST_NULL_DELIMITED_FLAG,
   CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
   CHANGED_TEST_PRODUCT_INPUT_PATHS,
-  CHANGED_TEST_SHOW_COMMAND,
 } from "@/commands/test/changed-set-planning";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import { CONFIG_FILENAMES } from "@/config/index";
-import { GIT_DELETE_STATUS_EXAMPLE } from "@/lib/git/name-status";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
-import type { RelatedTestDependencies } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import {
@@ -39,88 +29,16 @@ import {
   LITERAL_TEST_GENERATOR_COUNTS,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { CHANGED_SET_PLANNING_GENERATOR } from "@testing/generators/testing/changed-set-planning";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { testingCommandDependencies } from "@testing/harnesses/testing/command-support";
+import { relatedDeps, stagedSnapshotGit } from "@testing/harnesses/testing/changed-set-planning-support";
+import { invokedArgs, testingCommandDependencies } from "@testing/harnesses/testing/command-support";
 import {
   withTestingTempProductDir,
   writeTestFileFixture,
   writeTestingConfig,
 } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
-
-function invokedArgs(
-  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
-): readonly string[] {
-  return runner.calls.flatMap((call) => call.args);
-}
-
-const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
-
-function nameStatusNulDelimited(paths: readonly string[]): string {
-  return paths.map((path) => `${GIT_DELETE_STATUS_EXAMPLE}\0${path}\0`).join("");
-}
-
-function stagedSnapshotGit(
-  changedPaths: readonly string[],
-  stagedFiles: ReadonlyMap<string, string>,
-  failedStagedFiles: ReadonlyMap<string, string> = new Map(),
-): GitDependencies {
-  const defaultBranchName = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const defaultBaseRef = [GIT_ROOT_COMMAND.ORIGIN, defaultBranchName].join("/");
-  const defaultBaseSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const headSha = sampleLiteralTestValue(arbitraryDomainLiteral());
-  return {
-    execa: async (_command, args) => {
-      if (args.includes(GIT_TEST_SUBCOMMANDS.SYMBOLIC_REF)) {
-        return { exitCode: 0, stdout: defaultBaseRef, stderr: "" };
-      }
-      const lastArg = args.at(-1);
-      if (lastArg === defaultBaseRef) {
-        return { exitCode: 0, stdout: defaultBaseSha, stderr: "" };
-      }
-      if (args.includes(CHANGED_TEST_DIFF_COMMAND) && args.includes(CHANGED_TEST_DIFF_CACHED_FLAG)) {
-        return { exitCode: 0, stdout: nameStatusNulDelimited(changedPaths), stderr: "" };
-      }
-      if (
-        args.includes(CHANGED_TEST_DIFF_COMMAND)
-        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ) {
-        return { exitCode: 0, stdout: "", stderr: "" };
-      }
-      if (
-        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
-        && args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
-        && args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
-        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ) {
-        return { exitCode: 0, stdout: "", stderr: "" };
-      }
-      if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
-        const path = args.find((arg) => arg.startsWith(CHANGED_TEST_INDEX_PATH_PREFIX))?.slice(1) ?? "";
-        const failure = failedStagedFiles.get(path);
-        if (failure !== undefined) {
-          return { exitCode: 1, stdout: "", stderr: failure };
-        }
-        const content = stagedFiles.get(path);
-        return content === undefined
-          ? { exitCode: 1, stdout: "", stderr: changedSetContent.gitStagedPathMissingMessage }
-          : { exitCode: 0, stdout: content, stderr: "" };
-      }
-      return { exitCode: 0, stdout: headSha, stderr: "" };
-    },
-  };
-}
-
-function successfulRelatedTestDependencies(): RelatedTestDependencies {
-  return {
-    isLanguagePresent: () => true,
-    readFile: async () => "",
-    runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
-  };
-}
 
 function recordedProductInputDigest(
   recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] },
@@ -203,14 +121,14 @@ async function expectStagedProductInputDigestMatchesCurrent({
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: successfulRelatedTestDependencies,
-            git: stagedSnapshotGit(
-              [nodeFile, productInputPath],
-              new Map([
+            relatedDepsFor: relatedDeps,
+            git: stagedSnapshotGit({
+              changedPaths: [nodeFile, productInputPath],
+              stagedFiles: new Map([
                 [nodeFile, (await readFile(join(productDir, nodeFile))).toString()],
                 [productInputPath, stagedInputContent],
               ]),
-            ),
+            }),
           },
         );
         const stagedDigest = recordedProductInputDigest(recorded.recorded, descriptorId);
@@ -394,16 +312,12 @@ export function registerExecutionRecordingScenarioTests(): void {
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+              relatedDepsFor: relatedDeps,
+              git: stagedSnapshotGit({
+                changedPaths: [nodeFile],
+                stagedFiles: new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
+                failedStagedFiles: new Map([[CONFIG_FILENAMES.json, failureMessage]]),
               }),
-              git: stagedSnapshotGit(
-                [nodeFile],
-                new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
-                new Map([[CONFIG_FILENAMES.json, failureMessage]]),
-              ),
             },
           ),
         ).rejects.toThrow(failureMessage);
@@ -450,16 +364,12 @@ export function registerExecutionRecordingScenarioTests(): void {
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
-              relatedDepsFor: () => ({
-                isLanguagePresent: () => true,
-                readFile: async () => "",
-                runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+              relatedDepsFor: relatedDeps,
+              git: stagedSnapshotGit({
+                changedPaths: [nodeFile],
+                stagedFiles: new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
+                failedStagedFiles: new Map([[productInputPath, failureMessage]]),
               }),
-              git: stagedSnapshotGit(
-                [nodeFile],
-                new Map([[nodeFile, (await readFile(join(productDir, nodeFile))).toString()]]),
-                new Map([[productInputPath, failureMessage]]),
-              ),
             },
           ),
         ).rejects.toThrow(failureMessage);
