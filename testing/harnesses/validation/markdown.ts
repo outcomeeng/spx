@@ -12,7 +12,9 @@ import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
+  MARKDOWN_CONFIG_CONTROL_KEYS,
   MARKDOWN_CUSTOM_RULE_NAMES,
+  MARKDOWN_ENABLED_BUILTIN_RULES,
   MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS,
   validateMarkdown,
 } from "@/validation/steps/markdown";
@@ -317,20 +319,27 @@ async function runDuplicateHeadingsScenario(scenario: MarkdownValidationScenario
 function runConfigBuilderScenario(): void {
   const spxConfig = buildMarkdownlintConfig(MARKDOWN_VALIDATION_DATA.spxDirectoryName);
   const docsConfig = buildMarkdownlintConfig(MARKDOWN_VALIDATION_DATA.docsDirectoryName);
+  const expectedConfigKeyCount = Object.keys(MARKDOWN_ENABLED_BUILTIN_RULES).length
+    + Object.keys(MARKDOWN_CONFIG_CONTROL_KEYS).length;
 
-  expect(Object.keys(spxConfig)).toHaveLength(MARKDOWN_VALIDATION_DATA.expectedConfigKeyCount);
-  expect(Object.keys(docsConfig)).toHaveLength(MARKDOWN_VALIDATION_DATA.expectedConfigKeyCount);
-  expect(spxConfig.default).toBe(false);
-  expect(spxConfig.MD001).toBe(true);
-  expect(spxConfig.MD003).toBe(true);
-  expect(spxConfig.MD009).toBe(true);
-  expect(spxConfig.MD010).toBe(true);
-  expect(spxConfig.MD025).toBe(true);
-  expect(spxConfig.MD047).toBe(true);
-  expect(spxConfig.MD024).toEqual({ siblings_only: true });
-  expect(docsConfig.MD024).toBe(false);
-  expect(spxConfig.customRules).toHaveLength(MARKDOWN_VALIDATION_DATA.one);
-  expect(spxConfig.customRules[MARKDOWN_VALIDATION_DATA.zero].names).toEqual(MARKDOWN_CUSTOM_RULE_NAMES);
+  expect(Object.keys(spxConfig)).toHaveLength(expectedConfigKeyCount);
+  expect(Object.keys(docsConfig)).toHaveLength(expectedConfigKeyCount);
+  expect(spxConfig).toMatchObject({
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DEFAULT]: false,
+    ...MARKDOWN_ENABLED_BUILTIN_RULES,
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: { siblings_only: true },
+  });
+  expect(docsConfig).toMatchObject({
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DEFAULT]: false,
+    ...MARKDOWN_ENABLED_BUILTIN_RULES,
+    [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: false,
+  });
+  expect(spxConfig[MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]).toHaveLength(
+    MARKDOWN_VALIDATION_DATA.one,
+  );
+  expect(
+    spxConfig[MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES][MARKDOWN_VALIDATION_DATA.zero].names,
+  ).toEqual(MARKDOWN_CUSTOM_RULE_NAMES);
 }
 
 async function runCommandDefaultsScenario(scenario: MarkdownValidationScenario): Promise<void> {

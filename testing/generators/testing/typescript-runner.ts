@@ -1,8 +1,8 @@
 import * as fc from "fast-check";
 
+import { TYPESCRIPT_TEST_FILE_SUFFIXES } from "@/test/languages/typescript";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
-const MATCHING_TEST_EXTENSIONS = [".test.ts", ".test.tsx"] as const;
 const NON_MATCHING_EXTENSIONS = [
   ".ts",
   ".tsx",
@@ -72,7 +72,7 @@ function arbitraryTypeScriptTestFilePath(): fc.Arbitrary<string> {
   return fc
     .tuple(
       arbitrarySpecTreeTestStem(),
-      fc.constantFrom(...MATCHING_TEST_EXTENSIONS),
+      fc.constantFrom(...TYPESCRIPT_TEST_FILE_SUFFIXES),
     )
     .map(([stem, extension]) => `${stem}${extension}`);
 }
