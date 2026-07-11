@@ -360,6 +360,9 @@ export function assertTextReportHidesMachineFields(): void {
   for (const [key, value] of Object.entries(sessionRecord.readings)) {
     expect(text).not.toContain(`${key}: ${value}`);
   }
+  for (const [key, value] of Object.entries(worktreeRecord.readings)) {
+    expect(text).not.toContain(`${key}: ${value}`);
+  }
   const remediationField = CHECK_RECORD_FIELDS.find((field) => spxRecord[field] === spxRecord.remediation);
   expect(remediationField).toBeDefined();
   expect(text).not.toContain(`${remediationField}:`);
