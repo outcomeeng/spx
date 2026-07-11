@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertCanonicalCheckoutFailureTranslations,
   assertEveryTranslationBranchHasHeading,
   assertHeadingGlyphsFollowBuckets,
   assertInvalidSpxVersionTranslation,
@@ -21,6 +22,7 @@ describe("the text report translates check records into a human diagnosis", () =
   it("hides raw booleans, machine labels, and remediation prose", assertTextReportHidesMachineFields);
   it("hides machine fields for an unsupported translation", assertUnknownTranslationHidesMachineFields);
   it("renders a diagnosis heading for every supported verdict", assertEveryTranslationBranchHasHeading);
+  it("renders each canonical-checkout problem and remediation", assertCanonicalCheckoutFailureTranslations);
 });
 
 describe("the JSON report remains the complete machine schema", () => {
