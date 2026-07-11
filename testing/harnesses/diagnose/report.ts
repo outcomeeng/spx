@@ -15,12 +15,10 @@ import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import {
-  BUCKET_SEVERITY,
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
-  OVERALL_SEVERITY,
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
@@ -33,11 +31,12 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
-import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { SEVERITY, type Severity, SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
+import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 interface TranslationBranchCase {
@@ -111,7 +110,35 @@ function overallForBucket(bucket: VerdictBucket): OverallVerdict {
 }
 
 function sectionHeaderLine(check: CheckRecord, header: string): string {
-  return `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`;
+  return `${SEVERITY_STYLE[expectedBucketSeverity(check.bucket)].glyph} ${header}`;
+}
+
+function expectedBucketSeverity(bucket: VerdictBucket): Severity {
+  switch (bucket) {
+    case VERDICT_BUCKET.HEALTHY:
+      return SEVERITY.OK;
+    case VERDICT_BUCKET.DEGRADED:
+      return SEVERITY.WARN;
+    case VERDICT_BUCKET.UNKNOWN:
+      return SEVERITY.UNKNOWN;
+    case VERDICT_BUCKET.BROKEN:
+      return SEVERITY.ERROR;
+    case VERDICT_BUCKET.NOT_APPLICABLE:
+      return SEVERITY.MUTED;
+  }
+}
+
+function expectedOverallSeverity(verdict: OverallVerdict): Severity {
+  switch (verdict) {
+    case OVERALL_VERDICT.HEALTHY:
+      return SEVERITY.OK;
+    case OVERALL_VERDICT.DEGRADED:
+      return SEVERITY.WARN;
+    case OVERALL_VERDICT.UNKNOWN:
+      return SEVERITY.UNKNOWN;
+    case OVERALL_VERDICT.BROKEN:
+      return SEVERITY.ERROR;
+  }
 }
 
 function renderSingleCheckText(check: CheckRecord): string {
@@ -122,6 +149,7 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
   const spxReading = reusableSpxReading();
   const sessionReading = workingSessionReading();
   const marketplaceReading = configuredMarketplaceReading();
+  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
   return [
     { check: classifySpxReachability(spxReading, "0.6.0"), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
     { check: classifySpxReachability(spxReading, undefined), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
@@ -165,6 +193,48 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
         mainCheckoutPath: null,
         defaultBranch: null,
         mainCheckoutBranch: null,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+    },
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: null,
+        defaultBranch,
+        mainCheckoutBranch: null,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+    },
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: defaultBranch,
+        defaultBranch,
+        mainCheckoutBranch: null,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+    },
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: defaultBranch,
+        defaultBranch,
+        mainCheckoutBranch: wrongBranch,
         mainCheckoutBranchRead: true,
         running: 1,
         free: 8,
@@ -327,7 +397,9 @@ export function assertHeadingGlyphsFollowBuckets(): void {
       );
       expect(headingLines).toHaveLength(report.checks.length);
       report.checks.forEach((check, index) => {
-        expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} `)).toBe(true);
+        expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[expectedBucketSeverity(check.bucket)].glyph} `)).toBe(
+          true,
+        );
       });
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -340,7 +412,7 @@ export function assertOverallColorFollowsVerdict(): void {
     arbitraryReport(),
     (report) => {
       const text = renderReportText(report, { color: true });
-      const style = SEVERITY_STYLE[OVERALL_SEVERITY[report.overall]].style;
+      const style = SEVERITY_STYLE[expectedOverallSeverity(report.overall)].style;
       expect(text).toContain(chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`));
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
