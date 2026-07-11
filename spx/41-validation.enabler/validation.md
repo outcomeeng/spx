@@ -8,11 +8,14 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 - Given a product with no violations, when `spx validation all` runs, then every registered stage executes according to its descriptor default, passes or explicitly skips, and the pipeline exits 0 ([test](tests/validation.scenario.l1.test.ts))
 - Given a product with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.scenario.l1.test.ts))
-- Given `--scope production`, when a test-scoped TypeScript failure exists, then `spx validation all` excludes that failure while every registered step completes in order ([test](tests/validation.scenario.l1.test.ts))
-- Given a source directory or file positional operand and an out-of-scope Markdown failure, when `spx validation all` runs, then the out-of-scope failure is excluded while every registered step completes in order ([test](tests/validation.scenario.l1.test.ts))
+- Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
+- Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l1.test.ts))
-- Given a TypeScript failure is repaired, when validation runs again, then every other step preserves its prior verdict ([test](tests/validation.scenario.l1.test.ts))
-- Given the same clean codebase is validated twice, when both runs complete, then every step returns the same pass/fail verdict ([test](tests/validation.scenario.l1.test.ts))
+
+### Properties
+
+- Adding a registered stage at any pipeline position preserves every existing stage's verdict ([test](tests/validation.property.l1.test.ts))
+- Given identical product state, registered stages, command arguments, and stage outcomes, validation returns identical stage verdicts and exit code ([test](tests/validation.property.l1.test.ts))
 
 ### Compliance
 
