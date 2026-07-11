@@ -49,7 +49,6 @@ const EXPECTED_ZERO = 0;
 const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
 const EXPECTED_THREE = 3;
-const EXPECTED_CONFIG_KEY_COUNT = 9;
 
 export const MARKDOWN_SCENARIO_KIND = {
   CLEAN_TREE: "cleanTree",
@@ -135,7 +134,6 @@ export const MARKDOWN_VALIDATION_DATA = {
   one: EXPECTED_ONE,
   two: EXPECTED_TWO,
   three: EXPECTED_THREE,
-  expectedConfigKeyCount: EXPECTED_CONFIG_KEY_COUNT,
 } as const;
 
 export function markdownDirectoryTarget(path: string): MarkdownValidationTarget {

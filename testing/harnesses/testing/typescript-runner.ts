@@ -7,7 +7,7 @@ import { runTestsCommand } from "@/commands/test";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import type { TestRunnerDependencies } from "@/test/languages/types";
-import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import { TYPESCRIPT_TEST_FILE_PATTERNS, typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -33,10 +33,6 @@ const VITEST_FIXTURE_DIR = join(
   "vitest",
 );
 const TEMP_PROJECT_PREFIX = "spx-vitest-";
-const TYPESCRIPT_TEST_FILE_PATTERN_ORACLE = [
-  "*.test.ts",
-  "*.test.tsx",
-] as const;
 export const COPIED_SUITE_NAME = "suite.test.ts";
 
 // Committed inert fixture suites copied into a temp project for the real-vitest run.
@@ -295,11 +291,11 @@ export function registerTypescriptRunnerMappingTests(): void {
   describe("typescript test runner file matching and exclusion flags", () => {
     it("declares every spec-defined TypeScript test-file pattern", () => {
       expect(typescriptTestingLanguage.testFilePatterns).toEqual(
-        TYPESCRIPT_TEST_FILE_PATTERN_ORACLE,
+        TYPESCRIPT_TEST_FILE_PATTERNS,
       );
     });
 
-    it.each(TYPESCRIPT_TEST_FILE_PATTERN_ORACLE)(
+    it.each(TYPESCRIPT_TEST_FILE_PATTERNS)(
       "routes registered test-file pattern %s through spx test",
       async (pattern) => {
         const testPath = generatedTestPathForPattern(pattern);

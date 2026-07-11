@@ -24,8 +24,10 @@ import type {
 import { detectTypeScript, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
-const TYPESCRIPT_TEST_FILE_PATTERNS = ["*.test.ts", "*.test.tsx"] as const;
 export const TYPESCRIPT_TEST_FILE_SUFFIXES = [".test.ts", ".test.tsx"] as const;
+export const TYPESCRIPT_TEST_FILE_PATTERNS: readonly string[] = TYPESCRIPT_TEST_FILE_SUFFIXES.map((suffix) =>
+  `*${suffix}`
+);
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
