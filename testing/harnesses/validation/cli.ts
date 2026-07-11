@@ -10,6 +10,7 @@ import {
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
+import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/commands/validation/literal";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -984,12 +985,22 @@ function observedValidationCommandHandlers(
 }
 
 function literalReportModeArguments(): readonly (readonly string[])[] {
-  return [
-    [],
-    [literalValidationCliOptions.filesWithProblems.flag],
-    [literalValidationCliOptions.literals.flag],
-    [validationCommonCliOptions.json.flag],
-  ];
+  return OUTPUT_MODE_NAMES.map(literalReportModeArgument);
+}
+
+function literalReportModeArgument(outputMode: OutputModeName): readonly string[] {
+  switch (outputMode) {
+    case OUTPUT_MODE_NAME.TEXT:
+      return [];
+    case OUTPUT_MODE_NAME.VERBOSE:
+      return [literalValidationCliOptions.verbose.flag];
+    case OUTPUT_MODE_NAME.FILES_WITH_PROBLEMS:
+      return [literalValidationCliOptions.filesWithProblems.flag];
+    case OUTPUT_MODE_NAME.LITERALS:
+      return [literalValidationCliOptions.literals.flag];
+    case OUTPUT_MODE_NAME.JSON:
+      return [validationCommonCliOptions.json.flag];
+  }
 }
 
 function observedHandlerOutput(commandName: string): string {
