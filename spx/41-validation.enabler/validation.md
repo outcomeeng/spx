@@ -6,7 +6,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 ### Scenarios
 
-- Given a product with no violations, when `spx validation all` runs, then every registered stage executes according to its descriptor default, passes or explicitly skips, and the pipeline exits 0 ([test](tests/validation.scenario.l1.test.ts))
+- Given a product with no violations, when `spx validation all` runs, then the pipeline completes successfully and exits 0 ([test](tests/validation.scenario.l1.test.ts))
 - Given a product with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.scenario.l1.test.ts))
 - Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
@@ -14,7 +14,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 ### Properties
 
-- Adding a registered stage at any pipeline position preserves every existing stage's verdict ([test](tests/validation.property.l1.test.ts))
+- Adding a conforming stage at any position in the registered pipeline preserves every registered stage's verdict ([test](tests/validation.property.l1.test.ts))
 - Given identical product state, registered stages, command arguments, and stage outcomes, validation returns identical stage verdicts and exit code ([test](tests/validation.property.l1.test.ts))
 
 ### Compliance

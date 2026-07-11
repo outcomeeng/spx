@@ -18,9 +18,9 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 - Given literal validation help is requested, when `spx validation literal --help` is invoked, then the help output lists `[paths...]`, `--allowlist-existing`, `--kind <kind>`, `--files-with-problems`, `--literals`, `--verbose`, and the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.scenario.l2.test.ts))
 - Given an unknown literal problem kind, when `spx validation literal --kind <kind>` is invoked, then no literal detection runs, stderr reports "unknown problem kind" with the sanitized kind, and exit code is non-zero ([test](tests/dispatch.scenario.l2.test.ts))
 - Given validation-all help is requested, when `spx validation all --help` is invoked, then the help output lists the full-pipeline override flags derived from registered stage participation metadata ([test](tests/dispatch.scenario.l2.test.ts))
-- Given a validation stage's default participation is overridden for one full-pipeline run, when `spx validation all <override-flag>` is invoked, then that stage follows the override, emits its configured skip output unless `--quiet` is set, and the other validation stages follow their defaults ([test](../tests/validation.scenario.l1.test.ts))
-- Given a validation stage's default participation is overridden for one JSON full-pipeline run, when `spx validation all <override-flag> --json` is invoked, then the overridden stage emits a structured skipped sentinel with its configured reason instead of the human skip message ([test](../tests/validation.scenario.l1.test.ts))
-- Given a validation stage's default participation is overridden for one production-scope full-pipeline run, when `spx validation all --scope production <override-flag>` is invoked, then the override applies to that stage and the other production-scope validation stages follow their defaults ([test](../tests/validation.scenario.l1.test.ts))
+- Given a validation stage's default participation is overridden for one full-pipeline run, when `spx validation all <override-flag>` is invoked, then that stage follows the override, emits its configured skip output unless `--quiet` is set, and the other validation stages follow their defaults ([test](tests/dispatch.scenario.l2.test.ts))
+- Given a validation stage's default participation is overridden for one JSON full-pipeline run, when `spx validation all <override-flag> --json` is invoked, then the overridden stage emits a structured skipped sentinel with its configured reason instead of the human skip message ([test](tests/dispatch.scenario.l2.test.ts))
+- Given a validation stage's default participation is overridden for one production-scope full-pipeline run, when `spx validation all --scope production <override-flag>` is invoked, then the override applies to that stage and the other production-scope validation stages follow their defaults ([test](tests/dispatch.scenario.l2.test.ts))
 
 ### Properties
 
@@ -28,13 +28,13 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 
 ### Compliance
 
-- ALWAYS: route every `spx validation <subcommand>` invocation through a dispatcher that resolves against a typed registry; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.compliance.l2.test.ts))
+- ALWAYS: route every `spx validation <subcommand>` invocation against the registered subcommand set; unknown subcommands reach the safe-error path and never enter a stage handler ([test](tests/dispatch.compliance.l2.test.ts))
 - ALWAYS: emit unknown-subcommand diagnostics to stderr with the argument passed through `sanitizeCliArgument`; exit code is non-zero ([test](tests/dispatch.compliance.l2.test.ts))
 - ALWAYS: register literal-specific flags on `spx validation literal` and expose them through command help with the same path operands accepted by the handler, including the valid `--kind` values `reuse` and `dupe` ([test](tests/dispatch.compliance.l2.test.ts))
 - ALWAYS: register full-pipeline participation override flags on `spx validation all` from stage descriptors and scope them to that full-pipeline invocation; standalone stage subcommands do not accept full-pipeline override flags ([test](tests/dispatch.compliance.l2.test.ts))
-- ALWAYS: resolve `spx validation all` stage participation from each registered stage's default plus the invocation-local override set before invoking any stage handler ([test](../tests/validation.compliance.l1.test.ts))
-- ALWAYS: emit skipped full-pipeline stages as structured JSON with `skipped: true` and the stage descriptor's configured reason when JSON output is requested ([test](../tests/validation.compliance.l1.test.ts))
-- ALWAYS: apply full-pipeline stage participation overrides regardless of whether `spx validation all` runs with full or production scope ([test](../tests/validation.compliance.l1.test.ts))
+- ALWAYS: resolve `spx validation all` stage participation from each registered stage's default plus the invocation-local override set before invoking any stage handler ([test](tests/dispatch.compliance.l2.test.ts))
+- ALWAYS: emit skipped full-pipeline stages as structured JSON with `skipped: true` and the stage descriptor's configured reason when JSON output is requested ([test](tests/dispatch.compliance.l2.test.ts))
+- ALWAYS: apply full-pipeline stage participation overrides regardless of whether `spx validation all` runs with full or production scope ([test](tests/dispatch.compliance.l2.test.ts))
 - ALWAYS: reject invalid `--kind` values before literal detection, emit the sanitized kind to stderr, and exit non-zero ([test](tests/dispatch.compliance.l2.test.ts))
 - NEVER: invoke a stage handler during dispatch failure ([test](tests/dispatch.compliance.l2.test.ts))
 - NEVER: use `vi.mock()`, `jest.mock()`, or any filesystem-mocking mechanism in tests under this enabler ([review])
