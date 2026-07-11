@@ -1,36 +1,68 @@
 import { CommanderError } from "commander";
 import { execa } from "execa";
 import { cp, mkdir, symlink } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { expect } from "vitest";
 
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createValidationDomain, type ValidationCliDependencies, validationDomain } from "@/interfaces/cli/validation";
-import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
-  VALIDATION_CLI_GENERATOR,
-  validationCliEmptyOutputLength,
-  validationCliOptionOperandSeparator,
-  validationCliPackagedExecutablePath,
-  validationCliTempDirectoryPrefix,
-  validationCliUnavailableExitCode,
+  VALIDATION_EMPTY_CLI_OPERAND,
+  VALIDATION_OPTION_OPERAND_SEPARATOR,
+  validationCliDefinition,
+} from "@/interfaces/cli/validation-contract";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import {
+  VALIDATION_SUBPROCESS_SCENARIO_KIND,
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { type FixtureName, HARNESS_TIMEOUT, PROJECT_FIXTURES } from "@testing/harnesses/with-validation-env";
 
 const HEX_RADIX = 16;
 const HEX_ESCAPE_WIDTH = 2;
 const LAST_ASCII_CONTROL_CODE_POINT = 0x1f;
 const DELETE_CONTROL_CODE_POINT = 0x7f;
 const CONTROL_ESCAPE_PREFIX = `${String.fromCodePoint(0x5c)}x`;
+const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
+const VALIDATION_SUBPROCESS_TIMEOUT = 15_000;
+export const VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT = 120_000;
+export const VALIDATION_REPEATED_PIPELINE_TIMEOUT = VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT * 2;
+const PROCESS_EXIT_UNAVAILABLE = -1;
+const PACKAGED_CLI_FILENAME = "spx.js";
 
 export interface ValidationCliResult {
   readonly exitCode: number;
   readonly stderr: string;
   readonly stdout: string;
+}
+
+export interface ValidationSubprocessHarnessOptions {
+  readonly fixture: FixtureName;
+  readonly timeout: number;
+}
+
+export function validationSubprocessHarnessOptions(
+  scenario: ValidationSubprocessScenario,
+): ValidationSubprocessHarnessOptions {
+  switch (scenario.kind) {
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_CLEAN_PROJECT:
+      return { fixture: PROJECT_FIXTURES.CLEAN_PROJECT, timeout: HARNESS_TIMEOUT };
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_PYTHON_PROJECT:
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_PYTHON_PROJECT:
+      return { fixture: PROJECT_FIXTURES.PYTHON_PROJECT, timeout: HARNESS_TIMEOUT };
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_BARE_PROJECT:
+      return { fixture: PROJECT_FIXTURES.BARE_PROJECT, timeout: HARNESS_TIMEOUT };
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_MISSING_CONFIG:
+      return { fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_ESLINT, timeout: HARNESS_TIMEOUT };
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_CLEAN_PROJECT:
+      return {
+        fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+        timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
+      };
+  }
 }
 
 export interface ValidationCliRunOptions {
@@ -68,6 +100,10 @@ const PACKAGED_DIST_DIRECTORY = "dist";
 const PACKAGE_MANIFEST_FILENAME = "package.json";
 const PACKAGE_DEPENDENCIES_DIRECTORY = "node_modules";
 
+function packagedValidationCliPath(): string {
+  return resolve(CONFIG_PROCESS_CWD.read(), PACKAGED_BIN_DIRECTORY, PACKAGED_CLI_FILENAME);
+}
+
 export async function runValidationSubprocess(
   args: readonly string[],
   options: ValidationCliRunOptions = {},
@@ -75,10 +111,10 @@ export async function runValidationSubprocess(
   const result = await execa(process.execPath, validationCliPackagedArgs(args, options.executablePath), {
     cwd: options.cwd,
     reject: false,
-    timeout: options.timeout ?? sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.subprocessTimeout()),
+    timeout: options.timeout ?? VALIDATION_SUBPROCESS_TIMEOUT,
   });
   return {
-    exitCode: result.exitCode ?? validationCliUnavailableExitCode(),
+    exitCode: result.exitCode ?? PROCESS_EXIT_UNAVAILABLE,
     stderr: result.stderr,
     stdout: result.stdout,
   };
@@ -87,8 +123,8 @@ export async function runValidationSubprocess(
 export function withIsolatedPackagedValidationCli(
   testFn: (fixture: IsolatedPackagedValidationCli) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(validationCliTempDirectoryPrefix(), async (packageRoot) => {
-    const sourceExecutablePath = validationCliPackagedExecutablePath();
+  return withTempDir(VALIDATION_CLI_TEMP_PREFIX, async (packageRoot) => {
+    const sourceExecutablePath = packagedValidationCliPath();
     const sourceProductRoot = dirname(dirname(sourceExecutablePath));
     const binDirectory = join(packageRoot, PACKAGED_BIN_DIRECTORY);
     const executablePath = join(binDirectory, basename(sourceExecutablePath));
@@ -148,7 +184,7 @@ export async function runValidationInProcess(
       { from: SPX_COMMANDER_PARSE_SOURCE },
     );
     return {
-      exitCode: validationCliEmptyOutputLength(),
+      exitCode: VALIDATION_EMPTY_CLI_OPERAND.length,
       stderr: stderr.join(validationCliEmptyOutput()),
       stdout: stdout.join(validationCliEmptyOutput()),
     };
@@ -168,22 +204,22 @@ export async function runValidationInProcess(
 export function withEmptyValidationProject(
   testFn: (projectRoot: string) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(validationCliTempDirectoryPrefix(), testFn);
+  return withTempDir(VALIDATION_CLI_TEMP_PREFIX, testFn);
 }
 
 export function validationCliPackagedArgs(args: readonly string[], executablePath?: string): string[] {
-  return [executablePath ?? validationCliPackagedExecutablePath(), validationCliDefinition.domain.commandName, ...args];
+  return [executablePath ?? packagedValidationCliPath(), validationCliDefinition.domain.commandName, ...args];
 }
 
 export function validationCliOptionName(option: ValidationCliOptionDefinition): string {
-  const name = option.flag.split(validationCliOptionOperandSeparator()).at(0);
+  const name = option.flag.split(VALIDATION_OPTION_OPERAND_SEPARATOR).at(0);
   return name ?? option.flag;
 }
 
 export function validationCliEmptyOutput(): string {
   return validationCliDefinition.domain.commandName.slice(
-    validationCliEmptyOutputLength(),
-    validationCliEmptyOutputLength(),
+    VALIDATION_EMPTY_CLI_OPERAND.length,
+    VALIDATION_EMPTY_CLI_OPERAND.length,
   );
 }
 
@@ -206,7 +242,7 @@ export async function expectValidationDispatchFailureInvokesNoHandler(
 ): Promise<ValidationCliResult> {
   const recorder = createRecordingValidationDomain(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
   const result = await runValidationInProcess(args, { ...options, domain: recorder.domain });
-  expect(recorder.calls).toHaveLength(validationCliEmptyOutputLength());
+  expect(recorder.calls).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
   return result;
 }
 
@@ -235,7 +271,7 @@ export function createRecordingValidationDomain(exitCode: number): RecordingVali
 
 export function expectValidationSubprocessResult(
   result: ValidationCliResult,
-  scenario: ValidationSubprocessScenario,
+  scenario: Omit<ValidationSubprocessScenario, "kind">,
 ): void {
   const combinedOutput = `${result.stdout}${result.stderr}`;
 

@@ -9,8 +9,6 @@
 
 import * as fc from "fast-check";
 
-const FORMATTING_TEMP_PREFIX = "dprint-validation-";
-
 /** A TypeScript snippet dprint reformats (collapsed spacing around `=`). */
 const UNFORMATTED_TYPESCRIPT_CONTENT = "export const value     =     1;\n";
 
@@ -52,8 +50,6 @@ const FORMATTED_FILE_EXTENSIONS = [
 /** Paths the formatting verdict must never rewrite, per the formatting spec. */
 const NEVER_FORMATTED_PATHS = ["pnpm-lock.yaml", "testing/fixtures/**"] as const;
 
-const FORMATTING_HARNESS_TIMEOUT = 30_000;
-
 export const FORMATTING_SCENARIO_KIND = {
   CLEAN_PROJECT: "cleanProject",
   UNFORMATTED_COMMAND: "unformattedCommand",
@@ -73,11 +69,9 @@ export type FormattingScenarioKind = (typeof FORMATTING_SCENARIO_KIND)[keyof typ
 export interface FormattingValidationScenario {
   readonly title: string;
   readonly kind: FormattingScenarioKind;
-  readonly timeout: number;
 }
 
 export const FORMATTING_VALIDATION_DATA = {
-  tempPrefix: FORMATTING_TEMP_PREFIX,
   unformattedTypeScriptContent: UNFORMATTED_TYPESCRIPT_CONTENT,
   formattableTypeScriptContent: FORMATTABLE_TYPESCRIPT_CONTENT,
   typeScriptSourceFilename: TYPESCRIPT_SOURCE_FILENAME,
@@ -104,57 +98,46 @@ export function formattingScenarios(): FormattingValidationScenario[] {
     {
       title: "a fully formatted project reports no problems and exits zero",
       kind: FORMATTING_SCENARIO_KIND.CLEAN_PROJECT,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "an unformatted file is reported and the command exits non-zero",
       kind: FORMATTING_SCENARIO_KIND.UNFORMATTED_COMMAND,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "formatting failure fails the full validation pipeline",
       kind: FORMATTING_SCENARIO_KIND.PIPELINE_FAILURE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process exits non-zero and names the unformatted file",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_UNFORMATTED,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process expands directory operands before checking files",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process resolves operands from the invocation directory",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process intersects root operands with validation includes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process preserves explicit file operands through validation excludes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_FILE_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process intersects directory operands with validation includes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "the format CLI process excludes descendants below directory operands",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
       title: "a gitignored unformatted file is skipped and the command exits zero",
       kind: FORMATTING_SCENARIO_KIND.GITIGNORE_SKIP,
-      timeout: FORMATTING_HARNESS_TIMEOUT,
     },
   ];
 }

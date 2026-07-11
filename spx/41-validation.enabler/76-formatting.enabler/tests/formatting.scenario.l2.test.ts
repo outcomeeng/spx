@@ -1,10 +1,4 @@
-import { describe, it } from "vitest";
+import { formattingValidationScenarioCases } from "@testing/harnesses/validation/formatting";
+import { registerHarnessTestCases } from "@testing/harnesses/vitest-registration";
 
-import { formattingScenarios } from "@testing/generators/validation/formatting";
-import { runFormattingScenario } from "@testing/harnesses/validation/formatting";
-
-describe("dprint formatting validation scenarios", () => {
-  for (const scenario of formattingScenarios()) {
-    it(scenario.title, () => runFormattingScenario(scenario), scenario.timeout);
-  }
-});
+registerHarnessTestCases(formattingValidationScenarioCases);

@@ -25,15 +25,31 @@ import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import {
   FORMATTING_SCENARIO_KIND,
   FORMATTING_VALIDATION_DATA,
+  formattingScenarios,
   type FormattingValidationScenario,
 } from "@testing/generators/validation/formatting";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const execFileAsync = promisify(execFile);
 
 const DPRINT_COMMAND_NAME = "dprint";
 const DPRINT_FORMAT_SUBCOMMAND = "fmt";
+const FORMATTING_TEMP_PREFIX = "dprint-validation-";
+const FORMATTING_HARNESS_TIMEOUT = 30_000;
+
+export const formattingValidationScenarioCases = collectHarnessTestCases(() => {
+  describe("dprint formatting validation scenarios", () => {
+    for (const scenario of formattingScenarios()) {
+      it(
+        scenario.title,
+        () => runFormattingScenario(scenario),
+        FORMATTING_HARNESS_TIMEOUT,
+      );
+    }
+  });
+});
 
 interface FormattingFixture {
   readonly projectRoot: string;
@@ -331,7 +347,7 @@ async function runGitignoreSkipScenario(): Promise<void> {
  * rather than let a personal global dprint config decide the verdict.
  */
 export function runFormattingWithoutConfig(): Promise<ValidationCommandResult> {
-  return withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (projectRoot) => {
+  return withTempDir(FORMATTING_TEMP_PREFIX, async (projectRoot) => {
     await writeFile(
       join(projectRoot, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
@@ -380,7 +396,7 @@ async function withFormattingFixture(
   sourceContent: string,
   callback: (fixture: FormattingFixture) => Promise<void>,
 ): Promise<void> {
-  await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (projectRoot) => {
+  await withTempDir(FORMATTING_TEMP_PREFIX, async (projectRoot) => {
     copyProductDprintConfig(projectRoot);
     const sourceFile = join(projectRoot, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
     await writeFile(sourceFile, sourceContent);

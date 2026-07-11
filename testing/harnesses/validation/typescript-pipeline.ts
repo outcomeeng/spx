@@ -1,28 +1,30 @@
 import { validationAllTypeScriptSubprocessScenarios } from "@testing/generators/validation/validation";
-import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import {
+  expectValidationSubprocessResult,
+  runValidationSubprocess,
+  validationSubprocessHarnessOptions,
+} from "@testing/harnesses/validation/cli";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { type FixtureName, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 function registerTypeScriptPipelineTests(fixture?: FixtureName): void {
   describe("TypeScript validation pipeline subprocess", () => {
-    for (
-      const scenario of validationAllTypeScriptSubprocessScenarios().filter(
-        (candidate) => fixture === undefined || candidate.fixture === fixture,
-      )
-    ) {
+    for (const scenario of validationAllTypeScriptSubprocessScenarios()) {
+      const options = validationSubprocessHarnessOptions(scenario);
+      if (fixture !== undefined && options.fixture !== fixture) continue;
       it(
         scenario.title,
         async () => {
-          await withValidationEnv({ fixture: scenario.fixture }, async ({ path }) => {
+          await withValidationEnv({ fixture: options.fixture }, async ({ path }) => {
             const result = await runValidationSubprocess(scenario.args, {
               cwd: path,
-              timeout: scenario.timeout,
+              timeout: options.timeout,
             });
 
             expectValidationSubprocessResult(result, scenario);
           });
         },
-        scenario.timeout,
+        options.timeout,
       );
     }
   });

@@ -1,5 +1,8 @@
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 
+export const VALIDATION_EMPTY_CLI_OPERAND = "";
+export const VALIDATION_OPTION_OPERAND_SEPARATOR = " ";
+
 interface ValidationDomainCommandDefinition {
   readonly commandName: string;
   readonly alias: string;

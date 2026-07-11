@@ -27,7 +27,12 @@ import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
-import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import {
+  HARNESS_TIMEOUT,
+  PROJECT_FIXTURES,
+  VALIDATION_FIXTURE_TEXT_ENCODING,
+  withValidationEnv,
+} from "@testing/harnesses/with-validation-env";
 
 function validationTypeScriptAliasArgs(): string[] {
   const alias = validationCliDefinition.subcommands.typescript.alias;
@@ -107,7 +112,7 @@ describe("spx validation typescript — language-gated type checking", () => {
           VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
         );
         const tsconfigWithDefaultIncludes = JSON.parse(
-          await readFile(join(path, TSCONFIG_FILES.full), VALIDATION_PIPELINE_DATA.fixtureTextEncoding),
+          await readFile(join(path, TSCONFIG_FILES.full), VALIDATION_FIXTURE_TEXT_ENCODING),
         ) as { include?: unknown };
         delete tsconfigWithDefaultIncludes.include;
         await writeFile(

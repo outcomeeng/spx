@@ -23,11 +23,17 @@ import {
   expectValidationSubprocessResult,
   runValidationInProcess,
   runValidationSubprocess,
+  VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
+  VALIDATION_REPEATED_PIPELINE_TIMEOUT,
   validationCliEmptyOutput,
   type ValidationCliResult,
 } from "@testing/harnesses/validation/cli";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
-import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import {
+  PROJECT_FIXTURES,
+  VALIDATION_FIXTURE_TEXT_ENCODING,
+  withValidationEnv,
+} from "@testing/harnesses/with-validation-env";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,6 +42,12 @@ const VALIDATION_ROOT = resolve(
   "../../../spx/41-validation.enabler",
 );
 const VALIDATION_STAGE_COUNT = validationPipelineStages.length;
+function validationPipelineScenarioTimeout(kind: ValidationPipelineScenario["kind"]): number {
+  return kind === VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT
+      || kind === VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS
+    ? VALIDATION_REPEATED_PIPELINE_TIMEOUT
+    : VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT;
+}
 
 interface Deferred {
   readonly promise: Promise<void>;
@@ -136,7 +148,7 @@ function registerValidationPipelineTests(
         async () => {
           await runValidationPipelineScenario(scenario);
         },
-        scenario.timeout,
+        validationPipelineScenarioTimeout(scenario.kind),
       );
     }
   });
@@ -182,7 +194,7 @@ export const validationPipelineJsonComplianceCases = collectHarnessTestCases(
       it(
         "emits one complete JSON document with and without quiet mode",
         runJsonDocumentComplianceScenario,
-        VALIDATION_PIPELINE_DATA.repeatedRunTimeout,
+        VALIDATION_REPEATED_PIPELINE_TIMEOUT,
       );
     });
   },
@@ -200,7 +212,7 @@ async function runAll(
     [validationCliDefinition.subcommands.all.commandName, ...args],
     {
       cwd,
-      timeout: VALIDATION_PIPELINE_DATA.allTimeout,
+      timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
     },
   );
 }
@@ -258,9 +270,7 @@ async function runCleanProjectScenario(
 
       expectValidationSubprocessResult(result, {
         title: _scenario.title,
-        fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
         args: [],
-        timeout: _scenario.timeout,
         expectedExitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
         stdoutIncludes: [
           `Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.PASSED}`,
@@ -308,9 +318,7 @@ async function runFailureIdentifiesStepScenario(
 
       expectValidationSubprocessResult(result, {
         title: _scenario.title,
-        fixture: PROJECT_FIXTURES.WITH_CIRCULAR_DEPS,
         args: [],
-        timeout: _scenario.timeout,
         expectedExitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
         stdoutIncludes: [
           VALIDATION_PIPELINE_DATA.circularOutput.FOUND,
@@ -346,7 +354,7 @@ async function runProductionScopeScenario(
       const fullConfig = JSON.parse(
         await readFile(
           fullConfigPath,
-          VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+          VALIDATION_FIXTURE_TEXT_ENCODING,
         ),
       ) as {
         include?: string[];
@@ -358,12 +366,12 @@ async function runProductionScopeScenario(
       await writeFile(
         fullConfigPath,
         JSON.stringify(fullConfig),
-        VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+        VALIDATION_FIXTURE_TEXT_ENCODING,
       );
       await writeFile(
         join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
         VALIDATION_PIPELINE_DATA.productionTsconfigContent,
-        VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+        VALIDATION_FIXTURE_TEXT_ENCODING,
       );
       const scriptsDirectory = join(
         path,
@@ -376,7 +384,7 @@ async function runProductionScopeScenario(
           VALIDATION_PIPELINE_DATA.secondarySourceFileName,
         ),
         VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
-        VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+        VALIDATION_FIXTURE_TEXT_ENCODING,
       );
 
       const fullResult = await runAll(path);

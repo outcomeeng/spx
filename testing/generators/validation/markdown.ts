@@ -1,12 +1,5 @@
 import { MARKDOWN_VALIDATION_TARGET_KIND, type MarkdownValidationTarget } from "@/validation/steps/markdown";
-import {
-  MARKDOWN_FIXTURES,
-  MARKDOWN_HARNESS_TIMEOUT,
-  type MarkdownFixtureName,
-} from "@testing/harnesses/with-markdown-env";
 
-const MARKDOWN_UNIT_TEMP_PREFIX = "mdlint-unit-";
-const MARKDOWN_E2E_TEMP_PREFIX = "mdlint-e2e-";
 const SPX_DIRECTORY_NAME = "spx";
 const DOCS_DIRECTORY_NAME = "docs";
 const SAMPLE_DIRECTORY_NAME = "21-sample.outcome";
@@ -35,7 +28,6 @@ const OUTSIDE_DEFAULT_BROKEN_FILE = "outside-default-broken.md";
 const MISSING_MARKDOWN_SCOPE_FILE = "missing.md";
 const UNRELATED_MARKDOWN_SCOPE_FILE = "notes.txt";
 const GUIDE_DIRECTORY_NAME = "guides";
-const MISSING_FIXTURE_DIAGNOSTIC = "Markdown validation scenario has no fixture";
 const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
@@ -86,13 +78,9 @@ export type MarkdownScenarioKind = (typeof MARKDOWN_SCENARIO_KIND)[keyof typeof 
 export interface MarkdownValidationScenario {
   readonly title: string;
   readonly kind: MarkdownScenarioKind;
-  readonly fixture?: MarkdownFixtureName;
-  readonly timeout: number;
 }
 
 export const MARKDOWN_VALIDATION_DATA = {
-  unitTempPrefix: MARKDOWN_UNIT_TEMP_PREFIX,
-  e2eTempPrefix: MARKDOWN_E2E_TEMP_PREFIX,
   spxDirectoryName: SPX_DIRECTORY_NAME,
   docsDirectoryName: DOCS_DIRECTORY_NAME,
   sampleDirectoryName: SAMPLE_DIRECTORY_NAME,
@@ -121,7 +109,6 @@ export const MARKDOWN_VALIDATION_DATA = {
   missingMarkdownScopeFile: MISSING_MARKDOWN_SCOPE_FILE,
   unrelatedMarkdownScopeFile: UNRELATED_MARKDOWN_SCOPE_FILE,
   guideDirectoryName: GUIDE_DIRECTORY_NAME,
-  missingFixtureDiagnostic: MISSING_FIXTURE_DIAGNOSTIC,
   docsDirectFileMd024Content: DOCS_DIRECT_FILE_MD024_CONTENT,
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
@@ -155,91 +142,66 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "clean markdown tree validates successfully",
       kind: MARKDOWN_SCENARIO_KIND.CLEAN_TREE,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "data URI images are ignored by relative-link validation",
       kind: MARKDOWN_SCENARIO_KIND.DATA_URI_ALLOWED,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "external and HTML links are ignored by relative-link validation",
       kind: MARKDOWN_SCENARIO_KIND.IGNORED_LINK_TYPES,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "broken markdown links are reported",
       kind: MARKDOWN_SCENARIO_KIND.BROKEN_LINKS,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "broken heading fragments are reported",
       kind: MARKDOWN_SCENARIO_KIND.BROKEN_FRAGMENT,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown errors include file line and detail",
       kind: MARKDOWN_SCENARIO_KIND.ERROR_SHAPE,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "project absolute links resolve from project root",
       kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "validation does not create files in validated directories",
       kind: MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "default markdown directories are discovered",
       kind: MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "excluded spec nodes are skipped",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE,
-      fixture: MARKDOWN_FIXTURES.WITH_EXCLUDE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "excluded spec nodes do not skip child nodes",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_EXACT_ONLY,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "excluded spec nodes are skipped when directly targeted",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "duplicate heading policy is scoped by directory",
       kind: MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS,
-      fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdownlint config contains the curated rule set",
       kind: MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "directory targets recurse over md files only",
       kind: MARKDOWN_SCENARIO_KIND.DIRECTORY_SCOPE_MD_ONLY,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown errors are reported for file paths containing colons",
       kind: MARKDOWN_SCENARIO_KIND.COLON_PATH_ERROR,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];
 }
@@ -249,41 +211,30 @@ export function markdownIntegrationScenarios(): MarkdownValidationScenario[] {
     {
       title: "default markdown command validates default directories",
       kind: MARKDOWN_SCENARIO_KIND.COMMAND_DEFAULTS,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command files scope can target docs only",
       kind: MARKDOWN_SCENARIO_KIND.FILE_SCOPE_DOCS,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command files scope accepts a clean spx directory",
       kind: MARKDOWN_SCENARIO_KIND.FILE_SCOPE_CLEAN_SPX,
-      fixture: MARKDOWN_FIXTURES.CLEAN_TREE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown failure fails the full pipeline",
       kind: MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE,
-      fixture: MARKDOWN_FIXTURES.BROKEN_LINKS,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command reports unrelated file scopes",
       kind: MARKDOWN_SCENARIO_KIND.UNRELATED_FILE_SCOPE_DIAGNOSTIC,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command reports missing file scopes",
       kind: MARKDOWN_SCENARIO_KIND.MISSING_FILE_SCOPE_DIAGNOSTIC,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command reports skipped file scopes while validating markdown scopes",
       kind: MARKDOWN_SCENARIO_KIND.MIXED_FILE_SCOPE_DIAGNOSTIC,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];
 }
@@ -293,27 +244,22 @@ export function markdownE2eScenarios(): MarkdownValidationScenario[] {
     {
       title: "markdown command help is registered",
       kind: MARKDOWN_SCENARIO_KIND.E2E_HELP,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command reports broken links from a directory scope",
       kind: MARKDOWN_SCENARIO_KIND.E2E_BROKEN_DIRECTORY,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command accepts valid directory scope",
       kind: MARKDOWN_SCENARIO_KIND.E2E_VALID_DIRECTORY,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown command accepts direct markdown file scope",
       kind: MARKDOWN_SCENARIO_KIND.E2E_DIRECT_FILE,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
     {
       title: "markdown direct docs file scope keeps docs heading policy",
       kind: MARKDOWN_SCENARIO_KIND.DOCS_DIRECT_FILE_MD024,
-      timeout: MARKDOWN_HARNESS_TIMEOUT,
     },
   ];
 }

@@ -1,14 +1,17 @@
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { VALIDATION_CLI_GENERATOR, VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
+import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import {
   assertProperty,
   PROPERTY_LEVEL,
   PROPERTY_SIZE,
   PROPERTY_TIMEOUTS_MS,
 } from "@testing/harnesses/property/property";
-import { expectValidationDispatchFailureInvokesNoHandler } from "@testing/harnesses/validation/cli";
+import {
+  expectValidationDispatchFailureInvokesNoHandler,
+  VALIDATION_REPEATED_PIPELINE_TIMEOUT,
+} from "@testing/harnesses/validation/cli";
 
 async function expectUnknownSubcommandRejected(candidate: string): Promise<void> {
   const result = await expectValidationDispatchFailureInvokesNoHandler([candidate]);
@@ -28,7 +31,7 @@ export function registerValidationCliPropertyTests(): void {
           { level: PROPERTY_LEVEL.L2, size: PROPERTY_SIZE.SMALL },
         );
       },
-      VALIDATION_PIPELINE_DATA.repeatedRunTimeout + PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L2],
+      VALIDATION_REPEATED_PIPELINE_TIMEOUT + PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L2],
     );
   });
 }
