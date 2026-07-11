@@ -45,8 +45,8 @@ export function formatValidationStageSkipOutput(stageName: string, reason: strin
   return `${stageName}: skipped (${reason})`;
 }
 
-export function formatValidationStageSkipJsonOutput(reason: string): string {
-  return JSON.stringify({ skipped: true, reason });
+export function formatValidationStageSkipJsonOutput(reason: string, durationMs: number): string {
+  return JSON.stringify({ skipped: true, reason, durationMs });
 }
 
 // Matches a pipeline step line `[N/M]`; the step count derives from the registry,

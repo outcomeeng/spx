@@ -312,6 +312,7 @@ export interface ValidationDomainOptions {
 interface ValidationCliResult {
   readonly output: string;
   readonly exitCode: number;
+  readonly terminalOutput?: string;
 }
 
 interface LiteralCommandHandlerOptions extends CommonValidationOptions {
@@ -344,9 +345,10 @@ const defaultValidationCommandHandlers: ValidationCommandHandlers = {
 };
 
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
-  if (result.output.length > 0) {
+  const output = result.terminalOutput ?? result.output;
+  if (output.length > 0) {
     const writeOutput = result.exitCode === 0 ? io.writeStdout : io.writeStderr;
-    writeOutput(`${result.output}\n`);
+    writeOutput(`${output}\n`);
   }
   return io.exit(result.exitCode);
 }
@@ -603,6 +605,7 @@ function registerValidationCommands(
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
+        outputStreams: validationSubprocessOutputStreams(invocation.io),
       });
       emitValidationResult(result, invocation.io);
     });

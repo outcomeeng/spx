@@ -15,6 +15,8 @@ export interface ValidationCommandResult {
   durationMs?: number;
   /** Output is already a complete machine-readable record. */
   structuredOutput?: boolean;
+  /** Output the CLI boundary emits when subprocess detail was already streamed. */
+  terminalOutput?: string;
 }
 
 /** Common options for all validation commands */
@@ -63,6 +65,8 @@ export interface FormattingCommandOptions {
   cwd: string;
   files?: string[];
   quiet?: boolean;
+  /** Parent streams that receive dprint subprocess output */
+  outputStreams?: ValidationSubprocessOutputStreams;
 }
 
 /** Options for all command */

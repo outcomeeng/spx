@@ -29,11 +29,12 @@ function formatStepWithTiming(
   result: ValidationCommandResult,
   quiet: boolean,
 ): string {
-  if (quiet || !result.output) return "";
-  if (result.structuredOutput === true) return result.output;
+  const output = result.terminalOutput ?? result.output;
+  if (quiet || !output) return "";
+  if (result.structuredOutput === true) return output;
 
   const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
-  return `[${stepNumber}/${totalSteps}] ${result.output}${timing}`;
+  return `[${stepNumber}/${totalSteps}] ${output}${timing}`;
 }
 
 interface ResolvedStageParticipation {
@@ -64,6 +65,7 @@ function skippedStageResult(
   stage: ValidationStage,
   participation: ResolvedStageParticipation,
   json?: boolean,
+  durationMs: number = 0,
 ): ValidationCommandResult {
   const reason = participation.reason;
   if (reason === undefined) {
@@ -72,9 +74,10 @@ function skippedStageResult(
   return {
     exitCode: 0,
     output: json
-      ? formatValidationStageSkipJsonOutput(reason)
+      ? formatValidationStageSkipJsonOutput(reason, durationMs)
       : formatValidationStageSkipOutput(stage.name, participation.flag ?? reason),
     structuredOutput: json,
+    durationMs,
   };
 }
 
@@ -126,7 +129,7 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
     const participation = resolveStageParticipation(stage, overrideFlags);
     const stageResult = participation.participation === VALIDATION_STAGE_PARTICIPATION.RUN
       ? await stage.run(context)
-      : skippedStageResult(stage, participation, json);
+      : skippedStageResult(stage, participation, json, Date.now() - stageStartTime);
     const result = stageResult.durationMs === undefined
       ? { ...stageResult, durationMs: Date.now() - stageStartTime }
       : stageResult;

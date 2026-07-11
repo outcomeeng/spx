@@ -49,8 +49,23 @@ const FORMATTED_FILE_EXTENSIONS = [
   "yml",
 ] as const;
 
-/** Paths the formatting verdict must never rewrite, per the formatting spec. */
-const NEVER_FORMATTED_PATHS = ["pnpm-lock.yaml", "testing/fixtures/**"] as const;
+const EXCLUDED_FORMATTING_CASES = [
+  { path: "pnpm-lock.yaml", content: "value:     1\n" },
+  { path: "testing/fixtures/sample.ts", content: UNFORMATTED_TYPESCRIPT_CONTENT },
+  { path: "testing/fixtures/nested/sample.ts", content: UNFORMATTED_TYPESCRIPT_CONTENT },
+] as const;
+
+const UNFORMATTED_CONTENT_BY_EXTENSION = {
+  ts: "export const value     =     1;\n",
+  tsx: "export const value     =     <div>value</div>;\n",
+  js: "export const value     =     1;\n",
+  json: "{\"value\":     1}\n",
+  jsonc: "{\"value\":     1}\n",
+  md: "# Heading\n\n-   value\n",
+  toml: "value     =     1\n",
+  yaml: "value:     1\n",
+  yml: "value:     1\n",
+} as const;
 
 const FORMATTING_HARNESS_TIMEOUT = 30_000;
 
@@ -96,7 +111,8 @@ export const FORMATTING_VALIDATION_DATA = {
   passExitCode: EXPECTED_PASS_EXIT_CODE,
   failureExitCode: EXPECTED_FAILURE_EXIT_CODE,
   formattedFileExtensions: FORMATTED_FILE_EXTENSIONS,
-  neverFormattedPaths: NEVER_FORMATTED_PATHS,
+  excludedFormattingCases: EXCLUDED_FORMATTING_CASES,
+  unformattedContentByExtension: UNFORMATTED_CONTENT_BY_EXTENSION,
 } as const;
 
 export function formattingScenarios(): FormattingValidationScenario[] {

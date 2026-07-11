@@ -49,6 +49,7 @@ const SYNTHETIC_OVERRIDE_FLAG = "--synthetic-override-stage";
 const SYNTHETIC_OVERRIDE_DESCRIPTION = "Synthetic override stage flag";
 const SYNTHETIC_OVERRIDE_REASON = "synthetic-override-stage";
 const OBSERVED_HANDLER_OUTPUT_PREFIX = "validation-handler-called:";
+const OBSERVED_HANDLER_TERMINAL_OUTPUT_PREFIX = "validation-terminal-output:";
 const OBSERVED_HANDLER_EXIT_CODE = 7;
 
 export interface ValidationCliResult {
@@ -289,7 +290,8 @@ export async function expectRegisteredSubcommandRunsHandlerWithoutDispatchFailur
       );
 
       expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
-      expect(result.stdout).toContain(observedHandlerOutput(commandName));
+      expect(result.stdout).toContain(observedHandlerTerminalOutput(commandName));
+      expect(result.stdout).not.toContain(observedHandlerOutput(commandName));
       expect(observed.calls.map((call) => call.commandName)).toEqual([commandName]);
       expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
     }
@@ -306,8 +308,13 @@ export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Pro
     );
 
     expect(result.exitCode).toBe(OBSERVED_HANDLER_EXIT_CODE);
-    expect(result.stderr).toContain(observedHandlerOutput(validationCliDefinition.subcommands.format.commandName));
-    expect(result.stdout).not.toContain(observedHandlerOutput(validationCliDefinition.subcommands.format.commandName));
+    expect(result.stderr).toContain(
+      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+    );
+    expect(result.stderr).not.toContain(observedHandlerOutput(validationCliDefinition.subcommands.format.commandName));
+    expect(result.stdout).not.toContain(
+      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+    );
     expect(observed.calls).toEqual([{ commandName: validationCliDefinition.subcommands.format.commandName }]);
   });
 }
@@ -326,7 +333,7 @@ export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): P
     })],
     {
       onStdout: (output) => {
-        if (output.includes(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME))) {
+        if (output.includes(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME))) {
           observedProgressBeforeFailureCompleted = true;
         }
       },
@@ -338,8 +345,10 @@ export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): P
   const result = await resultPromise;
 
   expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-  expect(result.stdout).toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
-  expect(result.stdout).toContain(observedHandlerOutput(SYNTHETIC_FAILURE_STAGE_NAME));
+  expect(result.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
+  expect(result.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_FAILURE_STAGE_NAME));
+  expect(result.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
+  expect(result.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_FAILURE_STAGE_NAME));
   expect(result.stderr).toContain(`${VALIDATION_SYMBOLS.FAILURE} Validation ${VALIDATION_SUMMARY_STATUS.FAILED}`);
   expect(result.stderr).not.toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(result.stderr).not.toContain(observedHandlerOutput(SYNTHETIC_FAILURE_STAGE_NAME));
@@ -460,7 +469,9 @@ export async function expectSymlinkedInvocationDirectoryResolvesInProductOperand
     );
 
     expect(result.exitCode).not.toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
-    expect(result.stdout).toContain(observedHandlerOutput(validationCliDefinition.subcommands.format.commandName));
+    expect(result.stdout).toContain(
+      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+    );
     expect(observed.calls).toEqual([{
       commandName: validationCliDefinition.subcommands.format.commandName,
       files: [operand],
@@ -661,7 +672,7 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   expect(humanResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(humanResult.stdout).toContain(SYNTHETIC_OVERRIDE_REASON);
   expect(humanResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
-  expect(humanResult.stdout).toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
+  expect(humanResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(humanStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
   expect(quietResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(quietResult.stdout.trim()).toHaveLength(validationCliEmptyOutputLength());
@@ -672,12 +683,12 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
     formatValidationStageSkipOutput(SYNTHETIC_OVERRIDE_STAGE_NAME, SYNTHETIC_OVERRIDE_FLAG),
   );
   expect(jsonResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
-  expect(jsonResult.stdout).toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
+  expect(jsonResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(jsonStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
   expect(productionResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(productionResult.stdout).toContain(SYNTHETIC_OVERRIDE_REASON);
   expect(productionResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
-  expect(productionResult.stdout).toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
+  expect(productionResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(productionStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
 }
 
@@ -784,7 +795,14 @@ async function expectDispatchFailureSkipsInjectedHandlers(options: {
 function expectStructuredSkippedSentinel(stdout: string, reason: string): void {
   const structuredLine = stdout.split("\n").find((line) => line.startsWith("{"));
   expect(structuredLine).toBeDefined();
-  expect(JSON.parse(structuredLine ?? validationCliEmptyOutput())).toEqual({ skipped: true, reason });
+  const sentinel = JSON.parse(structuredLine ?? validationCliEmptyOutput()) as {
+    readonly skipped: boolean;
+    readonly reason: string;
+    readonly durationMs: number;
+  };
+  expect(sentinel).toMatchObject({ skipped: true, reason });
+  expect(sentinel.durationMs).toEqual(expect.any(Number));
+  expect(sentinel.durationMs).toBeGreaterThanOrEqual(0);
 }
 
 function validationCommonJsonFlag(): string {
@@ -842,6 +860,7 @@ function syntheticDefaultStage(calls: string[]): ValidationStage {
       return {
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
         output: observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME),
+        terminalOutput: observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME),
       };
     },
   };
@@ -863,6 +882,7 @@ function syntheticControlledFailureStage(
       return {
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
         output: observedHandlerOutput(SYNTHETIC_FAILURE_STAGE_NAME),
+        terminalOutput: observedHandlerTerminalOutput(SYNTHETIC_FAILURE_STAGE_NAME),
       };
     },
   };
@@ -906,6 +926,7 @@ function observedValidationCommandHandlers(
     return {
       exitCode,
       output: observedHandlerOutput(commandName),
+      terminalOutput: observedHandlerTerminalOutput(commandName),
     };
   };
   return {
@@ -925,6 +946,10 @@ function observedValidationCommandHandlers(
 
 function observedHandlerOutput(commandName: string): string {
   return `${OBSERVED_HANDLER_OUTPUT_PREFIX}${commandName}`;
+}
+
+function observedHandlerTerminalOutput(commandName: string): string {
+  return `${OBSERVED_HANDLER_TERMINAL_OUTPUT_PREFIX}${commandName}`;
 }
 
 function outputContainsValidationStageMarker(output: string): boolean {
