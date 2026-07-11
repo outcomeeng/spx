@@ -43,6 +43,7 @@ import {
 } from "@testing/generators/literal/literal";
 import {
   CHANGED_SET_PLANNING_GENERATOR,
+  type ChangedSetAliasFixture,
   changedSetImportStatement,
   sampleChangedSetPlanningValue,
   tsconfigWithPaths,
@@ -84,6 +85,21 @@ function nameStatusNulDelimited(paths: readonly string[]): string {
   return paths
     .map((path) => `${GIT_DELETE_STATUS_EXAMPLE}${GIT_NULL_RECORD_SEPARATOR}${path}${GIT_NULL_RECORD_SEPARATOR}`)
     .join("");
+}
+
+async function expectStagedAliasRoutesToRelatedTest(fixture: ChangedSetAliasFixture): Promise<void> {
+  const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
+  const git = stagedSourceGitRunner(
+    fixture.sourcePath,
+    paths.testPath,
+    changedSetImportStatement(fixture.importSpecifier),
+    tsconfigWithPaths(fixture.tsconfigPaths),
+  );
+
+  const plan = await planStagedTypescript(git.git);
+
+  expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
+  expect(plan.unresolvedSourceFiles).toEqual([]);
 }
 
 function gitResult(stdout: string, exitCode = 0, stderr = ""): GitResult {
@@ -286,13 +302,16 @@ export function registerChangedSetPlanningScenarioTests(): void {
       expect(partition.sourceFiles).toEqual([]);
     });
 
-    it("routes changed source files through a registered related-test capability", async () => {
+    it.each([
+      { title: "changed", untracked: false },
+      { title: "untracked", untracked: true },
+    ])("routes $title source files through a registered related-test capability", async ({ untracked }) => {
       const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const relatedTestPath = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
       );
-      const git = recordingGitRunner([sourcePath]);
+      const git = recordingGitRunner(untracked ? [] : [sourcePath], untracked ? [sourcePath] : []);
       const language = {
         ...descriptorWithRelatedTests([relatedTestPath], [sourcePath]),
         runTests: noRunTests,
@@ -300,18 +319,23 @@ export function registerChangedSetPlanningScenarioTests(): void {
 
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, relatedTestPath);
-
         const plan = await planChangedTestSelection(
           { productDir },
-          {
-            git: git.git,
-            registry: registry([language]),
-            relatedDepsFor: () => relatedDeps(),
-          },
+          { git: git.git, registry: registry([language]), relatedDepsFor: () => relatedDeps() },
         );
-
         expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
         expect(plan.unresolvedSourceFiles).toEqual([]);
+        if (untracked) {
+          expect(plan.changedPaths).toEqual([sourcePath]);
+          expect(
+            git.calls.some((call) =>
+              call.args.includes(GIT_LS_FILES_COMMAND)
+              && call.args.includes(GIT_LS_FILES_OTHERS_FLAG)
+              && call.args.includes(GIT_LS_FILES_EXCLUDE_STANDARD_FLAG)
+              && call.args.includes(GIT_NULL_DELIMITED_FLAG)
+            ),
+          ).toBe(true);
+        }
       });
     });
 
@@ -360,44 +384,6 @@ export function registerChangedSetPlanningScenarioTests(): void {
 
       expect(plan.targets).toEqual({ operands: [], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([sourcePath]);
-    });
-
-    it("routes untracked source files through a registered related-test capability", async () => {
-      const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const relatedTestPath = sampleDispatchValue(
-        TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-      );
-      const git = recordingGitRunner([], [sourcePath]);
-      const language = {
-        ...descriptorWithRelatedTests([relatedTestPath], [sourcePath]),
-        runTests: noRunTests,
-      };
-
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, relatedTestPath);
-
-        const plan = await planChangedTestSelection(
-          { productDir },
-          {
-            git: git.git,
-            registry: registry([language]),
-            relatedDepsFor: () => relatedDeps(),
-          },
-        );
-
-        expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
-        expect(plan.changedPaths).toEqual([sourcePath]);
-        expect(plan.unresolvedSourceFiles).toEqual([]);
-        expect(
-          git.calls.some((call) =>
-            call.args.includes(GIT_LS_FILES_COMMAND)
-            && call.args.includes(GIT_LS_FILES_OTHERS_FLAG)
-            && call.args.includes(GIT_LS_FILES_EXCLUDE_STANDARD_FLAG)
-            && call.args.includes(GIT_NULL_DELIMITED_FLAG)
-          ),
-        ).toBe(true);
-      });
     });
 
     it("selects a changed spec-tree test file as the changed-set target", async () => {
@@ -501,18 +487,7 @@ export function registerChangedSetPlanningScenarioTests(): void {
 
     it("routes changed testing harness files through related-test resolution", async () => {
       const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.harnessAliasFixture());
-      const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
-      const git = stagedSourceGitRunner(
-        fixture.sourcePath,
-        paths.testPath,
-        changedSetImportStatement(fixture.importSpecifier),
-        tsconfigWithPaths(fixture.tsconfigPaths),
-      );
-
-      const plan = await planStagedTypescript(git.git);
-
-      expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
-      expect(plan.unresolvedSourceFiles).toEqual([]);
+      await expectStagedAliasRoutesToRelatedTest(fixture);
     });
 
     it("routes indirectly imported source files through related-test resolution", async () => {
@@ -609,18 +584,7 @@ helper;
 
     it("resolves tsconfig path alias fallback targets", async () => {
       const fixture = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fallbackAliasFixture());
-      const paths = sampleChangedSetPlanningValue(CHANGED_SET_PLANNING_GENERATOR.fixturePaths());
-      const git = stagedSourceGitRunner(
-        fixture.sourcePath,
-        paths.testPath,
-        changedSetImportStatement(fixture.importSpecifier),
-        tsconfigWithPaths(fixture.tsconfigPaths),
-      );
-
-      const plan = await planStagedTypescript(git.git);
-
-      expect(plan.targets).toEqual({ operands: [paths.testPath], recursive: false });
-      expect(plan.unresolvedSourceFiles).toEqual([]);
+      await expectStagedAliasRoutesToRelatedTest(fixture);
     });
 
     it("propagates non-missing module read failures during related-test resolution", async () => {
@@ -695,23 +659,8 @@ helper;
       expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
     });
 
-    it.each(typescriptTestingLanguage.productInputPaths)(
-      "selects the full spec tree when TypeScript product input changes: %s",
-      async (productInputPath) => {
-        const git = recordingGitRunner([productInputPath]);
-
-        const plan = await planChangedTestSelection(
-          { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
-          { git: git.git, registry: registry([typescriptTestingLanguage]), relatedDepsFor: () => relatedDeps() },
-        );
-
-        expect(plan.targets).toEqual({ operands: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], recursive: true });
-        expect(plan.unresolvedSourceFiles).toEqual([]);
-      },
-    );
-
-    it.each(CHANGED_SET_PRODUCT_INPUT_PATHS)(
-      "selects the full spec tree when changed-set product input changes: %s",
+    it.each([...new Set([...typescriptTestingLanguage.productInputPaths, ...CHANGED_SET_PRODUCT_INPUT_PATHS])])(
+      "selects the full spec tree when product input changes: %s",
       async (productInputPath) => {
         const git = recordingGitRunner([productInputPath]);
 
