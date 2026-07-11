@@ -15,10 +15,12 @@ import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import {
+  BUCKET_SEVERITY,
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
+  OVERALL_SEVERITY,
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
@@ -31,7 +33,7 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
-import { SEVERITY, type Severity, SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
@@ -42,6 +44,11 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 interface TranslationBranchCase {
   readonly check: CheckRecord;
   readonly header: string;
+}
+
+interface CanonicalCheckoutFailureCase {
+  readonly check: CheckRecord;
+  readonly problem: string;
 }
 
 function compliantWorktreePoolReading(): WorktreePoolReading {
@@ -110,77 +117,58 @@ function overallForBucket(bucket: VerdictBucket): OverallVerdict {
 }
 
 function sectionHeaderLine(check: CheckRecord, header: string): string {
-  return `${SEVERITY_STYLE[expectedBucketSeverity(check.bucket)].glyph} ${header}`;
-}
-
-function expectedBucketSeverity(bucket: VerdictBucket): Severity {
-  switch (bucket) {
-    case VERDICT_BUCKET.HEALTHY:
-      return SEVERITY.OK;
-    case VERDICT_BUCKET.DEGRADED:
-      return SEVERITY.WARN;
-    case VERDICT_BUCKET.UNKNOWN:
-      return SEVERITY.UNKNOWN;
-    case VERDICT_BUCKET.BROKEN:
-      return SEVERITY.ERROR;
-    case VERDICT_BUCKET.NOT_APPLICABLE:
-      return SEVERITY.MUTED;
-  }
-}
-
-function expectedOverallSeverity(verdict: OverallVerdict): Severity {
-  switch (verdict) {
-    case OVERALL_VERDICT.HEALTHY:
-      return SEVERITY.OK;
-    case OVERALL_VERDICT.DEGRADED:
-      return SEVERITY.WARN;
-    case OVERALL_VERDICT.UNKNOWN:
-      return SEVERITY.UNKNOWN;
-    case OVERALL_VERDICT.BROKEN:
-      return SEVERITY.ERROR;
-  }
+  return `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`;
 }
 
 function renderSingleCheckText(check: CheckRecord): string {
   return renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false });
 }
 
-function canonicalCheckoutFailureRecords(): readonly CheckRecord[] {
+function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {
   const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
   return [
-    classifyWorktreePool({
-      errored: false,
-      bareRepository: true,
-      linkedWorktrees: false,
-      mainCheckoutPath: null,
-      defaultBranch,
-      mainCheckoutBranch: null,
-      mainCheckoutBranchRead: true,
-      running: 1,
-      free: 8,
-    }),
-    classifyWorktreePool({
-      errored: false,
-      bareRepository: true,
-      linkedWorktrees: false,
-      mainCheckoutPath: defaultBranch,
-      defaultBranch,
-      mainCheckoutBranch: null,
-      mainCheckoutBranchRead: true,
-      running: 1,
-      free: 8,
-    }),
-    classifyWorktreePool({
-      errored: false,
-      bareRepository: true,
-      linkedWorktrees: false,
-      mainCheckoutPath: defaultBranch,
-      defaultBranch,
-      mainCheckoutBranch: wrongBranch,
-      mainCheckoutBranchRead: true,
-      running: 1,
-      free: 8,
-    }),
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: null,
+        defaultBranch,
+        mainCheckoutBranch: null,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_MISSING_PROBLEM,
+    },
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: defaultBranch,
+        defaultBranch,
+        mainCheckoutBranch: null,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_DETACHED_PROBLEM,
+    },
+    {
+      check: classifyWorktreePool({
+        errored: false,
+        bareRepository: true,
+        linkedWorktrees: false,
+        mainCheckoutPath: defaultBranch,
+        defaultBranch,
+        mainCheckoutBranch: wrongBranch,
+        mainCheckoutBranchRead: true,
+        running: 1,
+        free: 8,
+      }),
+      problem: DIAGNOSE_TEXT_DETAIL.MAIN_CHECKOUT_WRONG_BRANCH_PROBLEM,
+    },
   ];
 }
 
@@ -237,7 +225,7 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
       }),
       header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
     },
-    ...canonicalCheckoutFailureRecords().map((check) => ({
+    ...canonicalCheckoutFailureCases().map(({ check }) => ({
       check,
       header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
     })),
@@ -387,11 +375,13 @@ export function assertEveryTranslationBranchHasHeading(): void {
 }
 
 export function assertCanonicalCheckoutFailureTranslations(): void {
-  for (const check of canonicalCheckoutFailureRecords()) {
+  for (const { check, problem } of canonicalCheckoutFailureCases()) {
     const lines = renderSingleCheckText(check).split("\n");
     expect(lines).toContain(sectionHeaderLine(check, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID));
-    expect(lines).toEqual(expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.PROBLEM}:`)]));
-    expect(lines).toEqual(expect.arrayContaining([expect.stringContaining(check.verdict)]));
+    expect(lines).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${problem}`)]),
+    );
+    expect(lines).not.toEqual(expect.arrayContaining([expect.stringContaining(check.verdict)]));
     expect(lines).toEqual(
       expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`)]),
     );
@@ -412,7 +402,7 @@ export function assertHeadingGlyphsFollowBuckets(): void {
       );
       expect(headingLines).toHaveLength(report.checks.length);
       report.checks.forEach((check, index) => {
-        expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[expectedBucketSeverity(check.bucket)].glyph} `)).toBe(
+        expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} `)).toBe(
           true,
         );
       });
@@ -427,7 +417,7 @@ export function assertOverallColorFollowsVerdict(): void {
     arbitraryReport(),
     (report) => {
       const text = renderReportText(report, { color: true });
-      const style = SEVERITY_STYLE[expectedOverallSeverity(report.overall)].style;
+      const style = SEVERITY_STYLE[OVERALL_SEVERITY[report.overall]].style;
       expect(text).toContain(chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`));
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
