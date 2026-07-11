@@ -12,7 +12,7 @@ import {
 } from "@/domains/diagnose/checks/session-environment";
 import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
-import { classifyWorktreePool } from "@/domains/diagnose/checks/worktree-pool";
+import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import {
   BUCKET_SEVERITY,
   DIAGNOSE_TEXT_DETAIL,
@@ -35,17 +35,34 @@ import {
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
+import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
+import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 
 interface TranslationBranchCase {
   readonly check: CheckRecord;
   readonly header: string;
 }
 
+function compliantWorktreePoolReading(): WorktreePoolReading {
+  const branch = sampleMainCheckoutTestValue(arbitraryBranchName());
+  return {
+    errored: false,
+    bareRepository: true,
+    linkedWorktrees: false,
+    mainCheckoutPath: branch,
+    defaultBranch: branch,
+    mainCheckoutBranch: branch,
+    mainCheckoutBranchRead: true,
+    running: 1,
+    free: 8,
+  };
+}
+
 const sampleReport: DiagnoseReport = {
   checks: [
     classifySpxReachability({ errored: false, resolvedPath: "/bin/spx", version: "0.6.8" }, undefined),
     classifySessionEnvironment({ errored: false, hookPresent: false, sessionIdentity: false, worktreeClaimed: false }),
-    classifyWorktreePool({ errored: false, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
+    classifyWorktreePool(compliantWorktreePoolReading()),
     classifySessionStore({ errored: false, orphanedClaims: 11 }),
     classifyMarketplaceInstall({
       configured: false,
@@ -164,15 +181,35 @@ const supportedTranslationBranches: readonly TranslationBranchCase[] = [
     header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
   },
   {
-    check: classifyWorktreePool({ errored: false, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
+    check: classifyWorktreePool(compliantWorktreePoolReading()),
     header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID,
   },
   {
-    check: classifyWorktreePool({ errored: false, bareRepository: false, linkedWorktrees: true, running: 1, free: 8 }),
+    check: classifyWorktreePool({
+      errored: false,
+      bareRepository: false,
+      linkedWorktrees: true,
+      mainCheckoutPath: null,
+      defaultBranch: null,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: true,
+      running: 1,
+      free: 8,
+    }),
     header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
   },
   {
-    check: classifyWorktreePool({ errored: true, bareRepository: true, linkedWorktrees: false, running: 1, free: 8 }),
+    check: classifyWorktreePool({
+      errored: true,
+      bareRepository: true,
+      linkedWorktrees: false,
+      mainCheckoutPath: null,
+      defaultBranch: null,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: false,
+      running: 1,
+      free: 8,
+    }),
     header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
   },
   {

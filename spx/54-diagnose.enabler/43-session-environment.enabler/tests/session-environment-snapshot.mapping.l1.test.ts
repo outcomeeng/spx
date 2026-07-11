@@ -67,10 +67,15 @@ describe("the session-environment snapshot mapping derives the current worktree 
     },
   ])("maps session environment snapshot $name", (testCase) => {
     const worktreeRoot = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const defaultBranch = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const snapshot: WorktreePoolSnapshot = {
       errored: false,
       bareRepository: true,
       linkedWorktrees: false,
+      mainCheckoutPath: worktreeRoot,
+      defaultBranch,
+      mainCheckoutBranch: defaultBranch,
+      mainCheckoutBranchRead: true,
       worktrees: [
         {
           root: worktreeRoot,

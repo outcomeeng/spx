@@ -58,11 +58,17 @@ describe("the session-store snapshot mapping joins doing sessions to live worktr
     const [backingAgentSessionId, orphanedAgentSessionId] = sampleDistinctPathUnsafeAgentSessionIdentities(2);
     const liveClaimSessionIds = new Set([normalizeAgentSessionToken(backingAgentSessionId)]);
     if (testCase.includeOrphanedClaim) liveClaimSessionIds.add(normalizeAgentSessionToken(orphanedAgentSessionId));
+    const mainCheckoutPath = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
+    const defaultBranch = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
 
     const snapshot: WorktreePoolSnapshot = {
       errored: false,
       bareRepository: true,
       linkedWorktrees: false,
+      mainCheckoutPath,
+      defaultBranch,
+      mainCheckoutBranch: defaultBranch,
+      mainCheckoutBranchRead: true,
       worktrees: [
         {
           root: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),

@@ -18,6 +18,9 @@ import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 export const WORKTREE_POOL_VERDICT = {
   COMPLIANT: "compliant",
   NON_COMPLIANT: "non-compliant",
+  MAIN_CHECKOUT_MISSING: "main-checkout-missing",
+  MAIN_CHECKOUT_DETACHED: "main-checkout-detached",
+  MAIN_CHECKOUT_WRONG_BRANCH: "main-checkout-wrong-branch",
   UNKNOWN: "unknown",
 } as const;
 
@@ -31,6 +34,10 @@ export interface WorktreePoolReading {
   readonly bareRepository: boolean;
   /** True when linked worktrees are attached beyond the main working tree. */
   readonly linkedWorktrees: boolean;
+  readonly mainCheckoutPath: string | null;
+  readonly defaultBranch: string | null;
+  readonly mainCheckoutBranch: string | null;
+  readonly mainCheckoutBranchRead: boolean;
   /** The count of worktrees a live process holds (`running`). */
   readonly running: number;
   /** The count of worktrees with no live holder (`free`). */
@@ -46,6 +53,12 @@ const REMEDIATION: Readonly<Record<WorktreePoolVerdict, string>> = {
   [WORKTREE_POOL_VERDICT.COMPLIANT]: "Worktree layout is compliant; no action needed.",
   [WORKTREE_POOL_VERDICT.NON_COMPLIANT]:
     "Linked worktrees require a bare-repository pool; convert the layout or remove the linked worktrees.",
+  [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]:
+    "Create the repository-named main checkout beside the bare repository and attach it to the default branch.",
+  [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]:
+    "Attach the designated main checkout to the repository default branch.",
+  [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH]:
+    "Switch the designated main checkout to the repository default branch.",
   [WORKTREE_POOL_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect git worktree list and occupancy claims.",
 };
 
@@ -61,6 +74,10 @@ function record(
     readings: {
       bare: String(reading.bareRepository),
       linked: String(reading.linkedWorktrees),
+      mainCheckoutPath: reading.mainCheckoutPath ?? "",
+      defaultBranch: reading.defaultBranch ?? "",
+      mainCheckoutBranch: reading.mainCheckoutBranch ?? "",
+      mainCheckoutBranchRead: String(reading.mainCheckoutBranchRead),
       running: String(reading.running),
       free: String(reading.free),
     },
@@ -80,6 +97,20 @@ export function classifyWorktreePool(reading: WorktreePoolReading): CheckRecord 
   }
   if (!reading.bareRepository && reading.linkedWorktrees) {
     return record(WORKTREE_POOL_VERDICT.NON_COMPLIANT, VERDICT_BUCKET.BROKEN, reading);
+  }
+  if (reading.bareRepository) {
+    if (reading.mainCheckoutPath === null) {
+      return record(WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING, VERDICT_BUCKET.BROKEN, reading);
+    }
+    if (reading.defaultBranch === null || !reading.mainCheckoutBranchRead) {
+      return record(WORKTREE_POOL_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
+    }
+    if (reading.mainCheckoutBranch === null) {
+      return record(WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED, VERDICT_BUCKET.BROKEN, reading);
+    }
+    if (reading.mainCheckoutBranch !== reading.defaultBranch) {
+      return record(WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH, VERDICT_BUCKET.BROKEN, reading);
+    }
   }
   return record(WORKTREE_POOL_VERDICT.COMPLIANT, VERDICT_BUCKET.HEALTHY, reading);
 }

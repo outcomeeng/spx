@@ -46,7 +46,7 @@ import {
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
-import { gatherGitFacts, type GitFacts } from "@/lib/git/root";
+import { gatherGitFacts, type GitFacts, mainCheckoutPath, resolveDefaultBranch } from "@/lib/git/root";
 import { compareNumericVersionIdentifiers } from "@/lib/spec-tree/config";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -58,6 +58,13 @@ export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doin
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
+const GIT_EXECUTABLE = "git";
+const GIT_CURRENT_BRANCH_ARGS = ["symbolic-ref", "--quiet", "--short", "HEAD"] as const;
+
+export interface MainCheckoutBranchReading {
+  readonly read: boolean;
+  readonly branch: string | null;
+}
 
 export interface WorktreePoolSnapshotEntry {
   readonly root: string;
@@ -70,6 +77,10 @@ export interface WorktreePoolSnapshot {
   readonly errored: boolean;
   readonly bareRepository: boolean;
   readonly linkedWorktrees: boolean;
+  readonly mainCheckoutPath: string | null;
+  readonly defaultBranch: string | null;
+  readonly mainCheckoutBranch: string | null;
+  readonly mainCheckoutBranchRead: boolean;
   readonly worktrees: readonly WorktreePoolSnapshotEntry[];
   readonly currentWorktreeRoot: string | null;
   readonly liveClaimSessionIds: ReadonlySet<string>;
@@ -77,9 +88,18 @@ export interface WorktreePoolSnapshot {
 
 export interface WorktreePoolSnapshotDependencies {
   readonly gatherGitFacts: () => Promise<GitFacts | null>;
+  readonly resolveDefaultBranch?: () => Promise<string | null>;
+  readonly readMainCheckoutBranch?: (path: string) => Promise<MainCheckoutBranchReading>;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly fs: OccupancyFileSystem;
   readonly processTable: ProcessTable;
+}
+
+interface MainCheckoutStanding {
+  readonly mainCheckoutPath: string | null;
+  readonly defaultBranch: string | null;
+  readonly mainCheckoutBranch: string | null;
+  readonly mainCheckoutBranchRead: boolean;
 }
 
 export interface SessionEnvironmentSnapshotInput {
@@ -91,9 +111,22 @@ export interface WorktreePoolSnapshotProvider {
   read(): Promise<WorktreePoolSnapshot>;
 }
 
+async function readMainCheckoutBranch(path: string): Promise<MainCheckoutBranchReading> {
+  try {
+    const result = await execa(GIT_EXECUTABLE, [...GIT_CURRENT_BRANCH_ARGS], { cwd: path, reject: false });
+    if (result.exitCode === 0) return { read: true, branch: result.stdout.trim() };
+    if (result.exitCode === 1) return { read: true, branch: null };
+    return { read: false, branch: null };
+  } catch {
+    return { read: false, branch: null };
+  }
+}
+
 const defaultWorktreePoolSnapshotDependencies: WorktreePoolSnapshotDependencies = {
   env: process.env,
   gatherGitFacts,
+  resolveDefaultBranch,
+  readMainCheckoutBranch,
   fs: defaultOccupancyFileSystem,
   processTable: defaultProcessTable,
 };
@@ -137,6 +170,10 @@ function erroredWorktreePoolSnapshot(): WorktreePoolSnapshot {
     errored: true,
     bareRepository: false,
     linkedWorktrees: false,
+    mainCheckoutPath: null,
+    defaultBranch: null,
+    mainCheckoutBranch: null,
+    mainCheckoutBranchRead: false,
     worktrees: [],
     currentWorktreeRoot: null,
     liveClaimSessionIds: new Set(),
@@ -152,11 +189,39 @@ function parseDoingSessions(stdout: string): readonly SessionRecord[] | null {
   }
 }
 
+async function gatherMainCheckoutStanding(
+  facts: GitFacts,
+  deps: WorktreePoolSnapshotDependencies,
+): Promise<MainCheckoutStanding> {
+  const designatedMainCheckout = mainCheckoutPath(facts);
+  if (!facts.commonDirIsBare) {
+    return {
+      mainCheckoutPath: designatedMainCheckout,
+      defaultBranch: null,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: true,
+    };
+  }
+
+  const defaultBranch = await (deps.resolveDefaultBranch ?? resolveDefaultBranch)();
+  const branchReading = designatedMainCheckout === null
+    ? { read: true, branch: null }
+    : await (deps.readMainCheckoutBranch ?? readMainCheckoutBranch)(designatedMainCheckout);
+  return {
+    mainCheckoutPath: designatedMainCheckout,
+    defaultBranch,
+    mainCheckoutBranch: branchReading.branch,
+    mainCheckoutBranchRead: branchReading.read,
+  };
+}
+
 export async function gatherWorktreePoolSnapshot(
   deps: WorktreePoolSnapshotDependencies = defaultWorktreePoolSnapshotDependencies,
 ): Promise<WorktreePoolSnapshot> {
   const facts = await deps.gatherGitFacts();
   if (!facts?.worktreeListRead) return erroredWorktreePoolSnapshot();
+
+  const mainCheckoutStanding = await gatherMainCheckoutStanding(facts, deps);
 
   const worktreesDir = worktreesScopeDir(dirname(facts.commonDir));
   const worktrees: WorktreePoolSnapshotEntry[] = [];
@@ -198,6 +263,7 @@ export async function gatherWorktreePoolSnapshot(
     errored: false,
     bareRepository: facts.commonDirIsBare,
     linkedWorktrees: !facts.commonDirIsBare && facts.worktreeRoots.length > 1,
+    ...mainCheckoutStanding,
     worktrees,
     currentWorktreeRoot: facts.worktreeRoot,
     liveClaimSessionIds,
@@ -210,6 +276,10 @@ export function worktreePoolReadingFromSnapshot(snapshot: WorktreePoolSnapshot):
       errored: true,
       bareRepository: false,
       linkedWorktrees: false,
+      mainCheckoutPath: null,
+      defaultBranch: null,
+      mainCheckoutBranch: null,
+      mainCheckoutBranchRead: false,
       running: 0,
       free: 0,
     };
@@ -226,6 +296,10 @@ export function worktreePoolReadingFromSnapshot(snapshot: WorktreePoolSnapshot):
     errored: false,
     bareRepository: snapshot.bareRepository,
     linkedWorktrees: snapshot.linkedWorktrees,
+    mainCheckoutPath: snapshot.mainCheckoutPath,
+    defaultBranch: snapshot.defaultBranch,
+    mainCheckoutBranch: snapshot.mainCheckoutBranch,
+    mainCheckoutBranchRead: snapshot.mainCheckoutBranchRead,
     running,
     free,
   };

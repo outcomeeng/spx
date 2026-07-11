@@ -69,10 +69,12 @@ describe("the worktree-pool snapshot preserves layout verdicts when free worktre
                 worktreeListRead: true,
                 commonDir,
                 commonDirIsBare: true,
-                originUrl: null,
+                originUrl: `https://example.test/${runningName}${GIT_URL_SUFFIX}`,
               };
               const snapshot = await gatherWorktreePoolSnapshot({
                 gatherGitFacts: async () => facts,
+                resolveDefaultBranch: async () => runningName,
+                readMainCheckoutBranch: async () => ({ read: true, branch: runningName }),
                 fs: defaultOccupancyFileSystem,
                 processTable,
               });
