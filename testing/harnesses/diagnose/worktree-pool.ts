@@ -397,10 +397,10 @@ async function verifyFreeWorktreesPreserveLayout(input: WorktreePoolPropertyInpu
     expect(baseRecord.readings).toMatchObject({ running: "1", free: "0" });
     expect(freeRecord.verdict).toBe(baseRecord.verdict);
     expect(freeRecord.bucket).toBe(baseRecord.bucket);
-    expect(freeRecord.readings).toMatchObject({ running: "1", free: "1" });
+    expect(freeRecord.readings).toEqual({ ...baseRecord.readings, running: "1", free: "1" });
     expect(deadRecord.verdict).toBe(baseRecord.verdict);
     expect(deadRecord.bucket).toBe(baseRecord.bucket);
-    expect(deadRecord.readings).toMatchObject({ running: "1", free: "1" });
+    expect(deadRecord.readings).toEqual({ ...baseRecord.readings, running: "1", free: "1" });
   });
 }
 
