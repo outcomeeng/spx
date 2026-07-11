@@ -46,7 +46,14 @@ import {
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { findExecutableOnPath } from "@/lib/executable-on-path";
-import { gatherGitFacts, type GitFacts, mainCheckoutPath, resolveDefaultBranch } from "@/lib/git/root";
+import {
+  defaultGitDependencies,
+  gatherGitFacts,
+  GIT_ROOT_COMMAND,
+  type GitFacts,
+  mainCheckoutPath,
+  resolveDefaultBranch,
+} from "@/lib/git/root";
 import { compareNumericVersionIdentifiers } from "@/lib/spec-tree/config";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -58,8 +65,12 @@ export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doin
 const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
-const GIT_EXECUTABLE = "git";
-const GIT_CURRENT_BRANCH_ARGS = ["symbolic-ref", "--quiet", "--short", "HEAD"] as const;
+const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
+  GIT_ROOT_COMMAND.SYMBOLIC_REF,
+  GIT_ROOT_COMMAND.QUIET,
+  GIT_ROOT_COMMAND.SHORT,
+  GIT_ROOT_COMMAND.HEAD,
+] as const;
 
 export interface MainCheckoutBranchReading {
   readonly read: boolean;
@@ -113,7 +124,11 @@ export interface WorktreePoolSnapshotProvider {
 
 async function readMainCheckoutBranch(path: string): Promise<MainCheckoutBranchReading> {
   try {
-    const result = await execa(GIT_EXECUTABLE, [...GIT_CURRENT_BRANCH_ARGS], { cwd: path, reject: false });
+    const result = await defaultGitDependencies.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [...MAIN_CHECKOUT_SYMBOLIC_REF_ARGS],
+      { cwd: path, reject: false },
+    );
     if (result.exitCode === 0) return { read: true, branch: result.stdout.trim() };
     if (result.exitCode === 1) return { read: true, branch: null };
     return { read: false, branch: null };
