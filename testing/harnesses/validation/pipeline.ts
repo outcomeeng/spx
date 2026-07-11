@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import {
+  isValidationPipelineComplianceScenario,
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
   type ValidationPipelineScenario,
@@ -13,9 +14,17 @@ import {
 import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-export function registerValidationPipelineTests(): void {
+export function registerValidationPipelineScenarioTests(): void {
+  registerValidationPipelineTests((scenario) => !isValidationPipelineComplianceScenario(scenario));
+}
+
+export function registerValidationPipelineComplianceTests(): void {
+  registerValidationPipelineTests(isValidationPipelineComplianceScenario);
+}
+
+function registerValidationPipelineTests(include: (scenario: ValidationPipelineScenario) => boolean): void {
   describe("validation pipeline composition", () => {
-    for (const scenario of validationPipelineScenarios()) {
+    for (const scenario of validationPipelineScenarios().filter(include)) {
       it(
         scenario.title,
         { timeout: scenario.timeout },
@@ -83,6 +92,7 @@ async function runCleanProjectScenario(_scenario: ValidationPipelineScenario): P
       stderrExcludes: [],
       combinedExcludes: [],
     });
+    expectEveryStepToSucceed(result.stdout);
   });
 }
 
@@ -105,11 +115,31 @@ async function runFailureIdentifiesStepScenario(_scenario: ValidationPipelineSce
       stderrExcludes: [],
       combinedExcludes: [],
     });
+    for (const detailPath of VALIDATION_PIPELINE_DATA.circularFixtureDetailPaths) {
+      expect(result.stdout).toContain(detailPath);
+    }
   });
 }
 
 async function runProductionScopeScenario(_scenario: ValidationPipelineScenario): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    await mkdir(join(path, VALIDATION_PIPELINE_DATA.testDirectoryName), { recursive: true });
+    await writeFile(
+      join(path, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
+      JSON.stringify({
+        ...JSON.parse(
+          await readFile(
+            join(path, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
+            VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+          ),
+        ),
+        include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern, VALIDATION_PIPELINE_DATA.testScopeFilePattern],
+      }),
+    );
+    await writeFile(
+      join(path, VALIDATION_PIPELINE_DATA.productionTsconfigFile),
+      VALIDATION_PIPELINE_DATA.productionTsconfigContent,
+    );
     await writeFile(
       join(path, VALIDATION_PIPELINE_DATA.testDirectoryName, VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceFile),
       VALIDATION_PIPELINE_DATA.secondaryTypeErrorSourceContent,
@@ -385,6 +415,12 @@ function expectStepSequence(stdout: string): void {
   expect(stepMarkers.map((match) => Number(match[2]))).toEqual(
     VALIDATION_PIPELINE_DATA.expectedStepNumbers.map(() => VALIDATION_PIPELINE_DATA.totalSteps),
   );
+}
+
+function expectEveryStepToSucceed(stdout: string): void {
+  const outcomes = [...extractStepOutcomes(stdout).values()];
+  expect(outcomes).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
+  expect(outcomes).not.toContain(VALIDATION_PIPELINE_DATA.outcome.fail);
 }
 
 function extractStepOutcomes(stdout: string): Map<number, ValidationStepOutcome> {
