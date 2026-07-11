@@ -8,8 +8,9 @@ CAN explore dispatch, changed-set planning, execution recording, and output beha
 
 ### Properties
 
-- Every generated testing scenario preserves the relationships among node paths, test paths, support paths, source imports, product inputs, selected operands, runner outcomes, and recorded evidence required by the production contracts that consume it ([test](tests/test-generators.property.l1.test.ts))
-- Generated distinct paths satisfy the independence or ancestry relation named by the scenario, and every generated test or support path is classified by the selected registered language descriptor as declared ([test](tests/test-generators.property.l1.test.ts))
+- Every generated distinct-node pair contains non-equal node paths where neither path is an ancestor of the other ([test](tests/test-generators.property.l1.test.ts))
+- Every generated parent-and-descendant pair contains non-equal node paths where the descendant is below the parent ([test](tests/test-generators.property.l1.test.ts))
+- Every generated test and support path is co-located under the generated node, and the selected registered language descriptor classifies only the test path as test evidence ([test](tests/test-generators.property.l1.test.ts))
 
 ### Compliance
 
