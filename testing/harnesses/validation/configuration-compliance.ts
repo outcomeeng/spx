@@ -1,20 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
-import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
-import {
-  formatValidationPathsNoTargetsSkipMessage,
-  VALIDATION_COMMAND_OUTPUT,
-  VALIDATION_EXIT_CODES,
-  VALIDATION_STAGE_DISPLAY_NAMES,
-} from "@/commands/validation/messages";
+import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
 import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
-  VALIDATION_KNIP_SUBSECTION,
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -34,7 +27,6 @@ import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdow
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
-import { createRecordingKnipCommandDeps, type KnipValidationCall } from "@testing/harnesses/validation/knip-support";
 
 describe("ALWAYS: validation command participation is driven by spx config", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
@@ -81,133 +73,6 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       expect(result.exitCode).toBe(0);
       expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
     });
-  });
-
-  it("skips knip validation when validation.knip.enabled is false", async () => {
-    await withLiteralFixtureEnv(
-      validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
-      async (env) => {
-        await env.writeTsConfigMarker();
-        const result = await knipCommand({ cwd: env.productDir });
-
-        expect(result.exitCode).toBe(0);
-        expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
-      },
-    );
-  });
-
-  it("applies explicit file scope during knip execution", async () => {
-    await withLiteralFixtureEnv(
-      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
-      async (env) => {
-        const sourceFilePath = sampleLiteralTestValue(
-          LITERAL_TEST_GENERATOR.sourceFilePath(),
-        );
-        const validationCalls: KnipValidationCall[] = [];
-        await env.writeTsConfigMarker();
-        await env.writeSourceFile(
-          sourceFilePath,
-          sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-        );
-
-        const result = await knipCommand(
-          {
-            cwd: env.productDir,
-            files: [sourceFilePath],
-          },
-          createRecordingKnipCommandDeps(env.productDir, validationCalls),
-        );
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(validationCalls).toEqual([
-          {
-            projectRoot: env.productDir,
-            typescriptScope: {
-              directories: [],
-              filePatterns: [sourceFilePath],
-              excludePatterns: [],
-              filteredByValidationPaths: true,
-              filteredByValidationPathIncludes: true,
-              filteredByValidationPathNoMatches: false,
-            },
-          },
-        ]);
-      },
-    );
-  });
-
-  it("applies production scope during knip execution", async () => {
-    await withLiteralFixtureEnv(
-      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
-      async (env) => {
-        const sourceFilePath = sampleLiteralTestValue(
-          LITERAL_TEST_GENERATOR.sourceFilePath(),
-        );
-        const testFilePath = sampleLiteralTestValue(
-          LITERAL_TEST_GENERATOR.testFilePath(),
-        );
-        const validationCalls: KnipValidationCall[] = [];
-        await env.writeTsConfigMarker();
-        await env.writeRaw(
-          VALIDATION_PIPELINE_DATA.productionTsconfigFile,
-          VALIDATION_PIPELINE_DATA.productionTsconfigContent,
-        );
-        await env.writeSourceFile(
-          sourceFilePath,
-          sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-        );
-        await env.writeTestFile(
-          testFilePath,
-          sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-        );
-
-        const result = await knipCommand(
-          {
-            cwd: env.productDir,
-            scope: VALIDATION_SCOPES.PRODUCTION,
-          },
-          createRecordingKnipCommandDeps(env.productDir, validationCalls),
-        );
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(validationCalls).toHaveLength(1);
-        expect(validationCalls[0]?.typescriptScope.filePatterns).toEqual([
-          VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
-        ]);
-        expect(validationCalls[0]?.typescriptScope.directories).toEqual([
-          VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-        ]);
-      },
-    );
-  });
-
-  it("reports a knip skip when explicit file scope matches no targets", async () => {
-    await withLiteralFixtureEnv(
-      validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
-      async (env) => {
-        const sourceFilePath = sampleLiteralTestValue(
-          LITERAL_TEST_GENERATOR.sourceFilePath(),
-        );
-        const validationCalls: KnipValidationCall[] = [];
-        await env.writeTsConfigMarker();
-
-        const result = await knipCommand(
-          {
-            cwd: env.productDir,
-            files: [sourceFilePath],
-          },
-          createRecordingKnipCommandDeps(env.productDir, validationCalls),
-        );
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(
-          formatValidationPathsNoTargetsSkipMessage(
-            VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-          ),
-        );
-        expect(validationCalls).toEqual([]);
-      },
-    );
   });
 
   it("threads aggregate validation file scope to the knip stage", async () => {

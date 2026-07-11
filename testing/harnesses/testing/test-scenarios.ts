@@ -11,17 +11,6 @@ import {
   runTestsCommand,
   type TestDispatchResult,
 } from "@/commands/test";
-import {
-  CHANGED_TEST_DIFF_CACHED_FLAG,
-  CHANGED_TEST_DIFF_COMMAND,
-  CHANGED_TEST_DIFF_NAME_STATUS_FLAG,
-  CHANGED_TEST_LS_FILES_CACHED_FLAG,
-  CHANGED_TEST_LS_FILES_COMMAND,
-  CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG,
-  CHANGED_TEST_LS_FILES_OTHERS_FLAG,
-  CHANGED_TEST_NULL_DELIMITED_FLAG,
-  CHANGED_TEST_SHOW_COMMAND,
-} from "@/commands/test/changed-set-planning";
 import { CONFIG_FILENAMES } from "@/config/index";
 import { PATH_FILTER_CONFIG_FIELDS } from "@/config/primitives/path-filter";
 import {
@@ -30,7 +19,6 @@ import {
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
-import { GIT_MODIFY_STATUS_EXAMPLE } from "@/lib/git/name-status";
 import type { GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
@@ -52,16 +40,12 @@ import {
   specFileUnder,
   TEST_DISPATCH_GENERATOR,
 } from "@testing/generators/testing/dispatch";
-import { GIT_TEST_REF, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_REF } from "@testing/harnesses/git-test-constants";
+import { relatedDeps, stagedSnapshotGit } from "@testing/harnesses/testing/changed-set-planning-support";
 import { runTestingCli, type TestingCliCall, testingCliDeps } from "@testing/harnesses/testing/cli";
+import { invokedArgs } from "@testing/harnesses/testing/command-support";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
-
-function invokedArgs(
-  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
-): readonly string[] {
-  return runner.calls.flatMap((call) => call.args);
-}
 
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 const EMPTY_TESTING_CONFIG = `${TESTING_SECTION}: {}\n`;
@@ -102,72 +86,13 @@ function stagedConfigChangeGit(
   dirtyWorktreePaths: readonly string[] = [],
   untrackedWorktreePaths: readonly string[] = [],
 ): GitDependencies {
-  return {
-    execa: async (_command, args) => {
-      if (args.includes(GIT_TEST_SUBCOMMANDS.REV_PARSE)) {
-        return { exitCode: 0, stdout: headSha, stderr: "" };
-      }
-      if (
-        args.includes(CHANGED_TEST_DIFF_COMMAND)
-        && args.includes(CHANGED_TEST_DIFF_CACHED_FLAG)
-        && args.includes(CHANGED_TEST_DIFF_NAME_STATUS_FLAG)
-      ) {
-        return {
-          exitCode: 0,
-          stdout: [GIT_MODIFY_STATUS_EXAMPLE, changedPath].join("\0") + "\0",
-          stderr: "",
-        };
-      }
-      if (
-        args.includes(CHANGED_TEST_DIFF_COMMAND)
-        && args.includes(CHANGED_TEST_DIFF_NAME_STATUS_FLAG)
-        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ) {
-        return {
-          exitCode: 0,
-          stdout: dirtyWorktreePaths.map((path) => `${GIT_MODIFY_STATUS_EXAMPLE}\0${path}\0`).join(""),
-          stderr: "",
-        };
-      }
-      if (
-        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
-        && args.includes(CHANGED_TEST_LS_FILES_CACHED_FLAG)
-        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ) {
-        return {
-          exitCode: 0,
-          stdout: changedPath.includes(`/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/`) ? `${changedPath}\0` : "",
-          stderr: "",
-        };
-      }
-      if (
-        args.includes(CHANGED_TEST_LS_FILES_COMMAND)
-        && args.includes(CHANGED_TEST_LS_FILES_OTHERS_FLAG)
-        && args.includes(CHANGED_TEST_LS_FILES_EXCLUDE_STANDARD_FLAG)
-        && args.includes(CHANGED_TEST_NULL_DELIMITED_FLAG)
-      ) {
-        return {
-          exitCode: 0,
-          stdout: untrackedWorktreePaths.map((path) => `${path}\0`).join(""),
-          stderr: "",
-        };
-      }
-      if (args.includes(CHANGED_TEST_SHOW_COMMAND) && args.includes(`:${changedPath}`)) {
-        return { exitCode: 0, stdout: stagedConfig, stderr: "" };
-      }
-      if (args.includes(CHANGED_TEST_SHOW_COMMAND)) {
-        return { exitCode: 1, stdout: "", stderr: changedSetContent.gitStagedNotInIndexMessage };
-      }
-      return { exitCode: 0, stdout: "", stderr: "" };
-    },
-  };
-}
-
-function successfulRelatedTestDeps(): NonNullable<TestCommandDependencies["relatedDepsFor"]> {
-  return () => ({
-    isLanguagePresent: () => true,
-    readFile: async () => "",
-    runCommand: async () => ({ exitCode: SUCCESS_EXIT_CODE, stdout: "", stderr: "" }),
+  return stagedSnapshotGit({
+    changedPaths: [changedPath],
+    stagedFiles: new Map([[changedPath, stagedConfig]]),
+    dirtyWorktreePaths,
+    untrackedWorktreePaths,
+    trackedStagedPaths: changedPath.includes(`/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/`) ? [changedPath] : [],
+    resolvedHeadSha: headSha,
   });
 }
 
@@ -186,7 +111,7 @@ function stagedChangedCommandDeps(
   return {
     registry: testingRegistry,
     runnerDepsFor: () => runner,
-    relatedDepsFor: successfulRelatedTestDeps(),
+    relatedDepsFor: relatedDeps,
     git,
   };
 }
@@ -407,7 +332,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: successfulRelatedTestDeps(),
+            relatedDepsFor: relatedDeps,
             git: stagedConfigChangeGit(
               headSha,
               changedSetContent.emptyTsconfig,
@@ -483,7 +408,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: successfulRelatedTestDeps(),
+            relatedDepsFor: relatedDeps,
             git: stagedConfigChangeGit(headSha, stagedTestingConfig, CONFIG_FILENAMES.json),
           },
         );
@@ -787,7 +712,7 @@ export function registerTestScenarioTests(): void {
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
-            relatedDepsFor: successfulRelatedTestDeps(),
+            relatedDepsFor: relatedDeps,
             git: stagedConfigChangeGit(headSha, EMPTY_TESTING_CONFIG, testPath),
           },
         );

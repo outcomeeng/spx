@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/41-validation.enabler/13-validation-test-generators.enabler/tests/validation-test-generators.property.l2.test.ts": "passed"
+    }
+  }
+}
