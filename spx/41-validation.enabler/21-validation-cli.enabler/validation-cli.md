@@ -27,7 +27,7 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 
 ### Properties
 
-- Dispatch safety: for every non-option string not in the registered-subcommand set, `spx validation <string>` exits non-zero and invokes no stage handler ([test](tests/dispatch.property.l2.test.ts))
+- Dispatch safety: for every non-option string not in the registered-subcommand set, `spx validation <string>` exits non-zero and invokes no stage handler ([test](../13-validation-test-generators.enabler/tests/validation-test-generators.property.l2.test.ts))
 
 ### Compliance
 
