@@ -104,6 +104,11 @@ export interface DefaultDiagnoseScenario {
   };
 }
 
+export interface AllProviderRecordScenario {
+  readonly records: readonly CheckRecord[];
+  readonly readingSentinels: readonly string[];
+}
+
 interface OrderedVersions {
   readonly installed: string;
   readonly lower: string;
@@ -193,9 +198,9 @@ export function defaultDiagnoseScenario(): DefaultDiagnoseScenario {
   };
 }
 
-export function allProviderRecords(): readonly CheckRecord[] {
+export function allProviderRecordScenario(): AllProviderRecordScenario {
   const methodology = resolvedMethodologyScenario();
-  const records = [
+  const classifiedRecords = [
     classifySpxReachability(reusableSpxReading(), undefined),
     classifySessionEnvironment({
       errored: false,
@@ -221,11 +226,28 @@ export function allProviderRecords(): readonly CheckRecord[] {
       errored: methodology.observation.errored,
     }),
   ];
-  return Object.values(CHECK_NAME).map((name) => {
-    const record = records.find((candidate) => candidate.name === name);
+  const orderedRecords = Object.values(CHECK_NAME).map((name) => {
+    const record = classifiedRecords.find((candidate) => candidate.name === name);
     if (record === undefined) throw new Error(`no generated diagnose record for ${name}`);
     return record;
   });
+  const readingCount = orderedRecords.reduce((count, record) => count + Object.keys(record.readings).length, 0);
+  const readingSentinels = sampleDiagnoseTestValue(
+    fc.uniqueArray(fc.nat(Number.MAX_SAFE_INTEGER).map((value) => `reading-sentinel-${value}`), {
+      minLength: readingCount,
+      maxLength: readingCount,
+    }),
+  );
+  let sentinelIndex = 0;
+  const records = orderedRecords.map((record) => ({
+    ...record,
+    readings: Object.fromEntries(Object.keys(record.readings).map((key) => [key, readingSentinels[sentinelIndex++]])),
+  }));
+  return { records, readingSentinels };
+}
+
+export function allProviderRecords(): readonly CheckRecord[] {
+  return allProviderRecordScenario().records;
 }
 
 export function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {
@@ -455,21 +477,30 @@ export function invalidDiagnoseReportCases(): readonly InvalidDiagnoseReportCase
     Object.fromEntries(Object.entries(firstCheck).filter(([name]) => name !== field));
   const substituteFirstCheck = (check: unknown): string =>
     JSON.stringify({ ...report, [checksField]: [check, ...report.checks.slice(1)] });
+  const inconsistentOverallCases = Object.values(OVERALL_VERDICT).flatMap((actualOverall) => {
+    const representative = uniqueRecords.find((record) => record.bucket === actualOverall);
+    if (representative === undefined) throw new Error(`no generated diagnose record for overall ${actualOverall}`);
+    const coherentReport = reportForCheck(representative);
+    return Object.values(OVERALL_VERDICT)
+      .filter((foreignOverall) => foreignOverall !== actualOverall)
+      .map((foreignOverall) => ({
+        name: `${actualOverall} report rejects overall ${foreignOverall}`,
+        input: JSON.stringify({ ...coherentReport, [overallField]: foreignOverall }),
+      }));
+  });
   const structuralCases: InvalidDiagnoseReportCase[] = [
     { name: "malformed JSON", input: "{" },
     { name: "non-object report", input: JSON.stringify([]) },
     { name: "null report", input: JSON.stringify(null) },
     { name: "missing checks field", input: JSON.stringify({ [overallField]: report.overall }) },
     { name: "missing overall field", input: JSON.stringify({ [checksField]: report.checks }) },
+    { name: "null checks", input: JSON.stringify({ ...report, [checksField]: null }) },
+    { name: "null overall", input: JSON.stringify({ ...report, [overallField]: null }) },
     { name: "non-array checks", input: JSON.stringify({ ...report, [checksField]: {} }) },
     { name: "null check", input: substituteFirstCheck(null) },
     { name: "non-object check", input: substituteFirstCheck([]) },
     { name: "invalid overall verdict", input: JSON.stringify({ ...report, [overallField]: "invalid" }) },
     { name: "non-string overall verdict", input: JSON.stringify({ ...report, [overallField]: 1 }) },
-    {
-      name: "inconsistent overall verdict",
-      input: JSON.stringify({ ...report, [overallField]: OVERALL_VERDICT.BROKEN }),
-    },
     { name: "non-string check name", input: substituteFirstCheck({ ...firstCheck, [CHECK_RECORD_FIELDS[0]]: 1 }) },
     { name: "invalid check name", input: substituteFirstCheck({ ...firstCheck, [CHECK_RECORD_FIELDS[0]]: "invalid" }) },
     {
@@ -488,6 +519,10 @@ export function invalidDiagnoseReportCases(): readonly InvalidDiagnoseReportCase
       input: substituteFirstCheck({ ...firstCheck, [CHECK_RECORD_FIELDS[3]]: { invalid: 1 } }),
     },
     { name: "non-string remediation", input: substituteFirstCheck({ ...firstCheck, [CHECK_RECORD_FIELDS[4]]: 1 }) },
+    ...CHECK_RECORD_FIELDS.map((field) => ({
+      name: `null ${field} field`,
+      input: substituteFirstCheck({ ...firstCheck, [field]: null }),
+    })),
     ...CHECK_RECORD_FIELDS.map((field) => ({
       name: `missing ${field} field`,
       input: substituteFirstCheck(omitCheckField(field)),
@@ -512,7 +547,7 @@ export function invalidDiagnoseReportCases(): readonly InvalidDiagnoseReportCase
       })),
     ];
   });
-  return [...structuralCases, ...coherenceCases];
+  return [...structuralCases, ...inconsistentOverallCases, ...coherenceCases];
 }
 
 function reportForCheck(check: CheckRecord): DiagnoseReport {

@@ -114,6 +114,15 @@ export function mixedCacheReadErrorScenario(): MethodologyDiagnoseScenario {
   };
 }
 
+export function methodologyTextParityScenarios(): readonly MethodologyDiagnoseScenario[] {
+  return [
+    resolvedMethodologyScenario(),
+    mismatchedMethodologyScenario(),
+    unavailableMethodologyScenario(),
+    unknownMethodologyScenario(),
+  ];
+}
+
 export function arbitraryMethodologyVersionSelectionScenario(): fc.Arbitrary<MethodologyVersionSelectionScenario> {
   return fc.record({
     source: arbitraryMethodologySource(),
