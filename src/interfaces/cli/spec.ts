@@ -8,8 +8,6 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { testingRegistry } from "@/test/registry";
 
-import { createRunnerDepsFor } from "./test-runner-deps";
-
 export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
   STATUS_COMMAND: "status",
@@ -128,21 +126,15 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
         const format = resolveStatusFormat(options);
-        // The per-node runner pipes child stdout to process.stderr here so stdout
-        // carries only the status rollup; a --json rollup therefore stays parseable
-        // even when --update runs a node's tests for stale, failing, or absent evidence.
+        // --update folds recorded evidence and executes nothing, so stdout carries
+        // only the status rollup and a --json rollup stays parseable.
         const output = options.update === true
           ? await statusCommand({
             cwd: productDir(),
             format,
             onWarning,
             update: true,
-            resolveOutcomeFor: (productDir) =>
-              createNodeOutcomeResolver({
-                productDir,
-                registry: testingRegistry,
-                runnerDepsFor: createRunnerDepsFor(productDir, process.stderr),
-              }),
+            resolveOutcomeFor: (productDir) => createNodeOutcomeResolver({ productDir, registry: testingRegistry }),
           })
           : await statusCommand({ cwd: productDir(), format, onWarning });
         writeOutput(invocation.io, output);

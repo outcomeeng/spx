@@ -21,19 +21,21 @@ import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeStatusEvidenceOutcome,
   type NodeStatusVerification,
   serializeNodeStatus,
 } from "./classify";
 import { createNodeStatusExcludeReader } from "./exclude";
-import { NODE_STATUS_FILENAME } from "./read";
+import { NODE_STATUS_FILENAME, readNodeStatus } from "./read";
 
 /**
- * Resolves a node's per-reference test outcomes — from recorded testing evidence
- * when it is usable, otherwise by running the node's tests. Injected at the
- * command edge so the classifier's precedence logic is verifiable without
- * executing a real suite.
+ * Resolves a node's per-reference test outcomes from recorded testing evidence,
+ * executing no verification. An evidence reference the recorded evidence does not
+ * resolve is omitted from the result, and the orchestration carries that
+ * reference's committed outcome forward. Injected at the command edge so the
+ * classifier's precedence logic is verifiable without executing a real suite.
  */
 export type NodeOutcomeResolver = (
   nodeId: string,
@@ -74,12 +76,13 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
       continue;
     }
     const evidence = evidenceByNode.get(node.id) ?? [];
+    const statusPath = nodeStatusPath(productDir, node.id);
     const verification = await resolveVerification(node, {
+      committed: committedOutcomes(dirname(statusPath)),
       evidence,
       isExcluded: excludeReader.isExcluded(node),
       resolveOutcome,
     });
-    const statusPath = nodeStatusPath(productDir, node.id);
     liveStatusPaths.add(statusPath);
     await writeNodeStatus(statusPath, verification);
   }
@@ -88,6 +91,7 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
 }
 
 type VerificationInput = {
+  readonly committed: Readonly<Record<string, NodeStatusEvidenceOutcome>>;
   readonly evidence: readonly SpecTreeEvidenceSourceEntry[];
   readonly isExcluded: boolean;
   readonly resolveOutcome: NodeOutcomeResolver;
@@ -105,6 +109,20 @@ async function resolveVerification(
   return createTestVerificationFromOutcomes(
     input.evidence,
     await input.resolveOutcome(node.id, evidencePaths(input.evidence)),
+    input.committed,
+  );
+}
+
+// The node's committed per-reference test outcomes. A reference the recorded
+// evidence does not resolve keeps the outcome committed for it, so a fold neither
+// forges an outcome no run produced nor discards a claim a run still supports.
+function committedOutcomes(nodeDir: string): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
+  const committed = readNodeStatus(nodeDir)?.verification?.[NODE_STATUS_VERIFICATION_MECHANISM.TEST];
+  if (committed === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(committed).filter(
+      (entry): entry is [string, NodeStatusEvidenceOutcome] => entry[0] !== NODE_STATUS_FIELD.OVERALL,
+    ),
   );
 }
 
@@ -127,17 +145,21 @@ function createTestVerification(
   outcome: NodeStatusEvidenceOutcome,
 ): NodeStatusVerification {
   const outcomes = Object.fromEntries(evidence.map((entry) => [evidencePath(entry), outcome]));
-  return createTestVerificationFromOutcomes(evidence, outcomes);
+  return createTestVerificationFromOutcomes(evidence, outcomes, {});
 }
 
+// Folds the resolved outcomes over the committed ones: a reference the recorded
+// evidence resolves takes that outcome, one it leaves unresolved keeps its committed
+// outcome, and one with neither is `not-run`.
 function createTestVerificationFromOutcomes(
   evidence: readonly SpecTreeEvidenceSourceEntry[],
   resolvedOutcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+  committedOutcomes: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
 ): NodeStatusVerification {
   const outcomes: Record<string, NodeStatusEvidenceOutcome> = {};
   for (const entry of evidence) {
     const path = evidencePath(entry);
-    outcomes[path] = resolvedOutcomes[path] ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+    outcomes[path] = resolvedOutcomes[path] ?? committedOutcomes[path] ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
   }
   return { [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(outcomes) };
 }

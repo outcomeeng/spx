@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
 
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
@@ -15,7 +14,6 @@ import {
 } from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import { createRunnerDepsFor } from "@/interfaces/cli/test-runner-deps";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
@@ -53,6 +51,14 @@ import {
 } from "@testing/generators/spec-tree/spec-tree";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import {
+  addNodePythonTestFile,
+  addNodeTestFile,
+  foldResolverFor,
+  formatNodePath,
+  recordedRunFiles,
+  recordTestRun,
+} from "@testing/harnesses/node-status/fold";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
@@ -387,8 +393,7 @@ describe("spx spec status --update command", () => {
       await addNodeTestFile(env, rootPath);
 
       // A stub resolver supplies the per-node outcome, so the write-and-rollup
-      // behavior is exercised independently of the production resolver's evidence
-      // logic (which scenario 7 covers).
+      // behavior is exercised independently of the production resolver's fold.
       const updateOutput = await statusCommand({
         cwd: env.productDir,
         update: true,
@@ -406,32 +411,26 @@ describe("spx spec status --update command", () => {
     });
   });
 
-  it("invokes the per-node run when recorded evidence is absent, then skips it when usable", async () => {
+  it("folds a recorded passing run's evidence and executes no verification", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
       await addNodeTestFile(env, rootPath);
+      await recordTestRun(env, { present: true, exitCode: 0 });
 
-      // Absent evidence: --update runs the node's tests through the registry.
-      const firstRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(firstRunner) });
-      expect(firstRunner.calls.length).toBeGreaterThan(0);
-      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
-        SPEC_TREE_NODE_STATE.PASSING,
-      );
+      // An executed run records a run file, so an unchanged run-file set is the
+      // falsifiable evidence that the fold ran no verification of its own.
+      const before = await recordedRunFiles(env);
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
-      // The run just recorded is fresh and passed: a second --update runs nothing
-      // and reports the cached passing outcome through the production resolver.
-      const secondRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(secondRunner) });
-      expect(secondRunner.calls).toEqual([]);
+      await expect(recordedRunFiles(env)).resolves.toEqual(before);
       await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
         SPEC_TREE_NODE_STATE.PASSING,
       );
     });
   });
 
-  it("uses a parent run's newly recorded evidence for later child nodes in the same update", async () => {
+  it("folds one recorded run's evidence for every node that run covers", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
@@ -442,15 +441,12 @@ describe("spx spec status --update command", () => {
           env.fixture.child.kind,
         )
       }`;
-      const rootTestFile = await addNodeTestFile(env, rootPath);
-      const childTestFile = await addNodeTestFile(env, childPath);
+      await addNodeTestFile(env, rootPath);
+      await addNodeTestFile(env, childPath);
+      await recordTestRun(env, { present: true, exitCode: 0 });
 
-      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(runner) });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
-      expect(runner.calls).toHaveLength(1);
-      expect(invokedArgs(runner)).toContain(rootTestFile);
-      expect(invokedArgs(runner)).toContain(childTestFile);
       await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
         SPEC_TREE_NODE_STATE.PASSING,
       );
@@ -460,114 +456,90 @@ describe("spx spec status --update command", () => {
     });
   });
 
-  it("invokes the per-node run when recorded evidence is stale", async () => {
+  it("folds a fresh failing run as failed rather than re-running the node", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const testFile = await addNodeTestFile(env, rootPath);
+      const failingExit = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
+      await recordTestRun(env, { present: true, exitCode: failingExit });
+
+      const before = await recordedRunFiles(env);
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
+
+      await expect(recordedRunFiles(env)).resolves.toEqual(before);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: { test: { [testFile]: NODE_STATUS_EVIDENCE_OUTCOME.FAILED } },
+      });
+    });
+  });
+
+  it("keeps a node's committed outcome when its recorded evidence is stale", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const testFile = await addNodeTestFile(env, rootPath);
+      await recordTestRun(env, { present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
+
+      // Rewriting a covered test file's content invalidates the recorded content
+      // digest, so no recorded evidence resolves the reference any more.
+      await env.writeRaw(testFile, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
+
+      const before = await recordedRunFiles(env);
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
+
+      // The committed claim stands: neither forged to not-run nor refreshed by a run.
+      await expect(recordedRunFiles(env)).resolves.toEqual(before);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: { test: { [testFile]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED } },
+      });
+    });
+  });
+
+  it("keeps the committed outcome when a covered test file was deleted after the run", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
+      const peerPath = formatNodePath(env.fixture.peer.order, env.fixture.peer.slug, env.fixture.peer.kind);
+      const rootTestFile = await addNodeTestFile(env, rootPath);
+      const peerTestFile = await addNodeTestFile(env, peerPath);
+      await recordTestRun(env, { present: true, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
+
+      // The recorded evidence now references a covered path that no longer exists.
+      await rm(join(env.productDir, peerTestFile));
+
+      const before = await recordedRunFiles(env);
+      await expect(
+        statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() }),
+      ).resolves.toBeDefined();
+
+      await expect(recordedRunFiles(env)).resolves.toEqual(before);
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: { test: { [rootTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED } },
+      });
+    });
+  });
+
+  it("records not-run for a node no recorded evidence covers, executing no verification", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
       const testFile = await addNodeTestFile(env, rootPath);
 
-      const seedRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(seedRunner) });
+      // No run has recorded evidence and no committed outcome exists, so the fold
+      // has nothing to carry forward and nothing to execute.
+      const before = await recordedRunFiles(env);
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
-      // Rewriting a covered test file's content invalidates the recorded content digest.
-      await env.writeRaw(testFile, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
-
-      const staleRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(staleRunner) });
-      expect(staleRunner.calls.length).toBeGreaterThan(0);
-    });
-  });
-
-  it("invokes the per-node run when recorded evidence is fresh but failing", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await env.materialize();
-      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      await addNodeTestFile(env, rootPath);
-
-      // Seed a fresh run that failed (non-zero runner exit).
-      const failingExit = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
-      const seedRunner = createRecordingCommandRunner({ present: true, exitCode: failingExit });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(seedRunner) });
-
-      // Fresh-but-failing evidence is not usable, so a second --update re-runs the node.
-      const rerunRunner = createRecordingCommandRunner({ present: true, exitCode: failingExit });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(rerunRunner) });
-      expect(rerunRunner.calls.length).toBeGreaterThan(0);
-    });
-  });
-
-  it("treats a fresh passing full-product run as usable evidence for each node", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await env.materialize();
-      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      const peerPath = formatNodePath(env.fixture.peer.order, env.fixture.peer.slug, env.fixture.peer.kind);
-      await addNodeTestFile(env, rootPath);
-      await addNodeTestFile(env, peerPath);
-
-      // A full run records evidence over a superset of any single node's tests.
-      const fullRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => fullRunner },
+      await expect(recordedRunFiles(env)).resolves.toEqual(before);
+      await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
+        SPEC_TREE_NODE_STATE.FAILING,
       );
-
-      // The fresh passing full run is usable for each covered node — freshness is
-      // judged over the run's covered paths — so --update re-runs none of them.
-      const updateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) });
-      expect(updateRunner.calls).toEqual([]);
-    });
-  });
-
-  it("re-runs rather than failing when a covered test file was deleted after the run", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await env.materialize();
-      const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-      const peerPath = formatNodePath(env.fixture.peer.order, env.fixture.peer.slug, env.fixture.peer.kind);
-      await addNodeTestFile(env, rootPath);
-      const peerTestFile = await addNodeTestFile(env, peerPath);
-
-      const fullRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => fullRunner },
-      );
-
-      // A covered test file is deleted after the run, so the recorded evidence
-      // references a path that no longer exists. --update must read that as stale
-      // and re-run, not surface ENOENT for the missing covered path.
-      await rm(join(env.productDir, peerTestFile));
-
-      const updateRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await expect(
-        statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(updateRunner) }),
-      ).resolves.toBeDefined();
-      expect(updateRunner.calls.length).toBeGreaterThan(0);
-    });
-  });
-
-  it("routes a per-node run's stdout to the injected stream so --update stdout stays parseable", async () => {
-    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
-      // The status path injects process.stderr as the runner's stdout stream so the
-      // --json rollup is the only thing on stdout. Prove the runner forwards a child's
-      // stdout to the injected stream rather than to process.stdout.
-      const captured: Buffer[] = [];
-      const sink = new Writable({
-        write(chunk: Buffer, _encoding, done) {
-          captured.push(Buffer.from(chunk));
-          done();
-        },
+      await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
+        verification: { test: { [testFile]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN } },
       });
-      const marker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-      const runnerDeps = createRunnerDepsFor(productDir, sink)(typescriptTestingLanguage);
-
-      const result = await runnerDeps.runCommand(process.execPath, [
-        "-e",
-        `process.stdout.write(${JSON.stringify(marker)})`,
-      ]);
-
-      expect(result.exitCode).toBe(0);
-      expect(Buffer.concat(captured).toString()).toContain(marker);
     });
   });
 
@@ -577,10 +549,10 @@ describe("spx spec status --update command", () => {
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
       const rootTestFile = await addNodeTestFile(env, rootPath);
 
-      // The language runner reports absent, so the per-node run executes nothing.
-      // A zero-outcome run must not classify the node passing.
-      const absentRunner = createRecordingCommandRunner({ present: false, exitCode: 0 });
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordingResolverFor(absentRunner) });
+      // The language runner reports absent, so the recorded run executes nothing.
+      // A zero-outcome run must not fold the node passing.
+      await recordTestRun(env, { present: false, exitCode: 0 });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
       await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
         SPEC_TREE_NODE_STATE.FAILING,
@@ -603,18 +575,19 @@ describe("spx spec status --update command", () => {
       const pythonTestFile = await addNodePythonTestFile(env, rootPath);
 
       // The TypeScript runner is present and passes; the Python runner is absent, so
-      // the node's Python test path never executes. A partial run must not classify
-      // the node passing even though the executed outcome passed.
+      // the node's Python test path never executes. A partial run must not fold the
+      // node passing even though the executed outcome passed.
       const presentRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
       const absentRunner = createRecordingCommandRunner({ present: false, exitCode: 0 });
-      const resolveOutcomeFor = (productDir: string) =>
-        createNodeOutcomeResolver({
-          productDir,
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        {
           registry: testingRegistry,
           runnerDepsFor: (language) => language.name === typescriptTestingLanguage.name ? presentRunner : absentRunner,
-        });
+        },
+      );
 
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
       await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
         SPEC_TREE_NODE_STATE.FAILING,
@@ -630,7 +603,7 @@ describe("spx spec status --update command", () => {
     });
   });
 
-  it("records per-reference outcomes when one runner passes and another runner fails", async () => {
+  it("folds per-reference outcomes when one runner passes and another runner fails", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
@@ -642,14 +615,15 @@ describe("spx spec status --update command", () => {
         present: true,
         exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
       });
-      const resolveOutcomeFor = (productDir: string) =>
-        createNodeOutcomeResolver({
-          productDir,
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        {
           registry: testingRegistry,
           runnerDepsFor: (language) => language.name === typescriptTestingLanguage.name ? passingRunner : failingRunner,
-        });
+        },
+      );
 
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor });
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: foldResolverFor() });
 
       await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
         SPEC_TREE_NODE_STATE.FAILING,
@@ -665,53 +639,6 @@ describe("spx spec status --update command", () => {
     });
   });
 });
-
-function recordingResolverFor(runner: ReturnType<typeof createRecordingCommandRunner>) {
-  return (productDir: string) =>
-    createNodeOutcomeResolver({ productDir, registry: testingRegistry, runnerDepsFor: () => runner });
-}
-
-function invokedArgs(
-  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
-): readonly string[] {
-  return runner.calls.flatMap((call) => call.args);
-}
-
-async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  // A spec-tree TypeScript evidence file (`<slug>.<mode>.<level>.test.ts`), so the
-  // node both reaches the test-outcome stage that readSpecTree recognizes and is
-  // dispatched by the TypeScript runner.
-  const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
-  const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const tail = SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT.join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
-  const evidenceFile = [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    nodePath,
-    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-    `${slug}.${mode}.${level}.${tail}`,
-  ].join("/");
-  await writeTestFileFixture(env.productDir, evidenceFile);
-  return evidenceFile;
-}
-
-async function addNodePythonTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  // A spec-tree Python evidence file (`test_<slug>.<mode>.<level>.py`), so the node
-  // carries a second-language test path the Python runner — gated out in this env —
-  // leaves unexecuted.
-  const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
-  const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const tail = SPEC_TREE_EVIDENCE_FILE.TAILS.PYTHON.join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
-  const evidenceFile = [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    nodePath,
-    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-    `${PYTHON_TEST_FILE_PREFIX}${slug}.${mode}.${level}.${tail}`,
-  ].join("/");
-  await writeTestFileFixture(env.productDir, evidenceFile);
-  return evidenceFile;
-}
 
 type RecordedStatusClassificationOptions = {
   readonly isExcluded: boolean;
@@ -740,10 +667,6 @@ async function readRecordedStatusFile(env: CurrentSpecTreeEnv, nodePath: string)
 
 function sampleSpecOrder(): number {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrder());
-}
-
-function formatNodePath(order: number, slug: string, kind: NodeKind): string {
-  return `${order}-${slug}${getKindDefinition(kind).suffix}`;
 }
 
 function createGitRootDependencies(

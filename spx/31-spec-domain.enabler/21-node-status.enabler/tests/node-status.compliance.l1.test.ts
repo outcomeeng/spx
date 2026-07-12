@@ -168,6 +168,50 @@ function expectedOutcomeFor(facts: { readonly isExcluded: boolean; readonly test
   return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
 }
 
+describe("node-status fold preservation", () => {
+  it("NEVER: --update overwrites a committed outcome the resolver leaves unresolved", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      // A run's evidence is folded in, committing an outcome for every reference.
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+      const committed = new Map<string, string>();
+      for (const expectation of expectations) {
+        committed.set(expectation.statusPath, await env.readFile(expectation.statusPath));
+      }
+
+      // A later fold whose recorded evidence resolves nothing — every reference is
+      // stale or absent — carries the committed outcomes forward untouched. Writing
+      // `not-run` here would forge an outcome no run produced and would drift the
+      // committed claim away from the projection CI regenerates.
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome: () => Promise.resolve({}) });
+
+      for (const expectation of expectations) {
+        await expect(env.readFile(expectation.statusPath)).resolves.toBe(committed.get(expectation.statusPath));
+      }
+    });
+  });
+
+  it("ALWAYS: --update records not-run for a reference with neither recorded nor committed evidence", async () => {
+    const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
+
+    await withClassificationTree(fixture, async ({ env, expectations }) => {
+      // No prior status file exists, so an unresolved reference has no committed
+      // outcome to carry forward.
+      await updateNodeStatus({ productDir: env.productDir, resolveOutcome: () => Promise.resolve({}) });
+
+      for (const expectation of expectations) {
+        if (expectation.evidencePaths.length === 0) continue;
+        const recorded = JSON.parse(await env.readFile(expectation.statusPath));
+        const testRecord = recorded.verification.test as Record<string, string> | undefined;
+        for (const evidencePath of expectation.evidencePaths) {
+          expect(testRecord?.[evidencePath]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
+        }
+      }
+    });
+  });
+});
+
 describe("node-status tracked-tree write boundary", () => {
   it("NEVER: --update writes into an untracked node-shaped directory; a stale status file there is removed", async () => {
     const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
