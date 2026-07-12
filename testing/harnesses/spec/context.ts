@@ -129,7 +129,14 @@ async function rejectedContextMessage(target: string, productDir: string): Promi
   throw new Error(`Expected spec context target to be rejected: ${target}`);
 }
 
-export async function assertSpecContextResolvesAbbreviatedTarget(): Promise<void> {
+type SpecContextTargetMappingCase = {
+  readonly assertMapping: () => Promise<void>;
+  readonly title: string;
+};
+
+async function assertSpecContextResolvesTarget(
+  selectInput: (snapshot: SpecTreeSnapshot, target: SpecTreeNode) => string,
+): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
       [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
@@ -138,12 +145,27 @@ export async function assertSpecContextResolvesAbbreviatedTarget(): Promise<void
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
-    const abbreviated = abbreviatedTarget(snapshot, target);
     const manifest = parseContextManifest(
-      await contextCommand({ target: `spx/${abbreviated}/`, cwd: env.productDir }),
+      await contextCommand({ target: selectInput(snapshot, target), cwd: env.productDir }),
     );
     expect(manifest.target).toBe(`spx/${target.id}`);
   });
+}
+
+export function assertSpecContextResolvesCanonicalTarget(): Promise<void> {
+  return assertSpecContextResolvesTarget((_snapshot, target) => target.id);
+}
+
+export function assertSpecContextResolvesRootedTarget(): Promise<void> {
+  return assertSpecContextResolvesTarget((_snapshot, target) => `spx/${target.id}`);
+}
+
+export function assertSpecContextResolvesTrailingSeparatorTarget(): Promise<void> {
+  return assertSpecContextResolvesTarget((_snapshot, target) => `${target.id}/`);
+}
+
+export function assertSpecContextResolvesAbbreviatedTarget(): Promise<void> {
+  return assertSpecContextResolvesTarget((snapshot, target) => abbreviatedTarget(snapshot, target));
 }
 
 export async function assertSpecContextRejectsUnknownTarget(): Promise<void> {
@@ -233,10 +255,37 @@ export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
   });
 }
 
-export async function assertSpecContextMapsFailureDiagnostics(): Promise<void> {
-  await assertSpecContextRejectsUnknownTarget();
-  await assertSpecContextRejectsAmbiguousTarget();
-  await assertSpecContextRejectsArtifactTarget();
+export function specContextTargetMappingCases(): readonly SpecContextTargetMappingCase[] {
+  return [
+    {
+      title: "maps a canonical node path to its canonical target",
+      assertMapping: assertSpecContextResolvesCanonicalTarget,
+    },
+    {
+      title: "maps a node path with a leading spx root to its canonical target",
+      assertMapping: assertSpecContextResolvesRootedTarget,
+    },
+    {
+      title: "maps a node path with a trailing separator to its canonical target",
+      assertMapping: assertSpecContextResolvesTrailingSeparatorTarget,
+    },
+    {
+      title: "maps unique abbreviated node segments to their canonical target",
+      assertMapping: assertSpecContextResolvesAbbreviatedTarget,
+    },
+    {
+      title: "maps an unknown segment to an unresolved-input diagnostic",
+      assertMapping: assertSpecContextRejectsUnknownTarget,
+    },
+    {
+      title: "maps an ambiguous segment to a candidate diagnostic",
+      assertMapping: assertSpecContextRejectsAmbiguousTarget,
+    },
+    {
+      title: "maps an artifact path to an owning-node diagnostic",
+      assertMapping: assertSpecContextRejectsArtifactTarget,
+    },
+  ];
 }
 
 export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<void> {
