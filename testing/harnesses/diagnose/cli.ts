@@ -35,13 +35,15 @@ import {
   DIAGNOSE_TEXT_HINT,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
+  parseDiagnoseReportJson,
 } from "@/domains/diagnose/report";
 import {
   CHECK_RECORD_FIELDS,
+  type CheckRecord,
+  type DiagnoseReport,
   OVERALL_VERDICT,
   type OverallVerdict,
   VERDICT_BUCKET,
-  type VerdictBucket,
 } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import {
@@ -117,19 +119,6 @@ export async function writeAllChecksManifest(): Promise<string> {
     methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
   }));
   return manifestPath;
-}
-
-interface ReportCheckShape {
-  readonly name: string;
-  readonly verdict: string;
-  readonly bucket: string;
-  readonly readings: Record<string, string>;
-  readonly remediation: string;
-}
-
-interface ReportShape {
-  readonly checks: ReportCheckShape[];
-  readonly overall: string;
 }
 
 interface DiagnoseRun {
@@ -223,11 +212,18 @@ async function withAllChecksManifest<T>(callback: (manifestPath: string) => Prom
   });
 }
 
-function parseReport(run: DiagnoseRun): ReportShape {
-  return JSON.parse(run.stdout) as ReportShape;
+function parseReportText(output: string): DiagnoseReport {
+  const parsed = parseDiagnoseReportJson(output);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.value;
 }
 
-function expectSchemaValidReport(report: ReportShape): void {
+function parseReport(run: DiagnoseRun): DiagnoseReport {
+  return parseReportText(run.stdout);
+}
+
+function expectSchemaValidReport(report: DiagnoseReport): void {
   expect(Object.values(OVERALL_VERDICT)).toContain(report.overall);
   for (const check of report.checks) {
     expect(Object.keys(check).sort((left, right) => left.localeCompare(right))).toEqual(
@@ -238,18 +234,19 @@ function expectSchemaValidReport(report: ReportShape): void {
   }
 }
 
-function foldedOverall(report: ReportShape): OverallVerdict {
-  return foldOverallVerdict(report.checks.map((check) => check.bucket as VerdictBucket));
+function foldedOverall(report: DiagnoseReport): OverallVerdict {
+  return foldOverallVerdict(report.checks.map((check) => check.bucket));
 }
 
-function expectExitCodeKeyedToFold(run: DiagnoseRun, report: ReportShape): void {
+function expectExitCodeKeyedToFold(run: DiagnoseRun, report: DiagnoseReport): void {
   expect(run.exitCode).toBe(overallExitCode(foldedOverall(report)));
 }
 
-function checkByName(report: ReportShape, name: string): ReportCheckShape {
+function checkByName(report: DiagnoseReport, name: string): CheckRecord {
   const check = report.checks.find((candidate) => candidate.name === name);
   expect(check).toBeDefined();
-  return check as ReportCheckShape;
+  if (check === undefined) throw new Error(`diagnose report has no ${name} check`);
+  return check;
 }
 
 const HUMAN_HEADER_BY_VERDICT: Readonly<Partial<Record<string, Readonly<Partial<Record<string, string>>>>>> = {
@@ -296,8 +293,21 @@ const HUMAN_HEADER_BY_VERDICT: Readonly<Partial<Record<string, Readonly<Partial<
   },
 };
 
-function expectedHumanHeader(check: ReportCheckShape): string {
+function expectedHumanHeader(check: CheckRecord): string {
   return HUMAN_HEADER_BY_VERDICT[check.name]?.[check.verdict] ?? DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE;
+}
+
+function providerSection(output: string, header: string): string {
+  const lines = output.split("\n");
+  const start = lines.findIndex((line) => line.includes(header));
+  expect(start).toBeGreaterThanOrEqual(0);
+  const end = lines.findIndex((line, index) => index > start && line.length > 0 && !line.startsWith("  "));
+  return lines.slice(start, end === -1 ? undefined : end).join("\n");
+}
+
+async function packagedCliVersion(): Promise<string> {
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, "--version"]);
+  return result.stdout;
 }
 
 export async function assertManifestDiagnoseJson(): Promise<void> {
@@ -318,8 +328,9 @@ export async function assertManifestDiagnoseJson(): Promise<void> {
 }
 
 export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
-  await withSpxReachabilityManifest(async (manifestPath) => {
+  await withSpxReachabilityManifest(async (manifestPath, spxFloor) => {
     const environment = { ...process.env, PATH: dirname(manifestPath) };
+    const executingVersion = await packagedCliVersion();
     const concise = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath], { env: environment });
     const machine = await runDiagnose([
       DIAGNOSE_CLI.MANIFEST_FLAG,
@@ -330,13 +341,15 @@ export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
     const spxCheck = checkByName(report, CHECK_NAME.SPX_REACHABILITY);
     expect(concise.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);
     expect(concise.stdout).toContain(DIAGNOSE_TEXT_LABEL.VERSION);
-    expect(concise.stdout).toContain(spxCheck.readings.version);
+    expect(concise.stdout).toContain(executingVersion);
     expect(concise.stdout).toContain(DIAGNOSE_TEXT_HINT.VERBOSE);
     expect(concise.stdout).toContain(DIAGNOSE_TEXT_HINT.JSON);
     expect(concise.stdout).toContain(DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE);
     expect(concise.stdout).toContain(spxCheck.remediation);
     expect(concise.stdout).not.toContain(CHECK_NAME.SPX_REACHABILITY);
     expect(concise.stdout).not.toContain(CHECK_RECORD_FIELDS[3]);
+    expect(concise.stdout).not.toContain(spxFloor);
+    expect(concise.stdout).not.toContain(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH);
     expect(concise.exitCode).toBe(machine.exitCode);
   });
 }
@@ -356,11 +369,11 @@ export async function assertVerboseDiagnoseShowsAllFacts(): Promise<void> {
     const report = parseReport(machine);
     expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
     for (const check of report.checks) {
-      expect(verbose.stdout).toContain(expectedHumanHeader(check));
-      for (const reading of Object.values(check.readings)) {
-        expect(verbose.stdout).toContain(reading);
+      const section = providerSection(verbose.stdout, expectedHumanHeader(check));
+      for (const [name, reading] of Object.entries(check.readings)) {
+        expect(section).toContain(`${name}: ${reading}`);
       }
-      expect(verbose.stdout).toContain(check.remediation);
+      expect(section).toContain(check.remediation);
     }
     expect(verbose.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);
     expect(verbose.exitCode).toBe(machine.exitCode);
@@ -414,7 +427,7 @@ export async function assertPresentationModesPreserveDiagnosis(): Promise<void> 
     }
     expect(probe.calls).toBe(DIAGNOSE_OUTPUT_SELECTOR_CASES.length);
     expect(new Set(results.map((result) => result.exitCode))).toEqual(new Set([0]));
-    const machine = JSON.parse(results.at(-1)?.output ?? "") as ReportShape;
+    const machine = parseReportText(results.at(-1)?.output ?? "");
     expect(machine.checks[0]?.verdict).toBe(SPX_REACHABILITY_VERDICT.REACHABLE);
     expect(machine.checks[0]?.readings).toEqual({
       path: resolvedPath,
