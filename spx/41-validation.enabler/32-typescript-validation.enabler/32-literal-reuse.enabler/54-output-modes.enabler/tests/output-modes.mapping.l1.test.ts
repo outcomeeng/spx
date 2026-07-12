@@ -1,1 +1,3 @@
-import "@testing/harnesses/validation/literal-output-modes-mapping";
+import { registerLiteralOutputModeMappings } from "@testing/harnesses/validation/literal-output-modes-mapping";
+
+registerLiteralOutputModeMappings();
