@@ -15,13 +15,7 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
-import {
-  KNIP_COMMAND_TOKENS,
-  KNIP_LOCAL_BIN_SEGMENTS,
-  type KnipValidationContext,
-  validateKnip,
-} from "@/validation/steps/knip";
+import { KNIP_COMMAND_TOKENS, type KnipValidationContext, validateKnip } from "@/validation/steps/knip";
 import type { ScopeConfig } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -217,16 +211,13 @@ export function registerUnusedCodeComplianceTests(): void {
     it("spawns the product executable returned by discovery", async () => {
       await withLiteralFixtureEnv(knipValidationConfig(true), async (env) => {
         const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-        const toolPath = join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
+        const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
         const runner = new RecordingSpawnOptionsRunner();
-        const discoveryDeps: ToolDiscoveryDeps = {
-          resolveModule: () => null,
-          resolveImport: () => null,
-          existsSync: (candidate) => candidate === toolPath,
-          whichSync: () => null,
-        };
         const deps: KnipCommandDeps = {
-          discoverTool: (tool, options) => discoverTool(tool, { ...options, deps: discoveryDeps }),
+          discoverTool: async (tool) => ({
+            found: true,
+            location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+          }),
           validateKnip: (context) => validateKnip(context, runner),
         };
         await env.writeTsConfigMarker();

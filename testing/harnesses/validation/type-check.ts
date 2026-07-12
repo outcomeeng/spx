@@ -16,7 +16,8 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { discoverTool, TOOL_DISCOVERY_PRIORITY, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
+import { TOOL_DISCOVERY_PRIORITY } from "@/validation/discovery/tool-finder";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -177,22 +178,15 @@ export function registerTypeCheckComplianceTests(): void {
   it("spawns the product-first executable returned by TypeScript command discovery", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
       const runner = new RecordingSpawnOptionsRunner();
-      const toolPath = join(path, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS);
-      const bundledToolPath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      const toolPath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
       const discoveryOptions: Parameters<TypeScriptCommandDeps["discoverTool"]>[1][] = [];
-      const discoveryDeps: ToolDiscoveryDeps = {
-        resolveModule: (specifier) =>
-          specifier === TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE
-            ? bundledToolPath
-            : null,
-        resolveImport: () => null,
-        existsSync: (candidate) => candidate === toolPath,
-        whichSync: () => null,
-      };
       const deps: TypeScriptCommandDeps = {
         discoverTool: async (tool, options) => {
           discoveryOptions.push(options);
-          return discoverTool(tool, { ...options, deps: discoveryDeps });
+          return {
+            found: true,
+            location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+          };
         },
         validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
       };

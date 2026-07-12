@@ -626,6 +626,12 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
   ];
 }
 
+export function validationLintSubprocessComplianceScenarios(): ValidationSubprocessScenario[] {
+  return validationLintSubprocessScenarios().filter(
+    (scenario) => scenario.fixture !== PROJECT_FIXTURES.CLEAN_PROJECT,
+  );
+}
+
 export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessScenario {
   const args = [validationCliDefinition.subcommands.all.commandName];
   const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);

@@ -1,0 +1,31 @@
+{
+  "diagnostics": {
+    "unknownSubcommand": {
+      "label": "unknown subcommand",
+      "exitCode": 1
+    },
+    "unknownLiteralProblemKind": {
+      "label": "unknown problem kind",
+      "exitCode": 1
+    },
+    "invalidPathOperand": {
+      "label": "invalid path operand",
+      "reason": "escapes product directory",
+      "exitCode": 1
+    }
+  },
+  "literalHelp": {
+    "pathOperand": "[paths...]",
+    "flags": [
+      "--allowlist-existing",
+      "--kind <kind>",
+      "--files-with-problems",
+      "--literals",
+      "--verbose"
+    ],
+    "problemKinds": [
+      "reuse",
+      "dupe"
+    ]
+  }
+}

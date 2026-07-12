@@ -21,7 +21,7 @@ import {
 } from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
-import { discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import {
   buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
@@ -592,16 +592,13 @@ describe("ESLint command arguments", () => {
   it("spawns the executable returned by ESLint command discovery", async () => {
     await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-      const toolPath = join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS);
+      const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
       const runner = new RecordingSpawnOptionsRunner();
-      const discoveryDeps: ToolDiscoveryDeps = {
-        resolveModule: () => null,
-        resolveImport: () => null,
-        existsSync: (candidate) => candidate === toolPath,
-        whichSync: () => null,
-      };
       const deps: LintCommandDeps = {
-        discoverTool: (tool, options) => discoverTool(tool, { ...options, deps: discoveryDeps }),
+        discoverTool: async (tool) => ({
+          found: true,
+          location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+        }),
         validateESLint: (context, _runner, outputStreams) => validateESLint(context, runner, outputStreams),
       };
       await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [sourceFilePath] }));

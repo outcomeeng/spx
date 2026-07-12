@@ -30,7 +30,6 @@ import { composeValidationPipelineStages, validationPipelineStages, validationRe
 import {
   buildDprintCheckArgs,
   DPRINT_COMMAND,
-  DPRINT_EXECUTABLE_SPECIFIER,
   type FormattingValidationContext,
   type FormattingValidationResult,
   validateFormatting,
@@ -214,7 +213,14 @@ export function registerFormattingComplianceEvidence(): void {
 async function runPackagedDprintCompliance(): Promise<void> {
   const runner = new RecordingSpawnOptionsRunner();
   await validateFormatting({ productDir: process.cwd() }, runner);
-  expect(runner.commands).toEqual([createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER)]);
+  expect(runner.commands).toEqual([packagedDprintExecutableFromManifest()]);
+}
+
+function packagedDprintExecutableFromManifest(): string {
+  const require = createRequire(import.meta.url);
+  const manifestPath = require.resolve("dprint/package.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { readonly bin: string };
+  return join(dirname(manifestPath), manifest.bin);
 }
 
 async function runFormattingDispatchContractCompliance(): Promise<void> {
