@@ -146,7 +146,7 @@ async function runIgnoredLinkTypesScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(true);
@@ -249,7 +249,7 @@ async function runExcludeScenario(scenario: MarkdownValidationScenario): Promise
   await withMarkdownScenarioEnv(scenario, async ({ path, spxDir }) => {
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
     const declaredErrors = result.errors.filter((error) =>
       error.file.includes(MARKDOWN_VALIDATION_DATA.declaredNodeFragment)
@@ -281,7 +281,7 @@ async function runExcludeExactOnlyScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
@@ -306,7 +306,7 @@ async function runExcludeScopedTargetScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(declaredNodeDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.errors.some((error) => error.file === declaredFile)).toBe(false);
@@ -393,7 +393,7 @@ async function runFileScopeDocsScenario(scenario: MarkdownValidationScenario): P
     });
     const detailed = await validateMarkdown({
       targets: [markdownDirectoryTarget(docsDir)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
@@ -457,7 +457,7 @@ async function runE2eBrokenDirectoryScenario(): Promise<void> {
     ], { cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
-    expect(result.stdout).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
+    expect(result.stderr).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
   });
 }
 
@@ -500,7 +500,7 @@ async function runDocsDirectFileMd024Scenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(sourceFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(true);
@@ -567,11 +567,11 @@ async function runDirectoryScopeMdOnlyScenario(): Promise<void> {
 
     const directoryResult = await validateMarkdown({
       targets: [markdownDirectoryTarget(spxDir)],
-      projectRoot: path,
+      productDir: path,
     });
     const directFileResult = await validateMarkdown({
       targets: [markdownFileTarget(markdownExtensionFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(directoryResult.success).toBe(true);
@@ -589,7 +589,7 @@ async function runColonPathErrorScenario(): Promise<void> {
 
     const result = await validateMarkdown({
       targets: [markdownFileTarget(colonFile)],
-      projectRoot: path,
+      productDir: path,
     });
 
     expect(result.success).toBe(false);

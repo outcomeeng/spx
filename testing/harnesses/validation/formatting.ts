@@ -22,12 +22,17 @@ import { allCommand } from "@/commands/validation/all";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
+import { formattingValidationLanguage } from "@/validation/languages/formatting";
+import { validationPipelineStages, validationRegistry } from "@/validation/registry";
+import { buildDprintCheckArgs } from "@/validation/steps/formatting";
 import {
+  arbitraryDprintFileArguments,
   FORMATTING_SCENARIO_KIND,
   FORMATTING_VALIDATION_DATA,
   formattingScenarios,
   type FormattingValidationScenario,
 } from "@testing/generators/validation/formatting";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -51,8 +56,54 @@ export const formattingValidationScenarioCases = collectHarnessTestCases(() => {
   });
 });
 
+export function registerFormattingMappingEvidence(): void {
+  describe("dprint formats the declared extensions and skips excluded paths", () => {
+    const config = loadProductDprintConfig();
+    for (const extension of FORMATTING_VALIDATION_DATA.formattedFileExtensions) {
+      it(`includes .${extension} files`, () => {
+        expect(config.includedExtensions.has(extension)).toBe(true);
+      });
+    }
+    for (const path of FORMATTING_VALIDATION_DATA.neverFormattedPaths) {
+      it(`excludes ${path}`, () => {
+        expect(config.excludes.some((pattern) => pattern.includes(path))).toBe(true);
+      });
+    }
+  });
+}
+
+export function registerFormattingPropertyEvidence(): void {
+  describe("dprint argument construction", () => {
+    it("is deterministic and preserves file and exclude scopes", () => {
+      assertProperty(
+        arbitraryDprintFileArguments().chain((excludes) =>
+          arbitraryDprintFileArguments().map((files) => ({ excludes, files }))
+        ),
+        ({ excludes, files }) => {
+          expect(buildDprintCheckArgs({ excludes, files })).toEqual(buildDprintCheckArgs({ excludes, files }));
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
+  });
+}
+
+export function registerFormattingComplianceEvidence(): void {
+  describe("formatting registry and configuration compliance", () => {
+    it("composes the formatting descriptor into the full pipeline", () => {
+      expect(validationRegistry.languages).toContain(formattingValidationLanguage);
+      expect(validationPipelineStages).toEqual(expect.arrayContaining([...formattingValidationLanguage.stages]));
+    });
+    it("skips when the product has no dprint config", async () => {
+      const result = await runFormattingWithoutConfig();
+      expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
+      expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_CONFIG_SKIP_REASON);
+    });
+  });
+}
+
 interface FormattingFixture {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly sourceFile: string;
 }
 
@@ -97,9 +148,9 @@ export function runFormattingScenario(scenario: FormattingValidationScenario): P
 
 async function runCleanProjectScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
-    await canonicalizeFixture(fixture.projectRoot, fixture.sourceFile);
+    await canonicalizeFixture(fixture.productDir, fixture.sourceFile);
 
-    const result = await formattingCommand({ cwd: fixture.projectRoot });
+    const result = await formattingCommand({ cwd: fixture.productDir });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
   });
@@ -107,7 +158,7 @@ async function runCleanProjectScenario(): Promise<void> {
 
 async function runUnformattedCommandScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const result = await formattingCommand({ cwd: fixture.projectRoot });
+    const result = await formattingCommand({ cwd: fixture.productDir });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.output).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
@@ -116,7 +167,7 @@ async function runUnformattedCommandScenario(): Promise<void> {
 
 async function runPipelineFailureScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const result = await allCommand({ cwd: fixture.projectRoot, quiet: true });
+    const result = await allCommand({ cwd: fixture.productDir, quiet: true });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
   });
@@ -129,11 +180,11 @@ async function runCliProcessScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
@@ -144,21 +195,21 @@ async function runCliProcessDirectoryScopeScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         ".",
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
 async function runCliProcessInvocationDirectoryScopeScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
-    await initializeGitProductRoot(fixture.projectRoot);
-    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    await initializeGitProductDir(fixture.productDir);
+    const sourceDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
     await mkdir(sourceDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
 
@@ -171,20 +222,20 @@ async function runCliProcessInvocationDirectoryScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
   });
 }
 
 async function runCliProcessDirectoryIncludeScopeScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    const sourceDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
     await mkdir(sourceDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
     );
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
       stringify({
         validation: {
           paths: {
@@ -199,25 +250,24 @@ async function runCliProcessDirectoryIncludeScopeScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         ".",
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
-    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
 async function runCliProcessExcludedFileScopeScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
-    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    const sourceDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
     await mkdir(sourceDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
       stringify({
         validation: {
           paths: {
@@ -232,30 +282,30 @@ async function runCliProcessExcludedFileScopeScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath,
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
   });
 }
 
 async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
-    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    const sourceDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
     await mkdir(sourceDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
-      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
-    const secondaryDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName);
+    const secondaryDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName);
     await mkdir(secondaryDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
       stringify({
         validation: {
           paths: {
@@ -273,21 +323,21 @@ async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
-    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
   });
 }
 
 async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
-    const sourceDirectory = join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
+    const sourceDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName);
     await mkdir(sourceDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     const excludedDirectory = join(
@@ -296,11 +346,11 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
     );
     await mkdir(excludedDirectory);
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
       stringify({
         validation: {
           paths: {
@@ -318,23 +368,23 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
         validationCliDefinition.subcommands.format.commandName,
         FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
       ],
-      { cwd: fixture.projectRoot },
+      { cwd: fixture.productDir },
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
   });
 }
 
 async function runGitignoreSkipScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
     await writeFile(
-      join(fixture.projectRoot, FORMATTING_VALIDATION_DATA.gitignoreFilename),
+      join(fixture.productDir, FORMATTING_VALIDATION_DATA.gitignoreFilename),
       `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename}\n`,
     );
 
-    const result = await formattingCommand({ cwd: fixture.projectRoot });
+    const result = await formattingCommand({ cwd: fixture.productDir });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
   });
@@ -347,12 +397,12 @@ async function runGitignoreSkipScenario(): Promise<void> {
  * rather than let a personal global dprint config decide the verdict.
  */
 export function runFormattingWithoutConfig(): Promise<ValidationCommandResult> {
-  return withTempDir(FORMATTING_TEMP_PREFIX, async (projectRoot) => {
+  return withTempDir(FORMATTING_TEMP_PREFIX, async (productDir) => {
     await writeFile(
-      join(projectRoot, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename),
+      join(productDir, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
-    return formattingCommand({ cwd: projectRoot });
+    return formattingCommand({ cwd: productDir });
   });
 }
 
@@ -363,8 +413,8 @@ export function runFormattingWithoutConfig(): Promise<ValidationCommandResult> {
  * vitest runner sets to the product root. The mapping and compliance evidence
  * asserts against the parsed includes, excludes, and plugin pins.
  */
-export function loadProductDprintConfig(productRoot: string = process.cwd()): ProductDprintConfig {
-  const configPath = join(productRoot, FORMATTING_VALIDATION_DATA.dprintConfigFilename);
+export function loadProductDprintConfig(productDir: string = process.cwd()): ProductDprintConfig {
+  const configPath = join(productDir, FORMATTING_VALIDATION_DATA.dprintConfigFilename);
   const parsed = parseJsonc(readFileSync(configPath, "utf8")) as {
     includes?: string[];
     excludes?: string[];
@@ -396,28 +446,28 @@ async function withFormattingFixture(
   sourceContent: string,
   callback: (fixture: FormattingFixture) => Promise<void>,
 ): Promise<void> {
-  await withTempDir(FORMATTING_TEMP_PREFIX, async (projectRoot) => {
-    copyProductDprintConfig(projectRoot);
-    const sourceFile = join(projectRoot, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+  await withTempDir(FORMATTING_TEMP_PREFIX, async (productDir) => {
+    copyProductDprintConfig(productDir);
+    const sourceFile = join(productDir, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
     await writeFile(sourceFile, sourceContent);
-    await callback({ projectRoot, sourceFile });
+    await callback({ productDir, sourceFile });
   });
 }
 
-function copyProductDprintConfig(projectRoot: string): void {
+function copyProductDprintConfig(productDir: string): void {
   const source = readFileSync(
     join(process.cwd(), FORMATTING_VALIDATION_DATA.dprintConfigFilename),
     "utf8",
   );
-  writeFileSync(join(projectRoot, FORMATTING_VALIDATION_DATA.dprintConfigFilename), source);
+  writeFileSync(join(productDir, FORMATTING_VALIDATION_DATA.dprintConfigFilename), source);
 }
 
-async function canonicalizeFixture(projectRoot: string, sourceFile: string): Promise<void> {
+async function canonicalizeFixture(productDir: string, sourceFile: string): Promise<void> {
   await execFileAsync(DPRINT_COMMAND_NAME, [DPRINT_FORMAT_SUBCOMMAND, basename(sourceFile)], {
-    cwd: projectRoot,
+    cwd: productDir,
   });
 }
 
-async function initializeGitProductRoot(productRoot: string): Promise<void> {
-  await execFileAsync("git", ["init"], { cwd: productRoot });
+async function initializeGitProductDir(productDir: string): Promise<void> {
+  await execFileAsync("git", ["init"], { cwd: productDir });
 }

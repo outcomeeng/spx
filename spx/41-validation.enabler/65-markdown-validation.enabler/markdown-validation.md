@@ -1,5 +1,3 @@
-# Markdown Validation
-
 PROVIDES markdownlint-cli2-based link integrity and structural quality checking for markdown files in `spx/` and `docs/`
 SO THAT `spx validation all` and `spx validation markdown`
 CAN catch broken cross-references and structural defects before they reach the repository
@@ -12,33 +10,34 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a markdown file with a relative link to a non-existent file, when validation runs, then an error is reported identifying the file, line number, and broken target ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid heading fragment reference (e.g., `./file.md#heading`), when validation runs, then no error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a heading fragment referencing a non-existent heading, when validation runs, then an error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a markdown file with a project-absolute link (e.g., `/spx/foo.md`), when validation runs, then the link resolves relative to the project root ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given `spx/` and `docs/` directories exist, when `spx validation markdown` runs with no arguments, then both directories are validated ([test](tests/markdown-validation.scenario.l2.test.ts))
-- Given `spx/` is supplied as a positional operand, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation.scenario.l2.test.ts))
-- Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation.scenario.l2.test.ts))
+- Given a markdown file with a product-absolute link (e.g., `/spx/foo.md`), when validation runs, then the link resolves relative to the product root ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given `spx/` and `docs/` directories exist, when `spx validation markdown` runs with no arguments, then both directories are validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given `spx/` is supplied as a positional operand, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/` contains duplicate sibling headings, when validation runs, then MD024 errors are reported for the sibling duplicates ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given `spx/` contains the same heading under different parent sections, when validation runs, then no MD024 error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given `docs/` contains duplicate sibling headings, when validation runs, then no MD024 errors are reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given `docs/` contains other markdown errors, when validation runs, then those non-MD024 errors are still reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a user runs `spx validation markdown`, then the command is registered and executes markdown validation ([test](tests/markdown-validation.scenario.l2.test.ts))
-- Given a user runs `spx validation markdown` on a directory with a broken link, then the process exits with code 1 and the error output identifies the broken link ([test](tests/markdown-validation.scenario.l2.test.ts))
+- Given a user runs `spx validation markdown`, then the command is registered and executes markdown validation ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given a user runs `spx validation markdown` on a directory with a broken link, then the process exits with code 1 and the error output identifies the broken link ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/EXCLUDE` lists a node path, when validation runs, then direct markdown files in that node directory are skipped while child-node markdown files remain in scope ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a declared-state node has `[test]` links to files that do not exist yet, when that node is listed in `spx/EXCLUDE`, then those broken links in the node's direct markdown files are not reported ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given repository `spx/EXCLUDE` lists markdown-skipped nodes, when markdown validation runs against `spx/` with node-status excludes disabled, then the listed nodes equal the direct spec-node markdown failures exposed by that run ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a directory scope contains a broken `.markdown` file and no broken `.md` file, when validation runs on the directory, then no error is reported for the `.markdown` file; when validation runs on that direct `.markdown` file, then the broken link is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a file scope contains a missing markdown file path, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.scenario.l2.test.ts))
-- Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation.scenario.l2.test.ts))
-- Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown` runs with those paths as positional operands, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation.scenario.l2.test.ts))
+- Given a file scope contains a missing markdown file path, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given a file scope contains a path that is neither an existing directory nor a markdown file, when `spx validation markdown` runs with that path as a positional operand, then the command reports the skipped scope in output and exits 0 when no markdown target remains ([test](tests/markdown-validation-command.scenario.l2.test.ts))
+- Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown` runs with those paths as positional operands, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given a markdown file path contains a colon, when markdownlint reports an error for that file, then markdown validation reports the file, line number, and rule detail instead of dropping the error ([test](tests/markdown-validation.scenario.l1.test.ts))
 
 ### Mappings
 
 - Link type resolution for local rule behavior: relative link (`./foo.md`) resolves from the file's directory; external URL (`https://...`) is not checked; HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
-- Link type resolution for command behavior: project-absolute link (`/spx/foo.md`) resolves from the project root via `root_path` config ([test](tests/markdown-validation.mapping.l1.test.ts))
+- Link type resolution for command behavior: product-absolute link (`/spx/foo.md`) resolves from the product root via `root_path` config ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Enabled built-in rules: MD001 (heading increment), MD003 (heading style), MD009 (no trailing spaces), MD010 (no hard tabs), MD024 (no duplicate headings — `siblings_only` for `spx/`, disabled for `docs/`), MD025 (single top-level heading), MD047 (file ends with newline). All other built-in rules are disabled ([test](tests/markdown-validation.mapping.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: broken links fail `spx validation all` — markdown link integrity gates commits alongside ESLint and TypeScript ([test](tests/markdown-validation.compliance.l2.test.ts))
+- ALWAYS: broken links fail `spx validation all` — markdown link integrity gates commits alongside ESLint and TypeScript ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: markdown validation is available in every `spx` installation — no optional dependency, no runtime discovery, no skip path ([audit])
-- ALWAYS: validation produces no side effects in validated directories — no config files, no generated artifacts ([test](tests/markdown-validation.compliance.l2.test.ts))
-- NEVER: validate directories outside `spx/` and `docs/` by default — these are the well-known spec tree directories coupled to Claude skills ([test](tests/markdown-validation.compliance.l2.test.ts))
+- ALWAYS: validation produces no side effects in validated directories — no config files, no generated artifacts ([test](tests/markdown-validation.compliance.l1.test.ts))
+- NEVER: validate directories outside `spx/` and `docs/` by default — these are the well-known spec tree directories coupled to Claude skills ([test](tests/markdown-validation.compliance.l1.test.ts))

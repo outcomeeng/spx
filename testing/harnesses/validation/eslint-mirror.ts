@@ -8,7 +8,7 @@ import { expect } from "vitest";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIX } from "@/config/source-roots";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery/language-finder";
-import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 import { SPX_RULE_PREFIX } from "@eslint-rules/import-source";
 import customRules from "@eslint-rules/index";
 import { NO_TASK_MARKER_COMMENTS_RULE_NAME, TASK_MARKER_COMMENT_TERMS } from "@eslint-rules/no-task-marker-comments";

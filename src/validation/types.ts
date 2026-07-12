@@ -80,7 +80,7 @@ export type ExecutionMode = (typeof EXECUTION_MODES)[keyof typeof EXECUTION_MODE
  */
 export interface ValidationContext {
   /** Root directory of the project being validated */
-  projectRoot: string;
+  productDir: string;
   /** Execution mode (read-only or write/fix) */
   mode?: ExecutionMode;
   /** Validation scope (full or production) */
@@ -97,6 +97,7 @@ export interface ValidationContext {
   isFileSpecificMode: boolean;
   /** ESLint flat config file name, determined by language detection */
   eslintConfigFile?: string;
+  toolPath?: string;
 }
 
 // =============================================================================

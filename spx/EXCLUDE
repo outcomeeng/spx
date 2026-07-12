@@ -5,21 +5,15 @@
 #
 # Remove entries when implementation begins.
 
-17-file-inclusion.enabler/32-path-predicates.enabler
 41-validation.enabler/32-python-validation.enabler
 41-validation.enabler/32-python-validation.enabler/32-ast-enforcement.enabler
 41-validation.enabler/32-python-validation.enabler/32-lint.enabler
 41-validation.enabler/32-python-validation.enabler/32-type-check.enabler
 26-release.enabler/43-publish-dispatch.enabler
-34-verification.enabler/32-verify.enabler
 34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
-34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler
-34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler
-34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler
-34-verification.enabler/43-execute.enabler
 60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 25-outcomeeng.enabler/31-spec-tree.enabler

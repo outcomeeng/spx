@@ -1,14 +1,12 @@
 import * as fc from "fast-check";
+import { resolve } from "node:path";
 
 import { CIRCULAR_DEPENDENCY_OUTPUT } from "@/commands/validation/circular";
 import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
 import { NO_PROBLEMS_MESSAGE } from "@/commands/validation/literal";
 import {
-  CIRCULAR_SKIP_JSON_OUTPUT,
-  CIRCULAR_SKIP_OUTPUT,
   formatTypeScriptAbsentSkipMessage,
-  LITERAL_SKIP_JSON_OUTPUT,
-  LITERAL_SKIP_OUTPUT,
+  formatValidationStageSkipJsonOutput,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -18,22 +16,27 @@ import {
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import {
-  allValidationCliOptions,
   VALIDATION_EMPTY_CLI_OPERAND,
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation-contract";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
 const ESCAPING_PATH_OPERAND = "../outside.ts";
+const PACKAGED_CLI_DIRECTORY = "bin";
+const PACKAGED_CLI_FILENAME = "spx.js";
 const LITERAL_SKIP_SOURCE_SEGMENTS = ["src", "literal-skip.ts"] as const;
 const CIRCULAR_SKIP_A_SOURCE_SEGMENTS = ["src", "circular-skip-a.ts"] as const;
 const CIRCULAR_SKIP_B_SOURCE_SEGMENTS = ["src", "circular-skip-b.ts"] as const;
+const CIRCULAR_DEPENDENCY_DETAIL_A_TO_B = "src/a.ts → src/b.ts → src/a.ts";
+const CIRCULAR_DEPENDENCY_DETAIL_B_TO_A = "src/b.ts → src/a.ts → src/b.ts";
 const LITERAL_SKIP_TEST_SEGMENTS = [
   "spx",
   "21-literal-skip.enabler",
@@ -125,6 +128,7 @@ const EXCLUDED_SOURCE_DIRECTORY_NAME = "private";
 const EXCLUDED_SOURCE_FILE_NAME = "excluded.ts";
 const NARROWED_SOURCE_DIRECTORY_NAME = "generated";
 const NARROWED_SOURCE_FILE_NAME = "narrowed.ts";
+const FIXTURE_TEXT_ENCODING = "utf8";
 const OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME = "docs";
 const OUT_OF_SCOPE_MARKDOWN_FILE_NAME = "unformatted.md";
 const OUT_OF_SCOPE_MARKDOWN_CONTENT = "# Broken\n\n[missing](./missing.md)\n";
@@ -135,6 +139,16 @@ const OUTPUT_LINE_SEPARATOR = "\n";
 const VALIDATION_STEP_OUTCOME_PASS = "pass";
 const VALIDATION_STEP_OUTCOME_SKIP = "skip";
 const VALIDATION_STEP_OUTCOME_FAIL = "fail";
+const CIRCULAR_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
+const LITERAL_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
+
+function validationStageOverride(stageName: string): ValidationStageParticipationOverride {
+  const override = validationPipelineStages.find((stage) => stage.name === stageName)?.participation.override;
+  if (override === undefined) {
+    throw new Error(`Validation stage ${stageName} does not declare a full-pipeline override`);
+  }
+  return override;
+}
 
 export interface ValidationSubprocessScenario {
   readonly title: string;
@@ -226,13 +240,17 @@ export const VALIDATION_PIPELINE_DATA = {
   stageNames: VALIDATION_STAGE_DISPLAY_NAMES,
   exitCodes: VALIDATION_EXIT_CODES,
   summaryStatus: VALIDATION_SUMMARY_STATUS,
-  circularOutput: CIRCULAR_DEPENDENCY_OUTPUT,
-  circularSkipOutput: CIRCULAR_SKIP_OUTPUT,
-  circularSkipJsonOutput: CIRCULAR_SKIP_JSON_OUTPUT,
-  skipCircularFlag: allValidationCliOptions.skipCircular.flag,
-  literalSkipOutput: LITERAL_SKIP_OUTPUT,
-  literalSkipJsonOutput: LITERAL_SKIP_JSON_OUTPUT,
-  skipLiteralFlag: allValidationCliOptions.skipLiteral.flag,
+  circularOutput: {
+    ...CIRCULAR_DEPENDENCY_OUTPUT,
+    DETAIL_A_TO_B: CIRCULAR_DEPENDENCY_DETAIL_A_TO_B,
+    DETAIL_B_TO_A: CIRCULAR_DEPENDENCY_DETAIL_B_TO_A,
+  },
+  circularSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${CIRCULAR_OVERRIDE.flag})`,
+  circularSkipJsonOutput: formatValidationStageSkipJsonOutput(CIRCULAR_OVERRIDE.reason, 0),
+  skipCircularFlag: CIRCULAR_OVERRIDE.flag,
+  literalSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (${LITERAL_OVERRIDE.flag})`,
+  literalSkipJsonOutput: formatValidationStageSkipJsonOutput(LITERAL_OVERRIDE.reason, 0),
+  skipLiteralFlag: LITERAL_OVERRIDE.flag,
   quietFlag: "--quiet",
   jsonFlag: "--json",
   scopeFlag: "--scope",
@@ -296,6 +314,7 @@ export const VALIDATION_PIPELINE_DATA = {
   excludedSourceFileName: EXCLUDED_SOURCE_FILE_NAME,
   narrowedSourceDirectoryName: NARROWED_SOURCE_DIRECTORY_NAME,
   narrowedSourceFileName: NARROWED_SOURCE_FILE_NAME,
+  fixtureTextEncoding: FIXTURE_TEXT_ENCODING,
   outOfScopeMarkdownDirectoryName: OUT_OF_SCOPE_MARKDOWN_DIRECTORY_NAME,
   outOfScopeMarkdownFileName: OUT_OF_SCOPE_MARKDOWN_FILE_NAME,
   outOfScopeMarkdownContent: OUT_OF_SCOPE_MARKDOWN_CONTENT,
@@ -364,6 +383,10 @@ export function arbitrarySanitizationSensitiveInvalidLiteralProblemKind(): fc.Ar
 
 export function validationCliSuccessExitCodeUpperBound(): number {
   return validationCliDefinition.diagnostics.unknownSubcommand.exitCode;
+}
+
+export function validationCliPackagedExecutablePath(): string {
+  return resolve(CONFIG_PROCESS_CWD.read(), PACKAGED_CLI_DIRECTORY, PACKAGED_CLI_FILENAME);
 }
 
 export function validationLintSubprocessScenarios(): ValidationSubprocessScenario[] {

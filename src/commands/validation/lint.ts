@@ -9,7 +9,7 @@ import {
   type ValidationConfig,
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
-import { toProjectRelativeValidationPath, validationPathFilterForTool } from "@/validation/config/path-filter";
+import { toProductRelativeValidationPath, validationPathFilterForTool } from "@/validation/config/path-filter";
 import {
   EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND,
   filterExplicitTypeScriptScopeTargets,
@@ -18,6 +18,7 @@ import {
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -25,7 +26,21 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { LintCommandOptions, ValidationCommandResult } from "./types";
+import { type LintCommandOptions, streamedValidationTerminalOutput, type ValidationCommandResult } from "./types";
+
+export interface LintCommandDeps {
+  readonly detectTypeScript: typeof detectTypeScript;
+  readonly discoverTool: typeof discoverTool;
+  readonly resolveConfig: typeof resolveConfig;
+  readonly validateESLint: typeof validateESLint;
+}
+
+export const defaultLintCommandDeps: LintCommandDeps = {
+  detectTypeScript,
+  discoverTool,
+  resolveConfig,
+  validateESLint,
+};
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
@@ -33,20 +48,6 @@ const ESLINT_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: â
 const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
 );
-
-export interface LintCommandDependencies {
-  readonly detectTypeScript: typeof detectTypeScript;
-  readonly discoverTool: typeof discoverTool;
-  readonly resolveConfig: typeof resolveConfig;
-  readonly validateESLint: typeof validateESLint;
-}
-
-const defaultLintCommandDependencies: LintCommandDependencies = {
-  detectTypeScript,
-  discoverTool,
-  resolveConfig,
-  validateESLint,
-};
 
 /**
  * Run ESLint validation.
@@ -61,9 +62,9 @@ const defaultLintCommandDependencies: LintCommandDependencies = {
  */
 export async function lintCommand(
   options: LintCommandOptions,
-  deps: LintCommandDependencies = defaultLintCommandDependencies,
+  deps: LintCommandDeps = defaultLintCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, scope = "full", files, fix, outputStreams, quiet } = options;
+  const { cwd, scope = "full", files, fix, json, outputStreams, quiet, streamedPipelineOutput } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -104,7 +105,7 @@ export async function lintCommand(
   );
   const explicitMode = files !== undefined && files.length > 0;
   const scopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter,
@@ -114,14 +115,14 @@ export async function lintCommand(
   const explicitTargets = explicitMode
     ? filterExplicitTypeScriptScopeTargets({
       paths: files,
-      projectRoot: cwd,
+      productDir: cwd,
       validationPathFilter,
       scopeConfig: getTypeScriptScope(scope, cwd),
       bypassValidationPathFilter: true,
     })
     : undefined;
   const validatedFiles = explicitTargets?.every((target) => target.kind === EXPLICIT_TYPESCRIPT_SCOPE_TARGET_KIND.FILE)
-    ? explicitTargets.map((target) => formatLintValidationOperand(toProjectRelativeValidationPath(cwd, target.path)))
+    ? explicitTargets.map((target) => formatLintValidationOperand(toProductRelativeValidationPath(cwd, target.path)))
     : undefined;
 
   if (scopeConfig.filteredByValidationPathNoMatches) {
@@ -133,7 +134,7 @@ export async function lintCommand(
   }
 
   // Gate 3: tool discovery â€” ensure ESLint itself is available somewhere.
-  const toolResult = await deps.discoverTool("eslint", { projectRoot: cwd });
+  const toolResult = await deps.discoverTool("eslint", { productDir: cwd, includeBundled: false });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -141,7 +142,7 @@ export async function lintCommand(
 
   // Build validation context
   const context: ValidationContext = {
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     scopeConfig,
     mode: fix ? "write" : "read",
@@ -150,13 +151,18 @@ export async function lintCommand(
     validatedFileIgnorePatterns: undefined,
     isFileSpecificMode: Boolean(validatedFiles && validatedFiles.length > 0),
     eslintConfigFile,
+    toolPath: toolResult.location.path,
   };
 
   // Run ESLint validation
-  const result = await deps.validateESLint(context, undefined, outputStreams);
+  const result = await deps.validateESLint(
+    context,
+    undefined,
+    outputStreams ?? discardValidationSubprocessOutputStreams,
+  );
   const durationMs = Date.now() - startTime;
 
-  return formatLintResult(result, quiet, durationMs);
+  return formatLintResult(result, quiet, durationMs, json, streamedPipelineOutput);
 }
 
 function formatLintValidationOperand(path: string): string {
@@ -167,15 +173,26 @@ function formatLintResult(
   result: Awaited<ReturnType<typeof validateESLint>>,
   quiet: boolean | undefined,
   durationMs: number,
+  json: boolean | undefined,
+  streamedPipelineOutput: boolean | undefined,
 ): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE;
     return { exitCode: 0, output, durationMs };
   }
   if (result.success) {
-    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS;
-    return { exitCode: 0, output, durationMs };
+    const output = quiet
+      ? ""
+      : [VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS, result.output].filter((line) =>
+        line !== undefined && line.length > 0
+      )
+        .join("\n");
+    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+    return { exitCode: 0, output, terminalOutput, durationMs };
   }
-  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
-  return { exitCode: 1, output, durationMs };
+  const output = [result.output, result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE]
+    .filter((line) => line !== undefined && line.length > 0)
+    .join("\n");
+  const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+  return { exitCode: 1, output, terminalOutput, durationMs };
 }

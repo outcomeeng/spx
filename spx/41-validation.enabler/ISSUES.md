@@ -25,29 +25,6 @@ validation migration notice.
 
 ---
 
-## Validation CLI output stream alignment
-
-The review on
-[`outcomeeng/spx#200`](https://github.com/outcomeeng/spx/pull/200#issuecomment-4751202797)
-identified that `src/interfaces/cli/validation.ts` writes validation command
-output with `console.log(result.output)` for all exit codes, while the audit CLI
-routes non-zero command output to stderr.
-
-**Impact:** CLI domains have inconsistent output-stream contracts for failures.
-The audit behavior follows the Unix convention: command errors go to stderr.
-
-**Tracking classification:** Follow-up from PR review on June 19, 2026.
-
-**Revisit condition:** Resolve when changing validation CLI rendering, output
-stream routing, or the validation command result interface; align validation
-failure output with the audit CLI stderr-for-errors behavior.
-
-**Skills:** `spec-tree:contextualize`, `spec-tree:apply`,
-`typescript:test-typescript`, `typescript:code-typescript`,
-`typescript:audit-typescript-tests`, and `typescript:audit-typescript`.
-
----
-
 ## Lint path scopes lack TypeScript-scope intersection
 
 The review on `outcomeeng/spx#211` identified that `circularCommand` and

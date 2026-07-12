@@ -26,10 +26,8 @@ export { lintCommand } from "./lint";
 export { literalCommand } from "./literal";
 export { markdownCommand } from "./markdown";
 export {
-  CIRCULAR_SKIP_JSON_OUTPUT,
-  CIRCULAR_SKIP_OUTPUT,
-  LITERAL_SKIP_JSON_OUTPUT,
-  LITERAL_SKIP_OUTPUT,
+  formatValidationStageSkipJsonOutput,
+  formatValidationStageSkipOutput,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_SKIP_LABELS,

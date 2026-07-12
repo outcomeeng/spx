@@ -12,7 +12,7 @@ import {
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
-import { validateKnip } from "@/validation/steps/knip";
+import { KNIP_COMMAND_TOKENS, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -33,8 +33,11 @@ export const defaultKnipCommandDeps: KnipCommandDeps = {
   discoverTool,
   validateKnip,
 };
-const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP);
+export const KNIP_VALIDATION_STEP_NAME = "unused code detection";
 const KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+);
+const KNIP_TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
 );
 
@@ -54,7 +57,7 @@ export async function knipCommand(
   if (!deps.detectTypeScript(cwd).present) {
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      output: quiet ? "" : KNIP_TYPESCRIPT_ABSENT_MESSAGE,
       durationMs: Date.now() - startTime,
     };
   }
@@ -75,14 +78,17 @@ export async function knipCommand(
   }
 
   // Discover knip
-  const toolResult = await deps.discoverTool("knip", { projectRoot: cwd });
+  const toolResult = await deps.discoverTool(KNIP_COMMAND_TOKENS.COMMAND, {
+    productDir: cwd,
+    includeBundled: false,
+  });
   if (!toolResult.found) {
-    const skipMessage = formatSkipMessage("unused code detection", toolResult);
+    const skipMessage = formatSkipMessage(KNIP_VALIDATION_STEP_NAME, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
   const scopeConfig = resolveTypeScriptValidationScope({
-    projectRoot: cwd,
+    productDir: cwd,
     scope,
     paths: files,
     validationPathFilter: validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP),
@@ -98,7 +104,11 @@ export async function knipCommand(
   }
 
   // Run knip validation
-  const result = await deps.validateKnip({ projectRoot: cwd, typescriptScope: scopeConfig });
+  const result = await deps.validateKnip({
+    productDir: cwd,
+    typescriptScope: scopeConfig,
+    toolPath: toolResult.location.path,
+  });
   const durationMs = Date.now() - startTime;
 
   // Map result to command output

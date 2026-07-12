@@ -23,6 +23,8 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - For every code point in `[0x00, 0x1F] ∪ {0x7F}`, the sanitizer maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
 - For every code point in `[0x00, 0x1F] ∪ {0x7F}`, `escapeCliArgument` maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
 - The lifecycle signal-to-exit-code mapping is: SIGINT → 130, SIGTERM → 143, EPIPE on stdout → 0, uncaught exception → 1 ([test](tests/lifecycle.mapping.l1.test.ts))
+- Every production validation-step `ProcessRunner` default maps to the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.mapping.l1.test.ts))
+- Asynchronous `child_process.spawn` imports outside `src/lib/process-lifecycle/` map to an AST-enforcement violation; synchronous `execSync` and `spawnSync` imports map to no violation ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))
 
 ### Properties
 
@@ -40,11 +42,4 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 
 - ALWAYS: development scripts invoke `tsx src/cli.ts`; publish scripts invoke `node bin/spx.js` only after `pnpm run build` produces `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
-- ALWAYS: `installLifecycle()` is the first call executed in `src/cli.ts` before any domain registration ([audit])
-- ALWAYS: every production async `ProcessRunner` default in the validation steps points at the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.compliance.l1.test.ts))
-- ALWAYS: managed long-running subprocesses use the process-lifecycle helper that owns parent-piped stdio rather than setting stdio at the domain call site ([test](tests/lifecycle.compliance.l1.test.ts))
-- ALWAYS: the foreground exec-handoff runner spawns its child through the lifecycle module's `spawn` with inherited stdio and leaves the lifecycle registry untouched, so a terminal-owning child is neither tracked nor killed by the parent's signal cleanup ([audit])
-- ALWAYS: a foreground exec-handoff ignores SIGINT and SIGTERM on the parent for the child's lifetime, then restores the parent's signal handling and exits with the child's status ([audit])
-- NEVER: pass raw user-supplied strings to `console.error`, `process.stderr.write`, or shell execution paths without `sanitizeCliArgument` in the chain ([audit])
-- NEVER: the packaged executable imports `src/cli.ts` when built output is absent; it exits with a build-required diagnostic instead ([audit])
-- NEVER: import `child_process.spawn` for asynchronous child processes outside `src/lib/process-lifecycle/`; synchronous `execSync`/`spawnSync` are exempt because they self-reap before parent exit ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))
+- ALWAYS: managed long-running subprocesses expose parent-piped stdout and stderr to their parent output adapters ([test](tests/lifecycle.compliance.l1.test.ts))

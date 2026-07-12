@@ -2,7 +2,7 @@
  * Tool discovery for validation infrastructure.
  *
  * Discovers validation tools (eslint, tsc, dependency-cruiser, etc.) using a
- * three-tier priority system: bundled → project → global.
+ * an explicit priority over bundled, product-local, and global executables.
  *
  * @module validation/discovery/tool-finder
  */
@@ -45,6 +45,13 @@ export interface ToolNotFound {
 export type ToolDiscoveryResult =
   | { found: true; location: ToolLocation }
   | { found: false; notFound: ToolNotFound };
+
+export const TOOL_DISCOVERY_PRIORITY = {
+  BUNDLED_FIRST: "bundled-first",
+  PRODUCT_FIRST: "product-first",
+} as const;
+
+export type ToolDiscoveryPriority = (typeof TOOL_DISCOVERY_PRIORITY)[keyof typeof TOOL_DISCOVERY_PRIORITY];
 
 /**
  * Dependencies for tool discovery.
@@ -143,10 +150,22 @@ function bundledToolPath(resolvedPath: string, existsSync: (path: string) => boo
  */
 export interface DiscoverToolOptions {
   /**
-   * Project root directory for checking project-local node_modules.
+   * Product directory for checking product-local node_modules.
    * Defaults to current working directory.
    */
-  projectRoot?: string;
+  productDir?: string;
+
+  /** Executable name used for product-local and global lookup. */
+  executableName?: string;
+
+  /** Exact package subpath for an executable shipped with spx. */
+  bundledExecutable?: string;
+
+  /** Whether the package installed with spx may satisfy discovery. */
+  includeBundled?: boolean;
+
+  /** Whether a bundled executable or the product-local executable wins. */
+  priority?: ToolDiscoveryPriority;
 
   /**
    * Dependencies for tool discovery.
@@ -156,15 +175,14 @@ export interface DiscoverToolOptions {
 }
 
 /**
- * Discover a validation tool using three-tier priority.
+ * Discover a validation tool using the requested priority.
  *
- * Discovery order:
- * 1. **Bundled**: Check if the tool is bundled with spx-cli via require.resolve
- * 2. **Project**: Check project's node_modules/.bin directory
- * 3. **Global**: Check system PATH via `which` command
+ * Bundled-first discovery checks the package shipped with spx, then the
+ * product-local executable, then PATH. Product-first discovery checks the
+ * product-local executable before using the packaged executable as fallback.
  *
  * @param tool - The tool name to discover (e.g., "eslint", "typescript", "dependency-cruiser")
- * @param options - Discovery options including projectRoot and dependencies
+ * @param options - Discovery options including productDir and dependencies
  * @returns Discovery result with found location or not found reason
  *
  * @example
@@ -182,36 +200,56 @@ export async function discoverTool(
   tool: string,
   options: DiscoverToolOptions = {},
 ): Promise<ToolDiscoveryResult> {
-  const { projectRoot = CONFIG_PROCESS_CWD.read(), deps = defaultToolDiscoveryDeps } = options;
+  const {
+    productDir = CONFIG_PROCESS_CWD.read(),
+    executableName = tool,
+    bundledExecutable,
+    includeBundled = true,
+    priority = TOOL_DISCOVERY_PRIORITY.BUNDLED_FIRST,
+    deps = defaultToolDiscoveryDeps,
+  } = options;
 
-  // Tier 1: Check if bundled with spx-cli
-  const bundledPath = deps.resolveModule(`${tool}/package.json`) ?? deps.resolveImport?.(tool);
+  const productBinPath = path.join(productDir, "node_modules", ".bin", executableName);
+  const productLocation = (): ToolDiscoveryResult | null =>
+    deps.existsSync(productBinPath)
+      ? {
+        found: true,
+        location: {
+          tool,
+          path: productBinPath,
+          source: TOOL_DISCOVERY.SOURCES.PROJECT,
+        },
+      }
+      : null;
+
+  if (priority === TOOL_DISCOVERY_PRIORITY.PRODUCT_FIRST) {
+    const productResult = productLocation();
+    if (productResult !== null) return productResult;
+  }
+
+  const bundledSpecifier = bundledExecutable ?? `${tool}/package.json`;
+  const bundledPath = includeBundled
+    ? deps.resolveModule(bundledSpecifier) ?? deps.resolveImport?.(bundledExecutable ?? tool)
+    : null;
   if (bundledPath) {
     return {
       found: true,
       location: {
         tool,
-        path: bundledToolPath(bundledPath, deps.existsSync),
+        path: bundledExecutable === undefined
+          ? bundledToolPath(bundledPath, deps.existsSync)
+          : resolvedModulePath(bundledPath),
         source: TOOL_DISCOVERY.SOURCES.BUNDLED,
       },
     };
   }
 
-  // Tier 2: Check project's node_modules/.bin
-  const projectBinPath = path.join(projectRoot, "node_modules", ".bin", tool);
-  if (deps.existsSync(projectBinPath)) {
-    return {
-      found: true,
-      location: {
-        tool,
-        path: projectBinPath,
-        source: TOOL_DISCOVERY.SOURCES.PROJECT,
-      },
-    };
+  if (priority === TOOL_DISCOVERY_PRIORITY.BUNDLED_FIRST) {
+    const productResult = productLocation();
+    if (productResult !== null) return productResult;
   }
 
-  // Tier 3: Check system PATH
-  const globalPath = deps.whichSync(tool);
+  const globalPath = deps.whichSync(executableName);
   if (globalPath) {
     return {
       found: true,

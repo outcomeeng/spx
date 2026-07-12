@@ -4,13 +4,13 @@ import { fileURLToPath } from "node:url";
 
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
-import { FIXTURES_PATH } from "../fixtures";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 /** Project root resolved from this helper's location */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
+const FIXTURES_PATH = resolve(__dirname, "../fixtures");
 
 /**
  * Fixture project constants for validation tests.
@@ -69,7 +69,7 @@ export interface TestEnvOptions {
  * @example
  * ```typescript
  * await withTestEnv({ fixture: FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
- *   const result = await validateTypeScript({ scope: "full", projectRoot: path });
+ *   const result = await validateTypeScript({ scope: "full", productDir: path });
  *   expect(result.success).toBe(false);
  * });
  * ```

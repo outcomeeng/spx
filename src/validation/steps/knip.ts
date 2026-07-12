@@ -32,6 +32,7 @@ export const KNIP_COMMAND_TOKENS = {
   TSCONFIG_FLAG: "--tsConfig",
   USE_TSCONFIG_FILES_FLAG: "--use-tsconfig-files",
 } as const;
+export const KNIP_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", KNIP_COMMAND_TOKENS.COMMAND] as const;
 
 export interface KnipDeps {
   readonly existsSync: typeof existsSync;
@@ -50,8 +51,9 @@ const defaultKnipDeps: KnipDeps = {
 };
 
 export interface KnipValidationContext {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly typescriptScope: ScopeConfig;
+  readonly toolPath?: string;
 }
 
 // =============================================================================
@@ -67,7 +69,7 @@ export interface KnipValidationContext {
  *
  * @example
  * ```typescript
- * const result = await validateKnip({ projectRoot, typescriptScope: scopeConfig });
+ * const result = await validateKnip({ productDir, typescriptScope: scopeConfig });
  * if (!result.success) {
  *   console.error("Knip found issues:", result.error);
  * }
@@ -82,7 +84,7 @@ export async function validateKnip(
   error?: string;
 }> {
   try {
-    const { projectRoot, typescriptScope } = context;
+    const { productDir, typescriptScope, toolPath } = context;
     // Use TypeScript-derived directories for perfect scope alignment
     const analyzeTargets = [
       ...typescriptScope.directories,
@@ -93,7 +95,7 @@ export async function validateKnip(
       return { success: true };
     }
 
-    return await runKnipSubprocess(projectRoot, typescriptScope, runner, deps);
+    return await runKnipSubprocess(productDir, typescriptScope, runner, deps, toolPath);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
@@ -101,16 +103,17 @@ export async function validateKnip(
 }
 
 async function runKnipSubprocess(
-  projectRoot: string,
+  productDir: string,
   typescriptScope: ScopeConfig,
   runner: ProcessRunner,
   deps: KnipDeps,
+  toolPath?: string,
 ): Promise<{ success: boolean; error?: string }> {
   const scopedTsconfig = typescriptScope.filteredByValidationPaths
-    ? await createScopedKnipTsconfig(projectRoot, typescriptScope, deps)
+    ? await createScopedKnipTsconfig(productDir, typescriptScope, deps)
     : undefined;
-  const localBin = join(projectRoot, "node_modules", ".bin", "knip");
-  const binary = deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND;
+  const localBin = join(productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
+  const binary = toolPath ?? (deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND);
   const baseArgs = scopedTsconfig === undefined
     ? []
     : [
@@ -120,7 +123,7 @@ async function runKnipSubprocess(
     ];
   const args = binary === KNIP_COMMAND_TOKENS.NPX_COMMAND ? [KNIP_COMMAND_TOKENS.COMMAND, ...baseArgs] : baseArgs;
   const knipProcess = spawnManagedSubprocess(runner, binary, args, {
-    cwd: projectRoot,
+    cwd: productDir,
   });
   const cleanup = scopedTsconfig?.cleanup ?? (async () => {});
   let cleanupStarted = false;
@@ -173,15 +176,15 @@ async function runKnipSubprocess(
 }
 
 async function createScopedKnipTsconfig(
-  projectRoot: string,
+  productDir: string,
   typescriptScope: ScopeConfig,
   deps: KnipDeps,
 ): Promise<{ configPath: string; cleanup: () => Promise<void> }> {
-  const tempParentDir = join(projectRoot, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
+  const tempParentDir = join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
   await deps.mkdir(tempParentDir, { recursive: true });
   const tempDir = await deps.mkdtemp(join(tempParentDir, "validate-knip-"));
   const configPath = join(tempDir, TSCONFIG_FILES.full);
-  const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(projectRoot, pattern);
+  const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(productDir, pattern);
   const project = [
     ...typescriptScope.directories.flatMap((directory) =>
       TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => `${directory}/${pattern}`)
@@ -189,7 +192,7 @@ async function createScopedKnipTsconfig(
     ...typescriptScope.filePatterns,
   ];
   const config = {
-    extends: join(projectRoot, TSCONFIG_FILES.full),
+    extends: join(productDir, TSCONFIG_FILES.full),
     include: project.map(toProjectPathPattern),
     exclude: typescriptScope.excludePatterns.map(toProjectPathPattern),
   };

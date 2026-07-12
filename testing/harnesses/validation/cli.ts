@@ -7,13 +7,16 @@ import { expect } from "vitest";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
-import { createValidationDomain, type ValidationCliDependencies, validationDomain } from "@/interfaces/cli/validation";
+import { createValidationDomain, type ValidationCommandHandlers, validationDomain } from "@/interfaces/cli/validation";
 import {
   VALIDATION_EMPTY_CLI_OPERAND,
   VALIDATION_OPTION_OPERAND_SEPARATOR,
   validationCliDefinition,
+  validationCommonCliOptions,
 } from "@/interfaces/cli/validation-contract";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { VALIDATION_SCOPES } from "@/validation/types";
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   VALIDATION_SUBPROCESS_SCENARIO_KIND,
   type ValidationSubprocessScenario,
@@ -125,22 +128,22 @@ export function withIsolatedPackagedValidationCli(
 ): Promise<void> {
   return withTempDir(VALIDATION_CLI_TEMP_PREFIX, async (packageRoot) => {
     const sourceExecutablePath = packagedValidationCliPath();
-    const sourceProductRoot = dirname(dirname(sourceExecutablePath));
+    const sourceProductDir = dirname(dirname(sourceExecutablePath));
     const binDirectory = join(packageRoot, PACKAGED_BIN_DIRECTORY);
     const executablePath = join(binDirectory, basename(sourceExecutablePath));
     await mkdir(binDirectory, { recursive: true });
     await cp(sourceExecutablePath, executablePath);
     await cp(
-      join(sourceProductRoot, PACKAGED_DIST_DIRECTORY),
+      join(sourceProductDir, PACKAGED_DIST_DIRECTORY),
       join(packageRoot, PACKAGED_DIST_DIRECTORY),
       { recursive: true },
     );
     await cp(
-      join(sourceProductRoot, PACKAGE_MANIFEST_FILENAME),
+      join(sourceProductDir, PACKAGE_MANIFEST_FILENAME),
       join(packageRoot, PACKAGE_MANIFEST_FILENAME),
     );
     await symlink(
-      join(sourceProductRoot, PACKAGE_DEPENDENCIES_DIRECTORY),
+      join(sourceProductDir, PACKAGE_DEPENDENCIES_DIRECTORY),
       join(packageRoot, PACKAGE_DEPENDENCIES_DIRECTORY),
       "dir",
     );
@@ -202,7 +205,7 @@ export async function runValidationInProcess(
 }
 
 export function withEmptyValidationProject(
-  testFn: (projectRoot: string) => Promise<void>,
+  testFn: (productDir: string) => Promise<void>,
 ): Promise<void> {
   return withTempDir(VALIDATION_CLI_TEMP_PREFIX, testFn);
 }
@@ -255,18 +258,59 @@ export function createRecordingValidationDomain(exitCode: number): RecordingVali
     calls.push({ commandName, options });
     return Promise.resolve({ exitCode, output: "", durationMs: 0 });
   };
-  const dependencies: ValidationCliDependencies = {
-    allCommand: (options) => record(validationCliDefinition.subcommands.all.commandName, { ...options }),
-    allowlistExisting: (options) => record(validationCliDefinition.subcommands.literal.commandName, { ...options }),
-    circularCommand: (options) => record(validationCliDefinition.subcommands.circular.commandName, { ...options }),
-    formattingCommand: (options) => record(validationCliDefinition.subcommands.format.commandName, { ...options }),
-    knipCommand: (options) => record(validationCliDefinition.subcommands.knip.commandName, { ...options }),
-    lintCommand: (options) => record(validationCliDefinition.subcommands.lint.commandName, { ...options }),
-    literalCommand: (options) => record(validationCliDefinition.subcommands.literal.commandName, { ...options }),
-    markdownCommand: (options) => record(validationCliDefinition.subcommands.markdown.commandName, { ...options }),
-    typescriptCommand: (options) => record(validationCliDefinition.subcommands.typescript.commandName, { ...options }),
+  const commandHandlers: ValidationCommandHandlers = {
+    all: (options) => record(validationCliDefinition.subcommands.all.commandName, { ...options }),
+    circular: (options) => record(validationCliDefinition.subcommands.circular.commandName, { ...options }),
+    format: (options) => record(validationCliDefinition.subcommands.format.commandName, { ...options }),
+    knip: (options) => record(validationCliDefinition.subcommands.knip.commandName, { ...options }),
+    lint: (options) => record(validationCliDefinition.subcommands.lint.commandName, { ...options }),
+    literal: (options) => record(validationCliDefinition.subcommands.literal.commandName, { ...options }),
+    markdown: (options) => record(validationCliDefinition.subcommands.markdown.commandName, { ...options }),
+    typescript: (options) => record(validationCliDefinition.subcommands.typescript.commandName, { ...options }),
   };
-  return { calls, domain: createValidationDomain(dependencies) };
+  return {
+    calls,
+    domain: createValidationDomain({
+      commandHandlers,
+      allowlistExisting: (options) => record(validationCliDefinition.subcommands.literal.commandName, { ...options }),
+    }),
+  };
+}
+
+export async function expectValidationAllForwardsProductionScope(): Promise<void> {
+  await withEmptyValidationProject(async (productDir) => {
+    const recorder = createRecordingValidationDomain(0);
+    const result = await runValidationInProcess([
+      validationCliDefinition.subcommands.all.commandName,
+      validationCommonCliOptions.scope.flag,
+      VALIDATION_SCOPES.PRODUCTION,
+    ], { domain: recorder.domain, processCwd: () => productDir });
+    expect(result.exitCode).toBe(0);
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.PRODUCTION);
+  });
+}
+
+export async function expectValidationAllForwardsFileScope(): Promise<void> {
+  await expectValidationAllForwardsPath(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+}
+
+export async function expectValidationAllForwardsDirectoryScope(): Promise<void> {
+  await expectValidationAllForwardsPath(dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath())));
+}
+
+async function expectValidationAllForwardsPath(path: string): Promise<void> {
+  await withEmptyValidationProject(async (productDir) => {
+    const recorder = createRecordingValidationDomain(0);
+    const result = await runValidationInProcess(
+      [validationCliDefinition.subcommands.all.commandName, path],
+      { domain: recorder.domain, processCwd: () => productDir },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(recorder.calls).toHaveLength(1);
+    expect(recorder.calls[0]?.options.files).toEqual([path]);
+    expect(recorder.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.FULL);
+  });
 }
 
 export function expectValidationSubprocessResult(

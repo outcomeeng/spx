@@ -22,13 +22,12 @@ import {
 } from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
+import { buildEslintArgs, validateESLint } from "@/validation/steps/eslint";
 import {
-  buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
   ESLINT_COMMAND_TOKENS,
   ESLINT_LOCAL_BIN_SEGMENTS,
-  validateESLint,
-} from "@/validation/steps/eslint";
+} from "@/validation/steps/eslint-contract";
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -68,7 +67,7 @@ class OutputRunner implements ProcessRunner {
 
 function createValidationContext(): ValidationContext {
   return {
-    projectRoot: process.cwd(),
+    productDir: process.cwd(),
     scope: VALIDATION_SCOPES.FULL,
     scopeConfig: {
       directories: [],
@@ -211,7 +210,7 @@ describe("ESLint command arguments", () => {
         JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
       );
       await env.writeRaw("eslint.config.ts", "export default [];\n");
-      await env.writeRaw("src/index.ts", "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw("src/index.ts", "export const lintCommandProductDir = 1;\n");
       await env.writeRaw(join(...ESLINT_LOCAL_BIN_SEGMENTS), "#!/bin/sh\npwd > eslint-cwd.txt\nexit 0\n");
       await chmod(join(env.productDir, ...ESLINT_LOCAL_BIN_SEGMENTS), 0o755);
 
@@ -233,7 +232,7 @@ describe("ESLint command arguments", () => {
         }),
       );
       await env.writeRaw("eslint.config.ts", "export default [];\n");
-      await env.writeRaw("src/index.ts", "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw("src/index.ts", "export const lintCommandProductDir = 1;\n");
       await env.writeRaw(
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
@@ -268,7 +267,7 @@ describe("ESLint command arguments", () => {
       );
       await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
       await env.writeRaw(ESLINT_PRODUCTION_CONFIG_FILES[0], "export default [];\n");
-      await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
       await env.writeRaw(
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
@@ -298,7 +297,7 @@ describe("ESLint command arguments", () => {
         }),
       );
       await env.writeRaw(ESLINT_PRODUCTION_CONFIG_FILES[0], "export default [];\n");
-      await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+      await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
       await env.writeRaw(
         join(...ESLINT_LOCAL_BIN_SEGMENTS),
         "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",
@@ -336,7 +335,7 @@ describe("ESLint command arguments", () => {
           }),
         );
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
-        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
@@ -380,7 +379,7 @@ describe("ESLint command arguments", () => {
           }),
         );
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
-        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
@@ -416,7 +415,7 @@ describe("ESLint command arguments", () => {
           }),
         );
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
-        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
@@ -457,7 +456,7 @@ describe("ESLint command arguments", () => {
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
         await env.writeRaw(
           join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
-          "export const lintCommandProjectRoot = 1;\n",
+          "export const lintCommandProductDir = 1;\n",
         );
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
@@ -505,7 +504,7 @@ describe("ESLint command arguments", () => {
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
         await env.writeRaw(
           join(VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.cleanSourceFileName),
-          "export const lintCommandProjectRoot = 1;\n",
+          "export const lintCommandProductDir = 1;\n",
         );
         await env.writeRaw(
           join(
@@ -552,7 +551,7 @@ describe("ESLint command arguments", () => {
           JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
         );
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
-        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
           "#!/bin/sh\nprintf '%s\\n' \"$@\" > eslint-args.txt\nexit 0\n",

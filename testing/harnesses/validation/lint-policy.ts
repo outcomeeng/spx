@@ -9,7 +9,8 @@ import { resolveConfig } from "@/config";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateLintPolicy } from "@/validation/lint-policy";
-import { DEFAULT_ESLINT_CONFIG_FILE, validateESLint } from "@/validation/steps/eslint";
+import { validateESLint } from "@/validation/steps/eslint";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 import {
   VALIDATION_LINT_POLICY_DATA,
   VALIDATION_LINT_POLICY_SCENARIO_KIND,

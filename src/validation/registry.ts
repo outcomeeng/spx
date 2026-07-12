@@ -12,8 +12,14 @@ import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import type { ValidationLanguageDescriptor, ValidationRegistry, ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 
+export const VALIDATION_REGISTRY_LANGUAGES = [
+  typescriptValidationLanguage,
+  markdownValidationLanguage,
+  formattingValidationLanguage,
+] as const satisfies readonly ValidationLanguageDescriptor[];
+
 export const validationRegistry: ValidationRegistry = {
-  languages: [typescriptValidationLanguage, markdownValidationLanguage, formattingValidationLanguage],
+  languages: VALIDATION_REGISTRY_LANGUAGES,
 };
 
 /** Flatten a language set into its ordered pipeline stages. */

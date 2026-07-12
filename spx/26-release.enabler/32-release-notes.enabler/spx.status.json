@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.compliance.l1.test.ts": "passed",
-      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.conformance.l1.test.ts": "passed",
-      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.scenario.l1.test.ts": "passed"
+      "overall": "not-run",
+      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.compliance.l1.test.ts": "not-run",
+      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.conformance.l1.test.ts": "not-run",
+      "spx/26-release.enabler/32-release-notes.enabler/tests/release-notes.scenario.l1.test.ts": "not-run"
     }
   }
 }
