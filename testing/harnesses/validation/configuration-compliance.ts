@@ -1,7 +1,7 @@
-import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
+import { knipCommand } from "@/commands/validation/knip";
 import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
@@ -9,6 +9,7 @@ import { resolveConfig } from "@/config/index";
 import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
+  VALIDATION_KNIP_SUBSECTION,
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -24,10 +25,16 @@ import {
   sampleDistinctDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
+import {
+  arbitraryExplicitMarkdownOperandScenario,
+  EXPLICIT_MARKDOWN_OPERAND_KIND,
+  type ExplicitMarkdownOperandKind,
+  MARKDOWN_VALIDATION_DATA,
+} from "@testing/generators/validation/markdown";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
+import { createRecordingKnipCommandDeps } from "@testing/harnesses/validation/knip-support";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
 
@@ -60,25 +67,11 @@ async function writeDefaultMarkdownPair(
 }
 
 async function runExplicitMarkdownOperandBypassingExclude(
-  directoryOperand: boolean,
+  kind: ExplicitMarkdownOperandKind,
 ): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
-  const [excludedDirectoryName, childDirectoryName, markdownFileStem] = sampleDistinctDomainLiterals(3);
-  const excludedDirectory = posix.join(
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    excludedDirectoryName,
+  const { excludedDirectory, markdownPath, operand } = sampleLiteralTestValue(
+    arbitraryExplicitMarkdownOperandScenario(kind),
   );
-  const operand = directoryOperand
-    ? posix.join(excludedDirectory, childDirectoryName)
-    : posix.join(
-      excludedDirectory,
-      `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-    );
-  const markdownPath = directoryOperand
-    ? posix.join(
-      operand,
-      `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-    )
-    : operand;
 
   return await withLiteralFixtureEnv(
     markdownValidationPathsConfig({ exclude: [excludedDirectory] }),
@@ -138,6 +131,27 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
       expect(result.exitCode).toBe(0);
       expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
     });
+  });
+
+  it("skips KNIP participation when resolved validation config disables it", async () => {
+    await withLiteralFixtureEnv(
+      validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
+      async (env) => {
+        const validationCalls: Parameters<
+          typeof createRecordingKnipCommandDeps
+        >[1] = [];
+        await env.writeTsConfigMarker();
+
+        const result = await knipCommand(
+          { cwd: env.productDir },
+          createRecordingKnipCommandDeps(env.productDir, validationCalls),
+        );
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
+        expect(validationCalls).toEqual([]);
+      },
+    );
   });
 
   it("threads aggregate validation file scope to the knip stage", async () => {
@@ -379,14 +393,18 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
   });
 
   it("does not erase explicit markdown child directories below excluded ancestors", async () => {
-    const result = await runExplicitMarkdownOperandBypassingExclude(true);
+    const result = await runExplicitMarkdownOperandBypassingExclude(
+      EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY,
+    );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
     expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
   });
 
   it("preserves explicit markdown file operands through markdown validation excludes", async () => {
-    const result = await runExplicitMarkdownOperandBypassingExclude(false);
+    const result = await runExplicitMarkdownOperandBypassingExclude(
+      EXPLICIT_MARKDOWN_OPERAND_KIND.FILE,
+    );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
     expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);

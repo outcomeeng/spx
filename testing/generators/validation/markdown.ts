@@ -1,4 +1,13 @@
-import { MARKDOWN_VALIDATION_TARGET_KIND, type MarkdownValidationTarget } from "@/validation/steps/markdown";
+import * as fc from "fast-check";
+import { posix } from "node:path";
+
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import {
+  MARKDOWN_PRIMARY_FILE_EXTENSION,
+  MARKDOWN_VALIDATION_TARGET_KIND,
+  type MarkdownValidationTarget,
+} from "@/validation/steps/markdown";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 const SPX_DIRECTORY_NAME = "spx";
 const DOCS_DIRECTORY_NAME = "docs";
@@ -41,6 +50,50 @@ const EXPECTED_ZERO = 0;
 const EXPECTED_ONE = 1;
 const EXPECTED_TWO = 2;
 const EXPECTED_THREE = 3;
+
+export const EXPLICIT_MARKDOWN_OPERAND_KIND = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
+
+export type ExplicitMarkdownOperandKind =
+  (typeof EXPLICIT_MARKDOWN_OPERAND_KIND)[keyof typeof EXPLICIT_MARKDOWN_OPERAND_KIND];
+
+export interface ExplicitMarkdownOperandScenario {
+  readonly excludedDirectory: string;
+  readonly operand: string;
+  readonly markdownPath: string;
+}
+
+export function arbitraryExplicitMarkdownOperandScenario(
+  kind: ExplicitMarkdownOperandKind,
+): fc.Arbitrary<ExplicitMarkdownOperandScenario> {
+  return fc
+    .tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral(), arbitraryDomainLiteral())
+    .filter((segments) => new Set(segments).size === segments.length)
+    .map(([excludedDirectoryName, childDirectoryName, markdownFileStem]) => {
+      const excludedDirectory = posix.join(
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        excludedDirectoryName,
+      );
+      const operand = kind === EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY
+        ? posix.join(excludedDirectory, childDirectoryName)
+        : posix.join(
+          excludedDirectory,
+          `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+        );
+      return {
+        excludedDirectory,
+        operand,
+        markdownPath: kind === EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY
+          ? posix.join(
+            operand,
+            `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+          )
+          : operand,
+      };
+    });
+}
 
 export const MARKDOWN_SCENARIO_KIND = {
   CLEAN_TREE: "cleanTree",
