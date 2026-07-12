@@ -8,8 +8,8 @@ import type { ParsedCommandLine } from "typescript";
 
 import { circularCommand, type CircularCommandDeps } from "@/commands/validation/circular";
 import {
+  formatExplicitPathsNoTargetsSkipMessage,
   formatTypeScriptAbsentSkipMessage,
-  formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -970,7 +970,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1308,7 +1308,7 @@ export function registerCircularDependencyScenarios(): void {
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
       });
     });
 
@@ -1336,7 +1336,7 @@ export function registerCircularDependencyScenarios(): void {
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
       });
     });
 
@@ -1374,7 +1374,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1553,7 +1553,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1644,7 +1644,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1717,7 +1717,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1739,7 +1739,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1761,7 +1761,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1786,7 +1786,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1811,7 +1811,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1830,7 +1830,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1854,7 +1854,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });
@@ -1919,7 +1919,7 @@ export function registerCircularDependencyScenarios(): void {
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+        expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
         expect(validationCalls).toEqual([]);
       });
     });

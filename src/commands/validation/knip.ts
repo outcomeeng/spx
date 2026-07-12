@@ -16,7 +16,7 @@ import { KNIP_COMMAND_TOKENS, validateKnip } from "@/validation/steps/knip";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
-  formatValidationPathsNoTargetsSkipMessage,
+  formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -34,9 +34,6 @@ export const defaultKnipCommandDeps: KnipCommandDeps = {
   validateKnip,
 };
 export const KNIP_VALIDATION_STEP_NAME = "unused code detection";
-const KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
-  VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-);
 const KNIP_TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
 );
@@ -95,10 +92,14 @@ export async function knipCommand(
     markExplicitPathsAsValidationFilter: true,
     bypassExplicitPathValidationFilter: true,
   });
-  if (scopeConfig.filteredByValidationPathNoMatches) {
+  const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(
+    VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+    scopeConfig,
+  );
+  if (noTargetsMessage !== undefined) {
     return {
       exitCode: 0,
-      output: quiet ? "" : KNIP_VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      output: quiet ? "" : noTargetsMessage,
       durationMs: Date.now() - startTime,
     };
   }

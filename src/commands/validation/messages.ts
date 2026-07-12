@@ -18,6 +18,7 @@ export const VALIDATION_SKIP_LABELS = {
   DISABLED_BY_PREFIX: "disabled by",
   TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in product",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
+  EXPLICIT_PATHS_NO_TARGETS_REASON: "explicit paths matched no files in tool scope",
   MARKDOWN_NO_SCOPE_REASON: "no markdown files in explicit path scope",
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
 } as const;
@@ -71,4 +72,24 @@ export function formatTypeScriptAbsentSkipMessage(stageName: string): string {
 
 export function formatValidationPathsNoTargetsSkipMessage(stageName: string): string {
   return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.VALIDATION_PATHS_NO_TARGETS_REASON})`;
+}
+
+export function formatExplicitPathsNoTargetsSkipMessage(stageName: string): string {
+  return `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${stageName} (${VALIDATION_SKIP_LABELS.EXPLICIT_PATHS_NO_TARGETS_REASON})`;
+}
+
+export function formatValidationScopeNoTargetsSkipMessage(
+  stageName: string,
+  metadata: {
+    readonly explicitPathNoMatches?: boolean;
+    readonly filteredByValidationPathNoMatches?: boolean;
+  },
+): string | undefined {
+  if (metadata.explicitPathNoMatches) {
+    return formatExplicitPathsNoTargetsSkipMessage(stageName);
+  }
+  if (metadata.filteredByValidationPathNoMatches) {
+    return formatValidationPathsNoTargetsSkipMessage(stageName);
+  }
+  return undefined;
 }

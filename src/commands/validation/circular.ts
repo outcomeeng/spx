@@ -16,7 +16,7 @@ import { validateCircularDependencies } from "@/validation/steps/circular";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
-  formatValidationPathsNoTargetsSkipMessage,
+  formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -26,9 +26,6 @@ type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDepend
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
 const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
-const CIRCULAR_VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
-  VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
-);
 export const CIRCULAR_DEPENDENCY_OUTPUT = {
   FOUND: VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND,
 } as const;
@@ -114,10 +111,14 @@ export async function circularCommand(
     ),
     bypassExplicitPathValidationFilter: true,
   });
-  if (effectiveScopeConfig.filteredByValidationPathNoMatches) {
+  const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(
+    VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+    effectiveScopeConfig,
+  );
+  if (noTargetsMessage !== undefined) {
     return {
       exitCode: 0,
-      output: quiet ? "" : CIRCULAR_VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      output: quiet ? "" : noTargetsMessage,
       durationMs: Date.now() - startTime,
     };
   }
