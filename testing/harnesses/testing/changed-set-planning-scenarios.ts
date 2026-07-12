@@ -45,6 +45,7 @@ import {
   defaultBaseSha,
   defaultBranchName,
   defaultGitCommandResult,
+  descriptorResolvingWithoutTests,
   descriptorWithoutRelatedTests,
   descriptorWithRelatedTests,
   explicitBaseSha,
@@ -356,6 +357,23 @@ export function registerChangedSetPlanningScenarioTests(): void {
 
       expect(plan.targets).toEqual({ operands: [], recursive: false });
       expect(plan.unresolvedSourceFiles).toEqual([sourcePath]);
+    });
+
+    it("keeps a claimed source resolved when its related-test capability selects no tests", async () => {
+      const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
+      const git = recordingGitRunner([sourcePath]);
+
+      const plan = await planChangedTestSelection(
+        { productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()) },
+        {
+          git: git.git,
+          registry: registry([descriptorResolvingWithoutTests([sourcePath])]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({ operands: [], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 
     it("routes untracked source files through a registered related-test capability", async () => {

@@ -182,8 +182,8 @@ async function relatedTestPaths(
         ? { ...relatedDeps, readFile: (path) => readStagedFile(options.productDir, path, deps.git) }
         : relatedDeps,
     );
+    for (const sourceFile of languageResolution.resolvedSourcePaths) resolved.add(sourceFile);
     if (languageResolution.testPaths.length > 0) {
-      for (const sourceFile of languageResolution.resolvedSourcePaths) resolved.add(sourceFile);
       testPaths.push(...languageResolution.testPaths);
     }
   }
