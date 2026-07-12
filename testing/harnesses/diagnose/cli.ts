@@ -328,7 +328,7 @@ export async function assertManifestDiagnoseJson(): Promise<void> {
 }
 
 export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
-  await withSpxReachabilityManifest(async (manifestPath, spxFloor) => {
+  await withAllChecksManifest(async (manifestPath) => {
     const environment = { ...process.env, PATH: dirname(manifestPath) };
     const executingVersion = await packagedCliVersion();
     const concise = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath], { env: environment });
@@ -348,8 +348,14 @@ export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
     expect(concise.stdout).toContain(spxCheck.remediation);
     expect(concise.stdout).not.toContain(CHECK_NAME.SPX_REACHABILITY);
     expect(concise.stdout).not.toContain(CHECK_RECORD_FIELDS[3]);
-    expect(concise.stdout).not.toContain(spxFloor);
+    expect(concise.stdout).not.toContain(spxCheck.readings.floor);
     expect(concise.stdout).not.toContain(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH);
+    expect(concise.stdout).not.toContain(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION);
+    for (const check of report.checks) {
+      for (const [name, reading] of Object.entries(check.readings)) {
+        expect(concise.stdout).not.toContain(`${name}: ${reading}`);
+      }
+    }
     expect(concise.exitCode).toBe(machine.exitCode);
   });
 }

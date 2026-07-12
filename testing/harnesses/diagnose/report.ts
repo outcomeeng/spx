@@ -23,6 +23,7 @@ import {
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
+  parseDiagnoseReportJson,
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
@@ -57,6 +58,11 @@ interface TranslationBranchCase {
 interface CanonicalCheckoutFailureCase {
   readonly check: CheckRecord;
   readonly verdict: CanonicalCheckoutFailureVerdict;
+}
+
+export interface InvalidDiagnoseReportCase {
+  readonly name: string;
+  readonly input: string;
 }
 
 function compliantWorktreePoolReading(): WorktreePoolReading {
@@ -399,8 +405,144 @@ export function assertCanonicalCheckoutFailureTranslations(): void {
 }
 
 export function assertJsonReportPreservesSchema(): void {
+  assertProperty(
+    arbitraryReport(),
+    (report) => {
+      const parsed = parseDiagnoseReportJson(renderReportJson(report));
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) throw new Error(parsed.error);
+      expect(parsed.value).toStrictEqual(report);
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+}
+
+function invalidReportCases(): readonly InvalidDiagnoseReportCase[] {
   const report = sampleReport();
-  expect(JSON.parse(renderReportJson(report)) as DiagnoseReport).toStrictEqual(report);
+  const firstCheck = report.checks[0];
+  return [
+    { name: "malformed JSON", input: "{" },
+    { name: "missing checks field", input: JSON.stringify({ overall: report.overall }) },
+    { name: "missing overall field", input: JSON.stringify({ checks: report.checks }) },
+    { name: "non-array checks", input: JSON.stringify({ ...report, checks: {} }) },
+    { name: "invalid overall verdict", input: JSON.stringify({ ...report, overall: report.overall.toUpperCase() }) },
+    { name: "non-string overall verdict", input: JSON.stringify({ ...report, overall: 1 }) },
+    {
+      name: "missing check name",
+      input: JSON.stringify({
+        ...report,
+        checks: [{
+          verdict: firstCheck.verdict,
+          bucket: firstCheck.bucket,
+          readings: firstCheck.readings,
+          remediation: firstCheck.remediation,
+        }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "invalid check name",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, name: firstCheck.name.toUpperCase() }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "missing check verdict",
+      input: JSON.stringify({
+        ...report,
+        checks: [{
+          name: firstCheck.name,
+          bucket: firstCheck.bucket,
+          readings: firstCheck.readings,
+          remediation: firstCheck.remediation,
+        }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "invalid check verdict",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, verdict: firstCheck.verdict.toUpperCase() }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "non-string check verdict",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, verdict: 1 }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "missing check bucket",
+      input: JSON.stringify({
+        ...report,
+        checks: [{
+          name: firstCheck.name,
+          verdict: firstCheck.verdict,
+          readings: firstCheck.readings,
+          remediation: firstCheck.remediation,
+        }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "invalid check bucket",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, bucket: firstCheck.bucket.toUpperCase() }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "missing readings",
+      input: JSON.stringify({
+        ...report,
+        checks: [{
+          name: firstCheck.name,
+          verdict: firstCheck.verdict,
+          bucket: firstCheck.bucket,
+          remediation: firstCheck.remediation,
+        }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "non-object readings",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, readings: [] }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "non-string reading",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, readings: { invalid: 1 } }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "missing remediation",
+      input: JSON.stringify({
+        ...report,
+        checks: [{
+          name: firstCheck.name,
+          verdict: firstCheck.verdict,
+          bucket: firstCheck.bucket,
+          readings: firstCheck.readings,
+        }, ...report.checks.slice(1)],
+      }),
+    },
+    {
+      name: "non-string remediation",
+      input: JSON.stringify({
+        ...report,
+        checks: [{ ...firstCheck, remediation: 1 }, ...report.checks.slice(1)],
+      }),
+    },
+  ];
+}
+
+export const INVALID_DIAGNOSE_REPORT_CASES = invalidReportCases();
+
+export function assertInvalidDiagnoseReportRejected(testCase: InvalidDiagnoseReportCase): void {
+  expect(parseDiagnoseReportJson(testCase.input).ok).toBe(false);
 }
 
 export function assertHeadingGlyphsFollowBuckets(): void {
