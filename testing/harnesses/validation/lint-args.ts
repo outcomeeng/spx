@@ -22,13 +22,12 @@ import {
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
+import { buildEslintArgs, validateESLint } from "@/validation/steps/eslint";
 import {
-  buildEslintArgs,
   DEFAULT_ESLINT_CONFIG_FILE,
   ESLINT_COMMAND_TOKENS,
   ESLINT_LOCAL_BIN_SEGMENTS,
-  validateESLint,
-} from "@/validation/steps/eslint";
+} from "@/validation/steps/eslint-contract";
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";

@@ -13,6 +13,7 @@ import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } fr
 import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ScopeConfig, ValidationContext, ValidationScope } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
+import { DEFAULT_ESLINT_CONFIG_FILE, ESLINT_COMMAND_TOKENS, ESLINT_LOCAL_BIN_SEGMENTS } from "./eslint-contract";
 import {
   defaultValidationSubprocessOutputStreams,
   forwardValidationSubprocessOutput,
@@ -38,17 +39,6 @@ export const defaultEslintProcessRunner: ProcessRunner = lifecycleProcessRunner;
  * one. Callers should prefer passing the config file reported by language
  * detection.
  */
-export const DEFAULT_ESLINT_CONFIG_FILE = "eslint.config.ts";
-export const ESLINT_COMMAND_TOKENS = {
-  COMMAND: "eslint",
-  CONFIG_FLAG: "--config",
-  CURRENT_DIRECTORY: ".",
-  FILE_SEPARATOR: "--",
-  FIX_FLAG: "--fix",
-  IGNORE_PATTERN_FLAG: "--ignore-pattern",
-} as const;
-export const ESLINT_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", ESLINT_COMMAND_TOKENS.COMMAND] as const;
-
 /**
  * Build ESLint CLI arguments based on validation context.
  *

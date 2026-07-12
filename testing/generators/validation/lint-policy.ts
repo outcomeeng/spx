@@ -1,6 +1,6 @@
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
-import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.capability";

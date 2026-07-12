@@ -28,7 +28,8 @@ import { TOOL_DISCOVERY } from "@/validation/discovery";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { LITERAL_KIND, REMEDIATION } from "@/validation/literal";
 import { validationPipelineStages } from "@/validation/registry";
-import { ESLINT_COMMAND_TOKENS, validateESLint } from "@/validation/steps/eslint";
+import { validateESLint } from "@/validation/steps/eslint";
+import { ESLINT_COMMAND_TOKENS } from "@/validation/steps/eslint-contract";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 import {
   LITERAL_TEST_GENERATOR,

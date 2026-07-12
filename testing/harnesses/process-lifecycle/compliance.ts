@@ -15,7 +15,8 @@ import {
 } from "@/interfaces/cli/test-runner-deps";
 import { type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { DEFAULT_ESLINT_CONFIG_FILE, validateESLint } from "@/validation/steps/eslint";
+import { validateESLint } from "@/validation/steps/eslint";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 import { validateFormatting } from "@/validation/steps/formatting";
 import { validateKnip } from "@/validation/steps/knip";
 import {
