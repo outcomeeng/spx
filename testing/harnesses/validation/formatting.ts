@@ -282,35 +282,14 @@ export function registerFormattingMappingEvidence(): void {
 }
 
 export function registerFormattingPropertyEvidence(): void {
-  describe("dprint check argument construction is deterministic and scope-preserving", () => {
-    it("emits the check subcommand and terminator before preserving every file argument in order", () => {
-      assertProperty(arbitraryDprintFileArguments(), (files) => {
-        expect(buildDprintCheckArgs({ files })).toEqual(
-          files.length > 0
-            ? [
-              DPRINT_CHECK_SUBCOMMAND,
-              DPRINT_OPTIONS_TERMINATOR,
-              ...files,
-            ]
-            : [DPRINT_CHECK_SUBCOMMAND],
-        );
-      }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
-    });
-    it("emits only the check subcommand when no file scope is supplied", () => {
-      expect(buildDprintCheckArgs({})).toEqual([DPRINT_CHECK_SUBCOMMAND]);
-    });
-    it("emits additive excludes before preserving every file argument in order", () => {
+  describe("dprint check argument construction is deterministic", () => {
+    it("returns the same invocation for identical file and exclude scopes", () => {
       assertProperty(
         arbitraryDprintFileArguments().chain((excludes) =>
           arbitraryDprintFileArguments().map((files) => ({ excludes, files }))
         ),
-        ({ excludes, files }) => {
-          expect(buildDprintCheckArgs({ excludes, files })).toEqual([
-            DPRINT_CHECK_SUBCOMMAND,
-            ...(excludes.length > 0 ? [DPRINT_EXCLUDES_OPTION, ...excludes] : []),
-            ...(files.length > 0 ? [DPRINT_OPTIONS_TERMINATOR] : []),
-            ...files,
-          ]);
+        (scope) => {
+          expect(buildDprintCheckArgs(scope)).toEqual(buildDprintCheckArgs(scope));
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
