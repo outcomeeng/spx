@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-comment.mapping.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-envelope.mapping.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-scope.scenario.l1.test.ts": "not-run"
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-comment.mapping.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-envelope.mapping.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-scope.scenario.l1.test.ts": "passed"
     }
   }
 }

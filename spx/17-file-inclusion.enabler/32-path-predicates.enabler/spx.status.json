@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "not-run",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/domain-path-filter.scenario.l1.test.ts": "not-run",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/git-tracking.scenario.l1.test.ts": "not-run",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/independence.property.l1.test.ts": "not-run",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/purity.property.l1.test.ts": "not-run"
+      "overall": "passed",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/domain-path-filter.scenario.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/git-tracking.scenario.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/independence.property.l1.test.ts": "passed",
+      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/purity.property.l1.test.ts": "passed"
     }
   }
 }

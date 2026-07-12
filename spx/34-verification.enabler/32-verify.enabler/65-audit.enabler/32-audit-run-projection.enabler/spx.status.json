@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-context-selectors.mapping.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-rollup.mapping.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-scope.scenario.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-terminal-metadata.compliance.l1.test.ts": "not-run"
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-context-selectors.mapping.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-rollup.mapping.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-scope.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/tests/audit-terminal-metadata.compliance.l1.test.ts": "passed"
     }
   }
 }
