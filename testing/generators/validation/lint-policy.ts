@@ -14,6 +14,7 @@ const JSON_OBJECT_ERROR_FRAGMENT = "must contain a JSON object";
 const LINT_POLICY_TEST_PRODUCT_DIR_ENV = "SPX_LINT_POLICY_TEST_PRODUCT_DIR";
 const BASE_COMMIT_MESSAGE = "base manifests";
 const ADDED_DEBT_COMMIT_MESSAGE = "add manifest debt";
+const POST_DEBT_COMMIT_MESSAGE = "advance branch after manifest debt";
 const BASELINE_ABSENT_COMMIT_MESSAGE = "manifests without baseline branch";
 const OUTER_SENTINEL_COMMIT_MESSAGE = "outer sentinel";
 const CORRUPT_BASELINE_COMMIT_MESSAGE = "corrupt baseline manifest";
@@ -27,6 +28,7 @@ export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   UNRELATED_PROJECT: "unrelatedProject",
   EXISTING_DEBT: "existingDebt",
   BRANCH_ADDITION: "branchAddition",
+  TEST_OWNED_CONSTANT_BRANCH_ADDITION: "testOwnedConstantBranchAddition",
   BASELINE_ABSENT: "baselineAbsent",
   HOOK_GIT_VARIABLES: "hookGitVariables",
   CORRUPT_BASELINE: "corruptBaseline",
@@ -69,6 +71,7 @@ export const VALIDATION_LINT_POLICY_DATA = {
   commitMessages: {
     base: BASE_COMMIT_MESSAGE,
     addedDebt: ADDED_DEBT_COMMIT_MESSAGE,
+    postDebt: POST_DEBT_COMMIT_MESSAGE,
     baselineAbsent: BASELINE_ABSENT_COMMIT_MESSAGE,
     outerSentinel: OUTER_SENTINEL_COMMIT_MESSAGE,
     corruptBaseline: CORRUPT_BASELINE_COMMIT_MESSAGE,
@@ -88,6 +91,10 @@ export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] 
     {
       title: "manifest additions on a branch are rejected when absent from the base branch",
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.BRANCH_ADDITION,
+    },
+    {
+      title: "test-owned constant manifest additions are rejected when absent from the base branch",
+      kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.TEST_OWNED_CONSTANT_BRANCH_ADDITION,
     },
     {
       title: "shrink-only comparison is skipped when no baseline exists",

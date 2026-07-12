@@ -118,6 +118,8 @@ export async function runValidationLintPolicyScenario(
       return runExistingDebtScenario();
     case VALIDATION_LINT_POLICY_SCENARIO_KIND.BRANCH_ADDITION:
       return runBranchAdditionScenario();
+    case VALIDATION_LINT_POLICY_SCENARIO_KIND.TEST_OWNED_CONSTANT_BRANCH_ADDITION:
+      return runTestOwnedConstantDebtAdditionScenario();
     case VALIDATION_LINT_POLICY_SCENARIO_KIND.BASELINE_ABSENT:
       return runBaselineAbsentScenario();
     case VALIDATION_LINT_POLICY_SCENARIO_KIND.HOOK_GIT_VARIABLES:
@@ -157,6 +159,15 @@ async function commitAll(
 ): Promise<void> {
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, "."], envOverrides);
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, "-m", message], envOverrides);
+}
+
+async function commitPostDebtBranchState(productDir: string): Promise<void> {
+  await runGit(productDir, [
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.ALLOW_EMPTY,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    VALIDATION_LINT_POLICY_DATA.commitMessages.postDebt,
+  ]);
 }
 
 function parseSerializedLintPolicyResult(stdout: string): SerializedLintPolicyResult {
@@ -245,6 +256,7 @@ async function runBranchAdditionScenario(): Promise<void> {
       ],
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+    await commitPostDebtBranchState(productDir);
 
     const result = validateLintPolicy(productDir);
 
@@ -256,7 +268,7 @@ async function runBranchAdditionScenario(): Promise<void> {
   });
 }
 
-export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> {
+async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
     await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
@@ -275,6 +287,8 @@ export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> 
         VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
       ],
     });
+    await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+    await commitPostDebtBranchState(productDir);
 
     const result = validateLintPolicy(productDir);
     expect(result.ok).toBe(false);

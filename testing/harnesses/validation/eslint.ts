@@ -24,7 +24,6 @@ import {
 } from "@testing/generators/validation/ast-enforcement";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { runTestOwnedConstantDebtAdditionScenario } from "@testing/harnesses/validation/lint-policy";
 
 // The validation harness lints virtual text through `lintText`, which cannot
 // satisfy the type-aware project service the production mirror enables. Disable
@@ -200,10 +199,6 @@ export function registerValidationEslintIntegrationTests(): void {
           );
         });
       });
-    });
-
-    it("rejects test-owned constant debt added beyond the committed baseline", async () => {
-      await runTestOwnedConstantDebtAdditionScenario();
     });
   });
 }
