@@ -294,7 +294,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
         expect(result.output).toContain(
-          MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX,
+          MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM,
         );
       },
     );
@@ -358,7 +358,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
         expect(result.output).toContain(
-          MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX,
+          MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM,
         );
       },
     );
@@ -398,7 +398,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM);
   });
 
   it("preserves explicit markdown file operands through markdown validation excludes", async () => {
@@ -407,7 +407,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM);
   });
 
   it("does not widen explicit markdown directory operands to default markdown roots", async () => {
@@ -467,7 +467,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
       expect(directoryResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
       expect(directoryResult.output).toContain(
-        MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX,
+        MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM,
       );
       expect(directoryResult.output).toContain(childMarkdownPath);
       expect(directoryResult.output).not.toContain(directMarkdownPath);

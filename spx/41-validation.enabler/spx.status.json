@@ -4,6 +4,7 @@
     "test": {
       "overall": "passed",
       "spx/41-validation.enabler/tests/configuration.compliance.l1.test.ts": "passed",
+      "spx/41-validation.enabler/tests/problem-vocabulary.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/registry.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts": "passed",

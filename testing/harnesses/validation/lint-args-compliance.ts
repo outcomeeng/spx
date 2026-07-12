@@ -7,7 +7,7 @@ import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
-import { lintCommand } from "@/commands/validation/lint";
+import { defaultLintCommandDeps, lintCommand, type LintCommandDeps } from "@/commands/validation/lint";
 import {
   formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -22,6 +22,7 @@ import {
 } from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { buildEslintArgs, validateESLint } from "@/validation/steps/eslint";
 import {
   DEFAULT_ESLINT_CONFIG_FILE,
@@ -33,6 +34,7 @@ import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/va
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 
 class RecordingWritable implements ValidationWritableStream {
   readonly chunks: string[] = [];
@@ -82,7 +84,7 @@ function createValidationContext(): ValidationContext {
 }
 
 describe("ESLint command arguments", () => {
-  it("passes project lint through without injected policy arguments", () => {
+  it("passes product lint through without injected policy arguments", () => {
     const args = buildEslintArgs({ scope: VALIDATION_SCOPES.FULL });
 
     expect(args).toStrictEqual([
@@ -203,7 +205,7 @@ describe("ESLint command arguments", () => {
     ]);
   });
 
-  it("runs lint command from the requested project root", async () => {
+  it("runs lint command from the requested product root", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         "tsconfig.json",
@@ -585,6 +587,71 @@ describe("ESLint command arguments", () => {
     expect(result.success).toBe(true);
     expect(stdout.chunks).toEqual([stdoutChunk]);
     expect(stderr.chunks).toEqual([]);
+  });
+
+  it("uses the production ESLint config reported by language detection", async () => {
+    await withTestEnv({}, async (env) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      let receivedContext: ValidationContext | undefined;
+      const deps: LintCommandDeps = {
+        ...defaultLintCommandDeps,
+        detectTypeScript: () => ({
+          present: true,
+          eslintConfigFile: DEFAULT_ESLINT_CONFIG_FILE,
+          productionEslintConfigFile: ESLINT_PRODUCTION_CONFIG_FILES[0],
+        }),
+        discoverTool: async (tool) => ({
+          found: true,
+          location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+        }),
+        validateESLint: async (context) => {
+          receivedContext = context;
+          return { success: true };
+        },
+      };
+      await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [sourceFilePath] }));
+      await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
+
+      const result = await lintCommand({ cwd: env.productDir, scope: VALIDATION_SCOPES.PRODUCTION, quiet: true }, deps);
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(receivedContext?.eslintConfigFile).toBe(ESLINT_PRODUCTION_CONFIG_FILES[0]);
+    });
+  });
+
+  it("rejects a wrong executable, injected arguments, or persistent result reuse", async () => {
+    await withTestEnv({}, async (env) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      const runner = new RejectingUnexpectedValidationSpawnRunner({
+        command: toolPath,
+        args: [
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+          sourceFilePath,
+        ],
+      }, [VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE]);
+      const deps: LintCommandDeps = {
+        ...defaultLintCommandDeps,
+        discoverTool: async (tool) => ({
+          found: true,
+          location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+        }),
+        validateESLint: (context, _runner, outputStreams) => validateESLint(context, runner, outputStreams),
+      };
+      await env.writeRaw(TSCONFIG_FILES.full, JSON.stringify({ include: [sourceFilePath] }));
+      await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
+      await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
+
+      const firstResult = await lintCommand({ cwd: env.productDir, files: [sourceFilePath], quiet: true }, deps);
+      const secondResult = await lintCommand({ cwd: env.productDir, files: [sourceFilePath], quiet: true }, deps);
+
+      expect(firstResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(secondResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(runner.commands).toEqual([toolPath, toolPath]);
+    });
   });
 });
 

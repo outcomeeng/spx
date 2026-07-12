@@ -151,6 +151,25 @@ export function registerTypeCheckScenarioTests(): void {
 }
 
 export function registerTypeCheckComplianceTests(): void {
+  it("gates TypeScript discovery and execution when the product has no tsconfig", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
+      const deps: TypeScriptCommandDeps = {
+        discoverTool: async () => {
+          throw new Error("TypeScript discovery ran for an absent language");
+        },
+        validateTypeScript: async () => {
+          throw new Error("TypeScript validation ran for an absent language");
+        },
+      };
+
+      const result = await typescriptCommand({ cwd: path }, deps);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+      expect(result.output).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
+    });
+  });
+
   it("terminates through the lifecycle handler when the TypeScript output consumer closes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
       const result = await runSpawnFixture({

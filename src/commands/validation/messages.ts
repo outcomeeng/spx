@@ -25,23 +25,45 @@ export const VALIDATION_SKIP_LABELS = {
 
 export const VALIDATION_STREAMED_STAGE_RESULT = "output streamed";
 
+export const VALIDATION_PROBLEM_TERMS = {
+  SINGULAR: "problem",
+  PLURAL: "problems",
+} as const;
+
+export function formatValidationNoProblemsMessage(stageName: string): string {
+  return `${stageName}: ✓ No ${VALIDATION_PROBLEM_TERMS.PLURAL}`;
+}
+
+export function formatValidationProblemsFoundMessage(
+  stageName: string,
+  options: { readonly count?: number; readonly detail?: string } = {},
+): string {
+  const countPrefix = options.count === undefined ? "" : `${options.count} `;
+  const term = options.count === 1 ? VALIDATION_PROBLEM_TERMS.SINGULAR : VALIDATION_PROBLEM_TERMS.PLURAL;
+  const detailSuffix = options.detail === undefined ? "" : ` (${options.detail})`;
+  return `${stageName}: ${countPrefix}${term} found${detailSuffix}`;
+}
+
 export const VALIDATION_COMMAND_OUTPUT = {
-  CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: circular dependencies found`,
-  CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ No circular dependencies found`,
+  CIRCULAR_FOUND: formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR, {
+    detail: "circular dependencies",
+  }),
+  CIRCULAR_NONE_FOUND: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR),
   KNIP_CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: ✗ config error`,
   KNIP_DISABLED:
     `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: skipped (${VALIDATION_SKIP_LABELS.DISABLED_BY_PREFIX} validation.knip.enabled)`,
-  KNIP_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.KNIP}: ✓ No unused code found`,
-  KNIP_FAILURE: "Unused code found",
-  ESLINT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✓ No errors found`,
-  ESLINT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT} validation failed`,
+  KNIP_SUCCESS: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP),
+  KNIP_FAILURE: formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.KNIP, { detail: "unused code" }),
+  ESLINT_SUCCESS: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
+  ESLINT_FAILURE: formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT),
   ESLINT_MISSING_CONFIG: "ESLint config not found: product has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
-  TYPESCRIPT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✓ No type errors`,
-  TYPESCRIPT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT} validation failed`,
-  MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,
-  MARKDOWN_ERROR_SUMMARY_SUFFIX: "error(s) found",
-  FORMATTING_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ✓ No formatting issues found`,
-  FORMATTING_FAILURE_SUMMARY: `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: unformatted files found`,
+  TYPESCRIPT_SUCCESS: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  TYPESCRIPT_FAILURE: formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  MARKDOWN_NO_ISSUES: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN),
+  FORMATTING_NO_ISSUES: formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING),
+  FORMATTING_FAILURE_SUMMARY: formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING, {
+    detail: "unformatted files",
+  }),
 } as const;
 
 export function formatValidationStageSkipOutput(stageName: string, reason: string): string {

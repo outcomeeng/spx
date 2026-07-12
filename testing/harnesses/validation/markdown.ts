@@ -379,7 +379,7 @@ async function runCommandDefaultsScenario(scenario: MarkdownValidationScenario):
     const result = await markdownCommand({ cwd: path });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
-    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM);
     expect(result.output).toContain(MARKDOWN_VALIDATION_DATA.defaultSpxBrokenFile);
     expect(result.output).toContain(MARKDOWN_VALIDATION_DATA.defaultDocsBrokenFile);
   });
@@ -417,6 +417,7 @@ async function runFileScopeCleanSpxScenario(scenario: MarkdownValidationScenario
     });
 
     expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
     expect(result.output).not.toContain(MARKDOWN_VALIDATION_DATA.explicitScopeDocsDecoyFile);
   });
 }
@@ -645,6 +646,7 @@ const MARKDOWN_MAPPING_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = 
 const MARKDOWN_COMPLIANCE_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([
   MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS,
   MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES,
+  MARKDOWN_SCENARIO_KIND.FILE_SCOPE_CLEAN_SPX,
   MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE,
 ]);
 
