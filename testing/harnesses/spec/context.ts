@@ -5,16 +5,20 @@ import { execa } from "execa";
 import { expect } from "vitest";
 
 import {
-  contextCommand,
-  contextTextCommand,
+  type ContextOptions,
   SPEC_CONTEXT_DOCUMENT_ROLE,
   SPEC_CONTEXT_TEXT_LABEL,
   type SpecContextManifest,
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
-import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
-import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
+import {
+  contextOutputForFormat,
+  SPEC_CONTEXT_OUTPUT_FORMAT,
+  SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX,
+  SPEC_DOMAIN_CLI,
+} from "@/interfaces/cli/spec";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR, TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
@@ -36,6 +40,14 @@ import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
+}
+
+function contextCommand(options: ContextOptions): Promise<string> {
+  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.JSON, options);
+}
+
+function contextTextCommand(options: ContextOptions): Promise<string> {
+  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.TEXT, options);
 }
 
 function trackedSpecContextGitDependencies(productDir: string, trackedPaths: readonly string[]): GitDependencies {
