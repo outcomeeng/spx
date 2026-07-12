@@ -74,8 +74,10 @@ export function registerProductContextMappingEvidence(): void {
       "maps -C to the same session list from caller $nestedDirectory",
       (scope) => assertRedirectedSessionListMatchesDirectInvocation(scope),
     );
-    it("maps absent -C from the process directory and preserves the non-git fallback warning", () =>
-      assertAbsentDirectoryUsesProcessDirectory());
+    it.each(resolutionScopes)(
+      "maps absent -C from process directory $nestedDirectory and preserves the non-git fallback warning",
+      (scope) => assertAbsentDirectoryUsesProcessDirectory(scope),
+    );
     it("captures deferred exit codes from product-context commands", () => assertDeferredExitCodeIsCaptured());
   });
 }
@@ -150,8 +152,10 @@ async function assertRedirectedSessionListMatchesDirectInvocation(scope: Generat
   expect(redirected.stderr).toContain(NOT_GIT_REPO_WARNING);
 }
 
-async function assertAbsentDirectoryUsesProcessDirectory(): Promise<void> {
-  const processDir = await tempDirs.makeTempDir();
+async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedResolutionScope): Promise<void> {
+  const processRoot = await tempDirs.makeTempDir();
+  const processDir = join(processRoot, scope.nestedDirectory);
+  await mkdir(processDir, { recursive: true });
   const expectedWarning = resolveProductDir(processDir, { readGitToplevel: () => undefined }).warning;
   if (expectedWarning === undefined) throw new Error("non-git product directory must produce a warning");
   const result = await runProductContextCli(
