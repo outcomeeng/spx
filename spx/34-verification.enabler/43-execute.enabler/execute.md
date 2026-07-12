@@ -15,5 +15,5 @@ CAN have spx run a deterministic verification and stream its scope and finding e
 
 - ALWAYS: spx records an executed run's scope, finding, and terminal evidence through the verify lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`, never by constructing journal events directly ([test](tests/execute.compliance.l1.test.ts))
 - ALWAYS: an executed run's next actions filter by the run's drive mode recorded at `start`, so an unsealed spx-driven run advertises no caller evidence-append action such as `scope add` or `finding add` ([test](tests/execute.compliance.l1.test.ts))
-- ALWAYS: spx reaches a verification type's runner through `src/test/registry.ts`, so the executor names no language, per `spx/19-language-registration.adr.md` ([test](tests/execute.compliance.l1.test.ts))
+- ALWAYS: spx reaches the `test` type's runner through `src/test/registry.ts`, so the executor names no language, per `spx/19-language-registration.adr.md`; each verification type resolves its runner through that type's own registry module ([test](tests/execute.compliance.l1.test.ts))
 - NEVER: spx execution drives a verification agent — spx drives a deterministic runner, and an agentic verification is judged by an agent the agent harness launches, per `spx/12-agent-harness.pdr.md` ([audit])
