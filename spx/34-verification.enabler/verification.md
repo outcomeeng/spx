@@ -2,7 +2,7 @@
 
 PROVIDES typed verification-run infrastructure over deterministic verification-context materialization and an append-only run-journal substrate whose backend binds at the edge
 SO THAT CI jobs, deterministic launchers, and the verification skills an agent executes
-CAN reconstruct a verification subject and predicate, stream typed run progress and findings to a backend the environment selects, resume and render the run from its journal, and observe the run incrementally and identically in local output and pull-request comments without spx driving a verification agent
+CAN reconstruct a verification subject and predicate, stream typed run progress and findings to a backend the environment selects, resume and render the run from its journal, and observe the run incrementally and identically in local output and pull-request comments without spx implementing a verification agent
 
 ## Assertions
 
