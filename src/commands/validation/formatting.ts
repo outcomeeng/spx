@@ -3,8 +3,8 @@
  *
  * Runs dprint in check mode for code formatting. Like markdown validation,
  * dprint is an always-present tool with no discovery or skip path. Participation
- * and explicit file scope derive from the resolved `spx.config.*` validation
- * configuration, never from process environment.
+ * and automatic path scope derive from the resolved `spx.config.*` validation
+ * configuration, while explicit caller scope bypasses wrapper path filters.
  */
 
 import { existsSync, statSync } from "node:fs";
@@ -22,7 +22,6 @@ import {
   validationPathFilterExcludes,
   validationPathFilterForTool,
   validationPathFilterHasNoMatchingIncludes,
-  validationPathFilterIntersections,
 } from "@/validation/config/path-filter";
 import {
   DPRINT_CONFIG_FILENAME,
@@ -141,23 +140,11 @@ function formattingValidationContexts(
     }];
   }
   const relativeFiles = files.map((filePath) => isAbsolute(filePath) ? relative(productDir, filePath) : filePath);
-  const explicitFiles = relativeFiles.filter((filePath) => isFormattingFileOperand(productDir, filePath));
-  const directories = relativeFiles.filter((filePath) => !isFormattingFileOperand(productDir, filePath));
-  const scopedDirectories = directories.flatMap((filePath) =>
-    formattingPathOperandsForValidationPathFilter(productDir, filePath, pathFilter)
-  );
-  return [
-    ...(explicitFiles.length > 0
-      ? [{ productDir, files: explicitFiles, excludes: [] }]
-      : []),
-    ...(scopedDirectories.length > 0
-      ? [{
-        productDir,
-        files: scopedDirectories,
-        excludes: validationPathFilterExcludes(pathFilter),
-      }]
-      : []),
-  ];
+  return [{
+    productDir,
+    files: relativeFiles.map((filePath) => normalizeFormattingPathOperand(productDir, filePath)),
+    excludes: [],
+  }];
 }
 
 function formattingTerminalOutput(
@@ -185,16 +172,4 @@ function normalizeFormattingPathOperand(productDir: string, relativePath: string
 function isFormattingFileOperand(productDir: string, relativePath: string): boolean {
   const absolutePath = join(productDir, relativePath);
   return !existsSync(absolutePath) || !statSync(absolutePath).isDirectory();
-}
-
-function formattingPathOperandsForValidationPathFilter(
-  productDir: string,
-  relativePath: string,
-  pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
-): string[] {
-  if (isFormattingFileOperand(productDir, relativePath)) {
-    return [relativePath];
-  }
-  return validationPathFilterIntersections(relativePath, pathFilter)
-    .map((path) => normalizeFormattingPathOperand(productDir, path));
 }

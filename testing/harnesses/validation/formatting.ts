@@ -160,7 +160,7 @@ function formattingScenarios(): FormattingValidationScenario[] {
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
-      title: "the format CLI process intersects root operands with validation includes",
+      title: "the format CLI process preserves root operands through validation includes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
@@ -170,12 +170,12 @@ function formattingScenarios(): FormattingValidationScenario[] {
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
-      title: "the format CLI process intersects directory operands with validation includes",
+      title: "the format CLI process preserves directory operands through validation includes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
     {
-      title: "the format CLI process excludes descendants below directory operands",
+      title: "the format CLI process preserves descendants through validation excludes",
       kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE,
       timeout: FORMATTING_HARNESS_TIMEOUT,
     },
@@ -192,7 +192,7 @@ export function registerFormattingScenarioEvidence(): void {
     for (const scenario of formattingScenarios()) {
       it(scenario.title, () => runFormattingScenario(scenario), scenario.timeout);
     }
-    it("keeps directory excludes when an explicit file is also in scope", () =>
+    it("bypasses directory excludes when an explicit file is also in scope", () =>
       runMixedFileAndDirectoryScopeScenario());
     it("runs by descriptor default and skips through its invocation-local override", () =>
       runFormattingParticipationScenario());
@@ -234,13 +234,11 @@ async function runMixedFileAndDirectoryScopeScenario(): Promise<void> {
     expect(contexts).toEqual([
       {
         productDir: productDir,
-        files: [FORMATTING_VALIDATION_DATA.typeScriptSourceFilename],
+        files: [
+          FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
+          `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
+        ],
         excludes: [],
-      },
-      {
-        productDir: productDir,
-        files: [`${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`],
-        excludes: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
       },
     ]);
   });
@@ -368,8 +366,8 @@ async function runFormattingDispatchContractCompliance(): Promise<void> {
     expect(contexts).toEqual([
       {
         productDir: productDir,
-        files: [`${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`],
-        excludes: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
+        files: ["**/*"],
+        excludes: [],
       },
     ]);
   });
@@ -448,8 +446,6 @@ async function runFormattingExcludedDirectoryDispatchScenario(): Promise<void> {
     );
     expect(runner.args).toEqual([[
       DPRINT_CHECK_SUBCOMMAND,
-      DPRINT_EXCLUDES_OPTION,
-      `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/${FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName}`,
       DPRINT_OPTIONS_TERMINATOR,
       `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
     ]]);
@@ -722,9 +718,8 @@ async function runCliProcessDirectoryIncludeScopeScenario(): Promise<void> {
       { cwd: fixture.productDir },
     );
 
-    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
@@ -767,7 +762,7 @@ async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
     await mkdir(sourceDirectory);
     await writeFile(
       join(fixture.productDir, FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath),
-      FORMATTING_VALIDATION_DATA.formattableTypeScriptContent,
+      FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
     const secondaryDirectory = join(fixture.productDir, FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName);
     await mkdir(secondaryDirectory);
@@ -781,9 +776,9 @@ async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
         validation: {
           paths: {
             include: [
-              FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
               FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName,
             ],
+            exclude: [FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName],
           },
         },
       }),
@@ -797,8 +792,8 @@ async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
       { cwd: fixture.productDir },
     );
 
-    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
     expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
   });
 }
@@ -845,7 +840,7 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
   });
 }
 
