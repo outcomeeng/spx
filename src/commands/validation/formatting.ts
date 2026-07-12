@@ -48,6 +48,8 @@ export const FORMATTING_COMMAND_OUTPUT = {
   NO_CONFIG_SKIP_REASON: `no ${DPRINT_CONFIG_FILENAME} at product root`,
 } as const;
 
+export const FORMATTING_STREAMED_TERMINAL_OUTPUT = "";
+
 const FORMATTING_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ✗ config error`;
 const DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX = "/**/*";
 
@@ -155,7 +157,7 @@ function formattingTerminalOutput(
   if (json === true || outputStreams === undefined || results.some((result) => result.error !== undefined)) {
     return undefined;
   }
-  return FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY;
+  return FORMATTING_STREAMED_TERMINAL_OUTPUT;
 }
 
 function normalizeFormattingPathOperand(productDir: string, relativePath: string): string {

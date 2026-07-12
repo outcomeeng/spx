@@ -19,7 +19,11 @@ import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 
 import { allCommand } from "@/commands/validation/all";
-import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
+import {
+  FORMATTING_COMMAND_OUTPUT,
+  FORMATTING_STREAMED_TERMINAL_OUTPUT,
+  formattingCommand,
+} from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { createValidationDomain } from "@/interfaces/cli/validation";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
@@ -891,27 +895,35 @@ export function runFormattingWithoutConfig(): Promise<ValidationCommandResult> {
 }
 
 export async function runFormattingOutputStreamingCompliance(): Promise<void> {
-  const runner = new FormattingOutputRunner();
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const result = await validateFormatting(
-    { productDir: process.cwd() },
-    runner,
-    {
-      stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
-      stderr: { write: (chunk) => stderr.push(Buffer.from(chunk).toString()) > 0 },
-    },
-  );
+  await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
+    copyProductDprintConfig(productDir);
+    const runner = new FormattingOutputRunner();
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const result = await formattingCommand(
+      {
+        cwd: productDir,
+        outputStreams: {
+          stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
+          stderr: { write: (chunk) => stderr.push(Buffer.from(chunk).toString()) > 0 },
+        },
+      },
+      {
+        validateFormatting: (context, _runner, outputStreams) => validateFormatting(context, runner, outputStreams),
+      },
+    );
 
-  expect(result.success).toBe(false);
-  expect(result.output).toBe(
-    `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename.repeat(2)}${FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY}`,
-  );
-  expect(stdout).toEqual([
-    FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
-    FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
-  ]);
-  expect(stderr).toEqual([FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY]);
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.output).toContain(
+      `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename.repeat(2)}${FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY}`,
+    );
+    expect(result.terminalOutput).toBe(FORMATTING_STREAMED_TERMINAL_OUTPUT);
+    expect(stdout).toEqual([
+      FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
+      FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
+    ]);
+    expect(stderr).toEqual([FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY]);
+  });
 }
 
 class FormattingOutputRunner implements ProcessRunner {
