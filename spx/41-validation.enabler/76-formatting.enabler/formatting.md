@@ -14,7 +14,6 @@ CAN catch unformatted files before they reach the repository, with one verdict r
 - Given a directory path operand, when `spx validation format <directory>` runs, then the operand expands to a recursive `**/*` glob before dprint dispatch ([test](tests/formatting.scenario.l2.test.ts))
 - Given a relative path operand from an invocation subdirectory, when `spx validation format <path>` runs, then the operand resolves from the effective invocation directory before product-relative dprint dispatch ([test](tests/formatting.scenario.l2.test.ts))
 - Given validation path filters would narrow a formatting directory operand, when `spx validation format <directory>` runs, then dprint receives the explicit directory scope without wrapper filtering ([test](tests/formatting.scenario.l2.test.ts))
-- Given validation path excludes apply to formatting, when `spx validation format` runs, then the configured excludes are forwarded additively as dprint `--excludes` values ([test](tests/formatting.scenario.l2.test.ts))
 - Given `spx validation all` receives no formatting participation override, formatting runs according to its descriptor default; given the descriptor's invocation-local skip override, formatting does not run ([test](tests/formatting.scenario.l2.test.ts))
 
 ### Mappings
@@ -31,5 +30,6 @@ CAN catch unformatted files before they reach the repository, with one verdict r
 
 - ALWAYS: dprint stdout and stderr are forwarded through the parent process output streams exactly once while remaining captured for programmatic callers ([test](tests/formatting.compliance.l1.test.ts))
 - ALWAYS: dprint runs from the supplied product directory so that directory's `dprint.jsonc` decides the verdict independently of any personal global dprint config ([test](tests/formatting.compliance.l1.test.ts))
+- ALWAYS: automatic formatting scope forwards configured validation path excludes additively as dprint `--excludes` values ([test](tests/formatting.compliance.l1.test.ts))
 - ALWAYS: the tracked dprint dependency is exact-pinned and every formatter plugin carries a sha256 checksum, so clean installs resolve an integrity-verified formatter set ([audit])
 - ALWAYS: when the product directory has no `dprint.jsonc`, `spx validation format` skips and exits 0 — a product with no formatting config has no contract to enforce, so no personal global dprint config decides the verdict ([test](tests/formatting.compliance.l1.test.ts))
