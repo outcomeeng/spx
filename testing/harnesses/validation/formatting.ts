@@ -31,19 +31,17 @@ import { typescriptValidationLanguage } from "@/validation/languages/typescript"
 import { composeValidationPipelineStages, validationPipelineStages } from "@/validation/registry";
 import {
   buildDprintCheckArgs,
+  DPRINT_CHECK_SUBCOMMAND,
   DPRINT_COMMAND,
+  DPRINT_CONFIG_FILENAME,
+  DPRINT_EXCLUDES_OPTION,
+  DPRINT_OPTIONS_TERMINATOR,
   type FormattingValidationContext,
   type FormattingValidationResult,
   validateFormatting,
 } from "@/validation/steps/formatting";
 import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
-import {
-  arbitraryDprintFileArguments,
-  FORMATTING_SCENARIO_KIND,
-  FORMATTING_VALIDATION_DATA,
-  formattingScenarios,
-  type FormattingValidationScenario,
-} from "@testing/generators/validation/formatting";
+import { arbitraryDprintFileArguments } from "@testing/generators/validation/formatting";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { runValidationInProcessWithDomains, runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
@@ -53,10 +51,140 @@ const execFileAsync = promisify(execFile);
 
 const DPRINT_COMMAND_NAME = DPRINT_COMMAND;
 const DPRINT_FORMAT_SUBCOMMAND = "fmt";
+const FORMATTING_HARNESS_TIMEOUT = 30_000;
+
+const FORMATTING_SCENARIO_KIND = {
+  CLEAN_PROJECT: "cleanProject",
+  UNFORMATTED_COMMAND: "unformattedCommand",
+  PIPELINE_FAILURE: "pipelineFailure",
+  CLI_PROCESS_UNFORMATTED: "cliProcessUnformatted",
+  CLI_PROCESS_DIRECTORY_SCOPE: "cliProcessDirectoryScope",
+  CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE: "cliProcessInvocationDirectoryScope",
+  CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE: "cliProcessDirectoryIncludeScope",
+  CLI_PROCESS_EXCLUDED_FILE_SCOPE: "cliProcessExcludedFileScope",
+  CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
+  CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
+  GITIGNORE_SKIP: "gitignoreSkip",
+} as const;
+
+type FormattingScenarioKind = (typeof FORMATTING_SCENARIO_KIND)[keyof typeof FORMATTING_SCENARIO_KIND];
+
+interface FormattingValidationScenario {
+  readonly title: string;
+  readonly kind: FormattingScenarioKind;
+  readonly timeout: number;
+}
+
+const FORMATTING_VALIDATION_DATA = {
+  tempPrefix: "dprint-validation-",
+  unformattedTypeScriptContent: "export const value     =     1;\n",
+  formattableTypeScriptContent: "export const value = 1;\n",
+  typeScriptSourceFilename: "sample.ts",
+  validationConfigFilename: "spx.config.yaml",
+  gitignoreFilename: ".gitignore",
+  narrowedScopeDirectoryName: "src",
+  narrowedScopeTypeScriptSourcePath: "src/sample.ts",
+  secondaryScopeDirectoryName: "docs",
+  secondaryScopeTypeScriptSourcePath: "docs/sample.ts",
+  excludedScopeDirectoryName: "private",
+  excludedScopeTypeScriptSourcePath: "src/private/sample.ts",
+  passExitCode: 0,
+  failureExitCode: 1,
+} as const;
+
+const FORMATTED_FILE_EXTENSIONS = [
+  "ts",
+  "tsx",
+  "js",
+  "json",
+  "jsonc",
+  "md",
+  "toml",
+  "yaml",
+  "yml",
+] as const;
+
+const EXCLUDED_FORMATTING_CASES = [
+  { path: "pnpm-lock.yaml", content: "value:     1\n" },
+  { path: "testing/fixtures/sample.ts", content: FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent },
+  { path: "testing/fixtures/nested/sample.ts", content: FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent },
+] as const;
+
+const UNFORMATTED_CONTENT_BY_EXTENSION = {
+  ts: "export const value     =     1;\n",
+  tsx: "export const value     =     <div>value</div>;\n",
+  js: "export const value     =     1;\n",
+  json: "{\"value\":     1}\n",
+  jsonc: "{\"value\":     1}\n",
+  md: "# Heading\n\n-   value\n",
+  toml: "value     =     1\n",
+  yaml: "value:     1\n",
+  yml: "value:     1\n",
+} as const;
 
 interface FormattingFixture {
   readonly productDir: string;
   readonly sourceFile: string;
+}
+
+function formattingScenarios(): FormattingValidationScenario[] {
+  return [
+    {
+      title: "a fully formatted project reports no problems and exits zero",
+      kind: FORMATTING_SCENARIO_KIND.CLEAN_PROJECT,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "an unformatted file is reported and the command exits non-zero",
+      kind: FORMATTING_SCENARIO_KIND.UNFORMATTED_COMMAND,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "formatting failure fails the full validation pipeline",
+      kind: FORMATTING_SCENARIO_KIND.PIPELINE_FAILURE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process exits non-zero and names the unformatted file",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_UNFORMATTED,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process expands directory operands before checking files",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process resolves operands from the invocation directory",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_INVOCATION_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process intersects root operands with validation includes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_DIRECTORY_INCLUDE_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process preserves explicit file operands through validation excludes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_FILE_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process intersects directory operands with validation includes",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_FILTERED_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "the format CLI process excludes descendants below directory operands",
+      kind: FORMATTING_SCENARIO_KIND.CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+    {
+      title: "a gitignored unformatted file is skipped and the command exits zero",
+      kind: FORMATTING_SCENARIO_KIND.GITIGNORE_SKIP,
+      timeout: FORMATTING_HARNESS_TIMEOUT,
+    },
+  ];
 }
 
 export function registerFormattingScenarioEvidence(): void {
@@ -120,11 +248,11 @@ async function runMixedFileAndDirectoryScopeScenario(): Promise<void> {
 
 export function registerFormattingMappingEvidence(): void {
   describe("dprint formats the spec-declared extensions and skips the excluded paths", () => {
-    it.each(FORMATTING_VALIDATION_DATA.formattedFileExtensions)(
+    it.each(FORMATTED_FILE_EXTENSIONS)(
       "reports an unformatted .%s file",
       (extension) => runConfiguredExtensionBehavior(extension),
     );
-    it.each(FORMATTING_VALIDATION_DATA.excludedFormattingCases)(
+    it.each(EXCLUDED_FORMATTING_CASES)(
       "excludes $path",
       (excludedCase) => runTrackedExcludeBehavior(excludedCase),
     );
@@ -160,16 +288,16 @@ export function registerFormattingPropertyEvidence(): void {
         expect(buildDprintCheckArgs({ files })).toEqual(
           files.length > 0
             ? [
-              FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand,
-              FORMATTING_VALIDATION_DATA.expectedDprintOptionsTerminator,
+              DPRINT_CHECK_SUBCOMMAND,
+              DPRINT_OPTIONS_TERMINATOR,
               ...files,
             ]
-            : [FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand],
+            : [DPRINT_CHECK_SUBCOMMAND],
         );
       }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
     });
     it("emits only the check subcommand when no file scope is supplied", () => {
-      expect(buildDprintCheckArgs({})).toEqual([FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand]);
+      expect(buildDprintCheckArgs({})).toEqual([DPRINT_CHECK_SUBCOMMAND]);
     });
     it("emits additive excludes before preserving every file argument in order", () => {
       assertProperty(
@@ -178,9 +306,9 @@ export function registerFormattingPropertyEvidence(): void {
         ),
         ({ excludes, files }) => {
           expect(buildDprintCheckArgs({ excludes, files })).toEqual([
-            FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand,
-            ...(excludes.length > 0 ? [FORMATTING_VALIDATION_DATA.expectedDprintExcludesOption, ...excludes] : []),
-            ...(files.length > 0 ? [FORMATTING_VALIDATION_DATA.expectedDprintOptionsTerminator] : []),
+            DPRINT_CHECK_SUBCOMMAND,
+            ...(excludes.length > 0 ? [DPRINT_EXCLUDES_OPTION, ...excludes] : []),
+            ...(files.length > 0 ? [DPRINT_OPTIONS_TERMINATOR] : []),
             ...files,
           ]);
         },
@@ -307,8 +435,8 @@ async function runFormattingDirectoryDispatchScenario(): Promise<void> {
       { validateFormatting: (context) => validateFormatting(context, runner) },
     );
     expect(runner.args).toEqual([[
-      FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand,
-      FORMATTING_VALIDATION_DATA.expectedDprintOptionsTerminator,
+      DPRINT_CHECK_SUBCOMMAND,
+      DPRINT_OPTIONS_TERMINATOR,
       `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
     ]]);
   });
@@ -336,10 +464,10 @@ async function runFormattingExcludedDirectoryDispatchScenario(): Promise<void> {
       { validateFormatting: (context) => validateFormatting(context, runner) },
     );
     expect(runner.args).toEqual([[
-      FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand,
-      FORMATTING_VALIDATION_DATA.expectedDprintExcludesOption,
+      DPRINT_CHECK_SUBCOMMAND,
+      DPRINT_EXCLUDES_OPTION,
       `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/${FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName}`,
-      FORMATTING_VALIDATION_DATA.expectedDprintOptionsTerminator,
+      DPRINT_OPTIONS_TERMINATOR,
       `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
     ]]);
   });
@@ -357,10 +485,10 @@ async function runFormattingExcludeArgumentCompliance(): Promise<void> {
       runner,
     );
     expect(runner.args).toEqual([[
-      FORMATTING_VALIDATION_DATA.expectedDprintCheckSubcommand,
-      FORMATTING_VALIDATION_DATA.expectedDprintExcludesOption,
+      DPRINT_CHECK_SUBCOMMAND,
+      DPRINT_EXCLUDES_OPTION,
       FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName,
-      FORMATTING_VALIDATION_DATA.expectedDprintOptionsTerminator,
+      DPRINT_OPTIONS_TERMINATOR,
       `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
     ]]);
   });
@@ -413,14 +541,14 @@ function formattingParticipationOverrideFlag(): `--${string}` {
 }
 
 async function runConfiguredExtensionBehavior(
-  extension: (typeof FORMATTING_VALIDATION_DATA.formattedFileExtensions)[number],
+  extension: (typeof FORMATTED_FILE_EXTENSIONS)[number],
 ): Promise<void> {
   await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
     copyProductDprintConfig(productDir);
     const filename = `sample.${extension}`;
     await writeFile(
       join(productDir, filename),
-      FORMATTING_VALIDATION_DATA.unformattedContentByExtension[extension],
+      UNFORMATTED_CONTENT_BY_EXTENSION[extension],
     );
     const result = await formattingCommand({
       cwd: productDir,
@@ -432,7 +560,7 @@ async function runConfiguredExtensionBehavior(
 }
 
 async function runTrackedExcludeBehavior(
-  excludedCase: (typeof FORMATTING_VALIDATION_DATA.excludedFormattingCases)[number],
+  excludedCase: (typeof EXCLUDED_FORMATTING_CASES)[number],
 ): Promise<void> {
   await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
     copyProductDprintConfig(productDir);
@@ -822,10 +950,10 @@ async function withFormattingFixture(
 
 function copyProductDprintConfig(productDir: string): void {
   const source = readFileSync(
-    join(process.cwd(), FORMATTING_VALIDATION_DATA.dprintConfigFilename),
+    join(process.cwd(), DPRINT_CONFIG_FILENAME),
     "utf8",
   );
-  writeFileSync(join(productDir, FORMATTING_VALIDATION_DATA.dprintConfigFilename), source);
+  writeFileSync(join(productDir, DPRINT_CONFIG_FILENAME), source);
 }
 
 async function canonicalizeFixture(productDir: string, sourceFile: string): Promise<void> {
