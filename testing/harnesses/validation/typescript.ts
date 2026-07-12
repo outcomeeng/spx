@@ -1,13 +1,20 @@
 import { expect, it } from "vitest";
 
-import { VALIDATION_STAGE_DISPLAY_NAMES, VALIDATION_STEP_DURATION_PATTERN } from "@/commands/validation/messages";
+import { VALIDATION_EXIT_CODES, VALIDATION_STEP_DURATION_PATTERN } from "@/commands/validation/messages";
+import { createValidationDomain, validationCliDefinition } from "@/interfaces/cli/validation";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import {
   validationAllTypeScriptComplianceEvidence,
   validationAllTypeScriptScenarioEvidence,
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
-import { expectValidationSubprocessResult, runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import {
+  expectValidationSubprocessResult,
+  runValidationInProcessWithDomains,
+  runValidationSubprocess,
+} from "@testing/harnesses/validation/cli";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 export function registerTypeScriptValidationScenarioTests(): void {
@@ -16,28 +23,35 @@ export function registerTypeScriptValidationScenarioTests(): void {
   }
 }
 
-export function registerTypeScriptValidationMappingTests(): void {
-  const expectedStageNames = [
-    VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
-    VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-    VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
-    VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
-    VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
-  ];
-  it.each(expectedStageNames.map((stageName, index) => ({ index, stageName })))(
-    "maps descriptor stage $index to $stageName",
-    ({ index, stageName }) => {
-      expect(typescriptValidationLanguage.stages[index]?.name).toBe(stageName);
-    },
-  );
-  it("contains no stages beyond the ordered mapping", () => {
-    expect(typescriptValidationLanguage.stages).toHaveLength(expectedStageNames.length);
-  });
-}
-
 export function registerTypeScriptValidationComplianceTests(): void {
+  it("invokes every registered TypeScript stage whose descriptor default is run", () =>
+    runTypeScriptDescriptorDefaultCompliance());
   const scenario = validationAllTypeScriptComplianceEvidence();
   it(scenario.title, { timeout: scenario.timeout }, () => runTypeScriptValidationScenario(scenario));
+}
+
+async function runTypeScriptDescriptorDefaultCompliance(): Promise<void> {
+  await withTempDir("spx-typescript-validation-compliance-", async (productDir) => {
+    const calls: string[] = [];
+    const controlledStages: readonly ValidationStage[] = typescriptValidationLanguage.stages.map((stage) => ({
+      ...stage,
+      run: async () => {
+        calls.push(stage.name);
+        return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: stage.name };
+      },
+    }));
+    const result = await runValidationInProcessWithDomains(
+      [validationCliDefinition.subcommands.all.commandName],
+      [createValidationDomain({ validationStages: controlledStages })],
+      { processCwd: () => productDir },
+    );
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+    expect(calls).toEqual(
+      typescriptValidationLanguage.stages
+        .filter((stage) => stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN)
+        .map((stage) => stage.name),
+    );
+  });
 }
 
 async function runTypeScriptValidationScenario(scenario: ValidationSubprocessScenario): Promise<void> {

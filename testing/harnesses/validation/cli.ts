@@ -1,5 +1,6 @@
 import { CommanderError } from "commander";
 import { execa } from "execa";
+import { readFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
@@ -10,21 +11,13 @@ import {
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
-import {
-  LITERAL_PROBLEM_KIND,
-  OUTPUT_MODE_NAME,
-  OUTPUT_MODE_NAMES,
-  type OutputModeName,
-} from "@/commands/validation/literal";
+import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/commands/validation/literal";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
   createValidationDomain,
-  literalValidationCliOptions,
-  validationCliDefinition,
   type ValidationCommandHandlers,
-  validationCommonCliOptions,
   validationDomain,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation";
@@ -67,28 +60,39 @@ const OBSERVED_HANDLER_OUTPUT_PREFIX = "validation-handler-called:";
 const OBSERVED_HANDLER_TERMINAL_OUTPUT_PREFIX = "validation-terminal-output:";
 const OBSERVED_HANDLER_EXIT_CODE = 7;
 
-const VALIDATION_CLI_CONTRACT = {
-  diagnostics: {
-    unknownSubcommand: {
-      label: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
-      exitCode: validationCliDefinition.diagnostics.unknownSubcommand.exitCode,
-    },
-    unknownLiteralProblemKind: {
-      label: validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel,
-      exitCode: validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
-    },
-    invalidPathOperand: {
-      label: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
-      reason: validationCliDefinition.diagnostics.invalidPathOperand.reason,
-      exitCode: validationCliDefinition.diagnostics.invalidPathOperand.exitCode,
-    },
-  },
-  literalHelp: {
-    pathOperand: validationCliDefinition.pathOperands.optionalVariadic,
-    flags: Object.values(literalValidationCliOptions).map((option) => option.flag),
-    problemKinds: Object.values(LITERAL_PROBLEM_KIND),
-  },
-} as const;
+interface ValidationCliContractSubcommand {
+  readonly commandName: string;
+  readonly alias?: string;
+}
+
+interface ValidationCliContract {
+  readonly domain: { readonly commandName: string };
+  readonly subcommands: Readonly<Record<string, ValidationCliContractSubcommand>>;
+  readonly help: {
+    readonly longFlag: string;
+    readonly pathOperand: string;
+    readonly literalFlags: readonly string[];
+    readonly literalProblemKinds: readonly string[];
+  };
+  readonly options: {
+    readonly scope: string;
+    readonly quiet: string;
+    readonly json: string;
+  };
+  readonly diagnostics: {
+    readonly unknownSubcommand: { readonly label: string; readonly exitCode: number };
+    readonly unknownLiteralProblemKind: { readonly label: string; readonly exitCode: number };
+    readonly invalidPathOperand: {
+      readonly label: string;
+      readonly reason: string;
+      readonly exitCode: number;
+    };
+  };
+}
+
+const VALIDATION_CLI_CONTRACT = JSON.parse(
+  readFileSync(new URL("../../fixtures/validation-cli/contract.json", import.meta.url), "utf8"),
+) as ValidationCliContract;
 
 export interface ValidationCliResult {
   readonly exitCode: number;
@@ -99,10 +103,6 @@ export interface ValidationCliResult {
 export interface ValidationCliRunOptions {
   readonly cwd?: string;
   readonly timeout?: number;
-}
-
-export interface ValidationCliOptionDefinition {
-  readonly flag: string;
 }
 
 export interface ValidationCliStreamingObservation {
@@ -230,7 +230,7 @@ export async function runValidationInProcessWithDomains(
     exit: (exitCode) => {
       throw new CommanderError(
         exitCode,
-        validationCliDefinition.domain.commandName,
+        VALIDATION_CLI_CONTRACT.domain.commandName,
         validationCliEmptyOutput(),
       );
     },
@@ -244,7 +244,7 @@ export async function runValidationInProcessWithDomains(
 
   try {
     await program.parseAsync(
-      [validationCliDefinition.domain.commandName, ...args],
+      [VALIDATION_CLI_CONTRACT.domain.commandName, ...args],
       { from: SPX_COMMANDER_PARSE_SOURCE },
     );
     return {
@@ -272,16 +272,16 @@ export function withEmptyValidationProject(
 }
 
 export function validationCliPackagedArgs(args: readonly string[]): string[] {
-  return [validationCliPackagedExecutablePath(), validationCliDefinition.domain.commandName, ...args];
+  return [validationCliPackagedExecutablePath(), VALIDATION_CLI_CONTRACT.domain.commandName, ...args];
 }
 
-export function validationCliOptionName(option: ValidationCliOptionDefinition): string {
-  const name = option.flag.split(validationCliOptionOperandSeparator()).at(0);
-  return name ?? option.flag;
+export function validationCliOptionName(flag: string): string {
+  const name = flag.split(validationCliOptionOperandSeparator()).at(0);
+  return name ?? flag;
 }
 
 export function validationCliEmptyOutput(): string {
-  return validationCliDefinition.domain.commandName.slice(
+  return VALIDATION_CLI_CONTRACT.domain.commandName.slice(
     validationCliEmptyOutputLength(),
     validationCliEmptyOutputLength(),
   );
@@ -365,20 +365,20 @@ export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Pro
   await withEmptyValidationProject(async (productDir) => {
     const observed = observedValidationCommandHandlers(OBSERVED_HANDLER_EXIT_CODE);
     const result = await runValidationInProcessWithDomains(
-      [validationCliDefinition.subcommands.format.commandName],
+      [VALIDATION_CLI_CONTRACT.subcommands.format.commandName],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
       { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(OBSERVED_HANDLER_EXIT_CODE);
     expect(result.stderr).toContain(
-      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+      observedHandlerTerminalOutput(VALIDATION_CLI_CONTRACT.subcommands.format.commandName),
     );
-    expect(result.stderr).not.toContain(observedHandlerOutput(validationCliDefinition.subcommands.format.commandName));
+    expect(result.stderr).not.toContain(observedHandlerOutput(VALIDATION_CLI_CONTRACT.subcommands.format.commandName));
     expect(result.stdout).not.toContain(
-      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+      observedHandlerTerminalOutput(VALIDATION_CLI_CONTRACT.subcommands.format.commandName),
     );
-    expect(observed.calls).toEqual([{ commandName: validationCliDefinition.subcommands.format.commandName }]);
+    expect(observed.calls).toEqual([{ commandName: VALIDATION_CLI_CONTRACT.subcommands.format.commandName }]);
   });
 }
 
@@ -389,7 +389,7 @@ export async function expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroEx
 
     for (const outputMode of OUTPUT_MODE_NAMES) {
       const result = await runValidationInProcess([
-        validationCliDefinition.subcommands.literal.commandName,
+        VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
         ...literalReportModeArgument(outputMode),
       ], { processCwd: () => env.productDir });
 
@@ -448,7 +448,7 @@ export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): P
   const releaseFailure = createDeferred<void>();
   let observedProgressBeforeFailureCompleted = false;
   const resultPromise = runValidationInProcessWithDomains(
-    [validationCliDefinition.subcommands.all.commandName],
+    [VALIDATION_CLI_CONTRACT.subcommands.all.commandName],
     [createValidationDomain({
       validationStages: [
         syntheticDefaultStage([]),
@@ -481,7 +481,7 @@ export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): P
 export async function expectValidationAllJsonOutputIsMachineReadable(): Promise<void> {
   const calls: string[] = [];
   const result = await runValidationInProcessWithDomains(
-    [validationCliDefinition.subcommands.all.commandName, validationCommonJsonFlag()],
+    [VALIDATION_CLI_CONTRACT.subcommands.all.commandName, validationCommonJsonFlag()],
     [createValidationDomain({ validationStages: [syntheticDefaultStage(calls), syntheticJsonStage()] })],
   );
   const records = result.stdout.split("\n").filter((line) => line.length > 0);
@@ -492,6 +492,25 @@ export async function expectValidationAllJsonOutputIsMachineReadable(): Promise<
   for (const record of records) {
     expect(() => JSON.parse(record)).not.toThrow();
   }
+}
+
+export async function expectValidationAllJsonOutputWithRealSubprocessIsMachineReadable(): Promise<void> {
+  await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+    const result = await runValidationSubprocess(
+      [VALIDATION_CLI_CONTRACT.subcommands.all.commandName, validationCommonJsonFlag()],
+      { cwd: path, timeout: VALIDATION_PIPELINE_DATA.allTimeout },
+    );
+    const records = result.stdout.split("\n").filter((line) => line.length > 0).map((line) =>
+      JSON.parse(line) as {
+        readonly stage?: string;
+      }
+    );
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(result.stderr).toBe(validationCliEmptyOutput());
+    expect(records.some((record) => record.stage === VALIDATION_PIPELINE_DATA.stageNames.ESLINT)).toBe(true);
+    expect(records.some((record) => record.stage === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT)).toBe(true);
+  });
 }
 
 function createDeferred<T>(): Deferred<T> {
@@ -505,7 +524,7 @@ function createDeferred<T>(): Deferred<T> {
 export async function expectPackagedCircularSubcommandRoutesHandler(): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
     const result = await runValidationSubprocess(
-      [validationCliDefinition.subcommands.circular.commandName],
+      [VALIDATION_CLI_CONTRACT.subcommands.circular.commandName],
       { cwd: path },
     );
 
@@ -521,7 +540,7 @@ export async function expectValidationAllForwardsProductionScope(): Promise<void
     const observed = observedValidationCommandHandlers();
     const result = await runValidationInProcessWithDomains(
       [
-        validationCliDefinition.subcommands.all.commandName,
+        VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
         validationCommonScopeFlag(),
         VALIDATION_PIPELINE_DATA.productionScope,
       ],
@@ -531,7 +550,7 @@ export async function expectValidationAllForwardsProductionScope(): Promise<void
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expect(observed.calls).toEqual([{
-      commandName: validationCliDefinition.subcommands.all.commandName,
+      commandName: VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       scope: VALIDATION_PIPELINE_DATA.productionScope,
     }]);
   });
@@ -542,14 +561,14 @@ export async function expectValidationAllForwardsFileScope(): Promise<void> {
     const file = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const observed = observedValidationCommandHandlers();
     const result = await runValidationInProcessWithDomains(
-      [validationCliDefinition.subcommands.all.commandName, file],
+      [VALIDATION_CLI_CONTRACT.subcommands.all.commandName, file],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
       { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expect(observed.calls).toEqual([{
-      commandName: validationCliDefinition.subcommands.all.commandName,
+      commandName: VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       files: [file],
       scope: VALIDATION_SCOPES.FULL,
     }]);
@@ -561,14 +580,14 @@ export async function expectValidationAllForwardsDirectoryScope(): Promise<void>
     const directory = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
     const observed = observedValidationCommandHandlers();
     const result = await runValidationInProcessWithDomains(
-      [validationCliDefinition.subcommands.all.commandName, directory],
+      [VALIDATION_CLI_CONTRACT.subcommands.all.commandName, directory],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
       { processCwd: () => productDir },
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
     expect(observed.calls).toEqual([{
-      commandName: validationCliDefinition.subcommands.all.commandName,
+      commandName: VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       files: [directory],
       scope: VALIDATION_SCOPES.FULL,
     }]);
@@ -580,8 +599,8 @@ export async function expectLiteralCommandRejectsInvalidKindBeforeStageWork(): P
     const unsafeKind = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.invalidLiteralProblemKind());
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [
-        validationCliDefinition.subcommands.literal.commandName,
-        validationCliOptionName(literalValidationCliOptions.kind),
+        VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+        validationCliOptionName(VALIDATION_CLI_CONTRACT.help.literalFlags[1]),
         unsafeKind,
       ],
       expectedLabel: VALIDATION_CLI_CONTRACT.diagnostics.unknownLiteralProblemKind.label,
@@ -598,7 +617,7 @@ export async function expectPathEscapeRejectedBeforeValidation(): Promise<void> 
   await withEmptyValidationProject(async (productDir) => {
     const result = await expectDispatchFailureSkipsInjectedHandlers({
       args: [
-        validationCliDefinition.subcommands.format.commandName,
+        VALIDATION_CLI_CONTRACT.subcommands.format.commandName,
         VALIDATION_PIPELINE_DATA.escapingPathOperand,
       ],
       expectedLabel: VALIDATION_CLI_CONTRACT.diagnostics.invalidPathOperand.label,
@@ -620,7 +639,7 @@ export async function expectSymlinkedInvocationDirectoryResolvesInProductOperand
 
     const result = await runValidationInProcessWithDomains(
       [
-        validationCliDefinition.subcommands.format.commandName,
+        VALIDATION_CLI_CONTRACT.subcommands.format.commandName,
         operand,
       ],
       [createValidationDomain({ commandHandlers: observed.commandHandlers })],
@@ -629,10 +648,10 @@ export async function expectSymlinkedInvocationDirectoryResolvesInProductOperand
 
     expect(result.exitCode).not.toBe(VALIDATION_CLI_CONTRACT.diagnostics.invalidPathOperand.exitCode);
     expect(result.stdout).toContain(
-      observedHandlerTerminalOutput(validationCliDefinition.subcommands.format.commandName),
+      observedHandlerTerminalOutput(VALIDATION_CLI_CONTRACT.subcommands.format.commandName),
     );
     expect(observed.calls).toEqual([{
-      commandName: validationCliDefinition.subcommands.format.commandName,
+      commandName: VALIDATION_CLI_CONTRACT.subcommands.format.commandName,
       files: [operand],
     }]);
     expect(result.stderr).not.toContain(VALIDATION_CLI_CONTRACT.diagnostics.invalidPathOperand.label);
@@ -749,8 +768,8 @@ export function registerValidationCliDispatchComplianceTests(): void {
         });
         await expectDispatchFailureSkipsInjectedHandlers({
           args: [
-            validationCliDefinition.subcommands.literal.commandName,
-            validationCliOptionName(literalValidationCliOptions.kind),
+            VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+            validationCliOptionName(VALIDATION_CLI_CONTRACT.help.literalFlags[1]),
             invalidKind,
           ],
           expectedLabel: VALIDATION_CLI_CONTRACT.diagnostics.unknownLiteralProblemKind.label,
@@ -759,7 +778,7 @@ export function registerValidationCliDispatchComplianceTests(): void {
         });
         await expectDispatchFailureSkipsInjectedHandlers({
           args: [
-            validationCliDefinition.subcommands.format.commandName,
+            VALIDATION_CLI_CONTRACT.subcommands.format.commandName,
             VALIDATION_PIPELINE_DATA.escapingPathOperand,
           ],
           expectedLabel: VALIDATION_CLI_CONTRACT.diagnostics.invalidPathOperand.label,
@@ -786,7 +805,7 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   const humanStages = syntheticOverrideStageSet();
   const humanResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.all.commandName,
+      VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       SYNTHETIC_OVERRIDE_FLAG,
     ],
     [createValidationDomain({
@@ -796,9 +815,9 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   const quietStages = syntheticOverrideStageSet();
   const quietResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.all.commandName,
+      VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       SYNTHETIC_OVERRIDE_FLAG,
-      validationCommonCliOptions.quiet.flag,
+      VALIDATION_CLI_CONTRACT.options.quiet,
     ],
     [createValidationDomain({
       validationStages: quietStages.stages,
@@ -807,7 +826,7 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   const jsonStages = syntheticOverrideStageSet();
   const jsonResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.all.commandName,
+      VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       SYNTHETIC_OVERRIDE_FLAG,
       validationCommonJsonFlag(),
     ],
@@ -818,7 +837,7 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   const productionStages = syntheticOverrideStageSet();
   const productionResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.all.commandName,
+      VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
       validationCommonScopeFlag(),
       VALIDATION_PIPELINE_DATA.productionScope,
       SYNTHETIC_OVERRIDE_FLAG,
@@ -857,30 +876,30 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
 
 export async function expectLiteralHelpListsLiteralFlagsAndProblemKinds(): Promise<void> {
   const result = await runValidationInProcess([
-    validationCliDefinition.subcommands.literal.commandName,
-    validationCliDefinition.commanderHelpOperands.longFlag,
+    VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+    VALIDATION_CLI_CONTRACT.help.longFlag,
   ]);
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(result.stderr).toHaveLength(validationCliEmptyOutputLength());
-  for (const flag of VALIDATION_CLI_CONTRACT.literalHelp.flags) {
+  for (const flag of VALIDATION_CLI_CONTRACT.help.literalFlags) {
     expect(result.stdout).toContain(flag);
   }
-  expect(result.stdout).toContain(VALIDATION_CLI_CONTRACT.literalHelp.pathOperand);
-  for (const kind of VALIDATION_CLI_CONTRACT.literalHelp.problemKinds) {
+  expect(result.stdout).toContain(VALIDATION_CLI_CONTRACT.help.pathOperand);
+  for (const kind of VALIDATION_CLI_CONTRACT.help.literalProblemKinds) {
     expect(result.stdout).toContain(kind);
   }
 }
 
 export async function expectValidationAllHelpListsOverrideFlags(): Promise<void> {
   const result = await runValidationInProcess([
-    validationCliDefinition.subcommands.all.commandName,
-    validationCliDefinition.commanderHelpOperands.longFlag,
+    VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
+    VALIDATION_CLI_CONTRACT.help.longFlag,
   ]);
   const syntheticResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.all.commandName,
-      validationCliDefinition.commanderHelpOperands.longFlag,
+      VALIDATION_CLI_CONTRACT.subcommands.all.commandName,
+      VALIDATION_CLI_CONTRACT.help.longFlag,
     ],
     [createValidationDomain({
       validationStages: [syntheticOverrideStage()],
@@ -900,13 +919,13 @@ export async function expectValidationAllHelpListsOverrideFlags(): Promise<void>
 
 export async function expectLiteralHelpOmitsValidationAllOverrideFlags(): Promise<void> {
   const result = await runValidationInProcess([
-    validationCliDefinition.subcommands.literal.commandName,
-    validationCliDefinition.commanderHelpOperands.longFlag,
+    VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+    VALIDATION_CLI_CONTRACT.help.longFlag,
   ]);
   const syntheticResult = await runValidationInProcessWithDomains(
     [
-      validationCliDefinition.subcommands.literal.commandName,
-      validationCliDefinition.commanderHelpOperands.longFlag,
+      VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+      VALIDATION_CLI_CONTRACT.help.longFlag,
     ],
     [createValidationDomain({
       validationStages: [syntheticOverrideStage()],
@@ -967,18 +986,18 @@ function expectStructuredSkippedSentinel(stdout: string, reason: string): void {
 }
 
 function validationCommonJsonFlag(): string {
-  return validationCommonCliOptions.json.flag;
+  return VALIDATION_CLI_CONTRACT.options.json;
 }
 
 function validationCommonScopeFlag(): string {
-  return validationCommonCliOptions.scope.flag;
+  return VALIDATION_CLI_CONTRACT.options.scope;
 }
 
 function validationRegisteredSubcommandOperands(): readonly {
   readonly commandName: string;
   readonly operand: string;
 }[] {
-  return Object.values(validationCliDefinition.subcommands)
+  return Object.values(VALIDATION_CLI_CONTRACT.subcommands)
     .flatMap((subcommand) =>
       subcommand.alias === undefined
         ? [{ commandName: subcommand.commandName, operand: subcommand.commandName }]
@@ -1108,14 +1127,14 @@ function observedValidationCommandHandlers(
   return {
     calls,
     commandHandlers: {
-      typescript: createHandler(validationCliDefinition.subcommands.typescript.commandName),
-      lint: createHandler(validationCliDefinition.subcommands.lint.commandName),
-      circular: createHandler(validationCliDefinition.subcommands.circular.commandName),
-      knip: createHandler(validationCliDefinition.subcommands.knip.commandName),
-      literal: createHandler(validationCliDefinition.subcommands.literal.commandName),
-      markdown: createHandler(validationCliDefinition.subcommands.markdown.commandName),
-      format: createHandler(validationCliDefinition.subcommands.format.commandName),
-      all: createHandler(validationCliDefinition.subcommands.all.commandName),
+      typescript: createHandler(VALIDATION_CLI_CONTRACT.subcommands.typescript.commandName),
+      lint: createHandler(VALIDATION_CLI_CONTRACT.subcommands.lint.commandName),
+      circular: createHandler(VALIDATION_CLI_CONTRACT.subcommands.circular.commandName),
+      knip: createHandler(VALIDATION_CLI_CONTRACT.subcommands.knip.commandName),
+      literal: createHandler(VALIDATION_CLI_CONTRACT.subcommands.literal.commandName),
+      markdown: createHandler(VALIDATION_CLI_CONTRACT.subcommands.markdown.commandName),
+      format: createHandler(VALIDATION_CLI_CONTRACT.subcommands.format.commandName),
+      all: createHandler(VALIDATION_CLI_CONTRACT.subcommands.all.commandName),
     },
   };
 }
@@ -1125,13 +1144,13 @@ function literalReportModeArgument(outputMode: OutputModeName): readonly string[
     case OUTPUT_MODE_NAME.TEXT:
       return [];
     case OUTPUT_MODE_NAME.VERBOSE:
-      return [literalValidationCliOptions.verbose.flag];
+      return [validationCliOptionName(VALIDATION_CLI_CONTRACT.help.literalFlags[4])];
     case OUTPUT_MODE_NAME.FILES_WITH_PROBLEMS:
-      return [literalValidationCliOptions.filesWithProblems.flag];
+      return [validationCliOptionName(VALIDATION_CLI_CONTRACT.help.literalFlags[2])];
     case OUTPUT_MODE_NAME.LITERALS:
-      return [literalValidationCliOptions.literals.flag];
+      return [validationCliOptionName(VALIDATION_CLI_CONTRACT.help.literalFlags[3])];
     case OUTPUT_MODE_NAME.JSON:
-      return [validationCommonCliOptions.json.flag];
+      return [VALIDATION_CLI_CONTRACT.options.json];
   }
 }
 
@@ -1149,7 +1168,7 @@ function outputContainsValidationStageMarker(output: string): boolean {
 
 export async function expectLiteralCommandRejectsFullPipelineLiteralOverride(): Promise<void> {
   const result = await runValidationInProcess([
-    validationCliDefinition.subcommands.literal.commandName,
+    VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
     VALIDATION_PIPELINE_DATA.skipLiteralFlag,
   ]);
 
@@ -1160,7 +1179,7 @@ export async function expectLiteralCommandRejectsFullPipelineLiteralOverride(): 
 
 export async function expectCircularCommandRejectsFullPipelineCircularOverride(): Promise<void> {
   const result = await runValidationInProcess([
-    validationCliDefinition.subcommands.circular.commandName,
+    VALIDATION_CLI_CONTRACT.subcommands.circular.commandName,
     VALIDATION_PIPELINE_DATA.skipCircularFlag,
   ]);
 
@@ -1172,7 +1191,7 @@ export async function expectCircularCommandRejectsFullPipelineCircularOverride()
 async function expectStandaloneCommandsRejectFullPipelineOverrideFlags(): Promise<void> {
   await withEmptyValidationProject(async (productDir) => {
     for (const { operand, commandName } of validationRegisteredSubcommandOperands()) {
-      if (commandName === validationCliDefinition.subcommands.all.commandName) continue;
+      if (commandName === VALIDATION_CLI_CONTRACT.subcommands.all.commandName) continue;
       for (const overrideFlag of validationAllOverrideFlagsFromStageDescriptors()) {
         const observed = observedValidationCommandHandlers();
         const result = await runValidationInProcessWithDomains(

@@ -17,6 +17,7 @@ import {
   expectUnknownSubcommandReachesSanitizedDiagnostic,
   expectValidationAllHelpListsOverrideFlags,
   expectValidationAllJsonOutputIsMachineReadable,
+  expectValidationAllJsonOutputWithRealSubprocessIsMachineReadable,
 } from "@testing/harnesses/validation/cli";
 
 describe("spx validation dispatch — observable scenarios", () => {
@@ -78,6 +79,10 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("validation all JSON output contains only machine-readable records", async () => {
     await expectValidationAllJsonOutputIsMachineReadable();
+  });
+
+  it("validation all JSON output isolates real subprocess output", async () => {
+    await expectValidationAllJsonOutputWithRealSubprocessIsMachineReadable();
   });
 
   it("literal help omits full-pipeline override flags", async () => {

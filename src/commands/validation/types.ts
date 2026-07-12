@@ -28,6 +28,14 @@ export interface ValidationCommandResult {
   outputTarget?: ValidationOutputTarget;
 }
 
+export interface ValidationStageCompletion {
+  readonly stepNumber: number;
+  readonly totalSteps: number;
+  readonly stageName: string;
+  readonly result: ValidationCommandResult;
+  readonly output: string;
+}
+
 /** Common options for all validation commands */
 export interface CommonValidationOptions {
   /** Working directory */
@@ -86,8 +94,8 @@ export interface AllCommandOptions extends CommonValidationOptions {
   validationStages?: readonly ValidationStage[];
   /** Invocation-local stage participation override flags selected by the CLI. */
   participationOverrides?: readonly `--${string}`[];
-  /** Receives each visible stage line as soon as that stage completes. */
-  writeStageOutput?: (output: string) => void;
+  /** Receives each visible stage completion as soon as that stage completes. */
+  onStageComplete?: (completion: ValidationStageCompletion) => void;
   /** Parent streams that receive validation subprocess output. */
   outputStreams?: ValidationSubprocessOutputStreams;
 }

@@ -17,7 +17,7 @@ import {
   formatValidationStageSkipJsonOutput,
   formatValidationStageSkipOutput,
 } from "./messages";
-import type { AllCommandOptions, ValidationCommandResult } from "./types";
+import type { AllCommandOptions, ValidationCommandResult, ValidationStageCompletion } from "./types";
 
 /**
  * Format step output with step number and timing.
@@ -97,15 +97,15 @@ function skippedStageResult(
 }
 
 function recordStepOutput(
-  stepOutput: string,
+  completion: ValidationStageCompletion,
   outputs: string[],
-  writeStageOutput: ((output: string) => void) | undefined,
+  onStageComplete: ((completion: ValidationStageCompletion) => void) | undefined,
 ): boolean {
-  if (stepOutput.length === 0) return false;
-  if (writeStageOutput === undefined) {
-    outputs.push(stepOutput);
+  if (completion.output.length === 0) return false;
+  if (onStageComplete === undefined) {
+    outputs.push(completion.output);
   } else {
-    writeStageOutput(`${stepOutput}\n`);
+    onStageComplete(completion);
   }
   return true;
 }
@@ -132,7 +132,7 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
     json,
     participationOverrides = [],
     validationStages: requestedValidationStages,
-    writeStageOutput,
+    onStageComplete,
     outputStreams,
   } = options;
   const validationStages = resolveFullPipelineStages(requestedValidationStages);
@@ -163,7 +163,17 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
       quiet,
       json === true,
     );
-    wroteStageOutput = recordStepOutput(stepOutput, outputs, writeStageOutput) || wroteStageOutput;
+    wroteStageOutput = recordStepOutput(
+      {
+        stepNumber,
+        totalSteps: validationStages.length,
+        stageName: stage.name,
+        result,
+        output: stepOutput,
+      },
+      outputs,
+      onStageComplete,
+    ) || wroteStageOutput;
     if (stage.failsPipeline && result.exitCode !== 0) hasFailure = true;
   }
 

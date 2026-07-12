@@ -15,7 +15,7 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { validationCliDefinition, validationKnownOperands, validationOptionPrefix } from "@/interfaces/cli/validation";
+import { validationCliDefinition, validationOptionPrefix } from "@/interfaces/cli/validation";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
@@ -37,6 +37,13 @@ const EMPTY_CLI_ARGUMENT = "";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
+const REGISTERED_VALIDATION_SUBCOMMANDS = new Set(
+  Object.values(validationCliDefinition.subcommands).flatMap((subcommand) =>
+    subcommand.alias === undefined
+      ? [subcommand.commandName]
+      : [subcommand.commandName, subcommand.alias]
+  ),
+);
 const VALIDATION_CLI_TEMP_PREFIX = "spx-validation-cli-";
 const ESCAPING_PATH_OPERAND = "../out\x01side.ts";
 const OPTION_OPERAND_SEPARATOR = " ";
@@ -409,15 +416,15 @@ export type ValidationStepOutcome =
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
   return fc.oneof(
     arbitraryDomainLiteral()
-      .filter((candidate) => !validationKnownOperands.has(candidate))
+      .filter((candidate) => !REGISTERED_VALIDATION_SUBCOMMANDS.has(candidate))
       .filter((candidate) => !candidate.startsWith(validationOptionPrefix)),
     arbitraryDomainLiteral()
       .map((candidate) => ` ${candidate}\t`)
-      .filter((candidate) => !validationKnownOperands.has(candidate.trim()))
+      .filter((candidate) => !REGISTERED_VALIDATION_SUBCOMMANDS.has(candidate.trim()))
       .filter((candidate) => !candidate.trim().startsWith(validationOptionPrefix)),
-    fc.constantFrom("???", "literal:bad", "unknown/subcommand", "unicodeé\x01stage"),
+    fc.constantFrom("help", "???", "literal:bad", "unknown/subcommand", "unicodeé\x01stage"),
   )
-    .filter((candidate) => !validationKnownOperands.has(candidate))
+    .filter((candidate) => !REGISTERED_VALIDATION_SUBCOMMANDS.has(candidate))
     .filter((candidate) => !candidate.startsWith(validationOptionPrefix));
 }
 
@@ -437,7 +444,7 @@ export function arbitraryValidationCliUnicodeArgument(): fc.Arbitrary<string> {
     minLength: UNICODE_ARGUMENT_PARTS.length,
     maxLength: UNICODE_ARGUMENT_PARTS.length,
   }).map((parts) => parts.join(EMPTY_CLI_ARGUMENT))
-    .filter((candidate) => !validationKnownOperands.has(candidate));
+    .filter((candidate) => !REGISTERED_VALIDATION_SUBCOMMANDS.has(candidate));
 }
 
 export function arbitraryInvalidLiteralProblemKind(): fc.Arbitrary<string> {
@@ -627,9 +634,7 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
 }
 
 export function validationLintSubprocessComplianceScenarios(): ValidationSubprocessScenario[] {
-  return validationLintSubprocessScenarios().filter(
-    (scenario) => scenario.fixture !== PROJECT_FIXTURES.CLEAN_PROJECT,
-  );
+  return validationLintSubprocessScenarios();
 }
 
 export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessScenario[] {

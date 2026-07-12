@@ -267,18 +267,6 @@ function validateStageParticipationMetadata(stage: ValidationStage): void {
 export const validationAllOverrideCliOptions: readonly ValidationAllOverrideCliOption[] =
   deriveValidationAllOverrideCliOptions(validationPipelineStages);
 
-const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
-  (subcommand) => {
-    const operands = [subcommand.commandName];
-    if (subcommand.alias !== undefined) operands.push(subcommand.alias);
-    return operands;
-  },
-);
-
-export const validationKnownOperands: ReadonlySet<string> = new Set([
-  ...validationSubcommandOperands,
-  ...Object.values(validationCliDefinition.commanderHelpOperands),
-]);
 export const validationOptionPrefix = validationCliDefinition.commanderHelpOperands.longFlag.slice(0, 1);
 
 /** Common options for all validation commands */
@@ -481,7 +469,7 @@ function registerValidationCommands(
         files: paths.files,
         quiet: options.quiet,
         json: options.json,
-        outputStreams: validationSubprocessOutputStreams(invocation.io),
+        outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
       });
       emitValidationResult(result, invocation.io);
     });
@@ -499,7 +487,7 @@ function registerValidationCommands(
         fix: options.fix,
         quiet: options.quiet,
         json: options.json,
-        outputStreams: validationSubprocessOutputStreams(invocation.io),
+        outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
       });
       emitValidationResult(result, invocation.io);
     });
@@ -612,7 +600,7 @@ function registerValidationCommands(
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
-        outputStreams: validationSubprocessOutputStreams(invocation.io),
+        outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
       });
       emitValidationResult(result, invocation.io);
     });
@@ -635,15 +623,19 @@ function registerValidationCommands(
       participationOverrides: selectedValidationAllOverrides(options, allOverrideCliOptions),
       quiet: options.quiet,
       json: options.json,
-      writeStageOutput: invocation.io.writeStdout,
-      outputStreams: validationSubprocessOutputStreams(invocation.io),
+      onStageComplete: ({ output }) => invocation.io.writeStdout(`${output}\n`),
+      outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
     });
     emitValidationResult(result, invocation.io);
   });
   addCommonOptions(allCmd);
 }
 
-function validationSubprocessOutputStreams(io: CliIo): ValidationSubprocessOutputStreams {
+function validationSubprocessOutputStreams(
+  io: CliIo,
+  json?: boolean,
+): ValidationSubprocessOutputStreams | undefined {
+  if (json === true) return undefined;
   return {
     stdout: {
       write: (chunk) => {
@@ -685,7 +677,8 @@ export function createValidationDomain(options: ValidationDomainOptions = {}): D
       const validationCmd = program
         .command(domain.commandName)
         .alias(domain.alias)
-        .description(domain.description);
+        .description(domain.description)
+        .addHelpCommand(false);
 
       validationCmd.on("command:*", (operands: readonly string[]) => {
         handleUnknownSubcommand(operands, invocation.io);

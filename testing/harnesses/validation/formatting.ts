@@ -18,7 +18,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 
-import { allCommand } from "@/commands/validation/all";
+import { allCommand, resolveFullPipelineStages } from "@/commands/validation/all";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
@@ -26,7 +26,7 @@ import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
-import { composeValidationPipelineStages, validationPipelineStages, validationRegistry } from "@/validation/registry";
+import { composeValidationPipelineStages, validationPipelineStages } from "@/validation/registry";
 import {
   buildDprintCheckArgs,
   DPRINT_COMMAND,
@@ -365,17 +365,30 @@ async function runFormattingExcludeArgumentCompliance(): Promise<void> {
 
 async function runFormattingParticipationScenario(): Promise<void> {
   await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
+    const formattingStage = formattingValidationLanguage.stages[0];
+    const calls: string[] = [];
+    const recordingStage = {
+      ...formattingStage,
+      run: async (): Promise<ValidationCommandResult> => {
+        calls.push(formattingStage.name);
+        return {
+          exitCode: FORMATTING_VALIDATION_DATA.passExitCode,
+          output: FORMATTING_COMMAND_OUTPUT.NO_ISSUES,
+        };
+      },
+    };
     const defaultResult = await allCommand({
       cwd: productDir,
-      validationStages: formattingValidationLanguage.stages,
+      validationStages: [recordingStage],
     });
     const overrideResult = await allCommand({
       cwd: productDir,
-      validationStages: formattingValidationLanguage.stages,
+      validationStages: [recordingStage],
       participationOverrides: [formattingParticipationOverrideFlag()],
     });
-    expect(defaultResult.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_CONFIG_SKIP_REASON);
+    expect(defaultResult.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
     expect(overrideResult.output).toContain("skip-formatting");
+    expect(calls).toEqual([formattingStage.name]);
   });
 }
 
@@ -466,13 +479,23 @@ async function runUnformattedCommandScenario(): Promise<void> {
 
 async function runPipelineFailureScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const result = await allCommand({ cwd: fixture.productDir });
+    const completions: { readonly stageName: string; readonly exitCode: number; readonly output: string }[] = [];
+    const result = await allCommand({
+      cwd: fixture.productDir,
+      onStageComplete: ({ stageName, result: stageResult, output }) => {
+        completions.push({ stageName, exitCode: stageResult.exitCode, output });
+      },
+    });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
-    expect(result.output).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
-    expect(validationRegistry.languages).toContain(formattingValidationLanguage);
-    expect(validationPipelineStages).toEqual(expect.arrayContaining([...formattingValidationLanguage.stages]));
+    expect(completions.map((completion) => completion.stageName)).toEqual(
+      resolveFullPipelineStages(undefined).map((stage) => stage.name),
+    );
+    expect(completions).toContainEqual({
+      stageName: formattingValidationLanguage.stages[0]?.name,
+      exitCode: FORMATTING_VALIDATION_DATA.failureExitCode,
+      output: expect.stringContaining(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY),
+    });
   });
 }
 
