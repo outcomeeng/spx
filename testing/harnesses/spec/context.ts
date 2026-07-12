@@ -262,6 +262,24 @@ export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
   });
 }
 
+export async function assertSpecContextRejectsRootArtifactTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const suffix = KIND_REGISTRY[env.fixture.decision.kind].suffix;
+    const artifact = `spx/${env.fixture.decision.order}-${env.fixture.decision.slug}${suffix}`;
+    await env.writeRaw(artifact, "# Product-root decision\n");
+    const message = await rejectedContextMessage(artifact, env.productDir);
+    expect(message).toContain(artifact);
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH],
+    );
+  });
+}
+
 export async function assertSpecContextTargetMappingCase(mappingCase: SpecContextTargetMappingCase): Promise<void> {
   switch (mappingCase.kind) {
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.CANONICAL:
@@ -284,6 +302,9 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT:
       await assertSpecContextRejectsArtifactTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT:
+      await assertSpecContextRejectsRootArtifactTarget();
   }
 }
 

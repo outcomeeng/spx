@@ -4,6 +4,7 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
   ARTIFACT: "artifact",
   CANONICAL: "canonical",
   ROOTED: "rooted",
+  ROOT_ARTIFACT: "root-artifact",
   TRAILING_SEPARATOR: "trailing-separator",
   UNKNOWN: "unknown",
 } as const;
@@ -47,6 +48,10 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
       title: "maps an artifact path to an owning-node diagnostic",
+    },
+    {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT,
+      title: "maps a product-root decision path to node-selection guidance",
     },
   ];
 }
