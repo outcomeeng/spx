@@ -4,6 +4,14 @@
 
 `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md` decides that `spx spec status --update` folds recorded verification evidence and executes no verification. The resolver and its tests still execute a per-node run when recorded evidence is stale, failing, or absent, so the implementation is in violation of the decision until this work lands.
 
+## Prerequisite: per-reference recorded evidence
+
+The fold cannot land before recorded evidence resolves a **single evidence reference**. A recorded `TestRunnerOutcome` (`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`) carries one exit code for a whole runner invocation over many test paths, so a batched run covering a passing reference and a failing one records a single non-zero outcome across both. Folding that marks every reference in the invocation failed.
+
+The per-node run this decision removes is what supplied the missing granularity: scoping a run to one node made the invocation's exit code that node's verdict. Deleting the run therefore requires evidence that reports an outcome per reference, which the journal-recorded verification run in `spx/34-verification.enabler/PLAN.md` produces — a custom Vitest reporter appends one scope event per test module and one finding per failing case. That slice comes first; the fold is its consumer.
+
+Persisting the adapter's per-file failing paths into the run-state schema is rejected: it buys the same granularity by extending the very recording the program retires, and expires the moment the reporter lands.
+
 ## Implementation steps
 
 1. Change the production node-outcome resolver so it reads recorded last-run evidence and invokes no per-node run. A reference whose evidence is fresh takes that evidence's outcome; a reference whose evidence is stale or absent keeps its committed outcome.
