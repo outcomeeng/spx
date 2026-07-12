@@ -13,6 +13,10 @@ The `spx verification` family splits by **who drives the run** — an axis indep
 
 The two are **independent peers at index 21**: the shared run selectors and the run-inspection command paths (`status`, `render`) are family-level and live in the parent, so neither child constrains the other.
 
+## Tracing this node's history across its move
+
+The node moved from `21-verification-command-family.enabler` with `git mv`, but its spec and coordination note were rewritten in the same change, so their content similarity falls below git's default rename threshold and `git log --follow` on `verification.md` and `PLAN.md` does not reach the old paths. Trace them with `git log --follow --find-renames=20% -- <path>`, or read the move commit directly. The status file and the record-run test file moved with their content intact and are detected as renames normally. A move whose history continuity matters is split into a rename commit and a content commit.
+
 ## Pending work
 
 - `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler` is declared without implementation and carries an `spx/EXCLUDE` entry. `spx verification <type> run` is unbuilt; `test` is the first type exposed, per `spx/34-verification.enabler/PLAN.md`. Remove the exclusion when `/apply` implements the command path.
