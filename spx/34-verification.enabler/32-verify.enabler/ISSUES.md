@@ -16,6 +16,14 @@ the evidence-action surface. Decide whether `status` and `render` next actions f
 and `finding add` by the run type's registered evidence validators before adding such a type, and
 add the covering assertion then.
 
+The spx-driven command path (`spx verification <type> run`, per
+`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`) raises the same
+gap on the command surface rather than the validator registry: spx opens, streams, and seals such a
+run within one invocation, so no caller ever appends to it. A run left unsealed by an aborted
+invocation would still advertise `scope add` and `finding add` — actions no caller should invoke on
+a run spx drives. Decide whether next actions filter by who drives the run, or an spx-driven run
+seals on abort.
+
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
 `projectVerifyRun` (`src/domains/verify/verify.ts`) folds `sealed` from the
@@ -40,3 +48,18 @@ rule preventing `spx journal seal` from targeting a verify-owned run scope direc
 Settle it against the journal-surface node (`spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler`)
 and the verify module-structure ADR before implementing. Surfaced by changes-reviewer
 on PR #346.
+
+## The verify module names diverge from the command domain they compose
+
+`spx/14-cli-composition.adr.md` places a command domain's three layers at
+`src/domains/{domain}/`, `src/commands/{domain}/`, and `src/interfaces/cli/{domain}.ts`. This
+domain registers under the name `verification` — its `Domain.name` is the root command name — while
+its modules are `src/domains/verify/`, `src/commands/verify/`, and `src/interfaces/cli/verify.ts`,
+so `{domain}` and the module segment disagree. `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`
+records the `verify` paths, which keeps that ADR self-consistent but not consistent with the
+composition ADR it cites.
+
+Renaming the three module segments to `verification` reconciles them, and touches every importer of
+the verify domain, the CLI registry, and the verify test harness. Settle whether the composition
+ADR's `{domain}.ts` rule binds the module segment to the registered domain name, or admits a module
+name that differs from the command name, before renaming.
