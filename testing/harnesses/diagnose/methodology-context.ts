@@ -16,7 +16,7 @@ import {
 import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
+import { DIAGNOSE_OUTPUT_MODE, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT } from "@/domains/diagnose/types";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -87,7 +87,7 @@ async function runJson(
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
-      format: DIAGNOSE_FORMAT.JSON,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
       color: false,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
@@ -113,7 +113,7 @@ async function runText(
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
-      format: DIAGNOSE_FORMAT.TEXT,
+      outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
       color: false,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
@@ -132,7 +132,7 @@ async function runManifestWithoutMethodology(): Promise<string> {
     const result = await diagnoseCommand({
       productDir,
       manifestPath: "diagnose.json",
-      format: DIAGNOSE_FORMAT.TEXT,
+      outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
       color: false,
       registry: registryFor({ source: null, version: null, errored: false }),
       fs: {
@@ -157,7 +157,7 @@ async function runManifestJsonWithMethodology(
     const result = await diagnoseCommand({
       productDir,
       manifestPath: "diagnose.json",
-      format: DIAGNOSE_FORMAT.JSON,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
       color: false,
       registry: registryFor(observation),
       fs: {
@@ -353,7 +353,7 @@ export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig()
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
-      format: DIAGNOSE_FORMAT.TEXT,
+      outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
       color: false,
       registry: registryFor({ source: null, version: null, errored: false }),
       fs: { readFile: () => Promise.resolve("") },
@@ -385,7 +385,7 @@ export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefe
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
-      format: DIAGNOSE_FORMAT.JSON,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
       color: false,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
@@ -410,7 +410,7 @@ export async function assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHar
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
-      format: DIAGNOSE_FORMAT.TEXT,
+      outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
       color: false,
       registry: registryFor({ source: null, version: null, errored: false }),
       fs: { readFile: () => Promise.resolve("") },
