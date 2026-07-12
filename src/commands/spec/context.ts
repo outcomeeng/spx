@@ -3,12 +3,7 @@ import { join } from "node:path";
 
 import { type MethodologyIdentity, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
-import {
-  resolveSpecContextTarget,
-  SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX,
-  SPEC_CONTEXT_TARGET_FAILURE_KIND,
-  type SpecContextTargetFailure,
-} from "@/domains/spec/context-target";
+import { resolveSpecContextTarget, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies } from "@/lib/git/root";
 import type { GitDependencies } from "@/lib/git/root";
@@ -62,6 +57,10 @@ export interface SpecContextManifest {
   readonly documents: readonly SpecContextDocument[];
   readonly siblings: SpecContextSiblingSummary;
 }
+
+export type SpecContextManifestResolution =
+  | { readonly ok: true; readonly manifest: SpecContextManifest }
+  | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
 export interface ContextOptions {
   readonly target: string;
@@ -117,20 +116,6 @@ async function pushExistingDocument(
     return;
   }
   documents.push({ role, path });
-}
-
-function formatTargetFailure(failure: SpecContextTargetFailure): string {
-  const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
-  switch (failure.kind) {
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
-      return `${prefix} "${failure.segment}" in "${failure.input}". Candidates: ${failure.candidates.join(", ")}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
-      return `${prefix}: ${failure.input}. Use spx/${failure.ownerId}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
-      return `${prefix}: ${failure.input}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
-      return `${prefix} "${failure.segment}" in "${failure.input}"`;
-  }
 }
 
 function ancestorsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
@@ -318,7 +303,7 @@ async function buildManifest(
   };
 }
 
-async function contextManifest(options: ContextOptions): Promise<SpecContextManifest> {
+export async function resolveContextManifest(options: ContextOptions): Promise<SpecContextManifestResolution> {
   const gitDependencies = options.gitDependencies ?? defaultGitDependencies;
   const productDir = await resolveSpecProductDir(
     options.cwd ?? CONFIG_PROCESS_CWD.read(),
@@ -334,8 +319,11 @@ async function contextManifest(options: ContextOptions): Promise<SpecContextMani
     }),
   });
   const resolution = resolveSpecContextTarget(snapshot, options.target);
-  if (!resolution.ok) throw new Error(formatTargetFailure(resolution.failure));
-  return buildManifest(productDir, snapshot, resolution.node, includePath);
+  if (!resolution.ok) return resolution;
+  return {
+    manifest: await buildManifest(productDir, snapshot, resolution.node, includePath),
+    ok: true,
+  };
 }
 
 function appendList(lines: string[], label: string, values: readonly string[]): void {
@@ -361,10 +349,6 @@ export function renderSpecContextText(manifest: SpecContextManifest): string {
   return lines.join("\n");
 }
 
-export async function contextCommand(options: ContextOptions): Promise<string> {
-  return JSON.stringify(await contextManifest(options), null, JSON_INDENTATION);
-}
-
-export async function contextTextCommand(options: ContextOptions): Promise<string> {
-  return renderSpecContextText(await contextManifest(options));
+export function renderSpecContextJson(manifest: SpecContextManifest): string {
+  return JSON.stringify(manifest, null, JSON_INDENTATION);
 }

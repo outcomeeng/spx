@@ -1,9 +1,19 @@
 import type { Command } from "commander";
 
-import { contextCommand, type ContextOptions, contextTextCommand } from "@/commands/spec/context";
+import {
+  type ContextOptions,
+  renderSpecContextJson,
+  renderSpecContextText,
+  resolveContextManifest,
+} from "@/commands/spec/context";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
+import {
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  type SpecContextTargetFailure,
+  type SpecContextTargetFailureKind,
+} from "@/domains/spec/context-target";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { testingRegistry } from "@/test/registry";
@@ -31,6 +41,14 @@ export const SPEC_CONTEXT_OUTPUT_FORMAT = {
 } as const;
 
 export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
+
+export const SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX = {
+  [SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT]: "Ambiguous spec context target segment",
+  [SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH]: "Spec context target is an artifact path; use its owning node",
+  [SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH]:
+    "Spec context target is a product-root artifact; choose a node whose context includes it",
+  [SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT]: "Unknown spec context target segment",
+} as const satisfies Record<SpecContextTargetFailureKind, string>;
 
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
@@ -68,14 +86,32 @@ function handleCommandError(io: CliIo, error: unknown): never {
   return io.exit(1);
 }
 
+function formatTargetFailure(failure: SpecContextTargetFailure): string {
+  const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
+  switch (failure.kind) {
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
+      return `${prefix} ${JSON.stringify(failure.segment)} for input ${JSON.stringify(failure.input)}. Candidates: ${
+        failure.candidates.join(", ")
+      }`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
+      return `${prefix}: ${failure.input}. Use spx/${failure.ownerId}`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
+      return `${prefix}: ${failure.input}`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
+      return `${prefix} ${JSON.stringify(failure.segment)} for input ${JSON.stringify(failure.input)}`;
+  }
+}
+
 /** Routes a named context output format to its deterministic renderer. */
 export async function contextOutputForFormat(
   format: SpecContextOutputFormat,
   options: ContextOptions,
 ): Promise<string> {
+  const resolution = await resolveContextManifest(options);
+  if (!resolution.ok) throw new Error(formatTargetFailure(resolution.failure));
   return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-    ? contextCommand(options)
-    : contextTextCommand(options);
+    ? renderSpecContextJson(resolution.manifest)
+    : renderSpecContextText(resolution.manifest);
 }
 
 function resolveStatusFormat(options: { json?: boolean; format?: string }): OutputFormat {
