@@ -57,10 +57,11 @@ export interface AgentRunnerOptions {
 function createCommandRunner(
   productDir: string,
   outStream: NodeJS.WritableStream,
+  processRunner: ProcessRunner,
 ): TestRunnerDependencies["runCommand"] {
   return (command, args) =>
     new Promise<TestRunCommandResult>((resolveResult) => {
-      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, command, args, {
+      const child: ChildProcess = spawnManagedSubprocess(processRunner, command, args, {
         cwd: productDir,
       });
       child.stdout?.pipe(outStream);
@@ -70,12 +71,15 @@ function createCommandRunner(
     });
 }
 
-function createRelatedCommandRunner(productDir: string): RelatedTestDependencies["runCommand"] {
+function createRelatedCommandRunner(
+  productDir: string,
+  processRunner: ProcessRunner,
+): RelatedTestDependencies["runCommand"] {
   return (command, args) =>
     new Promise<RelatedTestCommandResult>((resolveResult) => {
       const stdout: string[] = [];
       const stderr: string[] = [];
-      const child: ChildProcess = spawnManagedSubprocess(lifecycleProcessRunner, command, args, {
+      const child: ChildProcess = spawnManagedSubprocess(processRunner, command, args, {
         cwd: productDir,
       });
       child.stdout?.on("data", (chunk: Buffer | string) => stdout.push(String(chunk)));
@@ -106,15 +110,17 @@ function createRelatedCommandRunner(productDir: string): RelatedTestDependencies
 export function createRunnerDepsFor(
   productDir: string,
   outStream: NodeJS.WritableStream = process.stdout,
+  processRunner: ProcessRunner = lifecycleProcessRunner,
 ): (language: TestingLanguageDescriptor) => TestRunnerDependencies {
-  const runCommand = createCommandRunner(productDir, outStream);
+  const runCommand = createCommandRunner(productDir, outStream, processRunner);
   return () => ({ runCommand });
 }
 
 export function createRelatedDepsFor(
   productDir: string,
+  processRunner: ProcessRunner = lifecycleProcessRunner,
 ): (language: TestingLanguageDescriptor) => RelatedTestDependencies {
-  const runCommand = createRelatedCommandRunner(productDir);
+  const runCommand = createRelatedCommandRunner(productDir, processRunner);
   return () => ({ runCommand, readFile: (path) => readFile(join(productDir, path), "utf8") });
 }
 

@@ -1,13 +1,21 @@
 import type { SpawnOptions } from "node:child_process";
 import { dirname } from "node:path";
+import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  AGENT_ARTIFACT_DIR_PREFIX,
+  createAgentRunnerDepsFor,
+  createRelatedDepsFor,
+  createRunnerDepsFor,
+} from "@/interfaces/cli/test-runner-deps";
 import {
   lifecycleProcessRunner,
   type ManagedSubprocessSpawnOptions,
   spawnManagedSubprocess,
 } from "@/lib/process-lifecycle";
+import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { DEFAULT_ESLINT_CONFIG_FILE, defaultEslintProcessRunner, validateESLint } from "@/validation/steps/eslint";
 import { defaultFormattingProcessRunner, validateFormatting } from "@/validation/steps/formatting";
 import { defaultKnipProcessRunner, validateKnip } from "@/validation/steps/knip";
@@ -15,6 +23,7 @@ import { defaultTypeScriptProcessRunner, validateTypeScript } from "@/validation
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 function createValidationScopeConfig(): ScopeConfig {
   const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
@@ -121,5 +130,42 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
     expect(result.success).toBe(true);
     expect(runner.spawnOptions?.stdio).toBe("pipe");
+  });
+
+  it("test execution subprocess output is owned by parent-owned pipes", async () => {
+    const runner = new RecordingSpawnOptionsRunner();
+    const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
+    const dependencies = createRunnerDepsFor(process.cwd(), new PassThrough(), runner)(typescriptTestingLanguage);
+
+    await dependencies.runCommand(command, args);
+
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
+  });
+
+  it("related-test subprocess output is owned by parent-owned pipes", async () => {
+    const runner = new RecordingSpawnOptionsRunner();
+    const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
+    const dependencies = createRelatedDepsFor(process.cwd(), runner)(typescriptTestingLanguage);
+
+    await dependencies.runCommand(command, args);
+
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
+  });
+
+  it("agent test subprocess output is owned by parent-owned pipes", async () => {
+    await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (tmpDir) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+      const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
+      const dependencies = createAgentRunnerDepsFor(process.cwd(), { processRunner: runner, tmpDir })(
+        typescriptTestingLanguage,
+      );
+
+      await dependencies.runCommand(command, args);
+
+      expect(runner.spawnOptions?.stdio).toBe("pipe");
+    });
   });
 });
