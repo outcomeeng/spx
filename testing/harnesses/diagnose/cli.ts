@@ -336,7 +336,7 @@ export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    for (const sentinel of controlled.readingSentinels) expect(result.value.output).not.toContain(sentinel);
+    for (const reading of controlled.forbiddenConciseReadings) expect(result.value.output).not.toContain(reading);
     for (const check of controlled.records) {
       if (check.bucket !== VERDICT_BUCKET.HEALTHY && check.bucket !== VERDICT_BUCKET.NOT_APPLICABLE) {
         expect(result.value.output).toContain(expectedHumanHeader(check));

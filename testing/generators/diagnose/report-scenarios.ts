@@ -106,7 +106,7 @@ export interface DefaultDiagnoseScenario {
 
 export interface AllProviderRecordScenario {
   readonly records: readonly CheckRecord[];
-  readonly readingSentinels: readonly string[];
+  readonly forbiddenConciseReadings: readonly string[];
 }
 
 interface OrderedVersions {
@@ -144,6 +144,12 @@ export function configuredMarketplaceReading(): MarketplaceInstallReading {
 
 export function compliantWorktreePoolReading(): WorktreePoolReading {
   const branch = sampleMainCheckoutTestValue(arbitraryBranchName());
+  const [running, free] = sampleDiagnoseTestValue(
+    fc.tuple(
+      fc.integer({ min: 1_000_000, max: 999_999_999 }),
+      fc.integer({ min: 1_000_000, max: 999_999_999 }),
+    ).filter(([left, right]) => left !== right),
+  );
   return {
     errored: false,
     bareRepository: true,
@@ -152,8 +158,8 @@ export function compliantWorktreePoolReading(): WorktreePoolReading {
     defaultBranch: branch,
     mainCheckoutBranch: branch,
     mainCheckoutBranchRead: true,
-    running: sampleDiagnoseTestValue(fc.nat()),
-    free: sampleDiagnoseTestValue(fc.nat()),
+    running,
+    free,
   };
 }
 
@@ -200,8 +206,12 @@ export function defaultDiagnoseScenario(): DefaultDiagnoseScenario {
 
 export function allProviderRecordScenario(): AllProviderRecordScenario {
   const methodology = resolvedMethodologyScenario();
-  const classifiedRecords = [
-    classifySpxReachability(reusableSpxReading(), undefined),
+  const spxRecord = classifySpxReachability({
+    ...reusableSpxReading(),
+    resolvedPath: sampleDiagnoseTestValue(fc.nat(Number.MAX_SAFE_INTEGER).map((value) => `/diagnose-path-${value}`)),
+  }, undefined);
+  const records = [
+    spxRecord,
     classifySessionEnvironment({
       errored: false,
       hookPresent: true,
@@ -209,7 +219,10 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
       worktreeClaimed: false,
     }),
     classifyWorktreePool(compliantWorktreePoolReading()),
-    classifySessionStore({ errored: false, orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1 })) }),
+    classifySessionStore({
+      errored: false,
+      orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1_000_000, max: 999_999_999 })),
+    }),
     classifyMarketplaceInstall({
       configured: false,
       errored: false,
@@ -227,23 +240,16 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
     }),
   ];
   const orderedRecords = Object.values(CHECK_NAME).map((name) => {
-    const record = classifiedRecords.find((candidate) => candidate.name === name);
+    const record = records.find((candidate) => candidate.name === name);
     if (record === undefined) throw new Error(`no generated diagnose record for ${name}`);
     return record;
   });
-  const readingCount = orderedRecords.reduce((count, record) => count + Object.keys(record.readings).length, 0);
-  const readingSentinels = sampleDiagnoseTestValue(
-    fc.uniqueArray(fc.nat(Number.MAX_SAFE_INTEGER).map((value) => `reading-sentinel-${value}`), {
-      minLength: readingCount,
-      maxLength: readingCount,
-    }),
+  const forbiddenConciseReadings = orderedRecords.flatMap((record) =>
+    Object.entries(record.readings)
+      .filter(([field]) => record.name !== CHECK_NAME.SPX_REACHABILITY || field !== "version")
+      .map(([, value]) => value)
   );
-  let sentinelIndex = 0;
-  const records = orderedRecords.map((record) => ({
-    ...record,
-    readings: Object.fromEntries(Object.keys(record.readings).map((key) => [key, readingSentinels[sentinelIndex++]])),
-  }));
-  return { records, readingSentinels };
+  return { records: orderedRecords, forbiddenConciseReadings };
 }
 
 export function allProviderRecords(): readonly CheckRecord[] {
