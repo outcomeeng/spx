@@ -3,6 +3,12 @@ import { join } from "node:path";
 
 import { type MethodologyIdentity, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import {
+  resolveSpecContextTarget,
+  SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  type SpecContextTargetFailure,
+} from "@/domains/spec/context-target";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies } from "@/lib/git/root";
 import type { GitDependencies } from "@/lib/git/root";
@@ -86,10 +92,6 @@ function sortPaths(paths: readonly string[]): readonly string[] {
   return [...paths].sort((left, right) => left.localeCompare(right));
 }
 
-function normalizeTarget(target: string): string {
-  return target.startsWith(SPEC_TREE_ROOT_PREFIX) ? target.slice(SPEC_TREE_ROOT_PREFIX.length) : target;
-}
-
 function fullSpecPath(path: string): string {
   return path.startsWith(SPEC_TREE_ROOT_PREFIX) ? path : `${SPEC_TREE_ROOT_PREFIX}${path}`;
 }
@@ -117,9 +119,18 @@ async function pushExistingDocument(
   documents.push({ role, path });
 }
 
-function findNode(snapshot: SpecTreeSnapshot, target: string): SpecTreeNode | undefined {
-  const normalized = normalizeTarget(target);
-  return snapshot.allNodes.find((node) => node.id === normalized);
+function formatTargetFailure(failure: SpecContextTargetFailure): string {
+  const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
+  switch (failure.kind) {
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
+      return `${prefix} "${failure.segment}" in "${failure.input}". Candidates: ${failure.candidates.join(", ")}`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
+      return `${prefix}: ${failure.input}. Use spx/${failure.ownerId}`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
+      return `${prefix}: ${failure.input}`;
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
+      return `${prefix} "${failure.segment}" in "${failure.input}"`;
+  }
 }
 
 function ancestorsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
@@ -322,11 +333,9 @@ async function contextManifest(options: ContextOptions): Promise<SpecContextMani
       includePath,
     }),
   });
-  const target = findNode(snapshot, options.target);
-  if (target === undefined) {
-    throw new Error(`Spec context target not found: ${options.target}`);
-  }
-  return buildManifest(productDir, snapshot, target, includePath);
+  const resolution = resolveSpecContextTarget(snapshot, options.target);
+  if (!resolution.ok) throw new Error(formatTargetFailure(resolution.failure));
+  return buildManifest(productDir, snapshot, resolution.node, includePath);
 }
 
 function appendList(lines: string[], label: string, values: readonly string[]): void {
