@@ -6,6 +6,7 @@ import { stringify } from "yaml";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
+import { GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -49,6 +50,7 @@ import {
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, readGit, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   createDependencyGraphResult,
@@ -966,6 +968,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
   describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
     it("writes the scope-filtered temporary config inside the project's node_modules and fabricates no compiler options", async () => {
       await withTestEnv({}, async (env) => {
+        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
         const runner = new RecordingSpawnOptionsRunner();
         const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
 
@@ -985,7 +988,13 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         expect(result.success).toBe(true);
         expect(writtenConfigPaths).toHaveLength(1);
-        expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
+        const temporaryConfigPath = writtenConfigPaths.at(0);
+        if (temporaryConfigPath === undefined) {
+          throw new Error("temporary TypeScript config path was not recorded");
+        }
+        expectTemporaryConfigPathInsideNodeModules(env.productDir, temporaryConfigPath);
+        const status = await readGit(env.productDir, GIT_STATUS_PORCELAIN_ARGS);
+        expect(status).not.toContain(relative(env.productDir, temporaryConfigPath));
         const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
         expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
         expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
