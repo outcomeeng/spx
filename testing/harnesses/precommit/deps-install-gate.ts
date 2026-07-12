@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { type ExecResult, type GitDependencies } from "@/lib/git/root";
 import {
@@ -159,4 +159,40 @@ export async function assertDiffProbeUsesWorkingDirectory(): Promise<void> {
 
   expect(git.invocations).toHaveLength(1);
   expect(git.invocations[0]?.cwd).toBe(expectedCwd);
+}
+
+interface DepsInstallGateProbeMappingCase {
+  readonly name: string;
+  readonly assertion: () => Promise<void>;
+}
+
+const DEPS_INSTALL_GATE_PROBE_MAPPING_CASES: readonly DepsInstallGateProbeMappingCase[] = [
+  {
+    name: "returns the install exit code when the lockfile-scoped diff lists the lockfile",
+    assertion: assertInstallExitCodeWhenDiffListsLockfile,
+  },
+  {
+    name: "returns the skip exit code when the lockfile-scoped diff is empty",
+    assertion: assertSkipExitCodeWhenDiffEmpty,
+  },
+  {
+    name: "returns the failure exit code when the lockfile-diff probe throws",
+    assertion: assertFailureExitCodeWhenDiffProbeThrows,
+  },
+  {
+    name: "returns the failure exit code when the lockfile-diff probe resolves a non-zero exit code",
+    assertion: assertFailureExitCodeWhenDiffProbeExitsNonZero,
+  },
+  {
+    name: "runs the lockfile-diff probe in the given working directory",
+    assertion: assertDiffProbeUsesWorkingDirectory,
+  },
+];
+
+export function registerDepsInstallGateProbeMappings(): void {
+  describe("resolveDepsInstallGateExitCode", () => {
+    it.each(DEPS_INSTALL_GATE_PROBE_MAPPING_CASES)("$name", async ({ assertion }) => {
+      await assertion();
+    });
+  });
 }
