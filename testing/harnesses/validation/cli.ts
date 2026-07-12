@@ -4,6 +4,7 @@ import { cp, mkdir, symlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { expect } from "vitest";
 
+import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation/messages";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -249,14 +250,17 @@ export async function expectValidationDispatchFailureInvokesNoHandler(
   return result;
 }
 
-export function createRecordingValidationDomain(exitCode: number): RecordingValidationDomain {
+export function createRecordingValidationDomain(
+  exitCode: number,
+  output: string = VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+): RecordingValidationDomain {
   const calls: ValidationHandlerCall[] = [];
   const record = (
     commandName: string,
     options: Readonly<Record<string, unknown>>,
   ) => {
     calls.push({ commandName, options });
-    return Promise.resolve({ exitCode, output: "", durationMs: 0 });
+    return Promise.resolve({ exitCode, output, durationMs: 0 });
   };
   const commandHandlers: ValidationCommandHandlers = {
     all: (options) => record(validationCliDefinition.subcommands.all.commandName, { ...options }),

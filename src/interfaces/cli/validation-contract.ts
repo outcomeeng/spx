@@ -13,6 +13,10 @@ export interface ValidationSubcommandDefinition {
   readonly commandName: string;
   readonly alias?: string;
   readonly description: string;
+  readonly options: {
+    readonly scope: boolean;
+    readonly json: boolean;
+  };
 }
 
 interface ValidationCliDefinition {
@@ -69,35 +73,43 @@ export const validationCliDefinition: ValidationCliDefinition = {
       commandName: "typescript",
       alias: "ts",
       description: "Run TypeScript type checking",
+      options: { scope: true, json: false },
     },
     lint: {
       commandName: "lint",
       description: "Run ESLint",
+      options: { scope: true, json: false },
     },
     circular: {
       commandName: "circular",
       description: "Check for circular dependencies",
+      options: { scope: true, json: false },
     },
     knip: {
       commandName: "knip",
       description: "Detect unused code",
+      options: { scope: true, json: false },
     },
     literal: {
       commandName: "literal",
       description: "Detect cross-file literal reuse between source and tests",
+      options: { scope: true, json: true },
     },
     markdown: {
       commandName: "markdown",
       alias: "md",
       description: "Validate markdown link integrity and structure",
+      options: { scope: false, json: false },
     },
     format: {
       commandName: "format",
       description: "Check code formatting with dprint",
+      options: { scope: false, json: true },
     },
     all: {
       commandName: "all",
       description: "Run all validations",
+      options: { scope: true, json: true },
     },
   },
   commanderHelpOperands: {

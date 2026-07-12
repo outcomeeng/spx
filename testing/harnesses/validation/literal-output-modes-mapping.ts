@@ -5,9 +5,15 @@ import {
   literalCommand,
   OUTPUT_MODE_NAME,
   OUTPUT_MODE_NAMES,
+  type OutputModeName,
   VERBOSE_PROBLEM_LINE_PREFIX,
 } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
+import {
+  literalValidationCliOptions,
+  validationCliDefinition,
+  validationCommonCliOptions,
+} from "@/interfaces/cli/validation-contract";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
@@ -21,9 +27,49 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import {
+  runValidationInProcess,
+  validationCliEmptyOutput,
+  validationCliOptionName,
+} from "@testing/harnesses/validation/cli";
+
+function literalOutputModeCliArgs(mode: OutputModeName): string[] {
+  const args = [
+    validationCliDefinition.subcommands.literal.commandName,
+    validationCliOptionName(literalValidationCliOptions.kind),
+    LITERAL_PROBLEM_KIND.REUSE,
+  ];
+  switch (mode) {
+    case OUTPUT_MODE_NAME.TEXT:
+      return args;
+    case OUTPUT_MODE_NAME.VERBOSE:
+      return [...args, literalValidationCliOptions.verbose.flag];
+    case OUTPUT_MODE_NAME.FILES_WITH_PROBLEMS:
+      return [...args, literalValidationCliOptions.filesWithProblems.flag];
+    case OUTPUT_MODE_NAME.LITERALS:
+      return [...args, literalValidationCliOptions.literals.flag];
+    case OUTPUT_MODE_NAME.JSON:
+      return [...args, validationCommonCliOptions.json.flag];
+  }
+}
 
 export function registerLiteralOutputModeMappings(): void {
   describe("output-modes — mappings", () => {
+    it.each(OUTPUT_MODE_NAMES)("%s mode routes findings to stdout through CLI dispatch", async (mode) => {
+      await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
+        const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
+        await env.writeReuseFixture(inputs);
+
+        const result = await runValidationInProcess(literalOutputModeCliArgs(mode), {
+          processCwd: () => env.productDir,
+        });
+
+        expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
+        expect(result.stdout.length).toBeGreaterThan(LITERAL_TEST_GENERATOR_COUNTS.none);
+        expect(result.stderr).toBe(validationCliEmptyOutput());
+      });
+    });
+
     it.each(OUTPUT_MODE_NAMES)(
       "--kind reuse selects srcReuse and --kind dupe selects testDupe in %s mode",
       async (mode) => {
@@ -99,17 +145,17 @@ export function registerLiteralOutputModeMappings(): void {
         const dupeTag = `[${LITERAL_PROBLEM_KIND.DUPE}]`;
         const reuseLines = lines.filter((l) => l.startsWith(reuseTag));
         const dupeLines = lines.filter((l) => l.startsWith(dupeTag));
+        const problemLines = [...reuseLines, ...dupeLines];
 
-        // Total lines equals total findings from JSON
-        expect(lines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
+        expect(problemLines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
 
-        // Each line is [kind] "value" path:line
-        for (const line of lines) {
+        // Each problem line is [kind] "value" path:line
+        for (const line of problemLines) {
           expect(line).toMatch(/^\[(reuse|dupe)\] ".+" .+:\d+$/);
         }
 
         // All reuse lines precede all dupe lines — no interleaving
-        expect([...reuseLines, ...dupeLines]).toEqual(lines);
+        expect(problemLines).toEqual(lines);
 
         // Each group sorted within itself
         expect(reuseLines).toEqual([...reuseLines].sort(compareAsciiStrings));
