@@ -16,7 +16,7 @@ The document set is release policy, so its descriptor lives with the release dom
 
 ### Testing
 
-- ALWAYS: omitted `release.documentation.paths` resolves to the product README and a configured non-empty path set resolves in declared order without duplicates ([mapping])
+- ALWAYS: omitted `release.documentation.paths` resolves to the product README and every configured non-empty path set resolves in declared order without duplicates ([property])
 - ALWAYS: every staged document contains the released version before the faithfulness audit and promotion run ([compliance])
 - ALWAYS: path traversal, canonical escape, final symlink, missing file, directory target, failed generation, failed read-back, failed version validation, and rejected faithfulness audit leave product documentation unpromoted ([compliance])
 - NEVER: promote any document until the complete configured set has passed read-back, version validation, and faithfulness audit ([compliance])
