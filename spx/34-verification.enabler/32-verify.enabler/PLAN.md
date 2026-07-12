@@ -7,7 +7,7 @@
 1. `spx verification run` owns the individual verification-run lifecycle: `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render`.
 2. Scope, finding, and terminal metadata validation dispatch through the shared evidence-validator registry keyed by verification type and evidence kind.
 3. Registered verification types are `review` and `audit`; both validate scope and finding payloads, and both participate in terminal-status validation.
-4. CLI command vocabulary stays under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
+4. CLI command vocabulary stays under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
 
 ## Remaining lifecycle work
 
