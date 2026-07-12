@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { execa } from "execa";
 import { expect, vi } from "vitest";
 
-import { diagnoseCommand } from "@/commands/diagnose";
+import { diagnoseCommand, type ManifestFileSystem } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT, marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
@@ -56,6 +56,7 @@ import {
 import { arbitraryNameToken, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import {
   allProviderRecords,
+  allProviderRecordScenario,
   type DefaultDiagnoseScenario,
   defaultDiagnoseScenario,
   type DiagnoseExitCodeCase,
@@ -150,6 +151,15 @@ class RecordingCheckRegistry {
         },
       ]),
     );
+  }
+}
+
+class RecordingManifestFileSystem implements ManifestFileSystem {
+  reads = 0;
+
+  readFile(): Promise<string> {
+    this.reads += 1;
+    return Promise.reject(new Error("manifest read must not run"));
   }
 }
 
@@ -315,6 +325,25 @@ export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
     }
     expect(concise.exitCode).toBe(machine.exitCode);
   });
+  const controlled = allProviderRecordScenario();
+  await withTestEnv({}, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      outputMode: DIAGNOSE_OUTPUT_MODE.CONCISE,
+      color: false,
+      registry: new RecordingCheckRegistry(controlled.records).registry,
+      fs: { readFile: () => Promise.resolve("") },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    for (const sentinel of controlled.readingSentinels) expect(result.value.output).not.toContain(sentinel);
+    for (const check of controlled.records) {
+      if (check.bucket !== VERDICT_BUCKET.HEALTHY && check.bucket !== VERDICT_BUCKET.NOT_APPLICABLE) {
+        expect(result.value.output).toContain(expectedHumanHeader(check));
+        expect(result.value.output).toContain(check.remediation);
+      }
+    }
+  });
 }
 
 export async function assertVerboseDiagnoseShowsAllFacts(): Promise<void> {
@@ -380,6 +409,10 @@ export async function assertPresentationModesPreserveDiagnosis(): Promise<void> 
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error);
       expect(recording.calls).toEqual(Object.values(CHECK_NAME));
+      expect(result.value.report).toStrictEqual({
+        checks: records,
+        overall: foldOverallVerdict(records.map((record) => record.bucket)),
+      });
       results.push(result.value);
     }
     expect(new Set(results.map((result) => result.exitCode))).toEqual(
@@ -536,11 +569,12 @@ export async function assertInvalidOutputOptionsRejectBeforeDiagnosis(): Promise
     const absentManifestPath = join(productDir, `absent${controlByte}.json`);
     for (const testCase of invalidOutputOptionCases(absentManifestPath, controlByte)) {
       const recording = new RecordingCheckRegistry(allProviderRecords());
+      const manifestFs = new RecordingManifestFileSystem();
       const stderr: string[] = [];
       const program = createCliProgram({
         domains: [createDiagnoseDomain({
           registry: recording.registry,
-          fs: { readFile: () => Promise.reject(new Error("manifest read must not run")) },
+          fs: manifestFs,
         })],
         processCwd: () => productDir,
         writeStderr: (value) => stderr.push(value),
@@ -550,6 +584,7 @@ export async function assertInvalidOutputOptionsRejectBeforeDiagnosis(): Promise
         from: SPX_COMMANDER_PARSE_SOURCE,
       })).rejects.toBeDefined();
       expect(recording.calls).toEqual([]);
+      expect(manifestFs.reads).toBe(0);
       expect(stderr.join("")).not.toContain("cannot read diagnose manifest");
       expect(stderr.join("")).not.toContain(controlByte);
       for (const token of testCase.expectedTokens) expect(stderr.join("")).toContain(token);

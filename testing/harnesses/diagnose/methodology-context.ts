@@ -29,6 +29,7 @@ import {
   manifestWithoutMethodologyJson,
   methodologyConfig,
   methodologyManifestJson,
+  methodologyTextParityScenarios,
   methodologyWithUnrelatedLegacyConfig,
   mismatchedMethodologyScenario,
   mixedCacheReadErrorScenario,
@@ -307,29 +308,28 @@ export async function assertMethodologyProbePreservesMixedCacheReadErrors(): Pro
 }
 
 export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
-  const { methodology, observation } = resolvedMethodologyScenario();
-  const output = await runText(methodology, observation);
-  const check = firstCheck(await runJson(methodology, observation));
-  expect(typeof check.name).toBe("string");
-  expect(typeof check.verdict).toBe("string");
-  expect(typeof check.bucket).toBe("string");
-  expect(typeof check.remediation).toBe("string");
-  expect(typeof check.readings).toBe("object");
-  if (
-    typeof check.name !== "string"
-    || typeof check.verdict !== "string"
-    || typeof check.bucket !== "string"
-    || typeof check.remediation !== "string"
-    || typeof check.readings !== "object"
-    || check.readings === null
-  ) {
-    throw new Error("methodology JSON check record is malformed");
+  for (const { methodology, observation } of methodologyTextParityScenarios()) {
+    const output = await runText(methodology, observation);
+    const check = firstCheck(await runJson(methodology, observation));
+    expect(typeof check.name).toBe("string");
+    expect(typeof check.verdict).toBe("string");
+    expect(typeof check.bucket).toBe("string");
+    expect(typeof check.remediation).toBe("string");
+    expect(typeof check.readings).toBe("object");
+    if (
+      typeof check.name !== "string"
+      || typeof check.verdict !== "string"
+      || typeof check.bucket !== "string"
+      || typeof check.remediation !== "string"
+      || typeof check.readings !== "object"
+      || check.readings === null
+    ) {
+      throw new Error("methodology JSON check record is malformed");
+    }
+    expect(output).toContain(expectedHumanHeader({ name: check.name, verdict: check.verdict }));
+    for (const reading of Object.values(check.readings)) expect(output).toContain(reading);
+    expect(output).toContain(check.remediation);
   }
-  expect(output).toContain(expectedHumanHeader({ name: check.name, verdict: check.verdict }));
-  for (const reading of Object.values(check.readings)) {
-    expect(output).toContain(reading);
-  }
-  expect(output).toContain(check.remediation);
 }
 
 export async function assertMethodologyManifestWithoutFactsRejects(): Promise<void> {

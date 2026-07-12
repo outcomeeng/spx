@@ -21,6 +21,7 @@ import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
 import { type DiagnoseFormat, renderReport } from "@/domains/diagnose/report";
 import { resolveDiagnoseCheckSet, resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
+import type { DiagnoseReport } from "@/domains/diagnose/types";
 
 /** The injected boundary the handler reads the manifest file through. */
 export interface ManifestFileSystem {
@@ -52,6 +53,8 @@ async function resolveDiagnoseConfig(productDir: string): Promise<
 }
 
 export interface DiagnoseCommandResult {
+  /** The complete folded report supplied to the selected presentation mode. */
+  readonly report: DiagnoseReport;
   /** The rendered report in the requested format. */
   readonly output: string;
   /** The exit code keyed to the overall verdict. */
@@ -125,6 +128,7 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
   return {
     ok: true,
     value: {
+      report: report.value,
       output: renderReport(report.value, options.format, { color: options.color }),
       exitCode: overallExitCode(report.value.overall),
     },
