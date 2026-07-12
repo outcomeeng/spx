@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   lifecycleProcessRunner,
-  MANAGED_SUBPROCESS_STDIO,
   type ManagedSubprocessSpawnOptions,
   spawnManagedSubprocess,
 } from "@/lib/process-lifecycle";
 import { DEFAULT_ESLINT_CONFIG_FILE, defaultEslintProcessRunner, validateESLint } from "@/validation/steps/eslint";
+import { defaultFormattingProcessRunner, validateFormatting } from "@/validation/steps/formatting";
 import { defaultKnipProcessRunner, validateKnip } from "@/validation/steps/knip";
 import { defaultTypeScriptProcessRunner, validateTypeScript } from "@/validation/steps/typescript";
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
@@ -57,6 +57,10 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     expect(defaultKnipProcessRunner).toBe(lifecycleProcessRunner);
   });
 
+  it("defaultFormattingProcessRunner is the shared lifecycleProcessRunner", () => {
+    expect(defaultFormattingProcessRunner).toBe(lifecycleProcessRunner);
+  });
+
   it("managed subprocess helper owns parent-owned pipe stdio", () => {
     const runner = new RecordingSpawnOptionsRunner();
     const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
@@ -64,7 +68,7 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
     spawnManagedSubprocess(runner, command, args, { cwd: process.cwd() });
 
-    expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
   });
 
   it("managed subprocess options reject caller-owned stdio", () => {
@@ -81,7 +85,7 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     const result = await validateESLint(createValidationContext(), runner);
 
     expect(result.success).toBe(true);
-    expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
   });
 
   it("TypeScript subprocess output is owned by parent-owned pipes", async () => {
@@ -96,7 +100,7 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     );
 
     expect(result.success).toBe(true);
-    expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
   });
 
   it("Knip subprocess output is owned by parent-owned pipes", async () => {
@@ -107,6 +111,15 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
 
     expect(result.success).toBe(true);
     expect(runner.spawnOptions?.cwd).toBe(productDir);
-    expect(runner.spawnOptions?.stdio).toBe(MANAGED_SUBPROCESS_STDIO);
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
+  });
+
+  it("formatting subprocess output is owned by parent-owned pipes", async () => {
+    const runner = new RecordingSpawnOptionsRunner();
+
+    const result = await validateFormatting({ productDir: process.cwd() }, runner);
+
+    expect(result.success).toBe(true);
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
   });
 });
