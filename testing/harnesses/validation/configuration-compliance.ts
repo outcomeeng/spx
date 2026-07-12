@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
@@ -25,8 +26,75 @@ import {
 } from "@testing/generators/literal/literal";
 import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
-import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
+
+type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
+
+function markdownValidationPathsConfig(
+  paths: { readonly include?: readonly string[]; readonly exclude?: readonly string[] },
+): LiteralFixtureConfig {
+  return {
+    [validationConfigDescriptor.section]: {
+      [VALIDATION_PATHS_SUBSECTION]: {
+        [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: paths,
+      },
+    },
+  };
+}
+
+async function writeDefaultMarkdownPair(
+  env: LiteralFixtureEnv,
+  invalidContent: string,
+): Promise<void> {
+  const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
+  const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+  await env.writeRaw(
+    `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+    MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
+  );
+  await env.writeRaw(
+    `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+    invalidContent,
+  );
+}
+
+async function expectExplicitMarkdownOperandBypassesExclude(
+  directoryOperand: boolean,
+): Promise<void> {
+  const [excludedDirectoryName, childDirectoryName, markdownFileStem] = sampleDistinctDomainLiterals(3);
+  const excludedDirectory = posix.join(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    excludedDirectoryName,
+  );
+  const operand = directoryOperand
+    ? posix.join(excludedDirectory, childDirectoryName)
+    : posix.join(
+      excludedDirectory,
+      `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+    );
+  const markdownPath = directoryOperand
+    ? posix.join(
+      operand,
+      `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
+    )
+    : operand;
+
+  await withLiteralFixtureEnv(
+    markdownValidationPathsConfig({ exclude: [excludedDirectory] }),
+    async (env) => {
+      await env.writeRaw(markdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+
+      const result = await markdownCommand({
+        cwd: env.productDir,
+        files: [operand],
+      });
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
+    },
+  );
+}
 
 describe("ALWAYS: validation command participation is driven by spx config", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
@@ -184,26 +252,11 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
   it("applies markdown-specific validation paths during markdown execution", async () => {
     await withLiteralFixtureEnv(
-      {
-        [validationConfigDescriptor.section]: {
-          [VALIDATION_PATHS_SUBSECTION]: {
-            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
-            },
-          },
-        },
-      },
+      markdownValidationPathsConfig({
+        include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+      }),
       async (env) => {
-        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
-        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
-        await env.writeRaw(
-          `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          "# Good\n",
-        );
-        await env.writeRaw(
-          `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          "# Bad  \n",
-        );
+        await writeDefaultMarkdownPair(env, MARKDOWN_VALIDATION_DATA.docsDirectFileMd024Content);
 
         const result = await markdownCommand({
           cwd: env.productDir,
@@ -217,26 +270,11 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
 
   it("preserves explicit markdown root directory operands through markdown validation includes", async () => {
     await withLiteralFixtureEnv(
-      {
-        [validationConfigDescriptor.section]: {
-          [VALIDATION_PATHS_SUBSECTION]: {
-            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
-            },
-          },
-        },
-      },
+      markdownValidationPathsConfig({
+        include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+      }),
       async (env) => {
-        const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
-        const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
-        await env.writeRaw(
-          `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          "# Good\n",
-        );
-        await env.writeRaw(
-          `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-        );
+        await writeDefaultMarkdownPair(env, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
 
         const result = await markdownCommand({
           cwd: env.productDir,
@@ -344,63 +382,11 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
   });
 
   it("does not erase explicit markdown child directories below excluded ancestors", async () => {
-    await withLiteralFixtureEnv(
-      {
-        [validationConfigDescriptor.section]: {
-          [VALIDATION_PATHS_SUBSECTION]: {
-            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              exclude: ["spx/private"],
-            },
-          },
-        },
-      },
-      async (env) => {
-        await env.writeRaw(
-          "spx/private/child/bad.md",
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-        );
-
-        const result = await markdownCommand({
-          cwd: env.productDir,
-          files: ["spx/private/child"],
-        });
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-        expect(result.output).toContain(
-          MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX,
-        );
-      },
-    );
+    await expectExplicitMarkdownOperandBypassesExclude(true);
   });
 
   it("preserves explicit markdown file operands through markdown validation excludes", async () => {
-    await withLiteralFixtureEnv(
-      {
-        [validationConfigDescriptor.section]: {
-          [VALIDATION_PATHS_SUBSECTION]: {
-            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              exclude: ["spx/private"],
-            },
-          },
-        },
-      },
-      async (env) => {
-        await env.writeRaw(
-          "spx/private/bad.md",
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-        );
-
-        const result = await markdownCommand({
-          cwd: env.productDir,
-          files: ["spx/private/bad.md"],
-        });
-
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-        expect(result.output).toContain(
-          MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX,
-        );
-      },
-    );
+    await expectExplicitMarkdownOperandBypassesExclude(false);
   });
 
   it("does not widen explicit markdown directory operands to default markdown roots", async () => {
