@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ import {
   validationLintPolicyScenarios,
 } from "@testing/generators/validation/lint-policy";
 import {
+  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
@@ -46,6 +48,10 @@ export function registerValidationLintPolicyTests(): void {
 
 async function writePolicyBoundaryFixture(productDir: string): Promise<void> {
   await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath), { recursive: true });
+  await writePolicyConfigFixture(productDir);
+}
+
+async function writePolicyConfigFixture(productDir: string): Promise<void> {
   await writePolicyManifest(productDir, {
     testLintDebtNodes: [],
   });
@@ -82,16 +88,23 @@ async function runLintCommandPolicyScenario(): Promise<void> {
 
 async function runEslintConfigLoadScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
-    await writePolicyBoundaryFixture(productDir);
+    await writePolicyConfigFixture(productDir);
+    const probeDirectory = join(productDir, VALIDATION_LINT_POLICY_DATA.configLoadGitProbeDirectory);
+    const markerPath = join(productDir, VALIDATION_LINT_POLICY_DATA.configLoadPolicyMarker);
+    const gitProbePath = join(probeDirectory, GIT_TEST_COMMAND);
+    await mkdir(probeDirectory, { recursive: true });
+    await writeFile(gitProbePath, `#!/bin/sh\nprintf invoked > ${JSON.stringify(markerPath)}\nexit 1\n`);
+    await chmod(gitProbePath, 0o755);
     const moduleUrl = pathToFileURL(join(process.cwd(), VALIDATION_LINT_POLICY_DATA.eslintConfigFile)).href;
     const stdout = await runTsxEval(
       process.cwd(),
       `await import(${JSON.stringify(moduleUrl)});`,
-      {},
+      { PATH: `${probeDirectory}${delimiter}${process.env.PATH ?? ""}` },
       productDir,
     );
 
     expect(stdout).toHaveLength(0);
+    expect(existsSync(markerPath)).toBe(false);
   });
 }
 

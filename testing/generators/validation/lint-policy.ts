@@ -20,6 +20,8 @@ const CORRUPT_BASELINE_COMMIT_MESSAGE = "corrupt baseline manifest";
 const ESLINT_CONFIG_MARKER_CONTENT = "export default [];\n";
 const TYPESCRIPT_CONFIG_MARKER_CONTENT = "{\"include\":[]}";
 const POLICY_TOOL_PATH = "tools/eslint-policy-probe";
+const CONFIG_LOAD_GIT_PROBE_DIRECTORY = "config-load-bin";
+const CONFIG_LOAD_POLICY_MARKER = "lint-policy-invoked";
 
 export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   UNRELATED_PROJECT: "unrelatedProject",
@@ -62,6 +64,8 @@ export const VALIDATION_LINT_POLICY_DATA = {
   typescriptConfigFile: TSCONFIG_FILES.full,
   typescriptConfigMarkerContent: TYPESCRIPT_CONFIG_MARKER_CONTENT,
   policyToolPath: POLICY_TOOL_PATH,
+  configLoadGitProbeDirectory: CONFIG_LOAD_GIT_PROBE_DIRECTORY,
+  configLoadPolicyMarker: CONFIG_LOAD_POLICY_MARKER,
   commitMessages: {
     base: BASE_COMMIT_MESSAGE,
     addedDebt: ADDED_DEBT_COMMIT_MESSAGE,
