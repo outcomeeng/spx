@@ -1,6 +1,6 @@
 # Release Test Generators
 
-PROVIDES coherent generated release-data, changelog, commit, version, path, and failure-scenario domains composed from production-owned release contracts
+PROVIDES coherent generated release-data, changelog, documentation, commit, version, path, configuration, and failure-scenario domains composed from production-owned release contracts
 SO THAT the release test harness and release behavior evidence
 CAN explore meaningful release cases without assertion files or harnesses reconstructing protocol vocabulary, related paths, or dependent values
 

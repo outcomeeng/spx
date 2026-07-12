@@ -8,7 +8,7 @@ CAN reflect the released version's behavior and version references
 
 ### Scenarios
 
-- Given computed release data, when documentation sync runs, then version references in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
+- Given computed release data, when `spx release docs sync` runs, then version references in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
 
 ### Mappings
 
