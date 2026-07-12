@@ -18,7 +18,10 @@ import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-d
 import { validationCliDefinition, validationOptionPrefix } from "@/interfaces/cli/validation-contract";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
+import {
+  VALIDATION_STAGE_PARTICIPATION,
+  type ValidationStageParticipationOverride,
+} from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { DPRINT_CONFIG_FILENAME } from "@/validation/steps/formatting";
@@ -199,6 +202,7 @@ export interface ValidationSubprocessScenario {
   readonly stdoutExcludes: readonly string[];
   readonly stderrExcludes: readonly string[];
   readonly combinedExcludes: readonly string[];
+  readonly requiredParticipatingStageNames?: readonly string[];
 }
 
 export interface GeneratedValidationStageSpec {
@@ -690,6 +694,9 @@ export function validationAllTypeScriptComplianceEvidence(): ValidationSubproces
     stdoutExcludes: runtimeAntiMarkers,
     stderrExcludes: runtimeAntiMarkers,
     combinedExcludes: runtimeAntiMarkers,
+    requiredParticipatingStageNames: typescriptValidationLanguage.stages
+      .filter((stage) => stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN)
+      .map((stage) => stage.name),
   };
 }
 

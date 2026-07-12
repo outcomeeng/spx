@@ -70,11 +70,15 @@ async function runTypeScriptValidationScenario(scenario: ValidationSubprocessSce
     expectValidationSubprocessResult(result, scenario);
     const exactStageOutputs = validationStageOutputs(result.stdout);
     for (const stage of typescriptValidationLanguage.stages) {
-      expect(exactStageOutputs.filter((output) =>
+      const stageOutputs = exactStageOutputs.filter((output) =>
         output.startsWith(`${stage.name}:`)
         || output.startsWith(`${stage.name} `)
         || output === formatTypeScriptAbsentSkipMessage(stage.name)
-      )).toHaveLength(1);
+      );
+      expect(stageOutputs).toHaveLength(1);
+      if (scenario.requiredParticipatingStageNames?.includes(stage.name) === true) {
+        expect(stageOutputs).not.toContain(formatTypeScriptAbsentSkipMessage(stage.name));
+      }
     }
     for (const expectedOutput of scenario.stdoutIncludes) {
       expect(exactStageOutputs).toContain(expectedOutput);
