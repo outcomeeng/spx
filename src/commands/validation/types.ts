@@ -86,6 +86,8 @@ export interface FormattingCommandOptions {
   quiet?: boolean;
   /** Output as JSON when composed into the full validation pipeline. */
   json?: boolean;
+  /** Report a stage verdict after subprocess detail streamed through the full pipeline. */
+  streamedPipelineOutput?: boolean;
   /** Parent streams that receive dprint subprocess output */
   outputStreams?: ValidationSubprocessOutputStreams;
 }

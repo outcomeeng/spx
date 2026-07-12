@@ -22,7 +22,7 @@ import { allCommand } from "@/commands/validation/all";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
-import { VALIDATION_STREAMED_TERMINAL_OUTPUT, type ValidationCommandResult } from "@/commands/validation/types";
+import type { ValidationCommandResult } from "@/commands/validation/types";
 import { createValidationDomain } from "@/interfaces/cli/validation";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
@@ -666,6 +666,7 @@ async function runCliProcessScenario(): Promise<void> {
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
     expect(`${result.stdout}${result.stderr}`.split(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename)).toHaveLength(
       2,
     );
@@ -921,7 +922,7 @@ export async function runFormattingOutputStreamingCompliance(): Promise<void> {
     expect(result.output).toContain(
       `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename.repeat(2)}${FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY}`,
     );
-    expect(result.terminalOutput).toBe(VALIDATION_STREAMED_TERMINAL_OUTPUT);
+    expect(result.terminalOutput).toBe(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
     expect(stdout).toEqual([
       FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
       FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,

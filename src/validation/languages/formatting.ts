@@ -39,6 +39,7 @@ export const formattingValidationLanguage: ValidationLanguageDescriptor = {
           files: context.files,
           quiet: context.quiet,
           json: context.json,
+          streamedPipelineOutput: true,
           outputStreams: context.outputStreams,
         }),
     },
