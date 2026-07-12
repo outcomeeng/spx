@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { validateLintPolicy } from "@/validation/lint-policy";
 import {
@@ -9,6 +9,7 @@ import {
   VALIDATION_LINT_POLICY_SCENARIO_KIND,
   type ValidationLintPolicyManifestEntries,
   type ValidationLintPolicyScenario,
+  validationLintPolicyScenarios,
 } from "@testing/generators/validation/lint-policy";
 import {
   GIT_TEST_CONFIG,
@@ -24,6 +25,16 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 interface SerializedLintPolicyResult {
   readonly ok: boolean;
   readonly error?: string;
+}
+
+export function registerValidationLintPolicyTests(): void {
+  describe("lint policy validation", () => {
+    for (const scenario of validationLintPolicyScenarios()) {
+      it(scenario.title, async () => {
+        await runValidationLintPolicyScenario(scenario);
+      });
+    }
+  });
 }
 
 export async function runValidationLintPolicyScenario(
