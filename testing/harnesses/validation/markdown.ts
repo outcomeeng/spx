@@ -7,7 +7,6 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import {
   buildMarkdownlintConfig,
@@ -20,13 +19,11 @@ import {
   MARKDOWN_SCENARIO_KIND,
   MARKDOWN_VALIDATION_DATA,
   markdownDirectoryTarget,
-  markdownE2eScenarios,
   markdownFileTarget,
   markdownIntegrationScenarios,
   markdownUnitScenarios,
   type MarkdownValidationScenario,
 } from "@testing/generators/validation/markdown";
-import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@testing/harnesses/with-markdown-env";
 
 const SPEC_NODE_DIRECTORY_SUFFIX_PATTERN = /\.(?:enabler|outcome)$/u;
@@ -44,16 +41,6 @@ export function registerMarkdownUnitScenarioTests(): void {
 
 export function registerMarkdownIntegrationScenarioTests(): void {
   for (const scenario of markdownIntegrationScenarios()) {
-    it(
-      scenario.title,
-      { timeout: scenario.timeout },
-      () => runMarkdownValidationScenario(scenario),
-    );
-  }
-}
-
-export function registerMarkdownE2eScenarioTests(): void {
-  for (const scenario of markdownE2eScenarios()) {
     it(
       scenario.title,
       { timeout: scenario.timeout },
@@ -171,16 +158,6 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runFileScopeCleanSpxScenario();
     case MARKDOWN_SCENARIO_KIND.PIPELINE_FAILURE:
       return runPipelineFailureScenario(scenario);
-    case MARKDOWN_SCENARIO_KIND.E2E_HELP:
-      return runE2eHelpScenario();
-    case MARKDOWN_SCENARIO_KIND.E2E_BROKEN_DIRECTORY:
-      return runE2eBrokenDirectoryScenario();
-    case MARKDOWN_SCENARIO_KIND.E2E_VALID_DIRECTORY:
-      return runE2eValidDirectoryScenario();
-    case MARKDOWN_SCENARIO_KIND.E2E_DIRECT_FILE:
-      return runE2eDirectFileScenario();
-    case MARKDOWN_SCENARIO_KIND.DOCS_DIRECT_FILE_MD024:
-      return runDocsDirectFileMd024Scenario();
     case MARKDOWN_SCENARIO_KIND.MISSING_FILE_SCOPE_DIAGNOSTIC:
       return runMissingFileScopeDiagnosticScenario();
     case MARKDOWN_SCENARIO_KIND.UNRELATED_FILE_SCOPE_DIAGNOSTIC:
@@ -578,82 +555,6 @@ async function runPipelineFailureScenario(scenario: MarkdownValidationScenario):
   });
 }
 
-async function runE2eHelpScenario(): Promise<void> {
-  const result = await runValidationSubprocess([
-    validationCliDefinition.subcommands.markdown.commandName,
-    MARKDOWN_VALIDATION_DATA.helpFlag,
-  ]);
-
-  expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
-  expect(result.stdout).toContain(validationCliDefinition.subcommands.markdown.commandName);
-  expect(result.stdout).toContain(validationCliDefinition.subcommands.markdown.description);
-}
-
-async function runE2eBrokenDirectoryScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ path, spxDir }) => {
-    await mkdir(spxDir, { recursive: true });
-    await writeFile(
-      join(spxDir, MARKDOWN_VALIDATION_DATA.brokenMarkdownFile),
-      MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-    );
-
-    const result = await runValidationSubprocess([
-      validationCliDefinition.subcommands.markdown.commandName,
-      spxDir,
-    ], { cwd: path });
-
-    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
-    expect(result.stderr).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
-  });
-}
-
-async function runE2eValidDirectoryScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ path, spxDir }) => {
-    await writeValidMarkdownPair(spxDir);
-
-    const result = await runValidationSubprocess([
-      validationCliDefinition.subcommands.markdown.commandName,
-      spxDir,
-    ], { cwd: path });
-
-    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
-  });
-}
-
-async function runE2eDirectFileScenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ path, spxDir }) => {
-    const sourceFile = await writeValidMarkdownPair(spxDir);
-
-    const result = await runValidationSubprocess([
-      validationCliDefinition.subcommands.markdown.commandName,
-      sourceFile,
-    ], { cwd: path });
-
-    expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
-  });
-}
-
-async function runDocsDirectFileMd024Scenario(): Promise<void> {
-  await withMarkdownTempProject(async ({ path }) => {
-    const docsGuideDir = join(
-      path,
-      MARKDOWN_VALIDATION_DATA.docsDirectoryName,
-      MARKDOWN_VALIDATION_DATA.guideDirectoryName,
-    );
-    await mkdir(docsGuideDir, { recursive: true });
-    const sourceFile = join(docsGuideDir, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile);
-    await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.docsDirectFileMd024Content);
-
-    const result = await validateMarkdown({
-      targets: [markdownFileTarget(sourceFile)],
-      productDir: path,
-    });
-
-    expect(result.success).toBe(true);
-    expect(result.errors).toHaveLength(MARKDOWN_VALIDATION_DATA.zero);
-  });
-}
-
 async function runMissingFileScopeDiagnosticScenario(): Promise<void> {
   await withMarkdownTempProject(async ({ path }) => {
     const missingFile = join(path, MARKDOWN_VALIDATION_DATA.missingMarkdownScopeFile);
@@ -749,7 +650,7 @@ async function runColonPathErrorScenario(): Promise<void> {
   });
 }
 
-async function writeValidMarkdownPair(spxDir: string): Promise<string> {
+export async function writeValidMarkdownPair(spxDir: string): Promise<string> {
   await mkdir(spxDir, { recursive: true });
   await writeFile(
     join(spxDir, MARKDOWN_VALIDATION_DATA.targetMarkdownFile),
@@ -760,7 +661,7 @@ async function writeValidMarkdownPair(spxDir: string): Promise<string> {
   return sourceFile;
 }
 
-function withMarkdownTempProject(
+export function withMarkdownTempProject(
   callback: (context: {
     readonly docsDir: string;
     readonly path: string;
