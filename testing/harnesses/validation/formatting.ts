@@ -288,8 +288,12 @@ export function registerFormattingPropertyEvidence(): void {
         arbitraryDprintFileArguments().chain((excludes) =>
           arbitraryDprintFileArguments().map((files) => ({ excludes, files }))
         ),
-        (scope) => {
-          expect(buildDprintCheckArgs(scope)).toEqual(buildDprintCheckArgs(scope));
+        ({ excludes, files }) => {
+          const firstInvocation = buildDprintCheckArgs({ excludes, files });
+          const secondInvocation = buildDprintCheckArgs({ excludes, files });
+          expect(firstInvocation).toEqual(secondInvocation);
+          if (files.length > 0) expect(firstInvocation.slice(-files.length)).toEqual(files);
+          for (const exclude of excludes) expect(firstInvocation).toContain(exclude);
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
