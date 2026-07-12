@@ -1,5 +1,3 @@
-# TypeScript Type Check
-
 PROVIDES tsc-based type checking for TypeScript source code
 SO THAT `spx validation typescript` and `spx validation all`
 CAN run the TypeScript compiler against TypeScript projects — reporting type errors without emitting output — while leaving non-TypeScript projects untouched
