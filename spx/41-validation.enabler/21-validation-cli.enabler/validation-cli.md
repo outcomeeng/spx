@@ -20,6 +20,7 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 - Given validation-all help is requested, when `spx validation all --help` is invoked, then the help output lists the full-pipeline override flags derived from registered stage participation metadata ([test](tests/dispatch.scenario.l2.test.ts))
 - Given a validation stage's default participation is overridden for one full-pipeline run, when `spx validation all <override-flag>` is invoked, then that stage follows the override, emits its configured skip output unless `--quiet` is set, and the other validation stages follow their defaults ([test](tests/dispatch.scenario.l2.test.ts))
 - Given a validation stage's default participation is overridden for one JSON full-pipeline run, when `spx validation all <override-flag> --json` is invoked, then the overridden stage emits a structured skipped sentinel with its configured reason instead of the human skip message ([test](tests/dispatch.scenario.l2.test.ts))
+- Given `spx validation all --json` emits stage results, when stdout is consumed as newline-delimited JSON, then every non-empty line parses as JSON and no human summary is appended ([test](tests/dispatch.scenario.l2.test.ts))
 - Given a validation stage's default participation is overridden for one production-scope full-pipeline run, when `spx validation all --scope production <override-flag>` is invoked, then the override applies to that stage and the other production-scope validation stages follow their defaults ([test](tests/dispatch.scenario.l2.test.ts))
 
 ### Properties

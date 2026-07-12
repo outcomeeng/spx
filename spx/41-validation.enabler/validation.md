@@ -27,3 +27,4 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - ALWAYS: validation stages compose through the language registry exported by `src/validation/registry.ts` ([test](tests/registry.compliance.l1.test.ts))
 - ALWAYS: every registered validation stage declares its default full-pipeline participation and any invocation-local override metadata in its stage descriptor ([test](tests/registry.compliance.l1.test.ts))
 - ALWAYS: bundled validation tool discovery recognizes packages that expose their entry point only through ESM `exports` and do not expose `package.json` to CommonJS resolution ([test](tests/tool-discovery.compliance.l1.test.ts))
+- ALWAYS: validation tool discovery can prefer a product-local executable before a bundled fallback while preserving bundled-first discovery as its default ([test](tests/tool-discovery.compliance.l1.test.ts))

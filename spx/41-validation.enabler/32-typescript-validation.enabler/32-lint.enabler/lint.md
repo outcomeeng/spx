@@ -14,6 +14,7 @@ CAN run ESLint against TypeScript projects — executing style, correctness, and
 
 ### Compliance
 
+- ALWAYS: the executable returned by ESLint discovery is the binary the lint subprocess spawns ([test](tests/lint-args.compliance.l1.test.ts))
 - ALWAYS: ESLint invocation is gated on `detectTypeScript` reporting present ([test](tests/lint.integration.test.ts))
 - NEVER: invoke ESLint via `npx` against a project lacking an ESLint flat config — prevents installation prompts and ENOENT failures ([test](tests/lint.integration.test.ts))
 - ALWAYS: ESLint uses the flat config file reported by language detection — path correctness is covered by unit tests on `detectTypeScript` ([review])
