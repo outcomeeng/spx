@@ -1,6 +1,7 @@
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { execa } from "execa";
 import { expect } from "vitest";
 
 import {
@@ -12,9 +13,10 @@ import {
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
-import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
+import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { TRACKED_PATH_DIRECTORY_SEPARATOR, TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
@@ -22,6 +24,7 @@ import {
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
+import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
@@ -57,6 +60,136 @@ function lowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): stri
 function sameIndexSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
   const definition = KIND_REGISTRY[fixture.root.kind];
   return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
+}
+
+function nodeSegment(nodeId: string): string {
+  return nodeId.split(TRACKED_PATH_DIRECTORY_SEPARATOR).at(-1) ?? nodeId;
+}
+
+function shortestUniquePrefix(segment: string, siblingSegments: readonly string[]): string {
+  for (let length = 1; length <= segment.length; length += 1) {
+    const prefix = segment.slice(0, length);
+    if (siblingSegments.filter((candidate) => candidate.startsWith(prefix)).length === 1) return prefix;
+  }
+  return segment;
+}
+
+function abbreviatedTarget(snapshot: SpecTreeSnapshot, target: SpecTreeNode): string {
+  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
+  const lineage: SpecTreeNode[] = [];
+  let current: SpecTreeNode | undefined = target;
+  while (current !== undefined) {
+    lineage.unshift(current);
+    current = current.parentId === undefined ? undefined : byId.get(current.parentId);
+  }
+  return lineage.map((node) => {
+    const segment = nodeSegment(node.id);
+    const siblings = snapshot.allNodes
+      .filter((candidate) => candidate.parentId === node.parentId)
+      .map((candidate) => nodeSegment(candidate.id));
+    return shortestUniquePrefix(segment, siblings);
+  }).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
+}
+
+function ambiguousTargetFixture(fixture: RepresentativeSpecTreeFixture): {
+  readonly candidate: string;
+  readonly prefix: string;
+  readonly specPath: string;
+} {
+  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
+  const stem = target.slice(0, -suffix.length);
+  const candidateSlug = `${fixture.root.slug}-candidate`;
+  return {
+    candidate: `${fixture.root.order}-${candidateSlug}${suffix}`,
+    prefix: stem,
+    specPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
+  };
+}
+
+async function rejectedContextMessage(target: string, productDir: string): Promise<string> {
+  try {
+    await contextCommand({ target, cwd: productDir });
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error(`Expected spec context target to be rejected: ${target}`);
+}
+
+export async function assertSpecContextResolvesAbbreviatedTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
+    const abbreviated = abbreviatedTarget(snapshot, target);
+    const manifest = parseContextManifest(
+      await contextCommand({ target: `spx/${abbreviated}/`, cwd: env.productDir }),
+    );
+    expect(manifest.target).toBe(`spx/${target.id}`);
+  });
+}
+
+export async function assertSpecContextRejectsAmbiguousTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const ambiguity = ambiguousTargetFixture(env.fixture);
+    await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
+    const message = await rejectedContextMessage(ambiguity.prefix, env.productDir);
+    expect(message).toContain(ambiguity.prefix);
+    expect(message).toContain(ambiguity.candidate);
+    expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+  });
+}
+
+export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const artifact = target.ref?.path;
+    expect(artifact).toBeDefined();
+    if (artifact === undefined) return;
+    const message = await rejectedContextMessage(artifact, env.productDir);
+    expect(message).toContain(artifact);
+    expect(message).toContain(`spx/${target.id}`);
+  });
+}
+
+export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
+    const result = await execa(
+      NODE_EXECUTABLE,
+      [
+        CLI_PATH,
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+        `spx/${abbreviatedTarget(snapshot, target)}/`,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      ],
+      { cwd: env.productDir, reject: false },
+    );
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseContextManifest(result.stdout).target).toBe(`spx/${target.id}`);
+  });
 }
 
 export async function assertSpecContextManifestIncludesMethodology(): Promise<void> {
