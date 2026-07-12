@@ -145,10 +145,11 @@ export function configuredMarketplaceReading(): MarketplaceInstallReading {
 
 export function compliantWorktreePoolReading(): WorktreePoolReading {
   const branch = sampleMainCheckoutTestValue(arbitraryBranchName());
+  const largeReadingMinimum = Math.floor(Number.MAX_SAFE_INTEGER / 2);
   const [running, free] = sampleDiagnoseTestValue(
     fc.tuple(
-      fc.integer({ min: 1_000_000, max: 999_999_999 }),
-      fc.integer({ min: 1_000_000, max: 999_999_999 }),
+      fc.integer({ min: largeReadingMinimum, max: Number.MAX_SAFE_INTEGER }),
+      fc.integer({ min: largeReadingMinimum, max: Number.MAX_SAFE_INTEGER }),
     ).filter(([left, right]) => left !== right),
   );
   return {
@@ -223,7 +224,9 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
     classifyWorktreePool(compliantWorktreePoolReading()),
     classifySessionStore({
       errored: false,
-      orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1_000_000, max: 999_999_999 })),
+      orphanedClaims: sampleDiagnoseTestValue(
+        fc.integer({ min: Math.floor(Number.MAX_SAFE_INTEGER / 2), max: Number.MAX_SAFE_INTEGER }),
+      ),
     }),
     classifyMarketplaceInstall({
       configured: false,
