@@ -21,10 +21,11 @@ import {
   sampleChangedSetPlanningValue,
 } from "@testing/generators/testing/changed-set-planning";
 import {
-  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
+  readGit,
+  runGit,
 } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 
@@ -116,24 +117,18 @@ async function writeChangedSetCommandFixture(productDir: string, paths: ChangedS
 }
 
 async function initializeChangedSetCommandRepo(productDir: string): Promise<string> {
-  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], { cwd: productDir });
-  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL], {
-    cwd: productDir,
-  });
-  await execa(
-    GIT_TEST_COMMAND,
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+  await runGit(
+    productDir,
     [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME],
-    { cwd: productDir },
   );
-  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.ADD, "."], { cwd: productDir });
-  await execa(
-    GIT_TEST_COMMAND,
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, "."]);
+  await runGit(
+    productDir,
     [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, changedSetContent.baseCommitMessage],
-    { cwd: productDir },
   );
-  return (
-    await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
-  ).stdout;
+  return readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
 }
 
 async function runChangedSetCommand(productDir: string, baseRef: string) {
@@ -169,15 +164,12 @@ async function expectChangedSetCommandRunsAffectedTests(): Promise<void> {
         paths.sourcePath,
         changedSetSourceFixture(changedSetContent.afterSourceValue),
       );
-      await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.ADD, "."], { cwd: productDir });
-      await execa(
-        GIT_TEST_COMMAND,
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, "."]);
+      await runGit(
+        productDir,
         [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, changedSetContent.branchCommitMessage],
-        { cwd: productDir },
       );
-      const expectedHeadSha = (
-        await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
-      ).stdout;
+      const expectedHeadSha = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
 
       const result = await runChangedSetCommand(productDir, baseSha);
 
