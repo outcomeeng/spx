@@ -10,6 +10,7 @@
 41-validation.enabler/32-python-validation.enabler/32-lint.enabler
 41-validation.enabler/32-python-validation.enabler/32-type-check.enabler
 26-release.enabler/43-publish-dispatch.enabler
+54-diagnose.enabler/71-diagnose-cli.enabler
 34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
