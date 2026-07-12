@@ -38,6 +38,9 @@ importers:
       dependency-cruiser:
         specifier: 16.10.4
         version: 16.10.4
+      dprint:
+        specifier: 0.55.1
+        version: 0.55.1
       eslint-visitor-keys:
         specifier: ^5.0.1
         version: 5.0.1
@@ -93,9 +96,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.5
         version: 4.1.10(vitest@4.1.10)
-      dprint:
-        specifier: 0.55.1
-        version: 0.55.1
       eslint:
         specifier: ^9.39.4
         version: 9.39.5(jiti@2.7.0)

@@ -133,6 +133,10 @@ export function sampleConfigTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return value;
 }
 
+export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: number): T[] {
+  return fc.sample(arbitrary, { numRuns });
+}
+
 function arbitraryConfigKey(): fc.Arbitrary<string> {
   return fc.stringMatching(/^[a-z][a-z0-9]{5,16}$/).filter((key) => key !== SPEC_TREE_SECTION);
 }

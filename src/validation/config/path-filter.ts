@@ -36,8 +36,8 @@ function nonEmpty(values: readonly string[] | undefined): readonly string[] {
   return values?.filter((value) => value.length > 0) ?? [];
 }
 
-export function toProjectRelativeValidationPath(projectRoot: string, path: string): string {
-  return isAbsolute(path) ? relative(projectRoot, path) : path;
+export function toProductRelativeValidationPath(productDir: string, path: string): string {
+  return isAbsolute(path) ? relative(productDir, path) : path;
 }
 
 function intersectIncludes(

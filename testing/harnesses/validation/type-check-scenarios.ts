@@ -93,6 +93,7 @@ export function registerTypeCheckScenarios(): void {
           });
 
           expect(result.exitCode).not.toBe(0);
+          expect(result.stderr).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
         });
       },
@@ -127,7 +128,7 @@ export function registerTypeCheckScenarios(): void {
           });
 
           expect(result.exitCode).not.toBe(0);
-          expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
+          expect(result.stderr).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
         });
       },

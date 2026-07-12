@@ -186,7 +186,7 @@ function dependencyCruiserGlobSegmentToRegExpSource(segment: string): string {
 
 function buildDependencyCruiserOptions(
   typescriptScope: ScopeConfig,
-  projectRoot: string,
+  productDir: string,
   tsConfigFile: string,
 ): ICruiseOptions {
   const excludePatterns = [
@@ -195,7 +195,7 @@ function buildDependencyCruiserOptions(
   ];
 
   return {
-    baseDir: projectRoot,
+    baseDir: productDir,
     enhancedResolveOptions: { extensions: [...DEPENDENCY_CRUISER_TYPESCRIPT_RESOLVE_EXTENSIONS] },
     exclude: { path: excludePatterns },
     includeOnly: { path: DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN },
@@ -330,7 +330,7 @@ function circularDependencyCycles(result: ICruiseResult): string[][] {
  *
  * @param scope - Validation scope
  * @param typescriptScope - Scope configuration from tsconfig
- * @param projectRoot - Project root for dependency-cruiser input and tsconfig resolution
+ * @param productDir - Product directory for dependency-cruiser input and tsconfig resolution
  * @param deps - Injectable dependencies
  * @returns Result with success status and any circular dependencies found
  *
@@ -345,7 +345,7 @@ function circularDependencyCycles(result: ICruiseResult): string[][] {
 export async function validateCircularDependencies(
   scope: ValidationScope,
   typescriptScope: ScopeConfig,
-  projectRoot: string,
+  productDir: string,
   deps: CircularDeps = defaultCircularDeps,
 ): Promise<CircularDependencyResult> {
   try {
@@ -355,10 +355,10 @@ export async function validateCircularDependencies(
       return { success: true };
     }
 
-    const tsConfigFile = join(projectRoot, TSCONFIG_FILES[scope]);
+    const tsConfigFile = join(productDir, TSCONFIG_FILES[scope]);
     const result = await deps.dependencyCruiser(
       analyzeSourcePatterns,
-      buildDependencyCruiserOptions(typescriptScope, projectRoot, tsConfigFile),
+      buildDependencyCruiserOptions(typescriptScope, productDir, tsConfigFile),
       undefined,
       { tsConfig: deps.extractTypeScriptConfig(tsConfigFile) },
     );

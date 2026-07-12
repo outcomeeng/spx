@@ -26,6 +26,7 @@ import {
   validateLiteralReuse,
 } from "@/validation/literal/index";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
+import { VALIDATION_OUTPUT_TARGET, type ValidationCommandResult } from "./types";
 
 export const OUTPUT_MODE_NAME = {
   TEXT: "text",
@@ -53,12 +54,6 @@ export interface LiteralCommandOptions {
   readonly enabled?: boolean;
   readonly config?: LiteralConfig;
   readonly pathConfig?: ValidationPathConfig;
-}
-
-export interface ValidationCommandResult {
-  readonly exitCode: number;
-  readonly output: string;
-  readonly durationMs: number;
 }
 
 export const LITERAL_EXIT_CODES = {
@@ -154,7 +149,12 @@ export async function literalCommand(
     output = formatLiteralCommandOutput(filteredFindings, options);
   }
 
-  return { exitCode, output, durationMs: Date.now() - start };
+  return {
+    exitCode,
+    output,
+    durationMs: Date.now() - start,
+    outputTarget: VALIDATION_OUTPUT_TARGET.STDOUT,
+  };
 }
 
 async function resolveLiteralCommandConfig(
@@ -190,7 +190,7 @@ function resolveExplicitLiteralTypeScriptScope(
     return undefined;
   }
   return resolveTypeScriptValidationScope({
-    projectRoot: options.cwd,
+    productDir: options.cwd,
     scope: options.scope ?? VALIDATION_SCOPES.FULL,
     paths: options.files,
     validationPathFilter: pathConfig,

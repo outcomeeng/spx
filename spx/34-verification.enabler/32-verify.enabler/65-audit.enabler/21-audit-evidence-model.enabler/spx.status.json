@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "verification": {
     "test": {
-      "overall": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-evidence-validation.compliance.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-finding.conformance.l1.test.ts": "not-run",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-scope.conformance.l1.test.ts": "not-run"
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-evidence-validation.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-finding.conformance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-scope.conformance.l1.test.ts": "passed"
     }
   }
 }

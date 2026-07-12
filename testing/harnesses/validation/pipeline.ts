@@ -6,9 +6,22 @@ import { expect } from "vitest";
 
 import { allCommand } from "@/commands/validation";
 import { ALL_VALIDATION_JSON_FIELD, type AllValidationJsonOutput } from "@/commands/validation/types";
-import { createValidationDomain } from "@/interfaces/cli/validation";
-import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import type { ValidationStage, ValidationStageContext } from "@/validation/languages/types";
+import {
+  createValidationDomain,
+  deriveValidationAllOverrideCliOptions,
+  validationAllOverrideCliOptions,
+  validationOptionPropertyName,
+} from "@/interfaces/cli/validation";
+import {
+  validationAllBuiltInCliOptions,
+  validationCliDefinition,
+  validationCommonCliOptions,
+} from "@/interfaces/cli/validation-contract";
+import {
+  VALIDATION_STAGE_PARTICIPATION,
+  type ValidationStage,
+  type ValidationStageContext,
+} from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
 import {
   VALIDATION_PIPELINE_DATA,
@@ -42,6 +55,17 @@ const VALIDATION_ROOT = resolve(
   "../../../spx/41-validation.enabler",
 );
 const VALIDATION_STAGE_COUNT = validationPipelineStages.length;
+const OVERRIDE_METADATA_TEST_STAGE_NAME = "Override metadata test";
+const OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test";
+const OVERRIDE_METADATA_TEST_DESCRIPTION = "Override metadata test flag";
+const OVERRIDE_METADATA_TEST_REASON = "override-metadata-test";
+const UNSUPPORTED_OVERRIDE_METADATA_FLAGS = [
+  "--no-override-metadata-test",
+  "--override-metadata-test <value>",
+  "--override-metadata-test, -o",
+  "--overrideMetadataTest",
+] as const;
+const COLLIDING_OVERRIDE_METADATA_TEST_FLAG = "--overrideMetadata-test";
 function validationPipelineScenarioTimeout(kind: ValidationPipelineScenario["kind"]): number {
   return kind === VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT
       || kind === VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS
@@ -72,6 +96,7 @@ function observedPassingStage(
   return {
     name,
     failsPipeline: true,
+    participation: { default: "run" },
     run: (context) => {
       observedContexts.push(context);
       return Promise.resolve({
@@ -180,6 +205,68 @@ export const validationPipelineSkipScenarioCases = collectHarnessTestCases(
     );
   },
 );
+
+export function expectValidationAllOverrideOptionsDerived(): void {
+  const descriptorOwnedOptions = validationPipelineStages.flatMap((stage) => {
+    const override = stage.participation.override;
+    return override === undefined
+      ? []
+      : [{
+        stageName: stage.name,
+        flag: override.flag,
+        description: override.description,
+        reason: override.reason,
+        optionPropertyName: validationOptionPropertyName(override.flag),
+      }];
+  });
+  expect(validationAllOverrideCliOptions).toEqual(descriptorOwnedOptions);
+}
+
+export function expectValidationAllOverrideMetadataRejectsUnsupportedFlags(): void {
+  for (const flag of UNSUPPORTED_OVERRIDE_METADATA_FLAGS) {
+    expect(() => deriveValidationAllOverrideCliOptions([validationOverrideMetadataTestStage(flag)])).toThrow();
+  }
+  expect(() =>
+    deriveValidationAllOverrideCliOptions([
+      validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG),
+      validationOverrideMetadataTestStage(COLLIDING_OVERRIDE_METADATA_TEST_FLAG),
+    ])
+  ).toThrow();
+  for (
+    const flag of [
+      validationAllBuiltInCliOptions.fix.flag,
+      validationCommonCliOptions.scope.flag,
+      validationCommonCliOptions.quiet.flag,
+      validationCommonCliOptions.json.flag,
+      validationCliDefinition.commanderHelpOperands.longFlag,
+    ]
+  ) {
+    expect(() => deriveValidationAllOverrideCliOptions([validationOverrideMetadataTestStage(flag)])).toThrow();
+  }
+  expect(() =>
+    deriveValidationAllOverrideCliOptions([{
+      ...validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG),
+      participation: { default: VALIDATION_STAGE_PARTICIPATION.SKIP },
+    }])
+  ).toThrow();
+}
+
+function validationOverrideMetadataTestStage(flag: string): ValidationStage {
+  return {
+    name: OVERRIDE_METADATA_TEST_STAGE_NAME,
+    failsPipeline: true,
+    participation: {
+      default: VALIDATION_STAGE_PARTICIPATION.RUN,
+      override: {
+        flag: flag as `--${string}`,
+        description: OVERRIDE_METADATA_TEST_DESCRIPTION,
+        participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+        reason: OVERRIDE_METADATA_TEST_REASON,
+      },
+    },
+    run: () => Promise.resolve({ exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS, output: "" }),
+  };
+}
 export const validationPipelineSkipComplianceCases = collectHarnessTestCases(
   () => {
     registerValidationPipelineTests(
@@ -322,9 +409,8 @@ async function runFailureIdentifiesStepScenario(
         expectedExitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
         stdoutIncludes: [
           VALIDATION_PIPELINE_DATA.circularOutput.FOUND,
-          `Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.FAILED}`,
         ],
-        combinedIncludes: [],
+        combinedIncludes: [`Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.FAILED}`],
         stdoutExcludes: [],
         stderrExcludes: [],
         combinedExcludes: [],
@@ -532,6 +618,7 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
+      participation: { default: "run" },
       run: () =>
         Promise.resolve({
           exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
@@ -541,6 +628,7 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       failsPipeline: true,
+      participation: { default: "run" },
       run: async () => {
         secondStageStarted.resolve();
         await releaseSecondStage.promise;
@@ -552,9 +640,7 @@ async function runStepOrderScenario(
     },
   ];
 
-  const domain = createValidationDomain({
-    allCommand: (options, deps) => allCommand(options, { ...deps, stages }),
-  });
+  const domain = createValidationDomain({ validationStages: stages });
   const run = runValidationInProcess(
     [validationCliDefinition.subcommands.all.commandName],
     {
@@ -875,6 +961,7 @@ async function runStableVerdictScenario(
         (stage, index): ValidationStage => ({
           name: stage.name,
           failsPipeline: true,
+          participation: stage.participation,
           run: () =>
             Promise.resolve({
               exitCode: stageFailures[index]
@@ -928,6 +1015,7 @@ async function runAdditiveVerdictsScenario(
       const addedStage: ValidationStage = {
         name: VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN,
         failsPipeline: true,
+        participation: { default: "run" },
         run: () =>
           Promise.resolve({
             exitCode: addedStageFails

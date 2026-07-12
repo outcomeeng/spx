@@ -15,14 +15,14 @@ export const VALIDATION_STAGE_DISPLAY_NAMES = {
 
 export const VALIDATION_SKIP_LABELS = {
   VERB: "Skipping",
-  CIRCULAR_REASON: "skip-circular",
-  LITERAL_REASON: "skip-literal",
   DISABLED_BY_PREFIX: "disabled by",
-  TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in project",
+  TYPESCRIPT_ABSENT_REASON: "TypeScript not detected in product",
   VALIDATION_PATHS_NO_TARGETS_REASON: "validation paths matched no files",
   MARKDOWN_NO_SCOPE_REASON: "no markdown files in explicit path scope",
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
 } as const;
+
+export const VALIDATION_STREAMED_STAGE_RESULT = "output streamed";
 
 export const VALIDATION_COMMAND_OUTPUT = {
   CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: circular dependencies found`,
@@ -34,7 +34,7 @@ export const VALIDATION_COMMAND_OUTPUT = {
   KNIP_FAILURE: "Unused code found",
   ESLINT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✓ No errors found`,
   ESLINT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT} validation failed`,
-  ESLINT_MISSING_CONFIG: "ESLint config not found: project has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
+  ESLINT_MISSING_CONFIG: "ESLint config not found: product has tsconfig.json but no eslint.config.{ts,js,mjs,cjs}",
   TYPESCRIPT_SUCCESS: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✓ No type errors`,
   TYPESCRIPT_FAILURE: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT} validation failed`,
   MARKDOWN_NO_ISSUES: `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: No issues found`,
@@ -43,21 +43,22 @@ export const VALIDATION_COMMAND_OUTPUT = {
   FORMATTING_FAILURE_SUMMARY: `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: unformatted files found`,
 } as const;
 
-export const CIRCULAR_SKIP_OUTPUT =
-  `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (--${VALIDATION_SKIP_LABELS.CIRCULAR_REASON})`;
+export function formatValidationStageSkipOutput(stageName: string, reason: string): string {
+  return `${stageName}: skipped (${reason})`;
+}
 
-export const CIRCULAR_SKIP_JSON_OUTPUT = JSON.stringify({
-  skipped: true,
-  reason: VALIDATION_SKIP_LABELS.CIRCULAR_REASON,
-});
+export function formatValidationStageSkipJsonOutput(reason: string, durationMs: number): string {
+  return JSON.stringify({ skipped: true, reason, durationMs });
+}
 
-export const LITERAL_SKIP_OUTPUT =
-  `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (--${VALIDATION_SKIP_LABELS.LITERAL_REASON})`;
-
-export const LITERAL_SKIP_JSON_OUTPUT = JSON.stringify({
-  skipped: true,
-  reason: VALIDATION_SKIP_LABELS.LITERAL_REASON,
-});
+export function formatValidationStageJsonOutput(options: {
+  readonly stage: string;
+  readonly exitCode: number;
+  readonly output: string;
+  readonly durationMs?: number;
+}): string {
+  return JSON.stringify(options);
+}
 
 // Matches a pipeline step line `[N/M]`; the step count derives from the registry,
 // so the denominator is matched generically rather than pinned to a constant.

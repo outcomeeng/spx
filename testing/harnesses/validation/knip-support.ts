@@ -7,7 +7,7 @@ import type { ScopeConfig } from "@/validation/types";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
 export interface KnipValidationCall {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly typescriptScope: ScopeConfig;
 }
 

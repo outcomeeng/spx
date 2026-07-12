@@ -5,17 +5,24 @@
  * injected process runner. dprint resolves its `dprint.jsonc` by upward
  * discovery from the working directory and applies the pinned formatter
  * plugins, so the stage obtains dprint's own multi-language verdict without
- * reimplementing any formatter. The binary is the bare `dprint` command
- * resolved from `PATH` — a required tool like `git` or `python3`.
+ * reimplementing any formatter. The binary resolves from the exact-pinned
+ * runtime dependency shipped with the CLI.
  *
  * @module validation/steps/formatting
  */
 
-import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { VALIDATION_SUBPROCESS_EVENTS } from "./subprocess-output";
+import { createRequire } from "node:module";
 
-/** Bare command resolved from `PATH`; check mode reports without rewriting. */
-export const DPRINT_COMMAND = "dprint";
+import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import {
+  forwardValidationSubprocessOutput,
+  VALIDATION_SUBPROCESS_EVENTS,
+  type ValidationSubprocessOutputStreams,
+} from "./subprocess-output";
+
+export const DPRINT_EXECUTABLE_SPECIFIER = "dprint/bin.cjs";
+/** Executable from the runtime dependency shipped with the published CLI. */
+export const DPRINT_COMMAND = createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER);
 export const DPRINT_CHECK_SUBCOMMAND = "check";
 export const DPRINT_EXCLUDES_OPTION = "--excludes";
 export const DPRINT_OPTIONS_TERMINATOR = "--";
@@ -39,7 +46,7 @@ export interface FormattingValidationResult {
 /** Context for a single formatting check. */
 export interface FormattingValidationContext {
   /** Working directory dprint runs in; also where it discovers `dprint.jsonc`. */
-  readonly projectRoot: string;
+  readonly productDir: string;
   /** Explicit file scope; omitted to check the whole `dprint.jsonc` includes set. */
   readonly files?: readonly string[];
   /** Additive dprint excludes; omitted when validation path filters have none. */
@@ -79,18 +86,19 @@ export function buildDprintCheckArgs(options: {
 /**
  * Run dprint in check mode against the supplied project and optional file scope.
  *
- * @param context - Project root and optional explicit file scope
+ * @param context - Product directory and optional explicit file scope
  * @param runner - Injectable process runner (defaults to the lifecycle runner)
  * @returns Validation result with success, captured output, and spawn errors
  */
 export async function validateFormatting(
   context: FormattingValidationContext,
   runner: ProcessRunner = defaultFormattingProcessRunner,
+  outputStreams?: ValidationSubprocessOutputStreams,
 ): Promise<FormattingValidationResult> {
   const args = buildDprintCheckArgs({ files: context.files, excludes: context.excludes });
 
   return new Promise((resolve) => {
-    const child = spawnManagedSubprocess(runner, DPRINT_COMMAND, args, { cwd: context.projectRoot });
+    const child = spawnManagedSubprocess(runner, DPRINT_COMMAND, args, { cwd: context.productDir });
     const chunks: string[] = [];
     const capture = (chunk: string | Uint8Array): void => {
       chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
@@ -98,6 +106,7 @@ export async function validateFormatting(
 
     child.stdout?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
     child.stderr?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
+    forwardValidationSubprocessOutput(child, outputStreams);
 
     child.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
       resolve({ success: code === 0, output: chunks.join("") });

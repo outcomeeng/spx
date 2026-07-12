@@ -12,21 +12,113 @@ import {
   markdownCommand,
   typescriptCommand,
 } from "@/commands/validation";
+import {
+  type AllCommandOptions,
+  type CircularCommandOptions,
+  type CommonValidationOptions,
+  type FormattingCommandOptions,
+  type KnipCommandOptions,
+  type LintCommandOptions,
+  type MarkdownCommandOptions,
+  type TypeScriptCommandOptions,
+  VALIDATION_OUTPUT_TARGET,
+  type ValidationCommandResult,
+  type ValidationOutputTarget,
+} from "@/commands/validation/types";
 import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {
-  allValidationCliOptions,
+  isValidationLiteralProblemKind,
   literalValidationCliOptions,
+  validationAllBuiltInCliOptions,
   validationCliDefinition,
-  validationLiteralProblemKinds,
+  validationCommonCliOptions,
   type ValidationSubcommandDefinition,
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
+import { validationPipelineStages } from "@/validation/registry";
+import {
+  discardValidationSubprocessOutputStreams,
+  type ValidationSubprocessOutputStreams,
+} from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
+
+export interface ValidationAllOverrideCliOption {
+  readonly stageName: string;
+  readonly flag: `--${string}`;
+  readonly description: string;
+  readonly reason: string;
+  readonly optionPropertyName: string;
+}
+
+const LONG_OPTION_PREFIX = "--";
+const OPTION_PROPERTY_WORD_SEPARATOR_PATTERN = /-([a-z0-9])/g;
+const VALIDATION_ALL_OVERRIDE_FLAG_PATTERN = /^--(?!no-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
+const validationAllReservedOverrideFlags: ReadonlySet<string> = new Set([
+  ...Object.values(validationCommonCliOptions).map((option) => option.flag),
+  ...Object.values(validationAllBuiltInCliOptions).map((option) => option.flag),
+  validationCliDefinition.commanderHelpOperands.longFlag,
+]);
+
+export function validationOptionPropertyName(flag: `--${string}`): string {
+  return flag.slice(LONG_OPTION_PREFIX.length)
+    .replace(OPTION_PROPERTY_WORD_SEPARATOR_PATTERN, (_match, character: string) => character.toUpperCase());
+}
+
+export function deriveValidationAllOverrideCliOptions(
+  stages: readonly ValidationStage[],
+): readonly ValidationAllOverrideCliOption[] {
+  const optionPropertyNames = new Set<string>();
+  return stages.flatMap((stage) => {
+    validateStageParticipationMetadata(stage);
+    const override = stage.participation.override;
+    if (override === undefined) return [];
+    const optionPropertyName = validationOptionPropertyName(override.flag);
+    if (optionPropertyNames.has(optionPropertyName)) {
+      throw new Error(`duplicate validation all override option property: ${optionPropertyName}`);
+    }
+    optionPropertyNames.add(optionPropertyName);
+    return [{
+      stageName: stage.name,
+      flag: override.flag,
+      description: override.description,
+      reason: override.reason,
+      optionPropertyName,
+    }];
+  });
+}
+
+function validateStageParticipationMetadata(stage: ValidationStage): void {
+  if (
+    stage.participation.default === VALIDATION_STAGE_PARTICIPATION.SKIP
+    && (stage.participation.defaultSkipReason === undefined || stage.participation.defaultSkipReason.length === 0)
+  ) {
+    throw new Error(`validation stage ${stage.name} default skip participation requires a reason`);
+  }
+  const override = stage.participation.override;
+  if (override === undefined) return;
+  if (!VALIDATION_ALL_OVERRIDE_FLAG_PATTERN.test(override.flag)) {
+    throw new Error(`validation stage ${stage.name} override flag must be a bare long kebab-case boolean flag`);
+  }
+  if (validationAllReservedOverrideFlags.has(override.flag)) {
+    throw new Error(`validation stage ${stage.name} override flag collides with a validation all built-in option`);
+  }
+  if (override.description.length === 0) {
+    throw new Error(`validation stage ${stage.name} override flag requires a description`);
+  }
+  if (override.reason.length === 0) {
+    throw new Error(`validation stage ${stage.name} override flag requires a skip reason`);
+  }
+}
+
+export const validationAllOverrideCliOptions: readonly ValidationAllOverrideCliOption[] =
+  deriveValidationAllOverrideCliOptions(validationPipelineStages);
 
 /** Common options for all validation commands */
 interface CommonOptions {
@@ -50,42 +142,60 @@ interface LiteralOptions extends CommonOptions {
 
 interface AllOptions extends CommonOptions {
   fix?: boolean;
-  skipCircular?: boolean;
-  skipLiteral?: boolean;
+  readonly [key: string]: boolean | string | undefined;
+}
+
+export interface ValidationDomainOptions {
+  readonly validationStages?: readonly ValidationStage[];
+  readonly commandHandlers?: Partial<ValidationCommandHandlers>;
+  readonly allowlistExisting?: typeof allowlistExisting;
 }
 
 interface ValidationCliResult {
   readonly output: string;
   readonly exitCode: number;
+  readonly outputTarget?: ValidationOutputTarget;
+  readonly terminalOutput?: string;
 }
 
-export interface ValidationCliDependencies {
-  readonly allCommand: typeof allCommand;
-  readonly allowlistExisting: typeof allowlistExisting;
-  readonly circularCommand: typeof circularCommand;
-  readonly formattingCommand: typeof formattingCommand;
-  readonly knipCommand: typeof knipCommand;
-  readonly lintCommand: typeof lintCommand;
-  readonly literalCommand: typeof literalCommand;
-  readonly markdownCommand: typeof markdownCommand;
-  readonly typescriptCommand: typeof typescriptCommand;
+interface LiteralCommandHandlerOptions extends CommonValidationOptions {
+  readonly kind?: LiteralProblemKind;
+  readonly filesWithProblems?: boolean;
+  readonly literals?: boolean;
+  readonly verbose?: boolean;
 }
 
-const defaultValidationCliDependencies: ValidationCliDependencies = {
-  allCommand,
-  allowlistExisting,
-  circularCommand,
-  formattingCommand,
-  knipCommand,
-  lintCommand,
-  literalCommand,
-  markdownCommand,
-  typescriptCommand,
+export interface ValidationCommandHandlers {
+  readonly typescript: (options: TypeScriptCommandOptions) => Promise<ValidationCommandResult>;
+  readonly lint: (options: LintCommandOptions) => Promise<ValidationCommandResult>;
+  readonly circular: (options: CircularCommandOptions) => Promise<ValidationCommandResult>;
+  readonly knip: (options: KnipCommandOptions) => Promise<ValidationCommandResult>;
+  readonly literal: (options: LiteralCommandHandlerOptions) => Promise<ValidationCommandResult>;
+  readonly markdown: (options: MarkdownCommandOptions) => Promise<ValidationCommandResult>;
+  readonly format: (options: FormattingCommandOptions) => Promise<ValidationCommandResult>;
+  readonly all: (options: AllCommandOptions) => Promise<ValidationCommandResult>;
+}
+
+const defaultValidationCommandHandlers: ValidationCommandHandlers = {
+  typescript: typescriptCommand,
+  lint: lintCommand,
+  circular: circularCommand,
+  knip: knipCommand,
+  literal: literalCommand,
+  markdown: markdownCommand,
+  format: formattingCommand,
+  all: allCommand,
 };
 
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
-  if (result.output.length > 0) {
-    io.writeStdout(`${result.output}\n`);
+  const output = result.terminalOutput ?? result.output;
+  if (output.length > 0) {
+    const outputTarget = result.outputTarget
+      ?? (result.exitCode === 0 ? VALIDATION_OUTPUT_TARGET.STDOUT : VALIDATION_OUTPUT_TARGET.STDERR);
+    const writeOutput = outputTarget === VALIDATION_OUTPUT_TARGET.STDOUT
+      ? io.writeStdout
+      : io.writeStderr;
+    writeOutput(`${output}\n`);
   }
   return io.exit(result.exitCode);
 }
@@ -97,9 +207,9 @@ function addCommonOptions(cmd: Command): Command {
   const { pathOperands } = validationCliDefinition;
   return cmd
     .argument(pathOperands.optionalVariadic, pathOperands.description)
-    .option("--scope <scope>", "Validation scope (full|production)", "full")
-    .option("--quiet", "Suppress progress output")
-    .option("--json", "Output results as JSON");
+    .option(`${validationCommonCliOptions.scope.flag} <scope>`, "Validation scope (full|production)", "full")
+    .option(validationCommonCliOptions.quiet.flag, "Suppress progress output")
+    .option(validationCommonCliOptions.json.flag, "Output results as JSON");
 }
 
 async function normalizeProductPathOperand(
@@ -183,21 +293,39 @@ function addValidationSubcommand(
   return subcommand;
 }
 
+function selectedValidationAllOverrides(
+  options: AllOptions,
+  allOverrideCliOptions: readonly ValidationAllOverrideCliOption[] = validationAllOverrideCliOptions,
+): readonly `--${string}`[] {
+  return allOverrideCliOptions
+    .filter((option) => options[option.optionPropertyName] === true)
+    .map((option) => option.flag);
+}
+
 /**
  * Register validation domain commands
  */
 function registerValidationCommands(
   validationCmd: Command,
   invocation: CliInvocation,
-  deps: ValidationCliDependencies,
+  options: ValidationDomainOptions = {},
 ): void {
   const { subcommands } = validationCliDefinition;
+  const commandHandlers: ValidationCommandHandlers = {
+    ...defaultValidationCommandHandlers,
+    ...options.commandHandlers,
+  };
+  const runAllowlistExisting = options.allowlistExisting ?? allowlistExisting;
+  const validationStages = options.validationStages ?? validationPipelineStages;
+  const allOverrideCliOptions = deriveValidationAllOverrideCliOptions(
+    validationStages,
+  );
 
   // typescript command
   const tsCmd = addValidationSubcommand(validationCmd, subcommands.typescript)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.typescriptCommand({
+      const result = await commandHandlers.typescript({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -213,7 +341,7 @@ function registerValidationCommands(
     .option("--fix", "Auto-fix issues")
     .action(async (pathOperands: string[], options: LintOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.lintCommand({
+      const result = await commandHandlers.lint({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -229,7 +357,7 @@ function registerValidationCommands(
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.circularCommand({
+      const result = await commandHandlers.circular({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -244,7 +372,7 @@ function registerValidationCommands(
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.knipCommand({
+      const result = await commandHandlers.knip({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -276,7 +404,7 @@ function registerValidationCommands(
     .action(async (pathOperands: string[], options: LiteralOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
       if (options.allowlistExisting) {
-        const result = await deps.allowlistExisting({ productDir: paths.productDir });
+        const result = await runAllowlistExisting({ productDir: paths.productDir });
         emitValidationResult(result, invocation.io);
       }
       let kind: LiteralProblemKind | undefined;
@@ -290,7 +418,7 @@ function registerValidationCommands(
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
       }
-      const result = await deps.literalCommand({
+      const result = await commandHandlers.literal({
         cwd: paths.productDir,
         scope: options.scope,
         files: paths.files,
@@ -315,7 +443,7 @@ function registerValidationCommands(
     )
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.markdownCommand({
+      const result = await commandHandlers.markdown({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
@@ -328,41 +456,67 @@ function registerValidationCommands(
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
     .action(async (pathOperands: string[], options: CommonOptions) => {
       const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.formattingCommand({
+      const result = await commandHandlers.format({
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
+        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });
   addCommonOptions(formatCmd);
 
   // all command
-  const allCmd = addValidationSubcommand(validationCmd, subcommands.all)
-    .option("--fix", "Auto-fix ESLint issues")
-    .option(allValidationCliOptions.skipCircular.flag, allValidationCliOptions.skipCircular.description)
-    .option(allValidationCliOptions.skipLiteral.flag, allValidationCliOptions.skipLiteral.description)
-    .action(async (pathOperands: string[], options: AllOptions) => {
-      const paths = await resolveValidationPaths(invocation, pathOperands);
-      const result = await deps.allCommand({
-        cwd: paths.productDir,
-        scope: options.scope,
-        files: paths.files,
-        fix: options.fix,
-        skipCircular: options.skipCircular,
-        skipLiteral: options.skipLiteral,
-        quiet: options.quiet,
-        json: options.json,
-      }, {
-        writeOutput: (output) => invocation.io.writeStdout(`${output}\n`),
-      });
-      return invocation.io.exit(result.exitCode);
+  let allCmd = addValidationSubcommand(validationCmd, subcommands.all)
+    .option(validationAllBuiltInCliOptions.fix.flag, "Auto-fix ESLint issues");
+  for (const option of allOverrideCliOptions) {
+    allCmd = allCmd.option(option.flag, option.description);
+  }
+  allCmd = allCmd.action(async (pathOperands: string[], options: AllOptions) => {
+    const paths = await resolveValidationPaths(invocation, pathOperands);
+    const result = await commandHandlers.all({
+      cwd: paths.productDir,
+      scope: options.scope,
+      files: paths.files,
+      fix: options.fix,
+      validationStages,
+      participationOverrides: selectedValidationAllOverrides(options, allOverrideCliOptions),
+      quiet: options.quiet,
+      json: options.json,
+      onStageComplete: ({ output }) => invocation.io.writeStdout(`${output}\n`),
+      outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
     });
+    emitValidationResult(result, invocation.io);
+  });
   addCommonOptions(allCmd);
 }
 
+function validationSubprocessOutputStreams(
+  io: CliIo,
+  json?: boolean,
+): ValidationSubprocessOutputStreams | undefined {
+  if (json === true) return discardValidationSubprocessOutputStreams;
+  return {
+    stdout: {
+      write: (chunk) => {
+        io.writeStdout(Buffer.from(chunk).toString());
+        return true;
+      },
+    },
+    stderr: {
+      write: (chunk) => {
+        io.writeStderr(Buffer.from(chunk).toString());
+        return true;
+      },
+    },
+  };
+}
+
 function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined {
-  return validationLiteralProblemKinds.find((problemKind) => problemKind === value);
+  if (isValidationLiteralProblemKind(value)) {
+    return value;
+  }
+  return undefined;
 }
 
 function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never {
@@ -370,16 +524,11 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
   const sanitized = sanitizeCliArgument(first);
   const { domain, diagnostics } = validationCliDefinition;
   const { unknownSubcommand } = diagnostics;
-  io.writeStderr(
-    `${SPX_PROGRAM_NAME} ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`,
-  );
+  io.writeStderr(`${SPX_PROGRAM_NAME} ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
   return io.exit(unknownSubcommand.exitCode);
 }
 
-export function createValidationDomain(
-  overrides: Partial<ValidationCliDependencies> = {},
-): Domain {
-  const deps: ValidationCliDependencies = { ...defaultValidationCliDependencies, ...overrides };
+export function createValidationDomain(options: ValidationDomainOptions = {}): Domain {
   return {
     name: validationCliDefinition.domain.commandName,
     description: validationCliDefinition.domain.description,
@@ -388,13 +537,14 @@ export function createValidationDomain(
       const validationCmd = program
         .command(domain.commandName)
         .alias(domain.alias)
-        .description(domain.description);
+        .description(domain.description)
+        .addHelpCommand(false);
 
       validationCmd.on("command:*", (operands: readonly string[]) => {
         handleUnknownSubcommand(operands, invocation.io);
       });
 
-      registerValidationCommands(validationCmd, invocation, deps);
+      registerValidationCommands(validationCmd, invocation, options);
     },
   };
 }

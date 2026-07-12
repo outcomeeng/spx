@@ -3,10 +3,11 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation-command.scenario.l2.test.ts": "passed",
+      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.compliance.l1.test.ts": "passed",
       "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.compliance.l2.test.ts": "passed",
       "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.mapping.l1.test.ts": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.scenario.l1.test.ts": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.scenario.l2.test.ts": "passed"
+      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.scenario.l1.test.ts": "passed"
     }
   }
 }

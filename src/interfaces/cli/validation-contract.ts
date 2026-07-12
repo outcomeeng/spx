@@ -1,4 +1,4 @@
-import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
+import { LITERAL_PROBLEM_KIND, type LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 
 export const VALIDATION_EMPTY_CLI_OPERAND = "";
 export const VALIDATION_OPTION_OPERAND_SEPARATOR = " ";
@@ -149,22 +149,27 @@ export const literalValidationCliOptions = {
   },
 } as const;
 
-export const allValidationCliOptions = {
-  skipCircular: {
-    flag: "--skip-circular",
-    description: "Skip circular dependency detection for this validation all run",
-  },
-  skipLiteral: {
-    flag: "--skip-literal",
-    description: "Skip literal reuse detection for this validation all run",
-  },
-} as const;
-
 export const validationCommonCliOptions = {
   scope: {
     flag: "--scope",
   },
+  quiet: {
+    flag: "--quiet",
+  },
+  json: {
+    flag: "--json",
+  },
 } as const;
+
+export const validationAllBuiltInCliOptions = {
+  fix: {
+    flag: "--fix",
+  },
+} as const;
+
+export function isValidationLiteralProblemKind(value: string): value is LiteralProblemKind {
+  return validationLiteralProblemKinds.some((kind) => kind === value);
+}
 
 const validationSubcommandOperands = Object.values(validationCliDefinition.subcommands).flatMap(
   (subcommand) => {

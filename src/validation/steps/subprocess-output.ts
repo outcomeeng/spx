@@ -36,6 +36,15 @@ export const defaultValidationSubprocessOutputStreams: ValidationSubprocessOutpu
   stderr: process.stderr,
 };
 
+const discardValidationSubprocessOutputStream: ValidationWritableStream = {
+  write: () => true,
+};
+
+export const discardValidationSubprocessOutputStreams: ValidationSubprocessOutputStreams = {
+  stdout: discardValidationSubprocessOutputStream,
+  stderr: discardValidationSubprocessOutputStream,
+};
+
 export function forwardValidationSubprocessOutput(
   child: ValidationSubprocessWithOutput,
   streams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,

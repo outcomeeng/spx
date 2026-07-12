@@ -38,7 +38,6 @@ export const MARKDOWN_ENABLED_BUILTIN_RULES = {
   MD025: true,
   MD047: true,
 } as const;
-
 export const MARKDOWN_CONFIG_CONTROL_KEYS = {
   DEFAULT: "default",
   DUPLICATE_HEADINGS: "MD024",
@@ -91,12 +90,25 @@ interface MarkdownlintRule {
 export interface ValidateMarkdownOptions {
   /** Files or directories to validate. */
   targets: MarkdownValidationTarget[];
-  /** Project root for resolving project-absolute links. */
-  projectRoot?: string;
+  /** Product directory for resolving product-absolute links. */
+  productDir?: string;
   /** Whether spx/EXCLUDE node-status skips apply to direct spec-node markdown files. */
   applyNodeStatusExcludes?: boolean;
   /** Product-relative validation path excludes to pass to markdownlint. */
   validationPathExcludes?: readonly string[];
+}
+
+export interface MarkdownlintRunOptions {
+  readonly directory: string;
+  readonly argv: string[];
+  readonly optionsOverride: Record<string, unknown>;
+  readonly noImport: boolean;
+  readonly logMessage: (message: string) => void;
+  readonly logError: (message: string) => void;
+}
+
+export interface MarkdownValidationDeps {
+  readonly runMarkdownlint: (options: MarkdownlintRunOptions) => Promise<void>;
 }
 
 export interface MarkdownValidationTarget {
@@ -123,6 +135,12 @@ export interface MarkdownValidationTargetDeps {
 
 const defaultMarkdownValidationTargetDeps: MarkdownValidationTargetDeps = {
   statSync,
+};
+
+const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
+  runMarkdownlint: async (options) => {
+    await markdownlintMain(options);
+  },
 };
 
 // =============================================================================
@@ -171,14 +189,14 @@ export function buildMarkdownlintConfig(directoryName: string): {
  * Get the default directories to validate.
  *
  * Returns absolute paths for spx/ and docs/ directories that exist
- * within the given project root.
+ * within the given product directory.
  *
- * @param projectRoot - Absolute path to the project root
+ * @param productDir - Absolute path to the product directory
  * @returns Array of absolute paths to existing default directories
  */
-export function getDefaultDirectories(projectRoot: string): string[] {
+export function getDefaultDirectories(productDir: string): string[] {
   return MARKDOWN_DEFAULT_DIRECTORY_NAMES
-    .map((name) => join(projectRoot, name))
+    .map((name) => join(productDir, name))
     .filter((dir) => existsSync(dir));
 }
 
@@ -213,13 +231,13 @@ export function resolveMarkdownValidationTarget(
 
 function getExcludeGlobsForTarget(
   target: MarkdownValidationTarget,
-  projectRoot: string | undefined,
+  productDir: string | undefined,
   entries: readonly string[],
 ): string[] {
-  if (projectRoot === undefined || entries.length === 0) return [];
+  if (productDir === undefined || entries.length === 0) return [];
 
   const directory = targetDirectory(target);
-  const specTreeRoot = join(projectRoot, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+  const specTreeRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
   const targetPath = normalizePathPrefix(pathRelative(specTreeRoot, directory));
   return entries.flatMap((entry) => {
     const excludedPath = normalizePathPrefix(entry);
@@ -349,14 +367,14 @@ function isAsciiWhitespace(value: string): boolean {
  * Uses markdownlint-cli2's programmatic API with in-code configuration.
  * No config files are written to validated directories.
  *
- * @param options - Validation options including targets and project root
+ * @param options - Validation options including targets and product directory
  * @returns Validation result with success status and structured errors
  *
  * @example
  * ```typescript
  * const result = await validateMarkdown({
  *   targets: [{ kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY, path: "/path/to/spx" }],
- *   projectRoot: "/path/to/project",
+ *   productDir: "/path/to/product",
  * });
  * if (!result.success) {
  *   for (const error of result.errors) {
@@ -367,25 +385,26 @@ function isAsciiWhitespace(value: string): boolean {
  */
 export async function validateMarkdown(
   options: ValidateMarkdownOptions,
+  deps: MarkdownValidationDeps = defaultMarkdownValidationDeps,
 ): Promise<MarkdownValidationResult> {
   const {
     targets,
-    projectRoot,
+    productDir,
     applyNodeStatusExcludes = true,
     validationPathExcludes = [],
   } = options;
   const errors: MarkdownError[] = [];
-  const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(projectRoot) : [];
+  const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(productDir) : [];
 
   for (const target of targets) {
     const directory = targetDirectory(target);
-    const dirName = markdownlintConfigDirectoryName(directory, projectRoot);
+    const dirName = markdownlintConfigDirectoryName(directory, productDir);
     const config = buildMarkdownlintConfig(dirName);
     const excludeGlobs = [
-      ...getExcludeGlobsForTarget(target, projectRoot, specTreeExcludeEntries),
-      ...validationPathExcludeGlobsForTarget(target, projectRoot, validationPathExcludes),
+      ...getExcludeGlobsForTarget(target, productDir, specTreeExcludeEntries),
+      ...validationPathExcludeGlobsForTarget(target, productDir, validationPathExcludes),
     ];
-    const dirErrors = await validateTarget(target, config, projectRoot, excludeGlobs);
+    const dirErrors = await validateTarget(target, config, deps, productDir, excludeGlobs);
     errors.push(...dirErrors);
   }
 
@@ -395,9 +414,9 @@ export async function validateMarkdown(
   };
 }
 
-function getExcludeEntries(projectRoot: string | undefined): readonly string[] {
-  if (projectRoot === undefined) return [];
-  return createNodeStatusExcludeReader(projectRoot).entries();
+function getExcludeEntries(productDir: string | undefined): readonly string[] {
+  if (productDir === undefined) return [];
+  return createNodeStatusExcludeReader(productDir).entries();
 }
 
 /**
@@ -405,13 +424,14 @@ function getExcludeEntries(projectRoot: string | undefined): readonly string[] {
  *
  * @param target - Absolute path target to validate
  * @param config - Markdownlint configuration object
- * @param projectRoot - Optional project root for resolving project-absolute links
+ * @param productDir - Optional product directory for resolving product-absolute links
  * @returns Array of structured errors found in the directory
  */
 async function validateTarget(
   target: MarkdownValidationTarget,
   config: ReturnType<typeof buildMarkdownlintConfig>,
-  projectRoot?: string,
+  deps: MarkdownValidationDeps,
+  productDir?: string,
   ignoreGlobs: string[] = [],
 ): Promise<MarkdownError[]> {
   const errors: MarkdownError[] = [];
@@ -425,7 +445,7 @@ async function validateTarget(
   const optionsOverride: Record<string, unknown> = {
     config: {
       ...markdownlintConfig,
-      "relative-links": projectRoot ? { root_path: projectRoot } : true,
+      "relative-links": productDir ? { root_path: productDir } : true,
     },
     customRules,
     noProgress: true,
@@ -433,7 +453,7 @@ async function validateTarget(
     ...(ignoreGlobs.length > 0 ? { ignores: ignoreGlobs } : {}),
   };
 
-  await markdownlintMain({
+  await deps.runMarkdownlint({
     directory,
     argv,
     optionsOverride,
@@ -459,17 +479,17 @@ function targetDirectory(target: MarkdownValidationTarget): string {
 
 function validationPathExcludeGlobsForTarget(
   target: MarkdownValidationTarget,
-  projectRoot: string | undefined,
+  productDir: string | undefined,
   excludes: readonly string[],
 ): string[] {
   if (
-    projectRoot === undefined
+    productDir === undefined
     || excludes.length === 0
     || target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
   ) return [];
 
   const directory = targetDirectory(target);
-  const targetPath = normalizePathPrefix(pathRelative(projectRoot, directory));
+  const targetPath = normalizePathPrefix(pathRelative(productDir, directory));
   return excludes.flatMap((exclude) => {
     const excludedPath = normalizePathPrefix(exclude);
     if (targetPath === excludedPath) {
@@ -478,11 +498,11 @@ function validationPathExcludeGlobsForTarget(
     if (!pathContainsValidationPath(targetPath, excludedPath)) {
       return [];
     }
-    const relativeExclude = normalizePathPrefix(pathRelative(directory, join(projectRoot, excludedPath)));
+    const relativeExclude = normalizePathPrefix(pathRelative(directory, join(productDir, excludedPath)));
     if (relativeExclude.length === 0) {
       return [MARKDOWN_DIRECTORY_GLOB];
     }
-    const absoluteExclude = join(projectRoot, excludedPath);
+    const absoluteExclude = join(productDir, excludedPath);
     return [
       isExistingFile(absoluteExclude, defaultMarkdownValidationTargetDeps) ? relativeExclude : `${relativeExclude}/**`,
     ];
@@ -516,9 +536,9 @@ function isExistingFile(path: string, deps: MarkdownValidationTargetDeps): boole
   }
 }
 
-function markdownlintConfigDirectoryName(directory: string, projectRoot: string | undefined): string {
-  if (projectRoot !== undefined) {
-    const [rootSegment] = pathRelative(projectRoot, directory).split(/[\\/]/);
+function markdownlintConfigDirectoryName(directory: string, productDir: string | undefined): string {
+  if (productDir !== undefined) {
+    const [rootSegment] = pathRelative(productDir, directory).split(/[\\/]/);
     if (MD024_DISABLED_DIRECTORIES.includes(rootSegment as (typeof MD024_DISABLED_DIRECTORIES)[number])) {
       return rootSegment;
     }
