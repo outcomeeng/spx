@@ -203,13 +203,22 @@ function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
 /**
  * Add common options to a command
  */
-function addCommonOptions(cmd: Command): Command {
+function addCommonOptions(cmd: Command, definition: ValidationSubcommandDefinition): Command {
   const { pathOperands } = validationCliDefinition;
-  return cmd
+  let configured = cmd
     .argument(pathOperands.optionalVariadic, pathOperands.description)
-    .option(`${validationCommonCliOptions.scope.flag} <scope>`, "Validation scope (full|production)", "full")
-    .option(validationCommonCliOptions.quiet.flag, "Suppress progress output")
-    .option(validationCommonCliOptions.json.flag, "Output results as JSON");
+    .option(validationCommonCliOptions.quiet.flag, "Suppress progress output");
+  if (definition.options.scope) {
+    configured = configured.option(
+      `${validationCommonCliOptions.scope.flag} <scope>`,
+      "Validation scope (full|production)",
+      "full",
+    );
+  }
+  if (definition.options.json) {
+    configured = configured.option(validationCommonCliOptions.json.flag, "Output results as JSON");
+  }
+  return configured;
 }
 
 async function normalizeProductPathOperand(
@@ -330,11 +339,10 @@ function registerValidationCommands(
         scope: options.scope,
         files: paths.files,
         quiet: options.quiet,
-        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(tsCmd);
+  addCommonOptions(tsCmd, subcommands.typescript);
 
   // lint command
   const lintCmd = addValidationSubcommand(validationCmd, subcommands.lint)
@@ -347,11 +355,10 @@ function registerValidationCommands(
         files: paths.files,
         fix: options.fix,
         quiet: options.quiet,
-        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(lintCmd);
+  addCommonOptions(lintCmd, subcommands.lint);
 
   // circular command
   const circularCmd = addValidationSubcommand(validationCmd, subcommands.circular)
@@ -362,11 +369,10 @@ function registerValidationCommands(
         scope: options.scope,
         files: paths.files,
         quiet: options.quiet,
-        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(circularCmd);
+  addCommonOptions(circularCmd, subcommands.circular);
 
   // knip command
   const knipCmd = addValidationSubcommand(validationCmd, subcommands.knip)
@@ -377,11 +383,10 @@ function registerValidationCommands(
         scope: options.scope,
         files: paths.files,
         quiet: options.quiet,
-        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(knipCmd);
+  addCommonOptions(knipCmd, subcommands.knip);
 
   // literal command (cross-file literal-reuse detector)
   const literalCmd = addValidationSubcommand(validationCmd, subcommands.literal)
@@ -431,7 +436,7 @@ function registerValidationCommands(
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(literalCmd);
+  addCommonOptions(literalCmd, subcommands.literal);
 
   // markdown command
   const markdownCmd = addValidationSubcommand(validationCmd, subcommands.markdown)
@@ -450,7 +455,7 @@ function registerValidationCommands(
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(markdownCmd);
+  addCommonOptions(markdownCmd, subcommands.markdown);
 
   // format command
   const formatCmd = addValidationSubcommand(validationCmd, subcommands.format)
@@ -464,7 +469,7 @@ function registerValidationCommands(
       });
       emitValidationResult(result, invocation.io);
     });
-  addCommonOptions(formatCmd);
+  addCommonOptions(formatCmd, subcommands.format);
 
   // all command
   let allCmd = addValidationSubcommand(validationCmd, subcommands.all)
@@ -488,7 +493,7 @@ function registerValidationCommands(
     });
     emitValidationResult(result, invocation.io);
   });
-  addCommonOptions(allCmd);
+  addCommonOptions(allCmd, subcommands.all);
 }
 
 function validationSubprocessOutputStreams(

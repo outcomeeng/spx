@@ -3,15 +3,31 @@ import { basename, join } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
-import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
+import {
+  formatValidationStageSkipJsonOutput,
+  formatValidationStageSkipOutput,
+  VALIDATION_COMMAND_OUTPUT,
+} from "@/commands/validation";
+import { VALIDATION_SUMMARY_STATUS } from "@/commands/validation/format";
+import { formatValidationNoProblemsMessage } from "@/commands/validation/messages";
+import type { AllValidationJsonOutput } from "@/commands/validation/types";
 import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
+import { createValidationDomain } from "@/interfaces/cli/validation";
 import {
   literalValidationCliOptions,
   VALIDATION_EMPTY_CLI_OPERAND,
   validationCliDefinition,
+  validationCommonCliOptions,
   validationLiteralProblemKinds,
 } from "@/interfaces/cli/validation-contract";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
+import {
+  VALIDATION_STAGE_PARTICIPATION,
+  type ValidationStage,
+  type ValidationStageContext,
+} from "@/validation/languages/types";
+import { validationPipelineStages } from "@/validation/registry";
+import { VALIDATION_SCOPES } from "@/validation/types";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
@@ -29,10 +45,44 @@ import {
   validationCliEmptyOutput,
   validationCliOptionName,
   withEmptyValidationProject,
+  withIsolatedPackagedValidationCli,
 } from "@testing/harnesses/validation/cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VALIDATION_CLI_TEMP_DIR_PREFIX = "spx-validation-cli-";
+
+interface ValidationCliDeferred {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+}
+
+function validationCliDeferred(): ValidationCliDeferred {
+  let resolvePromise: (() => void) | undefined;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+  if (resolvePromise === undefined) throw new Error("validation CLI deferred resolver was not initialized");
+  return { promise, resolve: resolvePromise };
+}
+
+function controlledValidationStages(observedContexts: ValidationStageContext[] = []): ValidationStage[] {
+  return validationPipelineStages.map((stage): ValidationStage => ({
+    ...stage,
+    run: async (context) => {
+      observedContexts.push(context);
+      return {
+        exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+        output: formatValidationNoProblemsMessage(stage.name),
+      };
+    },
+  }));
+}
+
+function overridableValidationStage(stages: readonly ValidationStage[]): ValidationStage {
+  const stage = stages.find((candidate) => candidate.participation.override !== undefined);
+  if (stage === undefined) throw new Error("validation registry has no overridable stage");
+  return stage;
+}
 
 async function expectRegisteredSubcommandRuns(): Promise<void> {
   await withEmptyValidationProject(async (productDir) => {
@@ -43,6 +93,8 @@ async function expectRegisteredSubcommandRuns(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
+    expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
     expect(recorder.calls).toHaveLength(1);
     expect(recorder.calls[0]?.commandName).toBe(validationCliDefinition.subcommands.all.commandName);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
@@ -58,10 +110,162 @@ async function expectRegisteredSubcommandPropagatesNonZeroExit(): Promise<void> 
     );
 
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+    expect(result.stderr).toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
+    expect(result.stdout).not.toContain(VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS);
     expect(recorder.calls).toHaveLength(1);
     expect(recorder.calls[0]?.commandName).toBe(validationCliDefinition.subcommands.all.commandName);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
   });
+}
+
+async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
+  const laterStageStarted = validationCliDeferred();
+  const releaseLaterStage = validationCliDeferred();
+  const streamedOutput: string[] = [];
+  const stages: readonly ValidationStage[] = [
+    {
+      name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
+      failsPipeline: true,
+      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      run: async () => ({
+        exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+        output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
+      }),
+    },
+    {
+      name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
+      failsPipeline: true,
+      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      run: async () => {
+        laterStageStarted.resolve();
+        await releaseLaterStage.promise;
+        return {
+          exitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
+          output: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE,
+        };
+      },
+    },
+  ];
+  const run = runValidationInProcess(
+    [validationCliDefinition.subcommands.all.commandName],
+    {
+      domain: createValidationDomain({ validationStages: stages }),
+      writeStdout: (output) => streamedOutput.push(output),
+    },
+  );
+  await laterStageStarted.promise;
+  expect(streamedOutput.join(VALIDATION_EMPTY_CLI_OPERAND)).toContain(VALIDATION_PIPELINE_DATA.stageNames.ESLINT);
+  releaseLaterStage.resolve();
+
+  const result = await run;
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+  expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.stageNames.ESLINT);
+  expect(result.stderr).toContain(VALIDATION_SUMMARY_STATUS.FAILED);
+}
+
+async function expectPackagedCircularSubcommandRoutes(): Promise<void> {
+  await withIsolatedPackagedValidationCli(async ({ executablePath }) => {
+    const result = await runValidationSubprocess(
+      [validationCliDefinition.subcommands.circular.commandName, validationCommonCliOptions.quiet.flag],
+      { executablePath, timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT },
+    );
+
+    expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+    expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
+  });
+}
+
+async function expectOverrideProducesHumanSkipOutput(): Promise<void> {
+  const stages = controlledValidationStages();
+  const overriddenStage = overridableValidationStage(stages);
+  const override = overriddenStage.participation.override;
+  if (override === undefined) throw new Error("selected validation stage has no override");
+
+  const result = await runValidationInProcess(
+    [validationCliDefinition.subcommands.all.commandName, override.flag],
+    { domain: createValidationDomain({ validationStages: stages }) },
+  );
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(result.stdout).toContain(formatValidationStageSkipOutput(overriddenStage.name, override.flag));
+}
+
+async function expectOverrideProducesJsonSkipSentinel(): Promise<void> {
+  const stages = controlledValidationStages();
+  const overriddenStage = overridableValidationStage(stages);
+  const override = overriddenStage.participation.override;
+  if (override === undefined) throw new Error("selected validation stage has no override");
+
+  const result = await runValidationInProcess(
+    [
+      validationCliDefinition.subcommands.all.commandName,
+      override.flag,
+      validationCommonCliOptions.json.flag,
+    ],
+    { domain: createValidationDomain({ validationStages: stages }) },
+  );
+  const output = JSON.parse(result.stdout) as AllValidationJsonOutput;
+  const skipped = output.steps.find((step) => step.name === overriddenStage.name);
+
+  expect(result.stderr).toBe(validationCliEmptyOutput());
+  expect(skipped?.output).toEqual(
+    JSON.parse(formatValidationStageSkipJsonOutput(override.reason, skipped?.durationMs ?? 0)),
+  );
+}
+
+async function expectJsonPipelineIsOneDocument(): Promise<void> {
+  const result = await runValidationInProcess(
+    [validationCliDefinition.subcommands.all.commandName, validationCommonCliOptions.json.flag],
+    { domain: createValidationDomain({ validationStages: controlledValidationStages() }) },
+  );
+  const output = JSON.parse(result.stdout) as AllValidationJsonOutput;
+
+  expect(result.stderr).toBe(validationCliEmptyOutput());
+  expect(output.steps).toHaveLength(validationPipelineStages.length);
+}
+
+async function expectProductionOverridePreservesOtherDefaults(): Promise<void> {
+  const observedContexts: ValidationStageContext[] = [];
+  const stages = controlledValidationStages(observedContexts);
+  const overriddenStage = overridableValidationStage(stages);
+  const override = overriddenStage.participation.override;
+  if (override === undefined) throw new Error("selected validation stage has no override");
+
+  const result = await runValidationInProcess(
+    [
+      validationCliDefinition.subcommands.all.commandName,
+      validationCommonCliOptions.scope.flag,
+      VALIDATION_SCOPES.PRODUCTION,
+      override.flag,
+    ],
+    { domain: createValidationDomain({ validationStages: stages }) },
+  );
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(observedContexts).toHaveLength(stages.length - 1);
+  expect(observedContexts.every((context) => context.scope === VALIDATION_SCOPES.PRODUCTION)).toBe(true);
+}
+
+async function expectSubcommandHelpMatchesSupportedOptions(): Promise<void> {
+  for (const definition of Object.values(validationCliDefinition.subcommands)) {
+    const result = await runValidationInProcess([
+      definition.commandName,
+      validationCliDefinition.commanderHelpOperands.longFlag,
+    ]);
+
+    expect(result.stdout).toContain(validationCommonCliOptions.quiet.flag);
+    if (definition.options.scope) {
+      expect(result.stdout).toContain(validationCommonCliOptions.scope.flag);
+    } else {
+      expect(result.stdout).not.toContain(validationCommonCliOptions.scope.flag);
+    }
+    if (definition.options.json) {
+      expect(result.stdout).toContain(validationCommonCliOptions.json.flag);
+    } else {
+      expect(result.stdout).not.toContain(validationCommonCliOptions.json.flag);
+    }
+  }
 }
 
 async function expectInvalidLiteralKindRejectedBeforeHandler(): Promise<void> {
@@ -321,6 +525,17 @@ export function registerValidationCliScenarioTests(): void {
       expectRegisteredSubcommandPropagatesNonZeroExit,
       VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
     );
+    it("streamed progress remains on stdout when a later stage fails", expectStreamedProgressSurvivesLaterFailure);
+    it(
+      "packaged executable routes the circular subcommand",
+      expectPackagedCircularSubcommandRoutes,
+      VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
+    );
+    it("full-pipeline override emits human skip output", expectOverrideProducesHumanSkipOutput);
+    it("full-pipeline JSON override emits a skipped sentinel", expectOverrideProducesJsonSkipSentinel);
+    it("full-pipeline JSON output is one aggregate document", expectJsonPipelineIsOneDocument);
+    it("production-scope override preserves other descriptor defaults", expectProductionOverridePreservesOtherDefaults);
+    it("subcommand help exposes only supported options", expectSubcommandHelpMatchesSupportedOptions);
     it(
       "typed subcommand registry is exhaustively registered with the dispatcher",
       expectTypedSubcommandRegistryIsExhaustivelyRegistered,

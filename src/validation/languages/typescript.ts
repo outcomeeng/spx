@@ -39,7 +39,17 @@ export type TypeScriptValidationConcern =
 
 export interface TypeScriptValidationLanguageDescriptor extends ValidationLanguageDescriptor {
   readonly concerns: readonly TypeScriptValidationConcern[];
+  readonly stageByConcern: Readonly<Record<TypeScriptValidationConcern, string>>;
 }
+
+export const TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN: Readonly<Record<TypeScriptValidationConcern, string>> = {
+  [TYPESCRIPT_VALIDATION_CONCERN.LINT]: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+  [TYPESCRIPT_VALIDATION_CONCERN.TYPE_CHECK]: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
+  [TYPESCRIPT_VALIDATION_CONCERN.AST_ENFORCEMENT]: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+  [TYPESCRIPT_VALIDATION_CONCERN.CIRCULAR_DEPS]: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+  [TYPESCRIPT_VALIDATION_CONCERN.LITERAL_REUSE]: VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+  [TYPESCRIPT_VALIDATION_CONCERN.UNUSED_CODE]: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+};
 
 const RUN_BY_DEFAULT: ValidationStageParticipationPolicy = {
   default: VALIDATION_STAGE_PARTICIPATION.RUN,
@@ -109,6 +119,7 @@ export async function runKnipStage(
 export const typescriptValidationLanguage: TypeScriptValidationLanguageDescriptor = {
   name: TYPESCRIPT_LANGUAGE_NAME,
   concerns: Object.values(TYPESCRIPT_VALIDATION_CONCERN),
+  stageByConcern: TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN,
   stages: [
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,

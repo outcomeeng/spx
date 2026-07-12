@@ -163,10 +163,6 @@ export interface ValidationSubprocessScenario {
   readonly combinedExcludes: readonly string[];
 }
 
-export interface ValidationStructuralMappingScenario {
-  readonly title: string;
-}
-
 export interface ExtensionSpecificExcludeScenario {
   readonly excludePattern: string;
   readonly sourceFileName: string;
@@ -480,14 +476,6 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
       stdoutExcludes: runtimeAntiMarkers,
       stderrExcludes: runtimeAntiMarkers,
       combinedExcludes: runtimeAntiMarkers,
-    },
-  ];
-}
-
-export function validationStructuralMappingScenarios(): ValidationStructuralMappingScenario[] {
-  return [
-    {
-      title: "TypeScript registry composition reaches every required executable concern",
     },
   ];
 }

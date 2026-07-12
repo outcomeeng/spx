@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 
 import { allCommand } from "@/commands/validation";
+import { formatValidationNoProblemsMessage } from "@/commands/validation/messages";
 import { ALL_VALIDATION_JSON_FIELD, type AllValidationJsonOutput } from "@/commands/validation/types";
 import {
   createValidationDomain,
@@ -332,10 +333,13 @@ function expectSkippedJsonStage(
   stageName: string,
   skipOutput: string,
 ): void {
-  expect(parseAllValidationJson(result).steps).toContainEqual(expect.objectContaining({
+  const step = parseAllValidationJson(result).steps.find((candidate) => candidate.name === stageName);
+  const expectedOutput = JSON.parse(skipOutput) as Record<string, unknown>;
+  expectedOutput[ALL_VALIDATION_JSON_FIELD.DURATION_MS] = step?.durationMs;
+  expect(step).toEqual(expect.objectContaining({
     [ALL_VALIDATION_JSON_FIELD.NAME]: stageName,
     [ALL_VALIDATION_JSON_FIELD.EXIT_CODE]: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-    [ALL_VALIDATION_JSON_FIELD.OUTPUT]: JSON.parse(skipOutput),
+    [ALL_VALIDATION_JSON_FIELD.OUTPUT]: expectedOutput,
   }));
 }
 
@@ -900,6 +904,24 @@ async function runNoShortCircuitScenario(
 async function runFailureExitCodeScenario(
   _scenario: ValidationPipelineScenario,
 ): Promise<void> {
+  for (const failingStage of validationPipelineStages.filter((stage) => stage.failsPipeline)) {
+    const stages = validationPipelineStages.map((stage): ValidationStage => ({
+      ...stage,
+      run: () =>
+        Promise.resolve({
+          exitCode: stage.name === failingStage.name
+            ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
+            : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+          output: stage.name === failingStage.name
+            ? stage.name
+            : formatValidationNoProblemsMessage(stage.name),
+        }),
+    }));
+    const result = await allCommand({ cwd: VALIDATION_ROOT, quiet: true, validationStages: stages });
+
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+  }
+
   await withValidationEnv(
     { fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS },
     async ({ path }) => {
@@ -969,7 +991,7 @@ async function runStableVerdictScenario(
                 : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
               output: stageFailures[index]
                 ? stage.name
-                : `${stage.name}: No issues found`,
+                : formatValidationNoProblemsMessage(stage.name),
             }),
         }),
       );
@@ -995,8 +1017,8 @@ async function runAdditiveVerdictsScenario(
   _scenario: ValidationPipelineScenario,
 ): Promise<void> {
   await assertProperty(
-    fc.boolean(),
-    async (addedStageFails) => {
+    fc.integer({ min: 0, max: 2 }),
+    async (insertionIndex) => {
       const observedContexts: ValidationStageContext[] = [];
       const existingStages = [
         observedPassingStage(
@@ -1018,24 +1040,27 @@ async function runAdditiveVerdictsScenario(
         participation: { default: "run" },
         run: () =>
           Promise.resolve({
-            exitCode: addedStageFails
-              ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
-              : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-            output: addedStageFails
-              ? VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN
-              : `${VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN}: No issues found`,
+            exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+            output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN),
           }),
       };
+      const extendedStages = [
+        ...existingStages.slice(0, insertionIndex),
+        addedStage,
+        ...existingStages.slice(insertionIndex),
+      ];
       const extended = await allCommand(
         { cwd: VALIDATION_ROOT },
-        { stages: [...existingStages, addedStage] },
+        { stages: extendedStages },
       );
 
-      const baseOutcomes = [...extractStepOutcomes(base.output).values()];
-      const extendedExistingOutcomes = [
-        ...extractStepOutcomes(extended.output).values(),
-      ].slice(0, existingStages.length);
-      expect(extendedExistingOutcomes).toEqual(baseOutcomes);
+      const baseOutcomes = extractStepOutcomes(base.output);
+      const extendedOutcomes = extractStepOutcomes(extended.output);
+      for (const [index] of existingStages.entries()) {
+        const baseStep = index + 1;
+        const extendedStep = index < insertionIndex ? baseStep : baseStep + 1;
+        expect(extendedOutcomes.get(extendedStep)).toBe(baseOutcomes.get(baseStep));
+      }
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
@@ -1098,13 +1123,7 @@ function extractStepOutcomes(
     ].at(0);
     if (!match) continue;
     const step = Number(match[1]);
-    if (
-      line.includes("✓")
-      || line.includes("No issues found")
-      || line.includes("No cycles")
-      || line.includes("No type errors")
-      || line.includes("None found")
-    ) {
+    if (line.includes("✓")) {
       outcomes.set(step, VALIDATION_PIPELINE_DATA.outcome.pass);
     } else if (
       line.includes("⏭")
