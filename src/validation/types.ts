@@ -49,6 +49,8 @@ export interface ScopeConfig {
   filteredByValidationPathIncludes?: boolean;
   /** Whether include filters were declared but did not match the configured tool scope */
   filteredByValidationPathNoMatches?: boolean;
+  /** Whether explicit operands matched no files in the configured tool scope */
+  explicitPathNoMatches?: boolean;
 }
 
 // =============================================================================

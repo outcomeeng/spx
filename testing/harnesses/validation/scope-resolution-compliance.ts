@@ -1085,6 +1085,37 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     );
   });
 
+  it("records explicit tool-scope misses separately from validation path misses", async () => {
+    const testFilePath = sampleLiteralTestValue(
+      LITERAL_TEST_GENERATOR.testFilePath(),
+    );
+    await withTestEnv({}, async (env) => {
+      await env.writeRaw(
+        TSCONFIG_FILES.full,
+        JSON.stringify({
+          include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+        }),
+      );
+      await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
+
+      const scopeConfig = resolveTypeScriptValidationScope({
+        productDir: env.productDir,
+        scope: VALIDATION_SCOPES.FULL,
+        paths: [testFilePath],
+        validationPathFilter: validationPathFilterForTool(
+          { include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] },
+          VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
+        ),
+        bypassExplicitPathValidationFilter: true,
+      });
+
+      expect(scopeConfig.explicitPathNoMatches).toBe(true);
+      expect(scopeConfig.filteredByValidationPaths).not.toBe(true);
+      expect(scopeConfig.filteredByValidationPathIncludes).not.toBe(true);
+      expect(scopeConfig.filteredByValidationPathNoMatches).not.toBe(true);
+    });
+  });
+
   it("requires explicit files to match TypeScript include patterns when directories are broader", () => {
     const scope = {
       directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],

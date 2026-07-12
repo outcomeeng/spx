@@ -20,8 +20,10 @@ import {
 import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
+  formatExplicitPathsNoTargetsSkipMessage,
   formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
+  formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -41,6 +43,7 @@ export const TYPESCRIPT_VALIDATION_MESSAGES = {
   ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✗ config error`,
   NO_VALIDATION_PATH_TARGETS: formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
+  NO_EXPLICIT_PATH_TARGETS: formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
   TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
 } as const;
@@ -100,10 +103,14 @@ export async function typescriptCommand(
     bypassExplicitPathValidationFilter: true,
   });
 
-  if (scopeConfig.filteredByValidationPathNoMatches) {
+  const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(
+    VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
+    scopeConfig,
+  );
+  if (noTargetsMessage !== undefined) {
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS,
+      output: quiet ? "" : noTargetsMessage,
       durationMs: Date.now() - startTime,
     };
   }

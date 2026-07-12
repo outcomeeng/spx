@@ -23,6 +23,7 @@ import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
   formatValidationPathsNoTargetsSkipMessage,
+  formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
@@ -125,10 +126,14 @@ export async function lintCommand(
     ? explicitTargets.map((target) => formatLintValidationOperand(toProductRelativeValidationPath(cwd, target.path)))
     : undefined;
 
-  if (scopeConfig.filteredByValidationPathNoMatches) {
+  const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(
+    VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+    scopeConfig,
+  );
+  if (noTargetsMessage !== undefined) {
     return {
       exitCode: 0,
-      output: quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      output: quiet ? "" : noTargetsMessage,
       durationMs: Date.now() - startTime,
     };
   }

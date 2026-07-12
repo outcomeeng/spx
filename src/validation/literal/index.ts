@@ -58,6 +58,7 @@ export interface ValidateLiteralReuseResult {
   readonly findings: DetectionResult;
   readonly indexedOccurrencesByFile: ReadonlyMap<string, readonly LiteralOccurrence[]>;
   readonly filteredByValidationPathNoMatches?: boolean;
+  readonly explicitPathNoMatches?: boolean;
 }
 
 export const DEFAULT_LITERAL_COLLECT_OPTIONS = {
@@ -146,6 +147,7 @@ export async function validateLiteralReuse(
     findings,
     indexedOccurrencesByFile,
     filteredByValidationPathNoMatches: input.scopeConfig?.filteredByValidationPathNoMatches,
+    explicitPathNoMatches: input.scopeConfig?.explicitPathNoMatches,
   };
 }
 

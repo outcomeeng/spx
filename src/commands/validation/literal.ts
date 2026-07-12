@@ -1,6 +1,6 @@
 import {
   formatTypeScriptAbsentSkipMessage,
-  formatValidationPathsNoTargetsSkipMessage,
+  formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_SKIP_LABELS,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
@@ -24,6 +24,7 @@ import {
   type LiteralLocation,
   type ReuseFinding,
   validateLiteralReuse,
+  type ValidateLiteralReuseResult,
 } from "@/validation/literal/index";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 import { VALIDATION_OUTPUT_TARGET, type ValidationCommandResult } from "./types";
@@ -62,9 +63,6 @@ export const LITERAL_EXIT_CODES = {
   CONFIG_ERROR: 2,
 } as const;
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
-  VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
-);
-const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
 );
 export const LITERAL_DISABLED_MESSAGE =
@@ -128,10 +126,11 @@ export async function literalCommand(
     scopeConfig: resolveExplicitLiteralTypeScriptScope(options, resolved.pathConfig),
   });
 
-  if (options.files !== undefined && options.files.length > 0 && result.filteredByValidationPathNoMatches) {
+  const noTargetsMessage = explicitLiteralNoTargetsSkipMessage(options, result);
+  if (noTargetsMessage !== undefined) {
     return {
       exitCode: LITERAL_EXIT_CODES.OK,
-      output: options.quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE,
+      output: options.quiet ? "" : noTargetsMessage,
       durationMs: Date.now() - start,
     };
   }
@@ -155,6 +154,16 @@ export async function literalCommand(
     durationMs: Date.now() - start,
     outputTarget: VALIDATION_OUTPUT_TARGET.STDOUT,
   };
+}
+
+function explicitLiteralNoTargetsSkipMessage(
+  options: LiteralCommandOptions,
+  result: ValidateLiteralReuseResult,
+): string | undefined {
+  if (options.files === undefined || options.files.length === 0) {
+    return undefined;
+  }
+  return formatValidationScopeNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL, result);
 }
 
 async function resolveLiteralCommandConfig(

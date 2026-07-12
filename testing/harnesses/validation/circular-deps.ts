@@ -11,8 +11,8 @@ import type { ParsedCommandLine } from "typescript";
 import { circularCommand, type CircularCommandDeps } from "@/commands/validation/circular";
 
 import {
+  formatExplicitPathsNoTargetsSkipMessage,
   formatTypeScriptAbsentSkipMessage,
-  formatValidationPathsNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -1009,7 +1009,7 @@ export async function runCircularDepsScenarioL1Case032(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1347,7 +1347,7 @@ export async function runCircularDepsScenarioL1Case043(): Promise<void> {
     });
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
   });
 }
 
@@ -1375,7 +1375,7 @@ export async function runCircularDepsScenarioL1Case044(): Promise<void> {
     });
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
   });
 }
 
@@ -1413,7 +1413,7 @@ export async function runCircularDepsScenarioL1Case045(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1592,7 +1592,7 @@ export async function runCircularDepsScenarioL1Case050(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1683,7 +1683,7 @@ export async function runCircularDepsScenarioL1Case054(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1756,7 +1756,7 @@ export async function runCircularDepsScenarioL1Case057(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1778,7 +1778,7 @@ export async function runCircularDepsScenarioL1Case058(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1800,7 +1800,7 @@ export async function runCircularDepsScenarioL1Case059(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1825,7 +1825,7 @@ export async function runCircularDepsScenarioL1Case060(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1850,7 +1850,7 @@ export async function runCircularDepsScenarioL1Case061(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1869,7 +1869,7 @@ export async function runCircularDepsScenarioL1Case062(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1893,7 +1893,7 @@ export async function runCircularDepsScenarioL1Case063(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }
@@ -1958,7 +1958,7 @@ export async function runCircularDepsScenarioL1Case065(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(result.output).toBe(formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
+    expect(result.output).toBe(formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR));
     expect(validationCalls).toEqual([]);
   });
 }

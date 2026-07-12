@@ -895,13 +895,30 @@ export function resolveTypeScriptValidationScope(
   }, deps);
 
   if (filter.paths !== undefined && filter.paths.length > 0 && explicitTargets?.length === 0) {
+    const toolScopeTargets = filterExplicitTypeScriptScopeTargets({
+      paths: filter.paths,
+      productDir: filter.productDir,
+      validationPathFilter: filter.validationPathFilter,
+      scopeConfig: baseScopeConfig,
+      bypassValidationPathFilter: true,
+    }, deps);
+    const explicitPathNoMatches = toolScopeTargets?.length === 0;
     return {
       ...scopeConfig,
       directories: [],
       filePatterns: [],
-      filteredByValidationPaths: true,
-      filteredByValidationPathIncludes: true,
-      filteredByValidationPathNoMatches: true,
+      ...(explicitPathNoMatches
+        ? {
+          explicitPathNoMatches: true,
+          filteredByValidationPaths: undefined,
+          filteredByValidationPathIncludes: undefined,
+          filteredByValidationPathNoMatches: undefined,
+        }
+        : {
+          filteredByValidationPaths: true,
+          filteredByValidationPathIncludes: true,
+          filteredByValidationPathNoMatches: true,
+        }),
     };
   }
 
