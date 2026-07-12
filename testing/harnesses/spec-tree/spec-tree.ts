@@ -89,10 +89,10 @@ export async function writeOrderedDirectory(env: SpecTreeEnv, directory: string)
   );
 }
 
-export function withTestEnv(
+export function withTestEnv<T>(
   config: Config,
-  callback: (env: SpecTreeEnv) => Promise<void>,
-): Promise<void> {
+  callback: (env: SpecTreeEnv) => Promise<T>,
+): Promise<T> {
   return withTempDir(TEMP_PREFIX, async (productDir) => {
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(
@@ -121,7 +121,7 @@ export function withTestEnv(
       },
     };
 
-    await callback(env);
+    return await callback(env);
   });
 }
 

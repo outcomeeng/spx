@@ -166,10 +166,17 @@ function expectTemporaryConfigPathInsideNodeModules(
 
 type TypeScriptValidationRequest = Parameters<typeof validateTypeScript>[0];
 
-async function expectTypeScriptValidationUsesProductRoot(
+interface ProductRootValidationRun {
+  readonly productDir: string;
+  readonly checkedPaths: readonly string[];
+  readonly runner: RecordingSpawnOptionsRunner;
+  readonly result: Awaited<ReturnType<typeof validateTypeScript>>;
+}
+
+async function runTypeScriptValidationFromProductRoot(
   request: Omit<TypeScriptValidationRequest, "projectRoot">,
-): Promise<void> {
-  await withTestEnv({}, async (env) => {
+): Promise<ProductRootValidationRun> {
+  return await withTestEnv({}, async (env) => {
     const runner = new RecordingSpawnOptionsRunner();
     const checkedPaths: string[] = [];
     const deps = createRootRecordingDeps(env.productDir, checkedPaths);
@@ -179,17 +186,21 @@ async function expectTypeScriptValidationUsesProductRoot(
       { runner, deps },
     );
 
-    expect(result.success).toBe(true);
-    expect(checkedPaths.every((path) => path.startsWith(env.productDir))).toBe(true);
-    expect(runner.commands.every((command) => command.startsWith(env.productDir))).toBe(true);
-    expect(runner.options.every((options) => options.cwd === env.productDir)).toBe(true);
+    return { productDir: env.productDir, checkedPaths, runner, result };
   });
 }
 
-async function expectTemporaryTypeScriptConfig(
+interface TemporaryTypeScriptConfigRun {
+  readonly productDir: string;
+  readonly writtenConfigs: readonly string[];
+  readonly writtenConfigPaths: readonly string[];
+  readonly result: Awaited<ReturnType<typeof validateTypeScript>>;
+}
+
+async function runTypeScriptValidationWithRecordedConfig(
   request: Omit<TypeScriptValidationRequest, "projectRoot">,
-): Promise<void> {
-  await withTestEnv({}, async (env) => {
+): Promise<TemporaryTypeScriptConfigRun> {
+  return await withTestEnv({}, async (env) => {
     const runner = new RecordingSpawnOptionsRunner();
     const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
 
@@ -198,12 +209,7 @@ async function expectTemporaryTypeScriptConfig(
       { runner, deps },
     );
 
-    expect(result.success).toBe(true);
-    expect(writtenConfigPaths).toHaveLength(1);
-    expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
-    const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
-    expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
-    expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
+    return { productDir: env.productDir, writtenConfigs, writtenConfigPaths, result };
   });
 }
 
@@ -673,16 +679,26 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
   });
 
   it("runs TypeScript validation from the requested project root", async () => {
-    await expectTypeScriptValidationUsesProductRoot({
+    const { checkedPaths, productDir, result, runner } = await runTypeScriptValidationFromProductRoot({
       scope: VALIDATION_SCOPES.FULL,
     });
+
+    expect(result.success).toBe(true);
+    expect(checkedPaths.every((path) => path.startsWith(productDir))).toBe(true);
+    expect(runner.commands.every((command) => command.startsWith(productDir))).toBe(true);
+    expect(runner.options.every((options) => options.cwd === productDir)).toBe(true);
   });
 
   it("runs file-scoped TypeScript validation from the requested project root", async () => {
-    await expectTypeScriptValidationUsesProductRoot({
+    const { checkedPaths, productDir, result, runner } = await runTypeScriptValidationFromProductRoot({
       scope: VALIDATION_SCOPES.FULL,
       files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
     });
+
+    expect(result.success).toBe(true);
+    expect(checkedPaths.every((path) => path.startsWith(productDir))).toBe(true);
+    expect(runner.commands.every((command) => command.startsWith(productDir))).toBe(true);
+    expect(runner.options.every((options) => options.cwd === productDir)).toBe(true);
   });
 
   it("runs config-filtered TypeScript validation through a scoped temporary config", async () => {
@@ -1402,7 +1418,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
 
 describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
   it("writes the scope-filtered temporary config inside the project's node_modules and fabricates no compiler options", async () => {
-    await expectTemporaryTypeScriptConfig({
+    const { productDir, result, writtenConfigs, writtenConfigPaths } = await runTypeScriptValidationWithRecordedConfig({
       scope: VALIDATION_SCOPES.FULL,
       scopeConfig: {
         directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -1411,12 +1427,26 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
         filteredByValidationPaths: true,
       },
     });
+
+    expect(result.success).toBe(true);
+    expect(writtenConfigPaths).toHaveLength(1);
+    expectTemporaryConfigPathInsideNodeModules(productDir, writtenConfigPaths[0]);
+    const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+    expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
+    expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
   });
 
   it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
-    await expectTemporaryTypeScriptConfig({
+    const { productDir, result, writtenConfigs, writtenConfigPaths } = await runTypeScriptValidationWithRecordedConfig({
       scope: VALIDATION_SCOPES.FULL,
       files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
     });
+
+    expect(result.success).toBe(true);
+    expect(writtenConfigPaths).toHaveLength(1);
+    expectTemporaryConfigPathInsideNodeModules(productDir, writtenConfigPaths[0]);
+    const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
+    expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
+    expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
   });
 });
