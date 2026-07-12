@@ -651,6 +651,7 @@ async function runFormattingProductDirCompliance(): Promise<void> {
     const result = await validateFormatting({ productDir: productDir }, runner);
     expect(result.success).toBe(true);
     expect(runner.spawnOptions).toEqual(expect.objectContaining({ cwd: productDir }));
+    expect(runner.args).toEqual([[DPRINT_CHECK_SUBCOMMAND]]);
   });
 }
 
