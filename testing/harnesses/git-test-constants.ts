@@ -124,18 +124,19 @@ export async function readGit(
 }
 
 export async function runTsxEval(
-  cwd: string,
+  productDir: string,
   script: string,
   envOverrides: GitTestEnvironmentOverrides = {},
+  executionDir: string = productDir,
 ): Promise<string> {
   // Invoke the tsx binary directly rather than through `pnpm exec`. Under
   // `pnpm exec`, pnpm's dependency verification prints "Already up to date" to
   // stdout (unless an ancestor pnpm process suppresses it), which corrupts the
-  // JSON a caller parses from the script's stdout. `cwd` is the project root,
+  // JSON a caller parses from the script's stdout. `productDir` is the product root,
   // where node_modules lives.
-  const tsxBinary = join(cwd, ...TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH);
+  const tsxBinary = join(productDir, ...TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH);
   const result = await execa(tsxBinary, [...TEST_TYPESCRIPT_EXECUTION_ARGS, script], {
-    cwd,
+    cwd: executionDir,
     env: {
       ...buildGitTestEnvironment(),
       ...envOverrides,

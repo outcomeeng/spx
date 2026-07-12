@@ -1,4 +1,6 @@
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
+import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.capability";
@@ -15,6 +17,9 @@ const ADDED_DEBT_COMMIT_MESSAGE = "add manifest debt";
 const BASELINE_ABSENT_COMMIT_MESSAGE = "manifests without baseline branch";
 const OUTER_SENTINEL_COMMIT_MESSAGE = "outer sentinel";
 const CORRUPT_BASELINE_COMMIT_MESSAGE = "corrupt baseline manifest";
+const ESLINT_CONFIG_MARKER_CONTENT = "export default [];\n";
+const TYPESCRIPT_CONFIG_MARKER_CONTENT = "{\"include\":[]}";
+const POLICY_TOOL_PATH = "tools/eslint-policy-probe";
 
 export const VALIDATION_LINT_POLICY_SCENARIO_KIND = {
   UNRELATED_PROJECT: "unrelatedProject",
@@ -52,6 +57,11 @@ export const VALIDATION_LINT_POLICY_DATA = {
   outerRepoUserEmail: OUTER_REPO_USER_EMAIL,
   jsonObjectErrorFragment: JSON_OBJECT_ERROR_FRAGMENT,
   productDirEnvironmentKey: LINT_POLICY_TEST_PRODUCT_DIR_ENV,
+  eslintConfigFile: DEFAULT_ESLINT_CONFIG_FILE,
+  eslintConfigMarkerContent: ESLINT_CONFIG_MARKER_CONTENT,
+  typescriptConfigFile: TSCONFIG_FILES.full,
+  typescriptConfigMarkerContent: TYPESCRIPT_CONFIG_MARKER_CONTENT,
+  policyToolPath: POLICY_TOOL_PATH,
   commitMessages: {
     base: BASE_COMMIT_MESSAGE,
     addedDebt: ADDED_DEBT_COMMIT_MESSAGE,

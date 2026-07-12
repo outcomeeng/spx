@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { lintCommand, type LintCommandDeps } from "@/commands/validation/lint";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateLintPolicy } from "@/validation/lint-policy";
+import { validateESLint } from "@/validation/steps/eslint";
 import {
   VALIDATION_LINT_POLICY_DATA,
   VALIDATION_LINT_POLICY_SCENARIO_KIND,
@@ -20,6 +24,7 @@ import {
   runGit,
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 interface SerializedLintPolicyResult {
@@ -34,6 +39,59 @@ export function registerValidationLintPolicyTests(): void {
         await runValidationLintPolicyScenario(scenario);
       });
     }
+    it("runs repository lint policy inside the lint command", runLintCommandPolicyScenario);
+    it("does not run repository lint policy while loading the ESLint config", runEslintConfigLoadScenario);
+  });
+}
+
+async function writePolicyBoundaryFixture(productDir: string): Promise<void> {
+  await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath), { recursive: true });
+  await writePolicyManifest(productDir, {
+    testLintDebtNodes: [],
+  });
+  await writeFile(
+    join(productDir, VALIDATION_LINT_POLICY_DATA.typescriptConfigFile),
+    VALIDATION_LINT_POLICY_DATA.typescriptConfigMarkerContent,
+  );
+  await writeFile(
+    join(productDir, VALIDATION_LINT_POLICY_DATA.eslintConfigFile),
+    VALIDATION_LINT_POLICY_DATA.eslintConfigMarkerContent,
+  );
+}
+
+async function runLintCommandPolicyScenario(): Promise<void> {
+  await withPolicyProject(async (productDir) => {
+    await writePolicyBoundaryFixture(productDir);
+    const runner = new RecordingSpawnOptionsRunner();
+    const toolPath = join(productDir, VALIDATION_LINT_POLICY_DATA.policyToolPath);
+    const deps: LintCommandDeps = {
+      discoverTool: async (tool) => ({
+        found: true,
+        location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+      }),
+      validateESLint: (context, _runner, outputStreams) => validateESLint(context, runner, outputStreams),
+    };
+
+    const result = await lintCommand({ cwd: productDir, quiet: true }, deps);
+
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
+    expect(runner.commands).toEqual([]);
+  });
+}
+
+async function runEslintConfigLoadScenario(): Promise<void> {
+  await withPolicyProject(async (productDir) => {
+    await writePolicyBoundaryFixture(productDir);
+    const moduleUrl = pathToFileURL(join(process.cwd(), VALIDATION_LINT_POLICY_DATA.eslintConfigFile)).href;
+    const stdout = await runTsxEval(
+      process.cwd(),
+      `await import(${JSON.stringify(moduleUrl)});`,
+      {},
+      productDir,
+    );
+
+    expect(stdout).toHaveLength(0);
   });
 }
 
