@@ -432,7 +432,14 @@ async function runCleanProjectScenario(_scenario: ValidationPipelineScenario): P
     defaultParticipatingStageNames(),
   );
   expectStepSequence(result.output);
+  expectSummarySeparatedFromStepOutput(result.output);
   expect(result.output).toContain(`Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.PASSED}`);
+}
+
+function expectSummarySeparatedFromStepOutput(output: string): void {
+  const outputLines = output.split(VALIDATION_PIPELINE_DATA.outputLineSeparator);
+  expect(outputLines.at(-2)).toBe("");
+  expect(outputLines.at(-1)).toContain(`Validation ${VALIDATION_PIPELINE_DATA.summaryStatus.PASSED}`);
 }
 
 async function runFailureIdentifiesStepScenario(_scenario: ValidationPipelineScenario): Promise<void> {

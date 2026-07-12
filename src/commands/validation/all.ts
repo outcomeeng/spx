@@ -173,7 +173,7 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   // Add summary line
   if (!quiet && json !== true) {
     const summary = formatSummary({ success: !hasFailure, totalDurationMs });
-    const summaryPrefix = writeStageOutput === undefined || !wroteStageOutput ? "" : "\n";
+    const summaryPrefix = wroteStageOutput ? "\n" : "";
     outputs.push(`${summaryPrefix}${summary}`);
   }
 
