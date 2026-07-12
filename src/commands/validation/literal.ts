@@ -1,5 +1,6 @@
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationNoProblemsMessage,
   formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_SKIP_LABELS,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -67,7 +68,7 @@ const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(
 );
 export const LITERAL_DISABLED_MESSAGE =
   `⏭ ${VALIDATION_SKIP_LABELS.VERB} ${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL} (${VALIDATION_SKIP_LABELS.DISABLED_BY_PREFIX} validation.literal.enabled)`;
-export const NO_PROBLEMS_MESSAGE = "Literal: ✓ No problems";
+export const NO_PROBLEMS_MESSAGE = formatValidationNoProblemsMessage(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
 
 export function formatNoProblemsOfKind(kind: LiteralProblemKind): string {
   return `Literal: No problems of type ${kind}`;

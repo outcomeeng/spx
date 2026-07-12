@@ -15,6 +15,6 @@ CAN run the TypeScript compiler against TypeScript projects — reporting type e
 ### Compliance
 
 - ALWAYS: TypeScript discovery prefers the product-local tsc executable before the packaged compiler fallback, and the discovered executable is the binary the type-check subprocess spawns ([test](tests/type-check.compliance.l1.test.ts))
-- ALWAYS: tsc invocation is gated on `detectTypeScript` reporting present ([test](tests/type-check.scenario.l2.test.ts))
+- ALWAYS: tsc invocation is gated on `detectTypeScript` reporting present ([test](tests/type-check.compliance.l1.test.ts))
 - ALWAYS: tsc subprocess stdout and stderr are piped through the parent process output streams rather than inherited directly, so CLI lifecycle handlers observe downstream pipe closure and can terminate tracked subprocesses ([test](tests/type-check.compliance.l1.test.ts))
-- NEVER: invoke tsc via `npx` against a project lacking a `tsconfig.json` — prevents installation prompts and ENOENT failures ([test](tests/type-check.scenario.l2.test.ts))
+- NEVER: invoke tsc via `npx` against a project lacking a `tsconfig.json` — prevents installation prompts and ENOENT failures ([test](tests/type-check.compliance.l1.test.ts))

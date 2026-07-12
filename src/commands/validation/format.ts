@@ -41,7 +41,7 @@ export interface FormatStepOptions {
   totalSteps: number;
   /** Name of the validation step */
   name: string;
-  /** Result message (e.g., "✓ No errors found") */
+  /** Result message (e.g., "✓ No problems") */
   result: string;
   /** Duration in milliseconds */
   durationMs: number;
@@ -51,7 +51,7 @@ export interface FormatStepOptions {
  * Format a validation step result for display.
  *
  * @param options - Step formatting options
- * @returns Formatted string (e.g., "[1/4] ESLint: ✓ No errors found (0.8s)")
+ * @returns Formatted string (e.g., "[1/4] ESLint: ✓ No problems (0.8s)")
  */
 export function formatStepOutput(options: FormatStepOptions): string {
   const { stepNumber, totalSteps, name, result, durationMs } = options;

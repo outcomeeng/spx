@@ -28,7 +28,13 @@ import {
   resolveMarkdownValidationTarget,
   validateMarkdown,
 } from "@/validation/steps/markdown";
-import { VALIDATION_COMMAND_OUTPUT, VALIDATION_SKIP_LABELS, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
+import {
+  formatValidationProblemsFoundMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_PROBLEM_TERMS,
+  VALIDATION_SKIP_LABELS,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "./messages";
 import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
 
 /**
@@ -53,8 +59,8 @@ import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
  * ```
  */
 export const MARKDOWN_COMMAND_OUTPUT = {
-  ERROR_SUMMARY_SUFFIX: VALIDATION_COMMAND_OUTPUT.MARKDOWN_ERROR_SUMMARY_SUFFIX,
   NO_ISSUES: VALIDATION_COMMAND_OUTPUT.MARKDOWN_NO_ISSUES,
+  PROBLEM_TERM: VALIDATION_PROBLEM_TERMS.SINGULAR,
   SKIPPED_FILE_SCOPE_PREFIX: "Markdown skipped file scope",
 } as const;
 const MARKDOWN_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: ✗ config error`;
@@ -151,7 +157,9 @@ function formatMarkdownResult(
   );
   const output = [
     ...skippedOutput,
-    `Markdown: ${result.errors.length} ${MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX}`,
+    formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN, {
+      count: result.errors.length,
+    }),
     ...errorLines,
   ].join("\n");
   return { exitCode: 1, output, durationMs };
