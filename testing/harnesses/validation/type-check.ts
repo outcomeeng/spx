@@ -93,7 +93,8 @@ export function registerTypeCheckScenarioTests(): void {
         const result = await runTypeScriptValidation(path);
 
         expect(result.exitCode).not.toBe(0);
-        expect(result.stdout).toMatch(/error TS\d+:/u);
+        expect(result.stdout).not.toMatch(/error TS\d+:/u);
+        expect(result.stderr).toMatch(/error TS\d+:/u);
         expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
       });
     },
@@ -154,7 +155,7 @@ export function registerTypeCheckComplianceTests(): void {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
       const result = await runSpawnFixture({
         command: process.execPath,
-        args: validationTypeScriptAliasArgs(),
+        args: validationAllArgs(),
         cwd: path,
         destroyStdoutAfterMs: 0,
       });
@@ -253,6 +254,10 @@ function validationTypeScriptAliasArgs(): string[] {
   const alias = validationCliDefinition.subcommands.typescript.alias;
   if (alias === undefined) throw new Error("TypeScript validation alias is not registered");
   return [CLI_PATH, validationCliDefinition.domain.commandName, alias];
+}
+
+function validationAllArgs(): string[] {
+  return [CLI_PATH, validationCliDefinition.domain.commandName, validationCliDefinition.subcommands.all.commandName];
 }
 
 async function runTypeScriptValidation(

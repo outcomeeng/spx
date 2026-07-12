@@ -146,6 +146,7 @@ export async function validateESLint(
   outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): Promise<{
   success: boolean;
+  output?: string;
   error?: string;
   skipped?: boolean;
 }> {
@@ -176,18 +177,25 @@ export async function validateESLint(
     const eslintProcess = spawnManagedSubprocess(runner, binary, spawnArgs, {
       cwd: productDir,
     });
+    const chunks: string[] = [];
+    const capture = (chunk: string | Uint8Array): void => {
+      chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+    };
+    eslintProcess.stdout?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
+    eslintProcess.stderr?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
     forwardValidationSubprocessOutput(eslintProcess, outputStreams);
 
     eslintProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
+      const output = chunks.join("");
       if (code === 0) {
-        resolve({ success: true });
+        resolve({ success: true, output });
       } else {
-        resolve({ success: false, error: `ESLint exited with code ${code}` });
+        resolve({ success: false, output, error: `ESLint exited with code ${code}` });
       }
     });
 
     eslintProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
-      resolve({ success: false, error: error.message });
+      resolve({ success: false, output: chunks.join(""), error: error.message });
     });
   });
 }

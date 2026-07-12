@@ -14,6 +14,17 @@ export type ValidationOutputTarget = (typeof VALIDATION_OUTPUT_TARGET)[keyof typ
 
 export const VALIDATION_STREAMED_TERMINAL_OUTPUT = "";
 
+export function streamedValidationTerminalOutput(
+  subprocessOutput: string | undefined,
+  json: boolean | undefined,
+  streamedPipelineOutput: boolean | undefined,
+): string | undefined {
+  return json !== true && streamedPipelineOutput === true && subprocessOutput !== undefined
+      && subprocessOutput.length > 0
+    ? VALIDATION_STREAMED_TERMINAL_OUTPUT
+    : undefined;
+}
+
 /** Result from a validation command */
 export interface ValidationCommandResult {
   /** Exit code (0 = success, 1 = validation failed, 0 with skipped = tool unavailable) */
@@ -54,6 +65,8 @@ export interface CommonValidationOptions {
 
 /** Options for TypeScript command */
 export interface TypeScriptCommandOptions extends CommonValidationOptions {
+  /** Report a stage verdict after subprocess detail streamed through the full pipeline. */
+  streamedPipelineOutput?: boolean;
   /** Parent streams that receive TypeScript subprocess output */
   outputStreams?: ValidationSubprocessOutputStreams;
 }
@@ -62,6 +75,8 @@ export interface TypeScriptCommandOptions extends CommonValidationOptions {
 export interface LintCommandOptions extends CommonValidationOptions {
   /** Auto-fix issues */
   fix?: boolean;
+  /** Report a stage verdict after subprocess detail streamed through the full pipeline. */
+  streamedPipelineOutput?: boolean;
   /** Parent streams that receive ESLint subprocess output */
   outputStreams?: ValidationSubprocessOutputStreams;
 }

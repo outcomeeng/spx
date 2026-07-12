@@ -594,6 +594,19 @@ export async function expectPackagedCircularSubcommandRoutesHandler(): Promise<v
   });
 }
 
+export async function expectStandaloneTypeScriptCapturesSubprocessOutput(): Promise<void> {
+  await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+    const result = await runValidationSubprocess(
+      [VALIDATION_CLI_CONTRACT.subcommands.typescript.commandName],
+      { cwd: path },
+    );
+
+    expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+    expect(result.stdout).not.toMatch(/error TS\d+:/u);
+    expect(result.stderr).toMatch(/error TS\d+:/u);
+  });
+}
+
 export async function expectValidationAllForwardsProductionScope(): Promise<void> {
   await withEmptyValidationProject(async (productDir) => {
     const observed = observedValidationCommandHandlers();

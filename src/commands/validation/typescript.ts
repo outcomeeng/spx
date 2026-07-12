@@ -17,6 +17,7 @@ import {
   formatSkipMessage,
   TOOL_DISCOVERY_PRIORITY,
 } from "@/validation/discovery/index";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -24,7 +25,7 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
+import { streamedValidationTerminalOutput, type TypeScriptCommandOptions, type ValidationCommandResult } from "./types";
 
 export interface TypeScriptCommandDeps {
   readonly discoverTool: typeof discoverTool;
@@ -65,7 +66,7 @@ export async function typescriptCommand(
   options: TypeScriptCommandOptions,
   deps: TypeScriptCommandDeps = defaultTypeScriptCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, scope = "full", files, outputStreams, quiet } = options;
+  const { cwd, scope = "full", files, json, outputStreams, quiet, streamedPipelineOutput } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -125,26 +126,35 @@ export async function typescriptCommand(
     scopeConfig,
   }, {
     toolPath: toolResult.location.path,
-    outputStreams,
+    outputStreams: outputStreams ?? discardValidationSubprocessOutputStreams,
   });
   const durationMs = Date.now() - startTime;
 
-  return formatTypeScriptResult(result, quiet, durationMs);
+  return formatTypeScriptResult(result, quiet, durationMs, json, streamedPipelineOutput);
 }
 
 function formatTypeScriptResult(
   result: Awaited<ReturnType<typeof validateTypeScript>>,
   quiet: boolean | undefined,
   durationMs: number,
+  json: boolean | undefined,
+  streamedPipelineOutput: boolean | undefined,
 ): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS;
     return { exitCode: 0, output, durationMs };
   }
   if (result.success) {
-    const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS;
-    return { exitCode: 0, output, durationMs };
+    const output = quiet
+      ? ""
+      : [TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS, result.output].filter((line) => line !== undefined && line.length > 0)
+        .join("\n");
+    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+    return { exitCode: 0, output, terminalOutput, durationMs };
   }
-  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE;
-  return { exitCode: 1, output, durationMs };
+  const output = [result.output, result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE]
+    .filter((line) => line !== undefined && line.length > 0)
+    .join("\n");
+  const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+  return { exitCode: 1, output, terminalOutput, durationMs };
 }

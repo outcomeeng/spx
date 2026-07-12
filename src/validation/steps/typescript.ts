@@ -73,6 +73,7 @@ export interface TypeScriptValidationOptions {
 
 export interface TypeScriptValidationResult {
   readonly success: boolean;
+  readonly output?: string;
   readonly error?: string;
   readonly skipped?: boolean;
 }
@@ -325,20 +326,27 @@ function runTypeScriptInvocation(
     const tscProcess = spawnManagedSubprocess(runner, invocation.tool, invocation.args, {
       cwd: productDir,
     });
+    const chunks: string[] = [];
+    const capture = (chunk: string | Uint8Array): void => {
+      chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+    };
+    tscProcess.stdout?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
+    tscProcess.stderr?.on(VALIDATION_SUBPROCESS_EVENTS.DATA, capture);
     forwardValidationSubprocessOutput(tscProcess, outputStreams);
 
     tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.CLOSE, (code) => {
       cleanup();
+      const output = chunks.join("");
       if (code === 0) {
-        resolve({ success: true, skipped: false });
+        resolve({ success: true, skipped: false, output });
       } else {
-        resolve({ success: false, error: formatTypeScriptExitCodeError(code) });
+        resolve({ success: false, output, error: formatTypeScriptExitCodeError(code) });
       }
     });
 
     tscProcess.on(VALIDATION_SUBPROCESS_EVENTS.ERROR, (error) => {
       cleanup();
-      resolve({ success: false, error: error.message });
+      resolve({ success: false, output: chunks.join(""), error: error.message });
     });
   });
 }

@@ -13,6 +13,7 @@ import {
   expectPathEscapeRejectedBeforeValidation,
   expectRegisteredSubcommandPropagatesNonZeroExitCode,
   expectRegisteredSubcommandRunsHandlerWithoutDispatchFailure,
+  expectStandaloneTypeScriptCapturesSubprocessOutput,
   expectSymlinkedInvocationDirectoryResolvesInProductOperand,
   expectUnknownSubcommandReachesSanitizedDiagnostic,
   expectValidationAllHelpListsOverrideFlags,
@@ -35,6 +36,10 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("packaged executable routes validation circular through the built CLI", async () => {
     await expectPackagedCircularSubcommandRoutesHandler();
+  });
+
+  it("standalone TypeScript dispatch captures subprocess diagnostics for stderr", async () => {
+    await expectStandaloneTypeScriptCapturesSubprocessOutput();
   });
 
   it("registered subcommand rejects invalid options before stage work", async () => {

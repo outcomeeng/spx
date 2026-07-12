@@ -318,7 +318,6 @@ function registerValidationCommands(
         files: paths.files,
         quiet: options.quiet,
         json: options.json,
-        outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
       });
       emitValidationResult(result, invocation.io);
     });
@@ -336,7 +335,6 @@ function registerValidationCommands(
         fix: options.fix,
         quiet: options.quiet,
         json: options.json,
-        outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
       });
       emitValidationResult(result, invocation.io);
     });

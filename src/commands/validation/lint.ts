@@ -18,6 +18,7 @@ import {
 } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { validateESLint } from "@/validation/steps/eslint";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -25,7 +26,7 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { LintCommandOptions, ValidationCommandResult } from "./types";
+import { type LintCommandOptions, streamedValidationTerminalOutput, type ValidationCommandResult } from "./types";
 
 export interface LintCommandDeps {
   readonly discoverTool: typeof discoverTool;
@@ -59,7 +60,7 @@ export async function lintCommand(
   options: LintCommandOptions,
   deps: LintCommandDeps = defaultLintCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, scope = "full", files, fix, outputStreams, quiet } = options;
+  const { cwd, scope = "full", files, fix, json, outputStreams, quiet, streamedPipelineOutput } = options;
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
@@ -150,10 +151,14 @@ export async function lintCommand(
   };
 
   // Run ESLint validation
-  const result = await deps.validateESLint(context, undefined, outputStreams);
+  const result = await deps.validateESLint(
+    context,
+    undefined,
+    outputStreams ?? discardValidationSubprocessOutputStreams,
+  );
   const durationMs = Date.now() - startTime;
 
-  return formatLintResult(result, quiet, durationMs);
+  return formatLintResult(result, quiet, durationMs, json, streamedPipelineOutput);
 }
 
 function formatLintValidationOperand(path: string): string {
@@ -164,15 +169,26 @@ function formatLintResult(
   result: Awaited<ReturnType<typeof validateESLint>>,
   quiet: boolean | undefined,
   durationMs: number,
+  json: boolean | undefined,
+  streamedPipelineOutput: boolean | undefined,
 ): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE;
     return { exitCode: 0, output, durationMs };
   }
   if (result.success) {
-    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS;
-    return { exitCode: 0, output, durationMs };
+    const output = quiet
+      ? ""
+      : [VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS, result.output].filter((line) =>
+        line !== undefined && line.length > 0
+      )
+        .join("\n");
+    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+    return { exitCode: 0, output, terminalOutput, durationMs };
   }
-  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
-  return { exitCode: 1, output, durationMs };
+  const output = [result.output, result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE]
+    .filter((line) => line !== undefined && line.length > 0)
+    .join("\n");
+  const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+  return { exitCode: 1, output, terminalOutput, durationMs };
 }
