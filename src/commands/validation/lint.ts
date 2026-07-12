@@ -27,6 +27,16 @@ import {
 } from "./messages";
 import type { LintCommandOptions, ValidationCommandResult } from "./types";
 
+export interface LintCommandDeps {
+  readonly discoverTool: typeof discoverTool;
+  readonly validateESLint: typeof validateESLint;
+}
+
+export const defaultLintCommandDeps: LintCommandDeps = {
+  discoverTool,
+  validateESLint,
+};
+
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
 const ESLINT_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✗ config error`;
@@ -45,7 +55,10 @@ const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMe
  * @param options - Command options
  * @returns Command result with exit code and output
  */
-export async function lintCommand(options: LintCommandOptions): Promise<ValidationCommandResult> {
+export async function lintCommand(
+  options: LintCommandOptions,
+  deps: LintCommandDeps = defaultLintCommandDeps,
+): Promise<ValidationCommandResult> {
   const { cwd, scope = "full", files, fix, outputStreams, quiet } = options;
   const startTime = Date.now();
 
@@ -116,7 +129,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   }
 
   // Gate 3: tool discovery — ensure ESLint itself is available somewhere.
-  const toolResult = await discoverTool("eslint", { productDir: cwd, includeBundled: false });
+  const toolResult = await deps.discoverTool("eslint", { productDir: cwd, includeBundled: false });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
@@ -137,7 +150,7 @@ export async function lintCommand(options: LintCommandOptions): Promise<Validati
   };
 
   // Run ESLint validation
-  const result = await validateESLint(context, undefined, outputStreams);
+  const result = await deps.validateESLint(context, undefined, outputStreams);
   const durationMs = Date.now() - startTime;
 
   return formatLintResult(result, quiet, durationMs);

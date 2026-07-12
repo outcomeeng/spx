@@ -32,6 +32,7 @@ export const KNIP_COMMAND_TOKENS = {
   TSCONFIG_FLAG: "--tsConfig",
   USE_TSCONFIG_FILES_FLAG: "--use-tsconfig-files",
 } as const;
+export const KNIP_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", KNIP_COMMAND_TOKENS.COMMAND] as const;
 
 export interface KnipDeps {
   readonly existsSync: typeof existsSync;
@@ -111,7 +112,7 @@ async function runKnipSubprocess(
   const scopedTsconfig = typescriptScope.filteredByValidationPaths
     ? await createScopedKnipTsconfig(productDir, typescriptScope, deps)
     : undefined;
-  const localBin = join(productDir, "node_modules", ".bin", "knip");
+  const localBin = join(productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
   const binary = toolPath ?? (deps.existsSync(localBin) ? localBin : KNIP_COMMAND_TOKENS.NPX_COMMAND);
   const baseArgs = scopedTsconfig === undefined
     ? []

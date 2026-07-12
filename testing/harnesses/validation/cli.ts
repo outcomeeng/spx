@@ -5,6 +5,7 @@ import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
 
 import {
+  formatValidationStageSkipJsonOutput,
   formatValidationStageSkipOutput,
   LITERAL_PROBLEM_KIND,
   VALIDATION_COMMAND_OUTPUT,
@@ -37,6 +38,7 @@ import {
   validationCliSuccessExitCodeUpperBound,
   validationCliTempDirectoryPrefix,
   validationCliUnavailableExitCode,
+  validationLintSubprocessScenarios,
   type ValidationSubprocessScenario,
 } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -281,6 +283,23 @@ export function expectValidationSubprocessResult(
   }
 }
 
+export function registerLintSubprocessScenarioTests(): void {
+  for (const scenario of validationLintSubprocessScenarios()) {
+    it(
+      scenario.title,
+      { timeout: scenario.timeout },
+      async () => {
+        await withValidationEnv({ fixture: scenario.fixture }, async ({ path }) => {
+          expectValidationSubprocessResult(
+            await runValidationSubprocess(scenario.args, { cwd: path, timeout: scenario.timeout }),
+            scenario,
+          );
+        });
+      },
+    );
+  }
+}
+
 export async function expectRegisteredSubcommandRunsHandlerWithoutDispatchFailure(): Promise<void> {
   await withEmptyValidationProject(async (productDir) => {
     for (const { operand, commandName } of validationRegisteredSubcommandOperands()) {
@@ -373,6 +392,22 @@ export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): P
   expect(result.stderr).toContain(`${VALIDATION_SYMBOLS.FAILURE} Validation ${VALIDATION_SUMMARY_STATUS.FAILED}`);
   expect(result.stderr).not.toContain(observedHandlerOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(result.stderr).not.toContain(observedHandlerOutput(SYNTHETIC_FAILURE_STAGE_NAME));
+}
+
+export async function expectValidationAllJsonOutputIsMachineReadable(): Promise<void> {
+  const calls: string[] = [];
+  const result = await runValidationInProcessWithDomains(
+    [validationCliDefinition.subcommands.all.commandName, validationCommonJsonFlag()],
+    [createValidationDomain({ validationStages: [syntheticDefaultStage(calls), syntheticJsonStage()] })],
+  );
+  const records = result.stdout.split("\n").filter((line) => line.length > 0);
+
+  expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+  expect(result.stderr).toBe(validationCliEmptyOutput());
+  expect(records).toHaveLength(2);
+  for (const record of records) {
+    expect(() => JSON.parse(record)).not.toThrow();
+  }
 }
 
 function createDeferred<T>(): Deferred<T> {
@@ -903,6 +938,21 @@ function syntheticDefaultStage(calls: string[]): ValidationStage {
         terminalOutput: observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME),
       };
     },
+  };
+}
+
+function syntheticJsonStage(): ValidationStage {
+  return {
+    name: SYNTHETIC_DEFAULT_STAGE_NAME,
+    failsPipeline: true,
+    participation: {
+      default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    },
+    run: async () => ({
+      exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+      output: formatValidationStageSkipJsonOutput(SYNTHETIC_OVERRIDE_REASON, validationCliEmptyOutputLength()),
+      structuredOutput: true,
+    }),
   };
 }
 

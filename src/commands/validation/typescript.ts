@@ -11,7 +11,12 @@ import {
 } from "@/validation/config/descriptor";
 import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
-import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
+import {
+  detectTypeScript,
+  discoverTool,
+  formatSkipMessage,
+  TOOL_DISCOVERY_PRIORITY,
+} from "@/validation/discovery/index";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -21,12 +26,29 @@ import {
 } from "./messages";
 import type { TypeScriptCommandOptions, ValidationCommandResult } from "./types";
 
+export interface TypeScriptCommandDeps {
+  readonly discoverTool: typeof discoverTool;
+  readonly validateTypeScript: typeof validateTypeScript;
+}
+
+export const defaultTypeScriptCommandDeps: TypeScriptCommandDeps = {
+  discoverTool,
+  validateTypeScript,
+};
+
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
   ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✗ config error`,
   NO_VALIDATION_PATH_TARGETS: formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
   TOOL_LABEL: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
+} as const;
+
+export const TYPESCRIPT_TOOL_DISCOVERY = {
+  TOOL: "typescript",
+  EXECUTABLE_NAME: "tsc",
+  BUNDLED_EXECUTABLE: "typescript/bin/tsc",
+  PRODUCT_EXECUTABLE_SEGMENTS: ["node_modules", ".bin", "tsc"],
 } as const;
 
 /**
@@ -39,7 +61,10 @@ export const TYPESCRIPT_VALIDATION_MESSAGES = {
  * @param options - Command options
  * @returns Command result with exit code and output
  */
-export async function typescriptCommand(options: TypeScriptCommandOptions): Promise<ValidationCommandResult> {
+export async function typescriptCommand(
+  options: TypeScriptCommandOptions,
+  deps: TypeScriptCommandDeps = defaultTypeScriptCommandDeps,
+): Promise<ValidationCommandResult> {
   const { cwd, scope = "full", files, outputStreams, quiet } = options;
   const startTime = Date.now();
 
@@ -83,17 +108,18 @@ export async function typescriptCommand(options: TypeScriptCommandOptions): Prom
   }
 
   // Gate 2: tool discovery — ensure tsc itself is available somewhere.
-  const toolResult = await discoverTool("typescript", {
+  const toolResult = await deps.discoverTool(TYPESCRIPT_TOOL_DISCOVERY.TOOL, {
     productDir: cwd,
-    executableName: "tsc",
-    bundledExecutable: "typescript/bin/tsc",
+    executableName: TYPESCRIPT_TOOL_DISCOVERY.EXECUTABLE_NAME,
+    bundledExecutable: TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE,
+    priority: TOOL_DISCOVERY_PRIORITY.PRODUCT_FIRST,
   });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
     return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
   }
 
-  const result = await validateTypeScript({
+  const result = await deps.validateTypeScript({
     scope,
     productDir: cwd,
     scopeConfig,

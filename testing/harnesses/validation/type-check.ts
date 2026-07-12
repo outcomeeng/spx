@@ -7,10 +7,16 @@ import * as fc from "fast-check";
 import { expect, it } from "vitest";
 
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import {
+  TYPESCRIPT_TOOL_DISCOVERY,
+  TYPESCRIPT_VALIDATION_MESSAGES,
+  typescriptCommand,
+  type TypeScriptCommandDeps,
+} from "@/commands/validation/typescript";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { discoverTool, TOOL_DISCOVERY_PRIORITY, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -166,6 +172,42 @@ export function registerTypeCheckComplianceTests(): void {
     expect(result.success).toBe(true);
     expect(runner.commands).toEqual([toolPath]);
     expect(runner.spawnOptions?.stdio).toEqual(EXPECTED_PIPED_STDIO);
+  });
+
+  it("spawns the product-first executable returned by TypeScript command discovery", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
+      const runner = new RecordingSpawnOptionsRunner();
+      const toolPath = join(path, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS);
+      const bundledToolPath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      const discoveryOptions: Parameters<TypeScriptCommandDeps["discoverTool"]>[1][] = [];
+      const discoveryDeps: ToolDiscoveryDeps = {
+        resolveModule: (specifier) =>
+          specifier === TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE
+            ? bundledToolPath
+            : null,
+        resolveImport: () => null,
+        existsSync: (candidate) => candidate === toolPath,
+        whichSync: () => null,
+      };
+      const deps: TypeScriptCommandDeps = {
+        discoverTool: async (tool, options) => {
+          discoveryOptions.push(options);
+          return discoverTool(tool, { ...options, deps: discoveryDeps });
+        },
+        validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
+      };
+
+      const result = await typescriptCommand({ cwd: path, quiet: true }, deps);
+
+      expect(result.exitCode).toBe(0);
+      expect(runner.commands).toEqual([toolPath]);
+      expect(discoveryOptions).toEqual([expect.objectContaining({
+        productDir: path,
+        executableName: TYPESCRIPT_TOOL_DISCOVERY.EXECUTABLE_NAME,
+        bundledExecutable: TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE,
+        priority: TOOL_DISCOVERY_PRIORITY.PRODUCT_FIRST,
+      })]);
+    });
   });
 
   it("forwards child stdout and stderr chunks through injected parent streams", () => {

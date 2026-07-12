@@ -11,6 +11,7 @@
 import { type ChildProcess, execFile, type SpawnOptions } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
@@ -29,6 +30,7 @@ import { composeValidationPipelineStages, validationPipelineStages, validationRe
 import {
   buildDprintCheckArgs,
   DPRINT_COMMAND,
+  DPRINT_EXECUTABLE_SPECIFIER,
   type FormattingValidationContext,
   type FormattingValidationResult,
   validateFormatting,
@@ -212,7 +214,7 @@ export function registerFormattingComplianceEvidence(): void {
 async function runPackagedDprintCompliance(): Promise<void> {
   const runner = new RecordingSpawnOptionsRunner();
   await validateFormatting({ productDir: process.cwd() }, runner);
-  expect(runner.commands).toEqual([DPRINT_COMMAND]);
+  expect(runner.commands).toEqual([createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER)]);
 }
 
 async function runFormattingDispatchContractCompliance(): Promise<void> {

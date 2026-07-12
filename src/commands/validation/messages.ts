@@ -49,6 +49,15 @@ export function formatValidationStageSkipJsonOutput(reason: string, durationMs: 
   return JSON.stringify({ skipped: true, reason, durationMs });
 }
 
+export function formatValidationStageJsonOutput(options: {
+  readonly stage: string;
+  readonly exitCode: number;
+  readonly output: string;
+  readonly durationMs?: number;
+}): string {
+  return JSON.stringify(options);
+}
+
 // Matches a pipeline step line `[N/M]`; the step count derives from the registry,
 // so the denominator is matched generically rather than pinned to a constant.
 export const VALIDATION_STEP_LINE_PATTERN = /^\[(\d+)\/(\d+)\]/gm;

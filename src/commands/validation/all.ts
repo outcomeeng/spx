@@ -12,7 +12,11 @@ import {
 } from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
 import { formatDuration, formatSummary } from "./format";
-import { formatValidationStageSkipJsonOutput, formatValidationStageSkipOutput } from "./messages";
+import {
+  formatValidationStageJsonOutput,
+  formatValidationStageSkipJsonOutput,
+  formatValidationStageSkipOutput,
+} from "./messages";
 import type { AllCommandOptions, ValidationCommandResult } from "./types";
 
 /**
@@ -26,12 +30,23 @@ import type { AllCommandOptions, ValidationCommandResult } from "./types";
 function formatStepWithTiming(
   stepNumber: number,
   totalSteps: number,
+  stageName: string,
   result: ValidationCommandResult,
   quiet: boolean,
+  json: boolean,
 ): string {
   const output = result.terminalOutput ?? result.output;
-  if (quiet || !output) return "";
+  if (quiet) return "";
   if (result.structuredOutput === true) return output;
+  if (json) {
+    return formatValidationStageJsonOutput({
+      stage: stageName,
+      exitCode: result.exitCode,
+      output,
+      ...(result.durationMs === undefined ? {} : { durationMs: result.durationMs }),
+    });
+  }
+  if (!output) return "";
 
   const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
   return `[${stepNumber}/${totalSteps}] ${output}${timing}`;
@@ -140,7 +155,14 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
     const result = stageResult.durationMs === undefined
       ? { ...stageResult, durationMs: Date.now() - stageStartTime }
       : stageResult;
-    const stepOutput = formatStepWithTiming(stepNumber, validationStages.length, result, quiet);
+    const stepOutput = formatStepWithTiming(
+      stepNumber,
+      validationStages.length,
+      stage.name,
+      result,
+      quiet,
+      json === true,
+    );
     wroteStageOutput = recordStepOutput(stepOutput, outputs, writeStageOutput) || wroteStageOutput;
     if (stage.failsPipeline && result.exitCode !== 0) hasFailure = true;
   }
@@ -149,7 +171,7 @@ export async function allCommand(options: AllCommandOptions): Promise<Validation
   const totalDurationMs = Date.now() - startTime;
 
   // Add summary line
-  if (!quiet) {
+  if (!quiet && json !== true) {
     const summary = formatSummary({ success: !hasFailure, totalDurationMs });
     const summaryPrefix = writeStageOutput === undefined || !wroteStageOutput ? "" : "\n";
     outputs.push(`${summaryPrefix}${summary}`);

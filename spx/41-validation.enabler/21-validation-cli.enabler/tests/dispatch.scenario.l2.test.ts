@@ -16,6 +16,7 @@ import {
   expectSymlinkedInvocationDirectoryResolvesInProductOperand,
   expectUnknownSubcommandReachesSanitizedDiagnostic,
   expectValidationAllHelpListsOverrideFlags,
+  expectValidationAllJsonOutputIsMachineReadable,
 } from "@testing/harnesses/validation/cli";
 
 describe("spx validation dispatch — observable scenarios", () => {
@@ -73,6 +74,10 @@ describe("spx validation dispatch — observable scenarios", () => {
 
   it("validation all override flags control one full-pipeline invocation", async () => {
     await expectFullPipelineStageParticipationFollowsCliOverrides();
+  });
+
+  it("validation all JSON output contains only machine-readable records", async () => {
+    await expectValidationAllJsonOutputIsMachineReadable();
   });
 
   it("literal help omits full-pipeline override flags", async () => {

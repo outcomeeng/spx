@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { KNIP_VALIDATION_STEP_NAME, knipCommand, type KnipCommandDeps } from "@/commands/validation/knip";
@@ -13,11 +15,18 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { KNIP_COMMAND_TOKENS, type KnipValidationContext } from "@/validation/steps/knip";
+import { discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
+import {
+  KNIP_COMMAND_TOKENS,
+  KNIP_LOCAL_BIN_SEGMENTS,
+  type KnipValidationContext,
+  validateKnip,
+} from "@/validation/steps/knip";
 import type { ScopeConfig } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
 interface KnipCommandRecording {
   readonly discoveryCalls: string[];
@@ -198,6 +207,35 @@ export function registerUnusedCodeScenarioTests(): void {
             toolPath: env.productDir,
           },
         ]);
+      });
+    });
+  });
+}
+
+export function registerUnusedCodeComplianceTests(): void {
+  describe("Knip executable ownership", () => {
+    it("spawns the product executable returned by discovery", async () => {
+      await withLiteralFixtureEnv(knipValidationConfig(true), async (env) => {
+        const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+        const toolPath = join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
+        const runner = new RecordingSpawnOptionsRunner();
+        const discoveryDeps: ToolDiscoveryDeps = {
+          resolveModule: () => null,
+          resolveImport: () => null,
+          existsSync: (candidate) => candidate === toolPath,
+          whichSync: () => null,
+        };
+        const deps: KnipCommandDeps = {
+          discoverTool: (tool, options) => discoverTool(tool, { ...options, deps: discoveryDeps }),
+          validateKnip: (context) => validateKnip(context, runner),
+        };
+        await env.writeTsConfigMarker();
+        await env.writeSourceFile(sourceFilePath, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()));
+
+        const result = await knipCommand({ cwd: env.productDir, quiet: true }, deps);
+
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+        expect(runner.commands).toEqual([toolPath]);
       });
     });
   });

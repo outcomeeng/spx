@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
+import { discoverTool, TOOL_DISCOVERY_PRIORITY, type ToolDiscoveryDeps } from "@/validation/discovery/tool-finder";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
 describe("ALWAYS: bundled validation tool discovery recognizes ESM-exported packages", () => {
@@ -61,6 +61,37 @@ describe("ALWAYS: bundled validation tool discovery recognizes ESM-exported pack
         tool,
         path: executablePath,
         source: TOOL_DISCOVERY.SOURCES.BUNDLED,
+      },
+    });
+  });
+
+  it("prefers the product executable before the bundled fallback when requested", async () => {
+    const tool = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const executableName = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const productDir = process.cwd();
+    const productExecutable = join(productDir, "node_modules", ".bin", executableName);
+    const bundledExecutable = `${tool}/${executableName}`;
+    const deps: ToolDiscoveryDeps = {
+      resolveModule: () => join(productDir, "node_modules", tool, executableName),
+      resolveImport: () => null,
+      existsSync: (filePath) => filePath === productExecutable,
+      whichSync: () => null,
+    };
+
+    const result = await discoverTool(tool, {
+      productDir,
+      executableName,
+      bundledExecutable,
+      priority: TOOL_DISCOVERY_PRIORITY.PRODUCT_FIRST,
+      deps,
+    });
+
+    expect(result).toEqual({
+      found: true,
+      location: {
+        tool,
+        path: productExecutable,
+        source: TOOL_DISCOVERY.SOURCES.PROJECT,
       },
     });
   });
