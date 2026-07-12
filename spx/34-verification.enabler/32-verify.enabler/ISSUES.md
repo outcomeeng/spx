@@ -21,8 +21,12 @@ The spx-driven command path (`spx verification <type> run`, per
 gap on the command surface rather than the validator registry: spx opens, streams, and seals such a
 run within one invocation, so no caller ever appends to it. A run left unsealed by an aborted
 invocation would still advertise `scope add` and `finding add` — actions no caller should invoke on
-a run spx drives. Decide whether next actions filter by who drives the run, or an spx-driven run
-seals on abort.
+a run spx drives. **Resolved:** next actions filter by the run's drive mode, recorded at `start`, so
+an unsealed spx-driven run advertises no caller evidence-append action — the assertions are declared
+in `spx/34-verification.enabler/32-verify.enabler/verify.md` (`start` records drive mode; status and
+render filter by it) and consumed by `spx/34-verification.enabler/43-execute.enabler`. Seal-on-abort
+is best-effort only — a `SIGKILL` runs no cleanup — so the drive-mode filter, not sealing, is the
+mechanism. Implementation lands in `/apply` on the executor node.
 
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
