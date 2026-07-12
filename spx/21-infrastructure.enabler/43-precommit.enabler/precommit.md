@@ -6,12 +6,9 @@ CAN keep the main checkout's packaged `dist/` current after incoming changes, pr
 
 ## Assertions
 
-### Scenarios
-
-- Given a branch checkout with a real previous ref, when the post-checkout gate resolves its exit code through an injected git runner, then a lockfile-scoped diff containing the lockfile yields the install exit code, an empty diff yields the skip exit code, and a probe that errors — throwing or resolving a non-zero git exit code — yields the failure exit code ([test](tests/deps-install-gate.scenario.l1.test.ts))
-
 ### Mappings
 
+- Post-checkout lockfile-diff probe outcomes map a diff containing the lockfile to the install exit code, an empty diff to the skip exit code, and a thrown or non-zero probe result to the failure exit code, while the supplied working directory maps to the injected git runner's working directory ([test](tests/deps-install-gate-probe.mapping.l1.test.ts))
 - TypeScript hook entrypoint recognition maps POSIX and Windows argv paths for the invoked precommit script to direct execution, and maps a mismatched argv path to not-direct execution ([test](tests/entrypoint.mapping.l1.test.ts))
 - Main-checkout gate exit-code classification maps unreadable git facts, incomplete bare-pool worktree-list facts, and main-checkout facts to the rebuild exit code, and maps non-main checkout facts to the classified skip exit code ([test](tests/main-checkout-gate.mapping.l1.test.ts))
 - Post-checkout install-gate exit-code classification maps a branch-or-HEAD checkout whose lockfile changed to the install exit code, and maps a file checkout or an unchanged lockfile to the skip exit code ([test](tests/deps-install-gate.mapping.l1.test.ts))
