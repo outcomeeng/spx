@@ -107,6 +107,19 @@ function ambiguousTargetFixture(fixture: RepresentativeSpecTreeFixture): {
   };
 }
 
+function exactPrefixTargetFixture(fixture: RepresentativeSpecTreeFixture): {
+  readonly candidateSpecPath: string;
+  readonly target: string;
+} {
+  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
+  const candidateSlug = `${fixture.root.slug}${suffix}-candidate`;
+  return {
+    candidateSpecPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
+    target,
+  };
+}
+
 async function rejectedContextMessage(target: string, productDir: string): Promise<string> {
   try {
     await contextCommand({ target, cwd: productDir });
@@ -133,6 +146,34 @@ export async function assertSpecContextResolvesAbbreviatedTarget(): Promise<void
   });
 }
 
+export async function assertSpecContextRejectsUnknownTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const target = `${specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root)}-unknown`;
+    const message = await rejectedContextMessage(target, env.productDir);
+    expect(message).toContain(target);
+    expect(message).toContain("Unknown spec context target segment");
+  });
+}
+
+export async function assertSpecContextPrefersExactTarget(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const fixture = exactPrefixTargetFixture(env.fixture);
+    await env.writeRaw(fixture.candidateSpecPath, "# Exact-prefix sibling\n");
+    const manifest = parseContextManifest(await contextCommand({ target: fixture.target, cwd: env.productDir }));
+    expect(manifest.target).toBe(`spx/${fixture.target}`);
+  });
+}
+
 export async function assertSpecContextRejectsAmbiguousTarget(): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
@@ -144,6 +185,30 @@ export async function assertSpecContextRejectsAmbiguousTarget(): Promise<void> {
     await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
     const message = await rejectedContextMessage(ambiguity.prefix, env.productDir);
     expect(message).toContain(ambiguity.prefix);
+    expect(message).toContain(ambiguity.candidate);
+    expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+  });
+}
+
+export async function assertSpecContextRejectsNestedWholePathDisambiguation(): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const ambiguity = ambiguousTargetFixture(env.fixture);
+    await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
+    const snapshot = await env.readFilesystemSnapshot();
+    const child = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
+    const childPrefix = shortestUniquePrefix(
+      nodeSegment(child.id),
+      snapshot.allNodes
+        .filter((candidate) => candidate.parentId === child.parentId)
+        .map((candidate) => nodeSegment(candidate.id)),
+    );
+    const target = `${ambiguity.prefix}/${childPrefix}`;
+    const message = await rejectedContextMessage(target, env.productDir);
     expect(message).toContain(ambiguity.candidate);
     expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
   });
@@ -164,7 +229,14 @@ export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
     const message = await rejectedContextMessage(artifact, env.productDir);
     expect(message).toContain(artifact);
     expect(message).toContain(`spx/${target.id}`);
+    expect(message).toContain("Spec context target is an artifact path; use its owning node");
   });
+}
+
+export async function assertSpecContextMapsFailureDiagnostics(): Promise<void> {
+  await assertSpecContextRejectsUnknownTarget();
+  await assertSpecContextRejectsAmbiguousTarget();
+  await assertSpecContextRejectsArtifactTarget();
 }
 
 export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<void> {
