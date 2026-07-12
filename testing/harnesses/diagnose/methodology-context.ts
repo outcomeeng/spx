@@ -7,9 +7,10 @@ import { diagnoseCommand } from "@/commands/diagnose";
 import {
   createMethodologyContextProbe,
   defaultMethodologyContextProbe,
+  METHODOLOGY_CACHE_HOME_KEYS,
   METHODOLOGY_PLUGIN_CACHE_SEGMENTS,
 } from "@/commands/diagnose/probes";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
+import { METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT_HOME_ENV } from "@/domains/agent";
 import {
@@ -17,22 +18,27 @@ import {
   type MethodologyContextObservation,
   methodologyContextRunner,
 } from "@/domains/diagnose/checks/methodology-context";
-import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_OUTPUT_MODE, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
+import { DIAGNOSE_OUTPUT_MODE } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT } from "@/domains/diagnose/types";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   arbitraryMethodologyVersionSelectionScenario,
   cacheReadErrorFileContent,
+  legacyMethodologyConfig,
+  manifestWithoutMethodologyJson,
+  methodologyConfig,
+  methodologyManifestJson,
+  methodologyWithUnrelatedLegacyConfig,
   mismatchedMethodologyScenario,
   mixedCacheReadErrorScenario,
   resolvedMethodologyScenario,
   type SupportedAgentCacheCase,
+  unavailableCheckConfigScenario,
   unavailableMethodologyScenario,
   unknownMethodologyScenario,
 } from "@testing/generators/diagnose/methodology-context";
+import { expectedHumanHeader } from "@testing/generators/diagnose/report-scenarios";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -75,12 +81,7 @@ async function runJson(
   observation: MethodologyContextObservation,
 ): Promise<Record<string, unknown>> {
   let output: string | undefined;
-  await withTestEnv({
-    [METHODOLOGY_SECTION]: {
-      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
-      [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
-    },
-  }, async ({ productDir }) => {
+  await withTestEnv(methodologyConfig(methodology), async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
@@ -101,12 +102,7 @@ async function runText(
   observation: MethodologyContextObservation,
 ): Promise<string> {
   let output: string | undefined;
-  await withTestEnv({
-    [METHODOLOGY_SECTION]: {
-      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
-      [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
-    },
-  }, async ({ productDir }) => {
+  await withTestEnv(methodologyConfig(methodology), async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
@@ -138,7 +134,7 @@ async function runManifestWithoutMethodology(): Promise<string> {
         }),
       },
       fs: {
-        readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
+        readFile: () => Promise.resolve(manifestWithoutMethodologyJson()),
       },
     });
     expect(result.ok).toBe(false);
@@ -163,14 +159,7 @@ async function runManifestJsonWithMethodology(
       color: false,
       registry: registryFor(observation),
       fs: {
-        readFile: () =>
-          Promise.resolve(JSON.stringify({
-            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
-            [METHODOLOGY_SECTION]: {
-              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
-              [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
-            },
-          })),
+        readFile: () => Promise.resolve(methodologyManifestJson(methodology)),
       },
     });
     expect(result.ok).toBe(true);
@@ -320,9 +309,27 @@ export async function assertMethodologyProbePreservesMixedCacheReadErrors(): Pro
 export async function assertMethodologyDiagnoseTextRenders(): Promise<void> {
   const { methodology, observation } = resolvedMethodologyScenario();
   const output = await runText(methodology, observation);
-  expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
-  expect(output).toContain(methodology.source);
-  expect(output).toContain(observation.version);
+  const check = firstCheck(await runJson(methodology, observation));
+  expect(typeof check.name).toBe("string");
+  expect(typeof check.verdict).toBe("string");
+  expect(typeof check.bucket).toBe("string");
+  expect(typeof check.remediation).toBe("string");
+  expect(typeof check.readings).toBe("object");
+  if (
+    typeof check.name !== "string"
+    || typeof check.verdict !== "string"
+    || typeof check.bucket !== "string"
+    || typeof check.remediation !== "string"
+    || typeof check.readings !== "object"
+    || check.readings === null
+  ) {
+    throw new Error("methodology JSON check record is malformed");
+  }
+  expect(output).toContain(expectedHumanHeader({ name: check.name, verdict: check.verdict }));
+  for (const reading of Object.values(check.readings)) {
+    expect(output).toContain(reading);
+  }
+  expect(output).toContain(check.remediation);
 }
 
 export async function assertMethodologyManifestWithoutFactsRejects(): Promise<void> {
@@ -333,11 +340,7 @@ export async function assertMethodologyManifestWithoutFactsRejects(): Promise<vo
 
 export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig(): Promise<void> {
   let error: string | undefined;
-  await withTestEnv({
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      [METHODOLOGY_SECTION]: resolvedMethodologyScenario().methodology,
-    },
-  }, async ({ productDir }) => {
+  await withTestEnv(legacyMethodologyConfig(), async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
@@ -356,15 +359,7 @@ export async function assertMethodologyDiagnoseRejectsHarnessMethodologyConfig()
 
 export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects(): Promise<void> {
   const { methodology, observation } = resolvedMethodologyScenario();
-  await withTestEnv({
-    [METHODOLOGY_SECTION]: {
-      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
-      [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
-    },
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      unrelated: resolvedMethodologyScenario().methodology,
-    },
-  }, async ({ productDir }) => {
+  await withTestEnv(methodologyWithUnrelatedLegacyConfig(methodology), async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
@@ -380,16 +375,9 @@ export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefe
 }
 
 export async function assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHarnessMethodologyConfig(): Promise<void> {
-  const unavailableCheck = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+  const scenario = unavailableCheckConfigScenario();
   let error: string | undefined;
-  await withTestEnv({
-    [DIAGNOSE_SECTION]: {
-      [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT, unavailableCheck],
-    },
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      [METHODOLOGY_SECTION]: resolvedMethodologyScenario().methodology,
-    },
-  }, async ({ productDir }) => {
+  await withTestEnv(scenario.config, async ({ productDir }) => {
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.VERBOSE,
@@ -404,7 +392,7 @@ export async function assertMethodologyDiagnoseRejectsUnavailableChecksBeforeHar
   });
   if (error === undefined) throw new Error("diagnose command produced no error");
   expect(error).toContain("diagnose config `checks` names checks not available in this build");
-  expect(error).toContain(unavailableCheck);
+  expect(error).toContain(scenario.unavailableCheck);
   expect(error).not.toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
 }
 
@@ -436,7 +424,11 @@ export async function assertSupportedAgentCacheCase(testCase: SupportedAgentCach
   const { methodology, observation } = resolvedMethodologyScenario();
   await withTempDir("spx-methodology-probe-codex-", async (codexHome) => {
     await withTempDir("spx-methodology-probe-claude-", async (claudeHome) => {
-      const selectedHome = testCase.agentHomeEnv === AGENT_HOME_ENV.CODEX ? codexHome : claudeHome;
+      const homesByKey = { codex: codexHome, claudeCode: claudeHome } satisfies Record<
+        (typeof METHODOLOGY_CACHE_HOME_KEYS)[number],
+        string
+      >;
+      const selectedHome = homesByKey[testCase.homeKey];
       await mkdir(
         join(
           selectedHome,

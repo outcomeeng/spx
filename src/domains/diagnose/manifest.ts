@@ -31,6 +31,14 @@ export const CHECK_NAME = {
 
 export type CheckName = (typeof CHECK_NAME)[keyof typeof CHECK_NAME];
 
+export const DIAGNOSE_MANIFEST_FIELDS = {
+  CHECKS: "checks",
+  SPX_FLOOR: "spx_floor",
+  MARKETPLACE: "marketplace",
+  EXPECTED_PLUGINS: "expected_plugins",
+  METHODOLOGY: "methodology",
+} as const;
+
 /** The typed, validated manifest contract. */
 export interface DiagnoseManifest {
   /** The spx-version floor; present when `spx-reachability` is selected. */

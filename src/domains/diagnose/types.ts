@@ -55,5 +55,8 @@ export interface DiagnoseReport {
   readonly overall: OverallVerdict;
 }
 
+/** The fields every rendered diagnose report carries. */
+export const DIAGNOSE_REPORT_FIELDS = ["checks", "overall"] as const;
+
 /** The fields every per-check record in the rendered report carries, in render order. */
 export const CHECK_RECORD_FIELDS = ["name", "verdict", "bucket", "readings", "remediation"] as const;
