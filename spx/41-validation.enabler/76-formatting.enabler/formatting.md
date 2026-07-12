@@ -13,7 +13,7 @@ CAN catch unformatted files before they reach the repository, with one verdict r
 - Given a product with a `.gitignore`d unformatted file, when `spx validation format` runs, then no problem is reported and it exits 0 ([test](tests/formatting.scenario.l2.test.ts))
 - Given a directory path operand, when `spx validation format <directory>` runs, then the operand expands to a recursive `**/*` glob before dprint dispatch ([test](tests/formatting.scenario.l2.test.ts))
 - Given a relative path operand from an invocation subdirectory, when `spx validation format <path>` runs, then the operand resolves from the effective invocation directory before product-relative dprint dispatch ([test](tests/formatting.scenario.l2.test.ts))
-- Given validation path includes intersect a formatting directory operand, when `spx validation format <directory>` runs, then dprint receives only the included intersection ([test](tests/formatting.scenario.l2.test.ts))
+- Given validation path filters would narrow a formatting directory operand, when `spx validation format <directory>` runs, then dprint receives the explicit directory scope without wrapper filtering ([test](tests/formatting.scenario.l2.test.ts))
 - Given validation path excludes apply to formatting, when `spx validation format` runs, then the configured excludes are forwarded additively as dprint `--excludes` values ([test](tests/formatting.scenario.l2.test.ts))
 - Given `spx validation all` receives no formatting participation override, formatting runs according to its descriptor default; given the descriptor's invocation-local skip override, formatting does not run ([test](tests/formatting.scenario.l2.test.ts))
 
