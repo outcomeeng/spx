@@ -43,7 +43,10 @@ import {
   type FormattingValidationResult,
   validateFormatting,
 } from "@/validation/steps/formatting";
-import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
+import {
+  discardValidationSubprocessOutputStreams,
+  VALIDATION_SUBPROCESS_EVENTS,
+} from "@/validation/steps/subprocess-output";
 import { arbitraryDprintFileArguments } from "@testing/generators/validation/formatting";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { runValidationInProcessWithDomains, runValidationSubprocess } from "@testing/harnesses/validation/cli";
@@ -93,6 +96,7 @@ const FORMATTING_VALIDATION_DATA = {
   excludedScopeTypeScriptSourcePath: "src/private/sample.ts",
   passExitCode: 0,
   failureExitCode: 1,
+  spawnErrorMessage: "dprint spawn failed",
 } as const;
 
 const FORMATTED_FILE_EXTENSIONS = [
@@ -325,6 +329,8 @@ export function registerFormattingComplianceEvidence(): void {
   describe("formatting subprocess output ownership", () => {
     it("forwards output through parent streams while retaining captured output", () =>
       runFormattingOutputStreamingCompliance());
+    it("retains partial output when the formatting subprocess fails to spawn", () =>
+      runFormattingSpawnErrorOutputCompliance());
   });
 }
 
@@ -931,6 +937,34 @@ export async function runFormattingOutputStreamingCompliance(): Promise<void> {
   });
 }
 
+async function runFormattingSpawnErrorOutputCompliance(): Promise<void> {
+  await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
+    copyProductDprintConfig(productDir);
+    const runner = new FormattingSpawnErrorRunner();
+    const stdout: string[] = [];
+    const result = await formattingCommand(
+      {
+        cwd: productDir,
+        outputStreams: {
+          stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
+          stderr: { write: () => true },
+        },
+      },
+      {
+        validateFormatting: (context, _runner, outputStreams) => validateFormatting(context, runner, outputStreams),
+      },
+    );
+
+    expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
+    expect(result.output).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.output).toContain(FORMATTING_VALIDATION_DATA.spawnErrorMessage);
+    expect(result.terminalOutput).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
+    expect(result.terminalOutput).toContain(FORMATTING_VALIDATION_DATA.spawnErrorMessage);
+    expect(result.terminalOutput).not.toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(stdout).toEqual([FORMATTING_VALIDATION_DATA.typeScriptSourceFilename]);
+  });
+}
+
 class FormattingOutputRunner implements ProcessRunner {
   spawn(_command: string, _args: readonly string[], _options?: SpawnOptions): ChildProcess {
     const child = new RecordingValidationChild();
@@ -939,6 +973,17 @@ class FormattingOutputRunner implements ProcessRunner {
       child.stdout.write(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
       child.stderr.write(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
       child.emit("close", FORMATTING_VALIDATION_DATA.failureExitCode);
+    });
+    return child.asChildProcess();
+  }
+}
+
+class FormattingSpawnErrorRunner implements ProcessRunner {
+  spawn(_command: string, _args: readonly string[], _options?: SpawnOptions): ChildProcess {
+    const child = new RecordingValidationChild();
+    queueMicrotask(() => {
+      child.stdout.write(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+      child.emit(VALIDATION_SUBPROCESS_EVENTS.ERROR, new Error(FORMATTING_VALIDATION_DATA.spawnErrorMessage));
     });
     return child.asChildProcess();
   }

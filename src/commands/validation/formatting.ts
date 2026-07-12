@@ -120,7 +120,8 @@ export async function formattingCommand(
 
   const detail = results
     .filter((result) => !result.success)
-    .map((result) => result.error ?? result.output)
+    .flatMap((result) => [result.output, result.error])
+    .filter((output): output is string => output !== undefined)
     .filter((output) => output.length > 0)
     .join("\n");
   const output = [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, detail].filter((line) => line.length > 0).join("\n");
@@ -157,8 +158,12 @@ function formattingTerminalOutput(
   json: boolean | undefined,
   streamedPipelineOutput: boolean | undefined,
 ): string | undefined {
-  if (json === true || outputStreams === undefined || results.some((result) => result.error !== undefined)) {
+  if (json === true || outputStreams === undefined) {
     return undefined;
+  }
+  const errors = results.flatMap((result) => result.error === undefined ? [] : [result.error]);
+  if (errors.length > 0) {
+    return [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, ...errors].join("\n");
   }
   return streamedPipelineOutput === true
     ? VALIDATION_STREAMED_TERMINAL_OUTPUT
