@@ -24,6 +24,7 @@ import type { ValidationCommandResult } from "@/commands/validation/types";
 import { createValidationDomain } from "@/interfaces/cli/validation";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
+import { VALIDATION_PATH_TOOL_SUBSECTIONS } from "@/validation/config/descriptor";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
@@ -454,21 +455,32 @@ async function runFormattingExcludedDirectoryDispatchScenario(): Promise<void> {
 
 async function runFormattingExcludeArgumentCompliance(): Promise<void> {
   await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
+    copyProductDprintConfig(productDir);
+    await writeFile(
+      join(productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      stringify({
+        validation: {
+          paths: {
+            exclude: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
+            [VALIDATION_PATH_TOOL_SUBSECTIONS.FORMATTING]: {
+              exclude: [FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName],
+            },
+          },
+        },
+      }),
+    );
     const runner = new RecordingSpawnOptionsRunner();
-    await validateFormatting(
+    await formattingCommand(
+      { cwd: productDir },
       {
-        productDir,
-        files: [`${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`],
-        excludes: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
+        validateFormatting: (context) => validateFormatting(context, runner),
       },
-      runner,
     );
     expect(runner.args).toEqual([[
       DPRINT_CHECK_SUBCOMMAND,
       DPRINT_EXCLUDES_OPTION,
       FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName,
-      DPRINT_OPTIONS_TERMINATOR,
-      `${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`,
+      FORMATTING_VALIDATION_DATA.secondaryScopeDirectoryName,
     ]]);
   });
 }
