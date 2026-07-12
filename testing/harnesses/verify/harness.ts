@@ -345,14 +345,16 @@ export function assertVerificationRunPathsHideJournalMechanics(): void {
   const verificationCommand = program.commands.find(
     (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
   );
-  const runCommand = verificationCommand?.commands.find(
-    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.runCommandName,
-  );
-  const runCommandNames = runCommand === undefined ? [] : collectCommandTokens(runCommand);
+  // The whole `spx verification` family is swept, not the `run` subtree alone, so a
+  // forbidden sibling — a `journal` or `event` command path added beside `run` — fails
+  // this assertion rather than escaping it.
+  const verificationCommandNames = verificationCommand === undefined
+    ? []
+    : collectCommandTokens(verificationCommand);
 
   expect(commandNames).not.toContain(VERIFICATION_RUN_CLI_SURFACE.forbiddenRootCommandName);
   for (const forbiddenRunCommandName of VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames) {
-    expect(runCommandNames).not.toContain(forbiddenRunCommandName);
+    expect(verificationCommandNames).not.toContain(forbiddenRunCommandName);
   }
 }
 
