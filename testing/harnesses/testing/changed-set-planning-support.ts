@@ -216,6 +216,15 @@ export function descriptorWithRelatedTests(
   };
 }
 
+export function descriptorResolvingWithoutTests(
+  resolvedSourcePaths: readonly string[],
+): TestingLanguageDescriptor {
+  return {
+    ...typescriptTestingLanguage,
+    relatedTestPaths: () => Promise.resolve({ testPaths: [], resolvedSourcePaths }),
+  };
+}
+
 export function recordingRelatedTestDescriptor(): RecordingRelatedTestDescriptor {
   const calls: RelatedTestRequest[] = [];
   return {
