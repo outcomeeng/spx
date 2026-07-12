@@ -13,12 +13,17 @@ import {
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
+import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
 import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR, TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
+import {
+  SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND,
+  type SpecContextTargetMappingCase,
+} from "@testing/generators/spec-tree/context-target";
 import {
   type RepresentativeSpecTreeFixture,
   specTreeFixtureNodeDirectoryName,
@@ -129,11 +134,6 @@ async function rejectedContextMessage(target: string, productDir: string): Promi
   throw new Error(`Expected spec context target to be rejected: ${target}`);
 }
 
-type SpecContextTargetMappingCase = {
-  readonly assertMapping: () => Promise<void>;
-  readonly title: string;
-};
-
 async function assertSpecContextResolvesTarget(
   selectInput: (snapshot: SpecTreeSnapshot, target: SpecTreeNode) => string,
 ): Promise<void> {
@@ -178,7 +178,9 @@ export async function assertSpecContextRejectsUnknownTarget(): Promise<void> {
     const target = `${specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root)}-unknown`;
     const message = await rejectedContextMessage(target, env.productDir);
     expect(message).toContain(target);
-    expect(message).toContain("Unknown spec context target segment");
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT],
+    );
   });
 }
 
@@ -207,6 +209,9 @@ export async function assertSpecContextRejectsAmbiguousTarget(): Promise<void> {
     await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
     const message = await rejectedContextMessage(ambiguity.prefix, env.productDir);
     expect(message).toContain(ambiguity.prefix);
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT],
+    );
     expect(message).toContain(ambiguity.candidate);
     expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
   });
@@ -251,41 +256,35 @@ export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
     const message = await rejectedContextMessage(artifact, env.productDir);
     expect(message).toContain(artifact);
     expect(message).toContain(`spx/${target.id}`);
-    expect(message).toContain("Spec context target is an artifact path; use its owning node");
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH],
+    );
   });
 }
 
-export function specContextTargetMappingCases(): readonly SpecContextTargetMappingCase[] {
-  return [
-    {
-      title: "maps a canonical node path to its canonical target",
-      assertMapping: assertSpecContextResolvesCanonicalTarget,
-    },
-    {
-      title: "maps a node path with a leading spx root to its canonical target",
-      assertMapping: assertSpecContextResolvesRootedTarget,
-    },
-    {
-      title: "maps a node path with a trailing separator to its canonical target",
-      assertMapping: assertSpecContextResolvesTrailingSeparatorTarget,
-    },
-    {
-      title: "maps unique abbreviated node segments to their canonical target",
-      assertMapping: assertSpecContextResolvesAbbreviatedTarget,
-    },
-    {
-      title: "maps an unknown segment to an unresolved-input diagnostic",
-      assertMapping: assertSpecContextRejectsUnknownTarget,
-    },
-    {
-      title: "maps an ambiguous segment to a candidate diagnostic",
-      assertMapping: assertSpecContextRejectsAmbiguousTarget,
-    },
-    {
-      title: "maps an artifact path to an owning-node diagnostic",
-      assertMapping: assertSpecContextRejectsArtifactTarget,
-    },
-  ];
+export async function assertSpecContextTargetMappingCase(mappingCase: SpecContextTargetMappingCase): Promise<void> {
+  switch (mappingCase.kind) {
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.CANONICAL:
+      await assertSpecContextResolvesCanonicalTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOTED:
+      await assertSpecContextResolvesRootedTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.TRAILING_SEPARATOR:
+      await assertSpecContextResolvesTrailingSeparatorTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ABBREVIATED:
+      await assertSpecContextResolvesAbbreviatedTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN:
+      await assertSpecContextRejectsUnknownTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.AMBIGUOUS:
+      await assertSpecContextRejectsAmbiguousTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT:
+      await assertSpecContextRejectsArtifactTarget();
+  }
 }
 
 export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<void> {
