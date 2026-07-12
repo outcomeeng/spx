@@ -40,11 +40,12 @@ import {
   type VerdictBucket,
 } from "@/domains/diagnose/types";
 import { SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
+import { SPX_VERSION } from "@/version";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 
-import { arbitraryInvalidSpxFloor, arbitraryNameToken, sampleDiagnoseTestValue } from "./manifest";
+import { arbitraryInvalidSpxFloor, arbitraryNameToken, arbitrarySpxFloor, sampleDiagnoseTestValue } from "./manifest";
 import {
   mismatchedMethodologyScenario,
   resolvedMethodologyScenario,
@@ -209,6 +210,7 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
   const spxRecord = classifySpxReachability({
     ...reusableSpxReading(),
     resolvedPath: sampleDiagnoseTestValue(fc.nat(Number.MAX_SAFE_INTEGER).map((value) => `/diagnose-path-${value}`)),
+    version: sampleDiagnoseTestValue(arbitrarySpxFloor().filter((version) => version !== SPX_VERSION)),
   }, undefined);
   const records = [
     spxRecord,
@@ -244,11 +246,7 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
     if (record === undefined) throw new Error(`no generated diagnose record for ${name}`);
     return record;
   });
-  const forbiddenConciseReadings = orderedRecords.flatMap((record) =>
-    Object.entries(record.readings)
-      .filter(([field]) => record.name !== CHECK_NAME.SPX_REACHABILITY || field !== "version")
-      .map(([, value]) => value)
-  );
+  const forbiddenConciseReadings = orderedRecords.flatMap((record) => Object.values(record.readings));
   return { records: orderedRecords, forbiddenConciseReadings };
 }
 
