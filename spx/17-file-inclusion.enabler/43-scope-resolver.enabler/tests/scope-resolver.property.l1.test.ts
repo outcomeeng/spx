@@ -104,7 +104,7 @@ describe("scope resolver — properties", () => {
         for (const decision of excluded.decisionTrail) {
           expect(knownLayers.has(decision.layer), `"${decision.layer}" must be a known layer`).toBe(true);
           const layerIdx = layerIndexMap.get(decision.layer) ?? -1;
-          expect(layerIdx, `trail entry "${decision.layer}" in "${excluded.path}" must follow sequence order`)
+          expect(layerIdx, `trail entry ${decision.layer} in ${excluded.path} must follow sequence order`)
             .toBeGreaterThan(lastIndex);
           lastIndex = layerIdx;
         }
