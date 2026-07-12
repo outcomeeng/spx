@@ -26,10 +26,16 @@ import {
 } from "@/interfaces/cli/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
+import { LITERAL_KIND, REMEDIATION } from "@/validation/literal";
 import { validationPipelineStages } from "@/validation/registry";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 import { FIXTURES_PATHS } from "@testing/fixtures";
-import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  LITERAL_TEST_GENERATOR,
+  LITERAL_TEST_GENERATOR_COUNTS,
+  type LiteralSourceReuseFixtureInputs,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import {
   VALIDATION_CLI_GENERATOR,
   VALIDATION_PIPELINE_DATA,
@@ -369,21 +375,63 @@ export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Pro
 
 export async function expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroExit(): Promise<void> {
   await withLiteralFixtureEnv({}, async (env) => {
-    await env.writeSourceReuseFixture(
-      sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs()),
-    );
+    const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs());
+    await env.writeSourceReuseFixture(inputs);
 
-    for (const args of literalReportModeArguments()) {
+    for (const outputMode of OUTPUT_MODE_NAMES) {
       const result = await runValidationInProcess([
         validationCliDefinition.subcommands.literal.commandName,
-        ...args,
+        ...literalReportModeArgument(outputMode),
       ], { processCwd: () => env.productDir });
 
       expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-      expect(result.stdout.length).toBeGreaterThan(validationCliEmptyOutputLength());
+      expectLiteralReport(outputMode, result.stdout, inputs);
       expect(result.stderr).toBe(validationCliEmptyOutput());
     }
   });
+}
+
+function expectLiteralReport(
+  outputMode: OutputModeName,
+  stdout: string,
+  inputs: LiteralSourceReuseFixtureInputs,
+): void {
+  const literal = JSON.stringify(inputs.literal);
+  const line = LITERAL_TEST_GENERATOR_COUNTS.one;
+  switch (outputMode) {
+    case OUTPUT_MODE_NAME.TEXT:
+      expect(stdout).toBe(
+        `[reuse] ${literal} ${inputs.testFile}:${line}${VALIDATION_PIPELINE_DATA.outputLineSeparator}`,
+      );
+      return;
+    case OUTPUT_MODE_NAME.VERBOSE:
+      expect(stdout).toBe(
+        [
+          `Literal: ${line} problems (reuse: ${line}, dupe: ${LITERAL_TEST_GENERATOR_COUNTS.none})`,
+          "REUSE",
+          inputs.testFile,
+          `  line ${line}: ${literal} also in ${inputs.sourceFile}:${line}`,
+        ].join(VALIDATION_PIPELINE_DATA.outputLineSeparator) + VALIDATION_PIPELINE_DATA.outputLineSeparator,
+      );
+      return;
+    case OUTPUT_MODE_NAME.FILES_WITH_PROBLEMS:
+      expect(stdout).toBe(inputs.testFile + VALIDATION_PIPELINE_DATA.outputLineSeparator);
+      return;
+    case OUTPUT_MODE_NAME.LITERALS:
+      expect(stdout).toBe(literal + VALIDATION_PIPELINE_DATA.outputLineSeparator);
+      return;
+    case OUTPUT_MODE_NAME.JSON:
+      expect(JSON.parse(stdout)).toEqual({
+        srcReuse: [{
+          kind: LITERAL_KIND.STRING,
+          value: inputs.literal,
+          remediation: REMEDIATION.IMPORT_FROM_SOURCE,
+          test: { file: inputs.testFile, line },
+          src: [{ file: inputs.sourceFile, line }],
+        }],
+        testDupe: [],
+      });
+  }
 }
 
 export async function expectFullPipelineStreamsProgressBeforeFailureSummary(): Promise<void> {
@@ -772,7 +820,9 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   );
 
   expect(humanResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(humanResult.stdout).toContain(SYNTHETIC_OVERRIDE_REASON);
+  expect(humanResult.stdout).toContain(
+    formatValidationStageSkipOutput(SYNTHETIC_OVERRIDE_STAGE_NAME, SYNTHETIC_OVERRIDE_FLAG),
+  );
   expect(humanResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
   expect(humanResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(humanStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
@@ -788,7 +838,9 @@ export async function expectFullPipelineStageParticipationFollowsCliOverrides():
   expect(jsonResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(jsonStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
   expect(productionResult.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-  expect(productionResult.stdout).toContain(SYNTHETIC_OVERRIDE_REASON);
+  expect(productionResult.stdout).toContain(
+    formatValidationStageSkipOutput(SYNTHETIC_OVERRIDE_STAGE_NAME, SYNTHETIC_OVERRIDE_FLAG),
+  );
   expect(productionResult.stdout).not.toContain(observedHandlerOutput(SYNTHETIC_OVERRIDE_STAGE_NAME));
   expect(productionResult.stdout).toContain(observedHandlerTerminalOutput(SYNTHETIC_DEFAULT_STAGE_NAME));
   expect(productionStages.calls).toEqual([SYNTHETIC_DEFAULT_STAGE_NAME]);
@@ -1057,10 +1109,6 @@ function observedValidationCommandHandlers(
       all: createHandler(validationCliDefinition.subcommands.all.commandName),
     },
   };
-}
-
-function literalReportModeArguments(): readonly (readonly string[])[] {
-  return OUTPUT_MODE_NAMES.map(literalReportModeArgument);
 }
 
 function literalReportModeArgument(outputMode: OutputModeName): readonly string[] {
