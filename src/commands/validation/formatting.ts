@@ -29,7 +29,10 @@ import {
   type FormattingValidationResult,
   validateFormatting,
 } from "@/validation/steps/formatting";
-import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
+import {
+  discardValidationSubprocessOutputStreams,
+  type ValidationSubprocessOutputStreams,
+} from "@/validation/steps/subprocess-output";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
 import {
   type FormattingCommandOptions,
@@ -109,8 +112,9 @@ export async function formattingCommand(
   }
 
   const results: FormattingValidationResult[] = [];
+  const subprocessOutputStreams = outputStreams ?? discardValidationSubprocessOutputStreams;
   for (const context of contexts) {
-    results.push(await dependencies.validateFormatting(context, undefined, outputStreams));
+    results.push(await dependencies.validateFormatting(context, undefined, subprocessOutputStreams));
   }
   const durationMs = Date.now() - startTime;
 

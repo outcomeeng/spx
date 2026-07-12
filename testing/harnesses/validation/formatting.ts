@@ -671,7 +671,8 @@ async function runCliProcessScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
     expect(result.stderr).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
     expect(`${result.stdout}${result.stderr}`.split(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename)).toHaveLength(
       2,
@@ -691,7 +692,7 @@ async function runCliProcessDirectoryScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
@@ -714,7 +715,7 @@ async function runCliProcessInvocationDirectoryScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
   });
 }
 
@@ -746,7 +747,7 @@ async function runCliProcessDirectoryIncludeScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
@@ -778,7 +779,7 @@ async function runCliProcessExcludedFileScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
   });
 }
 
@@ -820,8 +821,8 @@ async function runCliProcessFilteredDirectoryScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
-    expect(result.stdout).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).not.toContain(FORMATTING_VALIDATION_DATA.secondaryScopeTypeScriptSourcePath);
   });
 }
 
@@ -866,8 +867,8 @@ async function runCliProcessExcludedDirectoryScopeScenario(): Promise<void> {
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
-    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.narrowedScopeTypeScriptSourcePath);
+    expect(result.stderr).toContain(FORMATTING_VALIDATION_DATA.excludedScopeTypeScriptSourcePath);
   });
 }
 
