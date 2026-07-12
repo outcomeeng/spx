@@ -59,9 +59,9 @@ async function writeDefaultMarkdownPair(
   );
 }
 
-async function expectExplicitMarkdownOperandBypassesExclude(
+async function runExplicitMarkdownOperandBypassingExclude(
   directoryOperand: boolean,
-): Promise<void> {
+): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
   const [excludedDirectoryName, childDirectoryName, markdownFileStem] = sampleDistinctDomainLiterals(3);
   const excludedDirectory = posix.join(
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
@@ -80,18 +80,15 @@ async function expectExplicitMarkdownOperandBypassesExclude(
     )
     : operand;
 
-  await withLiteralFixtureEnv(
+  return await withLiteralFixtureEnv(
     markdownValidationPathsConfig({ exclude: [excludedDirectory] }),
     async (env) => {
       await env.writeRaw(markdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
 
-      const result = await markdownCommand({
+      return await markdownCommand({
         cwd: env.productDir,
         files: [operand],
       });
-
-      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-      expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
     },
   );
 }
@@ -382,11 +379,17 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
   });
 
   it("does not erase explicit markdown child directories below excluded ancestors", async () => {
-    await expectExplicitMarkdownOperandBypassesExclude(true);
+    const result = await runExplicitMarkdownOperandBypassingExclude(true);
+
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
   });
 
   it("preserves explicit markdown file operands through markdown validation excludes", async () => {
-    await expectExplicitMarkdownOperandBypassesExclude(false);
+    const result = await runExplicitMarkdownOperandBypassingExclude(false);
+
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.ERROR_SUMMARY_SUFFIX);
   });
 
   it("does not widen explicit markdown directory operands to default markdown roots", async () => {
