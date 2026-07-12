@@ -11,4 +11,4 @@ CAN report quality issues across every TypeScript-specific concern before code r
 
 ### Compliance
 
-- ALWAYS: every registered TypeScript stage either runs or reports an explicit skip reason ([test](tests/typescript-validation.scenario.l2.test.ts))
+- ALWAYS: every registered TypeScript stage either runs or reports an explicit skip reason ([test](tests/typescript-validation.compliance.l2.test.ts))
