@@ -57,6 +57,7 @@ export interface AgentRunnerOptions {
 function createCommandRunner(
   productDir: string,
   outStream: NodeJS.WritableStream,
+  errStream: NodeJS.WritableStream,
   processRunner: ProcessRunner,
 ): TestRunnerDependencies["runCommand"] {
   return (command, args) =>
@@ -65,7 +66,7 @@ function createCommandRunner(
         cwd: productDir,
       });
       child.stdout?.pipe(outStream);
-      child.stderr?.pipe(process.stderr);
+      child.stderr?.pipe(errStream);
       child.on("close", (code) => resolveResult({ exitCode: code ?? PROCESS_FAILURE_EXIT_CODE }));
       child.on("error", () => resolveResult({ exitCode: PROCESS_FAILURE_EXIT_CODE }));
     });
@@ -111,8 +112,9 @@ export function createRunnerDepsFor(
   productDir: string,
   outStream: NodeJS.WritableStream = process.stdout,
   processRunner: ProcessRunner = lifecycleProcessRunner,
+  errStream: NodeJS.WritableStream = process.stderr,
 ): (language: TestingLanguageDescriptor) => TestRunnerDependencies {
-  const runCommand = createCommandRunner(productDir, outStream, processRunner);
+  const runCommand = createCommandRunner(productDir, outStream, errStream, processRunner);
   return () => ({ runCommand });
 }
 

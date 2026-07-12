@@ -32,6 +32,7 @@ async function runTypeScriptValidationScenario(scenario: ValidationSubprocessSce
     for (const stage of typescriptValidationLanguage.stages) {
       expect(exactStageOutputs.filter((output) =>
         output.startsWith(`${stage.name}:`)
+        || output.startsWith(`${stage.name} `)
         || output === formatTypeScriptAbsentSkipMessage(stage.name)
       )).toHaveLength(1);
     }

@@ -675,16 +675,15 @@ export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessS
 export function validationAllTypeScriptComplianceEvidence(): ValidationSubprocessScenario {
   const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
   return {
-    title: "registered TypeScript stages follow their defaults and report real verdicts",
-    fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
+    title: "registered TypeScript stages report every verdict when TypeScript fails",
+    fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS,
     args: [validationCliDefinition.subcommands.all.commandName],
     timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
-    expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
+    expectedExitCode: VALIDATION_EXIT_CODES.FAILURE,
     stdoutIncludes: [
       VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
       VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
-      VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS,
-      VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+      VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG,
       NO_PROBLEMS_MESSAGE,
     ],
     combinedIncludes: [],
