@@ -20,7 +20,7 @@ import {
 
 import { CONFIG_FILENAMES } from "@/config/index";
 
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 
 import {
   TSCONFIG_FILES,

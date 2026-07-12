@@ -10,7 +10,7 @@ import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
-import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation";
+import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";

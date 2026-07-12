@@ -21,7 +21,8 @@ import { stringify } from "yaml";
 import { allCommand } from "@/commands/validation/all";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { createValidationDomain } from "@/interfaces/cli/validation";
+import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
@@ -35,6 +36,7 @@ import {
   type FormattingValidationResult,
   validateFormatting,
 } from "@/validation/steps/formatting";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import {
   arbitraryDprintFileArguments,
   FORMATTING_SCENARIO_KIND,
@@ -43,7 +45,7 @@ import {
   type FormattingValidationScenario,
 } from "@testing/generators/validation/formatting";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
+import { runValidationInProcessWithDomains, runValidationSubprocess } from "@testing/harnesses/validation/cli";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -420,7 +422,10 @@ async function runConfiguredExtensionBehavior(
       join(productDir, filename),
       FORMATTING_VALIDATION_DATA.unformattedContentByExtension[extension],
     );
-    const result = await formattingCommand({ cwd: productDir });
+    const result = await formattingCommand({
+      cwd: productDir,
+      outputStreams: discardValidationSubprocessOutputStreams,
+    });
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.output).toContain(filename);
   });
@@ -434,7 +439,10 @@ async function runTrackedExcludeBehavior(
     const excludedPath = join(productDir, excludedCase.path);
     await mkdir(dirname(excludedPath), { recursive: true });
     await writeFile(excludedPath, excludedCase.content);
-    const result = await formattingCommand({ cwd: productDir });
+    const result = await formattingCommand({
+      cwd: productDir,
+      outputStreams: discardValidationSubprocessOutputStreams,
+    });
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
     expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
     expect(result.output).not.toContain(excludedCase.path);
@@ -472,7 +480,10 @@ async function runCleanProjectScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.formattableTypeScriptContent, async (fixture) => {
     await canonicalizeFixture(fixture.productDir, fixture.sourceFile);
 
-    const result = await formattingCommand({ cwd: fixture.productDir });
+    const result = await formattingCommand({
+      cwd: fixture.productDir,
+      outputStreams: discardValidationSubprocessOutputStreams,
+    });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
     expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
@@ -482,7 +493,10 @@ async function runCleanProjectScenario(): Promise<void> {
 
 async function runUnformattedCommandScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const result = await formattingCommand({ cwd: fixture.productDir });
+    const result = await formattingCommand({
+      cwd: fixture.productDir,
+      outputStreams: discardValidationSubprocessOutputStreams,
+    });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(result.output).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
@@ -491,20 +505,15 @@ async function runUnformattedCommandScenario(): Promise<void> {
 
 async function runPipelineFailureScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
-    const completions: { readonly stageName: string; readonly exitCode: number; readonly output: string }[] = [];
-    const result = await allCommand({
-      cwd: fixture.productDir,
-      onStageComplete: ({ stageName, result: stageResult, output }) => {
-        completions.push({ stageName, exitCode: stageResult.exitCode, output });
-      },
-    });
+    const result = await runValidationInProcessWithDomains(
+      [validationCliDefinition.subcommands.all.commandName, validationCommonCliOptions.json.flag],
+      [createValidationDomain({ validationStages: formattingValidationLanguage.stages })],
+      { processCwd: () => fixture.productDir },
+    );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(completions).toContainEqual({
-      stageName: formattingValidationLanguage.stages[0]?.name,
-      exitCode: FORMATTING_VALIDATION_DATA.failureExitCode,
-      output: expect.stringContaining(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY),
-    });
+    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
+    expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
   });
 }
 
@@ -735,7 +744,10 @@ async function runGitignoreSkipScenario(): Promise<void> {
       `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename}\n`,
     );
 
-    const result = await formattingCommand({ cwd: fixture.productDir });
+    const result = await formattingCommand({
+      cwd: fixture.productDir,
+      outputStreams: discardValidationSubprocessOutputStreams,
+    });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
     expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);

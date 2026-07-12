@@ -4,10 +4,7 @@ import { PassThrough } from "node:stream";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
-import {
-  VALIDATION_SUBPROCESS_EVENTS,
-  type ValidationSubprocessOutputStreams,
-} from "@/validation/steps/subprocess-output";
+import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 
 /**
  * Validation subprocess spy used when the test needs to observe child-process
@@ -92,11 +89,4 @@ export class RejectingUnexpectedValidationSpawnRunner extends RecordingSpawnOpti
 
 function sameArguments(actual: readonly string[], expected: readonly string[]): boolean {
   return actual.length === expected.length && actual.every((argument, index) => argument === expected[index]);
-}
-
-export function createDiscardValidationSubprocessOutputStreams(): ValidationSubprocessOutputStreams {
-  return {
-    stdout: { write: () => true },
-    stderr: { write: () => true },
-  };
 }

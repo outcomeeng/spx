@@ -82,6 +82,8 @@ export interface FormattingCommandOptions {
   cwd: string;
   files?: string[];
   quiet?: boolean;
+  /** Output as JSON when composed into the full validation pipeline. */
+  json?: boolean;
   /** Parent streams that receive dprint subprocess output */
   outputStreams?: ValidationSubprocessOutputStreams;
 }

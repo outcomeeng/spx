@@ -7,11 +7,13 @@ import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import {
   createValidationDomain,
   deriveValidationAllOverrideCliOptions,
-  validationAllBuiltInCliOptions,
   validationAllOverrideCliOptions,
+} from "@/interfaces/cli/validation";
+import {
+  validationAllBuiltInCliOptions,
   validationCliDefinition,
   validationCommonCliOptions,
-} from "@/interfaces/cli/validation";
+} from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import {

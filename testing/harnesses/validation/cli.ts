@@ -7,7 +7,6 @@ import { expect, it } from "vitest";
 import {
   formatValidationStageSkipJsonOutput,
   formatValidationStageSkipOutput,
-  LITERAL_PROBLEM_KIND,
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
@@ -16,15 +15,14 @@ import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/comm
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
+import { createValidationDomain, type ValidationCommandHandlers, validationDomain } from "@/interfaces/cli/validation";
 import {
-  createValidationDomain,
   literalValidationCliOptions,
   validationCliDefinition,
-  type ValidationCommandHandlers,
   validationCommonCliOptions,
-  validationDomain,
+  validationLiteralProblemKinds,
   validationOptionPrefix,
-} from "@/interfaces/cli/validation";
+} from "@/interfaces/cli/validation-contract";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import { TOOL_DISCOVERY } from "@/validation/discovery";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
@@ -74,7 +72,7 @@ const VALIDATION_CLI_CONTRACT = {
     longFlag: validationCliDefinition.commanderHelpOperands.longFlag,
     pathOperand: validationCliDefinition.pathOperands.optionalVariadic,
     literalFlags: Object.values(literalValidationCliOptions).map((option) => option.flag),
-    literalProblemKinds: Object.values(LITERAL_PROBLEM_KIND),
+    literalProblemKinds: validationLiteralProblemKinds,
   },
   options: {
     scope: validationCommonCliOptions.scope.flag,
@@ -222,6 +220,7 @@ export async function runValidationInProcessWithDomains(
 ): Promise<ValidationCliResult> {
   const stdout: string[] = [];
   const stderr: string[] = [];
+  let observedExitCode = validationCliEmptyOutputLength();
   const program = createCliProgram({
     domains,
     processCwd: options.processCwd,
@@ -230,7 +229,9 @@ export async function runValidationInProcessWithDomains(
       options.onStdout?.(output);
     },
     writeStderr: (output) => stderr.push(output),
-    setExitCode: () => undefined,
+    setExitCode: (exitCode) => {
+      observedExitCode = exitCode;
+    },
     exit: (exitCode) => {
       throw new CommanderError(
         exitCode,
@@ -252,7 +253,7 @@ export async function runValidationInProcessWithDomains(
       { from: SPX_COMMANDER_PARSE_SOURCE },
     );
     return {
-      exitCode: validationCliEmptyOutputLength(),
+      exitCode: observedExitCode,
       stderr: stderr.join(validationCliEmptyOutput()),
       stdout: stdout.join(validationCliEmptyOutput()),
     };

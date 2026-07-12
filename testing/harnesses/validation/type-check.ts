@@ -13,7 +13,7 @@ import {
   typescriptCommand,
   type TypeScriptCommandDeps,
 } from "@/commands/validation/typescript";
-import { validationCliDefinition } from "@/interfaces/cli/validation";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";

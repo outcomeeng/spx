@@ -62,7 +62,7 @@ export async function formattingCommand(
   options: FormattingCommandOptions,
   dependencies: FormattingCommandDependencies = defaultFormattingCommandDependencies,
 ): Promise<ValidationCommandResult> {
-  const { cwd, files, outputStreams, quiet } = options;
+  const { cwd, files, json, outputStreams, quiet } = options;
   const startTime = Date.now();
 
   const loaded = await resolveConfig(cwd, [validationConfigDescriptor]);
@@ -121,7 +121,7 @@ export async function formattingCommand(
     .filter((output) => output.length > 0)
     .join("\n");
   const output = [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, detail].filter((line) => line.length > 0).join("\n");
-  const terminalOutput = formattingTerminalOutput(results, outputStreams);
+  const terminalOutput = formattingTerminalOutput(results, outputStreams, json);
   return { exitCode: 1, output, terminalOutput, durationMs };
 }
 
@@ -163,8 +163,11 @@ function formattingValidationContexts(
 function formattingTerminalOutput(
   results: readonly FormattingValidationResult[],
   outputStreams: ValidationSubprocessOutputStreams | undefined,
+  json: boolean | undefined,
 ): string | undefined {
-  if (outputStreams === undefined || results.some((result) => result.error !== undefined)) return undefined;
+  if (json === true || outputStreams === undefined || results.some((result) => result.error !== undefined)) {
+    return undefined;
+  }
   return FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY;
 }
 

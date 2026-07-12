@@ -1,7 +1,7 @@
-import type { SpawnOptions } from "node:child_process";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,7 +10,7 @@ import {
   createRelatedDepsFor,
   createRunnerDepsFor,
 } from "@/interfaces/cli/test-runner-deps";
-import { type ManagedSubprocessSpawnOptions, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { DEFAULT_ESLINT_CONFIG_FILE, validateESLint } from "@/validation/steps/eslint";
 import { validateFormatting } from "@/validation/steps/formatting";
@@ -21,6 +21,11 @@ import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationCo
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
+  process.cwd(),
+  "testing/fixtures/process-lifecycle/caller-owned-stdio.ts",
+);
 
 function createValidationScopeConfig(): ScopeConfig {
   const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
@@ -44,10 +49,13 @@ function createValidationContext(scopeConfig: ScopeConfig = createValidationScop
   };
 }
 
-// Compile-time fixture: accepting options through this function proves the
-// ManagedSubprocessSpawnOptions type, not runtime behavior.
-function requireManagedSubprocessOptions(options: ManagedSubprocessSpawnOptions): ManagedSubprocessSpawnOptions {
-  return options;
+function compileFixtureDiagnostics(path: string): readonly ts.Diagnostic[] {
+  const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
+  if (configPath === undefined) throw new Error("TypeScript config unavailable for process-lifecycle fixture");
+  const config = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (config.error !== undefined) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
+  return ts.getPreEmitDiagnostics(ts.createProgram([path], parsed.options));
 }
 
 export function registerLifecycleComplianceEvidence(): void {
@@ -62,12 +70,11 @@ export function registerLifecycleComplianceEvidence(): void {
       expect(runner.spawnOptions?.stdio).toBe("pipe");
     });
 
-    it("managed subprocess options reject caller-owned stdio", () => {
-      const callerOwnedStdioOptions: SpawnOptions = { stdio: [process.stdin, process.stdout, process.stderr] };
+    it("rejects a caller-owned stdio fixture", () => {
+      const diagnostics = compileFixtureDiagnostics(CALLER_OWNED_STDIO_FIXTURE_PATH);
 
-      // @ts-expect-error - Managed subprocess options reject caller-owned stdio even through SpawnOptions variables.
-      const rejectedOptions = requireManagedSubprocessOptions(callerOwnedStdioOptions);
-      expect(rejectedOptions.stdio).toBeDefined();
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostics[0]?.file?.fileName).toBe(CALLER_OWNED_STDIO_FIXTURE_PATH);
     });
 
     it("forwards child stdout and stderr through parent output adapters", () => {

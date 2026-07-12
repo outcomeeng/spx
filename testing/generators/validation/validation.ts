@@ -15,7 +15,7 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { validationCliDefinition, validationOptionPrefix } from "@/interfaces/cli/validation";
+import { validationCliDefinition, validationOptionPrefix } from "@/interfaces/cli/validation-contract";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
@@ -588,7 +588,7 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
       args,
       timeout: HARNESS_TIMEOUT,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [VALIDATION_STAGE_DISPLAY_NAMES.ESLINT],
+      stdoutIncludes: [VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS],
       combinedIncludes: [],
       stdoutExcludes: [lintSkip, ...runtimeAntiMarkers],
       stderrExcludes: runtimeAntiMarkers,
@@ -658,18 +658,35 @@ export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessS
     stdoutExcludes: runtimeAntiMarkers,
     stderrExcludes: runtimeAntiMarkers,
     combinedExcludes: runtimeAntiMarkers,
-  }, validationAllTypeScriptComplianceEvidence()];
+  }, {
+    title: "TypeScript-absent fixture skips every TypeScript validation stage",
+    fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
+    args,
+    timeout: HARNESS_TIMEOUT,
+    expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
+    stdoutIncludes: typescriptValidationLanguage.stages.map((stage) => formatTypeScriptAbsentSkipMessage(stage.name)),
+    combinedIncludes: [],
+    stdoutExcludes: runtimeAntiMarkers,
+    stderrExcludes: runtimeAntiMarkers,
+    combinedExcludes: runtimeAntiMarkers,
+  }];
 }
 
 export function validationAllTypeScriptComplianceEvidence(): ValidationSubprocessScenario {
   const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
   return {
-    title: "TypeScript-absent fixture skips every TypeScript validation stage",
-    fixture: PROJECT_FIXTURES.PYTHON_PROJECT,
+    title: "registered TypeScript stages follow their defaults and report real verdicts",
+    fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
     args: [validationCliDefinition.subcommands.all.commandName],
-    timeout: HARNESS_TIMEOUT,
+    timeout: PIPELINE_SUBPROCESS_TIMEOUT_MS,
     expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-    stdoutIncludes: typescriptValidationLanguage.stages.map((stage) => formatTypeScriptAbsentSkipMessage(stage.name)),
+    stdoutIncludes: [
+      VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
+      VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED,
+      VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS,
+      VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
+      NO_PROBLEMS_MESSAGE,
+    ],
     combinedIncludes: [],
     stdoutExcludes: runtimeAntiMarkers,
     stderrExcludes: runtimeAntiMarkers,

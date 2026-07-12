@@ -39,6 +39,7 @@ import {
   validateCircularDependencies,
 } from "@/validation/steps/circular";
 import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import {
   defaultTypeScriptDeps,
   formatTypeScriptExitCodeError,
@@ -64,10 +65,7 @@ import {
   nestedSourceFile,
   topLevelSourceFile,
 } from "@testing/harnesses/validation/scope-resolution";
-import {
-  createDiscardValidationSubprocessOutputStreams,
-  RecordingSpawnOptionsRunner,
-} from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 export function registerValidationScopeResolutionComplianceTests(): void {
@@ -510,7 +508,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await typescriptCommand({
           cwd: path,
           files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-          outputStreams: createDiscardValidationSubprocessOutputStreams(),
+          outputStreams: discardValidationSubprocessOutputStreams,
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
@@ -552,7 +550,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await typescriptCommand({
           cwd: path,
           files: ["."],
-          outputStreams: createDiscardValidationSubprocessOutputStreams(),
+          outputStreams: discardValidationSubprocessOutputStreams,
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
@@ -635,7 +633,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
         const result = await typescriptCommand({
           cwd: path,
           files: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-          outputStreams: createDiscardValidationSubprocessOutputStreams(),
+          outputStreams: discardValidationSubprocessOutputStreams,
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);

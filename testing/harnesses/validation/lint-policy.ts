@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import { lintCommand, type LintCommandDeps } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { validateLintPolicy } from "@/validation/lint-policy";
 import { validateESLint } from "@/validation/steps/eslint";
 import {
   VALIDATION_LINT_POLICY_DATA,
@@ -55,6 +54,10 @@ async function writePolicyConfigFixture(productDir: string): Promise<void> {
   await writePolicyManifest(productDir, {
     testLintDebtNodes: [],
   });
+  await writeLintCommandDetectionFixture(productDir);
+}
+
+async function writeLintCommandDetectionFixture(productDir: string): Promise<void> {
   await writeFile(
     join(productDir, VALIDATION_LINT_POLICY_DATA.typescriptConfigFile),
     VALIDATION_LINT_POLICY_DATA.typescriptConfigMarkerContent,
@@ -65,20 +68,30 @@ async function writePolicyConfigFixture(productDir: string): Promise<void> {
   );
 }
 
+async function runLintPolicyThroughCommand(productDir: string): Promise<{
+  readonly result: Awaited<ReturnType<typeof lintCommand>>;
+  readonly runner: RecordingSpawnOptionsRunner;
+}> {
+  await writeLintCommandDetectionFixture(productDir);
+  const runner = new RecordingSpawnOptionsRunner();
+  const toolPath = join(productDir, VALIDATION_LINT_POLICY_DATA.policyToolPath);
+  const deps: LintCommandDeps = {
+    discoverTool: async (tool) => ({
+      found: true,
+      location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+    }),
+    validateESLint: (context, _runner, outputStreams) => validateESLint(context, runner, outputStreams),
+  };
+  return {
+    result: await lintCommand({ cwd: productDir, quiet: true }, deps),
+    runner,
+  };
+}
+
 async function runLintCommandPolicyScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await writePolicyBoundaryFixture(productDir);
-    const runner = new RecordingSpawnOptionsRunner();
-    const toolPath = join(productDir, VALIDATION_LINT_POLICY_DATA.policyToolPath);
-    const deps: LintCommandDeps = {
-      discoverTool: async (tool) => ({
-        found: true,
-        location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
-      }),
-      validateESLint: (context, _runner, outputStreams) => validateESLint(context, runner, outputStreams),
-    };
-
-    const result = await lintCommand({ cwd: productDir, quiet: true }, deps);
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
 
     expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
     expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
@@ -225,9 +238,10 @@ async function writeBaseDebtFixture(productDir: string): Promise<void> {
 
 async function runUnrelatedProjectScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
-    const result = validateLintPolicy(productDir);
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+    expect(runner.commands).toHaveLength(1);
   });
 }
 
@@ -235,9 +249,9 @@ async function runExistingDebtScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await writeBaseDebtFixture(productDir);
 
-    const result = validateLintPolicy(productDir);
+    const { result } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
   });
 }
 
@@ -258,13 +272,12 @@ async function runBranchAdditionScenario(): Promise<void> {
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
     await commitPostDebtBranchState(productDir);
 
-    const result = validateLintPolicy(productDir);
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES.file);
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
-    }
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES.file);
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
+    expect(runner.commands).toEqual([]);
   });
 }
 
@@ -290,14 +303,13 @@ async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> {
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
     await commitPostDebtBranchState(productDir);
 
-    const result = validateLintPolicy(productDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(
-        VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES.file,
-      );
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
-    }
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(
+      VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES.file,
+    );
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
+    expect(runner.commands).toEqual([]);
   });
 }
 
@@ -310,9 +322,9 @@ async function runBaselineAbsentScenario(): Promise<void> {
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
 
-    const result = validateLintPolicy(productDir);
+    const { result } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
   });
 }
 
@@ -360,6 +372,8 @@ async function runHookGitVariablesScenario(): Promise<void> {
 
       const result = await validateLintPolicyInChildProcess(productDir, pollutedGitEnvironment);
       expect(result.ok).toBe(true);
+      const commandObservation = await runLintPolicyThroughCommand(productDir);
+      expect(commandObservation.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
     });
 
     await expect(readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT])).resolves.toBe(
@@ -393,13 +407,12 @@ async function runCorruptBaselineScenario(): Promise<void> {
       testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
     });
 
-    const result = validateLintPolicy(productDir);
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(testDebtManifest.file);
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.jsonObjectErrorFragment);
-    }
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(testDebtManifest.file);
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.jsonObjectErrorFragment);
+    expect(runner.commands).toEqual([]);
   });
 }
 
@@ -410,11 +423,10 @@ async function runDeprecatedSpecNodeSuffixScenario(): Promise<void> {
       testLintDebtNodes: [],
     });
 
-    const result = validateLintPolicy(productDir);
+    const { result, runner } = await runLintPolicyThroughCommand(productDir);
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
-    }
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
+    expect(runner.commands).toEqual([]);
   });
 }
