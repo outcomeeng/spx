@@ -8,7 +8,7 @@ CAN catch unformatted files before they reach the repository, with one verdict r
 
 - Given a product whose files are all formatted, when `spx validation format` runs, then no problems are reported and it exits 0 ([test](tests/formatting.scenario.l2.test.ts))
 - Given a product with an unformatted file, when `spx validation format` runs, then a problem is reported identifying the file and the command exits non-zero ([test](tests/formatting.scenario.l2.test.ts))
-- Given `spx validation all` runs, then formatting executes as a registry-composed stage and its failure fails the pipeline ([test](tests/formatting.scenario.l2.test.ts))
+- Given `spx validation all` runs, when formatting reports a failure, then the full pipeline reports the formatting failure and exits non-zero ([test](tests/formatting.scenario.l2.test.ts))
 - Given a user runs `spx validation format` on a product with an unformatted file, then the process exits non-zero and the output identifies the file ([test](tests/formatting.scenario.l2.test.ts))
 - Given a product with a `.gitignore`d unformatted file, when `spx validation format` runs, then no problem is reported and it exits 0 ([test](tests/formatting.scenario.l2.test.ts))
 - Given a directory path operand, when `spx validation format <directory>` runs, then the operand expands to a recursive `**/*` glob before dprint dispatch ([test](tests/formatting.scenario.l2.test.ts))
