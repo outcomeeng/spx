@@ -1,9 +1,9 @@
 import { describe, it } from "vitest";
 
+import { INVALID_DIAGNOSE_REPORT_CASES } from "@testing/generators/diagnose/report-scenarios";
 import {
   assertInvalidDiagnoseReportRejected,
   assertJsonReportPreservesSchema,
-  INVALID_DIAGNOSE_REPORT_CASES,
 } from "@testing/harnesses/diagnose/report";
 
 describe("the JSON report conforms to the runtime report schema", () => {

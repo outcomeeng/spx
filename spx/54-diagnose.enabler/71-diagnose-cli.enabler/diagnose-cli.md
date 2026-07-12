@@ -16,9 +16,10 @@ CAN identify the executing SPX version and actionable health immediately, inspec
 
 - Output selection maps no selector to concise human text, `--verbose` to detailed human text, and `--json` to the complete schema-valid JSON report; the selected output mode changes no provider execution, classification, folding, remediation, or exit status ([test](tests/output-mode.mapping.l2.test.ts))
 - The process exit code maps the overall verdict — healthy to 0, degraded to 1, unknown to 2, broken to 3 ([test](tests/exit-code.mapping.l1.test.ts))
+- Every verdict bucket maps a human diagnosis heading to the styled-output glyph for that bucket's severity ([test](tests/styled-output.mapping.l1.test.ts))
+- Every overall verdict maps the human diagnosis summary to the styled-output color for that verdict's severity ([test](tests/styled-output.mapping.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: each human diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis summary is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
 - ALWAYS: the human report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive ([audit])
 - NEVER: accept `--verbose` together with `--json`, or accept the removed `--format` option; invalid output options fail with a sanitized diagnostic before diagnosis runs ([test](tests/error-sanitization.compliance.l2.test.ts))
