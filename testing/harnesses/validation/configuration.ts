@@ -150,6 +150,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         expect(validationCalls).toEqual([
           {
             productDir: env.productDir,
+            toolPath: env.productDir,
             typescriptScope: {
               directories: [],
               filePatterns: [sourceFilePath],
