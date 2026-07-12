@@ -1,9 +1,10 @@
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import { DEFAULT_CONFIG } from "@/config/defaults";
 import { resolveProductDir } from "@/domains/config/root";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import { SESSION_STATUSES } from "@/domains/session/types";
@@ -13,6 +14,8 @@ import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
+import { sessionsScopeDir } from "@/lib/state-store";
+import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   CONFIG_TEST_GENERATOR,
@@ -28,7 +31,7 @@ import {
   productContextTestingConfig,
   runProductContextCli,
 } from "@testing/harnesses/product-context/cli";
-import { createNonGitSessionEnv } from "@testing/harnesses/session/harness";
+import { createSessionHarness } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 const tempDirs = new ProductContextTempDirs();
@@ -112,6 +115,15 @@ async function assertRedirectedValidationMatchesDirectInvocation(scope: Generate
   const callerDir = await tempDirs.makeTempDir();
   const productDir = await tempDirs.makeTempDir();
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+  await mkdir(join(productDir, "src"), { recursive: true });
+  await writeFile(
+    join(productDir, TSCONFIG_FILES.full),
+    JSON.stringify({
+      compilerOptions: { noEmit: true, strict: true },
+      include: ["src/**/*.ts"],
+    }),
+  );
+  await writeFile(join(productDir, "src/index.ts"), "export const productContextValue: string = 'valid';\n");
   const nestedProductDir = join(productDir, scope.nestedDirectory);
   await mkdir(nestedProductDir, { recursive: true });
 
@@ -128,28 +140,38 @@ async function assertRedirectedValidationMatchesDirectInvocation(scope: Generate
   );
 
   expect(redirected).toEqual(direct);
-  expect(redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+  expect(redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
 }
 
 async function assertRedirectedSessionListMatchesDirectInvocation(scope: GeneratedResolutionScope): Promise<void> {
-  const sessionEnv = await createNonGitSessionEnv();
+  const sessionEnv = await createSessionHarness();
   cleanupTasks.push(sessionEnv.cleanup);
+  const productDir = await tempDirs.makeTempDir();
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+  const nestedProductDir = join(productDir, scope.nestedDirectory);
+  await mkdir(nestedProductDir, { recursive: true });
   const callerRoot = await tempDirs.makeTempDir();
   const callerDir = join(callerRoot, scope.nestedDirectory);
   await mkdir(callerDir, { recursive: true });
   const sessionId = sampleSessionId();
-  await sessionEnv.writeSession(SESSION_STATUSES[0], sessionId);
+  const sessionFile = await sessionEnv.writeSession(SESSION_STATUSES[0], sessionId);
+  const sharedStatusDir = join(
+    sessionsScopeDir(productDir),
+    DEFAULT_CONFIG.sessions.statusDirs[SESSION_STATUSES[0]],
+  );
+  await mkdir(sharedStatusDir, { recursive: true });
+  await copyFile(sessionFile, join(sharedStatusDir, basename(sessionFile)));
 
-  const direct = await runProductContextCli(sessionListJsonArgs(), { processCwd: sessionEnv.cwd });
+  const direct = await runProductContextCli(sessionListJsonArgs(), { processCwd: nestedProductDir });
   const redirected = await runProductContextCli(
-    [SPX_GLOBAL_OPTIONS.directory.short, sessionEnv.cwd, ...sessionListJsonArgs()],
+    [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...sessionListJsonArgs()],
     { processCwd: callerDir },
   );
 
   expect(redirected).toEqual(direct);
   expect(redirected.exitCodes).toEqual([]);
   expect(redirected.stdout).toContain(sessionId);
-  expect(redirected.stderr).toContain(NOT_GIT_REPO_WARNING);
+  expect(redirected.stderr).not.toContain(NOT_GIT_REPO_WARNING);
 }
 
 async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedResolutionScope): Promise<void> {
