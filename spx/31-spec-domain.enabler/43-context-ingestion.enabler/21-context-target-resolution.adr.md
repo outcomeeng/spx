@@ -14,9 +14,12 @@ Segment-by-segment resolution preserves the tree hierarchy and makes abbreviated
 
 ## Verification
 
+### Testing
+
+- ALWAYS: each structured target-resolution failure variant maps to an actionable CLI diagnostic that identifies the rejected input and resolution failure ([mapping])
+- NEVER: target resolution selects the first candidate for an ambiguous segment or uses whole-string fuzzy matching ([compliance])
+
 ### Audit
 
 - ALWAYS: target resolution operates only on the parsed spec-tree snapshot and returns a typed result without filesystem access or process I/O ([audit])
-- ALWAYS: the CLI interface translates structured resolution failures into user-facing diagnostics ([audit])
-- NEVER: target resolution selects the first candidate for an ambiguous segment or uses whole-string fuzzy matching ([audit])
 - NEVER: tests replace target-resolution dependencies through `vi.mock()` or `jest.mock()` ([audit])
