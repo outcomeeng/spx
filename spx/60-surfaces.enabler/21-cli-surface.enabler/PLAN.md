@@ -6,18 +6,18 @@
 
 ## Materialized command-surface nodes
 
-| Path                                                                                            | Coordination                                                                                      |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md`  | Shared public command vocabulary and command-surface enforcement child grouping.                  |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler/PLAN.md` | Verification-run command-family child grouping and lower-layer cascade.                           |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/PLAN.md`                     | Transitional journal-surface correction; only the thin `spx journal` binding stays under surface. |
+| Path                                                                                           | Coordination                                                                                      |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md` | Shared public command vocabulary and command-surface enforcement child grouping.                  |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/PLAN.md`               | Verification command-family child structure (record-run, execute-run) and lower-layer cascade.    |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/PLAN.md`                    | Transitional journal-surface correction; only the thin `spx journal` binding stays under surface. |
 
 ## Verification-run cascade
 
 The public verification-run command shape is declared by:
 
 - `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`
-- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler/verification-command-family.md`
+- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md`
 
 Remaining implementation-bearing work:
 

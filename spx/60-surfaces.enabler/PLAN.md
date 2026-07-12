@@ -6,14 +6,14 @@
 
 ## Child coordination
 
-| Path                                                                                            | Purpose                                                                                                                                 |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md`                                        | CLI command-surface governance, command-family organization, verification-run command shape, and journal-surface correction.            |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md`  | Shared public command vocabulary and command-surface enforcement child grouping.                                                        |
-| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification-command-family.enabler/PLAN.md` | Verification-run command-family child grouping.                                                                                         |
-| API surface                                                                                     | Add when an API interaction boundary needs its own durable surface node for protocol grammar, operation exposure, and defaults.         |
-| MCP surface                                                                                     | Add when an MCP interaction boundary needs its own durable surface node for operation grammar, tool or resource exposure, and defaults. |
-| Web frontend surface                                                                            | Add when a web frontend interaction boundary needs its own durable surface node for visual interaction and presentation behavior.       |
+| Path                                                                                           | Purpose                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md`                                       | CLI command-surface governance, command-family organization, verification-run command shape, and journal-surface correction.            |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/15-command-surface-governance.enabler/PLAN.md` | Shared public command vocabulary and command-surface enforcement child grouping.                                                        |
+| `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/PLAN.md`               | Verification command-family child structure: record-run and execute-run.                                                                |
+| API surface                                                                                    | Add when an API interaction boundary needs its own durable surface node for protocol grammar, operation exposure, and defaults.         |
+| MCP surface                                                                                    | Add when an MCP interaction boundary needs its own durable surface node for operation grammar, tool or resource exposure, and defaults. |
+| Web frontend surface                                                                           | Add when a web frontend interaction boundary needs its own durable surface node for visual interaction and presentation behavior.       |
 
 ## Boundary notes
 
