@@ -62,7 +62,10 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+export const METHODOLOGY_PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+export const METHODOLOGY_CACHE_HOME_KEYS = ["codex", "claudeCode"] as const satisfies readonly (keyof ReturnType<
+  typeof resolveAgentHomeDirs
+>)[];
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
@@ -616,10 +619,14 @@ async function configuredVersionDirectory(
 
 export function createMethodologyContextProbe(...agentHomeDirs: readonly string[]): MethodologyContextProbe {
   const resolvedHomes = resolveAgentHomeDirs();
-  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
+  const homeDirs = agentHomeDirs.length > 0
+    ? agentHomeDirs
+    : METHODOLOGY_CACHE_HOME_KEYS.map((key) => resolvedHomes[key]);
   return {
     async probe(config): Promise<MethodologyContextObservation> {
-      const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
+      const sourcePaths = homeDirs.map((home) =>
+        join(home, ...METHODOLOGY_PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"))
+      );
       const reading = await configuredVersionDirectory(sourcePaths, config);
       if (reading.version === null) {
         return { source: null, version: null, errored: reading.errored };

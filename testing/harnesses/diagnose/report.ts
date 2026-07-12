@@ -13,11 +13,7 @@ import {
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
-import {
-  BUCKET_SEVERITY,
-  CANONICAL_CHECKOUT_PROBLEM,
-  OVERALL_SEVERITY,
-} from "@/domains/diagnose/report-contract";
+import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM } from "@/domains/diagnose/report-contract";
 import { CHECK_RECORD_FIELDS, type CheckRecord, OVERALL_VERDICT } from "@/domains/diagnose/types";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
@@ -163,12 +159,12 @@ export function assertInvalidDiagnoseReportRejected(testCase: InvalidDiagnoseRep
 
 export function assertHeadingGlyphCase(testCase: StyledBucketCase): void {
   const heading = renderReportText(testCase.report, { color: false }).split("\n")[0];
-  expect(heading.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[testCase.bucket]].glyph} `)).toBe(true);
+  expect(heading.startsWith(`${SEVERITY_STYLE[testCase.expectedSeverity].glyph} `)).toBe(true);
 }
 
 export function assertOverallColorCase(testCase: StyledOverallCase): void {
   const chalk = new Chalk({ level: 1 });
-  const style = SEVERITY_STYLE[OVERALL_SEVERITY[testCase.overall]].style;
+  const style = SEVERITY_STYLE[testCase.expectedSeverity].style;
   expect(renderReportText(testCase.report, { color: true })).toContain(
     chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${testCase.overall}`),
   );

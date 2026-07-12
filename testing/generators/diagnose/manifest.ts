@@ -11,8 +11,8 @@
 
 import fc from "fast-check";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
+import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { CHECK_NAME, type CheckName, DIAGNOSE_MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 
 const DIAGNOSE_SAMPLE_SEED = 7;
 const METHODOLOGY_SOURCE_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -79,16 +79,16 @@ export const arbitraryManifestFacts = (): fc.Arbitrary<ManifestFacts> =>
 
 /** Serializes manifest facts to the manifest JSON, emitting only the consumer facts the selected checks require. */
 export function manifestJson(facts: ManifestFacts): string {
-  const body: Record<string, unknown> = { checks: facts.checks };
+  const body: Record<string, unknown> = { [DIAGNOSE_MANIFEST_FIELDS.CHECKS]: facts.checks };
   if (facts.checks.includes(CHECK_NAME.SPX_REACHABILITY)) {
-    body.spx_floor = facts.spxFloor;
+    body[DIAGNOSE_MANIFEST_FIELDS.SPX_FLOOR] = facts.spxFloor;
   }
   if (facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-    body.marketplace = { name: facts.marketplaceName, source: facts.marketplaceSource };
-    body.expected_plugins = facts.expectedPlugins;
+    body[DIAGNOSE_MANIFEST_FIELDS.MARKETPLACE] = { name: facts.marketplaceName, source: facts.marketplaceSource };
+    body[DIAGNOSE_MANIFEST_FIELDS.EXPECTED_PLUGINS] = facts.expectedPlugins;
   }
   if (facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
-    body[METHODOLOGY_SECTION] = {
+    body[DIAGNOSE_MANIFEST_FIELDS.METHODOLOGY] = {
       [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
       [METHODOLOGY_CONFIG_FIELDS.VERSION]: facts.methodologyVersion,
     };
