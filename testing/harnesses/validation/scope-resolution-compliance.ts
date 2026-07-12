@@ -993,8 +993,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
           throw new Error("temporary TypeScript config path was not recorded");
         }
         expectTemporaryConfigPathInsideNodeModules(env.productDir, temporaryConfigPath);
-        const status = await readGit(env.productDir, GIT_STATUS_PORCELAIN_ARGS);
-        expect(status).not.toContain(relative(env.productDir, temporaryConfigPath));
+        await expectTemporaryConfigIsUntracked(env.productDir, temporaryConfigPath);
         const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
         expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
         expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
@@ -1003,6 +1002,7 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
     it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
       await withTestEnv({}, async (env) => {
+        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
         const runner = new RecordingSpawnOptionsRunner();
         const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
 
@@ -1017,11 +1017,24 @@ export function registerValidationScopeResolutionComplianceTests(): void {
 
         expect(result.success).toBe(true);
         expect(writtenConfigPaths).toHaveLength(1);
-        expectTemporaryConfigPathInsideNodeModules(env.productDir, writtenConfigPaths[0]);
+        const temporaryConfigPath = writtenConfigPaths.at(0);
+        if (temporaryConfigPath === undefined) {
+          throw new Error("temporary TypeScript config path was not recorded");
+        }
+        expectTemporaryConfigPathInsideNodeModules(env.productDir, temporaryConfigPath);
+        await expectTemporaryConfigIsUntracked(env.productDir, temporaryConfigPath);
         const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
         expect(writtenConfig.extends).toBe(join(env.productDir, TSCONFIG_FILES.full));
         expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
       });
     });
   });
+}
+
+async function expectTemporaryConfigIsUntracked(
+  productDir: string,
+  temporaryConfigPath: string,
+): Promise<void> {
+  const status = await readGit(productDir, GIT_STATUS_PORCELAIN_ARGS);
+  expect(status).not.toContain(relative(productDir, temporaryConfigPath));
 }
