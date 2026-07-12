@@ -13,6 +13,15 @@ const DOCUMENT_COUNT_MIN = 1;
 const DOCUMENT_COUNT_MAX = 3;
 const DOCUMENT_PREFIX = "# ";
 const VERSION_SEPARATOR = "\n\n";
+const SPEC_TREE_DIRECTORY = "spx";
+const SOURCE_DOMAIN_DIRECTORY = "src/domains";
+const SPEC_NODE_SUFFIX = ".enabler";
+const TYPESCRIPT_FILE_EXTENSION = ".ts";
+
+export interface AmbientProductState {
+  readonly path: string;
+  readonly content: string;
+}
 
 export interface DocumentationSyncScenario {
   readonly releaseData: ReleaseData;
@@ -20,6 +29,7 @@ export interface DocumentationSyncScenario {
   readonly paths: readonly string[];
   readonly original: Readonly<Partial<Record<string, string>>>;
   readonly updated: Readonly<Partial<Record<string, string>>>;
+  readonly ambientState: readonly AmbientProductState[];
 }
 
 export function arbitraryDefaultDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
@@ -44,8 +54,15 @@ function arbitraryDocumentationSyncScenario(
   config: DocumentationSyncConfig,
 ): fc.Arbitrary<DocumentationSyncScenario> {
   return fc
-    .tuple(RELEASE_TEST_GENERATOR.releaseData(), pathsArbitrary, arbitraryPathSegment())
-    .map(([releaseData, paths, priorVersion]) => ({
+    .tuple(
+      RELEASE_TEST_GENERATOR.releaseData(),
+      pathsArbitrary,
+      arbitraryPathSegment(),
+      arbitraryPathSegment(),
+      arbitraryPathSegment(),
+      arbitraryPathSegment(),
+    )
+    .map(([releaseData, paths, priorVersion, specState, domainState, ambientContent]) => ({
       releaseData,
       config,
       paths,
@@ -55,5 +72,15 @@ function arbitraryDocumentationSyncScenario(
       updated: Object.fromEntries(
         paths.map((path) => [path, `${DOCUMENT_PREFIX}${priorVersion}${VERSION_SEPARATOR}${releaseData.version}\n`]),
       ),
+      ambientState: [
+        {
+          path: `${SPEC_TREE_DIRECTORY}/${specState}${SPEC_NODE_SUFFIX}/${specState}${DOCUMENTATION_FILE_EXTENSION}`,
+          content: `${ambientContent}-${specState}`,
+        },
+        {
+          path: `${SOURCE_DOMAIN_DIRECTORY}/${domainState}${TYPESCRIPT_FILE_EXTENSION}`,
+          content: `${ambientContent}-${domainState}`,
+        },
+      ],
     }));
 }
