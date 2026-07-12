@@ -10,31 +10,32 @@ import { expect, vi } from "vitest";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
+import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
 import {
-  DEFAULT_METHODOLOGY_SOURCE,
-  DEFAULT_METHODOLOGY_VERSION,
-} from "@/config/methodology";
-import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
-import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+  MARKETPLACE_INSTALL_VERDICT,
+  marketplaceInstallRunner,
+} from "@/domains/diagnose/checks/marketplace-install";
+import { METHODOLOGY_CONTEXT_VERDICT, methodologyContextRunner } from "@/domains/diagnose/checks/methodology-context";
+import { SESSION_ENVIRONMENT_VERDICT, sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
+import { SESSION_STORE_VERDICT, sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import {
   SPX_REACHABILITY_READING_VALUE,
   SPX_REACHABILITY_VERDICT,
   type SpxReachabilityProbe,
   spxReachabilityRunner,
 } from "@/domains/diagnose/checks/spx-reachability";
-import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
+import { WORKTREE_POOL_VERDICT, worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
 import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
+import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { foldOverallVerdict, overallExitCode, VERDICT_EXIT_CODE } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import {
   DIAGNOSE_OUTPUT_MODE,
-  type DiagnoseOutputMode,
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_HINT,
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
+  type DiagnoseOutputMode,
   parseDiagnoseReportJson,
 } from "@/domains/diagnose/report";
 import {
@@ -53,7 +54,9 @@ import {
   manifestJson,
   sampleDiagnoseTestValue,
 } from "@testing/generators/diagnose/manifest";
+import { type DefaultDiagnoseScenario, defaultDiagnoseScenario } from "@testing/generators/diagnose/report-scenarios";
 import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 vi.setConfig({ testTimeout: CLI_TIMEOUTS_MS.E2E_BATCH });
@@ -191,10 +194,13 @@ async function withSpxReachabilityManifest<T>(
   return withTempDir("diagnose-cli-", async (productDir) => {
     const spxFloor = sampleDiagnoseTestValue(arbitrarySpxFloor());
     const manifestPath = join(productDir, "diagnose.json");
-    await writeFile(manifestPath, JSON.stringify({
-      checks: [CHECK_NAME.SPX_REACHABILITY],
-      spx_floor: spxFloor,
-    }));
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        checks: [CHECK_NAME.SPX_REACHABILITY],
+        spx_floor: spxFloor,
+      }),
+    );
     return callback(manifestPath, spxFloor);
   });
 }
@@ -202,12 +208,15 @@ async function withSpxReachabilityManifest<T>(
 async function withAllChecksManifest<T>(callback: (manifestPath: string) => Promise<T>): Promise<T> {
   return withTempDir("diagnose-cli-", async (productDir) => {
     const manifestPath = join(productDir, "diagnose.json");
-    await writeFile(manifestPath, manifestJson({
-      ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
-      checks: Object.values(CHECK_NAME),
-      methodologySource: DEFAULT_METHODOLOGY_SOURCE,
-      methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
-    }));
+    await writeFile(
+      manifestPath,
+      manifestJson({
+        ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
+        checks: Object.values(CHECK_NAME),
+        methodologySource: DEFAULT_METHODOLOGY_SOURCE,
+        methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
+      }),
+    );
     return callback(manifestPath);
   });
 }
@@ -310,6 +319,31 @@ async function packagedCliVersion(): Promise<string> {
   return result.stdout;
 }
 
+function controlledDefaultRegistry(scenario: DefaultDiagnoseScenario): CheckRegistry {
+  return {
+    [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner({
+      probe: () => Promise.resolve(scenario.spx),
+    }),
+    [CHECK_NAME.SESSION_ENVIRONMENT]: sessionEnvironmentRunner({
+      probe: () => Promise.resolve(scenario.sessionEnvironment),
+    }),
+    [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner({
+      probe: () => Promise.resolve(scenario.worktreePool),
+    }),
+    [CHECK_NAME.SESSION_STORE]: sessionStoreRunner({
+      probe: () => Promise.resolve(scenario.sessionStore),
+    }),
+    [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner({
+      probe: () => {
+        throw new Error("default marketplace facts must not invoke the marketplace probe");
+      },
+    }),
+    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner({
+      probe: () => Promise.resolve(scenario.methodology),
+    }),
+  };
+}
+
 export async function assertManifestDiagnoseJson(): Promise<void> {
   await withSpxReachabilityManifest(async (manifestPath, spxFloor) => {
     const run = await runDiagnose([
@@ -352,6 +386,10 @@ export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
     expect(concise.stdout).not.toContain(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH);
     expect(concise.stdout).not.toContain(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION);
     for (const check of report.checks) {
+      if (check.bucket !== VERDICT_BUCKET.HEALTHY && check.bucket !== VERDICT_BUCKET.NOT_APPLICABLE) {
+        expect(concise.stdout).toContain(expectedHumanHeader(check));
+        expect(concise.stdout).toContain(check.remediation);
+      }
       for (const [name, reading] of Object.entries(check.readings)) {
         expect(concise.stdout).not.toContain(`${name}: ${reading}`);
       }
@@ -412,10 +450,13 @@ export async function assertPresentationModesPreserveDiagnosis(): Promise<void> 
     const spxFloor = sampleDiagnoseTestValue(arbitrarySpxFloor());
     const resolvedPath = join(productDir, sampleDiagnoseTestValue(arbitraryNameToken()));
     const manifestPath = join(productDir, "diagnose.json");
-    await writeFile(manifestPath, JSON.stringify({
-      checks: [CHECK_NAME.SPX_REACHABILITY],
-      spx_floor: spxFloor,
-    }));
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        checks: [CHECK_NAME.SPX_REACHABILITY],
+        spx_floor: spxFloor,
+      }),
+    );
     const probe = new RecordingSpxReachabilityProbe(resolvedPath, spxFloor);
     const results = [];
     for (const testCase of DIAGNOSE_OUTPUT_SELECTOR_CASES) {
@@ -449,11 +490,14 @@ export async function assertPresentationModesPreserveDiagnosis(): Promise<void> 
 export async function assertConfigDiagnoseJson(): Promise<void> {
   await withTempDir("diagnose-config-", async (productDir) => {
     const spxFloor = sampleDiagnoseTestValue(arbitrarySpxFloor());
-    await writeFile(join(productDir, DEFAULT_CONFIG_FILENAME), [
-      `${DIAGNOSE_SECTION}:`,
-      `  ${DIAGNOSE_CONFIG_FIELDS.SPX_FLOOR}: "${spxFloor}"`,
-      `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: ["${CHECK_NAME.SPX_REACHABILITY}"]`,
-    ].join("\n"));
+    await writeFile(
+      join(productDir, DEFAULT_CONFIG_FILENAME),
+      [
+        `${DIAGNOSE_SECTION}:`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.SPX_FLOOR}: "${spxFloor}"`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: ["${CHECK_NAME.SPX_REACHABILITY}"]`,
+      ].join("\n"),
+    );
     const run = await runDiagnose([DIAGNOSE_CLI.JSON_FLAG], { cwd: productDir });
     const report = parseReport(run);
     expectSchemaValidReport(report);
@@ -465,41 +509,99 @@ export async function assertConfigDiagnoseJson(): Promise<void> {
 }
 
 export async function assertBareDiagnoseJson(): Promise<void> {
-  await withTempDir("diagnose-bare-", async (productDir) => {
-    const run = await runDiagnose([DIAGNOSE_CLI.JSON_FLAG], { cwd: productDir });
-    const report = parseReport(run);
-    const spxRecord = checkByName(report, CHECK_NAME.SPX_REACHABILITY);
+  const scenario = defaultDiagnoseScenario();
+  await withTestEnv({}, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
+      color: false,
+      registry: controlledDefaultRegistry(scenario),
+      fs: { readFile: () => Promise.resolve("") },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    const report = parseReportText(result.value.output);
     expectSchemaValidReport(report);
-    expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
-    expect([SPX_REACHABILITY_VERDICT.PRESENT, SPX_REACHABILITY_VERDICT.UNREACHABLE]).toContain(spxRecord.verdict);
-    expect(spxRecord.readings.floor).toBe(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR);
-    expect(Object.values(SESSION_ENVIRONMENT_VERDICT)).toContain(
-      checkByName(report, CHECK_NAME.SESSION_ENVIRONMENT).verdict,
-    );
-    expect(Object.values(WORKTREE_POOL_VERDICT)).toContain(checkByName(report, CHECK_NAME.WORKTREE_POOL).verdict);
-    expect(Object.values(SESSION_STORE_VERDICT)).toContain(checkByName(report, CHECK_NAME.SESSION_STORE).verdict);
-    expect(checkByName(report, CHECK_NAME.MARKETPLACE_INSTALL).verdict).toBe(
-      MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE,
-    );
-    expect(Object.values(METHODOLOGY_CONTEXT_VERDICT)).toContain(
-      checkByName(report, CHECK_NAME.METHODOLOGY_CONTEXT).verdict,
-    );
-    expectExitCodeKeyedToFold(run, report);
+    expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
+    expect(checkByName(report, CHECK_NAME.SPX_REACHABILITY)).toMatchObject({
+      verdict: SPX_REACHABILITY_VERDICT.PRESENT,
+      bucket: VERDICT_BUCKET.HEALTHY,
+      readings: {
+        path: scenario.spx.resolvedPath,
+        version: scenario.spx.version,
+        floor: SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR,
+      },
+    });
+    expect(checkByName(report, CHECK_NAME.SESSION_ENVIRONMENT)).toMatchObject({
+      verdict: SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE,
+      bucket: VERDICT_BUCKET.NOT_APPLICABLE,
+      readings: {
+        hook: String(scenario.sessionEnvironment.hookPresent),
+        identity: String(scenario.sessionEnvironment.sessionIdentity),
+        claimed: String(scenario.sessionEnvironment.worktreeClaimed),
+      },
+    });
+    expect(checkByName(report, CHECK_NAME.WORKTREE_POOL)).toMatchObject({
+      verdict: WORKTREE_POOL_VERDICT.COMPLIANT,
+      bucket: VERDICT_BUCKET.HEALTHY,
+      readings: {
+        bare: String(scenario.worktreePool.bareRepository),
+        linked: String(scenario.worktreePool.linkedWorktrees),
+        mainCheckoutPath: scenario.worktreePool.mainCheckoutPath,
+        defaultBranch: scenario.worktreePool.defaultBranch,
+        mainCheckoutBranch: scenario.worktreePool.mainCheckoutBranch,
+        mainCheckoutBranchRead: String(scenario.worktreePool.mainCheckoutBranchRead),
+        running: String(scenario.worktreePool.running),
+        free: String(scenario.worktreePool.free),
+      },
+    });
+    expect(checkByName(report, CHECK_NAME.SESSION_STORE)).toMatchObject({
+      verdict: SESSION_STORE_VERDICT.CONSISTENT,
+      bucket: VERDICT_BUCKET.HEALTHY,
+      readings: { orphaned: String(scenario.sessionStore.orphanedClaims) },
+    });
+    expect(checkByName(report, CHECK_NAME.MARKETPLACE_INSTALL)).toMatchObject({
+      verdict: MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE,
+      bucket: VERDICT_BUCKET.NOT_APPLICABLE,
+      readings: {
+        configured: String(false),
+        surface: String(false),
+        unregistered: String(false),
+        drifted: String(false),
+      },
+    });
+    expect(checkByName(report, CHECK_NAME.METHODOLOGY_CONTEXT)).toMatchObject({
+      verdict: METHODOLOGY_CONTEXT_VERDICT.RESOLVED,
+      bucket: VERDICT_BUCKET.HEALTHY,
+      readings: {
+        configuredSource: DEFAULT_METHODOLOGY_SOURCE,
+        configuredVersion: DEFAULT_METHODOLOGY_VERSION,
+        observedSource: scenario.methodology.source,
+        observedVersion: scenario.methodology.version,
+      },
+    });
+    expect(result.value.exitCode).toBe(overallExitCode(report.overall));
   });
 }
 
 export async function assertManifestPrecedesMalformedConfig(): Promise<void> {
   await withTempDir("diagnose-manifest-precedence-", async (productDir) => {
-    await writeFile(join(productDir, DEFAULT_CONFIG_FILENAME), [
-      `${DIAGNOSE_SECTION}:`,
-      `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: [42]`,
-    ].join("\n"));
+    await writeFile(
+      join(productDir, DEFAULT_CONFIG_FILENAME),
+      [
+        `${DIAGNOSE_SECTION}:`,
+        `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: [42]`,
+      ].join("\n"),
+    );
     const spxFloor = sampleDiagnoseTestValue(arbitrarySpxFloor());
     const manifestPath = join(productDir, "diagnose.json");
-    await writeFile(manifestPath, JSON.stringify({
-      checks: [CHECK_NAME.SPX_REACHABILITY],
-      spx_floor: spxFloor,
-    }));
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        checks: [CHECK_NAME.SPX_REACHABILITY],
+        spx_floor: spxFloor,
+      }),
+    );
     const run = await runDiagnose([
       DIAGNOSE_CLI.MANIFEST_FLAG,
       manifestPath,
@@ -582,9 +684,12 @@ export async function assertManifestCheckErrorIsSanitized(): Promise<void> {
   await withTempDir("diagnose-error-", async (productDir) => {
     const controlByte = String.fromCodePoint(7);
     const manifestPath = join(productDir, "diagnose.json");
-    await writeFile(manifestPath, JSON.stringify({
-      checks: [`${CHECK_NAME.SPX_REACHABILITY}${controlByte}`],
-    }));
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        checks: [`${CHECK_NAME.SPX_REACHABILITY}${controlByte}`],
+      }),
+    );
     const run = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]);
     expect(run.exitCode).toBe(1);
     expect(run.stderr).not.toContain(controlByte);

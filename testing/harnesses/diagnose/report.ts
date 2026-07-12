@@ -3,21 +3,7 @@
 import { Chalk } from "chalk";
 import { expect } from "vitest";
 
-import {
-  classifyMarketplaceInstall,
-  type MarketplaceInstallReading,
-} from "@/domains/diagnose/checks/marketplace-install";
-import {
-  classifySessionEnvironment,
-  type SessionEnvironmentReading,
-} from "@/domains/diagnose/checks/session-environment";
-import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
-import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
-import {
-  classifyWorktreePool,
-  WORKTREE_POOL_VERDICT,
-  type WorktreePoolReading,
-} from "@/domains/diagnose/checks/worktree-pool";
+import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import {
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
@@ -30,271 +16,34 @@ import {
 import {
   BUCKET_SEVERITY,
   CANONICAL_CHECKOUT_PROBLEM,
-  type CanonicalCheckoutFailureVerdict,
   OVERALL_SEVERITY,
 } from "@/domains/diagnose/report-contract";
-import {
-  CHECK_RECORD_FIELDS,
-  type CheckRecord,
-  type DiagnoseReport,
-  OVERALL_VERDICT,
-  type OverallVerdict,
-  VERDICT_BUCKET,
-  type VerdictBucket,
-} from "@/domains/diagnose/types";
+import { CHECK_RECORD_FIELDS, type CheckRecord, OVERALL_VERDICT } from "@/domains/diagnose/types";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
-import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
-import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
-import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
-import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import {
+  canonicalCheckoutFailureCases,
+  type InvalidDiagnoseReportCase,
+  invalidSpxVersionCase,
+  marketplaceCliProblemCheck,
+  sampleDiagnoseReport,
+  sessionStartNoOpCheck,
+  type StyledBucketCase,
+  type StyledOverallCase,
+  supportedTranslationBranches,
+} from "@testing/generators/diagnose/report-scenarios";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-
-interface TranslationBranchCase {
-  readonly check: CheckRecord;
-  readonly header: string;
-}
-
-interface CanonicalCheckoutFailureCase {
-  readonly check: CheckRecord;
-  readonly verdict: CanonicalCheckoutFailureVerdict;
-}
-
-export interface InvalidDiagnoseReportCase {
-  readonly name: string;
-  readonly input: string;
-}
-
-function compliantWorktreePoolReading(): WorktreePoolReading {
-  const branch = sampleMainCheckoutTestValue(arbitraryBranchName());
-  return {
-    errored: false,
-    bareRepository: true,
-    linkedWorktrees: false,
-    mainCheckoutPath: branch,
-    defaultBranch: branch,
-    mainCheckoutBranch: branch,
-    mainCheckoutBranchRead: true,
-    running: 1,
-    free: 8,
-  };
-}
-
-function sampleReport(): DiagnoseReport {
-  return {
-    checks: [
-      classifySpxReachability({ errored: false, resolvedPath: "/bin/spx", version: "0.6.8" }, undefined),
-      classifySessionEnvironment({
-        errored: false,
-        hookPresent: false,
-        sessionIdentity: false,
-        worktreeClaimed: false,
-      }),
-      classifyWorktreePool(compliantWorktreePoolReading()),
-      classifySessionStore({ errored: false, orphanedClaims: 11 }),
-      classifyMarketplaceInstall({
-        configured: false,
-        errored: false,
-        surfacePresent: false,
-        unregistered: false,
-        drifted: false,
-      }),
-    ],
-    overall: OVERALL_VERDICT.DEGRADED,
-  };
-}
-
-function reusableSpxReading(): SpxReachabilityReading {
-  return { errored: false, resolvedPath: "/bin/spx", version: "0.6.8" };
-}
-
-function workingSessionReading(): SessionEnvironmentReading {
-  return { errored: false, hookPresent: true, sessionIdentity: true, worktreeClaimed: true };
-}
-
-function configuredMarketplaceReading(): MarketplaceInstallReading {
-  return { configured: true, errored: false, surfacePresent: true, unregistered: false, drifted: false };
-}
-
-function overallForBucket(bucket: VerdictBucket): OverallVerdict {
-  switch (bucket) {
-    case VERDICT_BUCKET.BROKEN:
-      return OVERALL_VERDICT.BROKEN;
-    case VERDICT_BUCKET.UNKNOWN:
-      return OVERALL_VERDICT.UNKNOWN;
-    case VERDICT_BUCKET.DEGRADED:
-      return OVERALL_VERDICT.DEGRADED;
-    case VERDICT_BUCKET.HEALTHY:
-    case VERDICT_BUCKET.NOT_APPLICABLE:
-      return OVERALL_VERDICT.HEALTHY;
-  }
-}
 
 function sectionHeaderLine(check: CheckRecord, header: string): string {
   return `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`;
 }
 
 function renderSingleCheckText(check: CheckRecord): string {
-  return renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false });
-}
-
-function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {
-  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-  return [
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: null,
-        defaultBranch,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING,
-    },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED,
-    },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: wrongBranch,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH,
-    },
-  ];
-}
-
-function supportedTranslationBranches(): readonly TranslationBranchCase[] {
-  const spxReading = reusableSpxReading();
-  const sessionReading = workingSessionReading();
-  const marketplaceReading = configuredMarketplaceReading();
-  return [
-    { check: classifySpxReachability(spxReading, "0.6.0"), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
-    { check: classifySpxReachability(spxReading, undefined), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
-    { check: classifySpxReachability(spxReading, "0.7.0"), header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR },
-    {
-      check: classifySpxReachability({ ...spxReading, resolvedPath: null }, "0.6.0"),
-      header: DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE,
-    },
-    {
-      check: classifySpxReachability({ ...spxReading, errored: true }, "0.6.0"),
-      header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
-    },
-    { check: classifySessionEnvironment(sessionReading), header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, worktreeClaimed: false }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED,
-    },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, sessionIdentity: false, worktreeClaimed: false }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
-    },
-    {
-      check: classifySessionEnvironment({
-        ...sessionReading,
-        hookPresent: false,
-        sessionIdentity: false,
-        worktreeClaimed: false,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED,
-    },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, hookPresent: false, sessionIdentity: false }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
-    },
-    { check: classifyWorktreePool(compliantWorktreePoolReading()), header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID },
-    {
-      check: classifyWorktreePool({
-        errored: false,
-        bareRepository: false,
-        linkedWorktrees: true,
-        mainCheckoutPath: null,
-        defaultBranch: null,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: true,
-        running: 1,
-        free: 8,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    },
-    ...canonicalCheckoutFailureCases().map(({ check }) => ({
-      check,
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    })),
-    {
-      check: classifyWorktreePool({
-        errored: true,
-        bareRepository: true,
-        linkedWorktrees: false,
-        mainCheckoutPath: null,
-        defaultBranch: null,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: false,
-        running: 1,
-        free: 8,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
-    },
-    {
-      check: classifySessionStore({ errored: false, orphanedClaims: 0 }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
-    },
-    {
-      check: classifySessionStore({ errored: false, orphanedClaims: 11 }),
-      header: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
-    },
-    {
-      check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
-    },
-    { check: classifyMarketplaceInstall(marketplaceReading), header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, drifted: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, unregistered: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, surfacePresent: false }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, configured: false, surfacePresent: false }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, errored: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN,
-    },
-  ];
+  return renderReportText({ checks: [check], overall: foldOverallVerdict([check.bucket]) }, { color: false });
 }
 
 export function assertTextReportSummary(): void {
-  const report = sampleReport();
+  const report = sampleDiagnoseReport();
   const text = renderReportText(report, { color: false });
   expect(text).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.DEGRADED}`);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED);
@@ -312,10 +61,7 @@ export function assertTextReportSummary(): void {
 }
 
 export function assertMarketplaceCliProblemTranslation(): void {
-  const text = renderSingleCheckText(classifyMarketplaceInstall({
-    ...configuredMarketplaceReading(),
-    surfacePresent: false,
-  }));
+  const text = renderSingleCheckText(marketplaceCliProblemCheck());
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM}`);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX}`);
@@ -324,30 +70,24 @@ export function assertMarketplaceCliProblemTranslation(): void {
 }
 
 export function assertSessionStartNoOpTranslation(): void {
-  const text = renderSingleCheckText(classifySessionEnvironment({
-    errored: false,
-    hookPresent: true,
-    sessionIdentity: false,
-    worktreeClaimed: false,
-  }));
+  const text = renderSingleCheckText(sessionStartNoOpCheck());
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM}`);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX}`);
 }
 
 export function assertInvalidSpxVersionTranslation(): void {
-  const reading = reusableSpxReading();
-  const floor = sampleDiagnoseTestValue(arbitraryInvalidSpxFloor());
-  const text = renderSingleCheckText(classifySpxReachability(reading, floor));
+  const { check, floor } = invalidSpxVersionCase();
+  const text = renderSingleCheckText(check);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM}`);
-  expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${reading.version ?? ""}`);
+  expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${check.readings.version}`);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor}`);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX}`);
 }
 
 export function assertTextReportHidesMachineFields(): void {
-  const report = sampleReport();
+  const report = sampleDiagnoseReport();
   const text = renderReportText(report, { color: false });
   const sessionRecord = report.checks[1];
   const worktreeRecord = report.checks[2];
@@ -372,7 +112,7 @@ export function assertTextReportHidesMachineFields(): void {
 }
 
 export function assertUnknownTranslationHidesMachineFields(): void {
-  const report = sampleReport();
+  const report = sampleDiagnoseReport();
   const fallbackRecord = { ...report.checks[0], verdict: report.checks[0].verdict.toUpperCase() };
   const text = renderReportText({ checks: [fallbackRecord], overall: report.overall }, { color: false });
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE);
@@ -417,161 +157,19 @@ export function assertJsonReportPreservesSchema(): void {
   );
 }
 
-function invalidReportCases(): readonly InvalidDiagnoseReportCase[] {
-  const report = sampleReport();
-  const firstCheck = report.checks[0];
-  return [
-    { name: "malformed JSON", input: "{" },
-    { name: "missing checks field", input: JSON.stringify({ overall: report.overall }) },
-    { name: "missing overall field", input: JSON.stringify({ checks: report.checks }) },
-    { name: "non-array checks", input: JSON.stringify({ ...report, checks: {} }) },
-    { name: "invalid overall verdict", input: JSON.stringify({ ...report, overall: report.overall.toUpperCase() }) },
-    { name: "non-string overall verdict", input: JSON.stringify({ ...report, overall: 1 }) },
-    {
-      name: "missing check name",
-      input: JSON.stringify({
-        ...report,
-        checks: [{
-          verdict: firstCheck.verdict,
-          bucket: firstCheck.bucket,
-          readings: firstCheck.readings,
-          remediation: firstCheck.remediation,
-        }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "invalid check name",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, name: firstCheck.name.toUpperCase() }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "missing check verdict",
-      input: JSON.stringify({
-        ...report,
-        checks: [{
-          name: firstCheck.name,
-          bucket: firstCheck.bucket,
-          readings: firstCheck.readings,
-          remediation: firstCheck.remediation,
-        }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "invalid check verdict",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, verdict: firstCheck.verdict.toUpperCase() }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "non-string check verdict",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, verdict: 1 }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "missing check bucket",
-      input: JSON.stringify({
-        ...report,
-        checks: [{
-          name: firstCheck.name,
-          verdict: firstCheck.verdict,
-          readings: firstCheck.readings,
-          remediation: firstCheck.remediation,
-        }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "invalid check bucket",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, bucket: firstCheck.bucket.toUpperCase() }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "missing readings",
-      input: JSON.stringify({
-        ...report,
-        checks: [{
-          name: firstCheck.name,
-          verdict: firstCheck.verdict,
-          bucket: firstCheck.bucket,
-          remediation: firstCheck.remediation,
-        }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "non-object readings",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, readings: [] }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "non-string reading",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, readings: { invalid: 1 } }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "missing remediation",
-      input: JSON.stringify({
-        ...report,
-        checks: [{
-          name: firstCheck.name,
-          verdict: firstCheck.verdict,
-          bucket: firstCheck.bucket,
-          readings: firstCheck.readings,
-        }, ...report.checks.slice(1)],
-      }),
-    },
-    {
-      name: "non-string remediation",
-      input: JSON.stringify({
-        ...report,
-        checks: [{ ...firstCheck, remediation: 1 }, ...report.checks.slice(1)],
-      }),
-    },
-  ];
-}
-
-export const INVALID_DIAGNOSE_REPORT_CASES = invalidReportCases();
-
 export function assertInvalidDiagnoseReportRejected(testCase: InvalidDiagnoseReportCase): void {
   expect(parseDiagnoseReportJson(testCase.input).ok).toBe(false);
 }
 
-export function assertHeadingGlyphsFollowBuckets(): void {
-  assertProperty(
-    arbitraryReport(),
-    (report) => {
-      const headingLines = renderReportText(report, { color: false }).split("\n").filter((line) =>
-        !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL)
-      );
-      expect(headingLines).toHaveLength(report.checks.length);
-      report.checks.forEach((check, index) => {
-        expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} `)).toBe(
-          true,
-        );
-      });
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-  );
+export function assertHeadingGlyphCase(testCase: StyledBucketCase): void {
+  const heading = renderReportText(testCase.report, { color: false }).split("\n")[0];
+  expect(heading.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[testCase.bucket]].glyph} `)).toBe(true);
 }
 
-export function assertOverallColorFollowsVerdict(): void {
+export function assertOverallColorCase(testCase: StyledOverallCase): void {
   const chalk = new Chalk({ level: 1 });
-  assertProperty(
-    arbitraryReport(),
-    (report) => {
-      const text = renderReportText(report, { color: true });
-      const style = SEVERITY_STYLE[OVERALL_SEVERITY[report.overall]].style;
-      expect(text).toContain(chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`));
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  const style = SEVERITY_STYLE[OVERALL_SEVERITY[testCase.overall]].style;
+  expect(renderReportText(testCase.report, { color: true })).toContain(
+    chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${testCase.overall}`),
   );
 }

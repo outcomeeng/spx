@@ -3,11 +3,9 @@ import { describe, it } from "vitest";
 import {
   assertCanonicalCheckoutFailureTranslations,
   assertEveryTranslationBranchHasHeading,
-  assertHeadingGlyphsFollowBuckets,
   assertInvalidSpxVersionTranslation,
   assertJsonReportPreservesSchema,
   assertMarketplaceCliProblemTranslation,
-  assertOverallColorFollowsVerdict,
   assertSessionStartNoOpTranslation,
   assertTextReportHidesMachineFields,
   assertTextReportSummary,
@@ -27,9 +25,4 @@ describe("the text report translates check records into a human diagnosis", () =
 
 describe("the JSON report remains the complete machine schema", () => {
   it("preserves every check record field", assertJsonReportPreservesSchema);
-});
-
-describe("the text report renders through the styled-output primitive", () => {
-  it("keys each heading glyph to its check bucket", assertHeadingGlyphsFollowBuckets);
-  it("keys the overall summary color to the overall verdict", assertOverallColorFollowsVerdict);
 });

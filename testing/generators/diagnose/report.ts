@@ -9,59 +9,51 @@
 
 import fc from "fast-check";
 
-import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
-import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
-import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
-import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
+import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
+import { classifyMethodologyContext } from "@/domains/diagnose/checks/methodology-context";
+import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
+import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
+import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
 
-import { arbitraryNameToken } from "./manifest";
+import { arbitraryMethodologySource, arbitraryNameToken, arbitrarySpxFloor } from "./manifest";
 
-interface CheckIdentity {
-  readonly name: CheckRecord["name"];
-  readonly verdict: CheckRecord["verdict"];
-}
-
-const arbitraryCheckIdentity = (): fc.Arbitrary<CheckIdentity> =>
+/** A coherent provider-owned record built through the provider classifier. */
+export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
   fc.oneof(
     fc.record({
-      name: fc.constant(CHECK_NAME.SPX_REACHABILITY),
-      verdict: fc.constantFrom(...Object.values(SPX_REACHABILITY_VERDICT)),
-    }),
+      errored: fc.boolean(),
+      resolvedPath: fc.option(arbitraryNameToken(), { nil: null }),
+      version: fc.option(arbitrarySpxFloor(), { nil: null }),
+      floor: fc.option(arbitrarySpxFloor(), { nil: undefined }),
+    }).map(({ floor, ...reading }) => classifySpxReachability(reading, floor)),
     fc.record({
-      name: fc.constant(CHECK_NAME.SESSION_ENVIRONMENT),
-      verdict: fc.constantFrom(...Object.values(SESSION_ENVIRONMENT_VERDICT)),
-    }),
+      errored: fc.boolean(),
+      hookPresent: fc.boolean(),
+      sessionIdentity: fc.boolean(),
+      worktreeClaimed: fc.boolean(),
+    }).map(classifySessionEnvironment),
     fc.record({
-      name: fc.constant(CHECK_NAME.WORKTREE_POOL),
-      verdict: fc.constantFrom(...Object.values(WORKTREE_POOL_VERDICT)),
-    }),
+      errored: fc.boolean(),
+      orphanedClaims: fc.nat(),
+    }).map(classifySessionStore),
     fc.record({
-      name: fc.constant(CHECK_NAME.SESSION_STORE),
-      verdict: fc.constantFrom(...Object.values(SESSION_STORE_VERDICT)),
-    }),
+      configured: fc.boolean(),
+      errored: fc.boolean(),
+      surfacePresent: fc.boolean(),
+      unregistered: fc.boolean(),
+      drifted: fc.boolean(),
+    }).map(classifyMarketplaceInstall),
     fc.record({
-      name: fc.constant(CHECK_NAME.MARKETPLACE_INSTALL),
-      verdict: fc.constantFrom(...Object.values(MARKETPLACE_INSTALL_VERDICT)),
-    }),
-    fc.record({
-      name: fc.constant(CHECK_NAME.METHODOLOGY_CONTEXT),
-      verdict: fc.constantFrom(...Object.values(METHODOLOGY_CONTEXT_VERDICT)),
-    }),
+      configured: fc.boolean(),
+      configuredSource: fc.option(arbitraryMethodologySource(), { nil: null }),
+      configuredVersion: fc.option(arbitrarySpxFloor(), { nil: null }),
+      observedSource: fc.option(arbitraryMethodologySource(), { nil: null }),
+      observedVersion: fc.option(arbitrarySpxFloor(), { nil: null }),
+      errored: fc.boolean(),
+    }).map(classifyMethodologyContext),
   );
-
-/** A per-check record with a source-owned name and bucket and token-shaped renderable fields. */
-export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
-  fc.tuple(
-    arbitraryCheckIdentity(),
-    fc.constantFrom(...Object.values(VERDICT_BUCKET)),
-    fc.dictionary(arbitraryNameToken(), arbitraryNameToken(), { maxKeys: 4 }),
-    arbitraryNameToken(),
-  ).map(([identity, bucket, readings, remediation]) => ({ ...identity, bucket, readings, remediation }));
 
 /** A coherent report whose overall verdict is the fold of its check buckets. */
 export const arbitraryReport = (): fc.Arbitrary<DiagnoseReport> =>
