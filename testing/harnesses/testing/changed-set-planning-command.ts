@@ -115,7 +115,7 @@ async function writeChangedSetCommandFixture(productDir: string, paths: ChangedS
   return selectedTestContent;
 }
 
-async function initializeChangedSetCommandRepo(productDir: string): Promise<void> {
+async function initializeChangedSetCommandRepo(productDir: string): Promise<string> {
   await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT], { cwd: productDir });
   await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL], {
     cwd: productDir,
@@ -126,12 +126,17 @@ async function initializeChangedSetCommandRepo(productDir: string): Promise<void
     { cwd: productDir },
   );
   await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.ADD, "."], { cwd: productDir });
-  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, "base"], {
-    cwd: productDir,
-  });
+  await execa(
+    GIT_TEST_COMMAND,
+    [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, changedSetContent.baseCommitMessage],
+    { cwd: productDir },
+  );
+  return (
+    await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
+  ).stdout;
 }
 
-async function runChangedSetCommand(productDir: string) {
+async function runChangedSetCommand(productDir: string, baseRef: string) {
   const [sourceCliCommand, sourceCliPath] = SOURCE_CLI_INVOCATION.split(" ") as [string, string];
 
   return await execa(
@@ -145,7 +150,7 @@ async function runChangedSetCommand(productDir: string) {
       TESTING_CLI.agentOption,
       TESTING_CLI.changedLongFlag,
       TESTING_CLI.baseLongFlag,
-      GIT_ROOT_COMMAND.HEAD,
+      baseRef,
     ],
     { cwd: process.cwd(), reject: false },
   );
@@ -158,17 +163,23 @@ async function expectChangedSetCommandRunsAffectedTests(): Promise<void> {
     const paths = commandFixturePaths(sampledPaths, testSuffix);
     await withTestingTempProductDir(async (productDir) => {
       const selectedTestContent = await writeChangedSetCommandFixture(productDir, paths);
-      await initializeChangedSetCommandRepo(productDir);
-      const expectedHeadSha = (
-        await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
-      ).stdout;
+      const baseSha = await initializeChangedSetCommandRepo(productDir);
       await writeFileFixture(
         productDir,
         paths.sourcePath,
         changedSetSourceFixture(changedSetContent.afterSourceValue),
       );
+      await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.ADD, "."], { cwd: productDir });
+      await execa(
+        GIT_TEST_COMMAND,
+        [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, changedSetContent.branchCommitMessage],
+        { cwd: productDir },
+      );
+      const expectedHeadSha = (
+        await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD], { cwd: productDir })
+      ).stdout;
 
-      const result = await runChangedSetCommand(productDir);
+      const result = await runChangedSetCommand(productDir, baseSha);
 
       expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(SUCCESS_EXIT_CODE);
       const recorded = await readRecordedState(result.stdout);
