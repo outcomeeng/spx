@@ -11,7 +11,7 @@ Separating the claim from its reproduction is what lets the status path stay a r
 ## Product properties
 
 1. `spx.status.json` has `schemaVersion: 1` and a `verification` object whose mechanism keys are `test`, `eval`, and `audit` when that mechanism has linked evidence for the node; each mechanism object has an `overall` value of `passed`, `failed`, `partial`, or `not-run`, and evidence-reference keys whose values are `passed`, `failed`, or `not-run`.
-2. `spx spec status` derives a node's lifecycle state from committed verification outcomes when `spx.status.json` exists and derives live structural state when it is absent; `--update` folds the outcomes a recorded verification run produced, leaving a reference with no recorded evidence at its committed outcome. Neither form executes verification.
+2. `spx spec status` derives a node's lifecycle state from committed verification outcomes when `spx.status.json` exists and derives live structural state when it is absent; `--update` folds the outcomes a recorded verification run produced: a reference a run covers keeps its committed outcome when that evidence is stale, and a reference no run covers is `not-run`. Neither form executes verification.
 3. CI runs the configured full verification suite, regenerates the status projection for the checkout, and rejects the commit when any committed `spx.status.json` differs from the regenerated projection.
 
 ## Verification
@@ -32,4 +32,5 @@ Separating the claim from its reproduction is what lets the status path stay a r
 - NEVER: treat a missing `spx.status.json` as an error or a fixed state; absence routes to live derivation ([audit])
 - NEVER: offer `spx.status.yaml` or `spx.status.toml` — the status file is machine-written JSON only ([audit])
 - NEVER: execute verification from `spx spec status` in any form, `--update` included — the status path folds recorded evidence and a verification surface produces it ([audit])
-- NEVER: write an outcome for an evidence reference no recorded run covers — the committed outcome stands until a run records a replacement ([audit])
+- ALWAYS: keep the committed outcome of an evidence reference a recorded run covers whose evidence is stale — the claim stands until a run records a replacement ([audit])
+- NEVER: keep a committed outcome for an evidence reference no recorded run covers — it reads `not-run`, so the regenerated projection refutes a claim no run produces rather than reproducing it ([audit])
