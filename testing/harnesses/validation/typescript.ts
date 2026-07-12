@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationStageSkipOutput,
   VALIDATION_EXIT_CODES,
   VALIDATION_STEP_DURATION_PATTERN,
 } from "@/commands/validation/messages";
@@ -55,6 +56,15 @@ async function runTypeScriptDescriptorDefaultCompliance(): Promise<void> {
         .filter((stage) => stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN)
         .map((stage) => stage.name),
     );
+    for (const stage of typescriptValidationLanguage.stages) {
+      if (stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN) {
+        expect(result.stdout).toContain(stage.name);
+        continue;
+      }
+      const reason = stage.participation.defaultSkipReason;
+      if (reason === undefined) throw new Error(`${stage.name} default skip requires a reason`);
+      expect(result.stdout).toContain(formatValidationStageSkipOutput(stage.name, reason));
+    }
   });
 }
 

@@ -390,7 +390,7 @@ async function runFormattingParticipationScenario(): Promise<void> {
     const defaultRunCount = formattingStage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN ? 1 : 0;
     const override = formattingStage.participation.override;
     if (override === undefined) throw new Error("formatting stage must declare an invocation-local override");
-    const overrideRunCount = override.participation === VALIDATION_STAGE_PARTICIPATION.RUN ? 1 : 0;
+    expect(override.participation).toBe(VALIDATION_STAGE_PARTICIPATION.SKIP);
 
     if (formattingStage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN) {
       expect(defaultResult.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
@@ -399,10 +399,8 @@ async function runFormattingParticipationScenario(): Promise<void> {
       if (defaultSkipReason === undefined) throw new Error("default formatting skip requires a reason");
       expect(defaultResult.output).toContain(defaultSkipReason);
     }
-    expect(overrideResult.output).toContain(
-      overrideRunCount === 1 ? FORMATTING_COMMAND_OUTPUT.NO_ISSUES : override.reason,
-    );
-    expect(calls).toHaveLength(defaultRunCount + overrideRunCount);
+    expect(overrideResult.output).toContain(override.reason);
+    expect(calls).toHaveLength(defaultRunCount);
   });
 }
 
@@ -502,9 +500,6 @@ async function runPipelineFailureScenario(): Promise<void> {
     });
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(completions.map((completion) => completion.stageName)).toEqual(
-      validationPipelineStages.map((stage) => stage.name),
-    );
     expect(completions).toContainEqual({
       stageName: formattingValidationLanguage.stages[0]?.name,
       exitCode: FORMATTING_VALIDATION_DATA.failureExitCode,

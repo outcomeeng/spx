@@ -1,1 +1,3 @@
-import "@testing/harnesses/process-lifecycle/compliance";
+import { registerLifecycleComplianceEvidence } from "@testing/harnesses/process-lifecycle/compliance";
+
+registerLifecycleComplianceEvidence();

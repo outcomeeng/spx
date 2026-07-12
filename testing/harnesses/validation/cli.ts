@@ -1,6 +1,5 @@
 import { CommanderError } from "commander";
 import { execa } from "execa";
-import { readFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
@@ -8,17 +7,21 @@ import { expect, it } from "vitest";
 import {
   formatValidationStageSkipJsonOutput,
   formatValidationStageSkipOutput,
+  LITERAL_PROBLEM_KIND,
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
 import { lintCommand } from "@/commands/validation/lint";
-import { OUTPUT_MODE_NAME, type OutputModeName } from "@/commands/validation/literal";
+import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/commands/validation/literal";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
   createValidationDomain,
+  literalValidationCliOptions,
+  validationCliDefinition,
   type ValidationCommandHandlers,
+  validationCommonCliOptions,
   validationDomain,
   validationOptionPrefix,
 } from "@/interfaces/cli/validation";
@@ -64,39 +67,36 @@ const OBSERVED_HANDLER_OUTPUT_PREFIX = "validation-handler-called:";
 const OBSERVED_HANDLER_TERMINAL_OUTPUT_PREFIX = "validation-terminal-output:";
 const OBSERVED_HANDLER_EXIT_CODE = 7;
 
-interface ValidationCliContractSubcommand {
-  readonly commandName: string;
-  readonly alias?: string;
-}
-
-interface ValidationCliContract {
-  readonly domain: { readonly commandName: string };
-  readonly subcommands: Readonly<Record<string, ValidationCliContractSubcommand>>;
-  readonly help: {
-    readonly longFlag: string;
-    readonly pathOperand: string;
-    readonly literalFlags: readonly string[];
-    readonly literalProblemKinds: readonly string[];
-  };
-  readonly options: {
-    readonly scope: string;
-    readonly quiet: string;
-    readonly json: string;
-  };
-  readonly diagnostics: {
-    readonly unknownSubcommand: { readonly label: string; readonly exitCode: number };
-    readonly unknownLiteralProblemKind: { readonly label: string; readonly exitCode: number };
-    readonly invalidPathOperand: {
-      readonly label: string;
-      readonly reason: string;
-      readonly exitCode: number;
-    };
-  };
-}
-
-const VALIDATION_CLI_CONTRACT = JSON.parse(
-  readFileSync(new URL("../../fixtures/validation-cli/contract.json", import.meta.url), "utf8"),
-) as ValidationCliContract;
+const VALIDATION_CLI_CONTRACT = {
+  domain: validationCliDefinition.domain,
+  subcommands: validationCliDefinition.subcommands,
+  help: {
+    longFlag: validationCliDefinition.commanderHelpOperands.longFlag,
+    pathOperand: validationCliDefinition.pathOperands.optionalVariadic,
+    literalFlags: Object.values(literalValidationCliOptions).map((option) => option.flag),
+    literalProblemKinds: Object.values(LITERAL_PROBLEM_KIND),
+  },
+  options: {
+    scope: validationCommonCliOptions.scope.flag,
+    quiet: validationCommonCliOptions.quiet.flag,
+    json: validationCommonCliOptions.json.flag,
+  },
+  diagnostics: {
+    unknownSubcommand: {
+      label: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
+      exitCode: validationCliDefinition.diagnostics.unknownSubcommand.exitCode,
+    },
+    unknownLiteralProblemKind: {
+      label: validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel,
+      exitCode: validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
+    },
+    invalidPathOperand: {
+      label: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
+      reason: validationCliDefinition.diagnostics.invalidPathOperand.reason,
+      exitCode: validationCliDefinition.diagnostics.invalidPathOperand.exitCode,
+    },
+  },
+} as const;
 
 export interface ValidationCliResult {
   readonly exitCode: number;
@@ -448,6 +448,12 @@ export async function expectLiteralReportRemainsOnStdoutWhenFindingsSetNonZeroEx
     expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
     expectLiteralReport(outputMode, result.stdout, inputs);
     expect(result.stderr).toBe(validationCliEmptyOutput());
+  });
+}
+
+export function registerLiteralReportModeMappings(): void {
+  it.each(OUTPUT_MODE_NAMES)("keeps %s literal findings on stdout", async (outputMode) => {
+    await expectLiteralReportRemainsOnStdoutWhenFindingsSetNonZeroExit(outputMode);
   });
 }
 

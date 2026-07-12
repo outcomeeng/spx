@@ -24,7 +24,11 @@ export class RecordingValidationChild extends EventEmitter {
   }
 
   closeSuccessfully(): void {
-    this.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, VALIDATION_EXIT_CODES.SUCCESS);
+    this.closeWithCode(VALIDATION_EXIT_CODES.SUCCESS);
+  }
+
+  closeWithCode(code: number): void {
+    this.emit(VALIDATION_SUBPROCESS_EVENTS.CLOSE, code);
   }
 
   asChildProcess(): ChildProcess {
@@ -38,6 +42,8 @@ export class RecordingSpawnOptionsRunner implements ProcessRunner {
   readonly options: SpawnOptions[] = [];
   readonly children: RecordingValidationChild[] = [];
 
+  constructor(private readonly closeCodes: readonly number[] = [VALIDATION_EXIT_CODES.SUCCESS]) {}
+
   get spawnOptions(): SpawnOptions | undefined {
     return this.options.at(-1);
   }
@@ -49,7 +55,8 @@ export class RecordingSpawnOptionsRunner implements ProcessRunner {
 
     const child = new RecordingValidationChild();
     this.children.push(child);
-    queueMicrotask(() => child.closeSuccessfully());
+    const closeCode = this.closeCodes[this.children.length - 1] ?? VALIDATION_EXIT_CODES.SUCCESS;
+    queueMicrotask(() => child.closeWithCode(closeCode));
     return child.asChildProcess();
   }
 }
@@ -62,8 +69,11 @@ export interface RequiredValidationSpawn {
 
 /** A protocol double that rejects any subprocess invocation outside its declared contract. */
 export class RejectingUnexpectedValidationSpawnRunner extends RecordingSpawnOptionsRunner {
-  constructor(private readonly required: RequiredValidationSpawn) {
-    super();
+  constructor(
+    private readonly required: RequiredValidationSpawn,
+    closeCodes?: readonly number[],
+  ) {
+    super(closeCodes);
   }
 
   override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {

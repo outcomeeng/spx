@@ -337,7 +337,7 @@ describe("ESLint command arguments", () => {
           }),
         );
         await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
-        await env.writeRaw(sourceFilePath, "export const lintCommandProjectRoot = 1;\n");
+        await env.writeRaw(sourceFilePath, "export const lintCommandProductDir = 1;\n");
         await env.writeRaw(testFilePath, "expect(true).toBe(true);\n");
         await env.writeRaw(
           join(...ESLINT_LOCAL_BIN_SEGMENTS),
@@ -601,7 +601,7 @@ describe("ESLint command arguments", () => {
           ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
           sourceFilePath,
         ],
-      });
+      }, [VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE]);
       const deps: LintCommandDeps = {
         discoverTool: async (tool) => ({
           found: true,
@@ -617,7 +617,7 @@ describe("ESLint command arguments", () => {
       const secondResult = await lintCommand({ cwd: env.productDir, files: [sourceFilePath], quiet: true }, deps);
 
       expect(firstResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect(secondResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(secondResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
       expect(runner.commands).toEqual([toolPath, toolPath]);
     });
   });
