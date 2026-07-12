@@ -1,7 +1,7 @@
 # Release Test Harness
 
-PROVIDES release-specific real-filesystem environments, controlled agent and filesystem boundaries, Keep a Changelog oracles, case registration, cleanup, and diagnostics driven by coherent release scenarios
-SO THAT release-data and release-notes evidence
+PROVIDES release-specific real-filesystem environments, controlled agent and filesystem boundaries, Keep a Changelog and documentation oracles, case registration, cleanup, and diagnostics driven by coherent release scenarios
+SO THAT release-data, release-notes, and documentation-sync evidence
 CAN exercise production behavior with explicit failure controls and without repeating environment construction, dependency bags, or assertion configuration
 
 ## Assertions
