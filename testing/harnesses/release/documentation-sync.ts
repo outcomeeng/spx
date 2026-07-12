@@ -23,6 +23,7 @@ import {
   type DocumentationSyncScenario,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -55,6 +56,11 @@ async function withDocumentationScenario(
   try {
     for (const [path, content] of Object.entries(scenario.original)) {
       if (content === undefined) throw new Error(`No original documentation for ${path}`);
+      const absolutePath = join(productDir, path);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, content);
+    }
+    for (const { path, content } of scenario.ambientState) {
       const absolutePath = join(productDir, path);
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, content);
@@ -120,6 +126,16 @@ function registerScenarioTests(): void {
         );
       });
     });
+
+    it("updates every configured documentation path to the released version", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        await expect(composeDocumentationSync(options)).resolves.toEqual({ paths: scenario.paths });
+        for (const path of scenario.paths) {
+          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+        }
+      });
+    });
   });
 }
 
@@ -129,9 +145,14 @@ function registerMappingTests(): void {
       expect(resolveDocumentationPaths({})).toEqual([DEFAULT_DOCUMENTATION_PATH]);
     });
 
-    it("maps configured documentation paths in declared order", () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      expect(resolveDocumentationPaths(scenario.config)).toEqual(scenario.paths);
+    it("maps every configured documentation path set in declared order", () => {
+      assertProperty(
+        arbitraryConfiguredDocumentationSyncScenario(),
+        (scenario) => {
+          expect(resolveDocumentationPaths(scenario.config)).toEqual(scenario.paths);
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
     });
   });
 }
@@ -169,6 +190,10 @@ function registerComplianceTests(): void {
         expect(promptDocumentationPaths(agent.requests[0].prompt).map(({ sourcePath }) => sourcePath)).toEqual(
           scenario.paths,
         );
+        for (const { path, content } of scenario.ambientState) {
+          expect(agent.requests[0].prompt).not.toContain(path);
+          expect(agent.requests[0].prompt).not.toContain(content);
+        }
       });
     });
   });
