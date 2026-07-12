@@ -194,6 +194,9 @@ export function registerFormattingComplianceEvidence(): void {
     it("derives include and exclude scope from resolved validation configuration", async () => {
       await runFormattingDispatchContractCompliance();
     });
+    it("applies configured includes to automatic formatting scope", async () => {
+      await runAutomaticFormattingDispatchContractCompliance();
+    });
     it("passes resolved excludes into the dprint subprocess invocation", () =>
       runFormattingExcludeArgumentCompliance());
   });
@@ -255,6 +258,39 @@ async function runFormattingDispatchContractCompliance(): Promise<void> {
         excludes: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
       },
     ]);
+  });
+}
+
+async function runAutomaticFormattingDispatchContractCompliance(): Promise<void> {
+  await withTempDir(FORMATTING_VALIDATION_DATA.tempPrefix, async (productDir) => {
+    copyProductDprintConfig(productDir);
+    await mkdir(join(productDir, FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName));
+    await writeFile(
+      join(productDir, FORMATTING_VALIDATION_DATA.validationConfigFilename),
+      stringify({
+        validation: {
+          paths: {
+            include: [FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName],
+            exclude: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
+          },
+        },
+      }),
+    );
+    const contexts: FormattingValidationContext[] = [];
+    await formattingCommand(
+      { cwd: productDir },
+      {
+        validateFormatting: async (context): Promise<FormattingValidationResult> => {
+          contexts.push(context);
+          return { success: true, output: "" };
+        },
+      },
+    );
+    expect(contexts).toEqual([{
+      productDir,
+      files: [`${FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName}/**/*`],
+      excludes: [FORMATTING_VALIDATION_DATA.excludedScopeDirectoryName],
+    }]);
   });
 }
 

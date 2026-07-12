@@ -21,6 +21,7 @@ import {
   pathPassesValidationFilter,
   validationPathFilterExcludes,
   validationPathFilterForTool,
+  validationPathFilterHasNoMatchingIncludes,
   validationPathFilterIntersections,
 } from "@/validation/config/path-filter";
 import {
@@ -97,7 +98,7 @@ export async function formattingCommand(
   const contexts = formattingValidationContexts(cwd, files, pathFilter);
   const scopedFiles = contexts.flatMap((context) => context.files ?? []);
 
-  if (hasExplicitScope && scopedFiles.length === 0) {
+  if ((hasExplicitScope && scopedFiles.length === 0) || contexts.length === 0) {
     const output = quiet
       ? ""
       : `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: skipped (${FORMATTING_COMMAND_OUTPUT.EMPTY_SCOPE_REASON})`;
@@ -130,9 +131,12 @@ function formattingValidationContexts(
   pathFilter: Parameters<typeof pathPassesValidationFilter>[1],
 ): FormattingValidationContext[] {
   if (files === undefined || files.length === 0) {
+    if (validationPathFilterHasNoMatchingIncludes(pathFilter)) return [];
+    const automaticFiles = pathFilter.include
+      ?.map((path) => normalizeFormattingPathOperand(productDir, path));
     return [{
       productDir,
-      files: undefined,
+      files: automaticFiles !== undefined && automaticFiles.length > 0 ? automaticFiles : undefined,
       excludes: validationPathFilterExcludes(pathFilter),
     }];
   }
