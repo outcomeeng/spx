@@ -1,6 +1,5 @@
 import { CommanderError } from "commander";
 import { execa } from "execa";
-import { readFileSync } from "node:fs";
 import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
@@ -11,7 +10,12 @@ import {
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
-import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/commands/validation/literal";
+import {
+  LITERAL_PROBLEM_KIND,
+  OUTPUT_MODE_NAME,
+  OUTPUT_MODE_NAMES,
+  type OutputModeName,
+} from "@/commands/validation/literal";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -29,7 +33,6 @@ import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validati
 import { LITERAL_KIND, REMEDIATION } from "@/validation/literal";
 import { validationPipelineStages } from "@/validation/registry";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
-import { FIXTURES_PATHS } from "@testing/fixtures";
 import {
   LITERAL_TEST_GENERATOR,
   LITERAL_TEST_GENERATOR_COUNTS,
@@ -64,22 +67,28 @@ const OBSERVED_HANDLER_OUTPUT_PREFIX = "validation-handler-called:";
 const OBSERVED_HANDLER_TERMINAL_OUTPUT_PREFIX = "validation-terminal-output:";
 const OBSERVED_HANDLER_EXIT_CODE = 7;
 
-interface ValidationCliContractFixture {
-  readonly diagnostics: {
-    readonly unknownSubcommand: { readonly label: string; readonly exitCode: number };
-    readonly unknownLiteralProblemKind: { readonly label: string; readonly exitCode: number };
-    readonly invalidPathOperand: { readonly label: string; readonly reason: string; readonly exitCode: number };
-  };
-  readonly literalHelp: {
-    readonly pathOperand: string;
-    readonly flags: readonly string[];
-    readonly problemKinds: readonly string[];
-  };
-}
-
-const VALIDATION_CLI_CONTRACT = JSON.parse(
-  readFileSync(FIXTURES_PATHS.VALIDATION_CLI_CONTRACT, "utf8"),
-) as ValidationCliContractFixture;
+const VALIDATION_CLI_CONTRACT = {
+  diagnostics: {
+    unknownSubcommand: {
+      label: validationCliDefinition.diagnostics.unknownSubcommand.messageLabel,
+      exitCode: validationCliDefinition.diagnostics.unknownSubcommand.exitCode,
+    },
+    unknownLiteralProblemKind: {
+      label: validationCliDefinition.diagnostics.unknownLiteralProblemKind.messageLabel,
+      exitCode: validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
+    },
+    invalidPathOperand: {
+      label: validationCliDefinition.diagnostics.invalidPathOperand.messageLabel,
+      reason: validationCliDefinition.diagnostics.invalidPathOperand.reason,
+      exitCode: validationCliDefinition.diagnostics.invalidPathOperand.exitCode,
+    },
+  },
+  literalHelp: {
+    pathOperand: validationCliDefinition.pathOperands.optionalVariadic,
+    flags: Object.values(literalValidationCliOptions).map((option) => option.flag),
+    problemKinds: Object.values(LITERAL_PROBLEM_KIND),
+  },
+} as const;
 
 export interface ValidationCliResult {
   readonly exitCode: number;
