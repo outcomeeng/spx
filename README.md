@@ -206,15 +206,16 @@ npm audit signatures
 git fetch --tags origin
 test "$(git branch --show-current)" = main
 test "$(git rev-parse HEAD)" = "$(git rev-parse 'vX.Y.Z^{commit}')"
+test "$(git rev-parse origin/main)" = "$(git rev-parse 'vX.Y.Z^{commit}')"
 pnpm run build
 spx --version
 ```
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
 manager update commands during release close-out. The operator-visible binary
-comes from the canonical main checkout only while its HEAD equals the release
-tag commit. Stop before the build if `main` advanced. The checkout remains on
-`main` throughout.
+comes from the canonical main checkout only while its HEAD and fetched
+`origin/main` both equal the release tag commit. Stop before the build if either
+ref advanced. The checkout remains on `main` throughout.
 
 ## Technical Stack
 
