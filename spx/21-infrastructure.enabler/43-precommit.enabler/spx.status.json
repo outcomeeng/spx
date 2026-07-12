@@ -3,8 +3,8 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts": "passed",
       "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.scenario.l1.test.ts": "passed",
       "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts": "passed",
       "spx/21-infrastructure.enabler/43-precommit.enabler/tests/hook-install.compliance.l1.test.ts": "passed",
       "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts": "passed",
