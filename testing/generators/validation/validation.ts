@@ -632,11 +632,11 @@ export function validationLintSubprocessComplianceScenarios(): ValidationSubproc
   );
 }
 
-export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessScenario {
+export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessScenario[] {
   const args = [validationCliDefinition.subcommands.all.commandName];
   const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
 
-  return {
+  return [{
     title: "clean TypeScript fixture runs every validation stage",
     fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
     args,
@@ -653,7 +653,7 @@ export function validationAllTypeScriptScenarioEvidence(): ValidationSubprocessS
     stdoutExcludes: runtimeAntiMarkers,
     stderrExcludes: runtimeAntiMarkers,
     combinedExcludes: runtimeAntiMarkers,
-  };
+  }, validationAllTypeScriptComplianceEvidence()];
 }
 
 export function validationAllTypeScriptComplianceEvidence(): ValidationSubprocessScenario {

@@ -11,8 +11,9 @@ import { expectValidationSubprocessResult, runValidationSubprocess } from "@test
 import { withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 export function registerTypeScriptValidationScenarioTests(): void {
-  const scenario = validationAllTypeScriptScenarioEvidence();
-  it(scenario.title, { timeout: scenario.timeout }, () => runTypeScriptValidationScenario(scenario));
+  for (const scenario of validationAllTypeScriptScenarioEvidence()) {
+    it(scenario.title, { timeout: scenario.timeout }, () => runTypeScriptValidationScenario(scenario));
+  }
 }
 
 export function registerTypeScriptValidationMappingTests(): void {

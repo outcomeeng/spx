@@ -54,6 +54,36 @@ export class RecordingSpawnOptionsRunner implements ProcessRunner {
   }
 }
 
+export interface RequiredValidationSpawn {
+  readonly command: string;
+  readonly args?: readonly string[];
+  readonly stdio?: SpawnOptions["stdio"];
+}
+
+/** A protocol double that rejects any subprocess invocation outside its declared contract. */
+export class RejectingUnexpectedValidationSpawnRunner extends RecordingSpawnOptionsRunner {
+  constructor(private readonly required: RequiredValidationSpawn) {
+    super();
+  }
+
+  override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
+    if (command !== this.required.command) {
+      throw new Error(`Unexpected validation executable: ${command}`);
+    }
+    if (this.required.args !== undefined && !sameArguments(args, this.required.args)) {
+      throw new Error(`Unexpected validation arguments: ${JSON.stringify(args)}`);
+    }
+    if (this.required.stdio !== undefined && options?.stdio !== this.required.stdio) {
+      throw new Error(`Unexpected validation stdio: ${String(options?.stdio)}`);
+    }
+    return super.spawn(command, args, options);
+  }
+}
+
+function sameArguments(actual: readonly string[], expected: readonly string[]): boolean {
+  return actual.length === expected.length && actual.every((argument, index) => argument === expected[index]);
+}
+
 export function createDiscardValidationSubprocessOutputStreams(): ValidationSubprocessOutputStreams {
   return {
     stdout: { write: () => true },

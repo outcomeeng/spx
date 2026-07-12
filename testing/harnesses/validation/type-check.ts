@@ -33,7 +33,10 @@ import {
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import {
+  RecordingValidationChild,
+  RejectingUnexpectedValidationSpawnRunner,
+} from "@testing/harnesses/validation/subprocess";
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXPECTED_PIPED_STDIO = "pipe";
@@ -163,8 +166,11 @@ export function registerTypeCheckComplianceTests(): void {
   });
 
   it("spawns tsc with piped stdio so lifecycle handlers can observe parent output closure", async () => {
-    const runner = new RecordingSpawnOptionsRunner();
     const toolPath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+    const runner = new RejectingUnexpectedValidationSpawnRunner({
+      command: toolPath,
+      stdio: EXPECTED_PIPED_STDIO,
+    });
     const result = await validateTypeScript(
       { scope: VALIDATION_SCOPES.FULL, productDir: process.cwd() },
       { runner, toolPath },
@@ -177,8 +183,11 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("spawns the product-first executable returned by TypeScript command discovery", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const runner = new RecordingSpawnOptionsRunner();
       const toolPath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      const runner = new RejectingUnexpectedValidationSpawnRunner({
+        command: toolPath,
+        stdio: EXPECTED_PIPED_STDIO,
+      });
       const discoveryOptions: Parameters<TypeScriptCommandDeps["discoverTool"]>[1][] = [];
       const deps: TypeScriptCommandDeps = {
         discoverTool: async (tool, options) => {

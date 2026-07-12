@@ -20,7 +20,7 @@ import type { ScopeConfig } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
-import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
+import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 
 interface KnipCommandRecording {
   readonly discoveryCalls: string[];
@@ -212,7 +212,7 @@ export function registerUnusedCodeComplianceTests(): void {
       await withLiteralFixtureEnv(knipValidationConfig(true), async (env) => {
         const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
         const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
-        const runner = new RecordingSpawnOptionsRunner();
+        const runner = new RejectingUnexpectedValidationSpawnRunner({ command: toolPath });
         const deps: KnipCommandDeps = {
           discoverTool: async (tool) => ({
             found: true,

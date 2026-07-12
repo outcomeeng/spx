@@ -34,7 +34,7 @@ import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/va
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
+import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 
 class RecordingWritable implements ValidationWritableStream {
   readonly chunks: string[] = [];
@@ -589,11 +589,19 @@ describe("ESLint command arguments", () => {
     expect(stderr.chunks).toEqual([]);
   });
 
-  it("spawns the executable returned by ESLint command discovery", async () => {
+  it("rejects a wrong executable, injected arguments, or persistent result reuse", async () => {
     await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
-      const runner = new RecordingSpawnOptionsRunner();
+      const runner = new RejectingUnexpectedValidationSpawnRunner({
+        command: toolPath,
+        args: [
+          ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+          DEFAULT_ESLINT_CONFIG_FILE,
+          ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+          sourceFilePath,
+        ],
+      });
       const deps: LintCommandDeps = {
         discoverTool: async (tool) => ({
           found: true,
@@ -605,10 +613,12 @@ describe("ESLint command arguments", () => {
       await env.writeRaw(DEFAULT_ESLINT_CONFIG_FILE, "export default [];\n");
       await env.writeRaw(sourceFilePath, "export const lintCommandProductRoot = 1;\n");
 
-      const result = await lintCommand({ cwd: env.productDir, quiet: true }, deps);
+      const firstResult = await lintCommand({ cwd: env.productDir, files: [sourceFilePath], quiet: true }, deps);
+      const secondResult = await lintCommand({ cwd: env.productDir, files: [sourceFilePath], quiet: true }, deps);
 
-      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-      expect(runner.commands).toEqual([toolPath]);
+      expect(firstResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(secondResult.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(runner.commands).toEqual([toolPath, toolPath]);
     });
   });
 });
