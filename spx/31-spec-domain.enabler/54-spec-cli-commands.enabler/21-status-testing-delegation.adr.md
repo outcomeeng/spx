@@ -12,7 +12,7 @@ A status-owned per-node runner is rejected: it duplicates the testing registry's
 
 ## Invariants
 
-- `spx spec status`, with or without `--update`, executes no verification; `--update` writes only outcomes a recorded run produced.
+- `spx spec status`, with or without `--update`, executes no verification; every outcome `--update` writes was produced by some recorded run — the one it folds for a covered reference whose evidence is fresh, or the earlier run whose committed outcome a covered-but-stale reference keeps — and an uncovered reference, which no run produced an outcome for, is `not-run`.
 - The `--update` orchestration obtains every per-node outcome through the injected resolver; it imports no language runner and no testing-domain runner directly.
 - The resolver reads recorded testing evidence and invokes no run; a reference a run covers takes that run's outcome when fresh and keeps its committed outcome when stale, while a reference no run covers is `not-run`.
 - The resolver is consulted only for nodes whose classification reaches the test-outcome stage (co-located tests present, not in `spx/EXCLUDE`); `declared` and `specified` nodes classify structurally.
