@@ -12,6 +12,8 @@ export const VALIDATION_OUTPUT_TARGET = {
 
 export type ValidationOutputTarget = (typeof VALIDATION_OUTPUT_TARGET)[keyof typeof VALIDATION_OUTPUT_TARGET];
 
+export const VALIDATION_STREAMED_TERMINAL_OUTPUT = "";
+
 /** Result from a validation command */
 export interface ValidationCommandResult {
   /** Exit code (0 = success, 1 = validation failed, 0 with skipped = tool unavailable) */

@@ -31,7 +31,11 @@ import {
 } from "@/validation/steps/formatting";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
-import type { FormattingCommandOptions, ValidationCommandResult } from "./types";
+import {
+  type FormattingCommandOptions,
+  VALIDATION_STREAMED_TERMINAL_OUTPUT,
+  type ValidationCommandResult,
+} from "./types";
 
 export interface FormattingCommandDependencies {
   readonly validateFormatting: typeof validateFormatting;
@@ -47,8 +51,6 @@ export const FORMATTING_COMMAND_OUTPUT = {
   EMPTY_SCOPE_REASON: "no files in scope",
   NO_CONFIG_SKIP_REASON: `no ${DPRINT_CONFIG_FILENAME} at product root`,
 } as const;
-
-export const FORMATTING_STREAMED_TERMINAL_OUTPUT = "";
 
 const FORMATTING_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ✗ config error`;
 const DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX = "/**/*";
@@ -157,7 +159,7 @@ function formattingTerminalOutput(
   if (json === true || outputStreams === undefined || results.some((result) => result.error !== undefined)) {
     return undefined;
   }
-  return FORMATTING_STREAMED_TERMINAL_OUTPUT;
+  return VALIDATION_STREAMED_TERMINAL_OUTPUT;
 }
 
 function normalizeFormattingPathOperand(productDir: string, relativePath: string): string {

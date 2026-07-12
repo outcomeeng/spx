@@ -11,13 +11,19 @@ import {
   type ValidationStageParticipation,
 } from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
-import { formatDuration, formatSummary } from "./format";
+import { formatDuration, formatSummary, VALIDATION_SYMBOLS } from "./format";
 import {
   formatValidationStageJsonOutput,
   formatValidationStageSkipJsonOutput,
   formatValidationStageSkipOutput,
+  VALIDATION_STREAMED_STAGE_RESULT,
 } from "./messages";
-import type { AllCommandOptions, ValidationCommandResult, ValidationStageCompletion } from "./types";
+import {
+  type AllCommandOptions,
+  VALIDATION_STREAMED_TERMINAL_OUTPUT,
+  type ValidationCommandResult,
+  type ValidationStageCompletion,
+} from "./types";
 
 /**
  * Format step output with step number and timing.
@@ -45,6 +51,11 @@ function formatStepWithTiming(
       output,
       ...(result.durationMs === undefined ? {} : { durationMs: result.durationMs }),
     });
+  }
+  if (result.terminalOutput === VALIDATION_STREAMED_TERMINAL_OUTPUT) {
+    const verdict = result.exitCode === 0 ? VALIDATION_SYMBOLS.SUCCESS : VALIDATION_SYMBOLS.FAILURE;
+    const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
+    return `[${stepNumber}/${totalSteps}] ${stageName}: ${verdict} ${VALIDATION_STREAMED_STAGE_RESULT}${timing}`;
   }
   if (!output) return "";
 

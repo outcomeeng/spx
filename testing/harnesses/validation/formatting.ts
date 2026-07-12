@@ -19,14 +19,12 @@ import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 
 import { allCommand } from "@/commands/validation/all";
-import {
-  FORMATTING_COMMAND_OUTPUT,
-  FORMATTING_STREAMED_TERMINAL_OUTPUT,
-  formattingCommand,
-} from "@/commands/validation/formatting";
-import type { ValidationCommandResult } from "@/commands/validation/types";
+import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
+import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
+import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
+import { VALIDATION_STREAMED_TERMINAL_OUTPUT, type ValidationCommandResult } from "@/commands/validation/types";
 import { createValidationDomain } from "@/interfaces/cli/validation";
-import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { VALIDATION_PATH_TOOL_SUBSECTIONS } from "@/validation/config/descriptor";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
@@ -629,14 +627,20 @@ async function runUnformattedCommandScenario(): Promise<void> {
 async function runPipelineFailureScenario(): Promise<void> {
   await withFormattingFixture(FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent, async (fixture) => {
     const result = await runValidationInProcessWithDomains(
-      [validationCliDefinition.subcommands.all.commandName, validationCommonCliOptions.json.flag],
+      [validationCliDefinition.subcommands.all.commandName],
       [createValidationDomain({ validationStages: formattingValidationLanguage.stages })],
       { processCwd: () => fixture.productDir },
     );
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
-    expect(result.stdout).toContain(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
+    expect(result.stdout).toContain(
+      `[1/1] ${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ${VALIDATION_SYMBOLS.FAILURE}`,
+    );
     expect(result.stdout).toContain(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename);
+    expect(result.stderr).toContain(VALIDATION_SUMMARY_STATUS.FAILED);
+    expect(`${result.stdout}${result.stderr}`.split(FORMATTING_VALIDATION_DATA.typeScriptSourceFilename)).toHaveLength(
+      2,
+    );
   });
 }
 
@@ -917,7 +921,7 @@ export async function runFormattingOutputStreamingCompliance(): Promise<void> {
     expect(result.output).toContain(
       `${FORMATTING_VALIDATION_DATA.typeScriptSourceFilename.repeat(2)}${FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY}`,
     );
-    expect(result.terminalOutput).toBe(FORMATTING_STREAMED_TERMINAL_OUTPUT);
+    expect(result.terminalOutput).toBe(VALIDATION_STREAMED_TERMINAL_OUTPUT);
     expect(stdout).toEqual([
       FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,
       FORMATTING_VALIDATION_DATA.typeScriptSourceFilename,

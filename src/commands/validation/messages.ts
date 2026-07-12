@@ -22,6 +22,8 @@ export const VALIDATION_SKIP_LABELS = {
   MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON: "no spx/ or docs/ directories found",
 } as const;
 
+export const VALIDATION_STREAMED_STAGE_RESULT = "output streamed";
+
 export const VALIDATION_COMMAND_OUTPUT = {
   CIRCULAR_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: circular dependencies found`,
   CIRCULAR_NONE_FOUND: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✓ No circular dependencies found`,
