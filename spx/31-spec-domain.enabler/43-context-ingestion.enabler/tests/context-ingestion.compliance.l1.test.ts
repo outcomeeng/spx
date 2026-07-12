@@ -7,26 +7,26 @@ import {
   assertSpecContextManifestIncludesMethodology,
   assertSpecContextManifestListsSameAndHigherSiblings,
   assertSpecContextManifestOmitsMissingNodeSpecs,
+  assertSpecContextPrefersExactTarget,
   assertSpecContextRejectsAmbiguousTarget,
-  assertSpecContextRejectsArtifactTarget,
   assertSpecContextRejectsHarnessMethodologyConfig,
   assertSpecContextRejectsMalformedMethodologyConfig,
-  assertSpecContextResolvesAbbreviatedTarget,
+  assertSpecContextRejectsNestedWholePathDisambiguation,
   assertSpecContextTextIncludesContext,
   assertSpecContextUsesLinkedWorktreeRoot,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context ingestion compliance", () => {
-  it("resolves unique node-segment prefixes and trailing separators", async () => {
-    await assertSpecContextResolvesAbbreviatedTarget();
+  it("prefers an exact node segment over another sibling that begins with it", async () => {
+    await assertSpecContextPrefersExactTarget();
   });
 
   it("rejects ambiguous node-segment prefixes without selecting a candidate", async () => {
     await assertSpecContextRejectsAmbiguousTarget();
   });
 
-  it("rejects artifact paths with an owning-node diagnostic", async () => {
-    await assertSpecContextRejectsArtifactTarget();
+  it("does not use a matching descendant to disambiguate an ambiguous ancestor", async () => {
+    await assertSpecContextRejectsNestedWholePathDisambiguation();
   });
 
   it("includes configured methodology identity in the manifest", async () => {
