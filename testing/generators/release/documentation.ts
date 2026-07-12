@@ -1,10 +1,7 @@
 import * as fc from "fast-check";
 
-import {
-  DEFAULT_DOCUMENTATION_PATH,
-  DOCUMENTATION_FILE_EXTENSION,
-  type DocumentationSyncConfig,
-} from "@/domains/release/documentation-sync";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { DOCUMENTATION_FILE_EXTENSION, type DocumentationSyncConfig } from "@/domains/release/documentation-sync";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
@@ -33,7 +30,7 @@ export interface DocumentationSyncScenario {
 }
 
 export function arbitraryDefaultDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
-  return arbitraryDocumentationSyncScenario(fc.constant([DEFAULT_DOCUMENTATION_PATH]), {});
+  return arbitraryDocumentationSyncScenario(fc.constant(DEFAULT_RELEASE_DOCUMENTATION_PATHS), {});
 }
 
 export function arbitraryConfiguredDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {

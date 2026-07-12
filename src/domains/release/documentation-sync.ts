@@ -1,7 +1,7 @@
 import type { AgentRunner } from "@/agent/agent-runner";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import type { ReleaseData } from "@/domains/release/release-data";
 
-export const DEFAULT_DOCUMENTATION_PATH = "README.md";
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
 export const DOCUMENTATION_PATHS_DATA_BLOCK_OPEN = "<documentation-paths>";
 export const DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE = "</documentation-paths>";
@@ -55,6 +55,7 @@ export interface ComposeDocumentationSyncResult {
 export function resolveDocumentationPaths(
   _config: DocumentationSyncConfig,
 ): readonly string[] {
+  void DEFAULT_RELEASE_DOCUMENTATION_PATHS;
   throw new Error("documentation path resolution is not implemented");
 }
 
