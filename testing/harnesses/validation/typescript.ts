@@ -1,6 +1,10 @@
 import { expect, it } from "vitest";
 
-import { VALIDATION_EXIT_CODES, VALIDATION_STEP_DURATION_PATTERN } from "@/commands/validation/messages";
+import {
+  formatTypeScriptAbsentSkipMessage,
+  VALIDATION_EXIT_CODES,
+  VALIDATION_STEP_DURATION_PATTERN,
+} from "@/commands/validation/messages";
 import { createValidationDomain, validationCliDefinition } from "@/interfaces/cli/validation";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
@@ -62,6 +66,12 @@ async function runTypeScriptValidationScenario(scenario: ValidationSubprocessSce
     });
     expectValidationSubprocessResult(result, scenario);
     const exactStageOutputs = validationStageOutputs(result.stdout);
+    for (const stage of typescriptValidationLanguage.stages) {
+      expect(exactStageOutputs.filter((output) =>
+        output.startsWith(`${stage.name}:`)
+        || output === formatTypeScriptAbsentSkipMessage(stage.name)
+      )).toHaveLength(1);
+    }
     for (const expectedOutput of scenario.stdoutIncludes) {
       expect(exactStageOutputs).toContain(expectedOutput);
     }

@@ -10,16 +10,13 @@ import {
   createRelatedDepsFor,
   createRunnerDepsFor,
 } from "@/interfaces/cli/test-runner-deps";
-import {
-  lifecycleProcessRunner,
-  type ManagedSubprocessSpawnOptions,
-  spawnManagedSubprocess,
-} from "@/lib/process-lifecycle";
+import { type ManagedSubprocessSpawnOptions, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { DEFAULT_ESLINT_CONFIG_FILE, defaultEslintProcessRunner, validateESLint } from "@/validation/steps/eslint";
-import { defaultFormattingProcessRunner, validateFormatting } from "@/validation/steps/formatting";
-import { defaultKnipProcessRunner, validateKnip } from "@/validation/steps/knip";
-import { defaultTypeScriptProcessRunner, validateTypeScript } from "@/validation/steps/typescript";
+import { DEFAULT_ESLINT_CONFIG_FILE, validateESLint } from "@/validation/steps/eslint";
+import { validateFormatting } from "@/validation/steps/formatting";
+import { validateKnip } from "@/validation/steps/knip";
+import { forwardValidationSubprocessOutput } from "@/validation/steps/subprocess-output";
+import { validateTypeScript } from "@/validation/steps/typescript";
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
@@ -53,23 +50,7 @@ function requireManagedSubprocessOptions(options: ManagedSubprocessSpawnOptions)
   return options;
 }
 
-describe("Compliance: validation step ProcessRunner defaults reference lifecycleProcessRunner", () => {
-  it("defaultEslintProcessRunner is the shared lifecycleProcessRunner", () => {
-    expect(defaultEslintProcessRunner).toBe(lifecycleProcessRunner);
-  });
-
-  it("defaultTypeScriptProcessRunner is the shared lifecycleProcessRunner", () => {
-    expect(defaultTypeScriptProcessRunner).toBe(lifecycleProcessRunner);
-  });
-
-  it("defaultKnipProcessRunner is the shared lifecycleProcessRunner", () => {
-    expect(defaultKnipProcessRunner).toBe(lifecycleProcessRunner);
-  });
-
-  it("defaultFormattingProcessRunner is the shared lifecycleProcessRunner", () => {
-    expect(defaultFormattingProcessRunner).toBe(lifecycleProcessRunner);
-  });
-
+describe("Compliance: managed subprocess output", () => {
   it("managed subprocess helper owns parent-owned pipe stdio", () => {
     const runner = new RecordingSpawnOptionsRunner();
     const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
@@ -86,6 +67,27 @@ describe("Compliance: validation step ProcessRunner defaults reference lifecycle
     // @ts-expect-error - Managed subprocess options reject caller-owned stdio even through SpawnOptions variables.
     const rejectedOptions = requireManagedSubprocessOptions(callerOwnedStdioOptions);
     expect(rejectedOptions.stdio).toBeDefined();
+  });
+
+  it("forwards child stdout and stderr through parent output adapters", () => {
+    const runner = new RecordingSpawnOptionsRunner();
+    const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+    const stdout: Array<string | Uint8Array> = [];
+    const stderr: Array<string | Uint8Array> = [];
+    const child = spawnManagedSubprocess(runner, command, [], { cwd: process.cwd() });
+
+    forwardValidationSubprocessOutput(child, {
+      stdout: { write: (chunk) => stdout.push(chunk) > 0 },
+      stderr: { write: (chunk) => stderr.push(chunk) > 0 },
+    });
+    runner.children[0]?.stdout.write(stdoutChunk);
+    runner.children[0]?.stderr.write(stderrChunk);
+
+    expect(runner.spawnOptions?.stdio).toBe("pipe");
+    expect(stdout.map(String)).toEqual([stdoutChunk]);
+    expect(stderr.map(String)).toEqual([stderrChunk]);
   });
 
   it("ESLint subprocess output is owned by parent-owned pipes", async () => {

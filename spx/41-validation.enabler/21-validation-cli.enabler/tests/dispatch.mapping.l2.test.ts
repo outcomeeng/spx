@@ -1,9 +1,10 @@
 import { describe, it } from "vitest";
 
-import { expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroExit } from "@testing/harnesses/validation/cli";
+import { OUTPUT_MODE_NAMES } from "@/commands/validation/literal";
+import { expectLiteralReportRemainsOnStdoutWhenFindingsSetNonZeroExit } from "@testing/harnesses/validation/cli";
 
 describe("spx validation dispatch mappings", () => {
-  it("keeps literal finding reports on stdout for every report mode", async () => {
-    await expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroExit();
+  it.each(OUTPUT_MODE_NAMES)("keeps %s literal findings on stdout", async (outputMode) => {
+    await expectLiteralReportRemainsOnStdoutWhenFindingsSetNonZeroExit(outputMode);
   });
 });

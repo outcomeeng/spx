@@ -11,7 +11,8 @@ import {
   VALIDATION_COMMAND_OUTPUT,
 } from "@/commands/validation";
 import { VALIDATION_SUMMARY_STATUS, VALIDATION_SYMBOLS } from "@/commands/validation/format";
-import { OUTPUT_MODE_NAME, OUTPUT_MODE_NAMES, type OutputModeName } from "@/commands/validation/literal";
+import { lintCommand } from "@/commands/validation/lint";
+import { OUTPUT_MODE_NAME, type OutputModeName } from "@/commands/validation/literal";
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -22,9 +23,11 @@ import {
   validationOptionPrefix,
 } from "@/interfaces/cli/validation";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
+import { TOOL_DISCOVERY } from "@/validation/discovery";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { LITERAL_KIND, REMEDIATION } from "@/validation/literal";
 import { validationPipelineStages } from "@/validation/registry";
+import { ESLINT_COMMAND_TOKENS, validateESLint } from "@/validation/steps/eslint";
 import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
 import {
   LITERAL_TEST_GENERATOR,
@@ -47,6 +50,7 @@ import {
 } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
@@ -323,6 +327,53 @@ export function registerLintSubprocessScenarioTests(): void {
 
 export function registerLintSubprocessComplianceTests(): void {
   registerValidationSubprocessScenarios(validationLintSubprocessComplianceScenarios());
+  it("spawns the discovered ESLint executable for a TypeScript product", () =>
+    runLintSubprocessPathCompliance(PROJECT_FIXTURES.CLEAN_PROJECT, true));
+  it("does not enter discovery or the ESLint subprocess path when TypeScript is absent", () =>
+    runLintSubprocessPathCompliance(PROJECT_FIXTURES.PYTHON_PROJECT, false));
+  it("does not enter discovery or the ESLint subprocess path when flat config is absent", () =>
+    runLintSubprocessPathCompliance(PROJECT_FIXTURES.TYPESCRIPT_NO_ESLINT, false));
+}
+
+async function runLintSubprocessPathCompliance(
+  fixture: (typeof PROJECT_FIXTURES)[keyof typeof PROJECT_FIXTURES],
+  expectSpawn: boolean,
+): Promise<void> {
+  await withValidationEnv({ fixture }, async ({ path: productDir }) => {
+    const executable = join(productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+    const runner = new RejectingUnexpectedValidationSpawnRunner({ command: executable, stdio: "pipe" });
+    const discoveryCalls: string[] = [];
+    const result = await runValidationInProcessWithDomains(
+      [VALIDATION_CLI_CONTRACT.subcommands.lint.commandName],
+      [createValidationDomain({
+        commandHandlers: {
+          lint: (options) =>
+            lintCommand(options, {
+              discoverTool: async (tool) => {
+                discoveryCalls.push(tool);
+                return {
+                  found: true,
+                  location: { tool, path: executable, source: TOOL_DISCOVERY.SOURCES.PROJECT },
+                };
+              },
+              validateESLint: (context, _processRunner, outputStreams) =>
+                validateESLint(context, runner, outputStreams),
+            }),
+        },
+      })],
+      { processCwd: () => productDir },
+    );
+
+    if (expectSpawn) {
+      expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+      expect(discoveryCalls).toEqual([ESLINT_COMMAND_TOKENS.COMMAND]);
+      expect(runner.commands).toEqual([executable]);
+      expect(runner.spawnOptions?.stdio).toBe("pipe");
+    } else {
+      expect(discoveryCalls).toEqual([]);
+      expect(runner.commands).toEqual([]);
+    }
+  });
 }
 
 function registerValidationSubprocessScenarios(scenarios: readonly ValidationSubprocessScenario[]): void {
@@ -382,21 +433,21 @@ export async function expectRegisteredSubcommandPropagatesNonZeroExitCode(): Pro
   });
 }
 
-export async function expectLiteralReportsRemainOnStdoutWhenFindingsSetNonZeroExit(): Promise<void> {
+export async function expectLiteralReportRemainsOnStdoutWhenFindingsSetNonZeroExit(
+  outputMode: OutputModeName,
+): Promise<void> {
   await withLiteralFixtureEnv({}, async (env) => {
     const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceReuseFixtureInputs());
     await env.writeSourceReuseFixture(inputs);
 
-    for (const outputMode of OUTPUT_MODE_NAMES) {
-      const result = await runValidationInProcess([
-        VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
-        ...literalReportModeArgument(outputMode),
-      ], { processCwd: () => env.productDir });
+    const result = await runValidationInProcess([
+      VALIDATION_CLI_CONTRACT.subcommands.literal.commandName,
+      ...literalReportModeArgument(outputMode),
+    ], { processCwd: () => env.productDir });
 
-      expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
-      expectLiteralReport(outputMode, result.stdout, inputs);
-      expect(result.stderr).toBe(validationCliEmptyOutput());
-    }
+    expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
+    expectLiteralReport(outputMode, result.stdout, inputs);
+    expect(result.stderr).toBe(validationCliEmptyOutput());
   });
 }
 

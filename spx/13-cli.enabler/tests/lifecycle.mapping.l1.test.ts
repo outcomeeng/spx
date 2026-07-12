@@ -6,6 +6,7 @@ import {
   EPIPE_CODE,
   EPIPE_EXIT_CODE,
   type LifecycleHandlers,
+  lifecycleProcessRunner,
   SIGINT_EXIT_CODE,
   SIGINT_NAME,
   SIGTERM_EXIT_CODE,
@@ -13,6 +14,10 @@ import {
   UNCAUGHT_EVENT_NAME,
   UNCAUGHT_EXIT_CODE,
 } from "@/lib/process-lifecycle";
+import { defaultEslintProcessRunner } from "@/validation/steps/eslint";
+import { defaultFormattingProcessRunner } from "@/validation/steps/formatting";
+import { defaultKnipProcessRunner } from "@/validation/steps/knip";
+import { defaultTypeScriptProcessRunner } from "@/validation/steps/typescript";
 import { RecordingExitController } from "@testing/harnesses/process-lifecycle/lifecycle";
 
 interface SignalCase {
@@ -41,5 +46,16 @@ describe("Mapping: signal-to-exit-code", () => {
     invoke(handlers);
 
     expect(exitController.exits).toEqual([expectedExit]);
+  });
+});
+
+describe("Mapping: validation ProcessRunner defaults", () => {
+  it.each([
+    defaultEslintProcessRunner,
+    defaultFormattingProcessRunner,
+    defaultKnipProcessRunner,
+    defaultTypeScriptProcessRunner,
+  ])("validation runner %# maps to the shared lifecycle runner", (runner) => {
+    expect(runner).toBe(lifecycleProcessRunner);
   });
 });

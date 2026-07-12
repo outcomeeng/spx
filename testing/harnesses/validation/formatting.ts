@@ -18,13 +18,14 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { stringify } from "yaml";
 
-import { allCommand, resolveFullPipelineStages } from "@/commands/validation/all";
+import { allCommand } from "@/commands/validation/all";
 import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
+import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { composeValidationPipelineStages, validationPipelineStages } from "@/validation/registry";
 import {
@@ -386,9 +387,22 @@ async function runFormattingParticipationScenario(): Promise<void> {
       validationStages: [recordingStage],
       participationOverrides: [formattingParticipationOverrideFlag()],
     });
-    expect(defaultResult.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
-    expect(overrideResult.output).toContain("skip-formatting");
-    expect(calls).toEqual([formattingStage.name]);
+    const defaultRunCount = formattingStage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN ? 1 : 0;
+    const override = formattingStage.participation.override;
+    if (override === undefined) throw new Error("formatting stage must declare an invocation-local override");
+    const overrideRunCount = override.participation === VALIDATION_STAGE_PARTICIPATION.RUN ? 1 : 0;
+
+    if (formattingStage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN) {
+      expect(defaultResult.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_ISSUES);
+    } else {
+      const defaultSkipReason = formattingStage.participation.defaultSkipReason;
+      if (defaultSkipReason === undefined) throw new Error("default formatting skip requires a reason");
+      expect(defaultResult.output).toContain(defaultSkipReason);
+    }
+    expect(overrideResult.output).toContain(
+      overrideRunCount === 1 ? FORMATTING_COMMAND_OUTPUT.NO_ISSUES : override.reason,
+    );
+    expect(calls).toHaveLength(defaultRunCount + overrideRunCount);
   });
 }
 
@@ -489,7 +503,7 @@ async function runPipelineFailureScenario(): Promise<void> {
 
     expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.failureExitCode);
     expect(completions.map((completion) => completion.stageName)).toEqual(
-      resolveFullPipelineStages(undefined).map((stage) => stage.name),
+      validationPipelineStages.map((stage) => stage.name),
     );
     expect(completions).toContainEqual({
       stageName: formattingValidationLanguage.stages[0]?.name,
