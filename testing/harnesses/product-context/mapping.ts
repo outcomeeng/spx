@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { resolveProductDir } from "@/domains/config/root";
-import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
@@ -194,7 +193,7 @@ async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedResolut
 async function assertDeferredExitCodeIsCaptured(): Promise<void> {
   const processDir = await tempDirs.makeTempDir();
   const result = await runProductContextCli(
-    [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
+    [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.JSON_FLAG],
     { processCwd: processDir },
   );
 

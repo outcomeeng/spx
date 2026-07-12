@@ -19,9 +19,10 @@ import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnos
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
-import { type DiagnoseFormat, renderReport } from "@/domains/diagnose/report";
+import { type DiagnoseOutputMode, renderReport } from "@/domains/diagnose/report";
 import { resolveDiagnoseCheckSet, resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
+import { SPX_VERSION } from "@/version";
 
 /** The injected boundary the handler reads the manifest file through. */
 export interface ManifestFileSystem {
@@ -33,8 +34,8 @@ export interface DiagnoseCommandOptions {
   readonly manifestPath?: string;
   /** The product directory the `spx.config` diagnose section is resolved from. */
   readonly productDir: string;
-  /** Output format for the rendered report. */
-  readonly format: DiagnoseFormat;
+  /** Presentation mode for the rendered report. */
+  readonly outputMode: DiagnoseOutputMode;
   /** Whether the text report carries ANSI styling, resolved at the descriptor boundary. */
   readonly color: boolean;
   /** The check runners the engine dispatches the resolved check set to. */
@@ -129,7 +130,7 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
     ok: true,
     value: {
       report: report.value,
-      output: renderReport(report.value, options.format, { color: options.color }),
+      output: renderReport(report.value, options.outputMode, { color: options.color, executingVersion: SPX_VERSION }),
       exitCode: overallExitCode(report.value.overall),
     },
   };

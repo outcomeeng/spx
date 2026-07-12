@@ -8,6 +8,7 @@
  * @module domains/diagnose/report
  */
 
+import type { Result } from "@/config/types";
 import {
   MARKETPLACE_INSTALL_VERDICT,
   type MarketplaceInstallVerdict,
@@ -27,22 +28,39 @@ import {
   type SpxReachabilityVerdict,
 } from "@/domains/diagnose/checks/spx-reachability";
 import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
-import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { foldOverallVerdict } from "@/domains/diagnose/fold";
+import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
+import {
+  BUCKET_SEVERITY,
+  CANONICAL_CHECKOUT_PROBLEM,
+  CHECK_VERDICT_BUCKET,
+  OVERALL_SEVERITY,
+} from "@/domains/diagnose/report-contract";
+import {
+  CHECK_RECORD_FIELDS,
+  type CheckRecord,
+  DIAGNOSE_REPORT_FIELDS,
+  type DiagnoseReport,
+  OVERALL_VERDICT,
+  type OverallVerdict,
+  VERDICT_BUCKET,
+  type VerdictBucket,
+} from "@/domains/diagnose/types";
 import {
   renderStyledReport,
+  SEVERITY,
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
 
-/** The output formats `spx diagnose` emits. */
-export const DIAGNOSE_FORMAT = {
+/** The presentation modes `spx diagnose` emits. */
+export const DIAGNOSE_OUTPUT_MODE = {
+  CONCISE: "concise",
+  VERBOSE: "verbose",
   JSON: "json",
-  TEXT: "text",
 } as const;
 
-export type DiagnoseFormat = (typeof DIAGNOSE_FORMAT)[keyof typeof DIAGNOSE_FORMAT];
+export type DiagnoseOutputMode = (typeof DIAGNOSE_OUTPUT_MODE)[keyof typeof DIAGNOSE_OUTPUT_MODE];
 
 /** The label the text report prefixes the diagnosis line with. */
 export const DIAGNOSE_TEXT_OVERALL_LABEL = "Diagnosis";
@@ -53,6 +71,7 @@ export interface DiagnoseHumanText {
 }
 
 export const DIAGNOSE_TEXT_LABEL = {
+  CONCLUSION: "Conclusion",
   FIX: "Fix",
   INSTALLED: "Installed",
   CONFIGURED_SOURCE: "Configured source",
@@ -63,6 +82,11 @@ export const DIAGNOSE_TEXT_LABEL = {
   REQUIRED_VERSION: "Required version",
   VERSION: "Version",
   WORKTREES: "Worktrees",
+} as const;
+
+export const DIAGNOSE_TEXT_HINT = {
+  VERBOSE: "Run `spx diagnose --verbose` to inspect every diagnostic fact.",
+  JSON: "Run `spx diagnose --json` for the complete machine-readable report.",
 } as const;
 
 export const DIAGNOSE_TEXT_HEADER = {
@@ -140,6 +164,72 @@ export function renderReportJson(report: DiagnoseReport): string {
     null,
     2,
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseCheckRecord(value: unknown): Result<CheckRecord> {
+  if (!isRecord(value)) return { ok: false, error: "diagnose report check must be an object" };
+  for (const field of CHECK_RECORD_FIELDS) {
+    if (!(field in value)) return { ok: false, error: `diagnose report check is missing ${field}` };
+  }
+  const { name, verdict, bucket, readings, remediation } = value;
+  if (typeof name !== "string" || !Object.values(CHECK_NAME).includes(name as CheckName)) {
+    return { ok: false, error: "diagnose report check name is invalid" };
+  }
+  if (typeof verdict !== "string") return { ok: false, error: "diagnose report check verdict must be a string" };
+  const verdictBuckets = CHECK_VERDICT_BUCKET[name as keyof typeof CHECK_VERDICT_BUCKET];
+  if (!(verdict in verdictBuckets)) return { ok: false, error: `diagnose report verdict is invalid for ${name}` };
+  if (typeof bucket !== "string" || !Object.values(VERDICT_BUCKET).includes(bucket as VerdictBucket)) {
+    return { ok: false, error: "diagnose report check bucket is invalid" };
+  }
+  if (verdictBuckets[verdict as keyof typeof verdictBuckets] !== bucket) {
+    return { ok: false, error: `diagnose report bucket is inconsistent for ${name}/${verdict}` };
+  }
+  if (!isRecord(readings) || !Object.values(readings).every((reading) => typeof reading === "string")) {
+    return { ok: false, error: "diagnose report readings must be an object of strings" };
+  }
+  if (typeof remediation !== "string") {
+    return { ok: false, error: "diagnose report remediation must be a string" };
+  }
+  return {
+    ok: true,
+    value: { name, verdict, bucket, readings: readings as Readonly<Record<string, string>>, remediation },
+  };
+}
+
+/** Parses and validates a complete diagnose JSON report. */
+export function parseDiagnoseReportJson(input: string): Result<DiagnoseReport> {
+  let value: unknown;
+  try {
+    value = JSON.parse(input);
+  } catch {
+    return { ok: false, error: "diagnose report is not valid JSON" };
+  }
+  if (!isRecord(value)) return { ok: false, error: "diagnose report must be an object" };
+  for (const field of DIAGNOSE_REPORT_FIELDS) {
+    if (!(field in value)) return { ok: false, error: `diagnose report is missing ${field}` };
+  }
+  if (!Array.isArray(value.checks)) return { ok: false, error: "diagnose report checks must be an array" };
+  const checks: CheckRecord[] = [];
+  for (const candidate of value.checks) {
+    const parsed = parseCheckRecord(candidate);
+    if (!parsed.ok) return parsed;
+    checks.push(parsed.value);
+  }
+  if (
+    typeof value.overall !== "string"
+    || !Object.values(OVERALL_VERDICT).includes(value.overall as OverallVerdict)
+  ) {
+    return { ok: false, error: "diagnose report overall verdict is invalid" };
+  }
+  const overall = value.overall as OverallVerdict;
+  if (foldOverallVerdict(checks.map((check) => check.bucket)) !== overall) {
+    return { ok: false, error: "diagnose report overall verdict is inconsistent with its checks" };
+  }
+  return { ok: true, value: { checks, overall } };
 }
 
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
@@ -456,11 +546,84 @@ export function renderReportText(report: DiagnoseReport, options: StyledReportOp
   return renderStyledReport(toStyledModel(report), options);
 }
 
-/** Renders the report in the requested format; the color choice applies to the text form only. */
-export function renderReport(
+function toVerboseModel(report: DiagnoseReport): StyledReportModel {
+  return {
+    sections: report.checks.map((check) => {
+      const text = humanText(check);
+      return {
+        severity: BUCKET_SEVERITY[check.bucket],
+        header: text.header,
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.CONCLUSION}: ${text.header}`,
+          ...Object.entries(check.readings).map(([name, value]) => `${name}: ${value}`),
+          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+        ],
+      };
+    }),
+    summary: {
+      severity: OVERALL_SEVERITY[report.overall],
+      text: `${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`,
+    },
+  };
+}
+
+function toConciseModel(report: DiagnoseReport, executingVersion: string): StyledReportModel {
+  return {
+    sections: [
+      {
+        severity: SEVERITY.OK,
+        header: "spx",
+        details: [
+          `${DIAGNOSE_TEXT_LABEL.VERSION}: ${executingVersion}`,
+          DIAGNOSE_TEXT_HINT.VERBOSE,
+          DIAGNOSE_TEXT_HINT.JSON,
+        ],
+      },
+      ...report.checks
+        .filter((check) => check.bucket !== VERDICT_BUCKET.HEALTHY && check.bucket !== VERDICT_BUCKET.NOT_APPLICABLE)
+        .map((check) => ({
+          severity: BUCKET_SEVERITY[check.bucket],
+          header: humanText(check).header,
+          details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`],
+        })),
+    ],
+    summary: {
+      severity: OVERALL_SEVERITY[report.overall],
+      text: `${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`,
+    },
+  };
+}
+
+/** Renders the complete detailed human report. */
+export function renderReportVerbose(report: DiagnoseReport, options: StyledReportOptions): string {
+  return renderStyledReport(toVerboseModel(report), options);
+}
+
+/** Renders the concise human report with the executing package version and actionable checks. */
+export function renderReportConcise(
   report: DiagnoseReport,
-  format: DiagnoseFormat,
+  executingVersion: string,
   options: StyledReportOptions,
 ): string {
-  return format === DIAGNOSE_FORMAT.JSON ? renderReportJson(report) : renderReportText(report, options);
+  return renderStyledReport(toConciseModel(report, executingVersion), options);
+}
+
+export interface DiagnoseRenderOptions extends StyledReportOptions {
+  readonly executingVersion: string;
+}
+
+/** Renders the report in the requested presentation mode. */
+export function renderReport(
+  report: DiagnoseReport,
+  outputMode: DiagnoseOutputMode,
+  options: DiagnoseRenderOptions,
+): string {
+  switch (outputMode) {
+    case DIAGNOSE_OUTPUT_MODE.CONCISE:
+      return renderReportConcise(report, options.executingVersion, options);
+    case DIAGNOSE_OUTPUT_MODE.VERBOSE:
+      return renderReportVerbose(report, options);
+    case DIAGNOSE_OUTPUT_MODE.JSON:
+      return renderReportJson(report);
+  }
 }
