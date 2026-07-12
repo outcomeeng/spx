@@ -1,0 +1,179 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+import { expect } from "vitest";
+
+import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import {
+  composeDocumentationSync,
+  type ComposeDocumentationSyncOptions,
+  DEFAULT_DOCUMENTATION_PATH,
+  DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE,
+  DOCUMENTATION_PATHS_DATA_BLOCK_OPEN,
+  type DocumentationFaithfulnessAuditor,
+  type DocumentationPromoter,
+  type DocumentationReader,
+  type DocumentationStager,
+  resolveDocumentationPaths,
+} from "@/domains/release/documentation-sync";
+import {
+  arbitraryConfiguredDocumentationSyncScenario,
+  arbitraryDefaultDocumentationSyncScenario,
+  type DocumentationSyncScenario,
+} from "@testing/generators/release/documentation";
+import { sampleReleaseTestValue } from "@testing/generators/release/release";
+import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
+
+const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
+const STAGE_DIRECTORY_PREFIX = "spx-documentation-stage-";
+
+class DocumentationWritingAgent implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+
+  constructor(private readonly updated: Readonly<Partial<Record<string, string>>>) {}
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    for (const path of promptDocumentationPaths(request.prompt)) {
+      const content = this.updated[path.sourcePath];
+      if (content === undefined) throw new Error(`No generated documentation for ${path.sourcePath}`);
+      await writeFile(path.stagedPath, content);
+    }
+  }
+}
+
+async function withDocumentationScenario(
+  scenario: DocumentationSyncScenario,
+  run: (
+    options: ComposeDocumentationSyncOptions,
+    readProductDocument: DocumentationReader,
+    agent: DocumentationWritingAgent,
+  ) => Promise<void>,
+): Promise<void> {
+  const productDir = await mkdtemp(join(tmpdir(), PRODUCT_DIRECTORY_PREFIX));
+  try {
+    for (const [path, content] of Object.entries(scenario.original)) {
+      if (content === undefined) throw new Error(`No original documentation for ${path}`);
+      const absolutePath = join(productDir, path);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, content);
+    }
+    const agent = new DocumentationWritingAgent(scenario.updated);
+    await run(
+      {
+        releaseData: scenario.releaseData,
+        config: scenario.config,
+        productDir,
+        agentRunner: agent,
+        stageDocumentation: realDocumentationStager,
+        readDocument: (path) => readFile(path, "utf8"),
+        promoteDocumentation: realDocumentationPromoter,
+        faithfulnessAuditor: approvingDocumentationAuditor,
+      },
+      (path) => readFile(join(productDir, path), "utf8"),
+      agent,
+    );
+  } finally {
+    await rm(productDir, { recursive: true, force: true });
+  }
+}
+
+const realDocumentationStager: DocumentationStager = async (productDir, paths) => {
+  const workingDirectory = await mkdtemp(join(tmpdir(), STAGE_DIRECTORY_PREFIX));
+  const documents = await Promise.all(paths.map(async (sourcePath) => {
+    const stagedPath = join(workingDirectory, sourcePath);
+    await mkdir(dirname(stagedPath), { recursive: true });
+    await writeFile(stagedPath, await readFile(join(productDir, sourcePath), "utf8"));
+    return { sourcePath, stagedPath };
+  }));
+  return {
+    workingDirectory,
+    documents,
+    cleanup: () => rm(workingDirectory, { recursive: true, force: true }),
+  };
+};
+
+const realDocumentationPromoter: DocumentationPromoter = async (documents) => {
+  await Promise.all(documents.map(({ path, content }) => writeFile(path, content)));
+};
+
+const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
+
+function promptDocumentationPaths(prompt: string): readonly { sourcePath: string; stagedPath: string }[] {
+  const start = prompt.indexOf(DOCUMENTATION_PATHS_DATA_BLOCK_OPEN);
+  const end = prompt.indexOf(DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE, start);
+  if (start < 0 || end < 0) throw new Error("Documentation paths block is absent from prompt");
+  return JSON.parse(
+    prompt.slice(start + DOCUMENTATION_PATHS_DATA_BLOCK_OPEN.length, end).trim(),
+  ) as readonly { sourcePath: string; stagedPath: string }[];
+}
+
+function registerScenarioTests(): void {
+  describe("documentation sync scenarios", () => {
+    it("updates the default product README to the released version", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        await expect(composeDocumentationSync(options)).resolves.toEqual({ paths: [DEFAULT_DOCUMENTATION_PATH] });
+        await expect(readProductDocument(DEFAULT_DOCUMENTATION_PATH)).resolves.toBe(
+          scenario.updated[DEFAULT_DOCUMENTATION_PATH],
+        );
+      });
+    });
+  });
+}
+
+function registerMappingTests(): void {
+  describe("documentation sync path mapping", () => {
+    it("maps omitted configuration to the product README", () => {
+      expect(resolveDocumentationPaths({})).toEqual([DEFAULT_DOCUMENTATION_PATH]);
+    });
+
+    it("maps configured documentation paths in declared order", () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      expect(resolveDocumentationPaths(scenario.config)).toEqual(scenario.paths);
+    });
+  });
+}
+
+function registerComplianceTests(): void {
+  describe("documentation sync compliance", () => {
+    it("audits the read-back set before promoting any document", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      let promoted = false;
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        await expect(composeDocumentationSync({
+          ...options,
+          faithfulnessAuditor: async ({ releaseData, documents }) => {
+            expect(releaseData).toBe(scenario.releaseData);
+            expect(documents.map(({ path }) => path)).toEqual(scenario.paths);
+            throw new Error("Documentation faithfulness rejected");
+          },
+          promoteDocumentation: async () => {
+            promoted = true;
+          },
+        })).rejects.toThrow("Documentation faithfulness rejected");
+        expect(promoted).toBe(false);
+        for (const path of scenario.paths) {
+          await expect(readProductDocument(path)).resolves.toBe(scenario.original[path]);
+        }
+      });
+    });
+
+    it("passes only release data and staged document paths to the producing agent", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+        await composeDocumentationSync(options);
+        expect(agent.requests).toHaveLength(1);
+        expect(agent.requests[0].prompt).toContain(scenario.releaseData.version);
+        expect(promptDocumentationPaths(agent.requests[0].prompt).map(({ sourcePath }) => sourcePath)).toEqual(
+          scenario.paths,
+        );
+      });
+    });
+  });
+}
+
+export const documentationSyncScenarioCases = collectHarnessTestCases(registerScenarioTests);
+export const documentationSyncMappingCases = collectHarnessTestCases(registerMappingTests);
+export const documentationSyncComplianceCases = collectHarnessTestCases(registerComplianceTests);
