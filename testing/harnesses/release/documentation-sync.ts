@@ -2,13 +2,14 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { Command } from "commander";
 import { expect } from "vitest";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
-  DEFAULT_DOCUMENTATION_PATH,
   DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE,
   DOCUMENTATION_PATHS_DATA_BLOCK_OPEN,
   type DocumentationFaithfulnessAuditor,
@@ -17,6 +18,8 @@ import {
   type DocumentationStager,
   resolveDocumentationPaths,
 } from "@/domains/release/documentation-sync";
+import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
@@ -115,14 +118,45 @@ function promptDocumentationPaths(prompt: string): readonly { sourcePath: string
   ) as readonly { sourcePath: string; stagedPath: string }[];
 }
 
+async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions): Promise<void> {
+  const stderr: string[] = [];
+  const program = new Command();
+  const invocation: CliInvocation = {
+    io: {
+      writeStdout: () => undefined,
+      writeStderr: (output) => stderr.push(output),
+      setExitCode: () => undefined,
+      exit: () => {
+        throw new Error(stderr.join(""));
+      },
+    },
+    resolveEffectiveInvocationDir: () => options.productDir,
+    resolveProductContext: () => ({
+      effectiveInvocationDir: options.productDir,
+      productDir: options.productDir,
+    }),
+  };
+  createReleaseDomain({
+    createDocumentationAgentRunner: () => options.agentRunner,
+    documentationSyncCommand: async ({ productDir, agentRunner }) => {
+      const result = await composeDocumentationSync({ ...options, productDir, agentRunner });
+      return result.paths;
+    },
+  }).register(program, invocation);
+  await program.parseAsync(
+    [RELEASE_CLI.COMMAND, RELEASE_CLI.DOCS_COMMAND, RELEASE_CLI.SYNC_COMMAND],
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+}
+
 function registerScenarioTests(): void {
   describe("documentation sync scenarios", () => {
     it("updates the default product README to the released version", async () => {
       const scenario = sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario());
       await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await expect(composeDocumentationSync(options)).resolves.toEqual({ paths: [DEFAULT_DOCUMENTATION_PATH] });
-        await expect(readProductDocument(DEFAULT_DOCUMENTATION_PATH)).resolves.toBe(
-          scenario.updated[DEFAULT_DOCUMENTATION_PATH],
+        await runDocumentationSyncCli(options);
+        await expect(readProductDocument(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0])).resolves.toBe(
+          scenario.updated[DEFAULT_RELEASE_DOCUMENTATION_PATHS[0]],
         );
       });
     });
@@ -130,7 +164,7 @@ function registerScenarioTests(): void {
     it("updates every configured documentation path to the released version", async () => {
       const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
       await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await expect(composeDocumentationSync(options)).resolves.toEqual({ paths: scenario.paths });
+        await runDocumentationSyncCli(options);
         for (const path of scenario.paths) {
           await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
         }
@@ -142,7 +176,7 @@ function registerScenarioTests(): void {
 function registerMappingTests(): void {
   describe("documentation sync path mapping", () => {
     it("maps omitted configuration to the product README", () => {
-      expect(resolveDocumentationPaths({})).toEqual([DEFAULT_DOCUMENTATION_PATH]);
+      expect(resolveDocumentationPaths({})).toEqual(DEFAULT_RELEASE_DOCUMENTATION_PATHS);
     });
 
     it("maps every configured documentation path set in declared order", () => {

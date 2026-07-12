@@ -1,0 +1,1 @@
+export const DEFAULT_RELEASE_DOCUMENTATION_PATHS = ["README.md"] as const;

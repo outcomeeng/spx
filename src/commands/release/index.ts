@@ -1,3 +1,4 @@
+export { documentationSyncCommand, type DocumentationSyncCommandOptions } from "./documentation-sync";
 export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
 export {
   canonicalizeExistingPath,
