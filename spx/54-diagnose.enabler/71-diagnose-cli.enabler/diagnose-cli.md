@@ -19,5 +19,6 @@ CAN identify the executing SPX version and actionable health immediately, inspec
 
 ### Compliance
 
-- ALWAYS: the human report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive — each diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis line is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
+- ALWAYS: each human diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis summary is colored by the overall verdict's severity ([test](tests/text-report.compliance.l1.test.ts))
+- ALWAYS: the human report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive ([audit])
 - NEVER: accept `--verbose` together with `--json`, or accept the removed `--format` option; invalid output options fail with a sanitized diagnostic before diagnosis runs ([test](tests/error-sanitization.compliance.l2.test.ts))
