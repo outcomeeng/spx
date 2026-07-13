@@ -91,6 +91,7 @@ export type SpecContextExactPrefixTargetFixture = {
 
 export type SpecContextEmptySegmentTargetFixture = {
   readonly segment: string;
+  readonly snapshot: SpecTreeSnapshot;
   readonly target: string;
 };
 
@@ -199,14 +200,22 @@ export function specContextEmptySegmentTargetFixture(
   if (target === undefined) throw new Error("Expected a representative spec-tree fixture with a nested node");
   const separator = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
   switch (position) {
-    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET:
-      return { segment: "", target: "" };
+    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET: {
+      const root = snapshot.allNodes.find((node) => node.parentId === undefined);
+      if (root === undefined) throw new Error("Expected a representative spec-tree fixture with a root node");
+      return {
+        segment: "",
+        snapshot: { ...snapshot, allNodes: [root], nodes: [root] },
+        target: "",
+      };
+    }
     case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR:
-      return { segment: "", target: `${separator}${target.id}` };
+      return { segment: "", snapshot, target: `${separator}${target.id}` };
     case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR: {
       const segments = target.id.split(separator);
       return {
         segment: "",
+        snapshot,
         target: [segments[0], "", ...segments.slice(1)].join(separator),
       };
     }
