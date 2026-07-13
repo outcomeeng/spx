@@ -1,12 +1,14 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { Command } from "commander";
 import { expect } from "vitest";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
-import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
+import { createDocumentationSyncFilesystem } from "@/commands/release/documentation-sync-filesystem";
+import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, RELEASE_CONFIG_FIELDS, RELEASE_SECTION } from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
@@ -16,10 +18,7 @@ import {
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
-  type DocumentationPromoter,
   type DocumentationReader,
-  type DocumentationStager,
-  resolveDocumentationPaths,
 } from "@/domains/release/documentation-sync";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
@@ -33,9 +32,9 @@ import {
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
-const STAGE_DIRECTORY_PREFIX = "spx-documentation-stage-";
 const TRAILING_VERSION_REFERENCE = /([^\n]+)\n$/u;
 
 class DocumentationWritingAgent implements AgentRunner {
@@ -75,8 +74,7 @@ async function withDocumentationScenario(
     agent: DocumentationWritingAgent,
   ) => Promise<void>,
 ): Promise<void> {
-  const productDir = await mkdtemp(join(tmpdir(), PRODUCT_DIRECTORY_PREFIX));
-  try {
+  await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
     for (const [path, content] of Object.entries(scenario.original)) {
       if (content === undefined) throw new Error(`No original documentation for ${path}`);
       const absolutePath = join(productDir, path);
@@ -88,46 +86,44 @@ async function withDocumentationScenario(
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, content);
     }
+    await materializeDocumentationConfig(productDir, scenario.config);
     const agent = new DocumentationWritingAgent();
+    const filesystem = createDocumentationSyncFilesystem();
     await run(
       {
         releaseData: scenario.releaseData,
         config: scenario.config,
         productDir,
         agentRunner: agent,
-        stageDocumentation: realDocumentationStager,
-        readDocument: (path) => readFile(path, "utf8"),
-        promoteDocumentation: realDocumentationPromoter,
+        stageDocumentation: filesystem.stageDocumentation,
+        readDocument: filesystem.readDocument,
+        promoteDocumentation: filesystem.promoteDocumentation,
         faithfulnessAuditor: approvingDocumentationAuditor,
       },
       (path) => readFile(join(productDir, path), "utf8"),
       agent,
     );
-  } finally {
-    await rm(productDir, { recursive: true, force: true });
-  }
+  });
 }
 
-const realDocumentationStager: DocumentationStager = async (productDir, paths) => {
-  const workingDirectory = await mkdtemp(join(tmpdir(), STAGE_DIRECTORY_PREFIX));
-  const documents = await Promise.all(paths.map(async (sourcePath) => {
-    const stagedPath = join(workingDirectory, sourcePath);
-    await mkdir(dirname(stagedPath), { recursive: true });
-    await writeFile(stagedPath, await readFile(join(productDir, sourcePath), "utf8"));
-    return { sourcePath, stagedPath, targetPath: join(productDir, sourcePath) };
-  }));
-  return {
-    workingDirectory,
-    documents,
-    cleanup: () => rm(workingDirectory, { recursive: true, force: true }),
-  };
-};
-
-const realDocumentationPromoter: DocumentationPromoter = async (documents) => {
-  await Promise.all(documents.map(({ path, content }) => writeFile(path, content)));
-};
-
 const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
+
+async function materializeDocumentationConfig(
+  productDir: string,
+  config: DocumentationSyncScenario["config"],
+): Promise<void> {
+  if (config.paths === undefined) return;
+  await writeFile(
+    join(productDir, DEFAULT_CONFIG_FILENAME),
+    serializeConfigFileSections(CONFIG_FILE_FORMAT.YAML, {
+      [RELEASE_SECTION]: {
+        [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+          [RELEASE_CONFIG_FIELDS.PATHS]: config.paths,
+        },
+      },
+    }).value,
+  );
+}
 
 function parseDocumentationSyncPromptInput(prompt: string): {
   readonly releaseData: DocumentationSyncScenario["releaseData"];
@@ -180,11 +176,8 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
     createDocumentationAgentRunner: () => options.agentRunner,
     createDocumentationFaithfulnessAuditor: () => options.faithfulnessAuditor,
     documentationSyncCommandDependencies: {
+      ...DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
       resolveReleaseData: () => Promise.resolve(options.releaseData),
-      resolveDocumentationConfig: () => Promise.resolve(options.config),
-      stageDocumentation: options.stageDocumentation,
-      readDocument: options.readDocument,
-      promoteDocumentation: options.promoteDocumentation,
     },
   }).register(program, invocation);
   await program.parseAsync(
@@ -219,8 +212,14 @@ function registerScenarioTests(): void {
 
 function registerMappingTests(): void {
   describe("documentation sync path mapping", () => {
-    it.each(documentationPathMappingCases())("maps %s documentation paths", ({ config, expected }) => {
-      expect(resolveDocumentationPaths(config)).toEqual(expected);
+    it.each(documentationPathMappingCases())("maps %s documentation paths", async ({ scenario, expected }) => {
+      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+        await runDocumentationSyncCli(options);
+        expect(
+          parseDocumentationSyncPromptInput(agent.requests[0].prompt).documents.map(({ sourcePath }) => sourcePath),
+        )
+          .toEqual(expected);
+      });
     });
   });
 }
