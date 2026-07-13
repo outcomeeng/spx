@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatDefaultLiteralProblems,
+  formatLiteralValues,
   LITERAL_EXIT_CODES,
   literalCommand,
   OUTPUT_MODE_NAME,
@@ -243,6 +244,12 @@ export function registerLiteralOutputModeMappings(): void {
 
         expect(lines).toEqual(expectedLiteralLines(expectedFixtureFindings(inputs)));
       });
+    });
+
+    it("--literals renders numeric finding values as unquoted decimal text", () => {
+      const findings = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.numericDetectionResult());
+
+      expect(formatLiteralValues(findings)).toBe(findings.srcReuse[0]?.value);
     });
 
     it("--kind reuse returns only srcReuse findings; --kind dupe returns only testDupe findings — both disjoint from unfiltered output", async () => {

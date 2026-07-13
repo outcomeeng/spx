@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatNoProblemsOfKind, literalCommand } from "@/commands/validation/literal";
+import { literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
@@ -10,6 +10,7 @@ import {
   expectedAffectedFiles,
   expectedFixtureFindings,
   expectedLiteralLines,
+  expectedNoProblemsOfKind,
   expectedVerboseLines,
 } from "@testing/harnesses/literal/output-expectations";
 
@@ -99,7 +100,7 @@ export function registerLiteralOutputModeScenarios(): void {
         });
 
         expect(result.exitCode).toBe(0);
-        expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
+        expect(result.output).toBe(expectedNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
       });
     });
 

@@ -184,6 +184,12 @@ export function arbitraryDetectionResult(): fc.Arbitrary<DetectionResult> {
   });
 }
 
+export function arbitraryNumericDetectionResult(): fc.Arbitrary<DetectionResult> {
+  return arbitraryReuseFinding()
+    .filter((finding) => finding.kind === LITERAL_KIND.NUMBER)
+    .map((finding) => ({ srcReuse: [finding], testDupe: [] }));
+}
+
 export function arbitrarySourceFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `src/${slug}.ts`);
 }
@@ -461,6 +467,7 @@ export const LITERAL_TEST_GENERATOR = {
   literalConfig: arbitraryLiteralConfig,
   literalValueConfig: arbitraryLiteralValueConfig,
   detectionResult: arbitraryDetectionResult,
+  numericDetectionResult: arbitraryNumericDetectionResult,
 } as const;
 
 export function sampleLiteralTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
