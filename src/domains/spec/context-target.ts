@@ -42,6 +42,17 @@ export type SpecContextTargetResolution =
   | { readonly ok: true; readonly node: SpecTreeNode }
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
+type SpecContextArtifactEntry = Extract<
+  SpecTreeSourceEntry,
+  {
+    readonly type:
+      | typeof SPEC_TREE_ENTRY_TYPE.PRODUCT
+      | typeof SPEC_TREE_ENTRY_TYPE.NODE
+      | typeof SPEC_TREE_ENTRY_TYPE.DECISION
+      | typeof SPEC_TREE_ENTRY_TYPE.EVIDENCE;
+  }
+>;
+
 const TARGET_SEPARATOR = "/";
 const SPEC_TREE_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 
@@ -67,7 +78,20 @@ function nodeSegment(node: SpecTreeNode): string {
   return node.id.split(TARGET_SEPARATOR).at(-1) ?? node.id;
 }
 
-function artifactOwnerId(entry: SpecTreeSourceEntry): string | undefined {
+function isSpecContextArtifactEntry(entry: SpecTreeSourceEntry): entry is SpecContextArtifactEntry {
+  switch (entry.type) {
+    case SPEC_TREE_ENTRY_TYPE.PRODUCT:
+    case SPEC_TREE_ENTRY_TYPE.NODE:
+    case SPEC_TREE_ENTRY_TYPE.DECISION:
+    case SPEC_TREE_ENTRY_TYPE.EVIDENCE:
+      return true;
+    case SPEC_TREE_ENTRY_TYPE.SUPERSEDED:
+    case SPEC_TREE_ENTRY_TYPE.INVALID:
+      return false;
+  }
+}
+
+function artifactOwnerId(entry: SpecContextArtifactEntry): string | undefined {
   if (entry.type === SPEC_TREE_ENTRY_TYPE.NODE) return entry.id;
   if (entry.type === SPEC_TREE_ENTRY_TYPE.PRODUCT) return undefined;
   return entry.parentId;
@@ -78,7 +102,9 @@ function resolveArtifact(
   input: string,
   normalized: string,
 ): SpecContextTargetFailure | undefined {
-  const artifact = snapshot.entries.find((entry) => entry.ref?.path === rootedTarget(normalized));
+  const artifact = snapshot.entries
+    .filter(isSpecContextArtifactEntry)
+    .find((entry) => entry.ref?.path === rootedTarget(normalized));
   if (artifact === undefined) return undefined;
   const ownerId = artifactOwnerId(artifact);
   return ownerId === undefined
