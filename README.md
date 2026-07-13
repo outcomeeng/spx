@@ -99,9 +99,9 @@ spx session delete <session-id>
 
 Sessions are stored in `.spx/sessions/` with priority-based ordering (high > medium > low) and FIFO within the same priority. Commands output parseable `<PICKUP_ID>`, `<HANDOFF_ID>`, and `<SESSION_FILE>` tags for automation.
 
-### Spec Management (deprecated)
+### Spec Management
 
-The `spx spec` and `spx spx` CLI domains are **deprecated**. Spec tree management has moved to the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ## Development
 
