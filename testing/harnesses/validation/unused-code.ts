@@ -19,6 +19,7 @@ import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import {
   createRecordingKnipCommandDeps,
+  ExpectedExecutableRunner,
   type KnipDiscoveryCall,
   type KnipValidationCall,
   OutputRecordingSpawnOptionsRunner,
@@ -226,7 +227,7 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
             KNIP_COMMAND_TOKENS.COMMAND,
           );
           const validationCalls: KnipValidationCall[] = [];
-          const runner = new RecordingSpawnOptionsRunner();
+          const runner = new ExpectedExecutableRunner(discoveredToolPath);
           await env.writeTsConfigMarker();
           await env.writeSourceFile(
             sourceFilePath,
