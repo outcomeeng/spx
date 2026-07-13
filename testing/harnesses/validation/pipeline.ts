@@ -641,7 +641,10 @@ async function runStepOrderScenario(
   } finally {
     releaseSecondStage.resolve();
   }
-  await run;
+  const result = await run;
+  expect(result.stdout.indexOf(VALIDATION_PIPELINE_DATA.stageNames.ESLINT)).toBeLessThan(
+    result.stdout.indexOf(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
+  );
 }
 
 async function runSkipCircularScenario(
