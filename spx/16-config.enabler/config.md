@@ -13,7 +13,6 @@ CAN read its configuration through a uniform, type-checked API without inline co
 - Given both `spx.config.json` and `spx.config.yaml` are present in the product directory, when the config loads, then it returns an error naming both files and no config is returned ([test](tests/config-ambiguity.scenario.l1.test.ts))
 - Given a descriptor's validator rejects its section in the config file, when the config loads, then the load returns an error naming the descriptor and the offending fields and the returned config is not partially usable ([test](tests/validation-failure.scenario.l1.test.ts))
 - Given a new descriptor is added to the registry, when the config loads, then its section becomes available alongside existing descriptors without any change to other descriptor modules or consumer code ([test](tests/registry-extension.scenario.l1.test.ts))
-- Given two domains need the same structural config shape, when the domains declare descriptors, then the repeated structure is imported from a shared config primitive and exposed under each domain's own section ([review](21-descriptor-registration.adr.md))
 
 ### Properties
 
@@ -27,10 +26,10 @@ CAN read its configuration through a uniform, type-checked API without inline co
 
 ### Compliance
 
-- ALWAYS: resolution reads exactly one config file from the supplied `productDir`; parent directories, nested directories, CLI flags, and overlay files are not resolution inputs ([test](tests/resolution-scope.compliance.l1.test.ts), [review](21-descriptor-registration.adr.md))
-- ALWAYS: config file format probing, raw parsing, and serialization are owned by `src/config/`; downstream modules consume config-file and section APIs instead of importing format parsers ([test](tests/resolution-scope.compliance.l1.test.ts), [review](21-config-file-formats.adr.md))
+- ALWAYS: resolution reads exactly one config file from the supplied `productDir`; parent directories, nested directories, CLI flags, and overlay files are not resolution inputs ([test](tests/resolution-scope.compliance.l1.test.ts))
+- ALWAYS: config file format probing, raw parsing, and serialization are owned by `src/config/`; downstream modules consume config-file and section APIs instead of importing format parsers ([test](tests/resolution-scope.compliance.l1.test.ts))
 - ALWAYS: each descriptor's validator receives only its own section from the config file — validators cannot read other descriptors' values or the raw file content ([test](tests/validation-isolation.compliance.l1.test.ts))
-- ALWAYS: tests for the config module and descriptors construct fixtures programmatically through the shared spec-tree harness — directory trees and config file content are generated, never hand-written ([review](21-descriptor-registration.adr.md))
-- ALWAYS: the `validation` and `testing` config sections are registered as separate domain descriptors; shared shapes such as path include/exclude filters are reusable primitives, not command-local parsers ([review](21-descriptor-registration.adr.md))
+- ALWAYS: tests for the config module and descriptors construct fixtures programmatically through the shared spec-tree harness — directory trees and config file content are generated, never hand-written ([audit])
+- ALWAYS: the `validation` and `testing` config sections are registered as separate domain descriptors; shared shapes such as path include/exclude filters are reusable primitives, not command-local parsers ([test](43-domain-execution-descriptors.enabler/tests/testing-descriptor.compliance.l1.test.ts))
 - NEVER: return a partial or untyped config when any descriptor's validator rejects its section — the load either returns a fully-typed `Config` or an error ([test](tests/invariants.property.l1.test.ts))
-- NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real spec-tree fixtures under temp directories passed as `productDir` ([review](21-descriptor-registration.adr.md))
+- NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real spec-tree fixtures under temp directories passed as `productDir` ([audit])

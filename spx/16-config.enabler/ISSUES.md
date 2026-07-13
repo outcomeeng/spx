@@ -10,14 +10,6 @@ This mismatch makes config harder to compare with other domains and makes future
 
 **Skills:** `spec-tree:align`, `typescript:architect-typescript`, `typescript:audit-typescript-architecture`, `typescript:test-typescript`, `typescript:code-typescript`, `typescript:audit-typescript`.
 
-## Spec assertions use legacy or competing verification mechanisms
-
-[`spx/16-config.enabler/config.md`](config.md) uses legacy `[review]` evidence at lines 16, 30-31, 33-34, and 36. Lines 30-31 also attach `[test]` and `[review]` to one assertion, so one declaration names competing verification mechanisms instead of the single mechanism selected by the testing router.
-
-**Resolution:** use `/test` to select the verification mechanism for each affected assertion, then use `/author` to rewrite the declarations and `/align` to verify the node against its decisions and evidence.
-
-**Revisit condition:** before the next `/author`, `/align`, `/test`, or implementation slice touching `spx/16-config.enabler`.
-
 ## Executed tests delegate their assertions to config test infrastructure
 
 The `work/verification-tag-alignment` changeset moves the **assertion flow** from two executed config tests into `testing/harnesses/config/resolution.ts`. The resulting test files only call exported `assert*` functions, while the imported test-infrastructure module owns `expect` calls and the behavioral predicates.
