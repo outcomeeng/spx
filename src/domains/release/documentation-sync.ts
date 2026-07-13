@@ -3,8 +3,10 @@ import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import type { ReleaseData } from "@/domains/release/release-data";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
-export const DOCUMENTATION_PATHS_DATA_BLOCK_OPEN = "<documentation-paths>";
-export const DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE = "</documentation-paths>";
+export const DOCUMENTATION_SYNC_PROMPT_INSTRUCTION =
+  "Update every staged documentation file so its version references and behavior descriptions match the supplied release data.";
+export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN = "<documentation-sync-input>";
+export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE = "</documentation-sync-input>";
 
 export interface DocumentationSyncConfig {
   readonly paths?: readonly string[];
@@ -17,6 +19,17 @@ export interface StagedDocumentation {
     readonly stagedPath: string;
   }[];
   readonly cleanup: () => Promise<void>;
+}
+
+export interface DocumentationSyncPromptInput {
+  readonly releaseData: ReleaseData;
+  readonly documents: StagedDocumentation["documents"];
+}
+
+export function buildDocumentationSyncPrompt(
+  _input: DocumentationSyncPromptInput,
+): string {
+  throw new Error("documentation sync prompt assembly is not implemented");
 }
 
 export type DocumentationStager = (

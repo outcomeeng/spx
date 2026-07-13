@@ -10,8 +10,9 @@ import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
-  DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE,
-  DOCUMENTATION_PATHS_DATA_BLOCK_OPEN,
+  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
+  DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
   type DocumentationPromoter,
   type DocumentationReader,
@@ -23,10 +24,10 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  documentationPathMappingCases,
   type DocumentationSyncScenario,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -110,12 +111,22 @@ const realDocumentationPromoter: DocumentationPromoter = async (documents) => {
 const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
 
 function promptDocumentationPaths(prompt: string): readonly { sourcePath: string; stagedPath: string }[] {
-  const start = prompt.indexOf(DOCUMENTATION_PATHS_DATA_BLOCK_OPEN);
-  const end = prompt.indexOf(DOCUMENTATION_PATHS_DATA_BLOCK_CLOSE, start);
-  if (start < 0 || end < 0) throw new Error("Documentation paths block is absent from prompt");
-  return JSON.parse(
-    prompt.slice(start + DOCUMENTATION_PATHS_DATA_BLOCK_OPEN.length, end).trim(),
-  ) as readonly { sourcePath: string; stagedPath: string }[];
+  return parseDocumentationSyncPromptInput(prompt).documents;
+}
+
+function parseDocumentationSyncPromptInput(prompt: string): {
+  readonly releaseData: DocumentationSyncScenario["releaseData"];
+  readonly documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[];
+} {
+  const prefix = `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n`;
+  const suffix = `\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
+  if (!prompt.startsWith(prefix) || !prompt.endsWith(suffix)) {
+    throw new Error("Documentation sync prompt does not match its source-owned envelope");
+  }
+  return JSON.parse(prompt.slice(prefix.length, -suffix.length)) as {
+    readonly releaseData: DocumentationSyncScenario["releaseData"];
+    readonly documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[];
+  };
 }
 
 async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions): Promise<void> {
@@ -138,9 +149,13 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
   };
   createReleaseDomain({
     createDocumentationAgentRunner: () => options.agentRunner,
-    documentationSyncCommand: async ({ productDir, agentRunner }) => {
-      const result = await composeDocumentationSync({ ...options, productDir, agentRunner });
-      return result.paths;
+    createDocumentationFaithfulnessAuditor: () => options.faithfulnessAuditor,
+    documentationSyncCommandDependencies: {
+      resolveReleaseData: () => Promise.resolve(options.releaseData),
+      resolveDocumentationConfig: () => Promise.resolve(options.config),
+      stageDocumentation: options.stageDocumentation,
+      readDocument: options.readDocument,
+      promoteDocumentation: options.promoteDocumentation,
     },
   }).register(program, invocation);
   await program.parseAsync(
@@ -175,18 +190,8 @@ function registerScenarioTests(): void {
 
 function registerMappingTests(): void {
   describe("documentation sync path mapping", () => {
-    it("maps omitted configuration to the product README", () => {
-      expect(resolveDocumentationPaths({})).toEqual(DEFAULT_RELEASE_DOCUMENTATION_PATHS);
-    });
-
-    it("maps every configured documentation path set in declared order", () => {
-      assertProperty(
-        arbitraryConfiguredDocumentationSyncScenario(),
-        (scenario) => {
-          expect(resolveDocumentationPaths(scenario.config)).toEqual(scenario.paths);
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
+    it.each(documentationPathMappingCases())("maps %s documentation paths", ({ config, expected }) => {
+      expect(resolveDocumentationPaths(config)).toEqual(expected);
     });
   });
 }
@@ -220,14 +225,17 @@ function registerComplianceTests(): void {
       await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
         await composeDocumentationSync(options);
         expect(agent.requests).toHaveLength(1);
-        expect(agent.requests[0].prompt).toContain(scenario.releaseData.version);
-        expect(promptDocumentationPaths(agent.requests[0].prompt).map(({ sourcePath }) => sourcePath)).toEqual(
-          scenario.paths,
+        expect(agent.requests[0].prompt).toBe(
+          `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
+            JSON.stringify({
+              releaseData: scenario.releaseData,
+              documents: scenario.paths.map((sourcePath) => ({
+                sourcePath,
+                stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
+              })),
+            })
+          }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`,
         );
-        for (const { path, content } of scenario.ambientState) {
-          expect(agent.requests[0].prompt).not.toContain(path);
-          expect(agent.requests[0].prompt).not.toContain(content);
-        }
       });
     });
   });

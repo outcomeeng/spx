@@ -4,7 +4,7 @@ import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import { DOCUMENTATION_FILE_EXTENSION, type DocumentationSyncConfig } from "@/domains/release/documentation-sync";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
-import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
 const DOCUMENT_COUNT_MIN = 1;
 const DOCUMENT_COUNT_MAX = 3;
@@ -27,6 +27,20 @@ export interface DocumentationSyncScenario {
   readonly original: Readonly<Partial<Record<string, string>>>;
   readonly updated: Readonly<Partial<Record<string, string>>>;
   readonly ambientState: readonly AmbientProductState[];
+}
+
+export interface DocumentationPathMappingCase {
+  readonly label: string;
+  readonly config: DocumentationSyncConfig;
+  readonly expected: readonly string[];
+}
+
+export function documentationPathMappingCases(): readonly DocumentationPathMappingCase[] {
+  const configured = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  return [
+    { label: "omitted", config: {}, expected: DEFAULT_RELEASE_DOCUMENTATION_PATHS },
+    { label: "configured", config: configured.config, expected: configured.paths },
+  ];
 }
 
 export function arbitraryDefaultDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {

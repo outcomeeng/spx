@@ -4,9 +4,12 @@ import type { AgentRunner } from "@/agent/agent-runner";
 import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import {
   documentationSyncCommand,
+  type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
   releaseNotesCommand,
+  UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 } from "@/commands/release";
+import type { DocumentationFaithfulnessAuditor } from "@/domains/release/documentation-sync";
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -28,14 +31,19 @@ const RELEASE_DOCS_SYNC_OUTPUT_PREFIX = "Updated documentation";
 
 export interface ReleaseCliDependencies {
   readonly createDocumentationAgentRunner: () => AgentRunner;
-  readonly documentationSyncCommand: (
-    options: DocumentationSyncCommandOptions,
-  ) => Promise<readonly string[]>;
+  readonly createDocumentationFaithfulnessAuditor: (
+    agentRunner: AgentRunner,
+    productDir: string,
+  ) => DocumentationFaithfulnessAuditor;
+  readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
 }
 
 const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
-  documentationSyncCommand,
+  createDocumentationFaithfulnessAuditor: () => async () => {
+    throw new Error("documentation sync faithfulness audit is not implemented");
+  },
+  documentationSyncCommandDependencies: UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 };
 
 export function createReleaseDomain(
@@ -81,10 +89,14 @@ export function createReleaseDomain(
         .description(RELEASE_DOCS_SYNC_DESCRIPTION)
         .action(async () => {
           try {
-            const paths = await deps.documentationSyncCommand({
-              productDir: invocation.resolveProductContext().productDir,
-              agentRunner: deps.createDocumentationAgentRunner(),
-            });
+            const productDir = invocation.resolveProductContext().productDir;
+            const agentRunner = deps.createDocumentationAgentRunner();
+            const options: DocumentationSyncCommandOptions = {
+              productDir,
+              agentRunner,
+              faithfulnessAuditor: deps.createDocumentationFaithfulnessAuditor(agentRunner, productDir),
+            };
+            const paths = await documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
             for (const path of paths) {
               invocation.io.writeStdout(`${RELEASE_DOCS_SYNC_OUTPUT_PREFIX}: ${path}\n`);
             }
