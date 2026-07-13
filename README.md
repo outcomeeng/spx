@@ -235,7 +235,7 @@ src/
 ├── commands/      # CLI command implementations
 │   ├── session/     # spx session subcommands
 │   ├── validation/  # spx validation subcommands
-│   └── spec/        # spx spec subcommands (deprecated)
+│   └── spec/        # spx spec subcommands
 ├── domains/       # Domain routers
 ├── validation/    # Lint, typecheck, circular dep logic
 ├── session/       # Session lifecycle and storage
