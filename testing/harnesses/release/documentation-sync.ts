@@ -32,7 +32,7 @@ import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const STAGE_DIRECTORY_PREFIX = "spx-documentation-stage-";
-const TRAILING_VERSION_REFERENCE = /[^\n]*\n$/u;
+const TRAILING_VERSION_REFERENCE = /([^\n]+)\n$/u;
 
 class DocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
@@ -42,12 +42,13 @@ class DocumentationWritingAgent implements AgentRunner {
     const input = parseDocumentationSyncPromptInput(request.prompt);
     for (const path of input.documents) {
       const content = await readFile(path.stagedPath, "utf8");
-      if (!TRAILING_VERSION_REFERENCE.test(content)) {
+      const priorVersion = content.match(TRAILING_VERSION_REFERENCE)?.[1];
+      if (priorVersion === undefined) {
         throw new Error(`No trailing version reference in ${path.sourcePath}`);
       }
       await writeFile(
         path.stagedPath,
-        content.replace(TRAILING_VERSION_REFERENCE, `${input.releaseData.version}\n`),
+        content.replaceAll(priorVersion, input.releaseData.version),
       );
     }
   }
