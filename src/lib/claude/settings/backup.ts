@@ -3,6 +3,8 @@
  */
 import fs from "node:fs/promises";
 
+export const SETTINGS_BACKUP_MARKER = ".backup.";
+
 /**
  * Create a timestamped backup of a settings file
  *
@@ -38,7 +40,7 @@ export async function createBackup(settingsPath: string): Promise<string> {
     ].join("");
 
     // Build backup path
-    const backupPath = `${settingsPath}.backup.${timestamp}`;
+    const backupPath = `${settingsPath}${SETTINGS_BACKUP_MARKER}${timestamp}`;
 
     // Copy file to backup location
     await fs.copyFile(settingsPath, backupPath);

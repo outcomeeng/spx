@@ -3,6 +3,14 @@
  */
 import type { ConsolidationResult } from "../permissions/types";
 
+export const CONSOLIDATION_REPORT_TEXT = {
+  NO_SETTINGS_FILES: "No settings files found",
+  PREVIEW_MODE: "Preview mode: No changes written",
+  BACKUP_CREATED: "Backup created:",
+  SETTINGS_WRITTEN: "Settings written to:",
+  GLOBAL_SETTINGS_UPDATED: "Global settings updated:",
+} as const;
+
 /**
  * Format consolidation result as user-friendly text report
  *
@@ -103,7 +111,9 @@ function conflictLines(result: ConsolidationResult): string[] {
 }
 
 function backupLines(result: ConsolidationResult): string[] {
-  return result.backupPath ? [`Backup created: ${result.backupPath}`, ""] : [];
+  return result.backupPath
+    ? [`${CONSOLIDATION_REPORT_TEXT.BACKUP_CREATED} ${result.backupPath}`, ""]
+    : [];
 }
 
 function summaryLines(result: ConsolidationResult): string[] {
@@ -131,7 +141,7 @@ function finalStatusLines(
 ): string[] {
   if (previewOnly) {
     return [
-      "ℹ️  Preview mode: No changes written",
+      `ℹ️  ${CONSOLIDATION_REPORT_TEXT.PREVIEW_MODE}`,
       "",
       "To apply changes:",
       "  • Modify global settings: spx claude settings consolidate --write",
@@ -140,12 +150,14 @@ function finalStatusLines(
   }
   if (outputFile) {
     return [
-      `✓ Settings written to: ${result.outputPath || outputFile}`,
+      `✓ ${CONSOLIDATION_REPORT_TEXT.SETTINGS_WRITTEN} ${result.outputPath || outputFile}`,
       "",
       "To apply to your global settings:",
       `  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`,
       "  • Or run: spx claude settings consolidate --write",
     ];
   }
-  return [`✓ Global settings updated: ${globalSettingsPath || "~/.claude/settings.json"}`];
+  return [
+    `✓ ${CONSOLIDATION_REPORT_TEXT.GLOBAL_SETTINGS_UPDATED} ${globalSettingsPath || "~/.claude/settings.json"}`,
+  ];
 }

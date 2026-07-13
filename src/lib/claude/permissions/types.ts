@@ -67,6 +67,16 @@ export interface ClaudeSettings {
   [key: string]: unknown; // Allow other settings we don't manage
 }
 
+export function createEmptyClaudeSettings(): ClaudeSettings {
+  return {
+    permissions: {
+      allow: [],
+      deny: [],
+      ask: [],
+    },
+  };
+}
+
 export const SETTINGS_FILE_PARSE_STATUS = {
   SUCCESS: "success",
   ERROR: "error",
