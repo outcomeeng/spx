@@ -58,6 +58,21 @@ export class OutputRecordingSpawnOptionsRunner extends RecordingSpawnOptionsRunn
   }
 }
 
+export class ExpectedExecutableRunner extends RecordingSpawnOptionsRunner {
+  constructor(private readonly expectedExecutable: string) {
+    super();
+  }
+
+  override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
+    if (command !== this.expectedExecutable) {
+      throw new Error(
+        `Knip spawned ${command} instead of discovered executable ${this.expectedExecutable}`,
+      );
+    }
+    return super.spawn(command, args, options);
+  }
+}
+
 export function createRecordingKnipCommandDeps(
   productDir: string,
   validationCalls: KnipValidationCall[],

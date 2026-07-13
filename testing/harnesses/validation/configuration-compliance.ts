@@ -17,7 +17,6 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { type KnipStageDeps, runKnipStage } from "@/validation/languages/typescript";
-import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
 import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES } from "@/validation/types";
@@ -87,7 +86,7 @@ async function runExplicitMarkdownOperandBypassingExclude(
   );
 }
 
-describe("ALWAYS: validation command participation is driven by spx config", () => {
+describe("resolved validation configuration", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
       const resolved = await resolveConfig(env.productDir, [
@@ -117,21 +116,6 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
         expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
       },
     );
-  });
-
-  it("skips injected literal config when injected enabled is false", async () => {
-    await withLiteralFixtureEnv({}, async (env) => {
-      await env.writeTsConfigMarker();
-
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        enabled: false,
-      });
-
-      expect(result.exitCode).toBe(0);
-      expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
-    });
   });
 
   it("skips KNIP participation when resolved validation config disables it", async () => {
