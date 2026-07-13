@@ -13,9 +13,14 @@ import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
 import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
-import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import {
+  arbitraryDomainLiteral,
+  LITERAL_TEST_GENERATOR,
+  sampleLiteralTestValue,
+} from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import {
   createRecordingKnipCommandDeps,
@@ -214,43 +219,53 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
   });
 });
 
-export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
-  describe("Knip unused-code compliance", () => {
-    it("spawns the executable path returned by discovery", async () => {
-      await withLiteralFixtureEnv(
-        validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
-        async (env) => {
-          const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-          const discoveredToolPath = join(
-            env.productDir,
-            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-            KNIP_COMMAND_TOKENS.COMMAND,
-          );
-          const validationCalls: KnipValidationCall[] = [];
-          const runner = new ExpectedExecutableRunner(discoveredToolPath);
-          await env.writeTsConfigMarker();
-          await env.writeSourceFile(
-            sourceFilePath,
-            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-          );
+export const unusedCodePropertyCases = collectHarnessTestCases(() => {
+  describe("Knip unused-code properties", () => {
+    it("spawns every executable path returned by discovery", async () => {
+      await assertProperty(
+        arbitraryDomainLiteral(),
+        async (toolDirectory) => {
+          await withLiteralFixtureEnv(
+            validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+            async (env) => {
+              const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+              const discoveredToolPath = join(
+                env.productDir,
+                toolDirectory,
+                KNIP_COMMAND_TOKENS.COMMAND,
+              );
+              const validationCalls: KnipValidationCall[] = [];
+              const runner = new ExpectedExecutableRunner(discoveredToolPath);
+              await env.writeTsConfigMarker();
+              await env.writeSourceFile(
+                sourceFilePath,
+                sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
+              );
 
-          const result = await knipCommand(
-            { cwd: env.productDir, files: [sourceFilePath] },
-            createRecordingKnipCommandDeps(
-              env.productDir,
-              validationCalls,
-              runner,
-              [],
-              discoveredToolPath,
-            ),
-          );
+              const result = await knipCommand(
+                { cwd: env.productDir, files: [sourceFilePath] },
+                createRecordingKnipCommandDeps(
+                  env.productDir,
+                  validationCalls,
+                  runner,
+                  [],
+                  discoveredToolPath,
+                ),
+              );
 
-          expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-          expect(runner.commands).toEqual([discoveredToolPath]);
+              expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+              expect(runner.commands).toEqual([discoveredToolPath]);
+            },
+          );
         },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
     });
+  });
+});
 
+export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
+  describe("Knip unused-code compliance", () => {
     it("emits one terminal verdict after full-pipeline Knip detail streams", async () => {
       await withLiteralFixtureEnv(
         validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
