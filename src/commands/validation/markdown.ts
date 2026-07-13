@@ -120,7 +120,9 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   const result = await validateMarkdown({
     targets,
     productDir: cwd,
-    validationPathExcludes: validationPathFilterExcludes(pathFilter),
+    validationPathExcludes: targetResolutions === undefined
+      ? validationPathFilterExcludes(pathFilter)
+      : [],
   });
   const durationMs = Date.now() - startTime;
 
