@@ -81,7 +81,10 @@ function arbitraryDocumentationSyncScenario(
         paths.map((path) => [path, `${DOCUMENT_PREFIX}${priorVersion}${VERSION_SEPARATOR}${priorVersion}\n`]),
       ),
       updated: Object.fromEntries(
-        paths.map((path) => [path, `${DOCUMENT_PREFIX}${priorVersion}${VERSION_SEPARATOR}${releaseData.version}\n`]),
+        paths.map((path) => [
+          path,
+          `${DOCUMENT_PREFIX}${releaseData.version}${VERSION_SEPARATOR}${releaseData.version}\n`,
+        ]),
       ),
       ambientState: [
         {
