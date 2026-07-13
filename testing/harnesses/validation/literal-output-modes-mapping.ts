@@ -31,6 +31,7 @@ import {
   compareExpectedStrings,
   expectedAffectedFiles,
   expectedDefaultLines,
+  expectedFixtureFindings,
   expectedLiteralLines,
   expectedVerboseLines,
 } from "@testing/harnesses/literal/output-expectations";
@@ -107,10 +108,8 @@ export function registerLiteralOutputModeMappings(): void {
           if (mode === OUTPUT_MODE_NAME.JSON) {
             const reuseFindings = parseLiteralReuseResult(JSON.parse(reuseResult.output));
             const dupeFindings = parseLiteralReuseResult(JSON.parse(dupeResult.output));
-            expect(reuseFindings.testDupe).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
-            expect(reuseFindings.srcReuse.length).toBeGreaterThan(LITERAL_TEST_GENERATOR_COUNTS.none);
-            expect(dupeFindings.srcReuse).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
-            expect(dupeFindings.testDupe.length).toBeGreaterThan(LITERAL_TEST_GENERATOR_COUNTS.none);
+            expect(reuseFindings).toEqual(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.REUSE));
+            expect(dupeFindings).toEqual(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.DUPE));
           } else if (mode === OUTPUT_MODE_NAME.TEXT) {
             expect(reuseResult.output).toContain(`[${LITERAL_PROBLEM_KIND.REUSE}]`);
             expect(reuseResult.output).not.toContain(`[${LITERAL_PROBLEM_KIND.DUPE}]`);
@@ -130,7 +129,9 @@ export function registerLiteralOutputModeMappings(): void {
             expect(dupeResult.output).not.toContain(inputs.reuseLiteral);
           } else {
             expect(reuseResult.output).toContain(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
+            expect(reuseResult.output).not.toContain(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
             expect(dupeResult.output).toContain(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
+            expect(dupeResult.output).not.toContain(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
           }
         });
       },
@@ -141,12 +142,8 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const [defaultResult, jsonResult] = await Promise.all([
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS }),
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
-        ]);
-
-        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
+        const defaultResult = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS });
+        const findings = expectedFixtureFindings(inputs);
         const lines = defaultResult.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
         const reuseTag = `[${LITERAL_PROBLEM_KIND.REUSE}]`;
         const dupeTag = `[${LITERAL_PROBLEM_KIND.DUPE}]`;
@@ -184,12 +181,8 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const [verboseResult, jsonResult] = await Promise.all([
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true }),
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
-        ]);
-
-        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
+        const verboseResult = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true });
+        const findings = expectedFixtureFindings(inputs);
         const output = verboseResult.output;
         expect(output.split(LITERAL_TEXT_LAYOUT.lineSeparator)).toEqual(expectedVerboseLines(findings));
 
@@ -217,13 +210,9 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const [result, jsonResult] = await Promise.all([
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true }),
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
-        ]);
+        const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true });
 
         const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
-        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
 
         // Unique, sorted, no line number suffix
         expect(new Set(lines).size).toBe(lines.length);
@@ -232,7 +221,7 @@ export function registerLiteralOutputModeMappings(): void {
           expect(line).not.toMatch(/:\d+$/);
         }
 
-        expect(lines).toEqual(expectedAffectedFiles(findings));
+        expect(lines).toEqual(expectedAffectedFiles(expectedFixtureFindings(inputs)));
       });
     });
 
@@ -241,13 +230,9 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const [result, jsonResult] = await Promise.all([
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true }),
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
-        ]);
+        const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true });
 
         const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
-        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
 
         // Unique, sorted, all values in double quotes
         expect(new Set(lines).size).toBe(lines.length);
@@ -256,7 +241,7 @@ export function registerLiteralOutputModeMappings(): void {
           expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
         }
 
-        expect(lines).toEqual(expectedLiteralLines(findings));
+        expect(lines).toEqual(expectedLiteralLines(expectedFixtureFindings(inputs)));
       });
     });
 
@@ -265,8 +250,7 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const [allResult, reuseResult, dupeResult] = await Promise.all([
-          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+        const [reuseResult, dupeResult] = await Promise.all([
           literalCommand({
             cwd: env.productDir,
             config: LITERAL_DEFAULTS,
@@ -281,17 +265,11 @@ export function registerLiteralOutputModeMappings(): void {
           }),
         ]);
 
-        const allFindings = parseLiteralReuseResult(JSON.parse(allResult.output));
         const reuseFindings = parseLiteralReuseResult(JSON.parse(reuseResult.output));
         const dupeFindings = parseLiteralReuseResult(JSON.parse(dupeResult.output));
 
-        // --kind reuse: srcReuse equals the full unfiltered set; testDupe is cleared
-        expect(reuseFindings.testDupe).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
-        expect(reuseFindings.srcReuse).toEqual(allFindings.srcReuse);
-
-        // --kind dupe: testDupe equals the full unfiltered set; srcReuse is cleared
-        expect(dupeFindings.srcReuse).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
-        expect(dupeFindings.testDupe).toEqual(allFindings.testDupe);
+        expect(reuseFindings).toEqual(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.REUSE));
+        expect(dupeFindings).toEqual(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.DUPE));
       });
     });
   });

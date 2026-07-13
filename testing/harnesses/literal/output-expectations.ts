@@ -1,5 +1,14 @@
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
-import { type DetectionResult, LITERAL_KIND, type LiteralKind, type LiteralLocation } from "@/validation/literal";
+import {
+  type DetectionResult,
+  LITERAL_KIND,
+  type LiteralKind,
+  type LiteralLocation,
+  REMEDIATION,
+} from "@/validation/literal";
+import type { LiteralReuseFixtureInputs } from "@testing/generators/literal/literal";
+
+const LITERAL_FIXTURE_LINE = 1;
 
 interface ExpectedProblem {
   readonly kind: string;
@@ -7,6 +16,37 @@ interface ExpectedProblem {
   readonly value: string;
   readonly test: LiteralLocation;
   readonly related: readonly LiteralLocation[];
+}
+
+export function expectedFixtureFindings(
+  inputs: LiteralReuseFixtureInputs,
+  kind?: string,
+): DetectionResult {
+  const duplicateTestFiles = [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile]
+    .sort(compareExpectedStrings);
+  return {
+    srcReuse: kind === LITERAL_PROBLEM_KIND.DUPE
+      ? []
+      : [{
+        kind: LITERAL_KIND.STRING,
+        value: inputs.reuseLiteral,
+        test: { file: inputs.reuseTestFile, line: LITERAL_FIXTURE_LINE },
+        src: [{ file: inputs.reuseSourceFile, line: LITERAL_FIXTURE_LINE }],
+        remediation: REMEDIATION.IMPORT_FROM_SOURCE,
+      }],
+    testDupe: kind === LITERAL_PROBLEM_KIND.REUSE
+      ? []
+      : duplicateTestFiles.map((testFile, index) => ({
+        kind: LITERAL_KIND.STRING,
+        value: inputs.dupeLiteral,
+        test: { file: testFile, line: LITERAL_FIXTURE_LINE },
+        otherTests: [{
+          file: duplicateTestFiles[index === 0 ? 1 : 0],
+          line: LITERAL_FIXTURE_LINE,
+        }],
+        remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+      })),
+  };
 }
 
 export function expectedAffectedFiles(findings: DetectionResult): string[] {
