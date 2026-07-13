@@ -34,7 +34,7 @@ import {
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
-import { createRecordingKnipCommandDeps } from "@testing/harnesses/validation/knip-support";
+import { createRecordingKnipCommandDeps, type KnipDiscoveryCall } from "@testing/harnesses/validation/knip-support";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
 
@@ -125,16 +125,23 @@ describe("resolved validation configuration", () => {
         const validationCalls: Parameters<
           typeof createRecordingKnipCommandDeps
         >[1] = [];
+        const discoveryCalls: KnipDiscoveryCall[] = [];
         await env.writeTsConfigMarker();
 
         const result = await knipCommand(
           { cwd: env.productDir },
-          createRecordingKnipCommandDeps(env.productDir, validationCalls),
+          createRecordingKnipCommandDeps(
+            env.productDir,
+            validationCalls,
+            undefined,
+            discoveryCalls,
+          ),
         );
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
         expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED);
         expect(validationCalls).toEqual([]);
+        expect(discoveryCalls).toEqual([]);
       },
     );
   });
