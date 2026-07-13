@@ -12,9 +12,9 @@ import {
   parseSettingsFile,
 } from "@/lib/claude/permissions/parser";
 import type { Permissions } from "@/lib/claude/permissions/types";
-import { mkdir, rm, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import { withPermissionsTempDir } from "@testing/harnesses/claude/permissions/temp-directory";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 // ============================================================================
@@ -243,100 +243,73 @@ describe("parseAllPermissions", () => {
 
 describe("parseSettingsFile", () => {
   test("parses valid settings file", async () => {
-    // Given: A valid settings.json file
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(
-      settingsPath,
-      JSON.stringify({
-        permissions: {
-          allow: ["Bash(git:*)"],
-        },
-      }),
-    );
-
-    try {
-      // When: Parsing the file
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          permissions: {
+            allow: ["Bash(git:*)"],
+          },
+        }),
+      );
       const result = await parseSettingsFile(settingsPath);
 
-      // Then: Returns parsed ClaudeSettings
       expect(result).not.toBeNull();
       expect(result?.permissions?.allow).toEqual(["Bash(git:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("parses settings with all permission categories", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(
-      settingsPath,
-      JSON.stringify({
-        permissions: {
-          allow: ["Bash(git:*)"],
-          deny: ["Bash(rm:*)"],
-          ask: ["Bash(curl:*)"],
-        },
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          permissions: {
+            allow: ["Bash(git:*)"],
+            deny: ["Bash(rm:*)"],
+            ask: ["Bash(curl:*)"],
+          },
+        }),
+      );
       const result = await parseSettingsFile(settingsPath);
 
       expect(result?.permissions?.allow).toEqual(["Bash(git:*)"]);
       expect(result?.permissions?.deny).toEqual(["Bash(rm:*)"]);
       expect(result?.permissions?.ask).toEqual(["Bash(curl:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("parses settings with additional fields", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(
-      settingsPath,
-      JSON.stringify({
-        $schema: "https://example.com/schema.json",
-        permissions: {
-          allow: ["Bash(git:*)"],
-        },
-        includeCoAuthoredBy: true,
-        customField: "value",
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          $schema: "https://example.com/schema.json",
+          permissions: {
+            allow: ["Bash(git:*)"],
+          },
+          includeCoAuthoredBy: true,
+          customField: "value",
+        }),
+      );
       const result = await parseSettingsFile(settingsPath);
 
       expect(result?.$schema).toBe("https://example.com/schema.json");
       expect(result?.includeCoAuthoredBy).toBe(true);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("returns null for malformed JSON", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(settingsPath, "{ invalid json ");
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(settingsPath, "{ invalid json ");
       const result = await parseSettingsFile(settingsPath);
 
       expect(result).toBeNull();
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("returns null for non-existent file", async () => {
@@ -346,62 +319,41 @@ describe("parseSettingsFile", () => {
   });
 
   test("returns null when JSON is not an object", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(settingsPath, JSON.stringify("string value"));
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(settingsPath, JSON.stringify("string value"));
       const result = await parseSettingsFile(settingsPath);
 
       expect(result).toBeNull();
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("returns parsed result even when JSON is an array", async () => {
-    // Note: typeof array === "object", so arrays pass the object check
-    // This is acceptable behavior - caller should validate structure
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(settingsPath, JSON.stringify(["array", "value"]));
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(settingsPath, JSON.stringify(["array", "value"]));
       const result = await parseSettingsFile(settingsPath);
 
-      // Arrays are objects in JavaScript, so they pass basic validation
       expect(result).not.toBeNull();
       expect(Array.isArray(result)).toBe(true);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("returns settings object even without permissions field", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const settingsPath = join(testDir, "settings.json");
-
-    await writeFile(
-      settingsPath,
-      JSON.stringify({
-        includeCoAuthoredBy: true,
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const settingsPath = join(productDir, "settings.json");
+      await writeFile(
+        settingsPath,
+        JSON.stringify({
+          includeCoAuthoredBy: true,
+        }),
+      );
       const result = await parseSettingsFile(settingsPath);
 
       expect(result).not.toBeNull();
       expect(result?.includeCoAuthoredBy).toBe(true);
       expect(result?.permissions).toBeUndefined();
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 });
 
@@ -411,114 +363,84 @@ describe("parseSettingsFile", () => {
 
 describe("parseAllSettings", () => {
   test("parses multiple valid settings files", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-
-    const file1 = join(testDir, "settings1.json");
-    const file2 = join(testDir, "settings2.json");
-
-    await writeFile(
-      file1,
-      JSON.stringify({
-        permissions: { allow: ["Bash(git:*)"] },
-      }),
-    );
-
-    await writeFile(
-      file2,
-      JSON.stringify({
-        permissions: { allow: ["Bash(npm:*)"] },
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file1 = join(productDir, "settings1.json");
+      const file2 = join(productDir, "settings2.json");
+      await writeFile(
+        file1,
+        JSON.stringify({
+          permissions: { allow: ["Bash(git:*)"] },
+        }),
+      );
+      await writeFile(
+        file2,
+        JSON.stringify({
+          permissions: { allow: ["Bash(npm:*)"] },
+        }),
+      );
       const result = await parseAllSettings([file1, file2]);
 
       expect(result).toHaveLength(2);
       expect(result[0].allow).toEqual(["Bash(git:*)"]);
       expect(result[1].allow).toEqual(["Bash(npm:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("skips files without permissions field", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-
-    const file1 = join(testDir, "settings1.json");
-    const file2 = join(testDir, "settings2.json");
-
-    await writeFile(
-      file1,
-      JSON.stringify({
-        permissions: { allow: ["Bash(git:*)"] },
-      }),
-    );
-
-    await writeFile(
-      file2,
-      JSON.stringify({
-        includeCoAuthoredBy: true,
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file1 = join(productDir, "settings1.json");
+      const file2 = join(productDir, "settings2.json");
+      await writeFile(
+        file1,
+        JSON.stringify({
+          permissions: { allow: ["Bash(git:*)"] },
+        }),
+      );
+      await writeFile(
+        file2,
+        JSON.stringify({
+          includeCoAuthoredBy: true,
+        }),
+      );
       const result = await parseAllSettings([file1, file2]);
 
       expect(result).toHaveLength(1);
       expect(result[0].allow).toEqual(["Bash(git:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("skips malformed files", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-
-    const file1 = join(testDir, "settings1.json");
-    const file2 = join(testDir, "settings2.json");
-
-    await writeFile(
-      file1,
-      JSON.stringify({
-        permissions: { allow: ["Bash(git:*)"] },
-      }),
-    );
-
-    await writeFile(file2, "{ malformed json ");
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file1 = join(productDir, "settings1.json");
+      const file2 = join(productDir, "settings2.json");
+      await writeFile(
+        file1,
+        JSON.stringify({
+          permissions: { allow: ["Bash(git:*)"] },
+        }),
+      );
+      await writeFile(file2, "{ malformed json ");
       const result = await parseAllSettings([file1, file2]);
 
       expect(result).toHaveLength(1);
       expect(result[0].allow).toEqual(["Bash(git:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("skips non-existent files", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const file1 = join(testDir, "settings.json");
-
-    await writeFile(
-      file1,
-      JSON.stringify({
-        permissions: { allow: ["Bash(git:*)"] },
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file1 = join(productDir, "settings.json");
+      await writeFile(
+        file1,
+        JSON.stringify({
+          permissions: { allow: ["Bash(git:*)"] },
+        }),
+      );
       const result = await parseAllSettings([file1, "/nonexistent/file.json"]);
 
       expect(result).toHaveLength(1);
       expect(result[0].allow).toEqual(["Bash(git:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("returns empty array for empty input", async () => {
@@ -528,51 +450,38 @@ describe("parseAllSettings", () => {
   });
 
   test("handles files with all three permission categories", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-    const file = join(testDir, "settings.json");
-
-    await writeFile(
-      file,
-      JSON.stringify({
-        permissions: {
-          allow: ["Bash(git:*)"],
-          deny: ["Bash(rm:*)"],
-          ask: ["Bash(curl:*)"],
-        },
-      }),
-    );
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file = join(productDir, "settings.json");
+      await writeFile(
+        file,
+        JSON.stringify({
+          permissions: {
+            allow: ["Bash(git:*)"],
+            deny: ["Bash(rm:*)"],
+            ask: ["Bash(curl:*)"],
+          },
+        }),
+      );
       const result = await parseAllSettings([file]);
 
       expect(result).toHaveLength(1);
       expect(result[0].allow).toEqual(["Bash(git:*)"]);
       expect(result[0].deny).toEqual(["Bash(rm:*)"]);
       expect(result[0].ask).toEqual(["Bash(curl:*)"]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 
   test("preserves order of files", async () => {
-    const testDir = join(tmpdir(), `parser-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
-
-    const file1 = join(testDir, "a.json");
-    const file2 = join(testDir, "b.json");
-    const file3 = join(testDir, "c.json");
-
-    await writeFile(file1, JSON.stringify({ permissions: { allow: ["Bash(a:*)"] } }));
-    await writeFile(file2, JSON.stringify({ permissions: { allow: ["Bash(b:*)"] } }));
-    await writeFile(file3, JSON.stringify({ permissions: { allow: ["Bash(c:*)"] } }));
-
-    try {
+    await withPermissionsTempDir(async (productDir) => {
+      const file1 = join(productDir, "a.json");
+      const file2 = join(productDir, "b.json");
+      const file3 = join(productDir, "c.json");
+      await writeFile(file1, JSON.stringify({ permissions: { allow: ["Bash(a:*)"] } }));
+      await writeFile(file2, JSON.stringify({ permissions: { allow: ["Bash(b:*)"] } }));
+      await writeFile(file3, JSON.stringify({ permissions: { allow: ["Bash(c:*)"] } }));
       const result = await parseAllSettings([file1, file2, file3]);
 
       expect(result.map((p) => p.allow)).toEqual([["Bash(a:*)"], ["Bash(b:*)"], ["Bash(c:*)"]]);
-    } finally {
-      await rm(testDir, { recursive: true });
-    }
+    });
   });
 });
