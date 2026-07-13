@@ -11,9 +11,30 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { execa } from "execa";
+
 import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
+import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+
+export interface DiagnoseCliRun {
+  readonly stdout: string;
+  readonly exitCode: number;
+}
+
+export async function runDiagnoseCli(
+  args: readonly string[],
+  options?: { readonly env?: NodeJS.ProcessEnv; readonly cwd?: string },
+): Promise<DiagnoseCliRun> {
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, DIAGNOSE_CLI.COMMAND, ...args], {
+    reject: false,
+    env: options?.env,
+    cwd: options?.cwd,
+  });
+  return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };
+}
 
 export interface SpxReachabilityManifestFixture {
   readonly manifestPath: string;
