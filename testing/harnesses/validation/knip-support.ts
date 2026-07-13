@@ -62,8 +62,8 @@ export function createRecordingKnipCommandDeps(
   validationCalls: KnipValidationCall[],
   runner: RecordingSpawnOptionsRunner = new RecordingSpawnOptionsRunner(),
   discoveryCalls: KnipDiscoveryCall[] = [],
+  discoveredToolPath: string = join(productDir, ...KNIP_LOCAL_BIN_SEGMENTS),
 ): KnipCommandDeps {
-  const toolPath = join(productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
   return {
     detectTypeScript,
     discoverTool: async (tool, options) => {
@@ -72,7 +72,7 @@ export function createRecordingKnipCommandDeps(
         found: true,
         location: {
           tool: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-          path: toolPath,
+          path: discoveredToolPath,
           source: TOOL_DISCOVERY.SOURCES.PROJECT,
         },
       };
