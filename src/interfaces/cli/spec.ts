@@ -9,13 +9,10 @@ import {
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
-import {
-  SPEC_CONTEXT_TARGET_FAILURE_KIND,
-  type SpecContextTargetFailure,
-  type SpecContextTargetFailureKind,
-} from "@/domains/spec/context-target";
+import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { testingRegistry } from "@/test/registry";
 
 import { createRunnerDepsFor } from "./test-runner-deps";
@@ -41,14 +38,6 @@ export const SPEC_CONTEXT_OUTPUT_FORMAT = {
 } as const;
 
 export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
-
-export const SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX = {
-  [SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT]: "Ambiguous spec context target segment",
-  [SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH]: "Spec context target is an artifact path; use its owning node",
-  [SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH]:
-    "Spec context target is a product-root artifact; choose a node whose context includes it",
-  [SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT]: "Unknown spec context target segment",
-} as const satisfies Record<SpecContextTargetFailureKind, string>;
 
 const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
