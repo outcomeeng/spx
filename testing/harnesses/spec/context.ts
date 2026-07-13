@@ -275,7 +275,7 @@ async function assertSpecContextRejectsEmptySegmentTarget(
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     const fixture = emptySegmentTargetFixture(snapshot, position);
-    expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
+    expect(resolveSpecContextTarget(fixture.snapshot, fixture.target)).toMatchObject({
       failure: {
         input: fixture.target,
         kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT,
