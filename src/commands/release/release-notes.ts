@@ -48,7 +48,7 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
   return `${RELEASE_NOTES_OUTPUT_PREFIX}: ${result.changelogPath}`;
 }
 
-async function readPackageVersion(productDir: string): Promise<string> {
+export async function readPackageVersion(productDir: string): Promise<string> {
   const manifest = JSON.parse(
     await readFile(join(productDir, PACKAGE_MANIFEST), "utf8"),
   ) as { version?: unknown };
