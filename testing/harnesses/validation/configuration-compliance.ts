@@ -86,6 +86,31 @@ async function runExplicitMarkdownOperandBypassingExclude(
   );
 }
 
+async function runMarkdownRootScopeWithExcludedDocs(
+  files?: string[],
+): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
+  return await withLiteralFixtureEnv(
+    markdownValidationPathsConfig({
+      exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+    }),
+    async (env) => {
+      await env.writeRaw(
+        `${MARKDOWN_VALIDATION_DATA.spxDirectoryName}/${MARKDOWN_VALIDATION_DATA.targetMarkdownFile}`,
+        MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
+      );
+      await env.writeRaw(
+        `${MARKDOWN_VALIDATION_DATA.docsDirectoryName}/${MARKDOWN_VALIDATION_DATA.brokenMarkdownFile}`,
+        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      );
+
+      return await markdownCommand({
+        cwd: env.productDir,
+        files,
+      });
+    },
+  );
+}
+
 describe("resolved validation configuration", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
@@ -307,34 +332,18 @@ describe("resolved validation configuration", () => {
     );
   });
 
-  it("applies markdown validation excludes to explicit directory operands", async () => {
-    await withLiteralFixtureEnv(
-      {
-        [validationConfigDescriptor.section]: {
-          [VALIDATION_PATHS_SUBSECTION]: {
-            [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
-              exclude: ["spx/private"],
-            },
-          },
-        },
-      },
-      async (env) => {
-        await env.writeRaw("spx/good.md", "# Good\n");
-        await env.writeRaw(
-          "spx/private/bad.md",
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-        );
+  it("applies markdown validation excludes to automatic scope", async () => {
+    const result = await runMarkdownRootScopeWithExcludedDocs();
 
-        const result = await markdownCommand({
-          cwd: env.productDir,
-          files: ["."],
-        });
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+    expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+  });
 
-        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-        expect(result.output).toBe(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
-      },
-    );
+  it("bypasses markdown validation excludes for an explicit product-root operand", async () => {
+    const result = await runMarkdownRootScopeWithExcludedDocs(["."]);
+
+    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+    expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.PROBLEM_TERM);
   });
 
   it("preserves exact explicit markdown directory operands through markdown validation excludes", async () => {
