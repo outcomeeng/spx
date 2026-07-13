@@ -2,6 +2,7 @@ import { isAbsolute, resolve, sep } from "node:path";
 
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS } from "@/agent/agent-runner";
 import type { AgentAuditor, AgentPermissionMode, AgentRunner, AgentRunTool } from "@/agent/agent-runner";
+import { encodeReleasePromptData, RELEASE_PROMPT_JSON_INDENT } from "@/domains/release/prompt-data";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 
@@ -117,7 +118,7 @@ export const CHANGELOG_PATH_DATA_BLOCK_OPEN = "<changelog-path>";
 export const CHANGELOG_PATH_DATA_BLOCK_CLOSE = "</changelog-path>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN = "<release-notes-section>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE = "</release-notes-section>";
-export const COMMIT_SUBJECTS_JSON_INDENT = 2;
+export const COMMIT_SUBJECTS_JSON_INDENT = RELEASE_PROMPT_JSON_INDENT;
 export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
@@ -233,13 +234,6 @@ const MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const MARKDOWN_CDATA_CLOSE = "]]>";
 const MARKDOWN_HTML_TAG_LOCALE = "en-US";
 const MARKDOWN_REFERENCE_DEFINITION_PATTERN = /^\[[^\]\n]+\]:/u;
-const JSON_PROMPT_ESCAPE_PATTERN = /[<>&`]/gu;
-const JSON_PROMPT_ESCAPES: Readonly<Record<string, string>> = {
-  "&": String.raw`\u0026`,
-  "<": String.raw`\u003c`,
-  ">": String.raw`\u003e`,
-  "`": String.raw`\u0060`,
-};
 const RELEASE_NOTES_FAITHFULNESS_APPROVED = "APPROVED";
 const RELEASE_NOTES_FAITHFULNESS_REJECTED = "REJECTED";
 
@@ -598,7 +592,7 @@ function buildReleaseNotesFaithfulnessAuditPrompt(
 function formatReleaseNotesSectionDataBlock(notes: string): string {
   return [
     RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
-    encodeJsonData(notes),
+    encodeReleasePromptData(notes),
     RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
   ].join("\n");
 }
@@ -619,7 +613,7 @@ function assertFaithfulnessAuditApproved(result: string): void {
 function formatReleaseVersionDataBlock(version: string): string {
   return [
     RELEASE_VERSION_DATA_BLOCK_OPEN,
-    encodeJsonData(version),
+    encodeReleasePromptData(version),
     RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ].join("\n");
 }
@@ -627,7 +621,7 @@ function formatReleaseVersionDataBlock(version: string): string {
 function formatChangelogPathDataBlock(changelogPath: string): string {
   return [
     CHANGELOG_PATH_DATA_BLOCK_OPEN,
-    encodeJsonData(changelogPath),
+    encodeReleasePromptData(changelogPath),
     CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   ].join("\n");
 }
@@ -644,14 +638,7 @@ function formatCommitSubjectsDataBlock(releaseData: ReleaseData): string {
 export function encodeCommitSubjects(
   commitSubjects: readonly string[],
 ): string {
-  return encodeJsonData(commitSubjects);
-}
-
-function encodeJsonData(data: string | readonly string[]): string {
-  return JSON.stringify(data, null, COMMIT_SUBJECTS_JSON_INDENT).replace(
-    JSON_PROMPT_ESCAPE_PATTERN,
-    (character) => JSON_PROMPT_ESCAPES[character] ?? character,
-  );
+  return encodeReleasePromptData(commitSubjects);
 }
 
 export function releaseNotesConformsToKeepAChangelog(
