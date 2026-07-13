@@ -288,6 +288,22 @@ export async function assertSpecContextRejectsRootArtifactTarget(): Promise<void
   });
 }
 
+async function assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(target: string): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    await mkdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, target), { recursive: true });
+    const message = await rejectedContextMessage(target, env.productDir);
+    expect(message).toContain(target);
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT],
+    );
+  });
+}
+
 export async function assertSpecContextTargetMappingCase(mappingCase: SpecContextTargetMappingCase): Promise<void> {
   switch (mappingCase.kind) {
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.CANONICAL:
@@ -313,6 +329,10 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT:
       await assertSpecContextRejectsRootArtifactTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY:
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY:
+      await assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(mappingCase.directoryName);
   }
 }
 
