@@ -1,11 +1,12 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { KnipCommandDeps } from "@/commands/validation/knip";
 import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { KNIP_LOCAL_BIN_SEGMENTS, validateKnip } from "@/validation/steps/knip";
+import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS, validateKnip } from "@/validation/steps/knip";
 import type { ScopeConfig } from "@/validation/types";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
@@ -17,6 +18,21 @@ export interface KnipValidationCall {
 export interface KnipDiscoveryCall {
   readonly tool: string;
   readonly productDir: string | undefined;
+}
+
+export class ScopedKnipRecordingRunner extends RecordingSpawnOptionsRunner {
+  readonly scopedIncludes: string[][] = [];
+
+  override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
+    const configFlagIndex = args.indexOf(KNIP_COMMAND_TOKENS.TSCONFIG_FLAG);
+    const configPath = args[configFlagIndex + 1];
+    if (configFlagIndex < 0) {
+      throw new Error("Knip scoped tsconfig argument is missing");
+    }
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as { include?: string[] };
+    this.scopedIncludes.push(config.include ?? []);
+    return super.spawn(command, args, options);
+  }
 }
 
 export class OutputRecordingSpawnOptionsRunner extends RecordingSpawnOptionsRunner {

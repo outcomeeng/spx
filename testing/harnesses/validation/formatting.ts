@@ -28,7 +28,9 @@ import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { validationPipelineStages, validationRegistry } from "@/validation/registry";
 import {
   buildDprintCheckArgs,
+  DPRINT_CHECK_SUBCOMMAND,
   DPRINT_COMMAND,
+  DPRINT_EXCLUDES_OPTION,
   type FormattingValidationContext,
   validateFormatting,
 } from "@/validation/steps/formatting";
@@ -200,12 +202,13 @@ export function registerFormattingComplianceEvidence(): void {
           }),
         );
         const contexts: FormattingValidationContext[] = [];
+        const runner = new RecordingSpawnOptionsRunner();
         const result = await formattingCommand(
           { cwd: productDir },
           {
             validateFormatting: async (context) => {
               contexts.push(context);
-              return { success: true, output: "" };
+              return validateFormatting(context, runner);
             },
           },
         );
@@ -216,6 +219,13 @@ export function registerFormattingComplianceEvidence(): void {
             productDir,
             excludes: [FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName],
           }),
+        ]);
+        expect(runner.args).toEqual([
+          [
+            DPRINT_CHECK_SUBCOMMAND,
+            DPRINT_EXCLUDES_OPTION,
+            FORMATTING_VALIDATION_DATA.narrowedScopeDirectoryName,
+          ],
         ]);
       });
     });

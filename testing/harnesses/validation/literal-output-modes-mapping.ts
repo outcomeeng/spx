@@ -15,7 +15,6 @@ import {
   validationCliDefinition,
   validationCommonCliOptions,
 } from "@/interfaces/cli/validation-contract";
-import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import {
@@ -29,6 +28,7 @@ import {
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import {
+  compareExpectedStrings,
   expectedAffectedFiles,
   expectedDefaultLines,
   expectedLiteralLines,
@@ -156,8 +156,8 @@ export function registerLiteralOutputModeMappings(): void {
 
         expect(problemLines).toEqual(expectedDefaultLines(findings));
         expect(problemLines).toEqual(lines);
-        expect(reuseLines).toEqual([...reuseLines].sort(compareAsciiStrings));
-        expect(dupeLines).toEqual([...dupeLines].sort(compareAsciiStrings));
+        expect(reuseLines).toEqual([...reuseLines].sort(compareExpectedStrings));
+        expect(dupeLines).toEqual([...dupeLines].sort(compareExpectedStrings));
 
         const firstReuse = findings.srcReuse[0];
         const sameFileFindings = {
@@ -227,7 +227,7 @@ export function registerLiteralOutputModeMappings(): void {
 
         // Unique, sorted, no line number suffix
         expect(new Set(lines).size).toBe(lines.length);
-        expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+        expect(lines).toEqual([...lines].sort(compareExpectedStrings));
         for (const line of lines) {
           expect(line).not.toMatch(/:\d+$/);
         }
@@ -251,7 +251,7 @@ export function registerLiteralOutputModeMappings(): void {
 
         // Unique, sorted, all values in double quotes
         expect(new Set(lines).size).toBe(lines.length);
-        expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+        expect(lines).toEqual([...lines].sort(compareExpectedStrings));
         for (const line of lines) {
           expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
         }

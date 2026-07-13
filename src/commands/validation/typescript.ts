@@ -31,11 +31,13 @@ import {
 import { streamedValidationTerminalOutput, type TypeScriptCommandOptions, type ValidationCommandResult } from "./types";
 
 export interface TypeScriptCommandDeps {
+  readonly detectTypeScript: typeof detectTypeScript;
   readonly discoverTool: typeof discoverTool;
   readonly validateTypeScript: typeof validateTypeScript;
 }
 
 export const defaultTypeScriptCommandDeps: TypeScriptCommandDeps = {
+  detectTypeScript,
   discoverTool,
   validateTypeScript,
 };
@@ -77,7 +79,7 @@ export async function typescriptCommand(
   const startTime = Date.now();
 
   // Gate 1: language detection. No TypeScript = skip cleanly.
-  const tsDetection = detectTypeScript(cwd);
+  const tsDetection = deps.detectTypeScript(cwd);
   if (!tsDetection.present) {
     return {
       exitCode: 0,

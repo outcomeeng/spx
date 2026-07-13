@@ -19,6 +19,7 @@ import {
   type KnipDiscoveryCall,
   type KnipValidationCall,
   OutputRecordingSpawnOptionsRunner,
+  ScopedKnipRecordingRunner,
 } from "@testing/harnesses/validation/knip-support";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
@@ -110,6 +111,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const validationCalls: KnipValidationCall[] = [];
+          const runner = new ScopedKnipRecordingRunner();
           await env.writeTsConfigMarker();
           await env.writeSourceFile(
             sourceFilePath,
@@ -118,7 +120,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
 
           const result = await knipCommand(
             { cwd: env.productDir, files: [sourceFilePath] },
-            createRecordingKnipCommandDeps(env.productDir, validationCalls),
+            createRecordingKnipCommandDeps(env.productDir, validationCalls, runner),
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
@@ -137,6 +139,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
             },
           ]);
           expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS);
+          expect(runner.scopedIncludes).toEqual([[join(env.productDir, sourceFilePath)]]);
           expect(VALIDATION_PIPELINE_DATA.stageNames.KNIP).toBe(VALIDATION_STAGE_DISPLAY_NAMES.KNIP);
         },
       );
