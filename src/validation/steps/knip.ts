@@ -17,6 +17,11 @@ import {
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
 } from "@/validation/config/scope";
 import type { ScopeConfig } from "../types";
+import {
+  defaultValidationSubprocessOutputStreams,
+  forwardValidationSubprocessOutput,
+  type ValidationSubprocessOutputStreams,
+} from "./subprocess-output";
 
 // =============================================================================
 // DEFAULT DEPENDENCIES
@@ -79,6 +84,7 @@ export async function validateKnip(
   context: KnipValidationContext,
   runner: ProcessRunner = defaultKnipProcessRunner,
   deps: KnipDeps = defaultKnipDeps,
+  outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): Promise<{
   success: boolean;
   error?: string;
@@ -95,7 +101,7 @@ export async function validateKnip(
       return { success: true };
     }
 
-    return await runKnipSubprocess(productDir, typescriptScope, runner, deps, toolPath);
+    return await runKnipSubprocess(productDir, typescriptScope, runner, deps, outputStreams, toolPath);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, error: errorMessage };
@@ -107,6 +113,7 @@ async function runKnipSubprocess(
   typescriptScope: ScopeConfig,
   runner: ProcessRunner,
   deps: KnipDeps,
+  outputStreams: ValidationSubprocessOutputStreams,
   toolPath?: string,
 ): Promise<{ success: boolean; error?: string }> {
   const scopedTsconfig = typescriptScope.filteredByValidationPaths
@@ -125,6 +132,7 @@ async function runKnipSubprocess(
   const knipProcess = spawnManagedSubprocess(runner, binary, args, {
     cwd: productDir,
   });
+  forwardValidationSubprocessOutput(knipProcess, outputStreams);
   const cleanup = scopedTsconfig?.cleanup ?? (async () => {});
   let cleanupStarted = false;
   let resultResolved = false;

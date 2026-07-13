@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { expect } from "vitest";
 
 import { KNIP_VALIDATION_STEP_NAME, knipCommand } from "@/commands/validation/knip";
@@ -248,4 +249,3 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
     });
   });
 });
-import { join } from "node:path";
