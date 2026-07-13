@@ -101,7 +101,7 @@ const realDocumentationStager: DocumentationStager = async (productDir, paths) =
     const stagedPath = join(workingDirectory, sourcePath);
     await mkdir(dirname(stagedPath), { recursive: true });
     await writeFile(stagedPath, await readFile(join(productDir, sourcePath), "utf8"));
-    return { sourcePath, stagedPath };
+    return { sourcePath, stagedPath, targetPath: join(productDir, sourcePath) };
   }));
   return {
     workingDirectory,

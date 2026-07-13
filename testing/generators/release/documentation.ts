@@ -1,7 +1,8 @@
 import * as fc from "fast-check";
 
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
-import { DOCUMENTATION_FILE_EXTENSION, type DocumentationSyncConfig } from "@/domains/release/documentation-sync";
+import type { DocumentationSyncConfig } from "@/domains/release/config";
+import { DOCUMENTATION_FILE_EXTENSION } from "@/domains/release/documentation-sync";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";

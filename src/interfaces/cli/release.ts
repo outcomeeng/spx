@@ -3,13 +3,16 @@ import type { Command } from "commander";
 import type { AgentRunner } from "@/agent/agent-runner";
 import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import {
+  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   documentationSyncCommand,
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
   releaseNotesCommand,
-  UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 } from "@/commands/release";
-import type { DocumentationFaithfulnessAuditor } from "@/domains/release/documentation-sync";
+import {
+  createDocumentationFaithfulnessAuditor,
+  type DocumentationFaithfulnessAuditor,
+} from "@/domains/release/documentation-sync";
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -40,10 +43,9 @@ export interface ReleaseCliDependencies {
 
 const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
-  createDocumentationFaithfulnessAuditor: () => async () => {
-    throw new Error("documentation sync faithfulness audit is not implemented");
-  },
-  documentationSyncCommandDependencies: UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
+    createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
+  documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 };
 
 export function createReleaseDomain(
