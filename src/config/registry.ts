@@ -1,5 +1,6 @@
 import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { diagnoseConfigDescriptor } from "@/domains/diagnose/config";
+import { releaseConfigDescriptor } from "@/domains/release/config";
 import { runtimeConfigDescriptor } from "@/lib/agent-run-journal/config";
 import { fileInclusionConfigDescriptor } from "@/lib/file-inclusion/config";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
@@ -17,5 +18,6 @@ export const productionRegistry: readonly ConfigDescriptor<unknown>[] = [
   methodologyConfigDescriptor,
   harnessEnvironmentConfigDescriptor,
   diagnoseConfigDescriptor,
+  releaseConfigDescriptor,
   runtimeConfigDescriptor,
 ] as const;

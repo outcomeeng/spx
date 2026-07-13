@@ -1,8 +1,8 @@
 export {
+  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   documentationSyncCommand,
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
-  UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 } from "./documentation-sync";
 export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
 export {

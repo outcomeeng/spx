@@ -1,5 +1,5 @@
-import type { AgentRunner } from "@/agent/agent-runner";
-import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
 import type { ReleaseData } from "@/domains/release/release-data";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
@@ -7,29 +7,41 @@ export const DOCUMENTATION_SYNC_PROMPT_INSTRUCTION =
   "Update every staged documentation file so its version references and behavior descriptions match the supplied release data.";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN = "<documentation-sync-input>";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE = "</documentation-sync-input>";
-
-export interface DocumentationSyncConfig {
-  readonly paths?: readonly string[];
-}
+export const DOCUMENTATION_SYNC_AGENT_TOOLS = [
+  AGENT_RUN_TOOLS.READ,
+  AGENT_RUN_TOOLS.WRITE,
+  AGENT_RUN_TOOLS.EDIT,
+] as const;
+export const DOCUMENTATION_SYNC_AGENT_PERMISSION_MODE = AGENT_PERMISSION_MODES.DONT_ASK;
+export const DOCUMENTATION_SYNC_AGENT_MAX_TURNS = 10;
+export const DOCUMENTATION_SYNC_AUDIT_MAX_TURNS = 3;
+export const DOCUMENTATION_SYNC_AUDIT_APPROVED = "APPROVED";
+export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
   readonly documents: readonly {
     readonly sourcePath: string;
     readonly stagedPath: string;
+    readonly targetPath: string;
   }[];
   readonly cleanup: () => Promise<void>;
 }
 
 export interface DocumentationSyncPromptInput {
   readonly releaseData: ReleaseData;
-  readonly documents: StagedDocumentation["documents"];
+  readonly documents: readonly {
+    readonly sourcePath: string;
+    readonly stagedPath: string;
+  }[];
 }
 
 export function buildDocumentationSyncPrompt(
-  _input: DocumentationSyncPromptInput,
+  input: DocumentationSyncPromptInput,
 ): string {
-  throw new Error("documentation sync prompt assembly is not implemented");
+  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
+    JSON.stringify(input)
+  }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
 }
 
 export type DocumentationStager = (
@@ -66,14 +78,78 @@ export interface ComposeDocumentationSyncResult {
 }
 
 export function resolveDocumentationPaths(
-  _config: DocumentationSyncConfig,
+  config: DocumentationSyncConfig,
 ): readonly string[] {
-  void DEFAULT_RELEASE_DOCUMENTATION_PATHS;
-  throw new Error("documentation path resolution is not implemented");
+  return config.paths ?? DEFAULT_RELEASE_DOCUMENTATION_PATHS;
 }
 
 export async function composeDocumentationSync(
-  _options: ComposeDocumentationSyncOptions,
+  options: ComposeDocumentationSyncOptions,
 ): Promise<ComposeDocumentationSyncResult> {
-  throw new Error("documentation sync is not implemented");
+  const paths = resolveDocumentationPaths(options.config);
+  const stage = await options.stageDocumentation(options.productDir, paths);
+  try {
+    const promptDocuments = stage.documents.map(({ sourcePath, stagedPath }) => ({ sourcePath, stagedPath }));
+    await options.agentRunner.run({
+      prompt: buildDocumentationSyncPrompt({ releaseData: options.releaseData, documents: promptDocuments }),
+      workingDirectory: stage.workingDirectory,
+      tools: DOCUMENTATION_SYNC_AGENT_TOOLS,
+      allowedTools: DOCUMENTATION_SYNC_AGENT_TOOLS,
+      permissionMode: DOCUMENTATION_SYNC_AGENT_PERMISSION_MODE,
+      maxTurns: DOCUMENTATION_SYNC_AGENT_MAX_TURNS,
+    });
+    const documents = await Promise.all(stage.documents.map(async ({ sourcePath, stagedPath, targetPath }) => {
+      const content = await options.readDocument(stagedPath);
+      assertReleasedVersionPresent(content, options.releaseData.version, sourcePath);
+      return { path: sourcePath, targetPath, content };
+    }));
+    await options.faithfulnessAuditor({
+      releaseData: options.releaseData,
+      documents: documents.map(({ path, content }) => ({ path, content })),
+    });
+    await options.promoteDocumentation(
+      documents.map(({ targetPath, content }) => ({ path: targetPath, content })),
+    );
+    return { paths };
+  } finally {
+    await stage.cleanup();
+  }
+}
+
+export function createDocumentationFaithfulnessAuditor(
+  agentAuditor: AgentAuditor,
+  workingDirectory: string,
+): DocumentationFaithfulnessAuditor {
+  return async (input) => {
+    const verdict = (await agentAuditor.audit({
+      prompt: buildDocumentationFaithfulnessAuditPrompt(input),
+      workingDirectory,
+      maxTurns: DOCUMENTATION_SYNC_AUDIT_MAX_TURNS,
+    })).trim();
+    if (verdict === DOCUMENTATION_SYNC_AUDIT_APPROVED) return;
+    if (
+      verdict === DOCUMENTATION_SYNC_AUDIT_REJECTED
+      || verdict.startsWith(`${DOCUMENTATION_SYNC_AUDIT_REJECTED} `)
+    ) {
+      throw new Error(`Documentation faithfulness audit rejected the update: ${verdict}`);
+    }
+    throw new Error(`Documentation faithfulness audit returned an invalid verdict: ${verdict}`);
+  };
+}
+
+function assertReleasedVersionPresent(content: string, version: string, path: string): void {
+  if (!content.includes(version)) {
+    throw new Error(`Updated documentation does not reference release version ${version}: ${path}`);
+  }
+}
+
+function buildDocumentationFaithfulnessAuditPrompt(
+  input: Parameters<DocumentationFaithfulnessAuditor>[0],
+): string {
+  return [
+    "Audit whether every documentation change is supported by the supplied release data.",
+    `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported.`,
+    `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported or omitted release claim.`,
+    JSON.stringify(input),
+  ].join("\n\n");
 }

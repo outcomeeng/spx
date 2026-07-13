@@ -1,13 +1,22 @@
 import type { AgentRunner } from "@/agent/agent-runner";
+import { resolveConfig } from "@/config/index";
+import {
+  type DocumentationSyncConfig,
+  RELEASE_SECTION,
+  type ReleaseConfig,
+  releaseConfigDescriptor,
+} from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type DocumentationFaithfulnessAuditor,
   type DocumentationPromoter,
   type DocumentationReader,
   type DocumentationStager,
-  type DocumentationSyncConfig,
 } from "@/domains/release/documentation-sync";
-import type { ReleaseData } from "@/domains/release/release-data";
+import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
+
+import { createDocumentationSyncFilesystem } from "./documentation-sync-filesystem";
+import { readPackageVersion } from "./release-notes";
 
 export interface DocumentationSyncCommandOptions {
   readonly productDir: string;
@@ -23,17 +32,27 @@ export interface DocumentationSyncCommandDependencies {
   readonly promoteDocumentation: DocumentationPromoter;
 }
 
-export const UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES: DocumentationSyncCommandDependencies = {
-  resolveReleaseData: () => Promise.reject(new Error("documentation sync release data is not implemented")),
-  resolveDocumentationConfig: () => Promise.reject(new Error("documentation sync config is not implemented")),
-  stageDocumentation: () => Promise.reject(new Error("documentation sync staging is not implemented")),
-  readDocument: () => Promise.reject(new Error("documentation sync reading is not implemented")),
-  promoteDocumentation: () => Promise.reject(new Error("documentation sync promotion is not implemented")),
+const documentationSyncFilesystem = createDocumentationSyncFilesystem();
+
+export const DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES: DocumentationSyncCommandDependencies = {
+  resolveReleaseData: async (productDir) =>
+    await computeReleaseData({
+      productDir,
+      packageVersion: await readPackageVersion(productDir),
+    }),
+  resolveDocumentationConfig: async (productDir) => {
+    const loaded = await resolveConfig(productDir, [releaseConfigDescriptor]);
+    if (!loaded.ok) throw new Error(loaded.error);
+    return (loaded.value[RELEASE_SECTION] as ReleaseConfig).documentation;
+  },
+  stageDocumentation: documentationSyncFilesystem.stageDocumentation,
+  readDocument: documentationSyncFilesystem.readDocument,
+  promoteDocumentation: documentationSyncFilesystem.promoteDocumentation,
 };
 
 export async function documentationSyncCommand(
   options: DocumentationSyncCommandOptions,
-  deps: DocumentationSyncCommandDependencies = UNIMPLEMENTED_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  deps: DocumentationSyncCommandDependencies = DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
 ): Promise<readonly string[]> {
   const [releaseData, config] = await Promise.all([
     deps.resolveReleaseData(options.productDir),
