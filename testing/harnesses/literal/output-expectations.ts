@@ -18,6 +18,10 @@ interface ExpectedProblem {
   readonly related: readonly LiteralLocation[];
 }
 
+export function expectedNoProblemsOfKind(kind: string): string {
+  return `Literal: No problems of type ${kind}`;
+}
+
 export function expectedFixtureFindings(
   inputs: LiteralReuseFixtureInputs,
   kind?: string,
