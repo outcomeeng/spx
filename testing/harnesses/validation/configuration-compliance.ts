@@ -90,9 +90,13 @@ async function runMarkdownRootScopeWithExcludedDocs(
   files?: string[],
 ): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
   return await withLiteralFixtureEnv(
-    markdownValidationPathsConfig({
-      exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
-    }),
+    {
+      [validationConfigDescriptor.section]: {
+        [VALIDATION_PATHS_SUBSECTION]: {
+          exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+        },
+      },
+    },
     async (env) => {
       await env.writeRaw(
         `${MARKDOWN_VALIDATION_DATA.spxDirectoryName}/${MARKDOWN_VALIDATION_DATA.targetMarkdownFile}`,
