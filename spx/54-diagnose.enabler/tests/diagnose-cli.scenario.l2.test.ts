@@ -1,1 +1,3 @@
-import "@testing/harnesses/diagnose/cli-scenarios";
+import { registerDiagnoseCliScenarios } from "@testing/harnesses/diagnose/cli-scenarios";
+
+registerDiagnoseCliScenarios();
