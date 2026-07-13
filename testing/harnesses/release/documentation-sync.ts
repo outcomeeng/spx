@@ -32,18 +32,23 @@ import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const STAGE_DIRECTORY_PREFIX = "spx-documentation-stage-";
+const TRAILING_VERSION_REFERENCE = /[^\n]*\n$/u;
 
 class DocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
-  constructor(private readonly updated: Readonly<Partial<Record<string, string>>>) {}
-
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
-    for (const path of promptDocumentationPaths(request.prompt)) {
-      const content = this.updated[path.sourcePath];
-      if (content === undefined) throw new Error(`No generated documentation for ${path.sourcePath}`);
-      await writeFile(path.stagedPath, content);
+    const input = parseDocumentationSyncPromptInput(request.prompt);
+    for (const path of input.documents) {
+      const content = await readFile(path.stagedPath, "utf8");
+      if (!TRAILING_VERSION_REFERENCE.test(content)) {
+        throw new Error(`No trailing version reference in ${path.sourcePath}`);
+      }
+      await writeFile(
+        path.stagedPath,
+        content.replace(TRAILING_VERSION_REFERENCE, `${input.releaseData.version}\n`),
+      );
     }
   }
 }
@@ -69,7 +74,7 @@ async function withDocumentationScenario(
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, content);
     }
-    const agent = new DocumentationWritingAgent(scenario.updated);
+    const agent = new DocumentationWritingAgent();
     await run(
       {
         releaseData: scenario.releaseData,
@@ -109,10 +114,6 @@ const realDocumentationPromoter: DocumentationPromoter = async (documents) => {
 };
 
 const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
-
-function promptDocumentationPaths(prompt: string): readonly { sourcePath: string; stagedPath: string }[] {
-  return parseDocumentationSyncPromptInput(prompt).documents;
-}
 
 function parseDocumentationSyncPromptInput(prompt: string): {
   readonly releaseData: DocumentationSyncScenario["releaseData"];
