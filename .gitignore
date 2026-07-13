@@ -6,6 +6,10 @@
 .codex/*
 !.codex/config.toml
 
+# Pi project plugin runtime
+.pi/agents/
+.pi/pi-claude-marketplace/
+
 # Dependencies
 node_modules/
 .pnpm-store/

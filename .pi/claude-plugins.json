@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "marketplaces": {
+    "outcomeeng": {
+      "source": "~/Code/outcomeeng/plugins/plugins"
+    }
+  },
+  "plugins": {
+    "spec-tree@outcomeeng": {},
+    "typescript@outcomeeng": {},
+    "prose@outcomeeng": {}
+  }
+}
