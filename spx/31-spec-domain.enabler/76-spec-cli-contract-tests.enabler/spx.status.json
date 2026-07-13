@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/context-target.scenario.l2.test.ts": "passed",
       "spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts": "passed"
     }
   }
