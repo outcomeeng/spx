@@ -1467,6 +1467,10 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
     const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
     expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
     expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
+    expect(writtenConfig).not.toHaveProperty("typeRoots");
+    expect(writtenConfig).not.toHaveProperty("types");
+    expect(writtenConfig.compilerOptions).not.toHaveProperty("typeRoots");
+    expect(writtenConfig.compilerOptions).not.toHaveProperty("types");
   });
 
   it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
@@ -1481,5 +1485,9 @@ describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript res
     const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
     expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
     expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
+    expect(writtenConfig).not.toHaveProperty("typeRoots");
+    expect(writtenConfig).not.toHaveProperty("types");
+    expect(writtenConfig.compilerOptions).not.toHaveProperty("typeRoots");
+    expect(writtenConfig.compilerOptions).not.toHaveProperty("types");
   });
 });

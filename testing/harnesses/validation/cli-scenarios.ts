@@ -56,6 +56,11 @@ interface ValidationCliDeferred {
   readonly resolve: () => void;
 }
 
+interface ObservedValidationStageContext {
+  readonly name: string;
+  readonly context: ValidationStageContext;
+}
+
 function validationCliDeferred(): ValidationCliDeferred {
   let resolvePromise: (() => void) | undefined;
   const promise = new Promise<void>((resolve) => {
@@ -65,11 +70,11 @@ function validationCliDeferred(): ValidationCliDeferred {
   return { promise, resolve: resolvePromise };
 }
 
-function controlledValidationStages(observedContexts: ValidationStageContext[] = []): ValidationStage[] {
+function controlledValidationStages(observedContexts: ObservedValidationStageContext[] = []): ValidationStage[] {
   return validationPipelineStages.map((stage): ValidationStage => ({
     ...stage,
     run: async (context) => {
-      observedContexts.push(context);
+      observedContexts.push({ name: stage.name, context });
       return {
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
         output: formatValidationNoProblemsMessage(stage.name),
@@ -167,17 +172,19 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
 async function expectPackagedCircularSubcommandRoutes(): Promise<void> {
   await withIsolatedPackagedValidationCli(async ({ executablePath }) => {
     const result = await runValidationSubprocess(
-      [validationCliDefinition.subcommands.circular.commandName, validationCommonCliOptions.quiet.flag],
+      [validationCliDefinition.subcommands.circular.commandName],
       { executablePath, timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT },
     );
 
     expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+    expect(result.stdout).toContain(VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND);
     expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
   });
 }
 
 async function expectOverrideProducesHumanSkipOutput(): Promise<void> {
-  const stages = controlledValidationStages();
+  const observedContexts: ObservedValidationStageContext[] = [];
+  const stages = controlledValidationStages(observedContexts);
   const overriddenStage = overridableValidationStage(stages);
   const override = overriddenStage.participation.override;
   if (override === undefined) throw new Error("selected validation stage has no override");
@@ -189,6 +196,18 @@ async function expectOverrideProducesHumanSkipOutput(): Promise<void> {
 
   expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
   expect(result.stdout).toContain(formatValidationStageSkipOutput(overriddenStage.name, override.flag));
+  expect(observedContexts.map(({ name }) => name)).toEqual(
+    stages.filter((stage) => stage.name !== overriddenStage.name).map((stage) => stage.name),
+  );
+  for (const stage of stages.filter((candidate) => candidate.name !== overriddenStage.name)) {
+    expect(result.stdout).toContain(formatValidationNoProblemsMessage(stage.name));
+  }
+
+  const quietResult = await runValidationInProcess(
+    [validationCliDefinition.subcommands.all.commandName, override.flag, validationCommonCliOptions.quiet.flag],
+    { domain: createValidationDomain({ validationStages: controlledValidationStages() }) },
+  );
+  expect(quietResult.stdout).not.toContain(formatValidationStageSkipOutput(overriddenStage.name, override.flag));
 }
 
 async function expectOverrideProducesJsonSkipSentinel(): Promise<void> {
@@ -223,10 +242,11 @@ async function expectJsonPipelineIsOneDocument(): Promise<void> {
 
   expect(result.stderr).toBe(validationCliEmptyOutput());
   expect(output.steps).toHaveLength(validationPipelineStages.length);
+  expect(output.steps.map((step) => step.name)).toEqual(validationPipelineStages.map((stage) => stage.name));
 }
 
 async function expectProductionOverridePreservesOtherDefaults(): Promise<void> {
-  const observedContexts: ValidationStageContext[] = [];
+  const observedContexts: ObservedValidationStageContext[] = [];
   const stages = controlledValidationStages(observedContexts);
   const overriddenStage = overridableValidationStage(stages);
   const override = overriddenStage.participation.override;
@@ -244,7 +264,10 @@ async function expectProductionOverridePreservesOtherDefaults(): Promise<void> {
 
   expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
   expect(observedContexts).toHaveLength(stages.length - 1);
-  expect(observedContexts.every((context) => context.scope === VALIDATION_SCOPES.PRODUCTION)).toBe(true);
+  expect(observedContexts.map(({ name }) => name)).toEqual(
+    stages.filter((stage) => stage.name !== overriddenStage.name).map((stage) => stage.name),
+  );
+  expect(observedContexts.every(({ context }) => context.scope === VALIDATION_SCOPES.PRODUCTION)).toBe(true);
 }
 
 async function expectSubcommandHelpMatchesSupportedOptions(): Promise<void> {
@@ -455,8 +478,25 @@ async function expectValidationAllHelpListsSkipFlags(): Promise<void> {
 
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(result.stderr).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
-  expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.skipCircularFlag);
-  expect(result.stdout).toContain(VALIDATION_PIPELINE_DATA.skipLiteralFlag);
+  for (const stage of validationPipelineStages) {
+    if (stage.participation.override !== undefined) {
+      expect(result.stdout).toContain(stage.participation.override.flag);
+    }
+  }
+}
+
+async function expectFullPipelineOverridesScopedToAllCommand(): Promise<void> {
+  const overrides = validationPipelineStages.flatMap((stage) =>
+    stage.participation.override === undefined ? [] : [stage.participation.override]
+  );
+  for (const definition of Object.values(validationCliDefinition.subcommands)) {
+    if (definition.commandName === validationCliDefinition.subcommands.all.commandName) continue;
+    for (const override of overrides) {
+      const result = await runValidationInProcess([definition.commandName, override.flag]);
+      expect(result.exitCode).not.toBe(VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS);
+      expect(result.stderr).toContain(override.flag);
+    }
+  }
 }
 
 async function expectLiteralHelpOmitsSkipFlags(): Promise<void> {
@@ -558,6 +598,10 @@ export function registerValidationCliScenarioTests(): void {
     it("multi-byte Unicode arguments are preserved in stderr", expectUnicodeArgumentsPreserved);
     it("literal help lists literal flags and valid problem kinds", expectLiteralHelpListsLiteralFlags);
     it("validation all help lists full-pipeline skip flags", expectValidationAllHelpListsSkipFlags);
+    it(
+      "full-pipeline overrides are rejected by every standalone subcommand",
+      expectFullPipelineOverridesScopedToAllCommand,
+    );
     it("literal help omits full-pipeline skip flags", expectLiteralHelpOmitsSkipFlags);
     it("literal command rejects the full-pipeline literal skip flag", expectLiteralCommandRejectsLiteralSkipFlag);
     it("circular command rejects the full-pipeline circular skip flag", expectCircularCommandRejectsCircularSkipFlag);
@@ -582,6 +626,7 @@ export function registerValidationCliComplianceTests(): void {
     );
     it("registers literal flags and valid problem kinds", expectLiteralHelpListsLiteralFlags);
     it("registers validation-all skip flags", expectValidationAllHelpListsSkipFlags);
+    it("scopes every descriptor-derived override to validation all", expectFullPipelineOverridesScopedToAllCommand);
     it("keeps literal skip scoped away from the literal command", expectLiteralCommandRejectsLiteralSkipFlag);
     it("keeps circular skip scoped away from the circular command", expectCircularCommandRejectsCircularSkipFlag);
     it("rejects unknown options without invoking a handler", expectUnknownOptionInvokesNoHandler);
