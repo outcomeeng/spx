@@ -5,6 +5,9 @@ import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+export const CLAUDE_SETTINGS_DIRECTORY = ".claude";
+export const CLAUDE_LOCAL_SETTINGS_FILE = "settings.local.json";
+
 /**
  * Recursively find all .claude/settings.local.json files under a root directory
  *
@@ -68,8 +71,8 @@ async function settingsFilesForEntry(
   if (!entry.isDirectory()) return [];
 
   const fullPath = path.join(normalizedRoot, entry.name);
-  if (entry.name === ".claude") {
-    const settingsPath = path.join(fullPath, "settings.local.json");
+  if (entry.name === CLAUDE_SETTINGS_DIRECTORY) {
+    const settingsPath = path.join(fullPath, CLAUDE_LOCAL_SETTINGS_FILE);
     return await isValidSettingsFile(settingsPath) ? [settingsPath] : [];
   }
 
