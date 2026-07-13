@@ -1,5 +1,6 @@
 import { CONFIG_FILE_FORMAT, configFileForFormat, parseConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
+import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { TESTING_SECTION, type TestingConfig } from "@/test/config";
@@ -13,6 +14,7 @@ export type ProductContextCliRun = {
 };
 
 export type ProductContextCliRunOptions = {
+  readonly domains?: readonly Domain[];
   readonly processCwd: string;
 };
 
@@ -46,6 +48,7 @@ export async function runProductContextCli(
   const stderr: string[] = [];
   const exitCodes: number[] = [];
   const program = createCliProgram({
+    domains: options.domains,
     processCwd: () => options.processCwd,
     writeStdout: (output) => stdout.push(output),
     writeStderr: (output) => stderr.push(output),
