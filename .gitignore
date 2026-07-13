@@ -7,9 +7,8 @@
 !.codex/config.toml
 
 # Pi project plugin runtime
-.pi/agents/
-.pi/claude-plugins.local.json
-.pi/pi-claude-marketplace/
+.pi/*
+!.pi/claude-plugins.json
 .pi-subagents/
 
 # Dependencies
