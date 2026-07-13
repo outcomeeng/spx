@@ -33,6 +33,11 @@ const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES = {
   REPEATED_SEPARATOR: "repeated-separator",
 } as const;
 
+const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES = {
+  REPRESENTATIVE: "representative",
+  SINGLE_ROOT: "single-root",
+} as const;
+
 export type SpecContextTargetMappingCaseKind =
   (typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES];
 
@@ -43,9 +48,19 @@ type UnrecognizedNodeDirectoryCaseKind =
 export type SpecContextEmptySegmentPosition =
   (typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES];
 
+export type SpecContextEmptySegmentTopology =
+  (typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES];
+
 export type SpecContextCoordinationNoteName =
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.PLAN_ARTIFACT
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ISSUES_ARTIFACT;
+
+export type SpecContextEmptySegmentMappingCase = {
+  readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT;
+  readonly position: SpecContextEmptySegmentPosition;
+  readonly title: string;
+  readonly topology: SpecContextEmptySegmentTopology;
+};
 
 export type SpecContextTargetMappingCase =
   | {
@@ -57,11 +72,7 @@ export type SpecContextTargetMappingCase =
     >;
     readonly title: string;
   }
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT;
-    readonly position: SpecContextEmptySegmentPosition;
-    readonly title: string;
-  }
+  | SpecContextEmptySegmentMappingCase
   | {
     readonly directoryName: string;
     readonly kind: UnrecognizedNodeDirectoryCaseKind;
@@ -91,12 +102,12 @@ export type SpecContextExactPrefixTargetFixture = {
 
 export type SpecContextEmptySegmentTargetFixture = {
   readonly segment: string;
-  readonly snapshot: SpecTreeSnapshot;
   readonly target: string;
 };
 
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
 export const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION = SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES;
+export const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY = SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES;
 
 function unrecognizedNodeDirectoryName(kind: UnrecognizedNodeDirectoryCaseKind): string {
   const suffix = sampleSpecTreeTestValue(
@@ -196,29 +207,34 @@ export function specContextEmptySegmentTargetFixture(
   snapshot: SpecTreeSnapshot,
   position: SpecContextEmptySegmentPosition,
 ): SpecContextEmptySegmentTargetFixture {
+  if (position === SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET) {
+    return { segment: "", target: "" };
+  }
   const target = snapshot.allNodes.find((node) => node.parentId !== undefined);
   if (target === undefined) throw new Error("Expected a representative spec-tree fixture with a nested node");
   const separator = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
   switch (position) {
-    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET: {
-      const root = snapshot.allNodes.find((node) => node.parentId === undefined);
-      if (root === undefined) throw new Error("Expected a representative spec-tree fixture with a root node");
-      return {
-        segment: "",
-        snapshot: { ...snapshot, allNodes: [root], nodes: [root] },
-        target: "",
-      };
-    }
     case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR:
-      return { segment: "", snapshot, target: `${separator}${target.id}` };
+      return { segment: "", target: `${separator}${target.id}` };
     case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR: {
       const segments = target.id.split(separator);
       return {
         segment: "",
-        snapshot,
         target: [segments[0], "", ...segments.slice(1)].join(separator),
       };
     }
+  }
+}
+
+export function specContextEmptySegmentSourceFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  topology: SpecContextEmptySegmentTopology,
+): RepresentativeSpecTreeFixture {
+  switch (topology) {
+    case SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE:
+      return fixture;
+    case SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.SINGLE_ROOT:
+      return { ...fixture, entries: [fixture.product, fixture.root] };
   }
 }
 
@@ -251,16 +267,19 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
       position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET,
       title: "maps an empty target to an empty-segment diagnostic",
+      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.SINGLE_ROOT,
     },
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
       position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR,
       title: "maps a leading separator to an empty-segment diagnostic",
+      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE,
     },
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
       position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR,
       title: "maps repeated separators to an empty-segment diagnostic",
+      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE,
     },
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN,
