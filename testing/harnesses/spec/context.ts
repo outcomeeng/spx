@@ -13,21 +13,33 @@ import {
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
-import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import {
+  contextOutputForFormat,
+  formatSpecContextTargetFailure,
+  SPEC_CONTEXT_OUTPUT_FORMAT,
+  SPEC_DOMAIN_CLI,
+} from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { TRACKED_PATH_DIRECTORY_SEPARATOR, TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND,
+  specContextAbbreviatedTarget as abbreviatedTarget,
+  specContextAmbiguousTargetFixture as ambiguousTargetFixture,
+  type SpecContextCoordinationNoteName,
+  specContextCoordinationNoteTarget as coordinationNoteTarget,
+  specContextExactPrefixTargetFixture as exactPrefixTargetFixture,
+  specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
+  specContextNestedAmbiguousTarget as nestedAmbiguousTarget,
+  specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
+  type SpecContextTargetDiagnosticSafetyCase,
   type SpecContextTargetMappingCase,
 } from "@testing/generators/spec-tree/context-target";
-import {
-  type RepresentativeSpecTreeFixture,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
+import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -61,75 +73,6 @@ function trackedSpecContextGitDependencies(productDir: string, trackedPaths: rea
       }
       return { exitCode: 128, stdout: "", stderr: "" };
     },
-  };
-}
-
-function lowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
-  const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const orderPrefix = `${fixture.root.order}-`;
-  return `${fixture.root.order - 1}-${rootDirectory.slice(orderPrefix.length)}`;
-}
-
-function sameIndexSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
-  const definition = KIND_REGISTRY[fixture.root.kind];
-  return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
-}
-
-function nodeSegment(nodeId: string): string {
-  return nodeId.split(TRACKED_PATH_DIRECTORY_SEPARATOR).at(-1) ?? nodeId;
-}
-
-function shortestUniquePrefix(segment: string, siblingSegments: readonly string[]): string {
-  for (let length = 1; length <= segment.length; length += 1) {
-    const prefix = segment.slice(0, length);
-    if (siblingSegments.filter((candidate) => candidate.startsWith(prefix)).length === 1) return prefix;
-  }
-  return segment;
-}
-
-function abbreviatedTarget(snapshot: SpecTreeSnapshot, target: SpecTreeNode): string {
-  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
-  const lineage: SpecTreeNode[] = [];
-  let current: SpecTreeNode | undefined = target;
-  while (current !== undefined) {
-    lineage.unshift(current);
-    current = current.parentId === undefined ? undefined : byId.get(current.parentId);
-  }
-  return lineage.map((node) => {
-    const segment = nodeSegment(node.id);
-    const siblings = snapshot.allNodes
-      .filter((candidate) => candidate.parentId === node.parentId)
-      .map((candidate) => nodeSegment(candidate.id));
-    return shortestUniquePrefix(segment, siblings);
-  }).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
-}
-
-function ambiguousTargetFixture(fixture: RepresentativeSpecTreeFixture): {
-  readonly candidate: string;
-  readonly prefix: string;
-  readonly specPath: string;
-} {
-  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
-  const stem = target.slice(0, -suffix.length);
-  const candidateSlug = `${fixture.root.slug}-candidate`;
-  return {
-    candidate: `${fixture.root.order}-${candidateSlug}${suffix}`,
-    prefix: stem,
-    specPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
-  };
-}
-
-function exactPrefixTargetFixture(fixture: RepresentativeSpecTreeFixture): {
-  readonly candidateSpecPath: string;
-  readonly target: string;
-} {
-  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
-  const candidateSlug = `${fixture.root.slug}${suffix}-candidate`;
-  return {
-    candidateSpecPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
-    target,
   };
 }
 
@@ -235,14 +178,7 @@ export async function assertSpecContextRejectsNestedWholePathDisambiguation(): P
     const ambiguity = ambiguousTargetFixture(env.fixture);
     await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
     const snapshot = await env.readFilesystemSnapshot();
-    const child = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
-    const childPrefix = shortestUniquePrefix(
-      nodeSegment(child.id),
-      snapshot.allNodes
-        .filter((candidate) => candidate.parentId === child.parentId)
-        .map((candidate) => nodeSegment(candidate.id)),
-    );
-    const target = `${ambiguity.prefix}/${childPrefix}`;
+    const target = nestedAmbiguousTarget(snapshot, ambiguity);
     const message = await rejectedContextMessage(target, env.productDir);
     expect(message).toContain(ambiguity.candidate);
     expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
@@ -304,6 +240,36 @@ async function assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(target: s
   });
 }
 
+async function assertSpecContextRejectsCoordinationNoteTarget(
+  noteName: SpecContextCoordinationNoteName,
+): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const artifact = coordinationNoteTarget(target, noteName);
+    await env.writeRaw(artifact, "");
+    const message = await rejectedContextMessage(artifact, env.productDir);
+    expect(message).toContain(artifact);
+    expect(message).toContain(`spx/${target.id}`);
+    expect(message).toContain(
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH],
+    );
+  });
+}
+
+export function assertSpecContextTargetDiagnosticSafetyCase(
+  safetyCase: SpecContextTargetDiagnosticSafetyCase,
+): void {
+  const message = formatSpecContextTargetFailure(safetyCase.failure);
+  expect(message).toContain(sanitizeCliArgument(safetyCase.unsafeValue));
+  expect(message).not.toContain(safetyCase.unsafeValue);
+}
+
 export async function assertSpecContextTargetMappingCase(mappingCase: SpecContextTargetMappingCase): Promise<void> {
   switch (mappingCase.kind) {
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.CANONICAL:
@@ -329,6 +295,10 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT:
       await assertSpecContextRejectsRootArtifactTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.PLAN_ARTIFACT:
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ISSUES_ARTIFACT:
+      await assertSpecContextRejectsCoordinationNoteTarget(mappingCase.kind);
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY:
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY:

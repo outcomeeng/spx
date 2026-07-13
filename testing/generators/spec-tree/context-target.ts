@@ -1,9 +1,14 @@
-import { SPEC_TREE_ENTRY_TYPE } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
+import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
+import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
+import { SPEC_TREE_ENTRY_TYPE, type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import {
   orderedDirectoryName,
+  type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 
 const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
@@ -12,6 +17,8 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
   ARTIFACT: "artifact",
   CANONICAL: "canonical",
   INVALID_DIRECTORY: SPEC_TREE_ENTRY_TYPE.INVALID,
+  ISSUES_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
+  PLAN_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
   ROOTED: "rooted",
   ROOT_ARTIFACT: "root-artifact",
   SUPERSEDED_DIRECTORY: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
@@ -26,16 +33,44 @@ type UnrecognizedNodeDirectoryCaseKind =
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.INVALID_DIRECTORY
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.SUPERSEDED_DIRECTORY;
 
+export type SpecContextCoordinationNoteName =
+  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.PLAN_ARTIFACT
+  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ISSUES_ARTIFACT;
+
 export type SpecContextTargetMappingCase =
   | {
-    readonly kind: Exclude<SpecContextTargetMappingCaseKind, UnrecognizedNodeDirectoryCaseKind>;
+    readonly kind: Exclude<
+      SpecContextTargetMappingCaseKind,
+      UnrecognizedNodeDirectoryCaseKind | SpecContextCoordinationNoteName
+    >;
     readonly title: string;
   }
   | {
     readonly directoryName: string;
     readonly kind: UnrecognizedNodeDirectoryCaseKind;
     readonly title: string;
+  }
+  | {
+    readonly kind: SpecContextCoordinationNoteName;
+    readonly title: string;
   };
+
+export type SpecContextTargetDiagnosticSafetyCase = {
+  readonly failure: SpecContextTargetFailure;
+  readonly title: string;
+  readonly unsafeValue: string;
+};
+
+export type SpecContextAmbiguousTargetFixture = {
+  readonly candidate: string;
+  readonly prefix: string;
+  readonly specPath: string;
+};
+
+export type SpecContextExactPrefixTargetFixture = {
+  readonly candidateSpecPath: string;
+  readonly target: string;
+};
 
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
 
@@ -46,6 +81,98 @@ function unrecognizedNodeDirectoryName(kind: UnrecognizedNodeDirectoryCaseKind):
       : SPEC_TREE_TEST_GENERATOR.supersededNodeSuffix(),
   );
   return orderedDirectoryName(suffix);
+}
+
+function nodeSegment(nodeId: string): string {
+  return nodeId.split(TRACKED_PATH_DIRECTORY_SEPARATOR).at(-1) ?? nodeId;
+}
+
+function shortestUniquePrefix(segment: string, siblingSegments: readonly string[]): string {
+  for (let length = 1; length <= segment.length; length += 1) {
+    const prefix = segment.slice(0, length);
+    if (siblingSegments.filter((candidate) => candidate.startsWith(prefix)).length === 1) return prefix;
+  }
+  return segment;
+}
+
+function unsafeCliDiagnosticCodes(): readonly number[] {
+  return [
+    ...Array.from({ length: CONTROL_CHAR_UPPER_BOUND + 1 }, (_unused, code) => code),
+    DEL_CHAR_CODE,
+  ];
+}
+
+export function specContextLowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
+  const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const orderPrefix = `${fixture.root.order}-`;
+  return `${fixture.root.order - 1}-${rootDirectory.slice(orderPrefix.length)}`;
+}
+
+export function specContextSameIndexSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
+  const definition = KIND_REGISTRY[fixture.root.kind];
+  return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
+}
+
+export function specContextAbbreviatedTarget(snapshot: SpecTreeSnapshot, target: SpecTreeNode): string {
+  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
+  const lineage: SpecTreeNode[] = [];
+  let current: SpecTreeNode | undefined = target;
+  while (current !== undefined) {
+    lineage.unshift(current);
+    current = current.parentId === undefined ? undefined : byId.get(current.parentId);
+  }
+  return lineage.map((node) => {
+    const segment = nodeSegment(node.id);
+    const siblings = snapshot.allNodes
+      .filter((candidate) => candidate.parentId === node.parentId)
+      .map((candidate) => nodeSegment(candidate.id));
+    return shortestUniquePrefix(segment, siblings);
+  }).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
+}
+
+export function specContextAmbiguousTargetFixture(
+  fixture: RepresentativeSpecTreeFixture,
+): SpecContextAmbiguousTargetFixture {
+  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
+  const stem = target.slice(0, -suffix.length);
+  const candidateSlug = `${fixture.root.slug}-candidate`;
+  return {
+    candidate: `${fixture.root.order}-${candidateSlug}${suffix}`,
+    prefix: stem,
+    specPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
+  };
+}
+
+export function specContextExactPrefixTargetFixture(
+  fixture: RepresentativeSpecTreeFixture,
+): SpecContextExactPrefixTargetFixture {
+  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
+  const candidateSlug = `${fixture.root.slug}${suffix}-candidate`;
+  return {
+    candidateSpecPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
+    target,
+  };
+}
+
+export function specContextNestedAmbiguousTarget(
+  snapshot: SpecTreeSnapshot,
+  ambiguity: SpecContextAmbiguousTargetFixture,
+): string {
+  const child = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
+  const childSegment = nodeSegment(child.id);
+  const siblingSegments = snapshot.allNodes
+    .filter((candidate) => candidate.parentId === child.parentId)
+    .map((candidate) => nodeSegment(candidate.id));
+  return `${ambiguity.prefix}/${shortestUniquePrefix(childSegment, siblingSegments)}`;
+}
+
+export function specContextCoordinationNoteTarget(
+  target: SpecTreeNode,
+  noteName: SpecContextCoordinationNoteName,
+): string {
+  return `spx/${target.id}/${noteName}`;
 }
 
 export function specContextTargetMappingCases(): readonly SpecContextTargetMappingCase[] {
@@ -83,6 +210,14 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       title: "maps a product-root decision path to node-selection guidance",
     },
     {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.PLAN_ARTIFACT,
+      title: "maps a node-local plan path to an owning-node diagnostic",
+    },
+    {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ISSUES_ARTIFACT,
+      title: "maps a node-local issues path to an owning-node diagnostic",
+    },
+    {
       directoryName: unrecognizedNodeDirectoryName(SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY),
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY,
       title: "maps an invalid node-directory path to an unresolved-input diagnostic",
@@ -93,4 +228,32 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       title: "maps a superseded node-directory path to an unresolved-input diagnostic",
     },
   ];
+}
+
+export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTargetDiagnosticSafetyCase[] {
+  return unsafeCliDiagnosticCodes().flatMap((code) => {
+    const escape = formatHexEscape(code);
+    const unsafeValue = String.fromCodePoint(code);
+    return [
+      {
+        failure: {
+          input: unsafeValue,
+          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
+          ownerId: unsafeValue,
+        },
+        title: `escapes ${escape} in artifact diagnostics`,
+        unsafeValue,
+      },
+      {
+        failure: {
+          candidates: [unsafeValue],
+          input: unsafeValue,
+          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT,
+          segment: unsafeValue,
+        },
+        title: `escapes ${escape} in ambiguous diagnostics`,
+        unsafeValue,
+      },
+    ];
+  });
 }
