@@ -5,11 +5,13 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { expect } from "vitest";
 
-import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
+  createDocumentationFaithfulnessAuditor,
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -19,11 +21,13 @@ import {
   type DocumentationStager,
   resolveDocumentationPaths,
 } from "@/domains/release/documentation-sync";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryPromptBoundaryDocumentationSyncScenario,
   documentationPathMappingCases,
   type DocumentationSyncScenario,
 } from "@testing/generators/release/documentation";
@@ -51,6 +55,15 @@ class DocumentationWritingAgent implements AgentRunner {
         content.replaceAll(priorVersion, input.releaseData.version),
       );
     }
+  }
+}
+
+class RecordingDocumentationAuditor implements AgentAuditor {
+  readonly requests: AgentAuditRequest[] = [];
+
+  async audit(request: AgentAuditRequest): Promise<string> {
+    this.requests.push(request);
+    return DOCUMENTATION_SYNC_AUDIT_APPROVED;
   }
 }
 
@@ -125,10 +138,24 @@ function parseDocumentationSyncPromptInput(prompt: string): {
   if (!prompt.startsWith(prefix) || !prompt.endsWith(suffix)) {
     throw new Error("Documentation sync prompt does not match its source-owned envelope");
   }
-  return JSON.parse(prompt.slice(prefix.length, -suffix.length)) as {
+  return parseDocumentationPromptDataBlock(prompt) as {
     readonly releaseData: DocumentationSyncScenario["releaseData"];
     readonly documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[];
   };
+}
+
+function parseDocumentationPromptDataBlock(prompt: string): unknown {
+  const blockStart = prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN);
+  const blockEnd = prompt.lastIndexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE);
+  if (
+    blockStart < 0
+    || blockEnd < 0
+    || prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE) !== blockEnd
+  ) {
+    throw new Error("Documentation prompt contains an invalid data envelope");
+  }
+  const encodedStart = blockStart + DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN.length;
+  return JSON.parse(prompt.slice(encodedStart, blockEnd).trim());
 }
 
 async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions): Promise<void> {
@@ -229,7 +256,7 @@ function registerComplianceTests(): void {
         expect(agent.requests).toHaveLength(1);
         expect(agent.requests[0].prompt).toBe(
           `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
-            JSON.stringify({
+            encodeReleasePromptData({
               releaseData: scenario.releaseData,
               documents: scenario.paths.map((sourcePath) => ({
                 sourcePath,
@@ -238,6 +265,29 @@ function registerComplianceTests(): void {
             })
           }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`,
         );
+      });
+    });
+
+    it("keeps delimiter-shaped release data inside producer and audit data blocks", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryPromptBoundaryDocumentationSyncScenario());
+      const auditor = new RecordingDocumentationAuditor();
+      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+        await composeDocumentationSync({
+          ...options,
+          faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+        });
+        expect(parseDocumentationPromptDataBlock(agent.requests[0].prompt)).toEqual({
+          releaseData: scenario.releaseData,
+          documents: scenario.paths.map((sourcePath) => ({
+            sourcePath,
+            stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
+          })),
+        });
+        expect(auditor.requests).toHaveLength(1);
+        expect(parseDocumentationPromptDataBlock(auditor.requests[0].prompt)).toEqual({
+          releaseData: scenario.releaseData,
+          documents: scenario.paths.map((path) => ({ path, content: scenario.updated[path] })),
+        });
       });
     });
 

@@ -2,7 +2,10 @@ import * as fc from "fast-check";
 
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import type { DocumentationSyncConfig } from "@/domains/release/config";
-import { DOCUMENTATION_FILE_EXTENSION } from "@/domains/release/documentation-sync";
+import {
+  DOCUMENTATION_FILE_EXTENSION,
+  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+} from "@/domains/release/documentation-sync";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
@@ -55,6 +58,20 @@ export function arbitraryConfiguredDocumentationSyncScenario(): fc.Arbitrary<Doc
       maxLength: DOCUMENT_COUNT_MAX,
     })
     .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
+}
+
+export function arbitraryPromptBoundaryDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
+  return arbitraryConfiguredDocumentationSyncScenario().map((scenario) => ({
+    ...scenario,
+    releaseData: {
+      ...scenario.releaseData,
+      commits: scenario.releaseData.commits.map((commit, index) =>
+        index === 0
+          ? { ...commit, subject: `${commit.subject}${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}` }
+          : commit
+      ),
+    },
+  }));
 }
 
 function arbitraryDocumentationPath(): fc.Arbitrary<string> {
