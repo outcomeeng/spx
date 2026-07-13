@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
 import { knipCommand } from "@/commands/validation/knip";
-import { LITERAL_DISABLED_MESSAGE, literalCommand } from "@/commands/validation/literal";
+import { LITERAL_DISABLED_MESSAGE, literalCommand, type LiteralCommandDeps } from "@/commands/validation/literal";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
@@ -108,12 +108,24 @@ describe("resolved validation configuration", () => {
     await withLiteralFixtureEnv(
       validationConfigSection(VALIDATION_LITERAL_SUBSECTION, false),
       async (env) => {
+        const validationCalls: Array<
+          Parameters<LiteralCommandDeps["validateLiteralReuse"]>[0]
+        > = [];
         await env.writeTsConfigMarker();
 
-        const result = await literalCommand({ cwd: env.productDir });
+        const result = await literalCommand(
+          { cwd: env.productDir },
+          {
+            validateLiteralReuse: async (context) => {
+              validationCalls.push(context);
+              throw new Error("disabled literal validation executed");
+            },
+          },
+        );
 
         expect(result.exitCode).toBe(0);
         expect(result.output).toBe(LITERAL_DISABLED_MESSAGE);
+        expect(validationCalls).toEqual([]);
       },
     );
   });

@@ -59,6 +59,14 @@ export interface LiteralCommandOptions {
   readonly pathConfig?: ValidationPathConfig;
 }
 
+export interface LiteralCommandDeps {
+  readonly validateLiteralReuse: typeof validateLiteralReuse;
+}
+
+export const defaultLiteralCommandDeps: LiteralCommandDeps = {
+  validateLiteralReuse,
+};
+
 export const LITERAL_EXIT_CODES = {
   OK: 0,
   FINDINGS: 1,
@@ -91,6 +99,7 @@ interface ResolvedLiteralCommandConfig {
 
 export async function literalCommand(
   options: LiteralCommandOptions,
+  deps: LiteralCommandDeps = defaultLiteralCommandDeps,
 ): Promise<ValidationCommandResult> {
   const start = Date.now();
 
@@ -125,7 +134,7 @@ export async function literalCommand(
     };
   }
 
-  const result = await validateLiteralReuse({
+  const result = await deps.validateLiteralReuse({
     productDir: options.cwd,
     explicitFiles: explicitLiteralPaths(options.files),
     config: resolved.literalConfig,
