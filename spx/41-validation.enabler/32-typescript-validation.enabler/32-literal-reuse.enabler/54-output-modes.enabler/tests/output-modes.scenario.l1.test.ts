@@ -1,1 +1,3 @@
-import "@testing/harnesses/literal/output-modes-scenario";
+import { registerLiteralOutputModeScenarios } from "@testing/harnesses/literal/output-modes-scenario";
+
+registerLiteralOutputModeScenarios();
