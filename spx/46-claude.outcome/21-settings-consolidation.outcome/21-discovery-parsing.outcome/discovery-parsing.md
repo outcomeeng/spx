@@ -14,4 +14,5 @@ CONTRIBUTING TO eliminating permission drift by ensuring no project's settings a
 
 ### Properties
 
-- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.scenario.l1.test.ts))
+- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.property.l1.test.ts))
+- Parsing preserves input cardinality and order: every settings-file path yields one ordered success or error result ([test](tests/parser.property.l1.test.ts))

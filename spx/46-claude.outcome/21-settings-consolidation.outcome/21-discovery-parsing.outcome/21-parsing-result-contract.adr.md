@@ -17,8 +17,8 @@ One result per path makes partial success explicit and keeps the complete scan o
 ### Testing
 
 - ALWAYS: parsing any sequence of settings-file paths yields exactly one result per input path in the same order ([property])
-- ALWAYS: every valid permission entry maps to one typed permission record carrying its raw value, type, scope, and category ([mapping])
-- ALWAYS: malformed JSON yields an error result for its path while later paths are still parsed ([scenario])
+- ALWAYS: every valid permission entry maps to one typed permission record carrying its raw value, type, scope, and category ([property])
+- ALWAYS: malformed JSON yields an error result for its path while later paths are still parsed ([property])
 
 ### Audit
 
