@@ -870,6 +870,7 @@ async function runNoShortCircuitScenario(
 
       expect(result.exitCode).toBe(VALIDATION_PIPELINE_DATA.exitCodes.FAILURE);
       expectStepSequence(result.stdout);
+      expectCanonicalProblemVocabulary(result.stdout);
       expect(result.stdout).toContain(
         VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       );
@@ -881,6 +882,17 @@ async function runNoShortCircuitScenario(
       );
     },
   );
+}
+
+function expectCanonicalProblemVocabulary(stdout: string): void {
+  const completionLines = stdout
+    .split(VALIDATION_PIPELINE_DATA.outputLineSeparator)
+    .filter((line) => /^\[\d+\/\d+\]/u.test(line));
+  expect(completionLines).toHaveLength(VALIDATION_PIPELINE_DATA.totalSteps);
+  for (const line of completionLines) {
+    if (/\bskipped\b/u.test(line)) continue;
+    expect(line).toMatch(/\bproblems?\b/u);
+  }
 }
 
 async function runFailureExitCodeScenario(

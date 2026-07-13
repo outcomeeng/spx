@@ -20,8 +20,10 @@ import {
   validationCliDefinition,
   validationKnownOperands,
   validationOptionPrefix,
+  validationShortOptionPrefix,
 } from "@/interfaces/cli/validation-contract";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
 import { TYPESCRIPT_VALIDATION_CONCERN, type TypeScriptValidationConcern } from "@/validation/languages/typescript";
@@ -381,7 +383,20 @@ export function typescriptValidationConcernMappings(): readonly TypeScriptValida
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
   return fc.string({ minLength: 1 })
     .filter((candidate) => !validationKnownOperands.has(candidate))
-    .filter((candidate) => !candidate.startsWith(validationOptionPrefix));
+    .filter((candidate) => !candidate.startsWith(validationShortOptionPrefix));
+}
+
+export function arbitraryValidationCliOverlengthPrintableSubcommand(): fc.Arbitrary<string> {
+  return fc.array(
+    fc.integer({ min: FIRST_PRINTABLE_CHAR_CODE, max: DEL_CHAR_CODE - 1 }),
+    {
+      minLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1,
+      maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH * 2,
+    },
+  )
+    .map((codePoints) => String.fromCodePoint(...codePoints))
+    .filter((candidate) => !validationKnownOperands.has(candidate))
+    .filter((candidate) => !candidate.startsWith(validationShortOptionPrefix));
 }
 
 export function arbitraryValidationCliUnknownOption(): fc.Arbitrary<string> {
@@ -593,6 +608,7 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
 
 export const VALIDATION_CLI_GENERATOR = {
   unknownSubcommand: arbitraryValidationCliUnknownSubcommand,
+  overlengthPrintableSubcommand: arbitraryValidationCliOverlengthPrintableSubcommand,
   unknownOption: arbitraryValidationCliUnknownOption,
   controlArgument: arbitraryValidationCliControlArgument,
   unicodeArgument: arbitraryValidationCliUnicodeArgument,

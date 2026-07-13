@@ -1,5 +1,6 @@
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationConfigProblemMessage,
   formatValidationNoProblemsMessage,
   formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_SKIP_LABELS,
@@ -106,7 +107,12 @@ export async function literalCommand(
   if (typeof resolved === "string") {
     return {
       exitCode: LITERAL_EXIT_CODES.CONFIG_ERROR,
-      output: `Literal: ✗ config error — ${resolved}`,
+      output: `${
+        formatValidationConfigProblemMessage(
+          VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+          "configuration error",
+        )
+      } — ${resolved}`,
       durationMs: Date.now() - start,
     };
   }

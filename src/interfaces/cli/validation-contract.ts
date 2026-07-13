@@ -104,7 +104,7 @@ export const validationCliDefinition: ValidationCliDefinition = {
     format: {
       commandName: "format",
       description: "Check code formatting with dprint",
-      options: { scope: false, json: true },
+      options: { scope: false, json: false },
     },
     all: {
       commandName: "all",
@@ -196,3 +196,4 @@ export const validationKnownOperands: ReadonlySet<string> = new Set([
   ...Object.values(validationCliDefinition.commanderHelpOperands),
 ]);
 export const validationOptionPrefix = validationCliDefinition.commanderHelpOperands.longFlag.slice(0, 2);
+export const validationShortOptionPrefix = validationCliDefinition.commanderHelpOperands.shortFlag.slice(0, 1);

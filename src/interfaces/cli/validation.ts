@@ -465,7 +465,6 @@ function registerValidationCommands(
         cwd: paths.productDir,
         files: paths.files,
         quiet: options.quiet,
-        json: options.json,
       });
       emitValidationResult(result, invocation.io);
     });

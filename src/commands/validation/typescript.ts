@@ -22,6 +22,7 @@ import { validateTypeScript } from "@/validation/steps/typescript";
 import {
   formatExplicitPathsNoTargetsSkipMessage,
   formatTypeScriptAbsentSkipMessage,
+  formatValidationConfigProblemMessage,
   formatValidationPathsNoTargetsSkipMessage,
   formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -41,7 +42,10 @@ export const defaultTypeScriptCommandDeps: TypeScriptCommandDeps = {
 
 export const TYPESCRIPT_VALIDATION_MESSAGES = {
   ABSENT: formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
-  CONFIG_ERROR: `${VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT}: ✗ config error`,
+  CONFIG_ERROR: formatValidationConfigProblemMessage(
+    VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
+    "configuration error",
+  ),
   NO_VALIDATION_PATH_TARGETS: formatValidationPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   NO_EXPLICIT_PATH_TARGETS: formatExplicitPathsNoTargetsSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT),
   SUCCESS: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,

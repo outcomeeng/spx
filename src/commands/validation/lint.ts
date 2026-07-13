@@ -22,6 +22,7 @@ import { discardValidationSubprocessOutputStreams } from "@/validation/steps/sub
 import { VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationConfigProblemMessage,
   formatValidationPathsNoTargetsSkipMessage,
   formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
@@ -45,7 +46,10 @@ export const defaultLintCommandDeps: LintCommandDeps = {
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
 const MISSING_CONFIG_MESSAGE = VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG;
-const ESLINT_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.ESLINT}: ✗ config error`;
+const ESLINT_CONFIG_ERROR_MESSAGE = formatValidationConfigProblemMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+  "configuration error",
+);
 const VALIDATION_PATHS_NO_TARGETS_MESSAGE = formatValidationPathsNoTargetsSkipMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
 );

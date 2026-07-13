@@ -451,6 +451,16 @@ async function expectUnicodeArgumentsPreserved(): Promise<void> {
   expect(result.stderr).toContain(unicodeArgument);
 }
 
+async function expectOverlengthArgumentsTruncated(): Promise<void> {
+  const overlengthArgument = sampleLiteralTestValue(VALIDATION_CLI_GENERATOR.overlengthPrintableSubcommand());
+  const result = await runValidationSubprocess([overlengthArgument]);
+
+  expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+  await expectValidationDispatchFailureInvokesNoHandler([overlengthArgument]);
+  expect(result.stderr).toContain(sanitizeCliArgument(overlengthArgument));
+  expect(result.stderr).not.toContain(overlengthArgument);
+}
+
 async function expectLiteralHelpListsLiteralFlags(): Promise<void> {
   const result = await runValidationInProcess([
     validationCliDefinition.subcommands.literal.commandName,
@@ -543,13 +553,18 @@ async function expectUnknownOptionInvokesNoHandler(): Promise<void> {
 
 async function expectTypedSubcommandRegistryIsExhaustivelyRegistered(): Promise<void> {
   for (const definition of Object.values(validationCliDefinition.subcommands)) {
-    const recorder = createRecordingValidationDomain(
-      validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
-    );
-    const result = await runValidationInProcess([definition.commandName], { domain: recorder.domain });
-    expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
-    expect(recorder.calls).toHaveLength(1);
-    expect(recorder.calls[0]?.commandName).toBe(definition.commandName);
+    const operands = definition.alias === undefined
+      ? [definition.commandName]
+      : [definition.commandName, definition.alias];
+    for (const operand of operands) {
+      const recorder = createRecordingValidationDomain(
+        validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode,
+      );
+      const result = await runValidationInProcess([operand], { domain: recorder.domain });
+      expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownLiteralProblemKind.exitCode);
+      expect(recorder.calls).toHaveLength(1);
+      expect(recorder.calls[0]?.commandName).toBe(definition.commandName);
+    }
   }
 }
 
@@ -596,6 +611,7 @@ export function registerValidationCliScenarioTests(): void {
     it("empty argument reports the empty-value sentinel", expectEmptyArgumentDiagnostic);
     it("ASCII control characters are escaped before reaching stderr", expectControlCharactersEscaped);
     it("multi-byte Unicode arguments are preserved in stderr", expectUnicodeArgumentsPreserved);
+    it("overlength printable arguments are truncated in stderr", expectOverlengthArgumentsTruncated);
     it("literal help lists literal flags and valid problem kinds", expectLiteralHelpListsLiteralFlags);
     it("validation all help lists full-pipeline skip flags", expectValidationAllHelpListsSkipFlags);
     it(
