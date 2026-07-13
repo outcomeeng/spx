@@ -17,6 +17,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 - TypeScript test file patterns: `*.test.ts` and `*.test.tsx` — any file matching these patterns under `spx/**/tests/` is a vitest target ([test](tests/typescript-test.mapping.l1.test.ts))
 - Config-driven exclusion flag generation: an excluded node path `{segment}` maps to vitest flag `--exclude=spx/{segment}/**` ([test](tests/typescript-test.mapping.l1.test.ts))
+- Related-test resolution maps a changed TypeScript source path to each candidate test whose transitive import closure reaches the source directly or reaches a source-owned artifact descriptor listing that source as a build input; candidates reaching neither remain unselected ([test](tests/typescript-test.mapping.l1.test.ts))
 
 ### Compliance
 
