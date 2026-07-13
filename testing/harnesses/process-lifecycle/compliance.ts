@@ -185,31 +185,26 @@ export function registerLifecycleComplianceEvidence(): void {
     it("Knip subprocess output is owned by parent-owned pipes", async () => {
       const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
       const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdoutRunner = new EmittingSpawnOptionsRunner(
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+      const runner = new EmittingSpawnOptionsRunner(
         stdoutChunk,
-        undefined,
-        [VALIDATION_EXIT_CODES.FAILURE],
-      );
-      const stderrRunner = new EmittingSpawnOptionsRunner(
-        undefined,
         stderrChunk,
         [VALIDATION_EXIT_CODES.FAILURE],
       );
       const productDir = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
 
-      const stdoutResult = await validateKnip(
+      const result = await validateKnip(
         { productDir, typescriptScope: createValidationScopeConfig() },
-        stdoutRunner,
-      );
-      const stderrResult = await validateKnip(
-        { productDir, typescriptScope: createValidationScopeConfig() },
-        stderrRunner,
+        runner,
+        undefined,
+        recordingOutputStreams(stdout, stderr),
       );
 
-      expect(stdoutResult.error).toContain(stdoutChunk);
-      expect(stderrResult.error).toContain(stderrChunk);
-      expect(stdoutRunner.spawnOptions).toEqual(expect.objectContaining({ cwd: productDir, stdio: "pipe" }));
-      expect(stderrRunner.spawnOptions).toEqual(expect.objectContaining({ cwd: productDir, stdio: "pipe" }));
+      expect(result.error).toContain(stdoutChunk);
+      expect(runner.spawnOptions).toEqual(expect.objectContaining({ cwd: productDir, stdio: "pipe" }));
+      expect(stdout).toEqual([stdoutChunk]);
+      expect(stderr).toEqual([stderrChunk]);
     });
 
     it("formatting subprocess output is owned by parent-owned pipes", async () => {

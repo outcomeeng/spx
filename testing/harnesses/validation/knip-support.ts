@@ -7,6 +7,7 @@ import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS, validateKnip } from "@/validation/steps/knip";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ScopeConfig } from "@/validation/types";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
@@ -79,7 +80,7 @@ export function createRecordingKnipCommandDeps(
     },
     validateKnip: async (context) => {
       validationCalls.push(context);
-      return validateKnip(context, runner);
+      return validateKnip(context, runner, undefined, discardValidationSubprocessOutputStreams);
     },
   };
 }
