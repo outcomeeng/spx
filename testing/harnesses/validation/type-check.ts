@@ -169,6 +169,24 @@ export function registerTypeCheckComplianceTests(): void {
     });
   });
 
+  it("gates TypeScript discovery and execution when TypeScript files exist without a tsconfig", async () => {
+    await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
+      const deps: TypeScriptCommandDeps = {
+        discoverTool: async () => {
+          throw new Error("TypeScript discovery ran without a tsconfig");
+        },
+        validateTypeScript: async () => {
+          throw new Error("TypeScript validation ran without a tsconfig");
+        },
+      };
+
+      const result = await typescriptCommand({ cwd: path }, deps);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+    });
+  });
+
   it("terminates through the lifecycle handler when the TypeScript output consumer closes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
       const result = await runSpawnFixture({

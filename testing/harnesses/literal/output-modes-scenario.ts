@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { formatNoProblemsOfKind, literalCommand, VERBOSE_PROBLEM_LINE_PREFIX } from "@/commands/validation/literal";
+import { formatNoProblemsOfKind, literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
-import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import {
+  expectedAffectedFiles,
+  expectedLiteralLines,
+  expectedVerboseLines,
+} from "@testing/harnesses/literal/output-expectations";
 
 describe("output-modes — scenarios", () => {
   it("positional path operands scope detection to only the named files and their contributed index", async () => {
@@ -102,16 +106,14 @@ describe("output-modes — scenarios", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        filesWithProblems: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+      expect(lines).toEqual(expectedAffectedFiles(parseLiteralReuseResult(JSON.parse(jsonResult.output))));
       for (const line of lines) {
         expect(line).not.toMatch(/:\d+$/);
       }
@@ -123,17 +125,24 @@ describe("output-modes — scenarios", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        kind: LITERAL_PROBLEM_KIND.REUSE,
-        filesWithProblems: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({
+          cwd: env.productDir,
+          config: LITERAL_DEFAULTS,
+          kind: LITERAL_PROBLEM_KIND.REUSE,
+          filesWithProblems: true,
+        }),
+        literalCommand({
+          cwd: env.productDir,
+          config: LITERAL_DEFAULTS,
+          kind: LITERAL_PROBLEM_KIND.REUSE,
+          json: true,
+        }),
+      ]);
 
-      const outputFiles = new Set(result.output.split("\n").filter(Boolean));
-      expect(outputFiles.has(inputs.reuseTestFile)).toBe(true);
-      expect(outputFiles.has(inputs.dupeFirstTestFile)).toBe(false);
-      expect(outputFiles.has(inputs.dupeSecondTestFile)).toBe(false);
+      expect(result.output.split("\n").filter(Boolean)).toEqual(
+        expectedAffectedFiles(parseLiteralReuseResult(JSON.parse(jsonResult.output))),
+      );
     });
   });
 
@@ -142,16 +151,14 @@ describe("output-modes — scenarios", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        literals: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+      expect(lines).toEqual(expectedLiteralLines(parseLiteralReuseResult(JSON.parse(jsonResult.output))));
     });
   });
 
@@ -160,19 +167,15 @@ describe("output-modes — scenarios", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        verbose: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
-      const output = result.output;
-      expect(output).toContain(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
-      expect(output).toContain(LITERAL_PROBLEM_KIND.DUPE.toUpperCase());
-      expect(output).toContain(inputs.reuseTestFile);
-      const problemLines = output.split("\n").filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
-      expect(problemLines.length).toBeGreaterThan(0);
+      expect(result.output.split("\n")).toEqual(
+        expectedVerboseLines(parseLiteralReuseResult(JSON.parse(jsonResult.output))),
+      );
     });
   });
 

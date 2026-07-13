@@ -8,6 +8,7 @@ import {
   LITERAL_TEST_GENERATOR_COUNTS,
   LITERAL_TEXT_LAYOUT,
 } from "@testing/generators/literal/literal";
+import { expectedLiteralLines } from "@testing/harnesses/literal/output-expectations";
 
 describe("output-modes — properties", () => {
   it("--files-with-problems always contains all finding test files, deduplicated and sorted", () => {
@@ -32,26 +33,13 @@ describe("output-modes — properties", () => {
     );
   });
 
-  it("--literals always contains all finding literal values, deduplicated, sorted, and double-quoted", () => {
+  it("--literals always contains all finding literal values, deduplicated, sorted, and kind-formatted", () => {
     fc.assert(
       fc.property(arbitraryDetectionResult(), (findings) => {
         const output = formatLiteralValues(findings);
         const lines = output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
 
-        // Every literal value from srcReuse and testDupe appears quoted in the output (oracle from findings data)
-        for (const finding of findings.srcReuse) {
-          expect(lines).toContain(`"${finding.value}"`);
-        }
-        for (const finding of findings.testDupe) {
-          expect(lines).toContain(`"${finding.value}"`);
-        }
-
-        // Output is sorted, contains no duplicates, and every line is double-quoted
-        expect(new Set(lines).size).toBe(lines.length);
-        expect(lines).toEqual([...lines].sort(compareAsciiStrings));
-        for (const line of lines) {
-          expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
-        }
+        expect(lines).toEqual(expectedLiteralLines(findings));
       }),
       { numRuns: LITERAL_TEST_GENERATOR_COUNTS.propertyRuns },
     );

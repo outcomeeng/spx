@@ -16,6 +16,7 @@ import {
   type DetectionResult,
   type DupeFinding,
   LITERAL_KIND,
+  type LiteralKind,
   type LiteralLocation,
   MODULE_NAMING_SKIP,
   REMEDIATION,
@@ -134,29 +135,40 @@ export function arbitraryLiteralLocation(fileArb: fc.Arbitrary<string>): fc.Arbi
 }
 
 export function arbitraryReuseFinding(): fc.Arbitrary<ReuseFinding> {
-  return fc.record({
-    kind: fc.constant(LITERAL_KIND.STRING),
-    value: arbitraryDomainLiteral(),
-    test: arbitraryLiteralLocation(arbitraryTestFilePath()),
-    src: fc.array(arbitraryLiteralLocation(arbitrarySourceFilePath()), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
-      maxLength: LITERAL_TEST_GENERATOR_COUNTS.multiFixture,
-    }),
-    remediation: fc.constant(REMEDIATION.IMPORT_FROM_SOURCE),
-  });
+  return arbitraryLiteralKindAndValue().chain(({ kind, value }) =>
+    fc.record({
+      kind: fc.constant(kind),
+      value: fc.constant(value),
+      test: arbitraryLiteralLocation(arbitraryTestFilePath()),
+      src: fc.array(arbitraryLiteralLocation(arbitrarySourceFilePath()), {
+        minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+        maxLength: LITERAL_TEST_GENERATOR_COUNTS.multiFixture,
+      }),
+      remediation: fc.constant(REMEDIATION.IMPORT_FROM_SOURCE),
+    })
+  );
 }
 
 export function arbitraryDupeFinding(): fc.Arbitrary<DupeFinding> {
-  return fc.record({
-    kind: fc.constant(LITERAL_KIND.STRING),
-    value: arbitraryDomainLiteral(),
-    test: arbitraryLiteralLocation(arbitraryTestFilePath()),
-    otherTests: fc.array(arbitraryLiteralLocation(arbitraryTestFilePath()), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
-      maxLength: LITERAL_TEST_GENERATOR_COUNTS.multiFixture,
-    }),
-    remediation: fc.constant(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR),
-  });
+  return arbitraryLiteralKindAndValue().chain(({ kind, value }) =>
+    fc.record({
+      kind: fc.constant(kind),
+      value: fc.constant(value),
+      test: arbitraryLiteralLocation(arbitraryTestFilePath()),
+      otherTests: fc.array(arbitraryLiteralLocation(arbitraryTestFilePath()), {
+        minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+        maxLength: LITERAL_TEST_GENERATOR_COUNTS.multiFixture,
+      }),
+      remediation: fc.constant(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR),
+    })
+  );
+}
+
+function arbitraryLiteralKindAndValue(): fc.Arbitrary<{ readonly kind: LiteralKind; readonly value: string }> {
+  return fc.oneof(
+    arbitraryDomainLiteral().map((value) => ({ kind: LITERAL_KIND.STRING, value })),
+    arbitraryDomainNumber().map((value) => ({ kind: LITERAL_KIND.NUMBER, value: String(value) })),
+  );
 }
 
 export function arbitraryDetectionResult(): fc.Arbitrary<DetectionResult> {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatDefaultLiteralProblems,
   LITERAL_EXIT_CODES,
   literalCommand,
   OUTPUT_MODE_NAME,
@@ -27,6 +28,12 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import {
+  expectedAffectedFiles,
+  expectedDefaultLines,
+  expectedLiteralLines,
+  expectedVerboseLines,
+} from "@testing/harnesses/literal/output-expectations";
 import {
   runValidationInProcess,
   validationCliEmptyOutput,
@@ -147,19 +154,28 @@ export function registerLiteralOutputModeMappings(): void {
         const dupeLines = lines.filter((l) => l.startsWith(dupeTag));
         const problemLines = [...reuseLines, ...dupeLines];
 
-        expect(problemLines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
-
-        // Each problem line is [kind] "value" path:line
-        for (const line of problemLines) {
-          expect(line).toMatch(/^\[(reuse|dupe)\] ".+" .+:\d+$/);
-        }
-
-        // All reuse lines precede all dupe lines — no interleaving
+        expect(problemLines).toEqual(expectedDefaultLines(findings));
         expect(problemLines).toEqual(lines);
-
-        // Each group sorted within itself
         expect(reuseLines).toEqual([...reuseLines].sort(compareAsciiStrings));
         expect(dupeLines).toEqual([...dupeLines].sort(compareAsciiStrings));
+
+        const firstReuse = findings.srcReuse[0];
+        const sameFileFindings = {
+          srcReuse: [
+            {
+              ...firstReuse,
+              value: inputs.dupeLiteral,
+              test: {
+                ...firstReuse.test,
+                line: firstReuse.test.line + LITERAL_TEST_GENERATOR_COUNTS.one,
+              },
+            },
+            firstReuse,
+          ],
+          testDupe: [],
+        };
+        expect(formatDefaultLiteralProblems(sameFileFindings).split(LITERAL_TEXT_LAYOUT.lineSeparator))
+          .toEqual(expectedDefaultLines(sameFileFindings));
       });
     });
 
@@ -175,6 +191,7 @@ export function registerLiteralOutputModeMappings(): void {
 
         const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
         const output = verboseResult.output;
+        expect(output.split(LITERAL_TEXT_LAYOUT.lineSeparator)).toEqual(expectedVerboseLines(findings));
 
         // REUSE section appears before DUPE section
         const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
@@ -200,9 +217,13 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true });
+        const [result, jsonResult] = await Promise.all([
+          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true }),
+          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+        ]);
 
         const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
+        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
 
         // Unique, sorted, no line number suffix
         expect(new Set(lines).size).toBe(lines.length);
@@ -211,9 +232,7 @@ export function registerLiteralOutputModeMappings(): void {
           expect(line).not.toMatch(/:\d+$/);
         }
 
-        // Known fixture file paths appear in output
-        expect(lines).toContain(inputs.reuseTestFile);
-        expect(lines).toContain(inputs.dupeFirstTestFile);
+        expect(lines).toEqual(expectedAffectedFiles(findings));
       });
     });
 
@@ -222,9 +241,13 @@ export function registerLiteralOutputModeMappings(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true });
+        const [result, jsonResult] = await Promise.all([
+          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true }),
+          literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+        ]);
 
         const lines = result.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
+        const findings = parseLiteralReuseResult(JSON.parse(jsonResult.output));
 
         // Unique, sorted, all values in double quotes
         expect(new Set(lines).size).toBe(lines.length);
@@ -233,9 +256,7 @@ export function registerLiteralOutputModeMappings(): void {
           expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
         }
 
-        // Known fixture literal values appear in quoted form
-        expect(lines).toContain(`"${inputs.reuseLiteral}"`);
-        expect(lines).toContain(`"${inputs.dupeLiteral}"`);
+        expect(lines).toEqual(expectedLiteralLines(findings));
       });
     });
 
