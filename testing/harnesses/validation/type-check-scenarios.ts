@@ -34,13 +34,12 @@ import {
   withValidationEnv,
 } from "@testing/harnesses/with-validation-env";
 
-function validationTypeScriptAliasArgs(): string[] {
-  const alias = validationCliDefinition.subcommands.typescript.alias;
-  if (alias === undefined) {
-    throw new Error("TypeScript validation alias is not registered");
-  }
-
-  return [CLI_PATH, validationCliDefinition.domain.commandName, alias];
+function validationTypeScriptCommandArgs(): string[] {
+  return [
+    CLI_PATH,
+    validationCliDefinition.domain.commandName,
+    validationCliDefinition.subcommands.typescript.commandName,
+  ];
 }
 
 export function registerTypeCheckScenarios(): void {
@@ -50,7 +49,7 @@ export function registerTypeCheckScenarios(): void {
       { timeout: HARNESS_TIMEOUT },
       async () => {
         await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-          const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
+          const result = await execa(process.execPath, validationTypeScriptCommandArgs(), {
             cwd: path,
             reject: false,
           });
@@ -68,7 +67,7 @@ export function registerTypeCheckScenarios(): void {
       { timeout: HARNESS_TIMEOUT },
       async () => {
         await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
-          const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
+          const result = await execa(process.execPath, validationTypeScriptCommandArgs(), {
             cwd: path,
             reject: false,
           });
@@ -87,13 +86,14 @@ export function registerTypeCheckScenarios(): void {
       { timeout: HARNESS_TIMEOUT },
       async () => {
         await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
-          const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
+          const result = await execa(process.execPath, validationTypeScriptCommandArgs(), {
             cwd: path,
             reject: false,
           });
 
           expect(result.exitCode).not.toBe(0);
           expect(result.stderr).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
+          expect(result.stderr).toContain(VALIDATION_PIPELINE_DATA.typeErrorSourceSegments.join("/"));
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
         });
       },
@@ -122,13 +122,16 @@ export function registerTypeCheckScenarios(): void {
             JSON.stringify(tsconfigWithDefaultIncludes),
           );
 
-          const result = await execa(process.execPath, [...validationTypeScriptAliasArgs(), apiDirectory], {
+          const result = await execa(process.execPath, [...validationTypeScriptCommandArgs(), apiDirectory], {
             cwd: path,
             reject: false,
           });
 
           expect(result.exitCode).not.toBe(0);
           expect(result.stderr).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
+          expect(result.stderr).toContain(
+            `${apiDirectory}/${VALIDATION_PIPELINE_DATA.cleanSourceFileName}`,
+          );
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
         });
       },
@@ -139,7 +142,7 @@ export function registerTypeCheckScenarios(): void {
       { timeout: HARNESS_TIMEOUT },
       async () => {
         await withValidationEnv({ fixture: PROJECT_FIXTURES.PYTHON_PROJECT }, async ({ path }) => {
-          const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
+          const result = await execa(process.execPath, validationTypeScriptCommandArgs(), {
             cwd: path,
             reject: false,
           });
@@ -158,7 +161,7 @@ export function registerTypeCheckScenarios(): void {
       { timeout: HARNESS_TIMEOUT },
       async () => {
         await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
-          const result = await execa(process.execPath, validationTypeScriptAliasArgs(), {
+          const result = await execa(process.execPath, validationTypeScriptCommandArgs(), {
             cwd: path,
             reject: false,
           });

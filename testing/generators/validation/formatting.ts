@@ -16,6 +16,7 @@ const UNFORMATTED_TYPESCRIPT_CONTENT = "export const value     =     1;\n";
 const FORMATTABLE_TYPESCRIPT_CONTENT = "export const value = 1;\n";
 
 const TYPESCRIPT_SOURCE_FILENAME = "sample.ts";
+const RECURSIVE_DIRECTORY_GLOB = "**/*";
 
 const DPRINT_CONFIG_FILENAME = "dprint.jsonc";
 const EXPECTED_DPRINT_CHECK_SUBCOMMAND = "check";
@@ -47,6 +48,18 @@ const FORMATTED_FILE_EXTENSIONS = [
   "yml",
 ] as const;
 
+const UNFORMATTED_CONTENT_BY_EXTENSION: Readonly<Record<(typeof FORMATTED_FILE_EXTENSIONS)[number], string>> = {
+  ts: "export const value     =     1;\n",
+  tsx: "export const value     =     <div>value</div>;\n",
+  js: "export const value     =     1;\n",
+  json: "{\"value\":1}\n",
+  jsonc: "{\"value\":1}\n",
+  md: "# Heading   \n",
+  toml: "value=1\n",
+  yaml: "value:    1\n",
+  yml: "value:    1\n",
+};
+
 /** Paths the formatting verdict must never rewrite, per the formatting spec. */
 const NEVER_FORMATTED_PATHS = ["pnpm-lock.yaml", "testing/fixtures/**"] as const;
 
@@ -62,6 +75,7 @@ export const FORMATTING_SCENARIO_KIND = {
   CLI_PROCESS_FILTERED_DIRECTORY_SCOPE: "cliProcessFilteredDirectoryScope",
   CLI_PROCESS_EXCLUDED_DIRECTORY_SCOPE: "cliProcessExcludedDirectoryScope",
   GITIGNORE_SKIP: "gitignoreSkip",
+  PARTICIPATION_OVERRIDE: "participationOverride",
 } as const;
 
 export type FormattingScenarioKind = (typeof FORMATTING_SCENARIO_KIND)[keyof typeof FORMATTING_SCENARIO_KIND];
@@ -75,6 +89,7 @@ export const FORMATTING_VALIDATION_DATA = {
   unformattedTypeScriptContent: UNFORMATTED_TYPESCRIPT_CONTENT,
   formattableTypeScriptContent: FORMATTABLE_TYPESCRIPT_CONTENT,
   typeScriptSourceFilename: TYPESCRIPT_SOURCE_FILENAME,
+  recursiveDirectoryGlob: RECURSIVE_DIRECTORY_GLOB,
   expectedDprintCheckSubcommand: EXPECTED_DPRINT_CHECK_SUBCOMMAND,
   expectedDprintExcludesOption: EXPECTED_DPRINT_EXCLUDES_OPTION,
   expectedDprintOptionsTerminator: EXPECTED_DPRINT_OPTIONS_TERMINATOR,
@@ -90,6 +105,7 @@ export const FORMATTING_VALIDATION_DATA = {
   passExitCode: EXPECTED_PASS_EXIT_CODE,
   failureExitCode: EXPECTED_FAILURE_EXIT_CODE,
   formattedFileExtensions: FORMATTED_FILE_EXTENSIONS,
+  unformattedContentByExtension: UNFORMATTED_CONTENT_BY_EXTENSION,
   neverFormattedPaths: NEVER_FORMATTED_PATHS,
 } as const;
 
@@ -138,6 +154,10 @@ export function formattingScenarios(): FormattingValidationScenario[] {
     {
       title: "a gitignored unformatted file is skipped and the command exits zero",
       kind: FORMATTING_SCENARIO_KIND.GITIGNORE_SKIP,
+    },
+    {
+      title: "formatting follows its default and invocation-local skip participation",
+      kind: FORMATTING_SCENARIO_KIND.PARTICIPATION_OVERRIDE,
     },
   ];
 }
