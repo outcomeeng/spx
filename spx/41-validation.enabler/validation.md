@@ -30,3 +30,4 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - ALWAYS: `spx validation literal` and `spx validation knip` resolve configured enablement before tool discovery or execution ([test](tests/configuration.compliance.l1.test.ts))
 - ALWAYS: bundled validation tool discovery recognizes packages that expose their entry point only through ESM `exports` and do not expose `package.json` to CommonJS resolution ([test](tests/tool-discovery.compliance.l1.test.ts))
 - ALWAYS: validation tool discovery can prefer a product-local executable before a bundled fallback while preserving bundled-first discovery as its default ([test](tests/tool-discovery.compliance.l1.test.ts))
+- ALWAYS: explicit caller path operands bypass `validation.paths` filters while automatic validation scope applies them ([test](tests/configuration.compliance.l1.test.ts))

@@ -16,6 +16,10 @@ Environment-driven stage toggles are invalid because they are invisible in revie
 
 ## Verification
 
+### Testing
+
+- ALWAYS: explicit caller paths bypass SPX validation path filters while remaining within the invoked tool's maximum surface; automatic validation scope applies the configured filters ([compliance])
+
 ### Audit
 
 - ALWAYS: resolve validation wrapper behavior through `resolveConfig(productDir)` and the validation descriptor — keeps command behavior declared in `spx.config.*` ([audit])
@@ -26,7 +30,6 @@ Environment-driven stage toggles are invalid because they are invisible in revie
 - ALWAYS: validate global `validation.paths.{include,exclude}` and per-tool `validation.paths.<tool>.{include,exclude}` through the validation descriptor — supports wrapper-wide and stage-specific narrowing ([audit])
 - ALWAYS: declare every stage's default full-pipeline participation and optional invocation-local override in the stage descriptor, then derive `spx validation all` option registration and run/skip decisions from that metadata ([audit])
 - ALWAYS: accept the ordered validation stage collection through a typed full-pipeline command input, with the static validation registry wired as the production default — enables isolated orchestration verification without replacing modules ([audit])
-- ALWAYS: resolve explicit caller paths before applying SPX validation path filters, so a validation path filter never silently erases a product path the caller named; tool-owned maximum surfaces still govern whether that stage can process the target ([audit])
 - ALWAYS: write the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation under the product's `node_modules/` directory and inherit compiler options from the base configuration through `extends` — so TypeScript resolves type roots, type references, and path aliases against the product's own `node_modules` exactly as a direct `tsc` run does, and the temporary file never appears in the tracked working tree ([audit])
 - NEVER: read `process.env` to enable, disable, include, exclude, or otherwise scope validation subcommands — hidden mutable process state breaks deterministic validation ([audit])
 - NEVER: mutate `process.env` to influence a validation tool — command handlers and validation steps keep process state stable for sibling stages ([audit])
