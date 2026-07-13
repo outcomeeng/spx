@@ -13,6 +13,6 @@ CAN report unused exports, dependencies, and files within the requested TypeScri
 - Given Knip reports unused code, when Knip validation runs, then the command exits non-zero with Knip's failure detail ([test](tests/unused-code.scenario.l1.test.ts))
 - Given an explicit TypeScript file operand, when Knip validation runs, then Knip receives only that resolved file scope ([test](tests/unused-code.scenario.l1.test.ts))
 
-### Compliance
+### Properties
 
-- ALWAYS: the executable returned by Knip discovery is the binary the unused-code subprocess spawns ([test](tests/unused-code.compliance.l1.test.ts))
+- For every executable path returned by Knip discovery, unused-code validation spawns that exact executable ([test](tests/unused-code.property.l1.test.ts))
