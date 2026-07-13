@@ -375,7 +375,7 @@ src/
 ├── commands/      # CLI command implementations
 │   ├── claude/      # spx claude subcommands (deprecated)
 │   ├── session/     # spx session subcommands
-│   ├── spec/        # spx spec subcommands (deprecated)
+│   ├── spec/        # spx spec subcommands
 │   └── validation/  # spx validation subcommands
 ├── interfaces/
 │   └── cli/         # Commander registration descriptors and CLI boundary primitives
@@ -384,7 +384,7 @@ src/
 │   ├── audit/
 │   ├── config/
 │   ├── session/
-│   ├── spec/        # (deprecated)
+│   ├── spec/
 │   └── validation/
 ├── validation/    # Lint, typecheck, circular dep logic
 ├── session/       # Session lifecycle and storage
