@@ -39,6 +39,7 @@ export const TYPESCRIPT_TEST_FILE_PATTERNS: readonly string[] = TYPESCRIPT_TEST_
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
+  "src/cli.ts",
   TYPESCRIPT_MARKER,
   "vitest.config.js",
   "vitest.config.mjs",
