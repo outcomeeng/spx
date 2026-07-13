@@ -9,7 +9,7 @@ import {
 } from "@/commands/validation/messages";
 import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { KNIP_COMMAND_TOKENS } from "@/validation/steps/knip";
+import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -46,7 +46,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
           expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS);
           expect(validationCalls).toHaveLength(1);
-          expect(runner.commands).toEqual([env.productDir]);
+          expect(runner.commands).toEqual([join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS)]);
         },
       );
     });
@@ -125,7 +125,7 @@ export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
           expect(validationCalls).toEqual([
             {
               productDir: env.productDir,
-              toolPath: env.productDir,
+              toolPath: join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS),
               typescriptScope: {
                 directories: [],
                 filePatterns: [sourceFilePath],
@@ -228,9 +228,10 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-          expect(runner.commands).toEqual([env.productDir]);
+          expect(runner.commands).toEqual([join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS)]);
         },
       );
     });
   });
 });
+import { join } from "node:path";

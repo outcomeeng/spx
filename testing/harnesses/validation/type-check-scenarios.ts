@@ -22,11 +22,19 @@ import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import {
+  TYPESCRIPT_TOOL_DISCOVERY,
+  TYPESCRIPT_VALIDATION_MESSAGES,
+  typescriptCommand,
+  type TypeScriptCommandDeps,
+} from "@/commands/validation/typescript";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
+import { discoverTool } from "@/validation/discovery";
+import { validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import {
   HARNESS_TIMEOUT,
   PROJECT_FIXTURES,
@@ -40,6 +48,19 @@ function validationTypeScriptCommandArgs(): string[] {
     validationCliDefinition.domain.commandName,
     validationCliDefinition.subcommands.typescript.commandName,
   ];
+}
+
+async function expectTypeScriptCommandGated(productDir: string): Promise<void> {
+  const deps: TypeScriptCommandDeps = {
+    discoverTool: async () => {
+      throw new Error("TypeScript discovery ran without a tsconfig");
+    },
+    validateTypeScript: async () => {
+      throw new Error("TypeScript validation ran without a tsconfig");
+    },
+  };
+  const result = await typescriptCommand({ cwd: productDir }, deps);
+  expect(result.exitCode).toBe(0);
 }
 
 export function registerTypeCheckScenarios(): void {
@@ -58,6 +79,19 @@ export function registerTypeCheckScenarios(): void {
           expect(result.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.TOOL_LABEL);
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
           expect(result.stdout).not.toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
+
+          const runner = new RecordingSpawnOptionsRunner();
+          const commandResult = await typescriptCommand(
+            { cwd: path, quiet: true },
+            {
+              discoverTool,
+              validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
+            },
+          );
+          expect(commandResult.exitCode).toBe(0);
+          expect(runner.commands).toEqual([
+            join(path, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS),
+          ]);
         });
       },
     );
@@ -77,6 +111,7 @@ export function registerTypeCheckScenarios(): void {
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
           expect(result.stderr).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
           expect(`${result.stdout}${result.stderr}`).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.ENOENT);
+          await expectTypeScriptCommandGated(path);
         });
       },
     );
@@ -152,6 +187,7 @@ export function registerTypeCheckScenarios(): void {
           expect(result.stdout).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
           expect(result.stderr).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
           expect(`${result.stdout}${result.stderr}`).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.ENOENT);
+          await expectTypeScriptCommandGated(path);
         });
       },
     );

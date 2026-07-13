@@ -1,10 +1,11 @@
 import type { ChildProcess, SpawnOptions } from "node:child_process";
+import { join } from "node:path";
 
 import type { KnipCommandDeps } from "@/commands/validation/knip";
 import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { validateKnip } from "@/validation/steps/knip";
+import { KNIP_LOCAL_BIN_SEGMENTS, validateKnip } from "@/validation/steps/knip";
 import type { ScopeConfig } from "@/validation/types";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
@@ -46,6 +47,7 @@ export function createRecordingKnipCommandDeps(
   runner: RecordingSpawnOptionsRunner = new RecordingSpawnOptionsRunner(),
   discoveryCalls: KnipDiscoveryCall[] = [],
 ): KnipCommandDeps {
+  const toolPath = join(productDir, ...KNIP_LOCAL_BIN_SEGMENTS);
   return {
     detectTypeScript,
     discoverTool: async (tool, options) => {
@@ -54,7 +56,7 @@ export function createRecordingKnipCommandDeps(
         found: true,
         location: {
           tool: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
-          path: productDir,
+          path: toolPath,
           source: TOOL_DISCOVERY.SOURCES.PROJECT,
         },
       };

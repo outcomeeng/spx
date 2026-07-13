@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { formatNoProblemsOfKind, literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
-import { compareAsciiStrings } from "@/lib/state-store";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import {
+  expectedAffectedFiles,
+  expectedDefaultLines,
+  expectedLiteralLines,
+} from "@testing/harnesses/literal/output-expectations";
 
 describe("output-modes compliance", () => {
   it("ALWAYS: default text output is [kind] \"value\" path:line — one problem per line", async () => {
@@ -14,19 +18,14 @@ describe("output-modes compliance", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      const reusePrefix = `[${LITERAL_PROBLEM_KIND.REUSE}]`;
-      const dupePrefix = `[${LITERAL_PROBLEM_KIND.DUPE}]`;
-      for (const line of lines) {
-        expect(line.startsWith(reusePrefix) || line.startsWith(dupePrefix)).toBe(true);
-        expect(line).toMatch(/:\d+$/);
-      }
+      expect(lines).toEqual(expectedDefaultLines(parseLiteralReuseResult(JSON.parse(jsonResult.output))));
     });
   });
 
@@ -35,16 +34,14 @@ describe("output-modes compliance", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        filesWithProblems: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, filesWithProblems: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+      expect(lines).toEqual(expectedAffectedFiles(parseLiteralReuseResult(JSON.parse(jsonResult.output))));
       for (const line of lines) {
         expect(line).not.toMatch(/:\d+$/);
       }
@@ -56,16 +53,14 @@ describe("output-modes compliance", () => {
       const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
       await env.writeReuseFixture(inputs);
 
-      const result = await literalCommand({
-        cwd: env.productDir,
-        config: LITERAL_DEFAULTS,
-        literals: true,
-      });
+      const [result, jsonResult] = await Promise.all([
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, literals: true }),
+        literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, json: true }),
+      ]);
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(new Set(lines).size).toBe(lines.length);
-      expect(lines).toEqual([...lines].sort(compareAsciiStrings));
+      expect(lines).toEqual(expectedLiteralLines(parseLiteralReuseResult(JSON.parse(jsonResult.output))));
     });
   });
 

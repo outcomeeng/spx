@@ -38,6 +38,6 @@ CAN catch broken cross-references and structural defects before they reach the r
 ### Compliance
 
 - ALWAYS: broken links fail `spx validation all` — markdown link integrity gates commits alongside ESLint and TypeScript ([test](tests/markdown-validation.compliance.l1.test.ts))
-- ALWAYS: markdown validation is available in every `spx` installation — no optional dependency, no runtime discovery, no skip path ([test](tests/markdown-validation.compliance.l1.test.ts))
+- ALWAYS: markdown validation is available in every `spx` installation — no optional dependency, no runtime discovery, no skip path ([audit])
 - ALWAYS: validation produces no side effects in validated directories — no config files, no generated artifacts ([test](tests/markdown-validation.compliance.l1.test.ts))
 - NEVER: validate directories outside `spx/` and `docs/` by default — these are the well-known spec tree directories coupled to Claude skills ([test](tests/markdown-validation.compliance.l1.test.ts))
