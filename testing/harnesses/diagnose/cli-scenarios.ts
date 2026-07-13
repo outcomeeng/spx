@@ -11,7 +11,10 @@ import {
   METHODOLOGY_SECTION,
 } from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
+import {
+  METHODOLOGY_CONTEXT_READING_VALUE,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
 import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
 import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
 import { SPX_REACHABILITY_READING_VALUE, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
@@ -31,6 +34,7 @@ import {
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
+  isolatedDiagnoseEnvironment,
   runDiagnoseCli,
   writeAllChecksManifest,
   writeSpxReachabilityManifest,
@@ -129,9 +133,12 @@ export function registerDiagnoseCliScenarios(): void {
       expectSchemaValidReport(report);
       expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
       const methodologyCheck = report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT);
+      const marketplaceCheck = report.checks.find((check) => check.name === CHECK_NAME.MARKETPLACE_INSTALL);
       expect(Object.values(METHODOLOGY_CONTEXT_VERDICT)).toContain(methodologyCheck?.verdict);
       expect(methodologyCheck?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
       expect(methodologyCheck?.readings.configuredVersion).toBe(DEFAULT_METHODOLOGY_VERSION);
+      expect(marketplaceCheck?.readings.configured).toBe(String(true));
+      expect(marketplaceCheck?.verdict).not.toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
       expect(report.overall).toBe(foldedOverall(report));
       expectExitCodeKeyedToFold(result, report);
     });
@@ -272,23 +279,58 @@ export function registerDiagnoseCliScenarios(): void {
 
     it("runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit", async () => {
       await withTempDir("diagnose-bare", async (cwd) => {
-        const result = await runDiagnoseCli([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+        const environment = isolatedDiagnoseEnvironment(cwd);
+        const result = await runDiagnoseCli(
+          [DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
+          { cwd, env: environment },
+        );
 
         const report = JSON.parse(result.stdout) as DiagnoseReport;
-        const textRun = await runDiagnoseCli([], { cwd });
+        const textRun = await runDiagnoseCli([], { cwd, env: environment });
         const spxRecord = checkByName(report, CHECK_NAME.SPX_REACHABILITY);
         const sessionEnvironmentRecord = checkByName(report, CHECK_NAME.SESSION_ENVIRONMENT);
         const worktreePoolRecord = checkByName(report, CHECK_NAME.WORKTREE_POOL);
         const sessionStoreRecord = checkByName(report, CHECK_NAME.SESSION_STORE);
         const marketplaceRecord = checkByName(report, CHECK_NAME.MARKETPLACE_INSTALL);
+        const methodologyRecord = checkByName(report, CHECK_NAME.METHODOLOGY_CONTEXT);
         expectSchemaValidReport(report);
         expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
         expect([SPX_REACHABILITY_VERDICT.PRESENT, SPX_REACHABILITY_VERDICT.UNREACHABLE]).toContain(spxRecord.verdict);
         expect(spxRecord.readings.floor).toBe(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR);
-        expect(Object.values(SESSION_ENVIRONMENT_VERDICT)).toContain(sessionEnvironmentRecord.verdict);
-        expect(Object.values(WORKTREE_POOL_VERDICT)).toContain(worktreePoolRecord.verdict);
-        expect(Object.values(SESSION_STORE_VERDICT)).toContain(sessionStoreRecord.verdict);
+        expect(sessionEnvironmentRecord.verdict).toBe(SESSION_ENVIRONMENT_VERDICT.UNKNOWN);
+        expect(sessionEnvironmentRecord.readings).toEqual({
+          hook: String(false),
+          identity: String(false),
+          claimed: String(false),
+        });
+        expect(worktreePoolRecord.verdict).toBe(WORKTREE_POOL_VERDICT.UNKNOWN);
+        expect(worktreePoolRecord.readings).toEqual({
+          bare: String(false),
+          linked: String(false),
+          mainCheckoutPath: "",
+          defaultBranch: "",
+          mainCheckoutBranch: "",
+          mainCheckoutBranchRead: String(false),
+          running: String(0),
+          free: String(0),
+        });
+        expect(sessionStoreRecord.verdict).toBe(SESSION_STORE_VERDICT.UNKNOWN);
+        expect(sessionStoreRecord.readings.orphaned).toBe(String(0));
         expect(marketplaceRecord.verdict).toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
+        expect(marketplaceRecord.readings).toEqual({
+          configured: String(false),
+          surface: String(false),
+          unregistered: String(false),
+          drifted: String(false),
+        });
+        expect(methodologyRecord.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
+        expect(methodologyRecord.readings).toEqual({
+          configured: String(true),
+          configuredSource: DEFAULT_METHODOLOGY_SOURCE,
+          configuredVersion: DEFAULT_METHODOLOGY_VERSION,
+          observedSource: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          observedVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+        });
         expect(report.overall).toBe(foldedOverall(report));
         expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);
         expectExitCodeKeyedToFold(result, report);
