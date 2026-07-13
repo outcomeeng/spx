@@ -523,29 +523,6 @@ function humanText(check: CheckRecord): DiagnoseHumanText {
   }
 }
 
-/** Projects the report onto the styled-output model: one diagnosis section per check, the overall as the summary. */
-function toStyledModel(report: DiagnoseReport): StyledReportModel {
-  return {
-    sections: report.checks.map((check) => {
-      const text = humanText(check);
-      return {
-        severity: BUCKET_SEVERITY[check.bucket],
-        header: text.header,
-        details: text.details,
-      };
-    }),
-    summary: {
-      severity: OVERALL_SEVERITY[report.overall],
-      text: `${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`,
-    },
-  };
-}
-
-/** Renders the report as human-readable diagnosis text through the styled-output primitive. */
-export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): string {
-  return renderStyledReport(toStyledModel(report), options);
-}
-
 function toVerboseModel(report: DiagnoseReport): StyledReportModel {
   return {
     sections: report.checks.map((check) => {

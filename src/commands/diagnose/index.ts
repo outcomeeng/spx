@@ -4,7 +4,7 @@
  * the exit code keyed to the overall verdict. With a manifest path the manifest
  * is read through the injected filesystem and is authoritative; otherwise the
  * facts resolve from the `spx.config` diagnose section read at the product
- * directory and per-check safe defaults, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`.
+ * directory and per-check safe defaults.
  * Owns the command-layer filesystem orchestration — manifest read and config
  * resolution — with no Commander binding and no process exit.
  *
