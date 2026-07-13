@@ -58,6 +58,28 @@ export class OutputRecordingSpawnOptionsRunner extends RecordingSpawnOptionsRunn
   }
 }
 
+export class ErrorOutputRecordingSpawnOptionsRunner extends RecordingSpawnOptionsRunner {
+  constructor(
+    private readonly stderr: string,
+    private readonly closeCode: number,
+  ) {
+    super();
+  }
+
+  override spawn(command: string, args: readonly string[], options?: SpawnOptions): ChildProcess {
+    this.commands.push(command);
+    this.args.push([...args]);
+    this.options.push(options ?? {});
+    const child = new RecordingValidationChild();
+    this.children.push(child);
+    queueMicrotask(() => {
+      child.stderr.write(this.stderr);
+      child.closeWithCode(this.closeCode);
+    });
+    return child.asChildProcess();
+  }
+}
+
 export class ExpectedExecutableRunner extends RecordingSpawnOptionsRunner {
   constructor(private readonly expectedExecutable: string) {
     super();

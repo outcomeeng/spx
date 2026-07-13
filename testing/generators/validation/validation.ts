@@ -28,10 +28,12 @@ import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
 import { TYPESCRIPT_VALIDATION_CONCERN, type TypeScriptValidationConcern } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
+import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
+const EXTERNAL_EXECUTABLE_PARENT_SEGMENT = "..";
 const ESCAPING_PATH_OPERAND = "../outside.ts";
 const PACKAGED_CLI_DIRECTORY = "bin";
 const PACKAGED_CLI_FILENAME = "spx.js";
@@ -189,6 +191,20 @@ export const VALIDATION_PIPELINE_SCENARIO_KIND = {
 
 export type ValidationPipelineScenarioKind =
   (typeof VALIDATION_PIPELINE_SCENARIO_KIND)[keyof typeof VALIDATION_PIPELINE_SCENARIO_KIND];
+
+export function arbitraryDiscoveredKnipExecutablePath(productDir: string): fc.Arbitrary<string> {
+  return fc.oneof(
+    fc.constant(resolve(productDir, ...KNIP_LOCAL_BIN_SEGMENTS)),
+    arbitraryDomainLiteral().map((directory) =>
+      resolve(
+        productDir,
+        EXTERNAL_EXECUTABLE_PARENT_SEGMENT,
+        directory,
+        KNIP_COMMAND_TOKENS.COMMAND,
+      )
+    ),
+  );
+}
 
 export interface ValidationPipelineScenario {
   readonly title: string;
