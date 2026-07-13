@@ -7,6 +7,7 @@ import path from "node:path";
 
 export const CLAUDE_SETTINGS_DIRECTORY = ".claude";
 export const CLAUDE_LOCAL_SETTINGS_FILE = "settings.local.json";
+export const CLAUDE_GLOBAL_SETTINGS_FILE = "settings.json";
 
 /**
  * Recursively find all .claude/settings.local.json files under a root directory

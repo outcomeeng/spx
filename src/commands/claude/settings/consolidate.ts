@@ -12,9 +12,9 @@
 import { findSettingsFiles } from "@/lib/claude/permissions/discovery";
 import { mergePermissions } from "@/lib/claude/permissions/merger";
 import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/parser";
-import { SETTINGS_FILE_PARSE_STATUS } from "@/lib/claude/permissions/types";
+import { createEmptyClaudeSettings, SETTINGS_FILE_PARSE_STATUS } from "@/lib/claude/permissions/types";
 import { createBackup } from "@/lib/claude/settings/backup";
-import { formatReport } from "@/lib/claude/settings/reporter";
+import { CONSOLIDATION_REPORT_TEXT, formatReport } from "@/lib/claude/settings/reporter";
 import { writeSettings } from "@/lib/claude/settings/writer";
 import os from "node:os";
 import path from "node:path";
@@ -53,13 +53,8 @@ export interface ConsolidateOptions {
  *
  * @example
  * ```typescript
- * // Normal consolidation
- * const output = await consolidateCommand({ root: "~/Code" });
- * console.log(output);
- *
- * // Dry-run preview
- * const preview = await consolidateCommand({ root: "~/Code", dryRun: true });
- * console.log(preview);
+ * const preview = await consolidateCommand({ root: "~/Code" });
+ * const written = await consolidateCommand({ root: "~/Code", write: true });
  * ```
  */
 export async function consolidateCommand(
@@ -81,7 +76,7 @@ export async function consolidateCommand(
   const settingsFiles = await findSettingsFiles(root);
 
   if (settingsFiles.length === 0) {
-    return `No settings files found in ${root}\n\nSearched for: **/.claude/settings.local.json`;
+    return `${CONSOLIDATION_REPORT_TEXT.NO_SETTINGS_FILES} in ${root}\n\nSearched for: **/.claude/settings.local.json`;
   }
 
   // Step 2: Parsing - extract permissions from each file
@@ -100,13 +95,7 @@ export async function consolidateCommand(
 
   // If global settings doesn't exist, create empty structure
   if (!globalSettings) {
-    globalSettings = {
-      permissions: {
-        allow: [],
-        deny: [],
-        ask: [],
-      },
-    };
+    globalSettings = createEmptyClaudeSettings();
   }
 
   // Ensure permissions object exists

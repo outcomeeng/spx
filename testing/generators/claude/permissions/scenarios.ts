@@ -27,6 +27,17 @@ export interface ParserFileScenario {
   readonly valid: boolean;
 }
 
+export interface ConsolidationProjectScenario {
+  readonly relativeDirectory: string;
+  readonly settings: ClaudeSettings;
+}
+
+export interface ConsolidationCliScenario {
+  readonly projects: readonly ConsolidationProjectScenario[];
+  readonly expectedAllowPermissions: readonly string[];
+  readonly outputPathSegments: readonly string[];
+}
+
 export function arbitraryDiscoveryTree(): fc.Arbitrary<DiscoveryTreeScenario> {
   return fc.uniqueArray(arbitrarySettingsParent(), {
     minLength: 1,
@@ -74,6 +85,40 @@ export function arbitraryMalformedThenValidSequence(): fc.Arbitrary<readonly Par
   ]);
 }
 
+export function arbitraryConsolidationCliScenario(): fc.Arbitrary<ConsolidationCliScenario> {
+  return fc.tuple(
+    fc.tuple(arbitraryPathSegment(), arbitraryPathSegment()).filter(
+      ([left, right]) => left !== right,
+    ),
+    fc.tuple(
+      arbitraryPermission(PERMISSION_CATEGORY.ALLOW),
+      arbitraryPermission(PERMISSION_CATEGORY.ALLOW),
+    ).filter(([left, right]) => left.raw !== right.raw),
+    fc.tuple(arbitraryPathSegment(), arbitraryPathSegment()),
+  ).map(
+    (
+      [
+        [firstProject, secondProject],
+        [firstPermission, secondPermission],
+        [outputDir, outputName],
+      ],
+    ) => ({
+      projects: [
+        {
+          relativeDirectory: firstProject,
+          settings: { permissions: { allow: [firstPermission.raw] } },
+        },
+        {
+          relativeDirectory: secondProject,
+          settings: { permissions: { allow: [secondPermission.raw] } },
+        },
+      ],
+      expectedAllowPermissions: [firstPermission.raw, secondPermission.raw],
+      outputPathSegments: [outputDir, `${outputName}.json`],
+    }),
+  );
+}
+
 export function sampleScenario<T>(arbitrary: fc.Arbitrary<T>): T {
   return fc.sample(arbitrary, {
     seed: SCENARIO_SAMPLE_SEED,
@@ -93,11 +138,13 @@ function arbitraryJsonFileName(): fc.Arbitrary<string> {
   return arbitraryPathSegment().map((segment) => `${segment}.json`);
 }
 
-function arbitraryPermission(): fc.Arbitrary<Permission> {
+function arbitraryPermission(fixedCategory?: PermissionCategory): fc.Arbitrary<Permission> {
   return fc.tuple(
     fc.stringMatching(/^[A-Z][A-Za-z]{0,9}$/),
     fc.stringMatching(/^[a-z][a-z0-9:_/-]{0,15}$/),
-    arbitraryPermissionCategory(),
+    fixedCategory === undefined
+      ? arbitraryPermissionCategory()
+      : fc.constant(fixedCategory),
   ).map(([type, scope, category]) => ({
     raw: formatPermission(type, scope),
     type,

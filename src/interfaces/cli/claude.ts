@@ -4,8 +4,27 @@
 import { initCommand } from "@/commands/claude/init";
 import { consolidateCommand } from "@/commands/claude/settings/consolidate";
 import type { Domain } from "@/domains/types";
+import { CLI_EXIT_CODE } from "@/interfaces/cli/invocation";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import type { Command } from "commander";
+
+export const CLAUDE_SETTINGS_CLI = {
+  DOMAIN: "claude",
+  SETTINGS_COMMAND: "settings",
+  CONSOLIDATE_COMMAND: "consolidate",
+  OPTION: {
+    WRITE: { flag: "--write", definition: "--write" },
+    OUTPUT_FILE: { flag: "--output-file", definition: "--output-file <path>" },
+    ROOT: { flag: "--root", definition: "--root <path>" },
+    GLOBAL_SETTINGS: {
+      flag: "--global-settings",
+      definition: "--global-settings <path>",
+    },
+  },
+} as const;
+
+export const CLAUDE_SETTINGS_MUTUAL_EXCLUSION_ERROR = "Error: --write and --output-file are mutually exclusive\n"
+  + "Use --write to modify global settings, or --output-file to write to a different location";
 
 function formatError(error: unknown): string {
   if (error instanceof Error) {
@@ -53,26 +72,29 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
 
   // settings subcommand group
   const settingsCmd = claudeCmd
-    .command("settings")
+    .command(CLAUDE_SETTINGS_CLI.SETTINGS_COMMAND)
     .description("Manage Claude Code settings");
 
   // settings consolidate command
   settingsCmd
-    .command("consolidate")
+    .command(CLAUDE_SETTINGS_CLI.CONSOLIDATE_COMMAND)
     .description(
       "Consolidate permissions from project-specific settings into global settings",
     )
-    .option("--write", "Write changes to global settings file (default: preview only)")
     .option(
-      "--output-file <path>",
+      CLAUDE_SETTINGS_CLI.OPTION.WRITE.definition,
+      "Write changes to global settings file (default: preview only)",
+    )
+    .option(
+      CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.definition,
       "Write merged settings to specified file instead of global settings",
     )
     .option(
-      "--root <path>",
+      CLAUDE_SETTINGS_CLI.OPTION.ROOT.definition,
       "Root directory to scan for settings files (default: ~/Code)",
     )
     .option(
-      "--global-settings <path>",
+      CLAUDE_SETTINGS_CLI.OPTION.GLOBAL_SETTINGS.definition,
       "Path to global settings file (default: ~/.claude/settings.json)",
     )
     .action(
@@ -85,12 +107,8 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
         try {
           // Validate mutually exclusive options
           if (options.write && options.outputFile) {
-            writeError(
-              invocation.io,
-              "Error: --write and --output-file are mutually exclusive\n"
-                + "Use --write to modify global settings, or --output-file to write to a different location",
-            );
-            return invocation.io.exit(1);
+            writeError(invocation.io, CLAUDE_SETTINGS_MUTUAL_EXCLUSION_ERROR);
+            return invocation.io.exit(CLI_EXIT_CODE.ERROR);
           }
 
           const output = await consolidateCommand({
@@ -111,11 +129,11 @@ function registerClaudeCommands(claudeCmd: Command, invocation: CliInvocation): 
  * Claude domain - Manage Claude Code settings and plugins
  */
 export const claudeDomain: Domain = {
-  name: "claude",
+  name: CLAUDE_SETTINGS_CLI.DOMAIN,
   description: "Manage Claude Code settings and plugins",
   register: (program: Command, invocation: CliInvocation) => {
     const claudeCmd = program
-      .command("claude")
+      .command(CLAUDE_SETTINGS_CLI.DOMAIN)
       .description("Manage Claude Code settings and plugins");
 
     registerClaudeCommands(claudeCmd, invocation);
