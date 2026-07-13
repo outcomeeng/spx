@@ -1,8 +1,7 @@
 /**
  * Diagnose fact resolution — produces the typed manifest the engine judges
  * against from the precedence `--manifest` over the `spx.config` diagnose
- * section over per-check safe defaults, per
- * `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`. An explicit manifest is
+ * section over per-check safe defaults. An explicit manifest is
  * returned unchanged, preserving its completeness contract; otherwise the
  * configuration facts and the default check set compose into a manifest whose
  * absent facts each check degrades against. Pure; no I/O.
