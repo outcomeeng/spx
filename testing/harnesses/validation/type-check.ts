@@ -16,7 +16,7 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { discoverTool } from "@/validation/discovery";
+import { detectTypeScript, discoverTool } from "@/validation/discovery";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -152,7 +152,12 @@ export function registerTypeCheckScenarioTests(): void {
 export function registerTypeCheckComplianceTests(): void {
   it("gates TypeScript discovery and execution when the product has no tsconfig", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
+      const detectionCalls: string[] = [];
       const deps: TypeScriptCommandDeps = {
+        detectTypeScript: (productDir) => {
+          detectionCalls.push(productDir);
+          return detectTypeScript(productDir);
+        },
         discoverTool: async () => {
           throw new Error("TypeScript discovery ran for an absent language");
         },
@@ -164,6 +169,7 @@ export function registerTypeCheckComplianceTests(): void {
       const result = await typescriptCommand({ cwd: path }, deps);
 
       expect(result.exitCode).toBe(0);
+      expect(detectionCalls).toEqual([path]);
       expect(result.output).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
       expect(result.output).not.toContain(VALIDATION_RUNTIME_ANTI_MARKERS.NPX_INSTALL_PROMPT);
     });
@@ -171,7 +177,12 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("gates TypeScript discovery and execution when TypeScript files exist without a tsconfig", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.TYPESCRIPT_NO_TSCONFIG }, async ({ path }) => {
+      const detectionCalls: string[] = [];
       const deps: TypeScriptCommandDeps = {
+        detectTypeScript: (productDir) => {
+          detectionCalls.push(productDir);
+          return detectTypeScript(productDir);
+        },
         discoverTool: async () => {
           throw new Error("TypeScript discovery ran without a tsconfig");
         },
@@ -183,6 +194,7 @@ export function registerTypeCheckComplianceTests(): void {
       const result = await typescriptCommand({ cwd: path }, deps);
 
       expect(result.exitCode).toBe(0);
+      expect(detectionCalls).toEqual([path]);
       expect(result.output).toContain(TYPESCRIPT_VALIDATION_MESSAGES.ABSENT);
     });
   });
@@ -226,6 +238,7 @@ export function registerTypeCheckComplianceTests(): void {
         stdio: EXPECTED_PIPED_STDIO,
       });
       const deps: TypeScriptCommandDeps = {
+        detectTypeScript,
         discoverTool,
         validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
       };

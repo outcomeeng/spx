@@ -30,7 +30,7 @@ import {
 } from "@/commands/validation/typescript";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { discoverTool } from "@/validation/discovery";
+import { detectTypeScript, discoverTool } from "@/validation/discovery";
 import { validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
@@ -52,6 +52,7 @@ function validationTypeScriptCommandArgs(): string[] {
 
 async function expectTypeScriptCommandGated(productDir: string): Promise<void> {
   const deps: TypeScriptCommandDeps = {
+    detectTypeScript,
     discoverTool: async () => {
       throw new Error("TypeScript discovery ran without a tsconfig");
     },
@@ -84,6 +85,7 @@ export function registerTypeCheckScenarios(): void {
           const commandResult = await typescriptCommand(
             { cwd: path, quiet: true },
             {
+              detectTypeScript,
               discoverTool,
               validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
             },

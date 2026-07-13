@@ -1,5 +1,4 @@
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
-import { compareAsciiStrings } from "@/lib/state-store";
 import { type DetectionResult, LITERAL_KIND, type LiteralKind, type LiteralLocation } from "@/validation/literal";
 
 interface ExpectedProblem {
@@ -12,7 +11,7 @@ interface ExpectedProblem {
 
 export function expectedAffectedFiles(findings: DetectionResult): string[] {
   return [...new Set(expectedProblems(findings).map((problem) => problem.test.file))]
-    .sort(compareAsciiStrings);
+    .sort(compareExpectedStrings);
 }
 
 export function expectedLiteralLines(findings: DetectionResult): string[] {
@@ -24,7 +23,9 @@ export function expectedLiteralLines(findings: DetectionResult): string[] {
     });
   }
   return [...values.values()]
-    .sort((left, right) => compareAsciiStrings(left.value, right.value) || compareAsciiStrings(left.kind, right.kind))
+    .sort((left, right) =>
+      compareExpectedStrings(left.value, right.value) || compareExpectedStrings(left.kind, right.kind)
+    )
     .map((entry) => expectedLiteralValue(entry.kind, entry.value));
 }
 
@@ -79,10 +80,14 @@ function expectedProblems(findings: DetectionResult): ExpectedProblem[] {
 }
 
 function compareExpectedProblems(left: ExpectedProblem, right: ExpectedProblem): number {
-  return compareAsciiStrings(left.test.file, right.test.file)
+  return compareExpectedStrings(left.test.file, right.test.file)
     || left.test.line - right.test.line
-    || compareAsciiStrings(left.literalKind, right.literalKind)
-    || compareAsciiStrings(left.value, right.value);
+    || compareExpectedStrings(left.literalKind, right.literalKind)
+    || compareExpectedStrings(left.value, right.value);
+}
+
+export function compareExpectedStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function appendExpectedVerboseSection(
