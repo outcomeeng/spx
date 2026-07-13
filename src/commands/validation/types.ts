@@ -111,7 +111,12 @@ export interface LintCommandOptions extends CommonValidationOptions {
 export type CircularCommandOptions = CommonValidationOptions;
 
 /** Options for knip command */
-export type KnipCommandOptions = CommonValidationOptions;
+export interface KnipCommandOptions extends CommonValidationOptions {
+  /** Report a stage verdict after subprocess detail streamed through the full pipeline. */
+  streamedPipelineOutput?: boolean;
+  /** Parent streams that receive Knip subprocess output. */
+  outputStreams?: ValidationSubprocessOutputStreams;
+}
 
 /** Options for markdown command */
 export interface MarkdownCommandOptions {

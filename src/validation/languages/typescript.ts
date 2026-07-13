@@ -113,6 +113,8 @@ export async function runKnipStage(
     files: context.files,
     quiet: context.quiet,
     json: context.json,
+    streamedPipelineOutput: true,
+    outputStreams: context.outputStreams,
   });
 }
 

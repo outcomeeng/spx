@@ -19,6 +19,7 @@ import {
 import { type KnipStageDeps, runKnipStage } from "@/validation/languages/typescript";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   LITERAL_TEST_GENERATOR,
@@ -177,6 +178,7 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
           files: [sourceFilePath],
           quiet: true,
           json: true,
+          outputStreams: discardValidationSubprocessOutputStreams,
         },
         deps,
       );
@@ -189,6 +191,8 @@ describe("ALWAYS: validation command participation is driven by spx config", () 
           files: [sourceFilePath],
           quiet: true,
           json: true,
+          streamedPipelineOutput: true,
+          outputStreams: discardValidationSubprocessOutputStreams,
         },
       ]);
     });
