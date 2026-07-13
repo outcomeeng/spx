@@ -5,7 +5,8 @@ import { chmod, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
-import { describe, expect, it } from "vitest";
+import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
+import { expect } from "vitest";
 
 import { defaultLintCommandDeps, lintCommand, type LintCommandDeps } from "@/commands/validation/lint";
 import {
@@ -655,65 +656,69 @@ describe("ESLint command arguments", () => {
   });
 });
 
-describe("ESLint command preflight gates", () => {
-  it("returns at TypeScript detection before any ESLint collaborator", async () => {
-    let detectionCalls = 0;
-    let downstreamCalls = 0;
-    const result = await lintCommand(
-      { cwd: process.cwd(), quiet: true },
-      {
-        detectTypeScript: () => {
-          detectionCalls += 1;
-          return { present: false };
+function registerLintPreflightComplianceTests(): void {
+  describe("ESLint command preflight gates", () => {
+    it("returns at TypeScript detection before any ESLint collaborator", async () => {
+      let detectionCalls = 0;
+      let downstreamCalls = 0;
+      const result = await lintCommand(
+        { cwd: process.cwd(), quiet: true },
+        {
+          detectTypeScript: () => {
+            detectionCalls += 1;
+            return { present: false };
+          },
+          discoverTool: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
+          resolveConfig: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
+          validateESLint: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
         },
-        discoverTool: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-        resolveConfig: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-        validateESLint: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-      },
-    );
+      );
 
-    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(detectionCalls).toBe(1);
-    expect(downstreamCalls).toBe(0);
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(detectionCalls).toBe(1);
+      expect(downstreamCalls).toBe(0);
+    });
+
+    it("rejects a missing flat config before discovery or process execution", async () => {
+      let detectionCalls = 0;
+      let downstreamCalls = 0;
+      const result = await lintCommand(
+        { cwd: process.cwd() },
+        {
+          detectTypeScript: () => {
+            detectionCalls += 1;
+            return { present: true };
+          },
+          discoverTool: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
+          resolveConfig: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
+          validateESLint: () => {
+            downstreamCalls += 1;
+            throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+          },
+        },
+      );
+
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+      expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG);
+      expect(detectionCalls).toBe(1);
+      expect(downstreamCalls).toBe(0);
+    });
   });
+}
 
-  it("rejects a missing flat config before discovery or process execution", async () => {
-    let detectionCalls = 0;
-    let downstreamCalls = 0;
-    const result = await lintCommand(
-      { cwd: process.cwd() },
-      {
-        detectTypeScript: () => {
-          detectionCalls += 1;
-          return { present: true };
-        },
-        discoverTool: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-        resolveConfig: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-        validateESLint: () => {
-          downstreamCalls += 1;
-          throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
-        },
-      },
-    );
-
-    expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-    expect(result.output).toBe(VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG);
-    expect(detectionCalls).toBe(1);
-    expect(downstreamCalls).toBe(0);
-  });
-});
+export const lintPreflightComplianceCases = collectHarnessTestCases(registerLintPreflightComplianceTests);

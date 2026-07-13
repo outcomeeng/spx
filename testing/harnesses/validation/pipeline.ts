@@ -18,13 +18,10 @@ import {
   validationCliDefinition,
   validationCommonCliOptions,
 } from "@/interfaces/cli/validation-contract";
-import {
-  VALIDATION_STAGE_PARTICIPATION,
-  type ValidationStage,
-  type ValidationStageContext,
-} from "@/validation/languages/types";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
 import {
+  arbitraryValidationAdditiveStageScenario,
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
   type ValidationPipelineScenario,
@@ -88,24 +85,6 @@ function deferred(): Deferred {
     throw new Error("deferred resolver was not initialized");
   }
   return { promise, resolve: resolvePromise };
-}
-
-function observedPassingStage(
-  name: string,
-  observedContexts: ValidationStageContext[],
-): ValidationStage {
-  return {
-    name,
-    failsPipeline: true,
-    participation: { default: "run" },
-    run: (context) => {
-      observedContexts.push(context);
-      return Promise.resolve({
-        exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-        output: `${name}: No issues found`,
-      });
-    },
-  };
 }
 
 export async function runValidationPipelineScenario(
@@ -968,6 +947,40 @@ async function runStepDurationScenario(
       }
     },
   );
+
+  const mixedVerdictStages = validationPipelineStages.map((stage): ValidationStage => {
+    if (stage.name === VALIDATION_PIPELINE_DATA.stageNames.KNIP) {
+      return {
+        ...stage,
+        participation: {
+          default: VALIDATION_STAGE_PARTICIPATION.SKIP,
+          defaultSkipReason: stage.name,
+        },
+      };
+    }
+    return {
+      ...stage,
+      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      run: () =>
+        Promise.resolve({
+          exitCode: stage.name === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT
+            ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
+            : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+          output: stage.name === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT
+            ? stage.name
+            : formatValidationNoProblemsMessage(stage.name),
+        }),
+    };
+  });
+  const mixedResult = await allCommand({ cwd: VALIDATION_ROOT }, { stages: mixedVerdictStages });
+  const mixedLines = mixedResult.output
+    .split(VALIDATION_PIPELINE_DATA.outputLineSeparator)
+    .filter((line) => [...line.matchAll(VALIDATION_PIPELINE_DATA.stepLinePattern)].length > 0);
+
+  expect(mixedLines).toHaveLength(mixedVerdictStages.length);
+  for (const line of mixedLines) {
+    expect(line).toMatch(VALIDATION_PIPELINE_DATA.stepDurationPattern);
+  }
 }
 
 async function runStableVerdictScenario(
@@ -1017,31 +1030,33 @@ async function runAdditiveVerdictsScenario(
   _scenario: ValidationPipelineScenario,
 ): Promise<void> {
   await assertProperty(
-    fc.integer({ min: 0, max: 2 }),
-    async (insertionIndex) => {
-      const observedContexts: ValidationStageContext[] = [];
-      const existingStages = [
-        observedPassingStage(
-          VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
-          observedContexts,
-        ),
-        observedPassingStage(
-          VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
-          observedContexts,
-        ),
-      ];
+    arbitraryValidationAdditiveStageScenario(),
+    async ({ addedStageName, insertionIndex, stageFailures }) => {
+      const existingStages = validationPipelineStages.map((stage, index): ValidationStage => ({
+        ...stage,
+        failsPipeline: true,
+        run: () =>
+          Promise.resolve({
+            exitCode: stageFailures[index]
+              ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
+              : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+            output: stageFailures[index]
+              ? stage.name
+              : formatValidationNoProblemsMessage(stage.name),
+          }),
+      }));
       const base = await allCommand(
         { cwd: VALIDATION_ROOT },
         { stages: existingStages },
       );
       const addedStage: ValidationStage = {
-        name: VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN,
+        name: addedStageName,
         failsPipeline: true,
-        participation: { default: "run" },
+        participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
         run: () =>
           Promise.resolve({
             exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-            output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.MARKDOWN),
+            output: formatValidationNoProblemsMessage(addedStageName),
           }),
       };
       const extendedStages = [

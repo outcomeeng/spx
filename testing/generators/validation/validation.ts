@@ -24,6 +24,7 @@ import {
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
+import { TYPESCRIPT_VALIDATION_CONCERN, type TypeScriptValidationConcern } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
@@ -340,6 +341,41 @@ export const VALIDATION_PIPELINE_DATA = {
 
 export type ValidationStepOutcome =
   (typeof VALIDATION_PIPELINE_DATA.outcome)[keyof typeof VALIDATION_PIPELINE_DATA.outcome];
+
+export interface TypeScriptValidationConcernMapping {
+  readonly concern: TypeScriptValidationConcern;
+  readonly stageName: string;
+}
+
+export interface ValidationAdditiveStageScenario {
+  readonly addedStageName: string;
+  readonly insertionIndex: number;
+  readonly stageFailures: readonly boolean[];
+}
+
+export function arbitraryValidationAdditiveStageScenario(): fc.Arbitrary<ValidationAdditiveStageScenario> {
+  return fc.record({
+    addedStageName: arbitraryDomainLiteral().filter(
+      (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
+    ),
+    insertionIndex: fc.integer({ min: 0, max: validationPipelineStages.length }),
+    stageFailures: fc.array(fc.boolean(), {
+      minLength: validationPipelineStages.length,
+      maxLength: validationPipelineStages.length,
+    }),
+  });
+}
+
+export function typescriptValidationConcernMappings(): readonly TypeScriptValidationConcernMapping[] {
+  return [
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.LINT, stageName: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT },
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.TYPE_CHECK, stageName: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT },
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.AST_ENFORCEMENT, stageName: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT },
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.CIRCULAR_DEPS, stageName: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR },
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.LITERAL_REUSE, stageName: VALIDATION_STAGE_DISPLAY_NAMES.LITERAL },
+    { concern: TYPESCRIPT_VALIDATION_CONCERN.UNUSED_CODE, stageName: VALIDATION_STAGE_DISPLAY_NAMES.KNIP },
+  ];
+}
 
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral()

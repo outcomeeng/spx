@@ -2,13 +2,12 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
 
-import {
-  TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN,
-  type TypeScriptValidationConcern,
-  typescriptValidationLanguage,
-} from "@/validation/languages/typescript";
+import { type TypeScriptValidationConcern, typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationPipelineStages, validationRegistry } from "@/validation/registry";
-import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
+import {
+  typescriptValidationConcernMappings,
+  VALIDATION_PIPELINE_DATA,
+} from "@testing/generators/validation/validation";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 
 function expectValidationStructuralMapping(concern: TypeScriptValidationConcern, stageName: string): void {
@@ -31,9 +30,9 @@ function expectValidationStructuralMapping(concern: TypeScriptValidationConcern,
 
 export const validationStructuralMappingCases = collectHarnessTestCases(() => {
   describe("validation subtree structural mappings", () => {
-    for (const [concern, stageName] of Object.entries(TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN)) {
+    for (const { concern, stageName } of typescriptValidationConcernMappings()) {
       it(`${concern} maps to ${stageName}`, () => {
-        expectValidationStructuralMapping(concern as TypeScriptValidationConcern, stageName);
+        expectValidationStructuralMapping(concern, stageName);
       });
     }
   });

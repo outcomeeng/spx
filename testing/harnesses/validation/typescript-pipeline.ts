@@ -1,5 +1,9 @@
 import { allCommand } from "@/commands/validation/all";
-import { formatValidationNoProblemsMessage } from "@/commands/validation/messages";
+import {
+  formatTypeScriptAbsentSkipMessage,
+  formatValidationNoProblemsMessage,
+  formatValidationStageSkipOutput,
+} from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationAllTypeScriptSubprocessScenarios } from "@testing/generators/validation/validation";
@@ -26,6 +30,13 @@ function registerTypeScriptPipelineTests(fixture?: FixtureName): void {
             });
 
             expectValidationSubprocessResult(result, scenario);
+            for (const stage of typescriptValidationLanguage.stages) {
+              expect(result.stdout).toContain(
+                options.fixture === PROJECT_FIXTURES.PYTHON_PROJECT
+                  ? formatTypeScriptAbsentSkipMessage(stage.name)
+                  : stage.name,
+              );
+            }
           });
         },
         options.timeout,
@@ -52,10 +63,13 @@ export const typescriptValidationComplianceCases = collectHarnessTestCases(() =>
         },
       }));
 
-      const result = await allCommand({ cwd: process.cwd(), quiet: true, validationStages: stages });
+      const result = await allCommand({ cwd: process.cwd(), validationStages: stages });
 
       expect(result.exitCode).toBe(0);
       expect(observedStageNames).toEqual(stages.map((stage) => stage.name));
+      for (const stage of stages) {
+        expect(result.output).toContain(formatValidationNoProblemsMessage(stage.name));
+      }
     });
 
     for (const registeredStage of typescriptValidationLanguage.stages) {
@@ -74,7 +88,7 @@ export const typescriptValidationComplianceCases = collectHarnessTestCases(() =>
         const result = await allCommand({ cwd: process.cwd(), validationStages: [stage] });
 
         expect(result.exitCode).toBe(0);
-        expect(result.output).toContain(registeredStage.name);
+        expect(result.output).toContain(formatValidationStageSkipOutput(registeredStage.name, registeredStage.name));
       });
     }
   });
