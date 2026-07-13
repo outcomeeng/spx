@@ -29,6 +29,7 @@ import {
   validateMarkdown,
 } from "@/validation/steps/markdown";
 import {
+  formatValidationConfigProblemMessage,
   formatValidationProblemsFoundMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_PROBLEM_TERMS,
@@ -63,7 +64,10 @@ export const MARKDOWN_COMMAND_OUTPUT = {
   PROBLEM_TERM: VALIDATION_PROBLEM_TERMS.SINGULAR,
   SKIPPED_FILE_SCOPE_PREFIX: "Markdown skipped file scope",
 } as const;
-const MARKDOWN_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: ✗ config error`;
+const MARKDOWN_CONFIG_ERROR_MESSAGE = formatValidationConfigProblemMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN,
+  "configuration error",
+);
 
 export async function markdownCommand(options: MarkdownCommandOptions): Promise<ValidationCommandResult> {
   const { cwd, files, quiet } = options;

@@ -16,6 +16,7 @@ import { validateCircularDependencies } from "@/validation/steps/circular";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
+  formatValidationConfigProblemMessage,
   formatValidationScopeNoTargetsSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
@@ -25,7 +26,10 @@ import type { CircularCommandOptions, ValidationCommandResult } from "./types";
 type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
 
 const TYPESCRIPT_ABSENT_MESSAGE = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
-const CIRCULAR_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: ✗ config error`;
+const CIRCULAR_CONFIG_ERROR_MESSAGE = formatValidationConfigProblemMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+  "configuration error",
+);
 export const CIRCULAR_DEPENDENCY_OUTPUT = {
   FOUND: VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND,
 } as const;

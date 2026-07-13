@@ -33,7 +33,11 @@ import {
   discardValidationSubprocessOutputStreams,
   type ValidationSubprocessOutputStreams,
 } from "@/validation/steps/subprocess-output";
-import { VALIDATION_COMMAND_OUTPUT, VALIDATION_STAGE_DISPLAY_NAMES } from "./messages";
+import {
+  formatValidationConfigProblemMessage,
+  VALIDATION_COMMAND_OUTPUT,
+  VALIDATION_STAGE_DISPLAY_NAMES,
+} from "./messages";
 import {
   type FormattingCommandOptions,
   VALIDATION_STREAMED_TERMINAL_OUTPUT,
@@ -55,7 +59,10 @@ export const FORMATTING_COMMAND_OUTPUT = {
   NO_CONFIG_SKIP_REASON: `no ${DPRINT_CONFIG_FILENAME} at product root`,
 } as const;
 
-const FORMATTING_CONFIG_ERROR_MESSAGE = `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: ✗ config error`;
+const FORMATTING_CONFIG_ERROR_MESSAGE = formatValidationConfigProblemMessage(
+  VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING,
+  "configuration error",
+);
 const DPRINT_RECURSIVE_DIRECTORY_GLOB_SUFFIX = "/**/*";
 
 /**
