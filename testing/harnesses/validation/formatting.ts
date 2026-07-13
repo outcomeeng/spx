@@ -20,11 +20,17 @@ import { expect } from "vitest";
 import { stringify } from "yaml";
 
 import { allCommand } from "@/commands/validation/all";
-import { FORMATTING_COMMAND_OUTPUT, formattingCommand } from "@/commands/validation/formatting";
+import {
+  FORMATTING_COMMAND_OUTPUT,
+  formattingCommand,
+  type FormattingCommandDependencies,
+} from "@/commands/validation/formatting";
 import type { ValidationCommandResult } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
+import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
+import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationPipelineStages, validationRegistry } from "@/validation/registry";
 import {
   buildDprintCheckArgs,
@@ -136,12 +142,16 @@ export function registerFormattingMappingEvidence(): void {
     }
     it("maps language descriptors to contiguous registry stage segments", () => {
       const stageNames = validationPipelineStages.map((stage) => stage.name);
+      const typescriptNames = typescriptValidationLanguage.stages.map((stage) => stage.name);
+      const markdownNames = markdownValidationLanguage.stages.map((stage) => stage.name);
       const formattingNames = formattingValidationLanguage.stages.map((stage) => stage.name);
-      const formattingStart = stageNames.indexOf(formattingNames[0]);
 
-      expect(formattingStart).toBeGreaterThanOrEqual(FORMATTING_VALIDATION_DATA.passExitCode);
-      expect(stageNames.slice(formattingStart, formattingStart + formattingNames.length)).toEqual(formattingNames);
-      expect(validationRegistry.languages.at(-1)).toBe(formattingValidationLanguage);
+      expect(validationRegistry.languages).toEqual([
+        typescriptValidationLanguage,
+        markdownValidationLanguage,
+        formattingValidationLanguage,
+      ]);
+      expect(stageNames).toEqual([...typescriptNames, ...markdownNames, ...formattingNames]);
     });
   });
 }
@@ -189,6 +199,7 @@ export function registerFormattingComplianceEvidence(): void {
       expect(stdout.chunks).toEqual([stdoutChunk]);
       expect(stderr.chunks).toEqual([stderrChunk]);
       expect(runner.commands).toEqual([DPRINT_COMMAND]);
+      expect(runner.args).toEqual([[DPRINT_CHECK_SUBCOMMAND]]);
       expect(runner.spawnOptions?.cwd).toBe(productDir);
     });
     it("forwards configured validation excludes additively", async () => {
@@ -230,9 +241,16 @@ export function registerFormattingComplianceEvidence(): void {
       });
     });
     it("skips when the product has no dprint config", async () => {
-      const result = await runFormattingWithoutConfig();
+      const contexts: FormattingValidationContext[] = [];
+      const result = await runFormattingWithoutConfig({
+        validateFormatting: async (context) => {
+          contexts.push(context);
+          return { success: false, output: "" };
+        },
+      });
       expect(result.exitCode).toBe(FORMATTING_VALIDATION_DATA.passExitCode);
       expect(result.output).toContain(FORMATTING_COMMAND_OUTPUT.NO_CONFIG_SKIP_REASON);
+      expect(contexts).toHaveLength(0);
     });
   });
 }
@@ -605,13 +623,15 @@ async function runParticipationOverrideScenario(): Promise<void> {
  * The project carries an unformatted file but no config, so the stage must skip
  * rather than let a personal global dprint config decide the verdict.
  */
-export function runFormattingWithoutConfig(): Promise<ValidationCommandResult> {
+export function runFormattingWithoutConfig(
+  dependencies?: FormattingCommandDependencies,
+): Promise<ValidationCommandResult> {
   return withTempDir(FORMATTING_TEMP_PREFIX, async (productDir) => {
     await writeFile(
       join(productDir, FORMATTING_VALIDATION_DATA.typeScriptSourceFilename),
       FORMATTING_VALIDATION_DATA.unformattedTypeScriptContent,
     );
-    return formattingCommand({ cwd: productDir });
+    return formattingCommand({ cwd: productDir }, dependencies);
   });
 }
 
