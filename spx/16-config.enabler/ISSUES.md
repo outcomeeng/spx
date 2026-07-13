@@ -12,7 +12,7 @@ This mismatch makes config harder to compare with other domains and makes future
 
 ## Spec assertions use legacy or competing verification mechanisms
 
-[`config.md`](config.md) uses legacy `[review]` evidence at lines 16, 30-31, 33-34, and 36. Lines 30-31 also attach `[test]` and `[review]` to one assertion, so one declaration names competing verification mechanisms instead of the single mechanism selected by the testing router.
+[`spx/16-config.enabler/config.md`](config.md) uses legacy `[review]` evidence at lines 16, 30-31, 33-34, and 36. Lines 30-31 also attach `[test]` and `[review]` to one assertion, so one declaration names competing verification mechanisms instead of the single mechanism selected by the testing router.
 
 **Resolution:** use `/test` to select the verification mechanism for each affected assertion, then use `/author` to rewrite the declarations and `/align` to verify the node against its decisions and evidence.
 

@@ -12,7 +12,7 @@
 
 ## Spec assertions use the legacy audit tag
 
-[`test-environment.md`](test-environment.md) uses legacy `[review]` evidence at lines 29-33. The assertions need current `[test]`, `[eval]`, or `[audit]` routing based on their verification mechanism.
+[`spx/22-test-environment.enabler/test-environment.md`](test-environment.md) uses legacy `[review]` evidence at lines 29-33. The assertions need current `[test]`, `[eval]`, or `[audit]` routing based on their verification mechanism.
 
 **Resolution:** use `/test` to classify each affected assertion, then use `/author` to rewrite the declarations and `/align` to verify the node against `spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md` and its evidence.
 
