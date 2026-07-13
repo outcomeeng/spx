@@ -217,6 +217,11 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+          const discoveredToolPath = join(
+            env.productDir,
+            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
+            KNIP_COMMAND_TOKENS.COMMAND,
+          );
           const validationCalls: KnipValidationCall[] = [];
           const runner = new RecordingSpawnOptionsRunner();
           await env.writeTsConfigMarker();
@@ -227,11 +232,17 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
 
           const result = await knipCommand(
             { cwd: env.productDir, files: [sourceFilePath] },
-            createRecordingKnipCommandDeps(env.productDir, validationCalls, runner),
+            createRecordingKnipCommandDeps(
+              env.productDir,
+              validationCalls,
+              runner,
+              [],
+              discoveredToolPath,
+            ),
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-          expect(runner.commands).toEqual([join(env.productDir, ...KNIP_LOCAL_BIN_SEGMENTS)]);
+          expect(runner.commands).toEqual([discoveredToolPath]);
         },
       );
     });
