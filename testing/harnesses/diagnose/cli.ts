@@ -30,10 +30,18 @@ export async function runDiagnoseCli(
 ): Promise<DiagnoseCliRun> {
   const result = await execa(NODE_EXECUTABLE, [CLI_PATH, DIAGNOSE_CLI.COMMAND, ...args], {
     reject: false,
+    extendEnv: options?.env === undefined,
     env: options?.env,
     cwd: options?.cwd,
   });
   return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };
+}
+
+export function isolatedDiagnoseEnvironment(home: string): NodeJS.ProcessEnv {
+  return {
+    HOME: home,
+    PATH: process.env.PATH,
+  };
 }
 
 export interface SpxReachabilityManifestFixture {
