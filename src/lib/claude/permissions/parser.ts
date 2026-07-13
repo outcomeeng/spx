@@ -2,47 +2,69 @@
  * Parser for Claude Code settings files and permissions
  */
 import fs from "node:fs/promises";
-import type { ClaudeSettings, Permission, PermissionCategory, Permissions } from "./types";
+import {
+  type ClaudeSettings,
+  type Permission,
+  PERMISSION_CATEGORY,
+  type PermissionCategory,
+  type Permissions,
+  SETTINGS_FILE_PARSE_STATUS,
+  type SettingsFileParseError,
+  type SettingsFileParseResult,
+} from "./types";
 
 const PERMISSION_PATTERN = /^([^(]+)\((.+)\)$/;
-const PERMISSION_CATEGORIES = ["allow", "deny", "ask"] as const satisfies readonly PermissionCategory[];
+const PERMISSION_CATEGORIES: readonly PermissionCategory[] = Object.values(PERMISSION_CATEGORY);
+const SETTINGS_OBJECT_ERROR = "Settings file must contain a JSON object";
+
+export function formatPermission(type: string, scope: string): string {
+  return `${type}(${scope})`;
+}
 /**
- * Parse a settings.json file and extract permissions
- *
- * Handles:
- * - Malformed JSON (returns null)
- * - Missing permissions object (returns empty permissions)
- * - Validates basic structure
+ * Parse a settings.json file and extract typed permissions.
  *
  * @param filePath - Absolute path to settings.json file
- * @returns Promise resolving to ClaudeSettings object, or null if malformed
+ * @returns A success result with parsed settings and permissions, or an error result with the input path and diagnostic
  *
  * @example
  * ```typescript
- * const settings = await parseSettingsFile("/path/to/.claude/settings.json");
- * if (settings) {
- *   console.log(settings.permissions?.allow);
- * }
+ * const result = await parseSettingsFile("/path/to/.claude/settings.json");
+ * console.log(result.status);
  * ```
  */
-export async function parseSettingsFile(filePath: string): Promise<ClaudeSettings | null> {
+export async function parseSettingsFile(filePath: string): Promise<SettingsFileParseResult> {
   try {
-    // Read file contents
     const content = await fs.readFile(filePath, "utf-8");
-
-    // Parse JSON
-    const parsed = JSON.parse(content);
-
-    // Basic validation: should be an object
-    if (typeof parsed !== "object" || parsed === null) {
-      return null;
+    const parsed: unknown = JSON.parse(content);
+    if (!isClaudeSettings(parsed)) {
+      return settingsFileParseError(filePath, SETTINGS_OBJECT_ERROR);
     }
 
-    return parsed as ClaudeSettings;
-  } catch {
-    // JSON parse error or file read error
-    return null;
+    return {
+      status: SETTINGS_FILE_PARSE_STATUS.SUCCESS,
+      filePath,
+      settings: parsed,
+      permissions: parseAllPermissions(parsed.permissions ?? {}),
+    };
+  } catch (error) {
+    return settingsFileParseError(filePath, errorMessage(error));
   }
+}
+
+function isClaudeSettings(value: unknown): value is ClaudeSettings {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function settingsFileParseError(filePath: string, error: string): SettingsFileParseError {
+  return {
+    status: SETTINGS_FILE_PARSE_STATUS.ERROR,
+    filePath,
+    error,
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -129,13 +151,10 @@ function parsePermissionsByCategory(
 }
 
 /**
- * Read and parse multiple settings files
- *
- * Processes an array of file paths, reading and parsing each one.
- * Skips files that can't be read or parsed.
+ * Read and parse multiple settings files while preserving one ordered result per input path.
  *
  * @param filePaths - Array of absolute paths to settings files
- * @returns Promise resolving to array of Permissions objects (one per valid file)
+ * @returns Ordered success or error results for every input path
  *
  * @example
  * ```typescript
@@ -143,19 +162,12 @@ function parsePermissionsByCategory(
  *   "/Users/user/Code/project-a/.claude/settings.local.json",
  *   "/Users/user/Code/project-b/.claude/settings.local.json"
  * ];
- * const allPermissions = await parseAllSettings(files);
- * // Returns: [{ allow: [...], deny: [...] }, { allow: [...] }]
+ * const results = await parseAllSettings(files);
+ * // Returns one success or error result per path.
  * ```
  */
-export async function parseAllSettings(filePaths: string[]): Promise<Permissions[]> {
-  const results: Permissions[] = [];
-
-  for (const filePath of filePaths) {
-    const settings = await parseSettingsFile(filePath);
-    if (settings?.permissions) {
-      results.push(settings.permissions);
-    }
-  }
-
-  return results;
+export async function parseAllSettings(
+  filePaths: readonly string[],
+): Promise<SettingsFileParseResult[]> {
+  return Promise.all(filePaths.map(parseSettingsFile));
 }

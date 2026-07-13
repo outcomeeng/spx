@@ -67,6 +67,28 @@ export interface ClaudeSettings {
   [key: string]: unknown; // Allow other settings we don't manage
 }
 
+export const SETTINGS_FILE_PARSE_STATUS = {
+  SUCCESS: "success",
+  ERROR: "error",
+} as const;
+
+export type SettingsFileParseStatus = (typeof SETTINGS_FILE_PARSE_STATUS)[keyof typeof SETTINGS_FILE_PARSE_STATUS];
+
+export interface SettingsFileParseSuccess {
+  status: typeof SETTINGS_FILE_PARSE_STATUS.SUCCESS;
+  filePath: string;
+  settings: ClaudeSettings;
+  permissions: Permission[];
+}
+
+export interface SettingsFileParseError {
+  status: typeof SETTINGS_FILE_PARSE_STATUS.ERROR;
+  filePath: string;
+  error: string;
+}
+
+export type SettingsFileParseResult = SettingsFileParseSuccess | SettingsFileParseError;
+
 /**
  * Result of subsumption detection
  */

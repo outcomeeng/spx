@@ -12,6 +12,7 @@
 import { findSettingsFiles } from "@/lib/claude/permissions/discovery";
 import { mergePermissions } from "@/lib/claude/permissions/merger";
 import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/parser";
+import { SETTINGS_FILE_PARSE_STATUS } from "@/lib/claude/permissions/types";
 import { createBackup } from "@/lib/claude/settings/backup";
 import { formatReport } from "@/lib/claude/settings/reporter";
 import { writeSettings } from "@/lib/claude/settings/writer";
@@ -84,10 +85,18 @@ export async function consolidateCommand(
   }
 
   // Step 2: Parsing - extract permissions from each file
-  const localPermissions = await parseAllSettings(settingsFiles);
+  const localSettingsResults = await parseAllSettings(settingsFiles);
+  const localPermissions = localSettingsResults.flatMap((parseResult) =>
+    parseResult.status === SETTINGS_FILE_PARSE_STATUS.SUCCESS && parseResult.settings.permissions
+      ? [parseResult.settings.permissions]
+      : []
+  );
 
   // Step 3: Read global settings
-  let globalSettings = await parseSettingsFile(globalSettingsPath);
+  const globalSettingsResult = await parseSettingsFile(globalSettingsPath);
+  let globalSettings = globalSettingsResult.status === SETTINGS_FILE_PARSE_STATUS.SUCCESS
+    ? globalSettingsResult.settings
+    : undefined;
 
   // If global settings doesn't exist, create empty structure
   if (!globalSettings) {
@@ -114,6 +123,8 @@ export async function consolidateCommand(
     globalSettings.permissions,
     localPermissions,
   );
+  result.filesScanned = localSettingsResults.length;
+  result.filesSkipped += localSettingsResults.length - localPermissions.length;
 
   // Step 5: Backup (only when writing to global settings)
   if (shouldWrite) {
