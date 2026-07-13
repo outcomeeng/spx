@@ -1,0 +1,71 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
+import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+
+function emptyConfig(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.emptyConfig());
+}
+
+export function registerConfigDefaultsOnlyScenarios(): void {
+  describe("resolveConfig — no product config file", () => {
+    it("resolves every registered descriptor to its declared defaults when the file is absent", async () => {
+      await withTestEnv(emptyConfig(), async ({ productDir }) => {
+        await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
+
+        const result = await resolveConfig(productDir, [
+          specTreeConfigDescriptor,
+        ]);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value[specTreeConfigDescriptor.section]).toEqual(
+            specTreeConfigDescriptor.defaults,
+          );
+        }
+      });
+    });
+
+    it("returns a Config containing every descriptor's section keyed by its section name", async () => {
+      await withTestEnv(emptyConfig(), async ({ productDir }) => {
+        await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
+
+        const result = await resolveConfig(productDir, [
+          specTreeConfigDescriptor,
+        ]);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(Object.keys(result.value)).toContain(
+            specTreeConfigDescriptor.section,
+          );
+        }
+      });
+    });
+
+    it("treats an empty product config file the same as an absent file — defaults apply uniformly", async () => {
+      await withTestEnv(emptyConfig(), async ({ productDir }) => {
+        const result = await resolveConfig(productDir, [
+          specTreeConfigDescriptor,
+        ]);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          const specTree = result.value[
+            specTreeConfigDescriptor.section
+          ] as typeof specTreeConfigDescriptor.defaults;
+          expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+            Object.keys(KIND_REGISTRY).sort(compareAsciiStrings),
+          );
+        }
+      });
+    });
+  });
+}
