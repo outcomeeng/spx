@@ -240,6 +240,18 @@ function registerComplianceTests(): void {
         );
       });
     });
+
+    it("excludes ambient spec-tree and domain state from the producing prompt", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+        await composeDocumentationSync(options);
+        expect(agent.requests).toHaveLength(1);
+        for (const { path, content } of scenario.ambientState) {
+          expect(agent.requests[0].prompt).not.toContain(path);
+          expect(agent.requests[0].prompt).not.toContain(content);
+        }
+      });
+    });
   });
 }
 
