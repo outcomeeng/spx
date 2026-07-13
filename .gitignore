@@ -8,6 +8,7 @@
 
 # Pi project plugin runtime
 .pi/agents/
+.pi/claude-plugins.local.json
 .pi/pi-claude-marketplace/
 .pi-subagents/
 
