@@ -16,3 +16,7 @@ CAN report unused exports, dependencies, and files within the requested TypeScri
 ### Properties
 
 - For every executable path returned by Knip discovery, unused-code validation spawns that exact executable ([test](tests/unused-code.property.l1.test.ts))
+
+### Compliance
+
+- ALWAYS: when Knip validation streams subprocess detail during a full-pipeline run, its returned result carries the detail and exactly one terminal verdict ([test](tests/unused-code.compliance.l1.test.ts))
