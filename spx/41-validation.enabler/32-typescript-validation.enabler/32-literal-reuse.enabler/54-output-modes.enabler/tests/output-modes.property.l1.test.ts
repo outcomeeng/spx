@@ -1,1 +1,3 @@
-import "@testing/harnesses/literal/output-modes-property";
+import { registerLiteralOutputModeProperties } from "@testing/harnesses/literal/output-modes-property";
+
+registerLiteralOutputModeProperties();
