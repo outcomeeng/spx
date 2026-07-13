@@ -4,7 +4,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS_SEGMENT: "ambiguous-segment",
@@ -53,7 +53,7 @@ type SpecContextArtifactEntry = Extract<
   }
 >;
 
-const TARGET_SEPARATOR = "/";
+const TARGET_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const SPEC_TREE_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 
 function trimTrailingSeparators(target: string): string {
@@ -97,11 +97,25 @@ function artifactOwnerId(entry: SpecContextArtifactEntry): string | undefined {
   return entry.parentId;
 }
 
+function coordinationNoteOwnerId(snapshot: SpecTreeSnapshot, normalized: string): string | undefined {
+  return snapshot.allNodes.find((node) =>
+    SPEC_TREE_GRAMMAR.COORDINATION_NOTES.some((noteName) => `${node.id}${TARGET_SEPARATOR}${noteName}` === normalized)
+  )?.id;
+}
+
 function resolveArtifact(
   snapshot: SpecTreeSnapshot,
   input: string,
   normalized: string,
 ): SpecContextTargetFailure | undefined {
+  const coordinationOwnerId = coordinationNoteOwnerId(snapshot, normalized);
+  if (coordinationOwnerId !== undefined) {
+    return {
+      input,
+      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
+      ownerId: coordinationOwnerId,
+    };
+  }
   const artifact = snapshot.entries
     .filter(isSpecContextArtifactEntry)
     .find((entry) => entry.ref?.path === rootedTarget(normalized));

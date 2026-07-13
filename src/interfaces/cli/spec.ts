@@ -13,6 +13,7 @@ import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from 
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { testingRegistry } from "@/test/registry";
 
 import { createRunnerDepsFor } from "./test-runner-deps";
@@ -75,19 +76,24 @@ function handleCommandError(io: CliIo, error: unknown): never {
   return io.exit(1);
 }
 
-function formatTargetFailure(failure: SpecContextTargetFailure): string {
+function quotedCliArgument(value: string): string {
+  return JSON.stringify(sanitizeCliArgument(value));
+}
+
+/** Formats a typed target-resolution failure for safe terminal presentation. */
+export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure): string {
   const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
   switch (failure.kind) {
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
-      return `${prefix} ${JSON.stringify(failure.segment)} for input ${JSON.stringify(failure.input)}. Candidates: ${
-        failure.candidates.join(", ")
-      }`;
+      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${
+        quotedCliArgument(failure.input)
+      }. Candidates: ${failure.candidates.map(sanitizeCliArgument).join(", ")}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
-      return `${prefix}: ${failure.input}. Use spx/${failure.ownerId}`;
+      return `${prefix}: ${sanitizeCliArgument(failure.input)}. Use spx/${sanitizeCliArgument(failure.ownerId)}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
-      return `${prefix}: ${failure.input}`;
+      return `${prefix}: ${sanitizeCliArgument(failure.input)}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
-      return `${prefix} ${JSON.stringify(failure.segment)} for input ${JSON.stringify(failure.input)}`;
+      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${quotedCliArgument(failure.input)}`;
   }
 }
 
@@ -97,7 +103,7 @@ export async function contextOutputForFormat(
   options: ContextOptions,
 ): Promise<string> {
   const resolution = await resolveContextManifest(options);
-  if (!resolution.ok) throw new Error(formatTargetFailure(resolution.failure));
+  if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
   return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON
     ? renderSpecContextJson(resolution.manifest)
     : renderSpecContextText(resolution.manifest);
