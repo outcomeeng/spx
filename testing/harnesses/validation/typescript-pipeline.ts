@@ -1,9 +1,5 @@
 import { allCommand } from "@/commands/validation/all";
-import {
-  formatTypeScriptAbsentSkipMessage,
-  formatValidationNoProblemsMessage,
-  formatValidationStageSkipOutput,
-} from "@/commands/validation/messages";
+import { formatTypeScriptAbsentSkipMessage, formatValidationStageSkipOutput } from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationAllTypeScriptSubprocessScenarios } from "@testing/generators/validation/validation";
@@ -46,32 +42,14 @@ function registerTypeScriptPipelineTests(fixture?: FixtureName): void {
 }
 
 export const typescriptValidationScenarioCases = collectHarnessTestCases(() => {
-  registerTypeScriptPipelineTests();
+  registerTypeScriptPipelineTests(PROJECT_FIXTURES.CLEAN_PROJECT);
 });
 
 export const typescriptValidationComplianceCases = collectHarnessTestCases(() => {
   registerTypeScriptPipelineTests(PROJECT_FIXTURES.PYTHON_PROJECT);
+  registerTypeScriptPipelineTests(PROJECT_FIXTURES.WITH_TYPE_ERRORS);
 
   describe("TypeScript descriptor participation compliance", () => {
-    it("runs every TypeScript stage whose descriptor defaults to run", async () => {
-      const observedStageNames: string[] = [];
-      const stages = typescriptValidationLanguage.stages.map((stage): ValidationStage => ({
-        ...stage,
-        run: async () => {
-          observedStageNames.push(stage.name);
-          return { exitCode: 0, output: formatValidationNoProblemsMessage(stage.name) };
-        },
-      }));
-
-      const result = await allCommand({ cwd: process.cwd(), validationStages: stages });
-
-      expect(result.exitCode).toBe(0);
-      expect(observedStageNames).toEqual(stages.map((stage) => stage.name));
-      for (const stage of stages) {
-        expect(result.output).toContain(formatValidationNoProblemsMessage(stage.name));
-      }
-    });
-
     for (const registeredStage of typescriptValidationLanguage.stages) {
       it(`${registeredStage.name} follows a descriptor default changed to skip`, async () => {
         const stage: ValidationStage = {

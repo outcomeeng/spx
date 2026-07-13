@@ -66,6 +66,11 @@ export function validationSubprocessHarnessOptions(
         fixture: PROJECT_FIXTURES.CLEAN_PROJECT,
         timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
       };
+    case VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_TYPE_ERROR_PROJECT:
+      return {
+        fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS,
+        timeout: VALIDATION_PIPELINE_SUBPROCESS_TIMEOUT,
+      };
   }
 }
 

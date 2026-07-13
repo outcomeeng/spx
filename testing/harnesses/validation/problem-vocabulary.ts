@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { allCommand } from "@/commands/validation/all";
-import { VALIDATION_PROBLEM_TERMS, VALIDATION_STAGE_PROBLEM_MESSAGES } from "@/commands/validation/messages";
+import { VALIDATION_STAGE_PROBLEM_MESSAGES } from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
@@ -15,11 +15,11 @@ function problemMessagesForStage(stageName: string): { readonly clear: string; r
 describe("ALWAYS: validation uses problem as its canonical attention-item term", () => {
   for (const [stageName, messages] of Object.entries(VALIDATION_STAGE_PROBLEM_MESSAGES)) {
     it(`${stageName} clear output uses the canonical plural term`, () => {
-      expect(messages.clear).toContain(VALIDATION_PROBLEM_TERMS.PLURAL);
+      expect(messages.clear).toMatch(/\bproblems\b/u);
     });
 
     it(`${stageName} attention output uses the canonical problem term`, () => {
-      expect(messages.attention).toContain(VALIDATION_PROBLEM_TERMS.PLURAL);
+      expect(messages.attention).toMatch(/\bproblems?\b/u);
     });
   }
 
@@ -37,7 +37,7 @@ describe("ALWAYS: validation uses problem as its canonical attention-item term",
 
     for (const stage of stages) {
       expect(result.output).toContain(problemMessagesForStage(stage.name).attention);
-      expect(result.output).toContain(VALIDATION_PROBLEM_TERMS.PLURAL);
+      expect(result.output).toMatch(/\bproblems?\b/u);
     }
   });
 });

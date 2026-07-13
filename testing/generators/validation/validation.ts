@@ -199,6 +199,7 @@ export const VALIDATION_SUBPROCESS_SCENARIO_KIND = {
   LINT_BARE_PROJECT: "lintBareProject",
   LINT_MISSING_CONFIG: "lintMissingConfig",
   ALL_CLEAN_PROJECT: "allCleanProject",
+  ALL_TYPE_ERROR_PROJECT: "allTypeErrorProject",
   ALL_PYTHON_PROJECT: "allPythonProject",
 } as const;
 
@@ -378,7 +379,7 @@ export function typescriptValidationConcernMappings(): readonly TypeScriptValida
 }
 
 export function arbitraryValidationCliUnknownSubcommand(): fc.Arbitrary<string> {
-  return arbitraryDomainLiteral()
+  return fc.string({ minLength: 1 })
     .filter((candidate) => !validationKnownOperands.has(candidate))
     .filter((candidate) => !candidate.startsWith(validationOptionPrefix));
 }
@@ -432,7 +433,7 @@ export function validationLintSubprocessScenarios(): ValidationSubprocessScenari
       kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_CLEAN_PROJECT,
       args,
       expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [VALIDATION_STAGE_DISPLAY_NAMES.ESLINT],
+      stdoutIncludes: [VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS],
       combinedIncludes: [],
       stdoutExcludes: [lintSkip, ...runtimeAntiMarkers],
       stderrExcludes: runtimeAntiMarkers,
@@ -490,6 +491,23 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
         VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_SUCCESS,
         VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
         NO_PROBLEMS_MESSAGE,
+      ],
+      combinedIncludes: [],
+      stdoutExcludes: runtimeAntiMarkers,
+      stderrExcludes: runtimeAntiMarkers,
+      combinedExcludes: runtimeAntiMarkers,
+    },
+    {
+      title: "TypeScript fixture with a type error reports every validation stage",
+      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.ALL_TYPE_ERROR_PROJECT,
+      args,
+      expectedExitCode: VALIDATION_EXIT_CODES.FAILURE,
+      stdoutIncludes: [
+        VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
+        VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+        VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
+        VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
+        VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
       ],
       combinedIncludes: [],
       stdoutExcludes: runtimeAntiMarkers,
