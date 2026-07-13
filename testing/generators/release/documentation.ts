@@ -35,15 +35,16 @@ export interface DocumentationSyncScenario {
 
 export interface DocumentationPathMappingCase {
   readonly label: string;
-  readonly config: DocumentationSyncConfig;
+  readonly scenario: DocumentationSyncScenario;
   readonly expected: readonly string[];
 }
 
 export function documentationPathMappingCases(): readonly DocumentationPathMappingCase[] {
+  const defaults = sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario());
   const configured = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
   return [
-    { label: "omitted", config: {}, expected: DEFAULT_RELEASE_DOCUMENTATION_PATHS },
-    { label: "configured", config: configured.config, expected: configured.paths },
+    { label: "omitted", scenario: defaults, expected: DEFAULT_RELEASE_DOCUMENTATION_PATHS },
+    { label: "configured", scenario: configured, expected: configured.paths },
   ];
 }
 
