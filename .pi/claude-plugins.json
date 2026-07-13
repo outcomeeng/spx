@@ -2,12 +2,10 @@
   "schemaVersion": 1,
   "marketplaces": {
     "outcomeeng": {
-      "source": "~/Code/outcomeeng/plugins/plugins"
+      "source": "https://github.com/outcomeeng/plugins"
     }
   },
   "plugins": {
-    "spec-tree@outcomeeng": {},
-    "typescript@outcomeeng": {},
-    "prose@outcomeeng": {}
+    "typescript@outcomeeng": {}
   }
 }

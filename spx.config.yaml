@@ -1,6 +1,7 @@
 validation:
   paths:
     exclude:
+      - .pi/
       - .work/
       - spx/46-claude.outcome/
   literal:
