@@ -1,5 +1,6 @@
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import type { ReleaseData } from "@/domains/release/release-data";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
@@ -40,7 +41,7 @@ export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
   return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
-    JSON.stringify(input)
+    encodeReleasePromptData(input)
   }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
 }
 
@@ -150,6 +151,8 @@ function buildDocumentationFaithfulnessAuditPrompt(
     "Audit whether every documentation change is supported by the supplied release data.",
     `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported.`,
     `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported or omitted release claim.`,
-    JSON.stringify(input),
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
+    encodeReleasePromptData(input),
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   ].join("\n\n");
 }
