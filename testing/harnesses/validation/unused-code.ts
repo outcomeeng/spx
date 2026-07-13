@@ -8,9 +8,11 @@ import {
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
+import { VALIDATION_STREAMED_TERMINAL_OUTPUT } from "@/commands/validation/types";
 import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -244,6 +246,40 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
           expect(runner.commands).toEqual([discoveredToolPath]);
+        },
+      );
+    });
+
+    it("emits one terminal verdict after full-pipeline Knip detail streams", async () => {
+      await withLiteralFixtureEnv(
+        validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+        async (env) => {
+          const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+          const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+          const validationCalls: KnipValidationCall[] = [];
+          const runner = new OutputRecordingSpawnOptionsRunner(
+            failureDetail,
+            VALIDATION_EXIT_CODES.FAILURE,
+          );
+          await env.writeTsConfigMarker();
+          await env.writeSourceFile(
+            sourceFilePath,
+            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
+          );
+
+          const result = await knipCommand(
+            {
+              cwd: env.productDir,
+              files: [sourceFilePath],
+              streamedPipelineOutput: true,
+              outputStreams: discardValidationSubprocessOutputStreams,
+            },
+            createRecordingKnipCommandDeps(env.productDir, validationCalls, runner),
+          );
+
+          expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
+          expect(result.output).toBe(failureDetail);
+          expect(result.terminalOutput).toBe(VALIDATION_STREAMED_TERMINAL_OUTPUT);
         },
       );
     });

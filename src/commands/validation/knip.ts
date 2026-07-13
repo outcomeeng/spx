@@ -13,6 +13,7 @@ import { validationPathFilterForTool } from "@/validation/config/path-filter";
 import { resolveTypeScriptValidationScope } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, formatSkipMessage } from "@/validation/discovery/index";
 import { KNIP_COMMAND_TOKENS, validateKnip } from "@/validation/steps/knip";
+import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -20,7 +21,7 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { KnipCommandOptions, ValidationCommandResult } from "./types";
+import { type KnipCommandOptions, streamedValidationTerminalOutput, type ValidationCommandResult } from "./types";
 
 export interface KnipCommandDeps {
   readonly detectTypeScript: typeof detectTypeScript;
@@ -48,7 +49,15 @@ export async function knipCommand(
   options: KnipCommandOptions,
   deps: KnipCommandDeps = defaultKnipCommandDeps,
 ): Promise<ValidationCommandResult> {
-  const { cwd, files, quiet, scope = VALIDATION_SCOPES.FULL } = options;
+  const {
+    cwd,
+    files,
+    json,
+    outputStreams,
+    quiet,
+    scope = VALIDATION_SCOPES.FULL,
+    streamedPipelineOutput,
+  } = options;
   const startTime = Date.now();
 
   if (!deps.detectTypeScript(cwd).present) {
@@ -105,11 +114,16 @@ export async function knipCommand(
   }
 
   // Run knip validation
-  const result = await deps.validateKnip({
-    productDir: cwd,
-    typescriptScope: scopeConfig,
-    toolPath: toolResult.location.path,
-  });
+  const result = await deps.validateKnip(
+    {
+      productDir: cwd,
+      typescriptScope: scopeConfig,
+      toolPath: toolResult.location.path,
+    },
+    undefined,
+    undefined,
+    outputStreams ?? discardValidationSubprocessOutputStreams,
+  );
   const durationMs = Date.now() - startTime;
 
   // Map result to command output
@@ -118,6 +132,7 @@ export async function knipCommand(
     return { exitCode: 0, output, durationMs };
   } else {
     const output = result.error ?? VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE;
-    return { exitCode: 1, output, durationMs };
+    const terminalOutput = streamedValidationTerminalOutput(result.error, json, streamedPipelineOutput);
+    return { exitCode: 1, output, terminalOutput, durationMs };
   }
 }
