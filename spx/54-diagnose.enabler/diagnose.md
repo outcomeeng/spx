@@ -18,7 +18,7 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 
 ### Conformance
 
-- A manifest parses to the typed contract carrying the spx-version floor, the marketplace identity, the expected plugin set, and the check set; a manifest naming a check this build does not provide, or selecting a check without that check's required consumer facts, is rejected ([test](tests/manifest.conformance.l1.test.ts))
+- A manifest parses to the typed contract carrying the spx-version floor, the marketplace identity, the expected plugin set, the methodology source and version, and the check set; a manifest naming a check this build does not provide, or selecting a check without that check's required consumer facts — including `methodology-context` without methodology source and version — is rejected ([test](tests/manifest.conformance.l1.test.ts))
 - The JSON report conforms to the report schema — a per-check record carrying the check name, verdict, bucket, the gathered readings verbatim, and a remediation hint, plus the overall verdict ([test](tests/report.conformance.l1.test.ts))
 
 ### Properties
