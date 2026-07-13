@@ -119,12 +119,14 @@ describe("spx diagnose emits a schema-valid report and exits with the code keyed
   it("defaults to the text format and carries the same overall verdict and exit code as the JSON report", async () => {
     const manifestPath = await writeSpxReachabilityManifest();
 
-    const textRun = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]);
-    const jsonRun = await runDiagnose([
-      DIAGNOSE_CLI.MANIFEST_FLAG,
-      manifestPath,
-      DIAGNOSE_CLI.FORMAT_FLAG,
-      DIAGNOSE_FORMAT.JSON,
+    const [textRun, jsonRun] = await Promise.all([
+      runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath]),
+      runDiagnose([
+        DIAGNOSE_CLI.MANIFEST_FLAG,
+        manifestPath,
+        DIAGNOSE_CLI.FORMAT_FLAG,
+        DIAGNOSE_FORMAT.JSON,
+      ]),
     ]);
 
     const report = JSON.parse(jsonRun.stdout) as ReportShape;
