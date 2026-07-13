@@ -10,10 +10,16 @@
 
 import type { Result } from "@/config/types";
 
+/** Runtime field vocabulary for a consumer's marketplace identity. */
+export const MARKETPLACE_IDENTITY_FIELDS = {
+  NAME: "name",
+  SOURCE: "source",
+} as const;
+
 /** The marketplace identity a consumer depends on. */
 export interface MarketplaceIdentity {
-  readonly name: string;
-  readonly source: string;
+  readonly [MARKETPLACE_IDENTITY_FIELDS.NAME]: string;
+  readonly [MARKETPLACE_IDENTITY_FIELDS.SOURCE]: string;
 }
 
 /** Whether the value is a non-null, non-array object. */
@@ -33,8 +39,20 @@ export function isNonEmptyStringArray(value: unknown): value is readonly string[
 
 /** Validates a marketplace-identity value, labelling errors with the supplied field path. */
 export function validateMarketplaceIdentity(value: unknown, field: string): Result<MarketplaceIdentity> {
-  if (!isRecord(value) || !isNonEmptyString(value.name) || !isNonEmptyString(value.source)) {
+  const record = isRecord(value) ? value : undefined;
+  const name = record?.[MARKETPLACE_IDENTITY_FIELDS.NAME];
+  const source = record?.[MARKETPLACE_IDENTITY_FIELDS.SOURCE];
+  if (
+    !isNonEmptyString(name)
+    || !isNonEmptyString(source)
+  ) {
     return { ok: false, error: `${field} must carry a non-empty \`name\` and \`source\`` };
   }
-  return { ok: true, value: { name: value.name, source: value.source } };
+  return {
+    ok: true,
+    value: {
+      [MARKETPLACE_IDENTITY_FIELDS.NAME]: name,
+      [MARKETPLACE_IDENTITY_FIELDS.SOURCE]: source,
+    },
+  };
 }

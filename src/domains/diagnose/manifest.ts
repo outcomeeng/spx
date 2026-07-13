@@ -2,14 +2,15 @@
  * Diagnose manifest contract — parses and validates the consumer-supplied
  * declarative manifest into the typed contract the pipeline judges against. The
  * manifest carries the consumer-varying facts the `spx` CLI must not hard-code:
- * the spx-version floor, the marketplace identity, the expected plugin set, and
- * the check set. Validation is conditional: a fact is required exactly when a
- * check that reads it is selected. Pure over the raw JSON text; no I/O.
+ * the spx-version floor, marketplace identity, expected plugin set, methodology
+ * selection, and check set. Validation is conditional: a fact is required
+ * exactly when a check that reads it is selected. Pure over the raw JSON text;
+ * no I/O.
  *
  * @module domains/diagnose/manifest
  */
 
-import { type MethodologyConfig, validateMethodologyConfig } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, type MethodologyConfig, validateMethodologyConfig } from "@/config/methodology";
 import type { Result } from "@/config/types";
 import {
   isNonEmptyString,
@@ -49,7 +50,7 @@ export interface DiagnoseManifest {
   readonly expectedPlugins?: readonly string[];
   /** The check set the pipeline runs, in order. */
   readonly checks: readonly CheckName[];
-  /** The configured methodology source/version; present on config-driven runs. */
+  /** The configured methodology source/version; present when methodology-context is selected. */
   readonly methodology?: MethodologyConfig;
   /** A config-derived methodology resolution error; present only when methodology-context should own the failure. */
   readonly methodologyError?: string;
@@ -77,20 +78,31 @@ function validateManifestMethodology(
     return { ok: true, value: undefined };
   }
 
-  if (parsed.methodology === undefined) {
-    return { ok: false, error: "manifest selects `methodology-context` but carries no `methodology`" };
+  const methodologyValue = parsed[DIAGNOSE_MANIFEST_FIELDS.METHODOLOGY];
+  if (methodologyValue === undefined) {
+    return {
+      ok: false,
+      error:
+        `manifest selects '${CHECK_NAME.METHODOLOGY_CONTEXT}' but carries no '${DIAGNOSE_MANIFEST_FIELDS.METHODOLOGY}'`,
+    };
   }
 
   if (
-    !isRecord(parsed.methodology)
-    || !isNonEmptyString(parsed.methodology.source)
-    || !isNonEmptyString(parsed.methodology.version)
+    !isRecord(methodologyValue)
+    || !isNonEmptyString(methodologyValue[METHODOLOGY_CONFIG_FIELDS.SOURCE])
+    || !isNonEmptyString(methodologyValue[METHODOLOGY_CONFIG_FIELDS.VERSION])
   ) {
-    return { ok: false, error: "manifest selects `methodology-context` but carries incomplete `methodology`" };
+    return {
+      ok: false,
+      error:
+        `manifest selects '${CHECK_NAME.METHODOLOGY_CONTEXT}' but carries incomplete '${DIAGNOSE_MANIFEST_FIELDS.METHODOLOGY}'`,
+    };
   }
 
-  const methodology = validateMethodologyConfig(parsed.methodology);
-  if (!methodology.ok) return { ok: false, error: `manifest \`methodology\`: ${methodology.error}` };
+  const methodology = validateMethodologyConfig(methodologyValue);
+  if (!methodology.ok) {
+    return { ok: false, error: `manifest '${DIAGNOSE_MANIFEST_FIELDS.METHODOLOGY}': ${methodology.error}` };
+  }
   return methodology;
 }
 
@@ -113,7 +125,7 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
     return { ok: false, error: "manifest must be a JSON object" };
   }
 
-  const checks = validateChecks(parsed.checks, new Set(availableChecks));
+  const checks = validateChecks(parsed[DIAGNOSE_MANIFEST_FIELDS.CHECKS], new Set(availableChecks));
   if (!checks.ok) return checks;
 
   const manifest: {
@@ -129,20 +141,33 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
   manifest.methodology = methodology.value;
 
   if (checks.value.includes(CHECK_NAME.SPX_REACHABILITY)) {
-    if (!isNonEmptyString(parsed.spx_floor)) {
-      return { ok: false, error: "manifest selects `spx-reachability` but carries no `spx_floor`" };
+    const spxFloor = parsed[DIAGNOSE_MANIFEST_FIELDS.SPX_FLOOR];
+    if (!isNonEmptyString(spxFloor)) {
+      return {
+        ok: false,
+        error:
+          `manifest selects '${CHECK_NAME.SPX_REACHABILITY}' but carries no '${DIAGNOSE_MANIFEST_FIELDS.SPX_FLOOR}'`,
+      };
     }
-    manifest.spxFloor = parsed.spx_floor;
+    manifest.spxFloor = spxFloor;
   }
 
   if (checks.value.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-    const marketplace = validateMarketplaceIdentity(parsed.marketplace, "manifest `marketplace`");
+    const marketplace = validateMarketplaceIdentity(
+      parsed[DIAGNOSE_MANIFEST_FIELDS.MARKETPLACE],
+      `manifest '${DIAGNOSE_MANIFEST_FIELDS.MARKETPLACE}'`,
+    );
     if (!marketplace.ok) return marketplace;
-    if (!isNonEmptyStringArray(parsed.expected_plugins)) {
-      return { ok: false, error: "manifest selects `marketplace-install` but carries no `expected_plugins`" };
+    const expectedPlugins = parsed[DIAGNOSE_MANIFEST_FIELDS.EXPECTED_PLUGINS];
+    if (!isNonEmptyStringArray(expectedPlugins)) {
+      return {
+        ok: false,
+        error:
+          `manifest selects '${CHECK_NAME.MARKETPLACE_INSTALL}' but carries no '${DIAGNOSE_MANIFEST_FIELDS.EXPECTED_PLUGINS}'`,
+      };
     }
     manifest.marketplace = marketplace.value;
-    manifest.expectedPlugins = parsed.expected_plugins;
+    manifest.expectedPlugins = expectedPlugins;
   }
 
   return { ok: true, value: manifest };
