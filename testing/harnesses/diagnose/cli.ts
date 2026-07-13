@@ -1,7 +1,7 @@
 /** Assertion harness for the `spx diagnose` command boundary. */
 
 import fc from "fast-check";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -198,15 +198,18 @@ async function withAllChecksManifest<T>(callback: (manifestPath: string) => Prom
   });
 }
 
-function parseReportText(output: string): DiagnoseReport {
+function parseReportText(output: string, diagnostics = ""): DiagnoseReport {
   const parsed = parseDiagnoseReportJson(output);
-  expect(parsed.ok).toBe(true);
+  expect(
+    parsed.ok,
+    parsed.ok ? undefined : `${parsed.error}\nReceived output:\n${output}\n${diagnostics}`,
+  ).toBe(true);
   if (!parsed.ok) throw new Error(parsed.error);
   return parsed.value;
 }
 
 function parseReport(run: DiagnoseRun): DiagnoseReport {
-  return parseReportText(run.stdout);
+  return parseReportText(run.stdout, `Received stderr:\n${run.stderr}\nReceived exit code: ${run.exitCode}`);
 }
 
 function expectSchemaValidReport(report: DiagnoseReport): void {
@@ -292,7 +295,9 @@ export async function assertManifestDiagnoseJson(): Promise<void> {
 
 export async function assertDefaultDiagnoseIsConcise(): Promise<void> {
   await withAllChecksManifest(async (manifestPath) => {
-    const environment = { ...process.env, PATH: dirname(manifestPath) };
+    const isolatedPath = dirname(manifestPath);
+    await symlink(process.execPath, join(isolatedPath, NODE_EXECUTABLE));
+    const environment = { ...process.env, PATH: isolatedPath };
     const executingVersion = await packagedCliVersion();
     const concise = await runDiagnose([DIAGNOSE_CLI.MANIFEST_FLAG, manifestPath], { env: environment });
     const machine = await runDiagnose([
@@ -448,18 +453,19 @@ export async function assertConfigDiagnoseJson(): Promise<void> {
 export async function assertBareDiagnoseJson(): Promise<void> {
   const scenario = defaultDiagnoseScenario();
   await withTestEnv({}, async ({ productDir }) => {
+    const registry = controlledDefaultRegistry(scenario);
     const result = await diagnoseCommand({
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
       color: false,
-      registry: controlledDefaultRegistry(scenario),
+      registry,
       fs: { readFile: () => Promise.resolve("") },
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     const report = parseReportText(result.value.output);
     expectSchemaValidReport(report);
-    expect(report.checks.map((check) => check.name)).toEqual(Object.values(CHECK_NAME));
+    expect(report.checks.map((check) => check.name)).toEqual(Object.keys(registry));
     expect(checkByName(report, CHECK_NAME.SPX_REACHABILITY)).toMatchObject({
       verdict: SPX_REACHABILITY_VERDICT.PRESENT,
       bucket: VERDICT_BUCKET.HEALTHY,
