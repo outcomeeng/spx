@@ -16,8 +16,7 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { TOOL_DISCOVERY_PRIORITY } from "@/validation/discovery/tool-finder";
+import { discoverTool } from "@/validation/discovery";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -203,20 +202,13 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("spawns the product-first executable returned by TypeScript command discovery", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const toolPath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      const toolPath = join(path, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS);
       const runner = new RejectingUnexpectedValidationSpawnRunner({
         command: toolPath,
         stdio: EXPECTED_PIPED_STDIO,
       });
-      const discoveryOptions: Parameters<TypeScriptCommandDeps["discoverTool"]>[1][] = [];
       const deps: TypeScriptCommandDeps = {
-        discoverTool: async (tool, options) => {
-          discoveryOptions.push(options);
-          return {
-            found: true,
-            location: { tool, path: toolPath, source: TOOL_DISCOVERY.SOURCES.GLOBAL },
-          };
-        },
+        discoverTool,
         validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
       };
 
@@ -224,12 +216,6 @@ export function registerTypeCheckComplianceTests(): void {
 
       expect(result.exitCode).toBe(0);
       expect(runner.commands).toEqual([toolPath]);
-      expect(discoveryOptions).toEqual([expect.objectContaining({
-        productDir: path,
-        executableName: TYPESCRIPT_TOOL_DISCOVERY.EXECUTABLE_NAME,
-        bundledExecutable: TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE,
-        priority: TOOL_DISCOVERY_PRIORITY.PRODUCT_FIRST,
-      })]);
     });
   });
 

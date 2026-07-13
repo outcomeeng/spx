@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { expect } from "vitest";
 
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -8,7 +8,9 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
@@ -82,6 +84,8 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runExcludeExactOnlyScenario();
     case MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET:
       return runExcludeScopedTargetScenario();
+    case MARKDOWN_SCENARIO_KIND.REPOSITORY_EXCLUDE_PARITY:
+      return runRepositoryExcludeParityScenario();
     case MARKDOWN_SCENARIO_KIND.DUPLICATE_HEADINGS:
       return runDuplicateHeadingsScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER:
@@ -115,6 +119,23 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
     case MARKDOWN_SCENARIO_KIND.COLON_PATH_ERROR:
       return runColonPathErrorScenario();
   }
+}
+
+async function runRepositoryExcludeParityScenario(): Promise<void> {
+  const productDir = process.cwd();
+  const specTreeDir = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+  const result = await validateMarkdown({
+    targets: [markdownDirectoryTarget(specTreeDir)],
+    productDir,
+    applyNodeStatusExcludes: false,
+  });
+  const failingNodeDirectories = new Set(
+    result.errors.map((error) => relative(specTreeDir, dirname(error.file)).replaceAll("\\", "/")),
+  );
+
+  expect([...failingNodeDirectories].sort(compareAsciiStrings)).toEqual(
+    [...createNodeStatusExcludeReader(productDir).entries()].sort(compareAsciiStrings),
+  );
 }
 
 async function runCleanTreeScenario(scenario: MarkdownValidationScenario): Promise<void> {
@@ -644,6 +665,7 @@ const MARKDOWN_MAPPING_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = 
   MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER,
 ]);
 const MARKDOWN_COMPLIANCE_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([
+  MARKDOWN_SCENARIO_KIND.CLEAN_TREE,
   MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS,
   MARKDOWN_SCENARIO_KIND.DEFAULT_DIRECTORIES,
   MARKDOWN_SCENARIO_KIND.FILE_SCOPE_CLEAN_SPX,

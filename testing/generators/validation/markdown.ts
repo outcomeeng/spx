@@ -108,6 +108,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   EXCLUDE_NODE: "excludeNode",
   EXCLUDE_NODE_EXACT_ONLY: "excludeNodeExactOnly",
   EXCLUDE_NODE_SCOPED_TARGET: "excludeNodeScopedTarget",
+  REPOSITORY_EXCLUDE_PARITY: "repositoryExcludeParity",
   DUPLICATE_HEADINGS: "duplicateHeadings",
   CONFIG_BUILDER: "configBuilder",
   COMMAND_DEFAULTS: "commandDefaults",
@@ -239,6 +240,10 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
     {
       title: "excluded spec nodes are skipped when directly targeted",
       kind: MARKDOWN_SCENARIO_KIND.EXCLUDE_NODE_SCOPED_TARGET,
+    },
+    {
+      title: "repository exclusions equal direct spec-node markdown failures",
+      kind: MARKDOWN_SCENARIO_KIND.REPOSITORY_EXCLUDE_PARITY,
     },
     {
       title: "duplicate heading policy is scoped by directory",

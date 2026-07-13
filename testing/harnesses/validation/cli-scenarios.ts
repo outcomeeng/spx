@@ -634,6 +634,8 @@ export function registerValidationCliComplianceTests(): void {
     );
     it("emits a sanitized unknown-subcommand diagnostic without running a stage", expectUnknownSubcommandDiagnostic);
     it("escapes control characters in unknown-subcommand diagnostics", expectControlCharactersEscaped);
+    it("preserves Unicode in unknown-subcommand diagnostics", expectUnicodeArgumentsPreserved);
+    it("truncates overlength unknown-subcommand diagnostics", expectOverlengthArgumentsTruncated);
     it("rejects invalid literal kinds before literal detection", expectInvalidLiteralKindRejectedBeforeHandler);
     it("rejects escaping path operands without invoking a handler", expectEscapingPathOperandsRejected);
     it(
