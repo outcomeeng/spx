@@ -174,11 +174,11 @@ function arbitraryLiteralKindAndValue(): fc.Arbitrary<{ readonly kind: LiteralKi
 export function arbitraryDetectionResult(): fc.Arbitrary<DetectionResult> {
   return fc.record({
     srcReuse: fc.array(arbitraryReuseFinding(), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.none,
       maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
     }),
     testDupe: fc.array(arbitraryDupeFinding(), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.none,
       maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
     }),
   });

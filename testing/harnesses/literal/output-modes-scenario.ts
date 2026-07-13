@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
+import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -13,6 +14,7 @@ import {
   expectedNoProblemsOfKind,
   expectedVerboseLines,
 } from "@testing/harnesses/literal/output-expectations";
+import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 
 export function registerLiteralOutputModeScenarios(): void {
   describe("output-modes — scenarios", () => {
@@ -21,14 +23,14 @@ export function registerLiteralOutputModeScenarios(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const result = await literalCommand({
-          cwd: env.productDir,
-          config: LITERAL_DEFAULTS,
-          files: [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile],
-          json: true,
-        });
+        const result = await runValidationInProcess([
+          validationCliDefinition.subcommands.literal.commandName,
+          inputs.dupeFirstTestFile,
+          inputs.dupeSecondTestFile,
+          validationCommonCliOptions.json.flag,
+        ], { processCwd: () => env.productDir });
 
-        const findings = parseLiteralReuseResult(JSON.parse(result.output));
+        const findings = parseLiteralReuseResult(JSON.parse(result.stdout));
         expect(findings.srcReuse).toHaveLength(0);
         expect(findings.testDupe.length).toBeGreaterThan(0);
       });
