@@ -9,6 +9,7 @@
 # Pi project plugin runtime
 .pi/agents/
 .pi/pi-claude-marketplace/
+.pi-subagents/
 
 # Dependencies
 node_modules/
