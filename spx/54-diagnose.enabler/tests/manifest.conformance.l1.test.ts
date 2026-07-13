@@ -1,162 +1,25 @@
-import fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { CHECK_NAME, type CheckName, parseManifest } from "@/domains/diagnose/manifest";
-import { arbitraryCheckName, arbitraryManifestFacts, manifestJson } from "@testing/generators/diagnose/manifest";
+import {
+  assertCompleteManifestRoundTrips,
+  assertInvalidManifestRootsRejected,
+  assertRequiredManifestFactsRejected,
+  assertUnavailableManifestCheckRejected,
+  assertUnknownManifestCheckRejected,
+  assertUnselectedMethodologyFactsIgnored,
+} from "@testing/harnesses/diagnose/manifest";
 
-const allChecks = (): readonly CheckName[] => Object.values(CHECK_NAME);
-const parseAgainstAllChecks = (rawJson: string) => parseManifest(rawJson, allChecks());
-const isKnownCheckName = (name: string): boolean => (allChecks() as readonly string[]).includes(name);
-
-describe("a manifest parses to the typed contract carrying the floor, marketplace, expected plugins, and check set", () => {
-  it("parses a complete manifest and round-trips the facts each selected check requires", () => {
-    fc.assert(
-      fc.property(arbitraryManifestFacts(), (facts) => {
-        const result = parseAgainstAllChecks(manifestJson(facts));
-        expect(result.ok).toBe(true);
-        if (!result.ok) return;
-        expect(result.value.checks).toEqual(facts.checks);
-
-        if (facts.checks.includes(CHECK_NAME.SPX_REACHABILITY)) {
-          expect(result.value.spxFloor).toBe(facts.spxFloor);
-        } else {
-          expect(result.value.spxFloor).toBeUndefined();
-        }
-
-        if (facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-          expect(result.value.marketplace).toEqual({ name: facts.marketplaceName, source: facts.marketplaceSource });
-          expect(result.value.expectedPlugins).toEqual(facts.expectedPlugins);
-        } else {
-          expect(result.value.marketplace).toBeUndefined();
-          expect(result.value.expectedPlugins).toBeUndefined();
-        }
-
-        if (facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
-          expect(result.value.methodology).toEqual({
-            [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
-            [METHODOLOGY_CONFIG_FIELDS.VERSION]: facts.methodologyVersion,
-          });
-        } else {
-          expect(result.value.methodology).toBeUndefined();
-        }
-      }),
-    );
-  });
+describe("a manifest parses to the complete typed diagnostic contract", () => {
+  it("round-trips every fact required by the selected checks", assertCompleteManifestRoundTrips);
 });
 
-describe("a manifest that selects a check without that check's required consumer facts is rejected", () => {
-  it("rejects a manifest selecting spx-reachability with no spx_floor", () => {
-    const result = parseAgainstAllChecks(JSON.stringify({ checks: [CHECK_NAME.SPX_REACHABILITY] }));
-    expect(result.ok).toBe(false);
-  });
-
-  it("rejects a manifest selecting marketplace-install with no marketplace or expected plugins", () => {
-    const result = parseAgainstAllChecks(JSON.stringify({ checks: [CHECK_NAME.MARKETPLACE_INSTALL] }));
-    expect(result.ok).toBe(false);
-  });
-
-  it("rejects a manifest selecting marketplace-install with an empty expected_plugins array", () => {
-    fc.assert(
-      fc.property(arbitraryManifestFacts(), (facts) => {
-        const result = parseAgainstAllChecks(
-          JSON.stringify({
-            checks: [CHECK_NAME.MARKETPLACE_INSTALL],
-            marketplace: { name: facts.marketplaceName, source: facts.marketplaceSource },
-            expected_plugins: [],
-          }),
-        );
-        expect(result.ok).toBe(false);
-      }),
-    );
-  });
-
-  it("rejects a manifest selecting methodology-context with no methodology facts", () => {
-    const result = parseAgainstAllChecks(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] }));
-    expect(result.ok).toBe(false);
-  });
-
-  it("rejects a manifest selecting methodology-context with malformed methodology facts", () => {
-    fc.assert(
-      fc.property(arbitraryManifestFacts(), (facts) => {
-        const result = parseAgainstAllChecks(
-          JSON.stringify({
-            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
-            [METHODOLOGY_SECTION]: {
-              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
-              [METHODOLOGY_CONFIG_FIELDS.VERSION]: "",
-            },
-          }),
-        );
-        expect(result.ok).toBe(false);
-      }),
-    );
-  });
-
-  it("rejects a manifest selecting methodology-context with incomplete methodology facts", () => {
-    fc.assert(
-      fc.property(arbitraryManifestFacts(), (facts) => {
-        const result = parseAgainstAllChecks(
-          JSON.stringify({
-            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
-            [METHODOLOGY_SECTION]: {
-              [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
-            },
-          }),
-        );
-        expect(result.ok).toBe(false);
-      }),
-    );
-  });
-
-  it("ignores malformed methodology facts when methodology-context is not selected", () => {
-    fc.assert(
-      fc.property(arbitraryManifestFacts(), (facts) => {
-        const checks = facts.checks.filter((check) => check !== CHECK_NAME.METHODOLOGY_CONTEXT);
-        fc.pre(checks.length > 0);
-        const body = JSON.parse(manifestJson({ ...facts, checks })) as Record<string, unknown>;
-        body[METHODOLOGY_SECTION] = {
-          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
-          [METHODOLOGY_CONFIG_FIELDS.VERSION]: "",
-        };
-        const result = parseAgainstAllChecks(JSON.stringify(body));
-        expect(result.ok).toBe(true);
-      }),
-    );
-  });
-
-  it("rejects a manifest naming an unknown check", () => {
-    fc.assert(
-      fc.property(
-        fc.string({ minLength: 1 }).filter((name) => !isKnownCheckName(name)),
-        arbitraryCheckName(),
-        (unknownName, knownName) => {
-          const result = parseAgainstAllChecks(JSON.stringify({ checks: [knownName, unknownName] }));
-          expect(result.ok).toBe(false);
-        },
-      ),
-    );
-  });
-
-  it("rejects a manifest naming a known check that is not available in this build", () => {
-    fc.assert(
-      fc.property(arbitraryCheckName(), arbitraryCheckName(), (available, requested) => {
-        fc.pre(available !== requested);
-        const result = parseManifest(JSON.stringify({ checks: [requested] }), [available]);
-        expect(result.ok).toBe(false);
-      }),
-    );
-  });
-
-  it("rejects a manifest whose check set is empty or absent", () => {
-    expect(parseAgainstAllChecks(JSON.stringify({ checks: [] })).ok).toBe(false);
-    expect(parseAgainstAllChecks(JSON.stringify({})).ok).toBe(false);
-  });
-
-  it("rejects input that is not a JSON object", () => {
-    const nonObjectJson = [JSON.stringify([CHECK_NAME.SPX_REACHABILITY] satisfies CheckName[]), "{ not json"];
-    for (const input of nonObjectJson) {
-      expect(parseAgainstAllChecks(input).ok).toBe(false);
-    }
-  });
+describe("a manifest rejects incomplete or unsupported diagnostic facts", () => {
+  it("rejects every selected check with absent or malformed required facts", assertRequiredManifestFactsRejected);
+  it(
+    "ignores malformed methodology facts when methodology-context is unselected",
+    assertUnselectedMethodologyFactsIgnored,
+  );
+  it("rejects an unknown check name", assertUnknownManifestCheckRejected);
+  it("rejects a known check unavailable in the current build", assertUnavailableManifestCheckRejected);
+  it("rejects empty, absent, non-object, and malformed roots", assertInvalidManifestRootsRejected);
 });
