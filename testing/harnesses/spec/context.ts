@@ -27,12 +27,14 @@ import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
+  SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY,
   SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND,
   specContextAbbreviatedTarget as abbreviatedTarget,
   specContextAmbiguousTargetFixture as ambiguousTargetFixture,
   type SpecContextCoordinationNoteName,
   specContextCoordinationNoteTarget as coordinationNoteTarget,
-  type SpecContextEmptySegmentPosition,
+  type SpecContextEmptySegmentMappingCase,
+  specContextEmptySegmentSourceFixture as emptySegmentSourceFixture,
   specContextEmptySegmentTargetFixture as emptySegmentTargetFixture,
   specContextExactPrefixTargetFixture as exactPrefixTargetFixture,
   specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
@@ -265,17 +267,23 @@ async function assertSpecContextRejectsCoordinationNoteTarget(
 }
 
 async function assertSpecContextRejectsEmptySegmentTarget(
-  position: SpecContextEmptySegmentPosition,
+  mappingCase: SpecContextEmptySegmentMappingCase,
 ): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
       [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
     },
   }, async (env) => {
-    await env.materialize();
-    const snapshot = await env.readFilesystemSnapshot();
-    const fixture = emptySegmentTargetFixture(snapshot, position);
-    expect(resolveSpecContextTarget(fixture.snapshot, fixture.target)).toMatchObject({
+    const sourceFixture = emptySegmentSourceFixture(env.fixture, mappingCase.topology);
+    let snapshot: SpecTreeSnapshot;
+    if (mappingCase.topology === SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.SINGLE_ROOT) {
+      snapshot = await env.readMemorySnapshot(sourceFixture);
+    } else {
+      await env.materialize(sourceFixture);
+      snapshot = await env.readFilesystemSnapshot();
+    }
+    const fixture = emptySegmentTargetFixture(snapshot, mappingCase.position);
+    expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
       failure: {
         input: fixture.target,
         kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT,
@@ -309,7 +317,7 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       await assertSpecContextResolvesAbbreviatedTarget();
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT:
-      await assertSpecContextRejectsEmptySegmentTarget(mappingCase.position);
+      await assertSpecContextRejectsEmptySegmentTarget(mappingCase);
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN:
       await assertSpecContextRejectsUnknownTarget();
