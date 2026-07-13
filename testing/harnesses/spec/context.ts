@@ -12,7 +12,7 @@ import {
 } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
+import { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
 import {
   contextOutputForFormat,
   formatSpecContextTargetFailure,
@@ -32,6 +32,8 @@ import {
   specContextAmbiguousTargetFixture as ambiguousTargetFixture,
   type SpecContextCoordinationNoteName,
   specContextCoordinationNoteTarget as coordinationNoteTarget,
+  type SpecContextEmptySegmentPosition,
+  specContextEmptySegmentTargetFixture as emptySegmentTargetFixture,
   specContextExactPrefixTargetFixture as exactPrefixTargetFixture,
   specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
   specContextNestedAmbiguousTarget as nestedAmbiguousTarget,
@@ -262,6 +264,28 @@ async function assertSpecContextRejectsCoordinationNoteTarget(
   });
 }
 
+async function assertSpecContextRejectsEmptySegmentTarget(
+  position: SpecContextEmptySegmentPosition,
+): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const fixture = emptySegmentTargetFixture(snapshot, position);
+    expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
+      failure: {
+        input: fixture.target,
+        kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT,
+        segment: fixture.segment,
+      },
+      ok: false,
+    });
+  });
+}
+
 export function assertSpecContextTargetDiagnosticSafetyCase(
   safetyCase: SpecContextTargetDiagnosticSafetyCase,
 ): void {
@@ -283,6 +307,9 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ABBREVIATED:
       await assertSpecContextResolvesAbbreviatedTarget();
+      return;
+    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT:
+      await assertSpecContextRejectsEmptySegmentTarget(mappingCase.position);
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN:
       await assertSpecContextRejectsUnknownTarget();

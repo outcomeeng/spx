@@ -16,6 +16,7 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
   AMBIGUOUS: "ambiguous",
   ARTIFACT: "artifact",
   CANONICAL: "canonical",
+  EMPTY_SEGMENT: "empty-segment",
   INVALID_DIRECTORY: SPEC_TREE_ENTRY_TYPE.INVALID,
   ISSUES_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
   PLAN_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
@@ -26,12 +27,21 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
   UNKNOWN: "unknown",
 } as const;
 
+const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES = {
+  EMPTY_TARGET: "empty-target",
+  LEADING_SEPARATOR: "leading-separator",
+  REPEATED_SEPARATOR: "repeated-separator",
+} as const;
+
 export type SpecContextTargetMappingCaseKind =
   (typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES];
 
 type UnrecognizedNodeDirectoryCaseKind =
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.INVALID_DIRECTORY
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.SUPERSEDED_DIRECTORY;
+
+export type SpecContextEmptySegmentPosition =
+  (typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES];
 
 export type SpecContextCoordinationNoteName =
   | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.PLAN_ARTIFACT
@@ -41,8 +51,15 @@ export type SpecContextTargetMappingCase =
   | {
     readonly kind: Exclude<
       SpecContextTargetMappingCaseKind,
-      UnrecognizedNodeDirectoryCaseKind | SpecContextCoordinationNoteName
+      | UnrecognizedNodeDirectoryCaseKind
+      | SpecContextCoordinationNoteName
+      | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT
     >;
+    readonly title: string;
+  }
+  | {
+    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT;
+    readonly position: SpecContextEmptySegmentPosition;
     readonly title: string;
   }
   | {
@@ -72,7 +89,13 @@ export type SpecContextExactPrefixTargetFixture = {
   readonly target: string;
 };
 
+export type SpecContextEmptySegmentTargetFixture = {
+  readonly segment: string;
+  readonly target: string;
+};
+
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
+export const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION = SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES;
 
 function unrecognizedNodeDirectoryName(kind: UnrecognizedNodeDirectoryCaseKind): string {
   const suffix = sampleSpecTreeTestValue(
@@ -168,6 +191,28 @@ export function specContextNestedAmbiguousTarget(
   return `${ambiguity.prefix}/${shortestUniquePrefix(childSegment, siblingSegments)}`;
 }
 
+export function specContextEmptySegmentTargetFixture(
+  snapshot: SpecTreeSnapshot,
+  position: SpecContextEmptySegmentPosition,
+): SpecContextEmptySegmentTargetFixture {
+  const target = snapshot.allNodes.find((node) => node.parentId !== undefined);
+  if (target === undefined) throw new Error("Expected a representative spec-tree fixture with a nested node");
+  const separator = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+  switch (position) {
+    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET:
+      return { segment: "", target: "" };
+    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR:
+      return { segment: "", target: `${separator}${target.id}` };
+    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR: {
+      const segments = target.id.split(separator);
+      return {
+        segment: "",
+        target: [segments[0], "", ...segments.slice(1)].join(separator),
+      };
+    }
+  }
+}
+
 export function specContextCoordinationNoteTarget(
   target: SpecTreeNode,
   noteName: SpecContextCoordinationNoteName,
@@ -192,6 +237,21 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ABBREVIATED,
       title: "maps unique abbreviated node segments to their canonical target",
+    },
+    {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
+      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET,
+      title: "maps an empty target to an empty-segment diagnostic",
+    },
+    {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
+      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR,
+      title: "maps a leading separator to an empty-segment diagnostic",
+    },
+    {
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
+      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR,
+      title: "maps repeated separators to an empty-segment diagnostic",
     },
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN,
