@@ -1,6 +1,6 @@
 /**
  * Diagnose CLI — Commander registration descriptor for `spx diagnose`. Owns the
- * `--manifest` / `--format` parsing, wires the default check registry over the
+ * `--manifest` / `--verbose` / `--json` parsing, wires the default check registry over the
  * real probes, and is the sole site of the process exit keyed to the overall
  * verdict.
  */
@@ -87,9 +87,6 @@ export function createDiagnoseDomain(dependencies: DiagnoseDomainDependencies = 
     name: DIAGNOSE_CLI.COMMAND,
     description: DIAGNOSE_DOMAIN_DESCRIPTION,
     register: (program: Command, invocation: CliInvocation) => {
-      program.configureOutput({
-        writeErr: (value) => invocation.io.writeStderr(sanitizeCliArgument(value)),
-      });
       program
         .command(DIAGNOSE_CLI.COMMAND)
         .description(DIAGNOSE_DOMAIN_DESCRIPTION)
