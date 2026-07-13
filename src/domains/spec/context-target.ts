@@ -139,6 +139,12 @@ export function resolveSpecContextTarget(
   let parentId: string | undefined;
   let resolved: SpecTreeNode | undefined;
   for (const segment of segments) {
+    if (segment.length === 0) {
+      return {
+        failure: { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT, segment },
+        ok: false,
+      };
+    }
     const siblings = snapshot.allNodes.filter((node) => node.parentId === parentId);
     const exact = siblings.find((node) => nodeSegment(node) === segment);
     if (exact !== undefined) {
