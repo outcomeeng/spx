@@ -9,7 +9,6 @@ import {
   arbitraryParserSequence,
   arbitraryValidSettings,
   type ParserFileScenario,
-  sampleScenario,
 } from "@testing/generators/claude/permissions/scenarios";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withPermissionsTempDir } from "./temp-directory";
@@ -22,34 +21,42 @@ export type ParseAllSettings = (
 export async function assertExtractsTypedPermissionRecords(
   parseSettingsFile: ParseSettingsFile,
 ): Promise<void> {
-  await withPermissionsTempDir(async (productDir) => {
-    const scenario = sampleScenario(arbitraryValidSettings());
-    const filePath = join(productDir, CLAUDE_SETTINGS_PATH.LOCAL_FILE);
-    await writeFile(filePath, JSON.stringify(scenario.settings));
-    const result = await parseSettingsFile(filePath);
+  await assertProperty(
+    arbitraryValidSettings(),
+    async (scenario) => {
+      await withPermissionsTempDir(async (productDir) => {
+        const filePath = join(productDir, CLAUDE_SETTINGS_PATH.LOCAL_FILE);
+        await writeFile(filePath, JSON.stringify(scenario.settings));
+        const result = await parseSettingsFile(filePath);
 
-    assert.equal(result.status, SETTINGS_FILE_PARSE_STATUS.SUCCESS);
-    assert.equal(result.filePath, filePath);
-    assert.deepEqual(result.permissions, scenario.expectedPermissions);
-  });
+        assert.equal(result.status, SETTINGS_FILE_PARSE_STATUS.SUCCESS);
+        assert.equal(result.filePath, filePath);
+        assert.deepEqual(result.permissions, scenario.expectedPermissions);
+      });
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
 }
 
 export async function assertReportsMalformedFileAndContinues(
   parseAllSettings: ParseAllSettings,
 ): Promise<void> {
-  await withPermissionsTempDir(async (productDir) => {
-    const filePaths = await writeParserFiles(
-      productDir,
-      sampleScenario(arbitraryMalformedThenValidSequence()),
-    );
-    const results = await parseAllSettings(filePaths);
+  await assertProperty(
+    arbitraryMalformedThenValidSequence(),
+    async (scenario) => {
+      await withPermissionsTempDir(async (productDir) => {
+        const filePaths = await writeParserFiles(productDir, scenario);
+        const results = await parseAllSettings(filePaths);
 
-    assert.equal(results.length, filePaths.length);
-    assert.equal(results[0]?.status, SETTINGS_FILE_PARSE_STATUS.ERROR);
-    assert.equal(results[0]?.filePath, filePaths[0]);
-    assert.equal(results[1]?.status, SETTINGS_FILE_PARSE_STATUS.SUCCESS);
-    assert.equal(results[1]?.filePath, filePaths[1]);
-  });
+        assert.equal(results.length, filePaths.length);
+        assert.equal(results[0]?.status, SETTINGS_FILE_PARSE_STATUS.ERROR);
+        assert.equal(results[0]?.filePath, filePaths[0]);
+        assert.equal(results[1]?.status, SETTINGS_FILE_PARSE_STATUS.SUCCESS);
+        assert.equal(results[1]?.filePath, filePaths[1]);
+      });
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
 }
 
 export async function assertParsingPreservesCardinalityAndOrder(
