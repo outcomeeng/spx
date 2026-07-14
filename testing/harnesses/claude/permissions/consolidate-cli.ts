@@ -2,21 +2,21 @@ import assert from "node:assert/strict";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { CLAUDE_SETTINGS_CLI, CLAUDE_SETTINGS_MUTUAL_EXCLUSION_ERROR } from "@/interfaces/cli/claude";
-import { CLI_EXIT_CODE, PACKAGED_CLI_ENTRYPOINT, PACKAGED_CLI_EXECUTABLE } from "@/interfaces/cli/invocation";
-import {
-  CLAUDE_GLOBAL_SETTINGS_FILE,
-  CLAUDE_LOCAL_SETTINGS_FILE,
-  CLAUDE_SETTINGS_DIRECTORY,
-} from "@/lib/claude/permissions/discovery";
-import { parseSettingsFile } from "@/lib/claude/permissions/parser";
+import { parseSettingsFile } from "@/commands/claude/settings/parser";
+import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
+import { CONSOLIDATION_REPORT_TEXT } from "@/domains/claude/settings/reporter";
 import {
   type ClaudeSettings,
   createEmptyClaudeSettings,
   SETTINGS_FILE_PARSE_STATUS,
-} from "@/lib/claude/permissions/types";
-import { SETTINGS_BACKUP_MARKER } from "@/lib/claude/settings/backup";
-import { CONSOLIDATION_REPORT_TEXT } from "@/lib/claude/settings/reporter";
+} from "@/domains/claude/settings/types";
+import { CLAUDE_SETTINGS_CLI, CLAUDE_SETTINGS_MUTUAL_EXCLUSION_ERROR } from "@/interfaces/cli/claude";
+import {
+  CLI_EXIT_CODE,
+  PACKAGED_CLI_ENTRYPOINT,
+  PACKAGED_CLI_EXECUTABLE,
+  PACKAGED_CLI_INVOCATION,
+} from "@/interfaces/cli/invocation";
 import {
   arbitraryConsolidationCliScenario,
   type ConsolidationCliScenario,
@@ -52,8 +52,15 @@ export async function assertConsolidatePreview(): Promise<void> {
 
     assert.equal(result.exitCode, CLI_EXIT_CODE.SUCCESS);
     assert.ok(result.stdout.includes(CONSOLIDATION_REPORT_TEXT.PREVIEW_MODE));
-    assert.ok(result.stdout.includes(CLAUDE_SETTINGS_CLI.OPTION.WRITE.flag));
-    assert.ok(result.stdout.includes(CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.flag));
+    assert.ok(result.stdout.includes(consolidationUsage(CLAUDE_SETTINGS_CLI.OPTION.WRITE.token)));
+    assert.ok(
+      result.stdout.includes(
+        consolidationUsage(
+          CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.token,
+          CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.operand,
+        ),
+      ),
+    );
     assertReportIncludesPermissions(result.stdout, environment.scenario);
     assert.deepEqual(await productFileSnapshot(environment), before);
   });
@@ -63,7 +70,7 @@ export async function assertConsolidateWritesGlobalSettingsAndBackup(): Promise<
   await withConsolidationCliEnvironment(async (environment) => {
     const result = await runConsolidateCli([
       ...consolidateArguments(environment),
-      CLAUDE_SETTINGS_CLI.OPTION.WRITE.flag,
+      CLAUDE_SETTINGS_CLI.OPTION.WRITE.token,
     ]);
 
     assert.equal(result.exitCode, CLI_EXIT_CODE.SUCCESS);
@@ -75,7 +82,7 @@ export async function assertConsolidateWritesGlobalSettingsAndBackup(): Promise<
     );
 
     const backupName = (await readdir(dirname(environment.globalSettingsPath))).find((name) =>
-      name.startsWith(`${CLAUDE_GLOBAL_SETTINGS_FILE}${SETTINGS_BACKUP_MARKER}`)
+      name.startsWith(`${CLAUDE_SETTINGS_PATH.GLOBAL_FILE}${CLAUDE_SETTINGS_PATH.BACKUP_MARKER}`)
     );
     assert.ok(backupName);
     assert.deepEqual(
@@ -90,7 +97,7 @@ export async function assertConsolidateWritesOutputFile(): Promise<void> {
     const globalSettingsBefore = await readFile(environment.globalSettingsPath);
     const result = await runConsolidateCli([
       ...consolidateArguments(environment),
-      CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.flag,
+      CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.token,
       environment.outputFilePath,
     ]);
 
@@ -110,7 +117,7 @@ export async function assertConsolidateReportsNoSettings(): Promise<void> {
     const entriesBefore = await readdir(productDir);
     const result = await runConsolidateCli([
       ...consolidateCommandPath(),
-      CLAUDE_SETTINGS_CLI.OPTION.ROOT.flag,
+      CLAUDE_SETTINGS_CLI.OPTION.ROOT.token,
       productDir,
     ]);
 
@@ -124,8 +131,8 @@ export async function assertConsolidateRejectsMutuallyExclusiveOutputs(): Promis
   await withConsolidationCliEnvironment(async (environment) => {
     const result = await runConsolidateCli([
       ...consolidateArguments(environment),
-      CLAUDE_SETTINGS_CLI.OPTION.WRITE.flag,
-      CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.flag,
+      CLAUDE_SETTINGS_CLI.OPTION.WRITE.token,
+      CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE.token,
       environment.outputFilePath,
     ]);
 
@@ -141,16 +148,16 @@ async function withConsolidationCliEnvironment<T>(
     const scenario = sampleScenario(arbitraryConsolidationCliScenario());
     const globalSettingsPath = join(
       productDir,
-      CLAUDE_SETTINGS_DIRECTORY,
-      CLAUDE_GLOBAL_SETTINGS_FILE,
+      CLAUDE_SETTINGS_PATH.DIRECTORY,
+      CLAUDE_SETTINGS_PATH.GLOBAL_FILE,
     );
     const outputFilePath = join(productDir, ...scenario.outputPathSegments);
     const projectSettingsFiles = scenario.projects.map((project) => ({
       path: join(
         productDir,
         project.relativeDirectory,
-        CLAUDE_SETTINGS_DIRECTORY,
-        CLAUDE_LOCAL_SETTINGS_FILE,
+        CLAUDE_SETTINGS_PATH.DIRECTORY,
+        CLAUDE_SETTINGS_PATH.LOCAL_FILE,
       ),
       settings: project.settings,
     }));
@@ -189,12 +196,21 @@ function consolidateCommandPath(): string[] {
   ];
 }
 
+function consolidationUsage(option: string, operand?: string): string {
+  return [
+    PACKAGED_CLI_INVOCATION,
+    ...consolidateCommandPath(),
+    option,
+    ...(operand === undefined ? [] : [operand]),
+  ].join(" ");
+}
+
 function consolidateArguments(environment: ConsolidationCliEnvironment): string[] {
   return [
     ...consolidateCommandPath(),
-    CLAUDE_SETTINGS_CLI.OPTION.ROOT.flag,
+    CLAUDE_SETTINGS_CLI.OPTION.ROOT.token,
     environment.productDir,
-    CLAUDE_SETTINGS_CLI.OPTION.GLOBAL_SETTINGS.flag,
+    CLAUDE_SETTINGS_CLI.OPTION.GLOBAL_SETTINGS.token,
     environment.globalSettingsPath,
   ];
 }

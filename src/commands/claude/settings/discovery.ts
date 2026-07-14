@@ -1,13 +1,10 @@
 /**
- * Discovery of Claude Code settings files across project directories
+ * Filesystem discovery of Claude Code settings files across product directories.
  */
+import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-
-export const CLAUDE_SETTINGS_DIRECTORY = ".claude";
-export const CLAUDE_LOCAL_SETTINGS_FILE = "settings.local.json";
-export const CLAUDE_GLOBAL_SETTINGS_FILE = "settings.json";
 
 /**
  * Recursively find all .claude/settings.local.json files under a root directory
@@ -19,21 +16,12 @@ export const CLAUDE_GLOBAL_SETTINGS_FILE = "settings.json";
  * @param visited - Set of visited paths to avoid symlink loops (internal use)
  * @returns Promise resolving to array of absolute paths to settings.local.json files
  * @throws Error if root directory doesn't exist or permission denied
- *
- * @example
- * ```typescript
- * const files = await findSettingsFiles("~/Code");
- * // Returns: [
- * //   "/Users/user/Code/project-a/.claude/settings.local.json",
- * //   "/Users/user/Code/project-b/.claude/settings.local.json"
- * // ]
- * ```
  */
 export async function findSettingsFiles(
   root: string,
   visited: Set<string> = new Set(),
 ): Promise<string[]> {
-  const normalizedRoot = path.resolve(root.replace(/^~/, process.env.HOME || "~"));
+  const normalizedRoot = path.resolve(root);
 
   if (visited.has(normalizedRoot)) {
     return [];
@@ -72,8 +60,8 @@ async function settingsFilesForEntry(
   if (!entry.isDirectory()) return [];
 
   const fullPath = path.join(normalizedRoot, entry.name);
-  if (entry.name === CLAUDE_SETTINGS_DIRECTORY) {
-    const settingsPath = path.join(fullPath, CLAUDE_LOCAL_SETTINGS_FILE);
+  if (entry.name === CLAUDE_SETTINGS_PATH.DIRECTORY) {
+    const settingsPath = path.join(fullPath, CLAUDE_SETTINGS_PATH.LOCAL_FILE);
     return await isValidSettingsFile(settingsPath) ? [settingsPath] : [];
   }
 

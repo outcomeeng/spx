@@ -1,4 +1,4 @@
-import { findSettingsFiles } from "@/lib/claude/permissions/discovery";
+import { findSettingsFiles } from "@/commands/claude/settings/discovery";
 import { assertDiscoveryIsExhaustive } from "@testing/harnesses/claude/permissions/discovery";
 import { describe, test } from "vitest";
 

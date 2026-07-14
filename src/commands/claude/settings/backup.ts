@@ -1,9 +1,8 @@
 /**
  * Backup management for Claude Code settings files
  */
+import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
 import fs from "node:fs/promises";
-
-export const SETTINGS_BACKUP_MARKER = ".backup.";
 
 /**
  * Create a timestamped backup of a settings file
@@ -13,34 +12,32 @@ export const SETTINGS_BACKUP_MARKER = ".backup.";
  * Example: `settings.json.backup.2026-01-08-143022`
  *
  * @param settingsPath - Absolute path to settings file to back up
+ * @param now - Caller-owned clock used to generate the backup timestamp
  * @returns Promise resolving to backup file path
  * @throws Error if source file doesn't exist or backup fails
- *
- * @example
- * ```typescript
- * const backupPath = await createBackup("/Users/example/.claude/settings.json");
- * // Returns: "/Users/example/.claude/settings.json.backup.2026-01-08-143022"
- * ```
  */
-export async function createBackup(settingsPath: string): Promise<string> {
+export async function createBackup(
+  settingsPath: string,
+  now: () => Date,
+): Promise<string> {
   try {
     // Verify source file exists
     await fs.access(settingsPath, fs.constants.R_OK);
 
     // Generate timestamp: YYYY-MM-DD-HHmmss
-    const now = new Date();
+    const timestampSource = now();
     const timestamp = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
+      timestampSource.getFullYear(),
+      String(timestampSource.getMonth() + 1).padStart(2, "0"),
+      String(timestampSource.getDate()).padStart(2, "0"),
     ].join("-") + "-" + [
-      String(now.getHours()).padStart(2, "0"),
-      String(now.getMinutes()).padStart(2, "0"),
-      String(now.getSeconds()).padStart(2, "0"),
+      String(timestampSource.getHours()).padStart(2, "0"),
+      String(timestampSource.getMinutes()).padStart(2, "0"),
+      String(timestampSource.getSeconds()).padStart(2, "0"),
     ].join("");
 
     // Build backup path
-    const backupPath = `${settingsPath}${SETTINGS_BACKUP_MARKER}${timestamp}`;
+    const backupPath = `${settingsPath}${CLAUDE_SETTINGS_PATH.BACKUP_MARKER}${timestamp}`;
 
     // Copy file to backup location
     await fs.copyFile(settingsPath, backupPath);

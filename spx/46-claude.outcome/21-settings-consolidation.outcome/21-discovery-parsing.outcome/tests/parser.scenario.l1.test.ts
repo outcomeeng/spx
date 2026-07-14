@@ -1,4 +1,4 @@
-import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/parser";
+import { parseAllSettings, parseSettingsFile } from "@/commands/claude/settings/parser";
 import {
   assertExtractsTypedPermissionRecords,
   assertReportsMalformedFileAndContinues,

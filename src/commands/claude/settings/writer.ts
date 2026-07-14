@@ -7,7 +7,7 @@ import path from "node:path";
 
 import { type AtomicWriteFileSystem, type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 
-import type { ClaudeSettings } from "../permissions/types";
+import type { ClaudeSettings } from "@/domains/claude/settings/types";
 
 /**
  * Filesystem abstraction for dependency injection

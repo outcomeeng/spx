@@ -1,7 +1,13 @@
 /**
  * Formatting and reporting of consolidation results
  */
-import type { ConsolidationResult } from "../permissions/types";
+import { CLAUDE_LOCAL_SETTINGS_GLOB } from "./files";
+import { type ConsolidationResult, PERMISSION_CATEGORY, type PermissionCategory } from "./types";
+
+export interface ConsolidationReportUsage {
+  readonly writeGlobalSettings: string;
+  readonly writeOutputFile: string;
+}
 
 export const CONSOLIDATION_REPORT_TEXT = {
   NO_SETTINGS_FILES: "No settings files found",
@@ -10,6 +16,10 @@ export const CONSOLIDATION_REPORT_TEXT = {
   SETTINGS_WRITTEN: "Settings written to:",
   GLOBAL_SETTINGS_UPDATED: "Global settings updated:",
 } as const;
+
+export function formatNoSettingsReport(root: string): string {
+  return `${CONSOLIDATION_REPORT_TEXT.NO_SETTINGS_FILES} in ${root}\n\nSearched for: ${CLAUDE_LOCAL_SETTINGS_GLOB}`;
+}
 
 /**
  * Format consolidation result as user-friendly text report
@@ -26,6 +36,7 @@ export const CONSOLIDATION_REPORT_TEXT = {
  * @param previewOnly - Whether this is preview-only mode (default behavior)
  * @param globalSettingsPath - Path to global settings file
  * @param outputFile - Optional output file path
+ * @param usage - Caller-owned command usage rendered in next-step instructions
  * @returns Formatted report string
  *
  * @example
@@ -51,8 +62,9 @@ export const CONSOLIDATION_REPORT_TEXT = {
 export function formatReport(
   result: ConsolidationResult,
   previewOnly: boolean,
-  globalSettingsPath?: string,
+  globalSettingsPath: string,
   outputFile?: string,
+  usage?: ConsolidationReportUsage,
 ): string {
   const totalAdded = result.added.allow.length
     + result.added.deny.length
@@ -65,7 +77,7 @@ export function formatReport(
     ...conflictLines(result),
     ...backupLines(result),
     ...summaryLines(result),
-    ...finalStatusLines(result, previewOnly, globalSettingsPath, outputFile),
+    ...finalStatusLines(result, previewOnly, globalSettingsPath, outputFile, usage),
   ].join("\n");
 }
 
@@ -83,14 +95,14 @@ function permissionLines(result: ConsolidationResult, totalAdded: number): strin
   if (totalAdded === 0) return ["No new permissions to add (all permissions already in global settings)", ""];
   return [
     `Permissions to add: ${totalAdded}`,
-    ...permissionCategoryLines("allow", result.added.allow),
-    ...permissionCategoryLines("deny", result.added.deny),
-    ...permissionCategoryLines("ask", result.added.ask),
+    ...permissionCategoryLines(PERMISSION_CATEGORY.ALLOW, result.added.allow),
+    ...permissionCategoryLines(PERMISSION_CATEGORY.DENY, result.added.deny),
+    ...permissionCategoryLines(PERMISSION_CATEGORY.ASK, result.added.ask),
     "",
   ];
 }
 
-function permissionCategoryLines(label: string, permissions: readonly string[]): string[] {
+function permissionCategoryLines(label: PermissionCategory, permissions: readonly string[]): string[] {
   if (permissions.length === 0) return [];
   return ["", `  ${label}:`, ...permissions.map((permission) => `    + ${permission}`)];
 }
@@ -136,16 +148,21 @@ function optionalSummaryLines(result: ConsolidationResult): string[] {
 function finalStatusLines(
   result: ConsolidationResult,
   previewOnly: boolean,
-  globalSettingsPath?: string,
+  globalSettingsPath: string,
   outputFile?: string,
+  usage?: ConsolidationReportUsage,
 ): string[] {
   if (previewOnly) {
     return [
       `ℹ️  ${CONSOLIDATION_REPORT_TEXT.PREVIEW_MODE}`,
-      "",
-      "To apply changes:",
-      "  • Modify global settings: spx claude settings consolidate --write",
-      "  • Write to file: spx claude settings consolidate --output-file /path/to/file",
+      ...(usage === undefined
+        ? []
+        : [
+          "",
+          "To apply changes:",
+          `  • Modify global settings: ${usage.writeGlobalSettings}`,
+          `  • Write to file: ${usage.writeOutputFile}`,
+        ]),
     ];
   }
   if (outputFile) {
@@ -153,11 +170,11 @@ function finalStatusLines(
       `✓ ${CONSOLIDATION_REPORT_TEXT.SETTINGS_WRITTEN} ${result.outputPath || outputFile}`,
       "",
       "To apply to your global settings:",
-      `  • Review the file, then copy to: ${globalSettingsPath || "~/.claude/settings.json"}`,
-      "  • Or run: spx claude settings consolidate --write",
+      `  • Review the file, then copy to: ${globalSettingsPath}`,
+      ...(usage === undefined ? [] : [`  • Or run: ${usage.writeGlobalSettings}`]),
     ];
   }
   return [
-    `✓ ${CONSOLIDATION_REPORT_TEXT.GLOBAL_SETTINGS_UPDATED} ${globalSettingsPath || "~/.claude/settings.json"}`,
+    `✓ ${CONSOLIDATION_REPORT_TEXT.GLOBAL_SETTINGS_UPDATED} ${globalSettingsPath}`,
   ];
 }

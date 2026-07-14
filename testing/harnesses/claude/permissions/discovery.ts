@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { CLAUDE_LOCAL_SETTINGS_FILE, CLAUDE_SETTINGS_DIRECTORY } from "@/lib/claude/permissions/discovery";
+import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
 import {
   arbitraryDiscoveryTree,
   arbitraryVaryingDepthDiscoveryTree,
@@ -56,8 +56,8 @@ async function withDiscoveryTree<T>(
   return withPermissionsTempDir(async (productDir) => {
     const expectedPaths: string[] = [];
     for (const settingsParent of scenario.settingsParents) {
-      const settingsDir = join(productDir, ...settingsParent, CLAUDE_SETTINGS_DIRECTORY);
-      const settingsPath = join(settingsDir, CLAUDE_LOCAL_SETTINGS_FILE);
+      const settingsDir = join(productDir, ...settingsParent, CLAUDE_SETTINGS_PATH.DIRECTORY);
+      const settingsPath = join(settingsDir, CLAUDE_SETTINGS_PATH.LOCAL_FILE);
       await mkdir(settingsDir, { recursive: true });
       await writeFile(settingsPath, JSON.stringify({ permissions: {} }));
       expectedPaths.push(settingsPath);

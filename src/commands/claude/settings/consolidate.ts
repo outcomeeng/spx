@@ -9,28 +9,34 @@
  * 5. Writing - Atomically write merged settings (if not dry-run)
  * 6. Reporting - Format and return result summary
  */
-import { findSettingsFiles } from "@/lib/claude/permissions/discovery";
-import { mergePermissions } from "@/lib/claude/permissions/merger";
-import { parseAllSettings, parseSettingsFile } from "@/lib/claude/permissions/parser";
-import { createEmptyClaudeSettings, SETTINGS_FILE_PARSE_STATUS } from "@/lib/claude/permissions/types";
-import { createBackup } from "@/lib/claude/settings/backup";
-import { CONSOLIDATION_REPORT_TEXT, formatReport } from "@/lib/claude/settings/reporter";
-import { writeSettings } from "@/lib/claude/settings/writer";
-import os from "node:os";
-import path from "node:path";
+import { mergePermissions } from "@/domains/claude/settings/merger";
+import {
+  type ConsolidationReportUsage,
+  formatNoSettingsReport,
+  formatReport,
+} from "@/domains/claude/settings/reporter";
+import { createEmptyClaudeSettings, SETTINGS_FILE_PARSE_STATUS } from "@/domains/claude/settings/types";
+import { createBackup } from "./backup";
+import { findSettingsFiles } from "./discovery";
+import { parseAllSettings, parseSettingsFile } from "./parser";
+import { writeSettings } from "./writer";
 
 /**
  * Options for consolidate command
  */
 export interface ConsolidateOptions {
-  /** Root directory to scan for settings files (default: ~/Code) */
-  root?: string;
+  /** Absolute root directory to scan for settings files. */
+  root: string;
   /** Write changes to global settings file (default: false = preview only) */
   write?: boolean;
   /** Write merged settings to specified file instead of global settings */
   outputFile?: string;
-  /** Path to global settings file (for testing; default: ~/.claude/settings.json) */
-  globalSettings?: string;
+  /** Absolute path to the global settings file. */
+  globalSettings: string;
+  /** Invocation-host clock used for backup names. */
+  now: () => Date;
+  /** Caller-owned command usage for report next-step instructions. */
+  usage?: ConsolidationReportUsage;
 }
 
 /**
@@ -50,25 +56,12 @@ export interface ConsolidateOptions {
  * @param options - Command options
  * @returns Formatted report string
  * @throws Error if discovery, parsing, or writing fails
- *
- * @example
- * ```typescript
- * const preview = await consolidateCommand({ root: "~/Code" });
- * const written = await consolidateCommand({ root: "~/Code", write: true });
- * ```
  */
 export async function consolidateCommand(
-  options: ConsolidateOptions = {},
+  options: ConsolidateOptions,
 ): Promise<string> {
-  // Resolve paths
-  const root = options.root
-    ? path.resolve(options.root.replace(/^~/, os.homedir()))
-    : path.join(os.homedir(), "Code");
-
-  const globalSettingsPath = options.globalSettings
-    || path.join(os.homedir(), ".claude", "settings.json");
-
-  const shouldWrite = options.write || false;
+  const { root, globalSettings: globalSettingsPath } = options;
+  const shouldWrite = options.write ?? false;
   const outputFile = options.outputFile;
   const previewOnly = !shouldWrite && !outputFile;
 
@@ -76,7 +69,7 @@ export async function consolidateCommand(
   const settingsFiles = await findSettingsFiles(root);
 
   if (settingsFiles.length === 0) {
-    return `${CONSOLIDATION_REPORT_TEXT.NO_SETTINGS_FILES} in ${root}\n\nSearched for: **/.claude/settings.local.json`;
+    return formatNoSettingsReport(root);
   }
 
   // Step 2: Parsing - extract permissions from each file
@@ -118,7 +111,7 @@ export async function consolidateCommand(
   // Step 5: Backup (only when writing to global settings)
   if (shouldWrite) {
     try {
-      result.backupPath = await createBackup(globalSettingsPath);
+      result.backupPath = await createBackup(globalSettingsPath, options.now);
     } catch (error) {
       // If backup fails because file doesn't exist, that's okay (first time)
       if (error instanceof Error && !error.message.includes("not found")) {
@@ -127,7 +120,7 @@ export async function consolidateCommand(
     }
   }
 
-  // Step 6: Write (if --write or --output-file specified)
+  // Step 6: Write when either output mode is selected.
   if (shouldWrite) {
     const updatedSettings = {
       ...globalSettings,
@@ -139,11 +132,10 @@ export async function consolidateCommand(
       ...globalSettings,
       permissions: merged,
     };
-    const resolvedOutputPath = path.resolve(outputFile.replace(/^~/, os.homedir()));
-    await writeSettings(resolvedOutputPath, updatedSettings);
-    result.outputPath = resolvedOutputPath;
+    await writeSettings(outputFile, updatedSettings);
+    result.outputPath = outputFile;
   }
 
   // Step 7: Report
-  return formatReport(result, previewOnly, globalSettingsPath, outputFile);
+  return formatReport(result, previewOnly, globalSettingsPath, outputFile, options.usage);
 }
