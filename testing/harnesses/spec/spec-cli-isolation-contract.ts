@@ -6,6 +6,7 @@ export const SPEC_CLI_ISOLATION = {
   TEMP_DIRECTORY: "tmp",
   NETWORK_ATTEMPTS_ENV: "SPX_SPEC_CLI_NETWORK_ATTEMPTS_FILE",
   NETWORK_ATTEMPTS_FILE: "network-attempts.json",
+  NETWORK_GUARD_MODULE: "spec-cli-network-guard.mjs",
   XDG_CACHE_DIRECTORY: "xdg-cache",
   XDG_CONFIG_DIRECTORY: "xdg-config",
   XDG_DATA_DIRECTORY: "xdg-data",
