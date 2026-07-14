@@ -2,7 +2,7 @@
 
 PROVIDES deterministic spec-tree context ingestion for CLI consumers
 SO THAT agents and developers requesting work context
-CAN receive the complete read set for a node — methodology identity, product root, bootstrap state, schema version, specs, decisions with citing-file provenance, coordination notes, runtime guides, and local overlays — in one machine-readable response without LLM inference
+CAN receive the complete read set for a node — methodology identity, product root, bootstrap state, schema version, specs, decisions with citing-file provenance, coordination notes, runtime guides, and local overlays — and, on request, every read document's exact content in one machine-readable response without LLM inference
 
 ## Assertions
 
@@ -18,10 +18,13 @@ CAN receive the complete read set for a node — methodology identity, product r
 - Given coordination notes exist at the product root, at an ancestor, and at the target, when the manifest is built, then each note appears as a `coordination` read entry in walk order ([test](tests/read-set.scenario.l1.test.ts))
 - Given runtime guide files exist at the product root and in node directories along the target path, when the manifest is built, then each guide appears as a `guide` read entry ([test](tests/read-set.scenario.l1.test.ts))
 - Given local overlays exist, when the manifest is built, then the lifecycle overlay appears as a `lifecycle-overlay` read entry and every other overlay appears as a listed `overlay` entry ([test](tests/read-set.scenario.l1.test.ts))
+- Given the machine output mode requests document content, when the manifest is built, then every read entry carries the document's exact UTF-8 content, its raw-byte digest naming the hash algorithm, and its byte count, and no listed entry carries content, digest, or byte count ([test](tests/content.scenario.l1.test.ts))
+- Given a read document whose bytes are not valid UTF-8, when document content is requested, then the command fails naming the exact document path ([test](tests/content.scenario.l1.test.ts))
+- Given the machine output mode does not request document content, when the manifest is built, then no entry carries content, digest, or byte count ([test](tests/content.scenario.l1.test.ts))
 
 ### Properties
 
-- The projection is deterministic: identical tracked tree content produces byte-identical machine output across repeated runs ([test](tests/determinism.property.l1.test.ts))
+- The projection is deterministic: identical tracked tree content produces byte-identical machine output across repeated runs, with and without document content ([test](tests/determinism.property.l1.test.ts))
 
 ### Compliance
 
