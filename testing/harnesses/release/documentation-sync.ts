@@ -39,6 +39,7 @@ import {
   arbitraryDefaultDocumentationSyncScenario,
   arbitraryDuplicateDocumentationPathSet,
   arbitraryFirstReleaseDocumentationSyncScenario,
+  arbitraryMixedVersionFirstReleaseDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
@@ -569,6 +570,13 @@ function registerComplianceTests(): void {
       await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
         new PartiallyUpdatingDocumentationAgent(),
+      );
+    });
+
+    it("rejects stale first-release version references when the released version is already present", async () => {
+      await assertVersionValidationPrecedesFaithfulnessAudit(
+        sampleReleaseTestValue(arbitraryMixedVersionFirstReleaseDocumentationSyncScenario()),
+        new PassiveDocumentationAgent(),
       );
     });
 

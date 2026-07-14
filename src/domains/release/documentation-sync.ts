@@ -174,39 +174,21 @@ function assertFirstReleaseVersionReferencesUpdated(
   releaseVersion: string,
   path: string,
 ): void {
-  const originalReferences = countSemanticVersionReferences(originalContent);
-  const updatedReferences = countSemanticVersionReferences(content);
-  let containsPriorReference = false;
-  let replacedPriorReference = false;
+  const originalReferences = semanticVersionReferences(originalContent);
+  const updatedReferences = semanticVersionReferences(content);
 
-  for (const [version, originalCount] of originalReferences) {
+  for (const version of originalReferences) {
     if (version === releaseVersion) continue;
-    containsPriorReference = true;
-    const updatedCount = updatedReferences.get(version) ?? 0;
-    if (updatedCount === originalCount) continue;
-    if (updatedCount === 0) {
-      replacedPriorReference = true;
-      continue;
+    if (updatedReferences.has(version)) {
+      throw new Error(`Updated documentation still references prior version ${version}: ${path}`);
     }
-    throw new Error(`Updated documentation only partially replaced version ${version}: ${path}`);
-  }
-
-  if (
-    !originalReferences.has(releaseVersion)
-    && containsPriorReference
-    && !replacedPriorReference
-  ) {
-    throw new Error(
-      `Updated documentation added release version ${releaseVersion} without replacing a prior version: ${path}`,
-    );
   }
 }
 
-function countSemanticVersionReferences(content: string): ReadonlyMap<string, number> {
-  const references = new Map<string, number>();
+function semanticVersionReferences(content: string): ReadonlySet<string> {
+  const references = new Set<string>();
   for (const match of content.matchAll(SEMANTIC_VERSION_REFERENCE_PATTERN)) {
-    const version = match[1];
-    references.set(version, (references.get(version) ?? 0) + 1);
+    references.add(match[1]);
   }
   return references;
 }
