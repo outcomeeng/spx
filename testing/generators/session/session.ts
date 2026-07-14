@@ -233,6 +233,31 @@ function arbitraryContentWithAbsentKey(): fc.Arbitrary<string> {
     );
 }
 
+export interface SessionMetadataUnknownKeyScenario {
+  readonly content: string;
+  readonly unknownKey: string;
+}
+
+/** Frontmatter carrying a generated key outside the declared session metadata shape. */
+export function arbitrarySessionMetadataUnknownKeyScenario(): fc.Arbitrary<SessionMetadataUnknownKeyScenario> {
+  return fc
+    .tuple(
+      arbitrarySessionPriority(),
+      arbitrarySafeScalar(),
+      arbitrarySafeScalar(),
+      arbitrarySafeScalar(),
+      arbitraryAbsentKey(),
+      arbitrarySafeScalar(),
+    )
+    .map(([priority, gitRef, goal, nextStep, unknownKey, unknownValue]) => ({
+      content: buildSessionContent({
+        ...declaredFrontMatter(priority, gitRef, goal, nextStep),
+        [unknownKey]: unknownValue,
+      }),
+      unknownKey,
+    }));
+}
+
 /** Declared shape with one declared key removed. */
 function arbitraryContentMissingDeclaredKey(): fc.Arbitrary<string> {
   return fc
