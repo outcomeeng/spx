@@ -1,5 +1,10 @@
 import { resolveFullPipelineStages } from "@/commands/validation/all";
-import { createValidationDomain } from "@/interfaces/cli/validation";
+import {
+  createValidationDomain,
+  deriveValidationAllOverrideCliOptions,
+  validationAllOverrideCliOptions,
+  validationOptionPropertyName,
+} from "@/interfaces/cli/validation";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
@@ -65,6 +70,27 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
 
     it("rejects unsupported validation all override metadata shapes", () => {
       expectValidationAllOverrideMetadataRejectsUnsupportedFlags();
+    });
+
+    it("derives validation all override options from registered stage metadata", () => {
+      const derivedOptions = deriveValidationAllOverrideCliOptions(validationPipelineStages);
+
+      expect(derivedOptions).toEqual(validationAllOverrideCliOptions);
+      for (const stage of validationPipelineStages) {
+        const stageOptions = derivedOptions.filter((option) => option.stageName === stage.name);
+        const override = stage.participation.override;
+        if (override === undefined) {
+          expect(stageOptions).toEqual([]);
+          continue;
+        }
+        expect(stageOptions).toEqual([{
+          stageName: stage.name,
+          flag: override.flag,
+          description: override.description,
+          reason: override.reason,
+          optionPropertyName: validationOptionPropertyName(override.flag),
+        }]);
+      }
     });
   });
 });
