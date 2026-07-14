@@ -22,7 +22,6 @@ export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_DIGIT_BOUNDARY = String.raw`\d`;
-const SEMANTIC_VERSION_REFERENCE_PATTERN = /(?<!\d)v?(\d+\.\d+\.\d+)(?!\d)/gu;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -30,7 +29,6 @@ export interface StagedDocumentation {
     readonly sourcePath: string;
     readonly stagedPath: string;
     readonly targetPath: string;
-    readonly originalContent: string;
   }[];
   readonly cleanup: () => Promise<void>;
 }
@@ -109,10 +107,9 @@ export async function composeDocumentationSync(
       sourcePath,
       stagedPath,
       targetPath,
-      originalContent,
     }) => {
       const content = await options.readDocument(stagedPath);
-      assertReleasedVersionReferencesUpdated(originalContent, content, options.releaseData, sourcePath);
+      assertReleasedVersionReferencesUpdated(content, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, content };
     }));
     await options.faithfulnessAuditor({
@@ -150,7 +147,6 @@ export function createDocumentationFaithfulnessAuditor(
 }
 
 function assertReleasedVersionReferencesUpdated(
-  originalContent: string,
   content: string,
   releaseData: ReleaseData,
   path: string,
@@ -158,39 +154,11 @@ function assertReleasedVersionReferencesUpdated(
   if (!containsReleaseVersionReference(content, releaseData.version)) {
     throw new Error(`Updated documentation does not reference release version ${releaseData.version}: ${path}`);
   }
-  if (releaseData.previousTag === null) {
-    assertFirstReleaseVersionReferencesUpdated(originalContent, content, releaseData.version, path);
-    return;
-  }
+  if (releaseData.previousTag === null) return;
   const previousVersion = releaseVersionFromTag(releaseData.previousTag);
   if (containsReleaseVersionReference(content, previousVersion)) {
     throw new Error(`Updated documentation still references previous release version ${previousVersion}: ${path}`);
   }
-}
-
-function assertFirstReleaseVersionReferencesUpdated(
-  originalContent: string,
-  content: string,
-  releaseVersion: string,
-  path: string,
-): void {
-  const originalReferences = semanticVersionReferences(originalContent);
-  const updatedReferences = semanticVersionReferences(content);
-
-  for (const version of originalReferences) {
-    if (version === releaseVersion) continue;
-    if (updatedReferences.has(version)) {
-      throw new Error(`Updated documentation still references prior version ${version}: ${path}`);
-    }
-  }
-}
-
-function semanticVersionReferences(content: string): ReadonlySet<string> {
-  const references = new Set<string>();
-  for (const match of content.matchAll(SEMANTIC_VERSION_REFERENCE_PATTERN)) {
-    references.add(match[1]);
-  }
-  return references;
 }
 
 function containsReleaseVersionReference(content: string, version: string): boolean {
