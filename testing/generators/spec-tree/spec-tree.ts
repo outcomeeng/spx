@@ -102,15 +102,6 @@ const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
-export const RETIRED_SPEC_APPLY_FIXTURE = {
-  command: "apply",
-  excludeFile: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/EXCLUDE`,
-  pythonConfigFile: "pyproject.toml",
-  pytestSection: "tool.pytest.ini_options",
-  // Commander emits this prefix for unknown subcommands before domain action handlers run.
-  unknownCommandPrefix: "error: unknown command",
-} as const;
-
 export const SPEC_TREE_TEST_GENERATOR = {
   counts: {
     assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
