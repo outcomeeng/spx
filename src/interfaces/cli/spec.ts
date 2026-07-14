@@ -21,6 +21,7 @@ export const SPEC_DOMAIN_CLI = {
   STATUS_COMMAND: "status",
   NEXT_COMMAND: "next",
   CONTEXT_COMMAND: "context",
+  RETIRED_APPLY_COMMAND: "apply",
   JSON_OPTION: "--json",
   CONTENT_OPTION: "--content",
   FORMAT_OPTION_FLAG: "--format",
