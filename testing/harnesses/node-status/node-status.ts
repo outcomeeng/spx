@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
-import { runNodeCommand } from "@/commands/test";
+import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
 import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_FILENAME, type NodeOutcomeResolver } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
@@ -39,7 +39,22 @@ export type ClassificationTreeNodeExpectation = {
 export type ClassificationTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly expectations: readonly ClassificationTreeNodeExpectation[];
-  recordOutcomeEvidence(): Promise<NodeOutcomeResolver>;
+  readonly fixturePayloads: {
+    readonly spec: string;
+    readonly test: string;
+  };
+  recordOutcomeEvidence(): Promise<{
+    readonly resolveOutcome: NodeOutcomeResolver;
+    readonly runs: readonly {
+      readonly nodeId: string;
+      readonly evidencePaths: readonly string[];
+      readonly result: RecordedTestRun;
+      readonly runnerCalls: readonly {
+        readonly command: string;
+        readonly args: readonly string[];
+      }[];
+    }[];
+  }>;
 };
 
 // Materialize a generated classification tree into a temp product directory:
@@ -89,22 +104,41 @@ export async function withClassificationTree(
     await callback({
       env,
       expectations,
+      fixturePayloads: { spec: specContent, test: testContent },
       recordOutcomeEvidence: async () => {
+        const runs: Array<{
+          readonly nodeId: string;
+          readonly evidencePaths: readonly string[];
+          readonly result: RecordedTestRun;
+          readonly runnerCalls: readonly {
+            readonly command: string;
+            readonly args: readonly string[];
+          }[];
+        }> = [];
         for (const expectation of expectations) {
           if (!expectation.facts.hasVerificationReferences || expectation.facts.isExcluded) continue;
-          await runNodeCommand(
+          const runner = createRecordingCommandRunner({
+            present: true,
+            exitCode: expectation.facts.runnerExitCode,
+          });
+          const result = await runNodeCommand(
             { productDir: env.productDir, nodePath: `${ROOT}/${expectation.nodeId}` },
             {
               registry: testingRegistry,
-              runnerDepsFor: () =>
-                createRecordingCommandRunner({
-                  present: true,
-                  exitCode: expectation.facts.runnerExitCode,
-                }),
+              runnerDepsFor: () => runner,
             },
           );
+          runs.push({
+            nodeId: expectation.nodeId,
+            evidencePaths: expectation.evidencePaths,
+            result,
+            runnerCalls: runner.calls,
+          });
         }
-        return createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry });
+        return {
+          resolveOutcome: createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
+          runs,
+        };
       },
     });
   });
