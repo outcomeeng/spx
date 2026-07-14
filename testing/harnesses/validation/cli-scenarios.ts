@@ -47,6 +47,7 @@ import {
   withEmptyValidationProject,
   withIsolatedPackagedValidationCli,
 } from "@testing/harnesses/validation/cli";
+import { expectValidationAllOverrideOptionsDerived } from "@testing/harnesses/validation/pipeline";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VALIDATION_CLI_TEMP_DIR_PREFIX = "spx-validation-cli-";
@@ -644,6 +645,10 @@ export function registerValidationCliComplianceTests(): void {
       expectMissingPathBelowEscapingSymlinkAncestorRejected,
     );
     it("registers literal flags and valid problem kinds", expectLiteralHelpListsLiteralFlags);
+    it(
+      "derives validation-all override options from stage participation metadata",
+      expectValidationAllOverrideOptionsDerived,
+    );
     it("registers validation-all skip flags", expectValidationAllHelpListsSkipFlags);
     it("scopes every descriptor-derived override to validation all", expectFullPipelineOverridesScopedToAllCommand);
     it("keeps literal skip scoped away from the literal command", expectLiteralCommandRejectsLiteralSkipFlag);

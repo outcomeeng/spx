@@ -7,10 +7,7 @@ import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { validationPipelineStages, validationRegistry } from "@/validation/registry";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
-import {
-  expectValidationAllOverrideMetadataRejectsUnsupportedFlags,
-  expectValidationAllOverrideOptionsDerived,
-} from "@testing/harnesses/validation/pipeline";
+import { expectValidationAllOverrideMetadataRejectsUnsupportedFlags } from "@testing/harnesses/validation/pipeline";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
@@ -64,10 +61,6 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
       // regression could fail.
       const expectedFromSpecMapping = 5 + 1 + 1;
       expect(totalStagesFromRegistry).toBe(expectedFromSpecMapping);
-    });
-
-    it("derives validation all override flags from stage participation metadata", () => {
-      expectValidationAllOverrideOptionsDerived();
     });
 
     it("rejects unsupported validation all override metadata shapes", () => {
