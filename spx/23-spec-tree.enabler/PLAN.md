@@ -17,24 +17,11 @@ This coordination note preserves the spec-tree foundation repair before `/decomp
 
 The consumer `spx/31-spec-domain.enabler` should call this foundation and expose cross-library composition operations; the surface layer `spx/60-surfaces.enabler` (root `spx/PLAN.md`) renders or adapts results per interface.
 
-## New structure to decompose
+## Parked persistence and backend structure
 
-Candidate child structure:
+The root `spx/PLAN.md` owns the reviewed target distinction between persistence, backend, delivery, and node state. No placeholder node represents that target while configured node kinds, methodology context injection, receiver classification, containment, and dependency evidence remain unresolved.
 
-```text
-spx/23-spec-tree.enabler/
-├── 24-materialization.enabler/
-│   ├── 21-filesystem-git-backend.enabler/
-│   └── 32-executable-operations.enabler/
-├── 29-filename-grammar.enabler/
-├── 32-spec-tree-source.enabler/
-├── 54-spec-tree-assembly.enabler/
-├── 65-spec-tree-traversal.enabler/
-├── 76-node-state-derivation.enabler/
-└── 87-spec-tree-projection.enabler/
-```
-
-The materialization child is a placeholder until `/decompose` settles the final index and boundary.
+Re-enter this structure only after SPX can represent the target node kinds and a reviewed projection names the persistence and backend receivers with ordering evidence. Until then, current implementation paths remain inventory rather than target structure.
 
 ## Concerns to pull from spec-domain
 
@@ -56,9 +43,8 @@ Keep these outside this node:
 ## Immediate next steps
 
 1. If the repair surfaces a methodology vocabulary term SPX lacks, record it in the external methodology work and root coordination first; do not author a product-local methodology PDR before SPX can inject configured methodology context.
-2. Run `/decompose spx/23-spec-tree.enabler` using the root `spx/PLAN.md` ownership model.
-3. Create specs for the materialization and backend placeholder nodes.
-4. Amend existing source, state, and projection nodes after the materialization boundary is settled.
+2. Keep persistence, backend, delivery, and node-state concerns separate when inventory is classified for a reviewed target projection.
+3. Amend existing source, state, and projection nodes only after the target receivers and ordering evidence are settled.
 
 ---
 
@@ -138,4 +124,4 @@ Out of scope for this node: the grammar emit command (`spx spec` surface under `
 
 - **Recognizer as skill-conformance oracle (new spec).** Extend recognition beyond ordered node directories to every Spec-Tree-skill-authored file form — spec files (`{slug}.md` matching the parent node slug), coordination notes (`PLAN.md`/`ISSUES.md`), eval-lane files under `evals/{rule}/`, `EXCLUDE` — classifying them valid and any foreign name invalid, with the context-dependent placement rules. This exceeds the current 43/32/54 specs (which enumerate only product / node / decision / evidence forms) and is declared product truth, so it needs its own spec assertions plus an `[eval]` that runs a skill and scores whether it only produced grammar-valid files. Author before implementing.
 - **Verify and clear the first [`ISSUES.md`](ISSUES.md) entry.** The compiled `dist` TypeScript architecting skills now describe the canonical decision-first ADR template the entry claims they contradict; confirm the `~/Code/outcomeeng/plugins` source matches and clear the entry if so.
-- **Kind-vocabulary import surface.** [`21-kind-registry.adr.md`](21-kind-registry.adr.md) requires consumers to import the registry "through the `src/lib/spec-tree` library surface", yet `KIND_REGISTRY`, `NODE_SUFFIXES`, and `DECISION_SUFFIXES` are reached from `@/lib/spec-tree/config` by every consumer (production commands, harnesses, generators, and node tests), because `src/lib/spec-tree/index.ts` re-exports the tree-operations and grammar surface but not the raw vocabulary. Decide one direction — re-export the vocabulary from `index.ts` and migrate all consumers to it, or affirm `config.ts` as the vocabulary surface in the ADR — then apply it codebase-wide. A partial migration that forks the import path is worse than the current single convention, so this is out of scope for the versioned-grammar changeset.
+- [x] **Kind-vocabulary import surface.** `src/lib/spec-tree/index.ts` re-exports the registry and grammar vocabulary, and consumers import those contracts through `@/lib/spec-tree`.

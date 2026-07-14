@@ -13,13 +13,13 @@ CAN convert raw backend records into typed source entries tagged valid, supersed
 - Product filenames ending in `.product.md` map to product entries with the product title derived from the filename slug ([test](tests/entry-recognition.mapping.l1.test.ts))
 - Filenames under a `tests/` directory whose form matches the canonical evidence-naming schema map to evidence entries ([test](tests/evidence-recognition.mapping.l1.test.ts))
 
-### Mappings — version classification
+### Properties
 
-- A name matching the canonical naming-schema version maps to a valid entry of its kind ([test](tests/version-classification.mapping.l1.test.ts))
-- A name matching a prior naming-schema version, but not the canonical one, maps to a superseded entry that names the version it matched ([test](tests/version-classification.mapping.l1.test.ts))
-- A name matching no naming-schema version maps to an invalid entry ([test](tests/version-classification.mapping.l1.test.ts))
+- Every name matching the canonical naming-schema version maps to a valid entry of its kind ([test](tests/version-classification.property.l1.test.ts))
+- Every name matching a prior naming-schema version, but not the canonical one, maps to a superseded entry that names the version it matched ([test](tests/version-classification.property.l1.test.ts))
+- Every name matching no naming-schema version maps to an invalid entry ([test](tests/version-classification.property.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/entry-recognition.mapping.l1.test.ts))
-- NEVER: recognition hardcodes a suffix or evidence-naming form, or branches on a prior naming form outside the ordered naming-schema versions — prior-version recognition derives from the grammar's schema set ([test](tests/version-classification.mapping.l1.test.ts))
+- NEVER: recognition hardcodes a suffix or evidence-naming form, or branches on a prior naming form outside the ordered naming-schema versions — prior-version recognition derives from the grammar's schema set ([test](tests/version-classification.compliance.l1.test.ts))

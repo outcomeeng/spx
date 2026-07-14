@@ -10,8 +10,12 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 - Given a `SpecTreeSource` that exposes product, node, decision, and evidence records, when `readSpecTree({ source })` runs, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
 
+### Conformance
+
+- `src/lib/spec-tree/index.ts` exports the declared source, options, snapshot, node, read, projection, next-node, registry, and grammar contracts ([test](tests/spec-tree-surface.conformance.l1.test.ts))
+
 ### Compliance
 
-- ALWAYS: `src/lib/spec-tree/index.ts` is the import boundary for consumers that read, project, or select from a spec tree; scanner, tree, and reporter internals stay behind this boundary ([test](tests/spec-tree-surface.scenario.l1.test.ts))
-- NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([review])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests; tests use explicit source fixtures and registry fixtures ([review](21-kind-registry.adr.md))
+- ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([audit])
+- NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([audit])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per `spx/23-spec-tree.enabler/21-kind-registry.adr.md` ([audit])
