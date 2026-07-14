@@ -1,6 +1,6 @@
 # TypeScript Test
 
-PROVIDES the current TypeScript Vitest runner adapter for TypeScript test files in `spx/**/tests/` — a CLI-flag run and a journal-streaming run that hosts the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`
+PROVIDES the TypeScript Vitest runner adapter for TypeScript test files in `spx/**/tests/` — a CLI-flag run and a journal-streaming run that hosts the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`
 SO THAT `spx test` and `spx test passing`, and the spx-driven verification executor of `spx/34-verification.enabler/43-execute.enabler` that drives this product's TypeScript test runner through the testing registry,
 CAN execute this product's TypeScript tests with exclusion flags derived from `spx.config.{toml,json,yaml}` without modifying `vitest.config.ts`, `tsconfig.json`, or `package.json`, and drive per-module scope and per-failing-case evidence into an injected sink without naming Vitest or TypeScript
 
