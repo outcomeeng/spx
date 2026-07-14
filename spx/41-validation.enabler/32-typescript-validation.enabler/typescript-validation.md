@@ -12,7 +12,8 @@ CAN report quality issues across every TypeScript-specific concern before code r
 ### Mappings
 
 - TypeScript validation concerns map lint, type check, AST enforcement, circular dependency detection, literal reuse, and unused-code detection to their registered leaf stages ([test](tests/typescript-validation.mapping.l1.test.ts))
+- TypeScript full-pipeline defaults map circular dependency detection, unused-code detection, ESLint, type checking, and literal-reuse detection to run ([test](tests/typescript-validation.mapping.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: every registered TypeScript stage follows its descriptor default during full-pipeline dispatch, and every participating or skipped stage reports a verdict ([test](tests/typescript-validation.compliance.l2.test.ts))
+- ALWAYS: every registered TypeScript stage follows its descriptor default during full-pipeline dispatch, follows the inverse when its invocation-local override is supplied, and reports a participating or skipped verdict ([test](tests/typescript-validation.compliance.l2.test.ts))
