@@ -128,6 +128,34 @@ export function assertRecordingSinkRecordsInOrder(
   ]);
 }
 
+/**
+ * Asserts the async recording sink defers each append past the microtask queue to a
+ * macrotask boundary: a not-yet-awaited `appendScope`/`appendFinding` records nothing,
+ * a microtask tick still records nothing, and only awaiting the append's promise records
+ * it. This is the observable contract the reporter's await-behavior test rests on — a
+ * consumer that fires the append and returns without awaiting records nothing.
+ */
+export async function assertAsyncSinkRecordsAfterMacrotask(
+  unit: TestScopeUnit,
+  finding: TestFinding,
+): Promise<void> {
+  const sink = createAsyncRecordingEvidenceSink();
+
+  const scopePending = sink.appendScope(unit);
+  expect(sink.scopes).toEqual([]);
+  await Promise.resolve();
+  expect(sink.scopes).toEqual([]);
+  await scopePending;
+  expect(sink.scopes).toEqual([unit]);
+
+  const findingPending = sink.appendFinding(finding);
+  expect(sink.findings).toEqual([]);
+  await Promise.resolve();
+  expect(sink.findings).toEqual([]);
+  await findingPending;
+  expect(sink.findings).toEqual([finding]);
+}
+
 // Minimal Vitest doubles carrying only the fields the reporter reads; the real
 // TestModule / TestCase cannot be constructed outside a live run (Stage 5: contract probe).
 function buildTestModuleDouble(moduleId: string): TestModule {
