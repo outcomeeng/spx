@@ -14,6 +14,10 @@ CAN reflect the released version's behavior and version references
 
 - The documentation set a release update covers maps from configuration: the configured paths when set, the product README by default ([test](tests/documentation-sync.mapping.l1.test.ts))
 
+### Properties
+
+- Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
+
 ### Compliance
 
 - ALWAYS: documentation sync's prompt is assembled only from the release data and the resolved documentation set, so it depends on no spec-tree or domain state ([test](tests/documentation-sync.compliance.l1.test.ts))
