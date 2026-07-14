@@ -121,7 +121,11 @@ export function registerSpecCliContractScenarioEvidence(): void {
         expect(() => JSON.parse(stdout)).not.toThrow();
       });
     });
+  });
+}
 
+export function registerSpecCliContractComplianceEvidence(): void {
+  describe("spx spec process compliance", () => {
     it("rejects config-writing apply routing without modifying product configuration", async () => {
       await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         await env.materialize();
