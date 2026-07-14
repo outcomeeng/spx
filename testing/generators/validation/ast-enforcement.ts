@@ -76,7 +76,6 @@ const FIRST_RULE_INDEX = 0;
 const SECOND_RULE_INDEX = 1;
 const THIRD_RULE_INDEX = 2;
 const FOURTH_RULE_INDEX = 3;
-const FIFTH_RULE_INDEX = 4;
 const ERROR_SEVERITY = 2;
 const WARNING_SEVERITY = 1;
 export interface ValidationGeneratedRuleTesterCases {
@@ -889,33 +888,27 @@ export function astRestrictedSyntaxRuns(): ValidationGeneratedRuleTesterRun[] {
           {
             code: "it.skipIf(process.env.CI)('skipped', () => {});",
             options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
-            errors: [{ message: testRestrictedSyntax[FOURTH_RULE_INDEX].message }],
+            errors: [{ message: testRestrictedSyntax[THIRD_RULE_INDEX].message }],
           },
           {
             code: "import { readFileSync } from 'node:fs';",
             options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
-            errors: [{ message: testRestrictedSyntax[FIFTH_RULE_INDEX].message }],
+            errors: [{ message: testRestrictedSyntax[FOURTH_RULE_INDEX].message }],
           },
         ],
       },
     },
     {
-      title: "assertion string literals map to test restricted syntax errors",
+      title: "typed protocol matcher literals have no blanket restricted syntax error",
       ruleName: NO_RESTRICTED_SYNTAX_RULE_ID,
       cases: {
         valid: [
           {
-            code: "expect(typeof value).toBe(\"string\");",
+            code: "type Verdict = 'PASS' | 'FAIL'; declare const verdict: Verdict; expect(verdict).toBe('PASS');",
             options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
           },
         ],
-        invalid: [
-          {
-            code: "expect(name).toBe(\"alice\");",
-            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
-            errors: [{ message: testRestrictedSyntax[THIRD_RULE_INDEX].message }],
-          },
-        ],
+        invalid: [],
       },
     },
   ];

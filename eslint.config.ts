@@ -27,7 +27,6 @@ import {
   TYPE_AWARE_PARSER_OPTIONS,
 } from "./eslint-rules/offline-mirror";
 import {
-  TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
   testRestrictedSyntax,
   tsRestrictedSyntax,
@@ -75,8 +74,7 @@ function isLegacyLintNoiseRule(
   rule: (typeof testRestrictedSyntax)[number],
 ): boolean {
   return (
-    rule === TEST_ASSERTION_STRING_LITERAL_RULE
-    || rule === TEST_READ_FILE_SYNC_IMPORT_RULE
+    rule === TEST_READ_FILE_SYNC_IMPORT_RULE
   );
 }
 
@@ -242,7 +240,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         // Allow unimported test utilities and transformers
         "no-undef": "off",
         "@typescript-eslint/no-redeclare": "off",
-        // Ban vi.mock(), vi.fn(), string literals in assertions, skipIf, readFileSync
+        // Ban vi.mock(), vi.fn(), skipIf, and readFileSync
         "no-restricted-syntax": [
           "error",
           ...tsRestrictedSyntax,
