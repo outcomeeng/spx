@@ -9,7 +9,7 @@
  * the reporter architecture decision at
  * spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler.
  */
-import type { Reporter } from "vitest/node";
+import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
 /** A unit of test coverage a journal-streaming run reports: one test module. */
 export interface TestScopeUnit {
@@ -62,4 +62,84 @@ export interface VitestRunStartOptions {
  */
 export interface VitestRunStarter {
   start(options: VitestRunStartOptions): Promise<void>;
+}
+
+/** The Vitest case-result state the reporter records as a finding. */
+const VITEST_FAILED_CASE_STATE = "failed";
+
+/** A journal reporter: a Vitest reporter streaming scope and finding evidence, plus the terminal status it captured. */
+export interface JournalReporter extends Reporter {
+  /** The terminal status captured from the run's end reason, or undefined before the run ends. */
+  readonly terminalStatus: JournalRunTerminalStatus | undefined;
+}
+
+function terminalStatusFromReason(reason: TestRunEndReason): JournalRunTerminalStatus {
+  return (
+    Object.values(JOURNAL_RUN_TERMINAL_STATUS).find((status) => status === reason)
+      ?? JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED
+  );
+}
+
+function findingErrorMessages(errors: ReadonlyArray<{ readonly message?: string }>): readonly string[] {
+  return errors.map((error) => error.message ?? "");
+}
+
+/**
+ * Builds a journal reporter that forwards each Vitest lifecycle event to the sink as
+ * it fires: a started module records a scope, a failing case records a finding, a
+ * passing case records nothing, and run end captures the terminal status. Constructs
+ * no journal events and performs no I/O — every durable effect flows through the sink.
+ */
+export function createJournalReporter(sink: TestRunEvidenceSink): JournalReporter {
+  let terminalStatus: JournalRunTerminalStatus | undefined;
+  return {
+    onTestModuleStart(module: TestModule): void {
+      sink.appendScope({ moduleId: module.moduleId });
+    },
+    onTestCaseResult(testCase: TestCase): void {
+      const result = testCase.result();
+      if (result.state !== VITEST_FAILED_CASE_STATE) return;
+      sink.appendFinding({
+        moduleId: testCase.module.moduleId,
+        testName: testCase.fullName,
+        errors: findingErrorMessages(result.errors),
+      });
+    },
+    onTestRunEnd(_modules, _errors, reason: TestRunEndReason): void {
+      terminalStatus = terminalStatusFromReason(reason);
+    },
+    get terminalStatus(): JournalRunTerminalStatus | undefined {
+      return terminalStatus;
+    },
+  };
+}
+
+/** The scope a journal-streaming run covers. */
+export interface JournalRunRequest {
+  readonly projectRoot: string;
+  readonly testPaths: readonly string[];
+}
+
+/** Dependencies a journal-streaming run is driven with: the evidence sink and the Vitest run-starter. */
+export interface JournalRunDependencies {
+  readonly sink: TestRunEvidenceSink;
+  readonly starter: VitestRunStarter;
+}
+
+/**
+ * Drives a journal-streaming Vitest run: registers a journal reporter forwarding to
+ * the sink, starts the run through the injected starter, and returns the terminal
+ * status the reporter captured.
+ */
+export async function runTestsStreaming(
+  request: JournalRunRequest,
+  deps: JournalRunDependencies,
+): Promise<JournalRunTerminalStatus> {
+  const reporter = createJournalReporter(deps.sink);
+  await deps.starter.start({
+    projectRoot: request.projectRoot,
+    testPaths: request.testPaths,
+    reporters: [reporter],
+  });
+  return reporter.terminalStatus ?? JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED;
 }
