@@ -18,4 +18,5 @@ CAN stream per-module scope and per-failing-case findings into the run journal l
 
 - ALWAYS: the reporter appends scope and finding evidence through its injected `TestRunEvidenceSink` port, never by constructing journal events directly or importing the recorder domain of `spx/34-verification.enabler/32-verify.enabler` — the executor backs that sink with the recorder's evidence-append ports ([audit])
 - ALWAYS: the reporter appends each scope and finding event as its corresponding Vitest hook fires, so the run streams to the journal before it completes rather than batching at run end ([test](tests/journal-reporter.compliance.l1.test.ts))
+- ALWAYS: the reporter awaits each sink append before its hook returns, so a sink backed by asynchronous journal writes completes each append before the run advances to its next hook or run end ([test](tests/journal-reporter.compliance.l1.test.ts))
 - ALWAYS: the reporter is registered on a programmatically started Vitest run through the Node API, not selected by a `--reporter` command flag, so the run exposes its lifecycle hooks to the reporter ([test](tests/journal-reporter.compliance.l1.test.ts))
