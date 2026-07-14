@@ -57,6 +57,17 @@ export interface SpawnFixtureResult {
   readonly stdoutMarkerObserved: boolean;
 }
 
+export function resolveSpawnFixtureExitCode(code: number | null, signal: string | null): number {
+  if (signal === null) {
+    return code ?? SPAWN_FIXTURE_UNKNOWN_EXIT_CODE;
+  }
+
+  const signalNumber = SIGNAL_NUMBERS[signal];
+  return signalNumber === undefined
+    ? SPAWN_FIXTURE_UNKNOWN_EXIT_CODE
+    : SPAWN_FIXTURE_SIGNAL_BASE_EXIT_CODE + signalNumber;
+}
+
 export async function runSpawnFixture(options: SpawnFixtureOptions): Promise<SpawnFixtureResult> {
   const child = spawn(options.command, [...options.args], { cwd: options.cwd });
   const stdoutMarker = options.destroyStdoutAfterMarker === undefined
@@ -122,16 +133,7 @@ function waitForClose(child: ChildProcess): Promise<number> {
     };
 
     const handleClose = (code: number | null, signal: NodeJS.Signals | null): void => {
-      if (signal !== null) {
-        const signalNumber = SIGNAL_NUMBERS[signal];
-        settle(
-          signalNumber === undefined
-            ? SPAWN_FIXTURE_UNKNOWN_EXIT_CODE
-            : SPAWN_FIXTURE_SIGNAL_BASE_EXIT_CODE + signalNumber,
-        );
-        return;
-      }
-      settle(code ?? SPAWN_FIXTURE_UNKNOWN_EXIT_CODE);
+      settle(resolveSpawnFixtureExitCode(code, signal));
     };
 
     const handleError = (): void => {
