@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 
-import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
 import type { DocumentationSyncConfig } from "@/domains/release/config";
 import {
   DOCUMENTATION_FILE_EXTENSION,
@@ -58,6 +58,13 @@ export function arbitraryConfiguredDocumentationSyncScenario(): fc.Arbitrary<Doc
       minLength: DOCUMENT_COUNT_MIN,
       maxLength: DOCUMENT_COUNT_MAX,
     })
+    .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
+}
+
+export function arbitraryNestedDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
+  return fc
+    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath())
+    .map(([directory, filename]) => [`${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`])
     .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
 }
 
