@@ -44,11 +44,9 @@ Do not add more implementation under this node until the provider and backend no
 
 ## Claim-side of the test verification recording program
 
-The full, all-slice plan lives in `spx/34-verification.enabler/PLAN.md` ("Program: test verification recording and claim"). This node owns the claim-side work; the summary below is its share, reconciled against this node's evacuation intent above (the authored-status contract may ultimately land in the future backend/spec-tree home, not here).
+The full, all-slice plan lives in `spx/34-verification.enabler/PLAN.md` ("Program: test verification recording and claim"). The recorded-evidence fold is represented by this node's current PDR, ADR, spec, tests, and implementation. The remaining claim-side work below is reconciled against this node's evacuation intent (the authored-status contract may ultimately land in the future backend/spec-tree home, not here).
 
-**Slice 1 (additive fold).** `spx spec status --update` gains a fold path beside the existing one: it reads the per-reference evidence a verification run recorded in the run journal — streamed there by the custom Vitest reporter, per `spx/34-verification.enabler/PLAN.md` — and folds real per-reference outcomes into `spx.status.json`, mapping test file → node via existing spec-tree evidence references. A covered reference whose evidence is stale keeps its committed outcome; an uncovered reference is `not-run`. It **executes nothing** — the relic where `--update` re-runs per-node tests (`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`) is what this replaces. The snapshot store is a projection derived from that recorded evidence, off the test evidence path.
-
-**Slice 2 (authored lifecycle status; retire `spx/EXCLUDE`).**
+**Remaining slice (authored lifecycle status; retire `spx/EXCLUDE`).**
 
 - `spx.status.json` carries an **authored** lifecycle field (`declared`/`specified`) beside the machine-folded per-reference evidence outcomes: the author owns the lifecycle intent; `--update` owns the evidence.
 - `--update` folds evidence but **never overwrites the authored lifecycle status**; a `specified` node stays `specified` when evidence is absent or failing, never downgraded to `failing`.

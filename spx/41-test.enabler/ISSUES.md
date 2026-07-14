@@ -29,9 +29,9 @@ than only the descriptor validator and JSON helper path.
 
 ## FOLLOW-UP: a zero-outcome run records a vacuous `passed` status
 
-`deriveStatus` in `src/commands/test/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. The status is not consumed today: a zero-outcome run's `runnerOutcomes` cover no node, so `selectLatestTerminalTestRunForNode` never selects it and the status-delegation resolver treats the node as absent and re-runs. The vacuous `passed` only misleads a consumer that reads `state.status` directly without coverage-gating.
+`deriveStatus` in `src/commands/test/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. A zero-outcome run's `runnerOutcomes` cover no evidence reference, so `selectLatestTerminalTestRunForNode` never selects it. The vacuous `passed` misleads any consumer that reads `state.status` directly without coverage-gating.
 
-**Resolution:** when the status-delegation resolver lands (unit 3), decide the zero-outcome status semantics (a distinct status, or a documented vacuous-pass contract justified by coverage-gating) and amend `spx/41-test.enabler/71-execution-recording.adr.md` accordingly, with a recording test for the empty-outcome path. In the same pass, decide whether `runNodeCommand` should reject a `nodePath` that matches no discovered file — distinct from a matched node whose runner is gated out by absent-language detection — rather than silently recording an empty run, which only re-fires the resolver's per-node run.
+**Resolution:** decide the zero-outcome status semantics (a distinct status, or a documented vacuous-pass contract justified by coverage-gating) and amend `spx/41-test.enabler/71-execution-recording.adr.md` accordingly, with a recording test for the empty-outcome path. In the same pass, decide whether `runNodeCommand` should reject a `nodePath` that matches no discovered file — distinct from a matched node whose runner is gated out by absent-language detection — rather than silently recording an empty run.
 
 **Evidence:** local changes review on PR-2c; `src/commands/test/run-command.ts` `deriveStatus` and `runNodeCommand`; `src/test/run-state.ts` `selectLatestTerminalTestRunForNode` coverage gating.
 
@@ -50,14 +50,6 @@ than only the descriptor validator and JSON helper path.
 **Resolution:** read the covered files concurrently (e.g. `Promise.all` over the mapped reads) when the file count justifies it, benchmarked against a realistic tree; weigh against the product's <100ms CLI-latency target in `spx/spx.product.md`.
 
 **Evidence:** local changes review on PR-2c; `src/commands/test/run-command.ts` `readCoveredContents`.
-
-## FOLLOW-UP: testing runner contract names the root `projectRoot`, not `productDir`
-
-`TestRunRequest.projectRoot` and `TestRunnerDependencies.isLanguagePresent(projectRoot)` (`src/test/languages/types.ts`) name the repository root with the deprecated term; `CLAUDE.md` prefers `productDir` for root-directory APIs. The dispatch and CLI already speak `productDir` and map it onto the descriptor's `projectRoot` field at the call boundary.
-
-**Resolution:** when the descriptor contract is next edited, rename `projectRoot` to `productDir` across `TestRunRequest`, both language descriptors, the dispatch, the CLI, and the runner harnesses and generators.
-
-**Evidence:** local changes review on PR-2a (F-003); `CLAUDE.md` product-directory vocabulary rule; `src/test/languages/types.ts`.
 
 ## FOLLOW-UP: extract shared runner test-infra when a third language is added
 

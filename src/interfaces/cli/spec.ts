@@ -16,8 +16,6 @@ import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-con
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { testingRegistry } from "@/test/registry";
 
-import { createRunnerDepsFor } from "./test-runner-deps";
-
 export const SPEC_DOMAIN_CLI = {
   COMMAND: "spec",
   STATUS_COMMAND: "status",
@@ -178,8 +176,6 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
         const format = resolveStatusFormat(options);
-        // Resolver diagnostics go to stderr so stdout carries only the status
-        // rollup and --json stays parseable while --update folds recorded evidence.
         const output = options.update === true
           ? await statusCommand({
             cwd: productDir(),
@@ -190,7 +186,6 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
               createNodeOutcomeResolver({
                 productDir,
                 registry: testingRegistry,
-                runnerDepsFor: createRunnerDepsFor(productDir, process.stderr),
               }),
           })
           : await statusCommand({ cwd: productDir(), format, onWarning });
