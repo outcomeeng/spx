@@ -32,6 +32,7 @@ import {
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   RecordingValidationChild,
   RejectingUnexpectedValidationSpawnRunner,
@@ -251,8 +252,9 @@ export function registerTypeCheckComplianceTests(): void {
   });
 
   it("forwards child stdout and stderr chunks through injected parent streams", () => {
-    fc.assert(
-      fc.property(arbitraryDomainLiteral(), arbitraryDomainLiteral(), (stdoutChunk, stderrChunk) => {
+    assertProperty(
+      fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral()),
+      ([stdoutChunk, stderrChunk]) => {
         const child = new RecordingValidationChild();
         const stdout = new RecordingWritable();
         const stderr = new RecordingWritable();
@@ -263,13 +265,15 @@ export function registerTypeCheckComplianceTests(): void {
 
         expect(stdout.chunks).toEqual([stdoutChunk]);
         expect(stderr.chunks).toEqual([stderrChunk]);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("pauses child output until the parent stream drains", () => {
-    fc.assert(
-      fc.property(arbitraryDomainLiteral(), (stdoutChunk) => {
+    assertProperty(
+      arbitraryDomainLiteral(),
+      (stdoutChunk) => {
         const child = new RecordingValidationChild();
         const stdout = new BackpressuredWritable();
         const stderr = new RecordingWritable();
@@ -281,7 +285,8 @@ export function registerTypeCheckComplianceTests(): void {
         stdout.emit(VALIDATION_SUBPROCESS_EVENTS.DRAIN);
         expect(child.stdout.isPaused()).toBe(false);
         expect(stdout.chunks).toEqual([stdoutChunk]);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 }
