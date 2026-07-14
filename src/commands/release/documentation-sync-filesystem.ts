@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { normalizeDocumentationPathSeparators, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
 import type {
   DocumentationPromoter,
+  DocumentationPromotion,
   DocumentationReader,
   DocumentationStager,
 } from "@/domains/release/documentation-sync";
@@ -103,19 +104,17 @@ async function stageDocumentationSet(
 }
 
 async function promoteDocumentationSet(
-  documents: readonly { readonly path: string; readonly content: string }[],
+  documents: readonly DocumentationPromotion[],
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  const originals = await Promise.all(documents.map(async ({ path }) => {
-    await verifyCanonicalTarget(path);
-    return { path, content: await readFile(path, DOCUMENTATION_TEXT_ENCODING) };
-  }));
-  const promoted: { readonly path: string; readonly content: string }[] = [];
+  await assertDocumentationSetUnchanged(documents);
+  const promoted: DocumentationPromotion[] = [];
   try {
-    for (const [index, { path, content }] of documents.entries()) {
+    for (const document of documents) {
+      const { path, content } = document;
       await verifyCanonicalTarget(path);
       await dependencies.writeDocumentAtomic(path, content);
-      promoted.push(originals[index]);
+      promoted.push(document);
     }
   } catch (promotionError) {
     const rollbackErrors = await restorePromotedDocumentation(promoted, dependencies);
@@ -129,15 +128,27 @@ async function promoteDocumentationSet(
   }
 }
 
+async function assertDocumentationSetUnchanged(
+  documents: readonly DocumentationPromotion[],
+): Promise<void> {
+  await Promise.all(documents.map(async ({ path, originalContent }) => {
+    await verifyCanonicalTarget(path);
+    const currentContent = await readFile(path, DOCUMENTATION_TEXT_ENCODING);
+    if (currentContent !== originalContent) {
+      throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
+    }
+  }));
+}
+
 async function restorePromotedDocumentation(
-  promoted: readonly { readonly path: string; readonly content: string }[],
+  promoted: readonly DocumentationPromotion[],
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<readonly unknown[]> {
   const rollbackErrors: unknown[] = [];
-  for (const { path, content } of [...promoted].reverse()) {
+  for (const { path, originalContent } of [...promoted].reverse()) {
     try {
       await verifyCanonicalTarget(path);
-      await dependencies.writeDocumentAtomic(path, content);
+      await dependencies.writeDocumentAtomic(path, originalContent);
     } catch (error) {
       rollbackErrors.push(error);
     }
