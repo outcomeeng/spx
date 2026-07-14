@@ -8,7 +8,7 @@ CAN verify the hook-to-evidence translation and streaming at `l1` through record
 
 ### Properties
 
-- The recording evidence sink records every `appendScope` and `appendFinding` call in invocation order and returns the recorded calls to the consuming test ([test](tests/test-harness.property.l1.test.ts))
+- The recording evidence sink records every `appendScope` and `appendFinding` call in invocation order, preserving the order across interleaved scope and finding calls, and returns the recorded calls to the consuming test ([test](tests/test-harness.property.l1.test.ts))
 - The async recording sink records each `appendScope` and `appendFinding` only after a macrotask boundary — a not-yet-awaited append and a microtask tick record nothing, and only awaiting the append records it — so a consumer that fires the append without awaiting records nothing ([test](tests/test-harness.property.l1.test.ts))
 - The run-scenario generator yields a module id paired with cases whose pass and fail states and error text vary across draws, and every generated failing case carries error text ([test](tests/test-harness.property.l1.test.ts))
 
