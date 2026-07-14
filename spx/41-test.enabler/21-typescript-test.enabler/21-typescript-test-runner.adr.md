@@ -20,7 +20,7 @@ Runner descriptors own test scope because writing exclusions into `vitest.config
 
 ### Audit
 
-- ALWAYS: `runTests` accepts an injected command-execution dependency — enables `l1` testing of command construction without invoking vitest or mocking ([audit])
+- ALWAYS: `runTests` accepts an injected command-execution dependency so `l1` tests supply a deterministic command function and inspect the constructed invocation ([audit])
 - ALWAYS: the detection predicate is owned by the TypeScript descriptor and accepts only a test override for `l1` gate tests ([audit])
 - ALWAYS: `excludeFlag` maps an excluded node path to `--exclude=spx/{nodePath}/**` as a pure function ([audit])
 - ALWAYS: command construction, executable lookup or package-manager invocation, explicit test-file arguments, and exclusion arguments remain inside the TypeScript runner adapter ([audit])
@@ -34,5 +34,6 @@ Runner descriptors own test scope because writing exclusions into `vitest.config
 - NEVER: write to `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusions pass as invocation-time flags ([audit])
 - NEVER: invoke vitest when TypeScript is absent — the descriptor's `detect` function calls `detectTypeScript` directly when no test override is provided ([audit])
 - NEVER: import `execa` or `node:child_process` directly inside the runner functions — subprocess execution goes through the injected dependency ([audit])
+- NEVER: runner tests call `vi.mock()`, `jest.mock()`, or another framework replacement API for command execution — they supply deterministic functions through the injected dependency ([audit])
 - NEVER: hardcode language dispatch in orchestration — registration is through the descriptor per `spx/19-language-registration.adr.md` ([audit])
 - NEVER: require TypeScript consumers to use Vitest, `node_modules`, or a specific package-manager layout outside an explicitly selected adapter contract ([audit])
