@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-drive-mode.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-input.scenario.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-scope.property.l1.test.ts": "passed",
