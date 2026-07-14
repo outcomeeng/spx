@@ -6,6 +6,11 @@
 .codex/*
 !.codex/config.toml
 
+# Pi Claude Marketplace generated state
+.pi/claude-plugins.local.json
+.pi/agents/pi-claude-marketplace-*
+.pi/pi-claude-marketplace/
+
 # Dependencies
 node_modules/
 .pnpm-store/
