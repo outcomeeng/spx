@@ -22,4 +22,5 @@ CAN identify the executing SPX version and actionable health immediately, inspec
 ### Compliance
 
 - ALWAYS: the human report renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive ([audit])
+- ALWAYS: detailed human output escapes terminal-control bytes in provider reading names and values while JSON output preserves those readings verbatim ([test](tests/verbose-reading-sanitization.compliance.l1.test.ts))
 - NEVER: accept `--verbose` together with `--json`, or accept `--format`; invalid output options fail with a sanitized diagnostic before diagnosis runs ([test](tests/error-sanitization.compliance.l2.test.ts))
