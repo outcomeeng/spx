@@ -1,4 +1,4 @@
-import { mkdir, symlink } from "node:fs/promises";
+import { symlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -32,7 +32,10 @@ import {
   withEmptyValidationProject,
   withIsolatedPackagedValidationCli,
 } from "@testing/harnesses/validation/cli";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+
+const VALIDATION_ESCAPING_SYMLINK_TARGET_PREFIX = "spx-validation-cli-outside-";
 
 async function expectRegisteredSubcommandRuns(): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
@@ -144,36 +147,36 @@ async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Pro
 }
 
 async function expectMissingPathBelowEscapingSymlinkAncestorRejected(): Promise<void> {
-  await withEmptyValidationProject(async (productRoot) => {
-    const outsideRoot = join(dirname(productRoot), sampleLiteralTestValue(arbitraryPathSegment()));
-    const symlinkName = sampleLiteralTestValue(arbitraryPathSegment());
-    const symlinkRoot = join(productRoot, symlinkName);
-    const operand = join(symlinkName, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+  await withTempDir(VALIDATION_ESCAPING_SYMLINK_TARGET_PREFIX, async (outsideRoot) => {
+    await withEmptyValidationProject(async (productRoot) => {
+      const symlinkName = sampleLiteralTestValue(arbitraryPathSegment());
+      const symlinkRoot = join(productRoot, symlinkName);
+      const operand = join(symlinkName, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
 
-    await mkdir(outsideRoot);
-    await symlink(outsideRoot, symlinkRoot, "dir");
+      await symlink(outsideRoot, symlinkRoot, "dir");
 
-    const result = await runValidationSubprocess(
-      [
-        validationCliDefinition.subcommands.format.commandName,
-        operand,
-      ],
-      { cwd: productRoot },
-    );
+      const result = await runValidationSubprocess(
+        [
+          validationCliDefinition.subcommands.format.commandName,
+          operand,
+        ],
+        { cwd: productRoot },
+      );
 
-    expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
-    expect(result.stdout).toBe(validationCliEmptyOutput());
-    expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
-    expect(result.stderr).toContain(sanitizeCliArgument(operand));
-    expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
-    expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
-    await expectValidationDispatchFailureInvokesNoHandler(
-      [
-        validationCliDefinition.subcommands.format.commandName,
-        operand,
-      ],
-      { processCwd: () => productRoot },
-    );
+      expect(result.exitCode).toBe(validationCliDefinition.diagnostics.invalidPathOperand.exitCode);
+      expect(result.stdout).toBe(validationCliEmptyOutput());
+      expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
+      expect(result.stderr).toContain(sanitizeCliArgument(operand));
+      expect(result.stderr).toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+      expect(result.stderr).not.toContain(VALIDATION_COMMAND_OUTPUT.FORMATTING_NO_ISSUES);
+      await expectValidationDispatchFailureInvokesNoHandler(
+        [
+          validationCliDefinition.subcommands.format.commandName,
+          operand,
+        ],
+        { processCwd: () => productRoot },
+      );
+    });
   });
 }
 
