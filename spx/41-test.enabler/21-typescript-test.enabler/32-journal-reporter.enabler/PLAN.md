@@ -45,17 +45,18 @@ Delivered and committed on `feat/test-verification-reporter`:
   the outer Vitest worker executes cleanly — no subprocess harness needed. The sink
   observes one scope and one finding; `journal-reporter.scenario.l2.test.ts` passes.
 
-Both nodes remain in `spx/EXCLUDE` pending graduation.
+Both nodes are graduated: removed from `spx/EXCLUDE`, their tests run in the
+passing suite, and `spx.status.json` projects `passed` for each. The changeset's
+`test-evidence-auditor` and `implementation-auditor` gates approved, and the
+whole-changeset `changes-reviewer` converged — two DEBT findings on the
+executor-scope claims plus one same-class residual, all resolved by scoping the
+registry reach to the executor and audit-tagging the drive-mode assertions.
 
 ## Remaining for the reporter node
 
-1. **Graduate both nodes.** Remove the two `spx/EXCLUDE` entries, then regenerate
-   `spx.status.json` via the `CLAUDE.md` procedure (`pnpm run build` ->
-   `tsx src/cli.ts test passing` -> `tsx src/cli.ts spec status --update`); never
-   hand-edit status.
-2. **Audits + review.** `/apply` gates over the changeset: `test-evidence-auditor`,
-   `implementation-auditor`, then the whole-changeset `changes-reviewer` (this is
-   a cross-node change touching `src/` and `testing/`).
+Graduation, the `/apply` audit gates, and the whole-changeset review are complete;
+the node is passing. The remaining lifecycle step is `/merge` to carry the
+changeset to `main`.
 
 ## Then the rest of slice 1
 
