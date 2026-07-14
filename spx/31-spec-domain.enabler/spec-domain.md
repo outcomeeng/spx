@@ -9,7 +9,7 @@ CAN expose spec-tree workflows without owning traversal, state derivation, persi
 ### Compliance
 
 - ALWAYS: compose lower-index spec-tree, testing, validation, and persistence capabilities through their public contracts before any surface renders the result ([audit])
-- ALWAYS: operate on tracked `spx/` files using worktree-local root per `spx/15-worktree-management.pdr.md` ([audit](../15-worktree-management.pdr.md))
+- Under `spx/15-worktree-management.pdr.md`, ALWAYS: operate on tracked `spx/` files using the worktree-local root ([audit])
 - NEVER: own spec-tree traversal, node-state derivation, persistence, testing, validation, or surface rendering semantics ([audit])
 - NEVER: modify files outside the product root ([audit])
 - NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`) — spec-tree operations stay within the `spx/` tree ([audit])

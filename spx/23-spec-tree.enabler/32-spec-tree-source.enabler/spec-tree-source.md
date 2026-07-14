@@ -19,4 +19,4 @@ CAN consume product, node, decision, and evidence records, plus a complete accou
 ### Compliance
 
 - ALWAYS: source adapters receive vocabulary through the versioned grammar, including node suffixes, decision suffixes, and evidence-naming forms ([test](tests/spec-tree-source.mapping.l1.test.ts))
-- NEVER: source adapters emit a recognized node or decision entry for a name absent from the canonical naming-schema version, including registered descendants below an unregistered ordered node directory ([test](tests/spec-tree-source.mapping.l1.test.ts), [test](../43-entry-recognition.enabler/tests/entry-recognition.mapping.l1.test.ts))
+- NEVER: source adapters emit a recognized node or decision entry for a name absent from the canonical naming-schema version, including registered descendants below an unregistered ordered node directory ([test](tests/spec-tree-source.mapping.l1.test.ts))
