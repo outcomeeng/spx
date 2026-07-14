@@ -1,12 +1,17 @@
 import { expect } from "vitest";
+import type { Reporter, TestCase, TestModule } from "vitest/node";
 
 import type {
+  JournalRunTerminalStatus,
   TestFinding,
   TestRunEvidenceSink,
   TestScopeUnit,
   VitestRunStarter,
   VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
+import { createJournalReporter, runTestsStreaming } from "@/test/languages/journal-reporter";
+import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
+import { GENERATED_CASE_STATE } from "@testing/generators/testing/journal-reporter";
 
 /** One recorded append against a recording evidence sink, preserving invocation order. */
 export type RecordedSinkCall =
@@ -82,4 +87,86 @@ export function assertRecordingSinkRecordsInOrder(
     ...scopes.map((unit): RecordedSinkCall => ({ kind: "scope", unit })),
     ...findings.map((finding): RecordedSinkCall => ({ kind: "finding", finding })),
   ]);
+}
+
+// Minimal Vitest doubles carrying only the fields the reporter reads; the real
+// TestModule / TestCase cannot be constructed outside a live run (Stage 5: contract probe).
+function buildTestModuleDouble(moduleId: string): TestModule {
+  return { moduleId } as unknown as TestModule;
+}
+
+function buildTestCaseDouble(moduleId: string, runCase: GeneratedRunCase): TestCase {
+  return {
+    module: { moduleId },
+    fullName: runCase.testName,
+    result: () => ({ state: runCase.state, errors: runCase.errors.map((message) => ({ message })) }),
+  } as unknown as TestCase;
+}
+
+/** Fires a reporter's lifecycle hooks over a generated scenario in run order, sealing with the given reason. */
+export function driveReporterOverScenario(
+  reporter: Reporter,
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): void {
+  const testModule = buildTestModuleDouble(scenario.moduleId);
+  reporter.onTestModuleStart?.(testModule);
+  for (const runCase of scenario.cases) {
+    reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
+  }
+  reporter.onTestModuleEnd?.(testModule);
+  reporter.onTestRunEnd?.([testModule], [], reason);
+}
+
+function expectedFindings(scenario: GeneratedRunScenario): readonly TestFinding[] {
+  return scenario.cases
+    .filter((runCase) => runCase.state === GENERATED_CASE_STATE.FAILED)
+    .map((runCase) => ({ moduleId: scenario.moduleId, testName: runCase.testName, errors: runCase.errors }));
+}
+
+/** Asserts the reporter maps a scenario to one module scope, a finding per failing case, none per passing case, and the run reason to its terminal status. */
+export function assertJournalReporterMapping(
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): void {
+  const sink = createRecordingEvidenceSink();
+  const reporter = createJournalReporter(sink);
+  driveReporterOverScenario(reporter, scenario, reason);
+  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+  expect(sink.findings).toEqual(expectedFindings(scenario));
+  expect(reporter.terminalStatus).toBe(reason);
+}
+
+/**
+ * Asserts the reporter appends each event as its hook fires: the module scope is
+ * recorded on module start and a failing-case finding on that case's result, both
+ * before run end rather than batched at the terminal event.
+ */
+export function assertReporterStreamsPerHook(scenario: GeneratedRunScenario): void {
+  const sink = createRecordingEvidenceSink();
+  const reporter = createJournalReporter(sink);
+  const testModule = buildTestModuleDouble(scenario.moduleId);
+  reporter.onTestModuleStart?.(testModule);
+  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+  for (const runCase of scenario.cases) {
+    reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
+    if (runCase.state === GENERATED_CASE_STATE.FAILED) {
+      expect(sink.findings.at(-1)).toEqual({
+        moduleId: scenario.moduleId,
+        testName: runCase.testName,
+        errors: runCase.errors,
+      });
+    }
+  }
+}
+
+/** Asserts a journal-streaming run registers the journal reporter on a programmatically started run through the injected starter, carrying no command-line reporter flag. */
+export async function assertRunRegistersReporterProgrammatically(
+  request: { readonly projectRoot: string; readonly testPaths: readonly string[] },
+): Promise<void> {
+  const starter = createSpyVitestRunStarter();
+  await runTestsStreaming(request, { sink: createRecordingEvidenceSink(), starter });
+  expect(starter.startedRuns).toHaveLength(1);
+  expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
+  expect(starter.startedRuns[0]?.testPaths).toEqual(request.testPaths);
 }
