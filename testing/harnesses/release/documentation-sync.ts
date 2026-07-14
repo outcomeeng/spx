@@ -38,6 +38,7 @@ import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
   arbitraryDocumentationPathAliasCase,
+  arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
   arbitraryFirstReleaseDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
@@ -553,16 +554,18 @@ function registerPropertyTests(): void {
       );
     });
 
-    it("preserves every generated unrelated semantic version on a first release", async () => {
+    it("preserves every generated unrelated semantic version across release histories", async () => {
       await assertProperty(
-        arbitraryFirstReleaseDocumentationSyncScenario(),
-        async (scenario) => {
-          await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-            await runDocumentationSyncCli(options);
-            for (const path of scenario.paths) {
-              await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-            }
-          });
+        arbitraryDocumentationVersionPreservationScenarios(),
+        async (scenarios) => {
+          for (const scenario of [scenarios.withPreviousTag, scenarios.withoutPreviousTag]) {
+            await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+              await runDocumentationSyncCli(options);
+              for (const path of scenario.paths) {
+                await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+              }
+            });
+          }
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
