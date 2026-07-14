@@ -154,7 +154,7 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
 - ⚠️ **NEVER write code without invoking the `/apply` skill and following its 8-step workflow** - See skill table below
 - ⚠️ **ALWAYS invoke `/apply` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
-- ⚠️ **NEVER commit spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `/audit-typescript-tests` before implementation and `/audit-typescript` before claiming readiness. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
+- ⚠️ **NEVER publish or merge spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-tests` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualize spx/path/to/node` skill
 - ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
@@ -283,13 +283,11 @@ pnpm run publish:check
 
 Local deterministic verification follows `/merging-standards`: run validation and tests for the touched scope by default. Full-repository local testing is CI's job unless the governing node, product overlay, or risk evidence requires a wider local run, such as changes to validation infrastructure, test runner wiring, generated distribution, package-manager configuration, shared runtime code, or a broad refactor whose touched-scope commands cannot cover the contract. Circular dependency detection is a whole-graph check that runs only in CI, never as a local pre-commit or pre-push gate.
 
-### Pre-Commit Checklist
+### Verification Checkpoint Checklist
 
-Before committing ANY changes:
+Before creating a local checkpoint commit for agentic verification:
 
-- [ ] **`/apply` gates passed for spec-tree code/test work**: methodology/context loaded, architecture audit approved when applicable, test audit approved, code audit approved
-- [ ] **`/audit-typescript-tests` passed for TypeScript test changes** before committing test-bearing work
-- [ ] **`/audit-typescript` passed for TypeScript implementation changes** before committing code-bearing work
+- [ ] **`/apply` context is loaded and the diff is stabilized**: methodology/context loaded and obvious contradictions resolved before dispatching auditors
 - [ ] **`pnpm run validate`** passes (source CLI aggregate pipeline, circular skipped)
 - [ ] **Focused tests for the touched scope** pass; widen only when `/merging-standards` escalation applies
 
@@ -297,6 +295,9 @@ Before committing ANY changes:
 
 Before pushing:
 
+- [ ] **`test-evidence-auditor` approved TypeScript test changes** after composing `/audit-typescript-tests` against the exact committed head
+- [ ] **`implementation-auditor` approved TypeScript implementation changes** after composing `/audit-typescript-code` against the exact committed head
+- [ ] **`changes-reviewer` converged** on the exact committed head when `/apply` classifies the changeset as cross-node
 - [ ] **`pnpm run build`** succeeds
 - [ ] **`pnpm run validate`** passes
 - [ ] **Focused tests for the touched scope** pass on the tree being pushed; widen only when `/merging-standards` escalation applies
@@ -512,12 +513,12 @@ These recur on feature worktrees and have cost real debugging time and machine s
 - **`spec status --update` reprojects *every* node from recorded test evidence, so on a stale-`dist` feature worktree it flips sibling `spx.status.json` files `passed`→`failed` for nodes you never touched** — the same stale-`dist` L2 artifact as above, now propagated into committed status files. NEVER restore, discard, or commit such a flip on the assumption it is spurious, and NEVER ask the operator to discard it. Rebuild with `pnpm run build`, re-run the affected nodes' tests (`tsx src/cli.ts test spx/<node> …`), then re-run `spec status --update`. A fresh-`dist` re-run is the only arbiter: if a node still projects `failed` after it, the failure is real and the change broke it. Status projection is CI's job (`Test + status projection`, on fresh `dist` over the full suite); locally, treat cross-node status drift as a build-staleness signal to re-run, not a set of files to revert.
 - **`spx.status.json` is a DERIVED artifact — its only writer is `spec status --update` (`src/lib/node-status/update.ts`). NEVER hand-edit its `passed`/`failed`/`not-run` outcome values.** Typing an outcome by hand fabricates the projection — the quality-gate-cheating anti-pattern — and the CI `Test + status projection` job re-derives the file regardless, so a hand-written value is both dishonest and futile. Producing a status means running the projector, never editing the file. Graduating a node out of `spx/EXCLUDE` is therefore NOT a one-line change: in this product `spx/EXCLUDE` gates markdown validation of the node's own spec file AND the `isExcluded` classification fact, and `spec status --update` writes every outcome as `not-run` for an excluded node (`update.ts` `resolveVerification`) but the node's REAL outcomes once it is unexcluded. Because the CI gate fails on any drift between the committed `spx.status.json` and the fresh projection, graduation is: remove the `spx/EXCLUDE` entry, then REGENERATE the committed status by deriving it on fresh `dist` over the full suite through the current-worktree entry point — never the global `spx` shim, which runs `main`'s stale build and would record status from the wrong source (`pnpm run build` → `tsx src/cli.ts test passing` → `tsx src/cli.ts spec status --update`, the same entry point CI's `Test + status projection` uses) — and verify the diff touches only the graduated node's `spx.status.json` (`not-run` → `passed`) plus the `spx/EXCLUDE` line. Never hand-write the `passed` values to skip the projector.
 
+<!-- /SPEC-TREE:shared root -->
+
 ## Architecture
 
 ```
 src/
-
-<!-- /SPEC-TREE:shared root -->
 
 ├── agent/         # Agent SDK boundary (injected AgentRunner for agent-authored artifacts)
 ├── commands/      # CLI command implementations
