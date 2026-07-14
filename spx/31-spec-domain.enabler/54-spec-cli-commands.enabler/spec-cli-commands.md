@@ -1,6 +1,6 @@
 # Spec CLI Commands
 
-PROVIDES deterministic `spx spec status` and `spx spec next` command handlers over the current spec-tree library surface
+PROVIDES deterministic `spx spec status` and `spx spec next` command handlers over the spec-tree library surface
 SO THAT agents and developers working in a product checkout
 CAN inspect current node state and select the next non-passing node without hand-walking `spx/`
 
