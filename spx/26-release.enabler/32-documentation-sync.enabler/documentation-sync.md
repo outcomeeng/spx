@@ -2,13 +2,13 @@
 
 PROVIDES agent-driven updates to the product's documentation for a release
 SO THAT published documentation
-CAN reflect the released version's behavior and version references
+CAN reflect the released version's behavior and product release-version references
 
 ## Assertions
 
 ### Scenarios
 
-- Given computed release data, when `spx release docs sync` runs, then version references in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
+- Given computed release data, when `spx release docs sync` runs, then references to the previous product release version in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -17,6 +17,7 @@ CAN reflect the released version's behavior and version references
 ### Properties
 
 - Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
+- Structural version validation preserves every generated semantic version other than the exact previous product release version identified by the release data, including first releases whose release data identifies no previous version ([test](tests/documentation-sync.property.l1.test.ts))
 
 ### Compliance
 
