@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { Stats } from "node:fs";
 import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -34,7 +35,16 @@ export interface DocumentationSyncFilesystem {
 
 export type DocumentationAtomicWriter = (path: string, content: string) => Promise<void>;
 
+export interface DocumentationFileHandle {
+  readonly stat: () => Promise<Stats>;
+  readonly readText: () => Promise<string>;
+  readonly close: () => Promise<void>;
+}
+
+export type DocumentationFileOpener = (path: string) => Promise<DocumentationFileHandle>;
+
 export interface DocumentationSyncFilesystemDependencies {
+  readonly openDocumentationFile?: DocumentationFileOpener;
   readonly writeDocumentAtomic: DocumentationAtomicWriter;
 }
 
