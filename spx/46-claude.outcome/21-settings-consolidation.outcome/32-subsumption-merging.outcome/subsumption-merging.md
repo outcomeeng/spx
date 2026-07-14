@@ -10,6 +10,7 @@ CONTRIBUTING TO eliminating permission drift by making the merge result predicta
 
 - Merging is deterministic: the same inputs always produce the same output ([test](tests/merger.property.l1.test.ts))
 - Merging is commutative: order of input files does not affect the result ([test](tests/merger.property.l1.test.ts))
+- For every same-category permission set containing broader and narrower scopes, merging retains the broader permission, removes the narrower permission, and reports the narrower permission as subsumed ([test](tests/merger.property.l1.test.ts))
 - Subsumption is transitive: if A subsumes B and B subsumes C, then A subsumes C ([test](tests/subsumption.property.l1.test.ts))
 
 ### Scenarios
