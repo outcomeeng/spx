@@ -1,7 +1,9 @@
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, parse } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
+import { build } from "tsup";
 import { expect } from "vitest";
 
 import {
@@ -60,6 +62,7 @@ import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
+import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 function parseContextManifest(output: string): SpecContextManifest {
@@ -101,6 +104,23 @@ async function rejectedContextMessage(target: string, productDir: string): Promi
   throw new Error(`Expected spec context target to be rejected: ${target}`);
 }
 
+async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
+  await build({
+    bundle: true,
+    clean: false,
+    entry: {
+      [parse(SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE).name]: SPEC_CLI_NETWORK_GUARD_SOURCE_PATH,
+    },
+    format: "esm",
+    outDir: isolationDir,
+    outExtension: () => ({ js: parse(SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE).ext }),
+    silent: true,
+    splitting: false,
+    target: "node24",
+  });
+  return pathToFileURL(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE)).href;
+}
+
 async function runSpecCli(productDir: string, ...args: readonly string[]) {
   const isolationDir = join(productDir, SPEC_CLI_ISOLATION.DIRECTORY);
   const homeDir = join(isolationDir, SPEC_CLI_ISOLATION.HOME_DIRECTORY);
@@ -115,6 +135,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
       mkdir(path, { recursive: true })
     ),
   );
+  const networkGuardModule = await buildSpecCliNetworkGuard(isolationDir);
   const writableProductDir = await realpath(productDir);
   const result = await execa(
     NODE_EXECUTABLE,
@@ -127,9 +148,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
       "--allow-child-process",
       "--allow-worker",
       "--import",
-      import.meta.resolve("tsx"),
-      "--import",
-      new URL("./spec-cli-network-guard.ts", import.meta.url).href,
+      networkGuardModule,
       CLI_PATH,
       ...args,
     ],
