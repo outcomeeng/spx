@@ -11,6 +11,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l2.test.ts))
+- Given validation path filters exclude an explicit formatting operand, when `spx validation format <path>` runs, then formatting validates the explicit operand without applying the wrapper filters ([test](76-formatting.enabler/tests/formatting.scenario.l2.test.ts))
 
 ### Properties
 
@@ -30,4 +31,5 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - ALWAYS: `spx validation literal` and `spx validation knip` resolve configured enablement before tool discovery or execution ([test](tests/configuration.compliance.l1.test.ts))
 - ALWAYS: bundled validation tool discovery recognizes packages that expose their entry point only through ESM `exports` and do not expose `package.json` to CommonJS resolution ([test](tests/tool-discovery.compliance.l1.test.ts))
 - ALWAYS: validation tool discovery can prefer a product-local executable before a bundled fallback while preserving bundled-first discovery as its default ([test](tests/tool-discovery.compliance.l1.test.ts))
-- ALWAYS: explicit caller path operands bypass `validation.paths` filters while automatic validation scope applies them ([test](tests/scope-resolution.compliance.l1.test.ts), [test](tests/configuration.compliance.l1.test.ts), [test](76-formatting.enabler/tests/formatting.scenario.l2.test.ts), [test](76-formatting.enabler/tests/formatting.compliance.l1.test.ts))
+- ALWAYS: explicit TypeScript caller path operands bypass `validation.paths` filters while automatic TypeScript scope applies them ([test](tests/scope-resolution.compliance.l1.test.ts))
+- ALWAYS: explicit Markdown caller path operands bypass `validation.paths` filters while automatic Markdown scope applies them ([test](tests/configuration.compliance.l1.test.ts))
