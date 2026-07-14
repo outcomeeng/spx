@@ -5,8 +5,8 @@ import {
   composeDocumentationSync,
   type DocumentationFaithfulnessAuditor,
   type DocumentationPromoter,
-  type DocumentationReader,
   type DocumentationStager,
+  type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 
@@ -23,7 +23,7 @@ export interface DocumentationSyncCommandDependencies {
   readonly resolveReleaseData: (productDir: string) => Promise<ReleaseData>;
   readonly resolveDocumentationConfig: (productDir: string) => Promise<DocumentationSyncConfig>;
   readonly stageDocumentation: DocumentationStager;
-  readonly readDocument: DocumentationReader;
+  readonly readDocument: StagedDocumentationReader;
   readonly promoteDocumentation: DocumentationPromoter;
 }
 

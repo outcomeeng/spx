@@ -55,7 +55,7 @@ export type DocumentationStager = (
   paths: readonly string[],
 ) => Promise<StagedDocumentation>;
 
-export type DocumentationReader = (path: string) => Promise<string>;
+export type StagedDocumentationReader = (workingDirectory: string, path: string) => Promise<string>;
 
 export interface DocumentationPromotion {
   readonly path: string;
@@ -82,7 +82,7 @@ export interface ComposeDocumentationSyncOptions {
   readonly productDir: string;
   readonly agentRunner: AgentRunner;
   readonly stageDocumentation: DocumentationStager;
-  readonly readDocument: DocumentationReader;
+  readonly readDocument: StagedDocumentationReader;
   readonly promoteDocumentation: DocumentationPromoter;
   readonly faithfulnessAuditor: DocumentationFaithfulnessAuditor;
 }
@@ -118,7 +118,7 @@ export async function composeDocumentationSync(
       targetPath,
       originalContent,
     }) => {
-      const updatedContent = await options.readDocument(stagedPath);
+      const updatedContent = await options.readDocument(stage.workingDirectory, stagedPath);
       assertReleasedVersionReferencesUpdated(updatedContent, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, originalContent, updatedContent };
     }));
