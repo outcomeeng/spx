@@ -21,8 +21,7 @@ export const DOCUMENTATION_SYNC_AUDIT_APPROVED = "APPROVED";
 export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
-const VERSION_REFERENCE_PREFIX_CONTINUATION = "[0-9A-Za-z]";
-const VERSION_REFERENCE_SUFFIX_CONTINUATION = "[0-9A-Za-z.+-]";
+const VERSION_REFERENCE_NON_WHITESPACE_PATTERN = String.raw`\S`;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -175,7 +174,7 @@ function assertReleasedVersionReferencesUpdated(
 function containsReleaseVersionReference(content: string, version: string): boolean {
   const escapedVersion = version.replace(REGEXP_SPECIAL_CHARACTER_PATTERN, REGEXP_ESCAPE_REPLACEMENT);
   return new RegExp(
-    `(?<!${VERSION_REFERENCE_PREFIX_CONTINUATION})${RELEASE_TAG_PREFIX}?${escapedVersion}(?!${VERSION_REFERENCE_SUFFIX_CONTINUATION})`,
+    `(?<!${VERSION_REFERENCE_NON_WHITESPACE_PATTERN})${RELEASE_TAG_PREFIX}?${escapedVersion}(?!${VERSION_REFERENCE_NON_WHITESPACE_PATTERN})`,
     "u",
   ).test(content);
 }
