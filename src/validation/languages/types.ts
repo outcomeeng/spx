@@ -21,14 +21,12 @@ export type ValidationStageParticipation =
 export interface ValidationStageParticipationOverride {
   readonly flag: `--${string}`;
   readonly description: string;
-  readonly participation: ValidationStageParticipation;
-  readonly reason: string;
 }
 
 export interface ValidationStageParticipationPolicy {
   readonly default: ValidationStageParticipation;
-  readonly defaultSkipReason?: string;
-  readonly override?: ValidationStageParticipationOverride;
+  readonly skipReason: string;
+  readonly override: ValidationStageParticipationOverride;
 }
 
 /** Context threaded to every stage runner by the orchestrator. */
@@ -57,7 +55,7 @@ export interface ValidationStage {
   readonly run: (context: ValidationStageContext) => Promise<ValidationCommandResult>;
   /** Whether a non-zero exit from this stage fails the overall pipeline. */
   readonly failsPipeline: boolean;
-  /** Default full-pipeline participation plus any invocation-local override. */
+  /** Default full-pipeline participation plus its invocation-local inverse override. */
   readonly participation: ValidationStageParticipationPolicy;
 }
 

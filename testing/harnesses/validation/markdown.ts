@@ -11,6 +11,8 @@ import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
+import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
+import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import {
   buildMarkdownlintConfig,
   getDefaultDirectories,
@@ -701,6 +703,11 @@ export const markdownValidationMappingCases = collectHarnessTestCases(() => {
     "markdown validation mappings",
     markdownUnitScenarios().filter((scenario) => MARKDOWN_MAPPING_KINDS.has(scenario.kind)),
   );
+  it("maps Markdown full-pipeline participation to run by default", () => {
+    expect(Object.values(MARKDOWN_VALIDATION_STAGE_PARTICIPATION).map((policy) => policy.default)).toEqual([
+      VALIDATION_STAGE_PARTICIPATION.RUN,
+    ]);
+  });
 });
 
 export const markdownValidationComplianceCases = collectHarnessTestCases(() => {

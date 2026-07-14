@@ -123,16 +123,21 @@ function resolveStageParticipation(
   participationOverrides: ReadonlySet<string>,
 ): ResolvedStageParticipation {
   const override = stage.participation.override;
-  if (override !== undefined && participationOverrides.has(override.flag)) {
+  if (participationOverrides.has(override.flag)) {
+    const participation = stage.participation.default === VALIDATION_STAGE_PARTICIPATION.RUN
+      ? VALIDATION_STAGE_PARTICIPATION.SKIP
+      : VALIDATION_STAGE_PARTICIPATION.RUN;
     return {
-      participation: override.participation,
-      reason: override.reason,
+      participation,
+      reason: participation === VALIDATION_STAGE_PARTICIPATION.SKIP ? stage.participation.skipReason : undefined,
       flag: override.flag,
     };
   }
   return {
     participation: stage.participation.default,
-    reason: stage.participation.defaultSkipReason,
+    reason: stage.participation.default === VALIDATION_STAGE_PARTICIPATION.SKIP
+      ? stage.participation.skipReason
+      : undefined,
   };
 }
 

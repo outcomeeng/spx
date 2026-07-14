@@ -39,7 +39,7 @@ import {
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
+import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
 import {
@@ -78,7 +78,6 @@ export function deriveValidationAllOverrideCliOptions(
   return stages.flatMap((stage) => {
     validateStageParticipationMetadata(stage);
     const override = stage.participation.override;
-    if (override === undefined) return [];
     const optionPropertyName = validationOptionPropertyName(override.flag);
     if (optionPropertyNames.has(optionPropertyName)) {
       throw new Error(`duplicate validation all override option property: ${optionPropertyName}`);
@@ -88,21 +87,17 @@ export function deriveValidationAllOverrideCliOptions(
       stageName: stage.name,
       flag: override.flag,
       description: override.description,
-      reason: override.reason,
+      reason: stage.participation.skipReason,
       optionPropertyName,
     }];
   });
 }
 
 function validateStageParticipationMetadata(stage: ValidationStage): void {
-  if (
-    stage.participation.default === VALIDATION_STAGE_PARTICIPATION.SKIP
-    && (stage.participation.defaultSkipReason === undefined || stage.participation.defaultSkipReason.length === 0)
-  ) {
-    throw new Error(`validation stage ${stage.name} default skip participation requires a reason`);
+  if (stage.participation.skipReason.length === 0) {
+    throw new Error(`validation stage ${stage.name} skip participation requires a reason`);
   }
   const override = stage.participation.override;
-  if (override === undefined) return;
   if (!VALIDATION_ALL_OVERRIDE_FLAG_PATTERN.test(override.flag)) {
     throw new Error(`validation stage ${stage.name} override flag must be a bare long kebab-case boolean flag`);
   }
@@ -111,9 +106,6 @@ function validateStageParticipationMetadata(stage: ValidationStage): void {
   }
   if (override.description.length === 0) {
     throw new Error(`validation stage ${stage.name} override flag requires a description`);
-  }
-  if (override.reason.length === 0) {
-    throw new Error(`validation stage ${stage.name} override flag requires a skip reason`);
   }
 }
 

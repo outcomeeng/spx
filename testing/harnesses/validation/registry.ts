@@ -11,7 +11,7 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
-import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import {
   composeValidationPipelineStages,
@@ -26,6 +26,10 @@ import { expectValidationAllOverrideMetadataRejectsUnsupportedFlags } from "@tes
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
+function registeredParticipationPolicy(): ValidationStage["participation"] {
+  return validationPipelineStages[0].participation;
+}
+
 export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
   describe("validation language registry composition", () => {
     it("exposes language descriptors with at least one named, callable stage each", () => {
@@ -37,6 +41,7 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
           expect(stage.name.length).toBeGreaterThan(0);
           expect(stage.run).toBeInstanceOf(Function);
           expect(Object.values(VALIDATION_STAGE_PARTICIPATION)).toContain(stage.participation.default);
+          expect(stage.participation.override.flag).toMatch(/^--/u);
         }
       }
     });
@@ -72,7 +77,7 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
               stages: stageNames.map((name) => ({
                 name,
                 failsPipeline: true,
-                participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+                participation: registeredParticipationPolicy(),
                 run: () => {
                   executedStageNames.push(name);
                   return Promise.resolve({ exitCode: VALIDATION_EXIT_CODES.FAILURE, output: name });
@@ -115,20 +120,40 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
       const derivedOptions = deriveValidationAllOverrideCliOptions(validationPipelineStages);
 
       expect(derivedOptions).toEqual(validationAllOverrideCliOptions);
+      expect(derivedOptions).toHaveLength(validationPipelineStages.length);
       for (const stage of validationPipelineStages) {
         const stageOptions = derivedOptions.filter((option) => option.stageName === stage.name);
         const override = stage.participation.override;
-        if (override === undefined) {
-          expect(stageOptions).toEqual([]);
-          continue;
-        }
         expect(stageOptions).toEqual([{
           stageName: stage.name,
           flag: override.flag,
           description: override.description,
-          reason: override.reason,
+          reason: stage.participation.skipReason,
           optionPropertyName: validationOptionPropertyName(override.flag),
         }]);
+      }
+    });
+
+    it("runs every stage exactly once across its default and inverse override invocations", async () => {
+      for (const registeredStage of validationPipelineStages) {
+        let executionCount = 0;
+        const stage = {
+          ...registeredStage,
+          run: async () => {
+            executionCount += 1;
+            return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: registeredStage.name };
+          },
+        };
+
+        await allCommand({ cwd: process.cwd(), validationStages: [stage], quiet: true });
+        await allCommand({
+          cwd: process.cwd(),
+          validationStages: [stage],
+          participationOverrides: [registeredStage.participation.override.flag],
+          quiet: true,
+        });
+
+        expect(executionCount).toBe(1);
       }
     });
 

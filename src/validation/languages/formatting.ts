@@ -19,11 +19,10 @@ const SKIP_FORMATTING_REASON = "skip-formatting";
 export const FORMATTING_VALIDATION_STAGE_PARTICIPATION = {
   [VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_FORMATTING_REASON,
     override: {
       flag: "--skip-formatting",
       description: "Skip formatting validation for this validation all run",
-      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-      reason: SKIP_FORMATTING_REASON,
     },
   },
 } as const satisfies Readonly<Record<string, ValidationStageParticipationPolicy>>;
