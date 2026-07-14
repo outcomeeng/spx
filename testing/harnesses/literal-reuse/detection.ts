@@ -113,6 +113,7 @@ function arbitraryFixtureFile(filenameArbitrary: fc.Arbitrary<string>): fc.Arbit
 
 function arbitraryDetectionFixture(): fc.Arbitrary<DetectionFixture> {
   return fc.record({
+    sharedSource: arbitraryLiteralSourceSnippet(),
     srcFiles: fc.uniqueArray(arbitraryFixtureFile(arbitrarySourceFilePath()), {
       minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
       maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
@@ -123,7 +124,10 @@ function arbitraryDetectionFixture(): fc.Arbitrary<DetectionFixture> {
       maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
       selector: (entry) => entry.filename,
     }),
-  });
+  }).map(({ sharedSource, srcFiles, testFiles }) => ({
+    srcFiles: srcFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+    testFiles: testFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+  }));
 }
 
 function collectFixture(fixture: DetectionFixture, fileOrder: readonly FixtureFile[]): DetectionResult {

@@ -16,7 +16,7 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { detectTypeScript, TOOL_DISCOVERY } from "@/validation/discovery";
+import { detectTypeScript, discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -29,10 +29,7 @@ import {
   LITERAL_TEST_GENERATOR,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import {
-  arbitraryDiscoveredTypeScriptExecutablePath,
-  VALIDATION_PIPELINE_DATA,
-} from "@testing/generators/validation/validation";
+import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
 import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -236,21 +233,24 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("spawns the product-first executable returned by TypeScript command discovery", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
-      const toolPath = sampleLiteralTestValue(arbitraryDiscoveredTypeScriptExecutablePath(path));
+      const toolPath = join(path, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS);
+      const bundledToolPath = join(path, TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE);
+      const discoveryDeps: ToolDiscoveryDeps = {
+        resolveModule: (specifier) =>
+          specifier === TYPESCRIPT_TOOL_DISCOVERY.BUNDLED_EXECUTABLE
+            ? bundledToolPath
+            : null,
+        resolveImport: () => null,
+        existsSync: (candidate) => candidate === toolPath,
+        whichSync: () => null,
+      };
       const runner = new RejectingUnexpectedValidationSpawnRunner({
         command: toolPath,
         stdio: EXPECTED_PIPED_STDIO,
       });
       const deps: TypeScriptCommandDeps = {
         detectTypeScript,
-        discoverTool: async () => ({
-          found: true,
-          location: {
-            tool: TYPESCRIPT_TOOL_DISCOVERY.TOOL,
-            path: toolPath,
-            source: TOOL_DISCOVERY.SOURCES.GLOBAL,
-          },
-        }),
+        discoverTool: (tool, options) => discoverTool(tool, { ...options, deps: discoveryDeps }),
         validateTypeScript: (context, options) => validateTypeScript(context, { ...options, runner }),
       };
 

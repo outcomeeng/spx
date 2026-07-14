@@ -14,7 +14,6 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
-import { TYPESCRIPT_TOOL_DISCOVERY } from "@/commands/validation/typescript";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import { validationAllOverrideCliOptions } from "@/interfaces/cli/validation";
 import {
@@ -210,17 +209,6 @@ export function arbitraryDiscoveredKnipExecutablePath(productDir: string): fc.Ar
         KNIP_COMMAND_TOKENS.COMMAND,
       )
     ),
-  );
-}
-
-export function arbitraryDiscoveredTypeScriptExecutablePath(productDir: string): fc.Arbitrary<string> {
-  return arbitraryDomainLiteral().map((directory) =>
-    resolve(
-      productDir,
-      EXTERNAL_EXECUTABLE_PARENT_SEGMENT,
-      directory,
-      TYPESCRIPT_TOOL_DISCOVERY.EXECUTABLE_NAME,
-    )
   );
 }
 
