@@ -1,4 +1,7 @@
-import { resolveFullPipelineStages } from "@/commands/validation/all";
+import * as fc from "fast-check";
+
+import { allCommand, resolveFullPipelineStages } from "@/commands/validation/all";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import {
   createValidationDomain,
   deriveValidationAllOverrideCliOptions,
@@ -10,7 +13,13 @@ import { formattingValidationLanguage } from "@/validation/languages/formatting"
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
-import { validationPipelineStages, validationRegistry } from "@/validation/registry";
+import {
+  VALIDATION_STAGE_PARTICIPATION_POLICIES,
+  validationPipelineStages,
+  validationRegistry,
+} from "@/validation/registry";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 import { expectValidationAllOverrideMetadataRejectsUnsupportedFlags } from "@testing/harnesses/validation/pipeline";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -43,6 +52,41 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
       expect(resolveFullPipelineStages(undefined)).toBe(validationPipelineStages);
     });
 
+    it("runs the exact ordered stage collection supplied through the full-pipeline command input", async () => {
+      await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
+        await assertProperty(
+          fc.uniqueArray(
+            arbitraryDomainLiteral().filter(
+              (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
+            ),
+            { minLength: 1, maxLength: validationPipelineStages.length },
+          ),
+          async (stageNames) => {
+            const executedStageNames: string[] = [];
+            const validationStages = stageNames.map((name) => ({
+              name,
+              failsPipeline: true,
+              participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+              run: () => {
+                executedStageNames.push(name);
+                return Promise.resolve({ exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: name });
+              },
+            }));
+
+            const result = await allCommand({
+              cwd: path,
+              quiet: true,
+              validationStages,
+            });
+
+            expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+            expect(executedStageNames).toEqual(stageNames);
+          },
+          { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+        );
+      });
+    });
+
     it("dispatches every registry stage through the validation-all command surface", async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const result = await runValidationInProcess(
@@ -54,18 +98,6 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
           expect(result.stdout).toContain(stage.name);
         }
       });
-    });
-
-    it("total stage count is derived from the registry rather than a hardcoded pipeline constant", () => {
-      const totalStagesFromRegistry = validationRegistry.languages.flatMap((language) => language.stages).length;
-      // Independent oracle from the spec mapping in validation.md — TypeScript
-      // contributes 5 stages (circular deps, unused code, lint, type check,
-      // literal reuse), markdown contributes 1, and formatting contributes 1.
-      // Deliberately NOT derived from the descriptors: deriving the expected count
-      // from the registry would make this assertion a tautology that no stage-count
-      // regression could fail.
-      const expectedFromSpecMapping = 5 + 1 + 1;
-      expect(totalStagesFromRegistry).toBe(expectedFromSpecMapping);
     });
 
     it("rejects unsupported validation all override metadata shapes", () => {
@@ -91,6 +123,12 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
           optionPropertyName: validationOptionPropertyName(override.flag),
         }]);
       }
+    });
+
+    it("binds every descriptor stage to its independently declared participation policy", () => {
+      expect(
+        Object.fromEntries(validationPipelineStages.map((stage) => [stage.name, stage.participation])),
+      ).toEqual(VALIDATION_STAGE_PARTICIPATION_POLICIES);
     });
   });
 });

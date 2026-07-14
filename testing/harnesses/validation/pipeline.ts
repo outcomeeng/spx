@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +5,11 @@ import { expect } from "vitest";
 
 import { allCommand } from "@/commands/validation";
 import { formatValidationNoProblemsMessage } from "@/commands/validation/messages";
-import { ALL_VALIDATION_JSON_FIELD, type AllValidationJsonOutput } from "@/commands/validation/types";
+import {
+  ALL_VALIDATION_JSON_FIELD,
+  type AllValidationJsonOutput,
+  type ValidationCommandResult,
+} from "@/commands/validation/types";
 import {
   createValidationDomain,
   deriveValidationAllOverrideCliOptions,
@@ -22,10 +25,12 @@ import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validati
 import { validationPipelineStages } from "@/validation/registry";
 import {
   arbitraryValidationAdditiveStageScenario,
+  arbitraryValidationStableVerdictScenario,
   VALIDATION_PIPELINE_DATA,
   VALIDATION_PIPELINE_SCENARIO_KIND,
   type ValidationPipelineScenario,
   validationPipelineScenarios,
+  type ValidationStableVerdictScenario,
   type ValidationStepOutcome,
 } from "@testing/generators/validation/validation";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -52,7 +57,6 @@ const VALIDATION_ROOT = resolve(
   __dirname,
   "../../../spx/41-validation.enabler",
 );
-const VALIDATION_STAGE_COUNT = validationPipelineStages.length;
 const OVERRIDE_METADATA_TEST_STAGE_NAME = "Override metadata test";
 const OVERRIDE_METADATA_TEST_FLAG = "--override-metadata-test";
 const OVERRIDE_METADATA_TEST_DESCRIPTION = "Override metadata test flag";
@@ -1002,43 +1006,51 @@ async function runStableVerdictScenario(
   _scenario: ValidationPipelineScenario,
 ): Promise<void> {
   await assertProperty(
-    fc.array(fc.boolean(), {
-      minLength: VALIDATION_STAGE_COUNT,
-      maxLength: VALIDATION_STAGE_COUNT,
-    }),
-    async (stageFailures) => {
-      const deterministicStages = validationPipelineStages.map(
-        (stage, index): ValidationStage => ({
-          name: stage.name,
-          failsPipeline: true,
-          participation: stage.participation,
-          run: () =>
-            Promise.resolve({
-              exitCode: stageFailures[index]
-                ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
-                : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-              output: stageFailures[index]
-                ? stage.name
-                : formatValidationNoProblemsMessage(stage.name),
-            }),
-        }),
-      );
-      const first = await allCommand(
-        { cwd: VALIDATION_ROOT },
-        { stages: deterministicStages },
-      );
-      const second = await allCommand(
-        { cwd: VALIDATION_ROOT },
-        { stages: deterministicStages },
-      );
+    arbitraryValidationStableVerdictScenario(),
+    async (generatedScenario) => {
+      const first = await executeStableVerdictRun(generatedScenario);
+      const second = await executeStableVerdictRun(generatedScenario);
 
-      expect(second.exitCode).toBe(first.exitCode);
-      expect(extractStepOutcomes(second.output)).toEqual(
-        extractStepOutcomes(first.output),
-      );
+      expect(second.result).toEqual(first.result);
+      expect(second.executedStageVerdicts).toEqual(first.executedStageVerdicts);
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
+}
+
+interface StableVerdictRun {
+  readonly result: ValidationCommandResult;
+  readonly executedStageVerdicts: readonly ValidationCommandResult[];
+}
+
+async function executeStableVerdictRun(
+  scenario: ValidationStableVerdictScenario,
+): Promise<StableVerdictRun> {
+  const executedStageVerdicts: ValidationCommandResult[] = [];
+  const validationStages = validationPipelineStages.map(
+    (stage, index): ValidationStage => ({
+      name: stage.name,
+      failsPipeline: true,
+      participation: stage.participation,
+      run: () => {
+        const result = {
+          exitCode: scenario.stageFailures[index]
+            ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
+            : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+          output: scenario.stageFailures[index]
+            ? stage.name
+            : formatValidationNoProblemsMessage(stage.name),
+        };
+        executedStageVerdicts.push(result);
+        return Promise.resolve(result);
+      },
+    }),
+  );
+  const result = await allCommand(
+    { cwd: VALIDATION_ROOT, ...scenario.commandOptions, validationStages },
+    { now: () => 0 },
+  );
+  return { result, executedStageVerdicts };
 }
 
 async function runAdditiveVerdictsScenario(

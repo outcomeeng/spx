@@ -7,10 +7,22 @@
  * filesystem scanning. Adding a language is one descriptor module plus one entry
  * here.
  */
-import { formattingValidationLanguage } from "@/validation/languages/formatting";
-import { markdownValidationLanguage } from "@/validation/languages/markdown";
+import {
+  FORMATTING_VALIDATION_STAGE_PARTICIPATION,
+  formattingValidationLanguage,
+} from "@/validation/languages/formatting";
+import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION, markdownValidationLanguage } from "@/validation/languages/markdown";
 import type { ValidationLanguageDescriptor, ValidationRegistry, ValidationStage } from "@/validation/languages/types";
-import { typescriptValidationLanguage } from "@/validation/languages/typescript";
+import {
+  TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION,
+  typescriptValidationLanguage,
+} from "@/validation/languages/typescript";
+
+export const VALIDATION_STAGE_PARTICIPATION_POLICIES = {
+  ...TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION,
+  ...MARKDOWN_VALIDATION_STAGE_PARTICIPATION,
+  ...FORMATTING_VALIDATION_STAGE_PARTICIPATION,
+} as const;
 
 export const VALIDATION_REGISTRY_LANGUAGES = [
   typescriptValidationLanguage,

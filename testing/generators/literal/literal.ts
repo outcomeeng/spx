@@ -127,6 +127,14 @@ export function arbitraryDomainNumber(): fc.Arbitrary<number> {
   return fc.integer({ min, max });
 }
 
+export function arbitraryLiteralSourceSnippet(): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryDomainLiteral().map(buildStringDeclaration),
+    arbitraryDomainNumber().map((value) => buildNumericDeclaration(String(value))),
+    arbitraryDomainLiteral().map(buildTemplateDeclaration),
+  );
+}
+
 export interface LiteralKindValue {
   readonly kind: LiteralKind;
   readonly value: string;

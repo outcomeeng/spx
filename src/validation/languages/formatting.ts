@@ -16,15 +16,17 @@ import {
 
 const FORMATTING_LANGUAGE_NAME = "formatting";
 const SKIP_FORMATTING_REASON = "skip-formatting";
-const formattingParticipation: ValidationStageParticipationPolicy = {
-  default: VALIDATION_STAGE_PARTICIPATION.RUN,
-  override: {
-    flag: "--skip-formatting",
-    description: "Skip formatting validation for this validation all run",
-    participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-    reason: SKIP_FORMATTING_REASON,
+export const FORMATTING_VALIDATION_STAGE_PARTICIPATION = {
+  [VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    override: {
+      flag: "--skip-formatting",
+      description: "Skip formatting validation for this validation all run",
+      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+      reason: SKIP_FORMATTING_REASON,
+    },
   },
-};
+} as const satisfies Readonly<Record<string, ValidationStageParticipationPolicy>>;
 
 export const formattingValidationLanguage: ValidationLanguageDescriptor = {
   name: FORMATTING_LANGUAGE_NAME,
@@ -32,7 +34,7 @@ export const formattingValidationLanguage: ValidationLanguageDescriptor = {
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING,
       failsPipeline: true,
-      participation: formattingParticipation,
+      participation: FORMATTING_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING],
       run: (context) =>
         formattingCommand({
           cwd: context.cwd,
