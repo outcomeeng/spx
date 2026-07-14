@@ -28,7 +28,7 @@ import {
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
   type DocumentationPromoter,
-  type DocumentationReader,
+  type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
@@ -222,8 +222,10 @@ class InterveningDocumentationEditPromoter {
 
 interface DocumentationFailureControls {
   readonly agentRunner?: AgentRunner;
-  readonly readDocument?: DocumentationReader;
+  readonly readDocument?: StagedDocumentationReader;
 }
+
+type ProductDocumentationReader = (path: string) => Promise<string>;
 
 class RecordingDocumentationAuditor implements AgentAuditor {
   readonly requests: AgentAuditRequest[] = [];
@@ -238,7 +240,7 @@ async function withDocumentationScenario(
   scenario: DocumentationSyncScenario,
   run: (
     options: ComposeDocumentationSyncOptions,
-    readProductDocument: DocumentationReader,
+    readProductDocument: ProductDocumentationReader,
     agent: DocumentationWritingAgent,
   ) => Promise<void>,
 ): Promise<void> {
@@ -280,7 +282,7 @@ const rejectingDocumentationAuditor: DocumentationFaithfulnessAuditor = async ()
   throw new Error("Documentation faithfulness rejected");
 };
 
-const failingDocumentationReader: DocumentationReader = async () => {
+const failingDocumentationReader: StagedDocumentationReader = async () => {
   throw new Error("Documentation read-back failed");
 };
 
@@ -346,7 +348,7 @@ async function writeFirstReleasedVersionReference(
 
 async function expectProductDocumentationUnchanged(
   scenario: DocumentationSyncScenario,
-  readProductDocument: DocumentationReader,
+  readProductDocument: ProductDocumentationReader,
 ): Promise<void> {
   for (const path of scenario.paths) {
     await expect(readProductDocument(path)).resolves.toBe(scenario.original[path]);
@@ -356,7 +358,7 @@ async function expectProductDocumentationUnchanged(
 async function expectOnlyInterveningDocumentationEdit(
   scenario: DocumentationSyncScenario,
   interveningPath: string,
-  readProductDocument: DocumentationReader,
+  readProductDocument: ProductDocumentationReader,
 ): Promise<void> {
   for (const path of scenario.paths) {
     await expect(readProductDocument(path)).resolves.toBe(
@@ -466,7 +468,9 @@ async function assertDocumentationPathAliasResolves(
       expect(stage.documents[0].sourcePath).toBe(aliasCase.configuredPath);
       expect(stage.documents[0].targetPath).toBe(await realpath(canonicalPath));
       expect(stage.documents[0].stagedPath).toBe(join(stage.workingDirectory, aliasCase.canonicalPath));
-      await expect(filesystem.readDocument(stage.documents[0].stagedPath)).resolves.toBe(aliasCase.content);
+      await expect(
+        filesystem.readDocument(stage.workingDirectory, stage.documents[0].stagedPath),
+      ).resolves.toBe(aliasCase.content);
     } finally {
       await stage.cleanup();
     }

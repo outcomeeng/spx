@@ -7,10 +7,11 @@ import { normalizeDocumentationPathSeparators, RELEASE_DOCUMENTATION_PATH_SEPARA
 import type {
   DocumentationPromoter,
   DocumentationPromotion,
-  DocumentationReader,
   DocumentationStager,
+  StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { type AtomicWriteFileSystem, writeFileAtomic } from "@/lib/atomic-file-write";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 
 const DOCUMENTATION_TEXT_ENCODING = "utf8";
 const DOCUMENTATION_STAGE_DIRECTORY_PREFIX = "spx-documentation-sync-stage-";
@@ -27,7 +28,7 @@ const ATOMIC_WRITE_FILE_SYSTEM: AtomicWriteFileSystem = {
 
 export interface DocumentationSyncFilesystem {
   readonly stageDocumentation: DocumentationStager;
-  readonly readDocument: DocumentationReader;
+  readonly readDocument: StagedDocumentationReader;
   readonly promoteDocumentation: DocumentationPromoter;
 }
 
@@ -70,9 +71,28 @@ export function createDocumentationSyncFilesystem(
 ): DocumentationSyncFilesystem {
   return {
     stageDocumentation: stageDocumentationSet,
-    readDocument: async (path) => await readFile(path, DOCUMENTATION_TEXT_ENCODING),
+    readDocument: readStagedDocumentation,
     promoteDocumentation: async (documents) => await promoteDocumentationSet(documents, dependencies),
   };
+}
+
+async function readStagedDocumentation(
+  workingDirectory: string,
+  path: string,
+): Promise<string> {
+  const canonicalWorkingDirectory = await realpath(workingDirectory);
+  const stats = await lstat(path);
+  if (stats.isSymbolicLink()) {
+    throw new Error(`Staged documentation path is a symbolic link: ${path}`);
+  }
+  if (!stats.isFile()) {
+    throw new Error(`Staged documentation path is not a regular file: ${path}`);
+  }
+  const canonicalPath = await realpath(path);
+  if (!isPathContained(canonicalWorkingDirectory, canonicalPath)) {
+    throw new Error(`Staged documentation path resolves outside its workspace: ${path}`);
+  }
+  return await readFile(path, DOCUMENTATION_TEXT_ENCODING);
 }
 
 async function stageDocumentationSet(
