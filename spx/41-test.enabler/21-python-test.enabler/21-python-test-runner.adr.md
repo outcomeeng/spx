@@ -4,7 +4,7 @@ The Python test runner is a `pythonTestingLanguage` descriptor exported from `sr
 
 ## Rationale
 
-Injecting the command runner and allowing a test-only detection override makes command construction, the detection gate, and exclusion-flag generation verifiable at `l1` without invoking real pytest or mocking. Passing exclusions as invocation-time flags keeps the product's `pyproject.toml` unmodified, and routing pytest through `uv run --active` reuses the provisioned active Python environment rather than resolving an interpreter or a pytest entry point directly. Modeling the runner as an ADR-19 descriptor lets the parent dispatch iterate registered languages without naming Python, and the descriptor contract is the same module its TypeScript peer imports. Routing through `uv run --active` keeps the production command stable where the spx repository declares no Python environment of its own: continuous integration provisions and exports the managed Python toolchain per `spx/41-test.enabler/15-ci-runner-toolchain.adr.md`, so the descriptor and `l2` test harness never adapt to an absent tool.
+Injecting the command runner and allowing a test-only detection override makes command construction, the detection gate, and exclusion-flag generation verifiable at `l1` through deterministic function seams. Passing exclusions as invocation-time flags keeps the product's `pyproject.toml` unmodified, and routing pytest through `uv run --active` reuses the provisioned active Python environment rather than resolving an interpreter or a pytest entry point directly. Modeling the runner as an ADR-19 descriptor lets the parent dispatch iterate registered languages without naming Python, and the descriptor contract is the same module its TypeScript peer imports. Routing through `uv run --active` keeps the production command stable where the spx repository declares no Python environment of its own: continuous integration provisions and exports the managed Python toolchain per `spx/41-test.enabler/15-ci-runner-toolchain.adr.md`, so the descriptor and `l2` test harness never adapt to an absent tool.
 
 Runner descriptors own test scope because writing exclusions into `pyproject.toml` mutates product configuration the node must never write. The managed environment owns pytest execution so the runner neither bypasses environment management nor hardcodes an interpreter path. The language registry owns Python detection through `detectPython`, keeping filesystem access outside the runner. The detection gate prevents pointless subprocess invocation and preserves the distinction between "absent" and "passed". Test filenames encode level (`l1`, `l2`, `l3`), while parent dispatch discovery owns level selection.
 
@@ -19,7 +19,7 @@ Runner descriptors own test scope because writing exclusions into `pyproject.tom
 
 ### Audit
 
-- ALWAYS: `runTests` accepts an injected command-execution dependency — enables `l1` testing of command construction without invoking pytest or mocking ([audit])
+- ALWAYS: `runTests` accepts an injected command-execution dependency so `l1` tests supply a deterministic command function and inspect the constructed invocation ([audit])
 - ALWAYS: the detection predicate is owned by the Python descriptor and accepts only a test override for `l1` gate tests ([audit])
 - ALWAYS: `excludeFlag` maps an excluded node path to `--ignore=spx/{nodePath}/` as a pure function ([audit])
 - ALWAYS: pytest is invoked through `uv run --active pytest` so the provisioned active Python environment provides the tool ([audit])
