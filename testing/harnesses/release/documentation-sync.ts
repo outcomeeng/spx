@@ -1,4 +1,4 @@
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -37,6 +37,7 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryDocumentationPathAliasCase,
   arbitraryDuplicateDocumentationPathSet,
   arbitraryFirstReleaseDocumentationSyncScenario,
   arbitraryMixedVersionFirstReleaseDocumentationSyncScenario,
@@ -44,6 +45,7 @@ import {
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
+  type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
   documentationPathFailureCases,
   documentationPathMappingCases,
@@ -350,6 +352,27 @@ async function assertDocumentationPathFailure(
   });
 }
 
+async function assertDocumentationPathAliasResolves(
+  aliasCase: DocumentationPathAliasCase,
+): Promise<void> {
+  await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
+    const canonicalPath = join(productDir, aliasCase.canonicalPath);
+    await mkdir(dirname(canonicalPath), { recursive: true });
+    await writeFile(canonicalPath, aliasCase.content);
+    const filesystem = createDocumentationSyncFilesystem();
+    const stage = await filesystem.stageDocumentation(productDir, [aliasCase.configuredPath]);
+    try {
+      expect(stage.documents).toHaveLength(1);
+      expect(stage.documents[0].sourcePath).toBe(aliasCase.configuredPath);
+      expect(stage.documents[0].targetPath).toBe(await realpath(canonicalPath));
+      expect(stage.documents[0].stagedPath).toBe(join(stage.workingDirectory, aliasCase.canonicalPath));
+      await expect(filesystem.readDocument(stage.documents[0].stagedPath)).resolves.toBe(aliasCase.content);
+    } finally {
+      await stage.cleanup();
+    }
+  });
+}
+
 async function materializeDocumentationPathFailure(
   failureCase: DocumentationPathFailureCase,
   productDir: string,
@@ -493,6 +516,12 @@ function registerMappingTests(): void {
         );
       },
     );
+
+    it("resolves a backslash-separated configured path to its canonical staged document", async () => {
+      await assertDocumentationPathAliasResolves(
+        sampleReleaseTestValue(arbitraryDocumentationPathAliasCase()),
+      );
+    });
   });
 }
 
