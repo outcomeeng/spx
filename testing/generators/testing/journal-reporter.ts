@@ -1,11 +1,19 @@
 import * as fc from "fast-check";
 
-import type { TestFinding, TestScopeUnit } from "@/test/languages/journal-reporter";
+import type { JournalRunTerminalStatus, TestFinding, TestScopeUnit } from "@/test/languages/journal-reporter";
+import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/journal-reporter";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import {
   arbitraryDomainLiteral,
   arbitraryTestFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+
+/** The scope a journal-streaming run covers: a project root and the test paths to run. */
+export interface GeneratedRunRequest {
+  readonly projectRoot: string;
+  readonly testPaths: readonly string[];
+}
 
 /** Generated test-case outcomes: the reporter's input vocabulary, owned here independently of the reporter source. */
 export const GENERATED_CASE_STATE = {
@@ -36,6 +44,7 @@ const MAX_ERRORS = 3;
 const MAX_EXTRA_CASES = 3;
 const MAX_SCOPE_UNITS = 4;
 const MAX_FINDINGS = 4;
+const MAX_TEST_PATHS = 3;
 
 function arbitraryScopeUnit(): fc.Arbitrary<TestScopeUnit> {
   return fc.record({ moduleId: arbitraryTestFilePath() });
@@ -55,6 +64,17 @@ function arbitraryScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
 
 function arbitraryFindings(): fc.Arbitrary<readonly TestFinding[]> {
   return fc.array(arbitraryFinding(), { maxLength: MAX_FINDINGS });
+}
+
+function arbitraryTerminalStatus(): fc.Arbitrary<JournalRunTerminalStatus> {
+  return fc.constantFrom(...Object.values(JOURNAL_RUN_TERMINAL_STATUS));
+}
+
+function arbitraryRunRequest(): fc.Arbitrary<GeneratedRunRequest> {
+  return fc.record({
+    projectRoot: CONFIG_TEST_GENERATOR.productDir(),
+    testPaths: fc.array(arbitraryTestFilePath(), { maxLength: MAX_TEST_PATHS }),
+  });
 }
 
 function arbitraryPassingCase(): fc.Arbitrary<GeneratedRunCase> {
@@ -109,6 +129,8 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   scopeUnits: arbitraryScopeUnits,
   finding: arbitraryFinding,
   findings: arbitraryFindings,
+  terminalStatus: arbitraryTerminalStatus,
+  runRequest: arbitraryRunRequest,
 } as const;
 
 export function sampleJournalReporterValue<T>(arbitrary: fc.Arbitrary<T>): T {
