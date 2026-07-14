@@ -16,6 +16,6 @@ CAN stream per-module scope and per-failing-case findings into the run journal l
 
 ### Compliance
 
-- ALWAYS: the reporter appends scope and finding evidence through injected recorder evidence ports of `spx/34-verification.enabler/32-verify.enabler`, never by constructing journal events directly ([test](tests/journal-reporter.compliance.l1.test.ts))
+- ALWAYS: the reporter appends scope and finding evidence through injected recorder evidence ports of `spx/34-verification.enabler/32-verify.enabler`, never by constructing journal events directly ([audit])
 - ALWAYS: the reporter appends each scope and finding event as its corresponding Vitest hook fires, so the run streams to the journal before it completes rather than batching at run end ([test](tests/journal-reporter.compliance.l1.test.ts))
 - ALWAYS: the reporter is registered on a programmatically started Vitest run through the Node API, not selected by a `--reporter` command flag, so the run exposes its lifecycle hooks to the reporter ([test](tests/journal-reporter.compliance.l1.test.ts))
