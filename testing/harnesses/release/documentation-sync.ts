@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -121,6 +121,31 @@ class PassiveDocumentationAgent implements AgentRunner {
 
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
+  }
+}
+
+class StagedSymlinkReplacingAgent implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+
+  constructor(
+    private readonly updated: DocumentationSyncScenario["updated"],
+    private readonly sourcePath: string,
+    private readonly externalPath: string,
+  ) {}
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    const input = parseDocumentationSyncPromptInput(request.prompt);
+    await writeGeneratedDocumentation(this.updated, input.documents);
+    const stagedDocument = input.documents.find(({ sourcePath }) => sourcePath === this.sourcePath);
+    const externalContent = this.updated[this.sourcePath];
+    if (stagedDocument === undefined || externalContent === undefined) {
+      throw new Error(`No generated staged documentation for ${this.sourcePath}`);
+    }
+    await mkdir(dirname(this.externalPath), { recursive: true });
+    await writeFile(this.externalPath, externalContent);
+    await rm(stagedDocument.stagedPath);
+    await symlink(this.externalPath, stagedDocument.stagedPath, "file");
   }
 }
 
@@ -372,6 +397,32 @@ async function assertVersionValidationPrecedesFaithfulnessAudit(
     expect(auditor.requests).toHaveLength(0);
     expect(promoter.calls).toHaveLength(0);
     await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertStagedSymlinkRejectedBeforeAuditAndPromotion(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const sourcePath = scenario.paths.at(0);
+  if (sourcePath === undefined) throw new Error("Generated documentation set is empty");
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    const auditor = new RecordingDocumentationAuditor();
+    const promoter = new RecordingDocumentationPromoter();
+    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+      await expect(composeDocumentationSync({
+        ...options,
+        agentRunner: new StagedSymlinkReplacingAgent(
+          scenario.updated,
+          sourcePath,
+          join(externalDir, sourcePath),
+        ),
+        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+        promoteDocumentation: promoter.promote,
+      })).rejects.toThrow();
+      expect(auditor.requests).toHaveLength(0);
+      expect(promoter.calls).toHaveLength(0);
+      await expectProductDocumentationUnchanged(scenario, readProductDocument);
+    });
   });
 }
 
@@ -644,6 +695,12 @@ function registerComplianceTests(): void {
       await assertDocumentationFailureLeavesProductUnchanged(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
         { readDocument: failingDocumentationReader },
+      );
+    });
+
+    it("rejects staged symlinks before audit or promotion", async () => {
+      await assertStagedSymlinkRejectedBeforeAuditAndPromotion(
+        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
       );
     });
 
