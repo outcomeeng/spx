@@ -3,8 +3,8 @@
   "verification": {
     "test": {
       "overall": "passed",
-      "spx/46-claude.outcome/21-settings-consolidation.outcome/21-discovery-parsing.outcome/tests/discovery.scenario.l1.test.ts": "passed",
       "spx/46-claude.outcome/21-settings-consolidation.outcome/21-discovery-parsing.outcome/tests/discovery.property.l1.test.ts": "passed",
+      "spx/46-claude.outcome/21-settings-consolidation.outcome/21-discovery-parsing.outcome/tests/discovery.scenario.l1.test.ts": "passed",
       "spx/46-claude.outcome/21-settings-consolidation.outcome/21-discovery-parsing.outcome/tests/parser.property.l1.test.ts": "passed"
     }
   }
