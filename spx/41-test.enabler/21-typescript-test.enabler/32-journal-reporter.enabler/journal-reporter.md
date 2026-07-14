@@ -1,7 +1,7 @@
 # Journal Reporter
 
 PROVIDES a custom Vitest reporter and the programmatic Vitest run that hosts it, translating a TypeScript test run's per-module and per-case lifecycle events into scope and finding evidence appended through an injected evidence sink
-SO THAT the spx-driven verification executor of `spx/34-verification.enabler/43-execute.enabler`, driving this product's TypeScript test runner through `src/test/registry.ts`,
+SO THAT the spx-driven verification executor of `spx/34-verification.enabler/43-execute.enabler`, which drives this product's TypeScript test runner,
 CAN stream per-module scope and per-failing-case findings into the run journal live as cases resolve, without spawning the Vitest CLI or constructing journal events directly
 
 ## Assertions
