@@ -6,6 +6,8 @@
     }
   },
   "plugins": {
-    "typescript@outcomeeng": {}
+    "spec-tree@outcomeeng": {},
+    "typescript@outcomeeng": {},
+    "prose@outcomeeng": {}
   }
 }
