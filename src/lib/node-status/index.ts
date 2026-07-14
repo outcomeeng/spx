@@ -28,7 +28,13 @@ export {
   rollupNodeStatusMechanism,
   serializeNodeStatus,
 } from "./classify";
-export { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME, type NodeStatusExcludeReader } from "./exclude";
+export {
+  createNodeStatusExcludeReader,
+  NODE_STATUS_EXCLUDE_FILENAME,
+  NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
+  type NodeStatusExcludeReader,
+  nodeStatusInvalidExcludeEntryMessage,
+} from "./exclude";
 export { createNodeStatusProvider } from "./provider";
 export { NODE_STATUS_FILENAME, parseNodeStatusFile, readNodeStatus } from "./read";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";

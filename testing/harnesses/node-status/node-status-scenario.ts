@@ -1,14 +1,16 @@
 import { dirname, join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { expect } from "vitest";
 
 import {
+  createNodeStatusFile,
   createNodeStatusMechanismRecord,
   createNodeStatusProvider,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
   readNodeStatus,
+  serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree, type SpecTreeNode } from "@/lib/spec-tree";
@@ -27,68 +29,61 @@ function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | und
   return undefined;
 }
 
-export function registerNodeStatusScenarioEvidence(): void {
-  describe("spx spec status --update", () => {
-    it("writes each node's verification projection to its co-located spx.status.json", async () => {
-      const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+export async function assertNodeStatusUpdateWritesVerificationProjection(): Promise<void> {
+  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
-        const resolveOutcome = await recordOutcomeEvidence();
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+  await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
+    const resolveOutcome = await recordOutcomeEvidence();
+    await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
-        for (const expectation of expectations) {
-          const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-          expectRecordedEvidence(recorded, expectation);
-        }
-      });
+    for (const expectation of expectations) {
+      const recorded = JSON.parse(await env.readFile(expectation.statusPath));
+      expectRecordedEvidence(recorded, expectation);
+    }
+  });
+}
+
+export async function assertNodeStatusUpdateRemovesStaleStatusFile(): Promise<void> {
+  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+  await withClassificationTree(fixture, async ({ env, recordOutcomeEvidence }) => {
+    const resolveOutcome = await recordOutcomeEvidence();
+    await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+    const staleStatusPath = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.orphanStatusPath());
+    const staleNodeDirectory = join(env.productDir, dirname(staleStatusPath));
+    await env.writeRaw(staleStatusPath, serializeNodeStatus(createNodeStatusFile({})));
+    expect(readNodeStatus(staleNodeDirectory)).toBeDefined();
+
+    await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+    expect(readNodeStatus(staleNodeDirectory)).toBeUndefined();
+  });
+}
+
+export async function assertMissingNodeStatusRoutesToLiveDerivation(): Promise<void> {
+  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+
+  await withClassificationTree(fixture, async ({ env, expectations }) => {
+    for (const expectation of expectations) {
+      const statusFilenameSuffix = `/${NODE_STATUS_FILENAME}`;
+      const nodeDir = `${env.productDir}/${expectation.statusPath.replace(statusFilenameSuffix, "")}`;
+      expect(readNodeStatus(nodeDir)).toBeUndefined();
+    }
+
+    const liveSnapshot = await readSpecTree({
+      source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+    });
+    const providedSnapshot = await readSpecTree({
+      source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+      evidence: createNodeStatusProvider(env.productDir),
     });
 
-    it("removes a stale status file outside the live node set", async () => {
-      const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
-
-      await withClassificationTree(fixture, async ({ env, recordOutcomeEvidence }) => {
-        const resolveOutcome = await recordOutcomeEvidence();
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
-
-        const staleStatusPath = `spx/orphan/${NODE_STATUS_FILENAME}`;
-        const staleNodeDirectory = join(env.productDir, dirname(staleStatusPath));
-        await env.writeRaw(staleStatusPath, "{\"schemaVersion\":1,\"verification\":{}}\n");
-        expect(readNodeStatus(staleNodeDirectory)).toBeDefined();
-
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
-
-        expect(readNodeStatus(staleNodeDirectory)).toBeUndefined();
-      });
-    });
-
-    it("routes a node with no spx.status.json to live derivation rather than reading a file", async () => {
-      const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
-
-      await withClassificationTree(fixture, async ({ env, expectations }) => {
-        // No --update has run, so no status file exists for any node.
-        for (const expectation of expectations) {
-          const statusFilenameSuffix = `/${NODE_STATUS_FILENAME}`;
-          const nodeDir = `${env.productDir}/${expectation.statusPath.replace(statusFilenameSuffix, "")}`;
-          expect(readNodeStatus(nodeDir)).toBeUndefined();
-        }
-
-        const liveSnapshot = await readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-        });
-        const providedSnapshot = await readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-          evidence: createNodeStatusProvider(env.productDir),
-        });
-
-        // Absence routes to live derivation: the provider returns undefined for every
-        // node, so the provided snapshot's states equal the live-derived states.
-        for (const expectation of expectations) {
-          expect(nodeStateById(providedSnapshot.nodes, expectation.nodeId)).toBe(
-            nodeStateById(liveSnapshot.nodes, expectation.nodeId),
-          );
-        }
-      });
-    });
+    for (const expectation of expectations) {
+      expect(nodeStateById(providedSnapshot.nodes, expectation.nodeId)).toBe(
+        nodeStateById(liveSnapshot.nodes, expectation.nodeId),
+      );
+    }
   });
 }
 
