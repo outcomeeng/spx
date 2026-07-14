@@ -36,6 +36,7 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryDuplicateDocumentationPathSet,
   arbitraryMultiDocumentSyncScenario,
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
@@ -44,7 +45,6 @@ import {
   documentationPathFailureCases,
   documentationPathMappingCases,
   type DocumentationSyncScenario,
-  mixedSeparatorDocumentationPathAliases,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -271,6 +271,24 @@ async function assertDocumentationFailureLeavesProductUnchanged(
   });
 }
 
+async function assertVersionValidationPrecedesFaithfulnessAudit(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const auditor = new RecordingDocumentationAuditor();
+  const promoter = new RecordingDocumentationPromoter();
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    await expect(composeDocumentationSync({
+      ...options,
+      agentRunner: new PassiveDocumentationAgent(),
+      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+      promoteDocumentation: promoter.promote,
+    })).rejects.toThrow();
+    expect(auditor.requests).toHaveLength(0);
+    expect(promoter.calls).toHaveLength(0);
+    await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
 async function assertDocumentationPathFailure(
   failureCase: DocumentationPathFailureCase,
 ): Promise<void> {
@@ -430,7 +448,11 @@ function registerMappingTests(): void {
         );
       },
     );
+  });
+}
 
+function registerPropertyTests(): void {
+  describe("documentation sync path properties", () => {
     it("preserves every generated configured documentation path set", async () => {
       await assertProperty(
         arbitraryConfiguredDocumentationSyncScenario(),
@@ -446,14 +468,20 @@ function registerMappingTests(): void {
       );
     });
 
-    it("rejects configured paths that alias across platform separators", () => {
-      expect(
-        releaseConfigDescriptor.validate({
-          [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
-            [RELEASE_CONFIG_FIELDS.PATHS]: mixedSeparatorDocumentationPathAliases(),
-          },
-        }).ok,
-      ).toBe(false);
+    it("rejects every generated duplicate-bearing configured documentation path set", async () => {
+      await assertProperty(
+        arbitraryDuplicateDocumentationPathSet(),
+        (paths) => {
+          expect(
+            releaseConfigDescriptor.validate({
+              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+                [RELEASE_CONFIG_FIELDS.PATHS]: paths,
+              },
+            }).ok,
+          ).toBe(false);
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
     });
   });
 }
@@ -479,10 +507,9 @@ function registerComplianceTests(): void {
       );
     });
 
-    it("leaves product documentation unpromoted when version validation fails", async () => {
-      await assertDocumentationFailureLeavesProductUnchanged(
+    it("validates every released version before invoking the faithfulness audit", async () => {
+      await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-        { agentRunner: new PassiveDocumentationAgent() },
       );
     });
 
@@ -583,4 +610,5 @@ function registerComplianceTests(): void {
 
 export const documentationSyncScenarioCases = collectHarnessTestCases(registerScenarioTests);
 export const documentationSyncMappingCases = collectHarnessTestCases(registerMappingTests);
+export const documentationSyncPropertyCases = collectHarnessTestCases(registerPropertyTests);
 export const documentationSyncComplianceCases = collectHarnessTestCases(registerComplianceTests);

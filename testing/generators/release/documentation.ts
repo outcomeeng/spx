@@ -104,15 +104,21 @@ export function arbitraryMultiDocumentSyncScenario(): fc.Arbitrary<Documentation
   return arbitraryConfiguredDocumentationSyncScenarioWithMinimum(MULTI_DOCUMENT_COUNT_MIN);
 }
 
-export function mixedSeparatorDocumentationPathAliases(): readonly string[] {
-  const slashSeparatedPath = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario()).paths[0];
-  return [
-    slashSeparatedPath,
-    slashSeparatedPath.replaceAll(
-      RELEASE_DOCUMENTATION_PATH_SEPARATOR,
-      RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
-    ),
-  ];
+export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
+  return fc
+    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), fc.boolean())
+    .map(([directory, filename, usePlatformAlias]) => {
+      const path = `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`;
+      return usePlatformAlias
+        ? [
+          path,
+          path.replaceAll(
+            RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+            RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+          ),
+        ]
+        : [path, path];
+    });
 }
 
 export function documentationPathFailureCases(): readonly DocumentationPathFailureCase[] {
@@ -120,8 +126,7 @@ export function documentationPathFailureCases(): readonly DocumentationPathFailu
     traversalFile,
     escapeDirectory,
     escapeFile,
-    symlinkFile,
-    symlinkTarget,
+    [symlinkFile, symlinkTarget],
     missingFile,
     directoryTarget,
     backingContent,
@@ -129,8 +134,7 @@ export function documentationPathFailureCases(): readonly DocumentationPathFailu
     arbitraryDocumentationPath(),
     arbitraryPathSegment(),
     arbitraryDocumentationPath(),
-    arbitraryDocumentationPath(),
-    arbitraryDocumentationPath(),
+    arbitraryDistinctDocumentationPaths(),
     arbitraryDocumentationPath(),
     arbitraryDocumentationPath(),
     arbitraryPathSegment(),
@@ -207,6 +211,12 @@ export function arbitraryPromptBoundaryDocumentationSyncScenario(): fc.Arbitrary
 
 function arbitraryDocumentationPath(): fc.Arbitrary<string> {
   return arbitraryPathSegment().map((segment) => `${segment}${DOCUMENTATION_FILE_EXTENSION}`);
+}
+
+function arbitraryDistinctDocumentationPaths(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .uniqueArray(arbitraryDocumentationPath(), { minLength: 2, maxLength: 2 })
+    .map(([linkPath, backingPath]) => [linkPath, backingPath]);
 }
 
 function createDocumentationPathFailureCase(
