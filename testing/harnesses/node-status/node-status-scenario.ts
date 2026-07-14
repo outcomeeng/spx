@@ -30,10 +30,10 @@ function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | und
 }
 
 export async function assertNodeStatusUpdateWritesVerificationProjection(): Promise<void> {
-  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
+  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTreeWithVerificationReferences());
 
   await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
-    const resolveOutcome = await recordOutcomeEvidence();
+    const { resolveOutcome } = await recordOutcomeEvidence();
     await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
     for (const expectation of expectations) {
@@ -47,7 +47,7 @@ export async function assertNodeStatusUpdateRemovesStaleStatusFile(): Promise<vo
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
   await withClassificationTree(fixture, async ({ env, recordOutcomeEvidence }) => {
-    const resolveOutcome = await recordOutcomeEvidence();
+    const { resolveOutcome } = await recordOutcomeEvidence();
     await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
     const staleStatusPath = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.orphanStatusPath());

@@ -53,6 +53,7 @@ export type ClassificationTreeFixture = {
 export const NODE_STATUS_TEST_GENERATOR = {
   facts: arbitraryNodeClassificationFacts,
   classificationTree: arbitraryClassificationTree,
+  classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
   delegationTree: arbitraryDelegationTree,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
@@ -226,6 +227,12 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
         facts,
       })),
     }));
+}
+
+export function arbitraryClassificationTreeWithVerificationReferences(): fc.Arbitrary<ClassificationTreeFixture> {
+  return arbitraryClassificationTree().filter((fixture) =>
+    fixture.nodes.some((node) => node.facts.hasVerificationReferences)
+  );
 }
 
 function arbitraryClassificationFixtureFacts(): fc.Arbitrary<ClassificationFixtureFacts> {

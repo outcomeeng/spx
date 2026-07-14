@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { expect } from "vitest";
 
+import * as nodeStatusModule from "@/lib/node-status";
 import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
@@ -18,8 +19,9 @@ import {
   NODE_STATUS_PROJECTION_UPDATE_COMMAND,
   NODE_STATUS_PROJECTION_WORKFLOW_PATHS,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  NODE_STATUS_VERIFICATION_STEP_NAME,
   nodeStatusInvalidExcludeEntryMessage,
-  parseNodeStatusProjectionWorkflowSteps,
+  parseNodeStatusProjectionWorkflowJobs,
   readNodeStatus,
   serializeNodeStatus,
   updateNodeStatus,
@@ -33,6 +35,14 @@ import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-consta
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
 export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> {
+  expect(
+    Object.entries(nodeStatusModule)
+      .filter(([name, value]) =>
+        typeof value === "function" && /(?:delete|persist|remove|save|update|write)/iu.test(name)
+      )
+      .map(([name]) => name),
+  ).toEqual([updateNodeStatus.name]);
+
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
   await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
@@ -48,7 +58,7 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
 
     await updateNodeStatus({
       productDir: env.productDir,
-      resolveOutcome: await recordOutcomeEvidence(),
+      resolveOutcome: (await recordOutcomeEvidence()).resolveOutcome,
     });
 
     for (const expectation of expectations) {
@@ -65,16 +75,26 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
 
 export async function assertCiRejectsNodeStatusProjectionDrift(): Promise<void> {
   for (const workflowPath of NODE_STATUS_PROJECTION_WORKFLOW_PATHS) {
-    const workflowSteps = parseNodeStatusProjectionWorkflowSteps(
+    const workflowJobs = parseNodeStatusProjectionWorkflowJobs(
       await readFile(join(process.cwd(), workflowPath), STATE_STORE_TEXT_ENCODING),
     );
-    const step = workflowSteps.find((candidate) => candidate.name === NODE_STATUS_PROJECTION_STEP_NAME);
+    const projectionJobs = workflowJobs.filter((job) =>
+      job.steps.some((step) => step.name === NODE_STATUS_PROJECTION_STEP_NAME)
+    );
 
-    expect(step, `${workflowPath} has ${NODE_STATUS_PROJECTION_STEP_NAME}`).toBeDefined();
-    expect(step?.run).toContain(NODE_STATUS_PROJECTION_UPDATE_COMMAND);
-    expect(step?.run).toContain(NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND);
-    expect(step?.run).toContain(NODE_STATUS_PROJECTION_DIFF_COMMAND);
-    expect(step?.run).toContain(NODE_STATUS_PROJECTION_FAILURE_COMMAND);
+    expect(projectionJobs, `${workflowPath} has one ${NODE_STATUS_PROJECTION_STEP_NAME} job`).toHaveLength(1);
+    for (const job of projectionJobs) {
+      const verificationIndex = job.steps.findIndex((step) => step.name === NODE_STATUS_VERIFICATION_STEP_NAME);
+      const projectionIndex = job.steps.findIndex((step) => step.name === NODE_STATUS_PROJECTION_STEP_NAME);
+      const projectionStep = job.steps[projectionIndex];
+
+      expect(verificationIndex, `${NODE_STATUS_VERIFICATION_STEP_NAME} precedes projection`).toBeGreaterThanOrEqual(0);
+      expect(projectionIndex).toBeGreaterThan(verificationIndex);
+      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_UPDATE_COMMAND);
+      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND);
+      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_DIFF_COMMAND);
+      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_FAILURE_COMMAND);
+    }
   }
 }
 
@@ -110,7 +130,7 @@ export async function assertNodeOutcomeResolverConsultationIsScoped(): Promise<v
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
 
   await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
-    const resolveOutcome = await recordOutcomeEvidence();
+    const { resolveOutcome } = await recordOutcomeEvidence();
     const consulted: string[] = [];
     await updateNodeStatus({
       productDir: env.productDir,
@@ -159,7 +179,10 @@ export async function assertUntrackedNodeStatusIsRemoved(): Promise<void> {
     );
     await env.writeRaw(staleStatusPath, serializeNodeStatus(createNodeStatusFile({})));
 
-    await updateNodeStatus({ productDir: env.productDir, resolveOutcome: await recordOutcomeEvidence() });
+    await updateNodeStatus({
+      productDir: env.productDir,
+      resolveOutcome: (await recordOutcomeEvidence()).resolveOutcome,
+    });
 
     await expect(env.readFile(staleStatusPath)).rejects.toThrow();
     for (const expectation of expectations) {
@@ -185,7 +208,10 @@ export async function assertUnstagedEvidenceInTrackedNodeIsRecorded(): Promise<v
     ].join(NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR);
     await env.writeRaw(untrackedEvidence, "");
 
-    await updateNodeStatus({ productDir: env.productDir, resolveOutcome: await recordOutcomeEvidence() });
+    await updateNodeStatus({
+      productDir: env.productDir,
+      resolveOutcome: (await recordOutcomeEvidence()).resolveOutcome,
+    });
 
     const recorded = JSON.parse(await env.readFile(trackedNode.statusPath));
     expect(Object.keys(recorded.verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST] ?? {})).toContain(
