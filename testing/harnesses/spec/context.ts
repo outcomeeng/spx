@@ -8,10 +8,11 @@ import * as fc from "fast-check";
 import { build } from "tsup";
 import { expect, it } from "vitest";
 
-import {
-  type ContextOptions,
-  SPEC_CONTEXT_TEXT_LABEL,
-} from "@/commands/spec/context";
+import { type ContextOptions, SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
+import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
+import { OUTPUT_FORMAT } from "@/commands/spec/status";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import type { Config } from "@/config/types";
 import {
   decodeContextDocumentUtf8,
@@ -28,10 +29,6 @@ import {
   specContextDigest,
   type SpecContextManifest,
 } from "@/domains/spec/context-manifest";
-import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
-import { OUTPUT_FORMAT } from "@/commands/spec/status";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
 import {
   contextOutputForFormat,
@@ -78,10 +75,9 @@ import {
   specCliUnsupportedStatusFormatFixture,
 } from "@testing/generators/spec-tree/spec-cli";
 import {
-  type RepresentativeSpecTreeFixture,
   RETIRED_SPEC_APPLY_FIXTURE,
-  SPEC_TREE_TEST_GENERATOR,
   sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
