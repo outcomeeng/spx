@@ -1,7 +1,13 @@
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config";
+import { SPEC_STATUS_FORMAT_MESSAGE, SPEC_STATUS_OUTPUT_FORMATS } from "@/interfaces/cli/spec";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import type { SpecTreeNode, SpecTreeSnapshot } from "@/lib/spec-tree";
+import {
+  SPEC_TREE_NODE_STATE,
+  type SpecTreeNode,
+  type SpecTreeNodeState,
+  type SpecTreeSnapshot,
+} from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { specContextAbbreviatedTarget } from "@testing/generators/spec-tree/context-target";
 import {
@@ -19,6 +25,17 @@ export type SpecCliApplyProtectionFixture = {
   readonly excludeContent: string;
   readonly protectedPaths: readonly string[];
   readonly pythonConfigContent: string;
+};
+
+export type SpecCliStatusRow = {
+  readonly nodeId: string;
+  readonly output: string;
+  readonly state: SpecTreeNodeState;
+};
+
+export type SpecCliUnsupportedStatusFormatFixture = {
+  readonly expectedDiagnostic: string;
+  readonly format: string;
 };
 
 export function specCliContextTargetFixture(
@@ -49,9 +66,44 @@ export function specCliApplyProtectionFixture(
   };
 }
 
-export function specCliUnsupportedStatusFormat(fixture: RepresentativeSpecTreeFixture): string {
+export function specCliDeclaredStatusRows(
+  fixture: RepresentativeSpecTreeFixture,
+): readonly SpecCliStatusRow[] {
+  const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
+  const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
+  return [
+    {
+      nodeId: rootDirectory,
+      output: `${KIND_REGISTRY[fixture.root.kind].label} ${rootDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
+      state: SPEC_TREE_NODE_STATE.DECLARED,
+    },
+    {
+      nodeId: `${rootDirectory}/${childDirectory}`,
+      output: `  ${
+        KIND_REGISTRY[fixture.child.kind].label
+      } ${rootDirectory}/${childDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
+      state: SPEC_TREE_NODE_STATE.DECLARED,
+    },
+    {
+      nodeId: peerDirectory,
+      output: `${KIND_REGISTRY[fixture.peer.kind].label} ${peerDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
+      state: SPEC_TREE_NODE_STATE.DECLARED,
+    },
+  ];
+}
+
+export function specCliUnsupportedStatusFormatFixture(
+  fixture: RepresentativeSpecTreeFixture,
+): SpecCliUnsupportedStatusFormatFixture {
   const validFormats = new Set<string>(Object.values(OUTPUT_FORMAT));
   let candidate = `${fixture.root.slug}-${fixture.decision.slug}`;
   while (validFormats.has(candidate)) candidate = `${candidate}-${fixture.child.slug}`;
-  return candidate;
+  return {
+    expectedDiagnostic:
+      `${SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX}: ${SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX} "${candidate}". ${SPEC_STATUS_FORMAT_MESSAGE.VALID_OPTIONS_PREFIX}: ${
+        SPEC_STATUS_OUTPUT_FORMATS.join(", ")
+      }`,
+    format: candidate,
+  };
 }

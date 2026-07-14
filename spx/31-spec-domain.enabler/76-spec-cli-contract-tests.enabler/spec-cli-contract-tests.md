@@ -17,5 +17,5 @@ CAN still prove the user-facing CLI entry point routes current spec-domain comma
 
 ### Compliance
 
-- ALWAYS: contract tests invoke the packaged executable without network access or remote services ([test](tests/spec-cli-contract.scenario.l2.test.ts))
-- NEVER: contract tests share mutable state with the invoking agent outside the temp product directory ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- ALWAYS: contract tests invoke the packaged executable without network access or remote services ([test](tests/spec-cli-contract.compliance.l2.test.ts))
+- NEVER: contract tests share mutable state with the invoking agent outside the temp product directory ([test](tests/spec-cli-contract.compliance.l2.test.ts))

@@ -1,4 +1,4 @@
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -20,14 +20,13 @@ import {
   formatSpecContextTargetFailure,
   SPEC_CONTEXT_OUTPUT_FORMAT,
   SPEC_DOMAIN_CLI,
-  SPEC_STATUS_FORMAT_MESSAGE,
 } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { SPEC_TREE_NODE_STATE, type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
+import { type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
@@ -52,7 +51,8 @@ import {
 import {
   specCliApplyProtectionFixture,
   specCliContextTargetFixture,
-  specCliUnsupportedStatusFormat,
+  specCliDeclaredStatusRows,
+  specCliUnsupportedStatusFormatFixture,
 } from "@testing/generators/spec-tree/spec-cli";
 import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
@@ -109,6 +109,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
   const xdgConfigDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_CONFIG_DIRECTORY);
   const xdgDataDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_DATA_DIRECTORY);
   const xdgStateDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_STATE_DIRECTORY);
+  const networkAttemptsFile = join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_ATTEMPTS_FILE);
   await Promise.all(
     [homeDir, tempDir, xdgCacheDir, xdgConfigDir, xdgDataDir, xdgStateDir].map((path) =>
       mkdir(path, { recursive: true })
@@ -118,6 +119,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
   const result = await execa(
     NODE_EXECUTABLE,
     [
+      "--no-warnings",
       "--permission",
       "--allow-fs-read=*",
       `--allow-fs-write=${productDir}`,
@@ -141,6 +143,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
           GIT_ROOT_COMMAND.REV_PARSE,
           GIT_LS_FILES_COMMAND,
         ]),
+        [SPEC_CLI_ISOLATION.NETWORK_ATTEMPTS_ENV]: networkAttemptsFile,
         TEMP: tempDir,
         TMP: tempDir,
         TMPDIR: tempDir,
@@ -153,7 +156,20 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
       reject: false,
     },
   );
+  expect(JSON.parse(await readFile(networkAttemptsFile, "utf8"))).toEqual([]);
   return result;
+}
+
+function assertDeclaredStatusRows(
+  output: string,
+  fixture: Parameters<typeof specCliDeclaredStatusRows>[0],
+): void {
+  const expectedRows = specCliDeclaredStatusRows(fixture);
+  expect(output.split("\n")).toEqual(expectedRows.map((row) => row.output));
+  for (const row of expectedRows) {
+    expect(output).toContain(row.nodeId);
+    expect(output).toContain(`[${row.state}]`);
+  }
 }
 
 async function assertSpecContextResolvesTarget(
@@ -378,8 +394,7 @@ export async function assertSpecStatusCliRendersCurrentTree(): Promise<void> {
     await env.materialize();
     const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(env.fixture.root.slug);
-    expect(result.stdout).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    assertDeclaredStatusRows(result.stdout, env.fixture);
   });
 }
 
@@ -393,8 +408,7 @@ export async function assertSpecStatusCliUpdatesDeclaredNodes(): Promise<void> {
       SPEC_DOMAIN_CLI.UPDATE_OPTION,
     );
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout).toContain(env.fixture.root.slug);
-    expect(result.stdout).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    assertDeclaredStatusRows(result.stdout, env.fixture);
   });
 }
 
@@ -432,15 +446,16 @@ export async function assertSpecContextCliRendersTarget(): Promise<void> {
 export async function assertSpecStatusCliRejectsUnsupportedFormat(): Promise<void> {
   await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
     await env.materialize();
+    const fixture = specCliUnsupportedStatusFormatFixture(env.fixture);
     const result = await runSpecCli(
       env.productDir,
       SPEC_DOMAIN_CLI.COMMAND,
       SPEC_DOMAIN_CLI.STATUS_COMMAND,
       SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
-      specCliUnsupportedStatusFormat(env.fixture),
+      fixture.format,
     );
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX);
+    expect(result.stderr).toBe(fixture.expectedDiagnostic);
   });
 }
 
