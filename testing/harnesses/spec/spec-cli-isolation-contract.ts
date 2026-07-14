@@ -1,0 +1,11 @@
+export const SPEC_CLI_ISOLATION = {
+  DIRECTORY: ".spec-cli-isolation",
+  GIT_EXECUTABLE_ENV: "SPX_SPEC_CLI_GIT_EXECUTABLE",
+  GIT_READ_SUBCOMMANDS_ENV: "SPX_SPEC_CLI_GIT_READ_SUBCOMMANDS",
+  HOME_DIRECTORY: "home",
+  TEMP_DIRECTORY: "tmp",
+  XDG_CACHE_DIRECTORY: "xdg-cache",
+  XDG_CONFIG_DIRECTORY: "xdg-config",
+  XDG_DATA_DIRECTORY: "xdg-data",
+  XDG_STATE_DIRECTORY: "xdg-state",
+} as const;
