@@ -112,7 +112,7 @@ async function promoteDocumentationSet(
   try {
     for (const document of documents) {
       const { path, content } = document;
-      await verifyCanonicalTarget(path);
+      await assertDocumentationUnchanged(document);
       await dependencies.writeDocumentAtomic(path, content);
       promoted.push(document);
     }
@@ -131,13 +131,17 @@ async function promoteDocumentationSet(
 async function assertDocumentationSetUnchanged(
   documents: readonly DocumentationPromotion[],
 ): Promise<void> {
-  await Promise.all(documents.map(async ({ path, originalContent }) => {
-    await verifyCanonicalTarget(path);
-    const currentContent = await readFile(path, DOCUMENTATION_TEXT_ENCODING);
-    if (currentContent !== originalContent) {
-      throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
-    }
-  }));
+  await Promise.all(documents.map(assertDocumentationUnchanged));
+}
+
+async function assertDocumentationUnchanged(
+  { path, originalContent }: DocumentationPromotion,
+): Promise<void> {
+  await verifyCanonicalTarget(path);
+  const currentContent = await readFile(path, DOCUMENTATION_TEXT_ENCODING);
+  if (currentContent !== originalContent) {
+    throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
+  }
 }
 
 async function restorePromotedDocumentation(
