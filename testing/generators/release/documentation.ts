@@ -40,14 +40,9 @@ export interface DocumentationSyncScenario {
 }
 
 interface DocumentationVersionReferences {
-  readonly first: string;
-  readonly second: string;
+  readonly original: readonly string[];
+  readonly updated: readonly string[];
 }
-
-type DocumentationVersionReferencesFactory = (
-  releaseData: ReleaseData,
-  priorVersion: string,
-) => DocumentationVersionReferences;
 
 export interface DocumentationPathMappingCase {
   readonly label: string;
@@ -121,16 +116,6 @@ export function arbitraryMultiDocumentSyncScenario(): fc.Arbitrary<Documentation
 }
 
 export function arbitraryFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
-  return arbitraryFirstReleaseDocumentationSyncScenarioWith(createPriorVersionReferences);
-}
-
-export function arbitraryMixedVersionFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
-  return arbitraryFirstReleaseDocumentationSyncScenarioWith(createMixedVersionReferences);
-}
-
-function arbitraryFirstReleaseDocumentationSyncScenarioWith(
-  createOriginalVersionReferences: DocumentationVersionReferencesFactory,
-): fc.Arbitrary<DocumentationSyncScenario> {
   return fc
     .uniqueArray(arbitraryDocumentationPath(), {
       minLength: DOCUMENT_COUNT_MIN,
@@ -141,7 +126,6 @@ function arbitraryFirstReleaseDocumentationSyncScenarioWith(
         fc.constant(paths),
         { paths },
         RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag(),
-        createOriginalVersionReferences,
       )
     );
 }
@@ -320,23 +304,23 @@ function arbitraryDocumentationSyncScenario(
   pathsArbitrary: fc.Arbitrary<readonly string[]>,
   config: DocumentationSyncConfig,
   releaseDataArbitrary: fc.Arbitrary<ReleaseData> = RELEASE_TEST_GENERATOR.releaseData(),
-  createOriginalVersionReferences: DocumentationVersionReferencesFactory = createPriorVersionReferences,
 ): fc.Arbitrary<DocumentationSyncScenario> {
   return releaseDataArbitrary.chain((releaseData) => {
-    const priorVersionArbitrary = releaseData.previousTag === null
-      ? RELEASE_TEST_GENERATOR.semver().filter((version) => version !== releaseData.version)
-      : fc.constant(releaseVersionFromTag(releaseData.previousTag));
+    const previousVersion = releaseData.previousTag === null ? null : releaseVersionFromTag(releaseData.previousTag);
+    const unrelatedVersionArbitrary = RELEASE_TEST_GENERATOR.semver().filter(
+      (version) => version !== releaseData.version && version !== previousVersion,
+    );
     return fc
       .tuple(
         fc.constant(releaseData),
         pathsArbitrary,
-        priorVersionArbitrary,
+        unrelatedVersionArbitrary,
         arbitraryPathSegment(),
         arbitraryPathSegment(),
         arbitraryPathSegment(),
       )
-      .map(([scenarioReleaseData, paths, priorVersion, specState, domainState, ambientContent]) => {
-        const originalVersionReferences = createOriginalVersionReferences(scenarioReleaseData, priorVersion);
+      .map(([scenarioReleaseData, paths, unrelatedVersion, specState, domainState, ambientContent]) => {
+        const versionReferences = createDocumentationVersionReferences(scenarioReleaseData, unrelatedVersion);
         return {
           releaseData: scenarioReleaseData,
           config,
@@ -344,13 +328,13 @@ function arbitraryDocumentationSyncScenario(
           original: Object.fromEntries(
             paths.map((path) => [
               path,
-              `${DOCUMENT_PREFIX}${originalVersionReferences.first}${VERSION_SEPARATOR}${originalVersionReferences.second}\n`,
+              `${DOCUMENT_PREFIX}${versionReferences.original.join(VERSION_SEPARATOR)}\n`,
             ]),
           ),
           updated: Object.fromEntries(
             paths.map((path) => [
               path,
-              `${DOCUMENT_PREFIX}${scenarioReleaseData.version}${VERSION_SEPARATOR}${scenarioReleaseData.version}\n`,
+              `${DOCUMENT_PREFIX}${versionReferences.updated.join(VERSION_SEPARATOR)}\n`,
             ]),
           ),
           ambientState: [
@@ -369,16 +353,19 @@ function arbitraryDocumentationSyncScenario(
   });
 }
 
-function createPriorVersionReferences(
-  _releaseData: ReleaseData,
-  priorVersion: string,
-): DocumentationVersionReferences {
-  return { first: priorVersion, second: priorVersion };
-}
-
-function createMixedVersionReferences(
+function createDocumentationVersionReferences(
   releaseData: ReleaseData,
-  priorVersion: string,
+  unrelatedVersion: string,
 ): DocumentationVersionReferences {
-  return { first: releaseData.version, second: priorVersion };
+  if (releaseData.previousTag === null) {
+    return {
+      original: [unrelatedVersion],
+      updated: [releaseData.version, unrelatedVersion],
+    };
+  }
+  const previousVersion = releaseVersionFromTag(releaseData.previousTag);
+  return {
+    original: [previousVersion, unrelatedVersion, previousVersion],
+    updated: [releaseData.version, unrelatedVersion, releaseData.version],
+  };
 }

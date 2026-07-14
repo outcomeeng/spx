@@ -40,7 +40,6 @@ import {
   arbitraryDocumentationPathAliasCase,
   arbitraryDuplicateDocumentationPathSet,
   arbitraryFirstReleaseDocumentationSyncScenario,
-  arbitraryMixedVersionFirstReleaseDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
@@ -58,7 +57,6 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const EXTERNAL_DIRECTORY_PREFIX = "spx-documentation-sync-external-";
-const TRAILING_VERSION_REFERENCE = /([^\n]+)\n$/u;
 const DOCUMENTATION_PATH_SEMANTICS = [
   {
     label: "POSIX",
@@ -85,20 +83,24 @@ const DOCUMENTATION_PATH_SEMANTICS = [
 class DocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
+  constructor(private readonly updated: DocumentationSyncScenario["updated"]) {}
+
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writeReleasedVersion(input.releaseData, input.documents);
+    await writeGeneratedDocumentation(this.updated, input.documents);
   }
 }
 
 class FirstDocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
+  constructor(private readonly updated: DocumentationSyncScenario["updated"]) {}
+
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writeReleasedVersion(input.releaseData, input.documents.slice(0, 1));
+    await writeGeneratedDocumentation(this.updated, input.documents.slice(0, 1));
   }
 }
 
@@ -186,7 +188,7 @@ async function withDocumentationScenario(
       await writeFile(absolutePath, content);
     }
     await materializeDocumentationConfig(productDir, scenario.config);
-    const agent = new DocumentationWritingAgent();
+    const agent = new DocumentationWritingAgent(scenario.updated);
     const filesystem = createDocumentationSyncFilesystem();
     await run(
       {
@@ -247,16 +249,14 @@ function parseDocumentationSyncPromptInput(prompt: string): {
   };
 }
 
-async function writeReleasedVersion(
-  releaseData: ReleaseData,
+async function writeGeneratedDocumentation(
+  updated: DocumentationSyncScenario["updated"],
   documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[],
 ): Promise<void> {
   for (const path of documents) {
-    const content = await readFile(path.stagedPath, "utf8");
-    await writeFile(
-      path.stagedPath,
-      content.replaceAll(previousReleaseVersion(releaseData, content, path.sourcePath), releaseData.version),
-    );
+    const content = updated[path.sourcePath];
+    if (content === undefined) throw new Error(`No generated documentation update for ${path.sourcePath}`);
+    await writeFile(path.stagedPath, content);
   }
 }
 
@@ -264,22 +264,17 @@ async function writeFirstReleasedVersionReference(
   releaseData: ReleaseData,
   documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[],
 ): Promise<void> {
+  if (releaseData.previousTag === null) {
+    throw new Error("Partial release-version replacement requires a previous release tag");
+  }
+  const previousVersion = releaseVersionFromTag(releaseData.previousTag);
   for (const path of documents) {
     const content = await readFile(path.stagedPath, "utf8");
     await writeFile(
       path.stagedPath,
-      content.replace(previousReleaseVersion(releaseData, content, path.sourcePath), releaseData.version),
+      content.replace(previousVersion, releaseData.version),
     );
   }
-}
-
-function previousReleaseVersion(releaseData: ReleaseData, content: string, sourcePath: string): string {
-  if (releaseData.previousTag !== null) return releaseVersionFromTag(releaseData.previousTag);
-  const priorVersion = content.match(TRAILING_VERSION_REFERENCE)?.[1];
-  if (priorVersion === undefined) {
-    throw new Error(`No trailing version reference in ${sourcePath}`);
-  }
-  return priorVersion;
 }
 
 async function expectProductDocumentationUnchanged(
@@ -333,7 +328,7 @@ async function assertDocumentationPathFailure(
     await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
       await materializeDocumentationPathFailure(failureCase, productDir, externalDir);
       const filesystem = createDocumentationSyncFilesystem();
-      const agent = new DocumentationWritingAgent();
+      const agent = new PassiveDocumentationAgent();
       const promoter = new RecordingDocumentationPromoter();
       await expect(composeDocumentationSync({
         releaseData: failureCase.releaseData,
@@ -481,7 +476,7 @@ function registerScenarioTests(): void {
       });
     });
 
-    it("updates every first-release version reference to the released version", async () => {
+    it("adds the released version to first-release documentation", async () => {
       const scenario = sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario());
       await withDocumentationScenario(scenario, async (options, readProductDocument) => {
         await runDocumentationSyncCli(options);
@@ -557,6 +552,21 @@ function registerPropertyTests(): void {
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
     });
+
+    it("preserves every generated unrelated semantic version on a first release", async () => {
+      await assertProperty(
+        arbitraryFirstReleaseDocumentationSyncScenario(),
+        async (scenario) => {
+          await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+            await runDocumentationSyncCli(options);
+            for (const path of scenario.paths) {
+              await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+            }
+          });
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
   });
 }
 
@@ -595,25 +605,11 @@ function registerComplianceTests(): void {
       );
     });
 
-    it("rejects partially updated first-release version references before invoking the faithfulness audit", async () => {
-      await assertVersionValidationPrecedesFaithfulnessAudit(
-        sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
-        new PartiallyUpdatingDocumentationAgent(),
-      );
-    });
-
-    it("rejects stale first-release version references when the released version is already present", async () => {
-      await assertVersionValidationPrecedesFaithfulnessAudit(
-        sampleReleaseTestValue(arbitraryMixedVersionFirstReleaseDocumentationSyncScenario()),
-        new PassiveDocumentationAgent(),
-      );
-    });
-
     it("validates the complete configured set before promoting any document", async () => {
-      await assertDocumentationFailureLeavesProductUnchanged(
-        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
-        { agentRunner: new FirstDocumentationWritingAgent() },
-      );
+      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+      await assertDocumentationFailureLeavesProductUnchanged(scenario, {
+        agentRunner: new FirstDocumentationWritingAgent(scenario.updated),
+      });
     });
 
     it("restores earlier documents when a later atomic promotion fails", async () => {
