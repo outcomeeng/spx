@@ -89,6 +89,8 @@ export const DIAGNOSE_TEXT_HINT = {
   JSON: "Run `spx diagnose --json` for the complete machine-readable report.",
 } as const;
 
+const DIAGNOSE_REPORT_RENDER_ERROR_PREFIX = "cannot render invalid diagnose report";
+
 export const DIAGNOSE_TEXT_HEADER = {
   AGENT_SESSION_ACTIVE: "agent session active",
   AGENT_SESSION_HOOK_SKIPPED: "agent session hook skipped",
@@ -150,20 +152,21 @@ export const DIAGNOSE_TEXT_DETAIL = {
 
 /** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
 export function renderReportJson(report: DiagnoseReport): string {
-  return JSON.stringify(
-    {
-      checks: report.checks.map((check) => ({
-        name: check.name,
-        verdict: check.verdict,
-        bucket: check.bucket,
-        readings: check.readings,
-        remediation: check.remediation,
-      })),
-      overall: report.overall,
-    },
-    null,
-    2,
-  );
+  const projection = JSON.stringify({
+    checks: report.checks.map((check) => ({
+      name: check.name,
+      verdict: check.verdict,
+      bucket: check.bucket,
+      readings: check.readings,
+      remediation: check.remediation,
+    })),
+    overall: report.overall,
+  });
+  const validated = parseDiagnoseReportJson(projection);
+  if (!validated.ok) {
+    throw new Error(`${DIAGNOSE_REPORT_RENDER_ERROR_PREFIX}: ${validated.error}`);
+  }
+  return JSON.stringify(validated.value, null, 2);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
