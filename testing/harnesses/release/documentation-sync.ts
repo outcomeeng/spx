@@ -656,6 +656,23 @@ function registerComplianceTests(): void {
       });
     });
 
+    it("audits each original-to-read-back documentation transformation", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options) => {
+        await composeDocumentationSync({
+          ...options,
+          faithfulnessAuditor: async ({ releaseData, documents }) => {
+            expect(releaseData).toBe(scenario.releaseData);
+            expect(documents).toEqual(scenario.paths.map((path) => ({
+              path,
+              originalContent: scenario.original[path],
+              updatedContent: scenario.updated[path],
+            })));
+          },
+        });
+      });
+    });
+
     it("passes only release data and staged document paths to the producing agent", async () => {
       const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
       await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
@@ -693,7 +710,11 @@ function registerComplianceTests(): void {
         expect(auditor.requests).toHaveLength(1);
         expect(parseDocumentationPromptDataBlock(auditor.requests[0].prompt)).toEqual({
           releaseData: scenario.releaseData,
-          documents: scenario.paths.map((path) => ({ path, content: scenario.updated[path] })),
+          documents: scenario.paths.map((path) => ({
+            path,
+            originalContent: scenario.original[path],
+            updatedContent: scenario.updated[path],
+          })),
         });
       });
     });
