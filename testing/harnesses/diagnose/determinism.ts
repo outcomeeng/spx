@@ -1,20 +1,32 @@
 import { describe, expect, it } from "vitest";
 
+import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
+import { classifyMethodologyContext } from "@/domains/diagnose/checks/methodology-context";
+import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
+import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
+import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
+import { classifyWorktreePool } from "@/domains/diagnose/checks/worktree-pool";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
-import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
-import { type CheckRecord, OVERALL_VERDICT } from "@/domains/diagnose/types";
-import { arbitraryCompleteDiagnoseRunScenario, arbitraryVerdictBuckets } from "@testing/generators/diagnose/report";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { OVERALL_VERDICT } from "@/domains/diagnose/types";
+import {
+  arbitraryCompleteDiagnoseRunScenario,
+  arbitraryVerdictBuckets,
+  type CompleteDiagnoseRunScenario,
+} from "@testing/generators/diagnose/report";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
-function registryFromRecords(records: readonly CheckRecord[]): CheckRegistry {
-  const registry: Partial<Record<CheckName, () => Promise<CheckRecord>>> = {};
-  for (const record of records) {
-    const name = Object.values(CHECK_NAME).find((candidate) => candidate === record.name);
-    if (name === undefined) throw new Error(`generated record names unknown check: ${record.name}`);
-    registry[name] = () => Promise.resolve(record);
-  }
-  return registry;
+function registryFromReadings(scenario: CompleteDiagnoseRunScenario): CheckRegistry {
+  return {
+    [CHECK_NAME.SPX_REACHABILITY]: async (manifest) =>
+      classifySpxReachability(scenario.spxReachability, manifest.spxFloor),
+    [CHECK_NAME.SESSION_ENVIRONMENT]: async () => classifySessionEnvironment(scenario.sessionEnvironment),
+    [CHECK_NAME.WORKTREE_POOL]: async () => classifyWorktreePool(scenario.worktreePool),
+    [CHECK_NAME.SESSION_STORE]: async () => classifySessionStore(scenario.sessionStore),
+    [CHECK_NAME.MARKETPLACE_INSTALL]: async () => classifyMarketplaceInstall(scenario.marketplaceInstall),
+    [CHECK_NAME.METHODOLOGY_CONTEXT]: async () => classifyMethodologyContext(scenario.methodologyContext),
+  };
 }
 
 export function registerDiagnoseDeterminismProperties(): void {
@@ -62,17 +74,16 @@ export function registerDiagnoseDeterminismProperties(): void {
     it("produces identical per-check and overall verdicts across every registered provider", async () => {
       await assertProperty(
         arbitraryCompleteDiagnoseRunScenario(),
-        async ({ checks, records }) => {
-          const manifest = { checks };
-          const first = await runDiagnose(manifest, registryFromRecords(records));
-          const second = await runDiagnose(manifest, registryFromRecords(records));
+        async (scenario) => {
+          const first = await runDiagnose(scenario.manifest, registryFromReadings(scenario));
+          const second = await runDiagnose(scenario.manifest, registryFromReadings(scenario));
 
           expect(first).toEqual(second);
           expect(first.ok).toBe(true);
           if (first.ok) {
-            expect(first.value.checks.map((check) => check.name)).toEqual(checks);
+            expect(first.value.checks.map((check) => check.name)).toEqual(scenario.manifest.checks);
             expect(first.value.overall).toBe(
-              foldOverallVerdict(records.map((record) => record.bucket)),
+              foldOverallVerdict(first.value.checks.map((record) => record.bucket)),
             );
           }
         },
