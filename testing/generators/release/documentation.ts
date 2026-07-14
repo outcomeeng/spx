@@ -20,6 +20,8 @@ const MULTI_DOCUMENT_COUNT_MIN = 2;
 const DOCUMENT_COUNT_MAX = 3;
 const DOCUMENT_PREFIX = "# ";
 const VERSION_SEPARATOR = "\n\n";
+const SEMANTIC_VERSION_PRERELEASE_SEPARATOR = "-";
+const SEMANTIC_VERSION_BUILD_SEPARATOR = "+";
 const SPEC_TREE_DIRECTORY = "spx";
 const SOURCE_DOMAIN_DIRECTORY = "src/domains";
 const SPEC_NODE_SUFFIX = ".enabler";
@@ -139,9 +141,28 @@ export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitra
   DocumentationVersionPreservationScenarios
 > {
   return fc.record({
-    withPreviousTag: arbitraryConfiguredDocumentationSyncScenario(),
-    withoutPreviousTag: arbitraryFirstReleaseDocumentationSyncScenario(),
+    withPreviousTag: arbitraryConfiguredDocumentationSyncScenario().chain((scenario) => {
+      if (scenario.releaseData.previousTag === null) {
+        throw new Error("Generated subsequent-release scenario has no previous release tag");
+      }
+      return arbitraryScenarioWithPreservedVersionVariant(
+        scenario,
+        releaseVersionFromTag(scenario.releaseData.previousTag),
+      );
+    }),
+    withoutPreviousTag: arbitraryFirstReleaseDocumentationSyncScenario().chain((scenario) =>
+      arbitraryScenarioWithPreservedVersionVariant(scenario, scenario.releaseData.version)
+    ),
   });
+}
+
+export function arbitraryReleaseVersionVariantOnlyScenario(): fc.Arbitrary<DocumentationSyncScenario> {
+  return arbitraryFirstReleaseDocumentationSyncScenario().chain((scenario) =>
+    arbitrarySemanticVersionVariant(scenario.releaseData.version).map((variant) => ({
+      ...scenario,
+      updated: documentationForPaths(scenario.paths, [variant]),
+    }))
+  );
 }
 
 export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
@@ -339,18 +360,8 @@ function arbitraryDocumentationSyncScenario(
           releaseData: scenarioReleaseData,
           config,
           paths,
-          original: Object.fromEntries(
-            paths.map((path) => [
-              path,
-              `${DOCUMENT_PREFIX}${versionReferences.original.join(VERSION_SEPARATOR)}\n`,
-            ]),
-          ),
-          updated: Object.fromEntries(
-            paths.map((path) => [
-              path,
-              `${DOCUMENT_PREFIX}${versionReferences.updated.join(VERSION_SEPARATOR)}\n`,
-            ]),
-          ),
+          original: documentationForPaths(paths, versionReferences.original),
+          updated: documentationForPaths(paths, versionReferences.updated),
           ambientState: [
             {
               path:
@@ -365,6 +376,47 @@ function arbitraryDocumentationSyncScenario(
         };
       });
   });
+}
+
+function arbitraryScenarioWithPreservedVersionVariant(
+  scenario: DocumentationSyncScenario,
+  version: string,
+): fc.Arbitrary<DocumentationSyncScenario> {
+  return arbitrarySemanticVersionVariant(version).map((variant) => ({
+    ...scenario,
+    original: appendDocumentationVersion(scenario.original, variant),
+    updated: appendDocumentationVersion(scenario.updated, variant),
+  }));
+}
+
+function arbitrarySemanticVersionVariant(version: string): fc.Arbitrary<string> {
+  return fc
+    .tuple(
+      fc.constantFrom(SEMANTIC_VERSION_PRERELEASE_SEPARATOR, SEMANTIC_VERSION_BUILD_SEPARATOR),
+      arbitraryPathSegment(),
+    )
+    .map(([separator, identifier]) => `${version}${separator}${identifier}`);
+}
+
+function documentationForPaths(
+  paths: readonly string[],
+  versions: readonly string[],
+): Readonly<Partial<Record<string, string>>> {
+  return Object.fromEntries(
+    paths.map((path) => [path, `${DOCUMENT_PREFIX}${versions.join(VERSION_SEPARATOR)}\n`]),
+  );
+}
+
+function appendDocumentationVersion(
+  documents: Readonly<Partial<Record<string, string>>>,
+  version: string,
+): Readonly<Partial<Record<string, string>>> {
+  return Object.fromEntries(
+    Object.entries(documents).map(([path, content]) => {
+      if (content === undefined) throw new Error(`Generated documentation has no content for ${path}`);
+      return [path, `${content.trimEnd()}${VERSION_SEPARATOR}${version}\n`];
+    }),
+  );
 }
 
 function createDocumentationVersionReferences(

@@ -44,6 +44,7 @@ import {
   arbitraryMultiDocumentSyncScenario,
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
+  arbitraryReleaseVersionVariantOnlyScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
@@ -598,6 +599,14 @@ function registerComplianceTests(): void {
       await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
         new PassiveDocumentationAgent(),
+      );
+    });
+
+    it("rejects a release-version variant as the only released-version reference", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryReleaseVersionVariantOnlyScenario());
+      await assertVersionValidationPrecedesFaithfulnessAudit(
+        scenario,
+        new DocumentationWritingAgent(scenario.updated),
       );
     });
 
