@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { escapeTerminalDiagnostic } from "@/lib/sanitize-cli-argument";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -30,7 +30,8 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };
   program.configureOutput({
-    writeErr: (value) => io.writeStderr(sanitizeCliArgument(value)),
+    writeErr: io.writeStderr,
+    outputError: (value, write) => write(escapeTerminalDiagnostic(value)),
   });
 
   program

@@ -39,6 +39,7 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
+import { CONTROL_CHAR_UPPER_BOUND, ESCAPE_CONTROL_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
 import { SPX_VERSION } from "@/version";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
@@ -88,6 +89,12 @@ export interface StyledOverallCase {
 export interface DiagnoseExitCodeCase {
   readonly overall: OverallVerdict;
   readonly expectedCode: number;
+}
+
+export interface UnsafeDiagnoseReadingScenario {
+  readonly report: DiagnoseReport;
+  readonly readingName: string;
+  readonly readingValue: string;
 }
 
 export interface DefaultDiagnoseScenario {
@@ -255,6 +262,23 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
 
 export function allProviderRecords(): readonly CheckRecord[] {
   return allProviderRecordScenario().records;
+}
+
+export function unsafeDiagnoseReadingScenario(): UnsafeDiagnoseReadingScenario {
+  const [record, ...remainingRecords] = allProviderRecords();
+  const readingName = `path${String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE)}[31m`;
+  const readingValue = `value${String.fromCodePoint(CONTROL_CHAR_UPPER_BOUND)}`;
+  return {
+    readingName,
+    readingValue,
+    report: {
+      overall: foldOverallVerdict([record.bucket, ...remainingRecords.map((candidate) => candidate.bucket)]),
+      checks: [
+        { ...record, readings: { [readingName]: readingValue } },
+        ...remainingRecords,
+      ],
+    },
+  };
 }
 
 export function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {

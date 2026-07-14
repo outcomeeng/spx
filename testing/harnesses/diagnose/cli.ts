@@ -31,6 +31,8 @@ import {
   DIAGNOSE_TEXT_LABEL,
   DIAGNOSE_TEXT_OVERALL_LABEL,
   parseDiagnoseReportJson,
+  renderReportJson,
+  renderReportVerbose,
 } from "@/domains/diagnose/report";
 import {
   CHECK_RECORD_FIELDS,
@@ -43,6 +45,7 @@ import {
 import { createDiagnoseDomain, DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
+import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 import {
   allChecksManifestJson,
   DIAGNOSE_OUTPUT_SELECTOR_CASES,
@@ -61,6 +64,7 @@ import {
   defaultDiagnoseScenario,
   type DiagnoseExitCodeCase,
   expectedHumanHeader,
+  unsafeDiagnoseReadingScenario,
 } from "@testing/generators/diagnose/report-scenarios";
 import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE, VERSION_FLAG } from "@testing/harnesses/constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -375,6 +379,18 @@ export async function assertVerboseDiagnoseShowsAllFacts(): Promise<void> {
     expect(verbose.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);
     expect(verbose.exitCode).toBe(machine.exitCode);
   });
+}
+
+export function assertVerboseDiagnoseSanitizesReadings(): void {
+  const scenario = unsafeDiagnoseReadingScenario();
+  const verbose = renderReportVerbose(scenario.report, { color: false });
+  const machine = parseReportText(renderReportJson(scenario.report));
+  expect(verbose).toContain(
+    `${escapeCliArgument(scenario.readingName)}: ${escapeCliArgument(scenario.readingValue)}`,
+  );
+  expect(verbose).not.toContain(scenario.readingName);
+  expect(verbose).not.toContain(scenario.readingValue);
+  expect(machine.checks[0]?.readings[scenario.readingName]).toBe(scenario.readingValue);
 }
 
 export async function assertOutputSelectorCase(testCase: DiagnoseOutputSelectorCase): Promise<void> {
