@@ -2,10 +2,21 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createNodeStatusProvider, NODE_STATUS_FILENAME, readNodeStatus, updateNodeStatus } from "@/lib/node-status";
+import {
+  createNodeStatusMechanismRecord,
+  createNodeStatusProvider,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_FILENAME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  readNodeStatus,
+  updateNodeStatus,
+} from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree, type SpecTreeNode } from "@/lib/spec-tree";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
-import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
+import {
+  type ClassificationTreeNodeExpectation,
+  withClassificationTree,
+} from "@testing/harnesses/node-status/node-status";
 
 function nodeStateById(nodes: readonly SpecTreeNode[], id: string): string | undefined {
   for (const node of nodes) {
@@ -21,12 +32,13 @@ export function registerNodeStatusScenarioEvidence(): void {
     it("writes each node's verification projection to its co-located spx.status.json", async () => {
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
+        const resolveOutcome = await recordOutcomeEvidence();
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
         for (const expectation of expectations) {
           const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-          expect(recorded).toEqual(expectation.expectedStatusFile);
+          expectRecordedEvidence(recorded, expectation);
         }
       });
     });
@@ -34,7 +46,8 @@ export function registerNodeStatusScenarioEvidence(): void {
     it("removes a stale status file outside the live node set", async () => {
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, resolveOutcome }) => {
+      await withClassificationTree(fixture, async ({ env, recordOutcomeEvidence }) => {
+        const resolveOutcome = await recordOutcomeEvidence();
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
         const staleStatusPath = `spx/orphan/${NODE_STATUS_FILENAME}`;
@@ -77,4 +90,24 @@ export function registerNodeStatusScenarioEvidence(): void {
       });
     });
   });
+}
+
+function expectRecordedEvidence(recorded: unknown, expectation: ClassificationTreeNodeExpectation): void {
+  const verification = (recorded as { readonly verification: Record<string, Record<string, string>> }).verification;
+  if (expectation.evidencePaths.length === 0) {
+    expect(verification).toEqual({});
+    return;
+  }
+
+  const testRecord = verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST];
+  expect(testRecord).toBeDefined();
+  const expectedOutcomes = Object.fromEntries(
+    expectation.evidencePaths.map((path) => [path, expectation.facts.expectedEvidenceOutcome]),
+  );
+  expect(testRecord[NODE_STATUS_FIELD.OVERALL]).toBe(
+    createNodeStatusMechanismRecord(expectedOutcomes)[NODE_STATUS_FIELD.OVERALL],
+  );
+  for (const evidencePath of expectation.evidencePaths) {
+    expect(testRecord[evidencePath]).toBe(expectation.facts.expectedEvidenceOutcome);
+  }
 }

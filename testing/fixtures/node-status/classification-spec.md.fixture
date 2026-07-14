@@ -1,0 +1,5 @@
+# Fixture
+
+PROVIDES fixture infrastructure
+SO THAT node-status tests
+CAN classify nodes

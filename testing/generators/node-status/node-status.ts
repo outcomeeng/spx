@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import type {
   NodeClassificationFacts,
   NodeStatusEvidenceOutcome,
@@ -7,7 +8,11 @@ import type {
   NodeStatusVerification,
   NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
-import { createNodeStatusMechanismRecord, NODE_STATUS_VERIFICATION_MECHANISM } from "@/lib/node-status";
+import {
+  createNodeStatusMechanismRecord,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+} from "@/lib/node-status";
 import { KIND_REGISTRY } from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
@@ -15,6 +20,7 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MAX: 99,
   MIN_NODES: 1,
   MAX_NODES: 5,
+  FAILURE_EXIT_CODE: 1,
 } as const;
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
@@ -33,7 +39,8 @@ const STATUS_EVIDENCE_OUTCOMES = [
 export type ClassificationFixtureFacts = {
   readonly hasVerificationReferences: boolean;
   readonly isExcluded: boolean;
-  readonly testsPass: boolean;
+  readonly runnerExitCode: number;
+  readonly expectedEvidenceOutcome: NodeStatusEvidenceOutcome;
 };
 
 export type ClassificationTreeNode = {
@@ -61,6 +68,28 @@ export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
     throw new Error("Node-status test generator returned no sample");
   }
   return value;
+}
+
+export function createGeneratedEvidenceOutcomes(
+  values: readonly NodeStatusEvidenceOutcome[],
+): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
+  const references = sampleNodeStatusValue(
+    fc.uniqueArray(arbitraryStatusReference(), {
+      minLength: values.length,
+      maxLength: values.length,
+    }),
+  );
+  return Object.fromEntries(values.map((outcome, index) => [references[index], outcome]));
+}
+
+export function createGeneratedTestVerification(
+  values: readonly NodeStatusEvidenceOutcome[],
+): NodeStatusVerification {
+  return {
+    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(
+      createGeneratedEvidenceOutcomes(values),
+    ),
+  };
 }
 
 export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificationFacts> {
@@ -142,11 +171,22 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
 }
 
 function arbitraryClassificationFixtureFacts(): fc.Arbitrary<ClassificationFixtureFacts> {
-  return fc.record({
-    hasVerificationReferences: fc.boolean(),
-    isExcluded: fc.boolean(),
-    testsPass: fc.boolean(),
-  });
+  return fc
+    .record({
+      hasVerificationReferences: fc.boolean(),
+      isExcluded: fc.boolean(),
+      runnerPassed: fc.boolean(),
+    })
+    .map(({ hasVerificationReferences, isExcluded, runnerPassed }) => ({
+      hasVerificationReferences,
+      isExcluded,
+      runnerExitCode: runnerPassed ? SUCCESS_EXIT_CODE : NODE_STATUS_GENERATOR_OPTIONS.FAILURE_EXIT_CODE,
+      expectedEvidenceOutcome: isExcluded
+        ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+        : runnerPassed
+        ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+        : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+    }));
 }
 
 // A classification tree guaranteed to span all three consultation classes — one
@@ -175,11 +215,20 @@ function delegationNode(
   isExcluded: boolean,
 ): fc.Arbitrary<ClassificationTreeNode> {
   return fc
-    .record({ slug: arbitraryNodeSlug(), testsPass: fc.boolean() })
-    .map(({ slug, testsPass }) => ({
+    .record({ slug: arbitraryNodeSlug(), runnerPassed: fc.boolean() })
+    .map(({ slug, runnerPassed }) => ({
       dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
       slug,
-      facts: { hasVerificationReferences, isExcluded, testsPass },
+      facts: {
+        hasVerificationReferences,
+        isExcluded,
+        runnerExitCode: runnerPassed ? SUCCESS_EXIT_CODE : NODE_STATUS_GENERATOR_OPTIONS.FAILURE_EXIT_CODE,
+        expectedEvidenceOutcome: isExcluded
+          ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+          : runnerPassed
+          ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+          : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+      },
     }));
 }
 

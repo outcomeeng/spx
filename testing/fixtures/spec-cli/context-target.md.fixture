@@ -1,0 +1,11 @@
+# Context Target
+
+PROVIDES context fixture behavior
+SO THAT process-contract evidence
+CAN observe a linked evidence document
+
+## Assertions
+
+### Scenarios
+
+- Given a context target, when context is loaded, then its evidence is present ([test](tests/context.scenario.l1.test.ts))

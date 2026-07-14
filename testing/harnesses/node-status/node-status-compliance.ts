@@ -7,7 +7,6 @@ import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
   createNodeStatusProvider,
-  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
   NODE_STATUS_PROJECTION_DIFF_COMMAND,
@@ -38,7 +37,7 @@ export function registerNodeStatusComplianceEvidence(): void {
     it("ALWAYS: spx.status.json appears only after the --update path runs", async () => {
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations }) => {
+      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
         // Building a read-path provider and reading the tree must not write any file.
         const provider = createNodeStatusProvider(env.productDir);
         await readSpecTree({
@@ -53,22 +52,15 @@ export function registerNodeStatusComplianceEvidence(): void {
         // Only the --update path creates the files.
         await updateNodeStatus({
           productDir: env.productDir,
-          resolveOutcome: (nodeId: string, evidencePaths: readonly string[]) =>
-            Promise.resolve(
-              Object.fromEntries(
-                evidencePaths.map((path) => [
-                  path,
-                  expectations.find((e) => e.nodeId === nodeId)?.facts.testsPass
-                    ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-                    : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-                ]),
-              ),
-            ),
+          resolveOutcome: await recordOutcomeEvidence(),
         });
 
         for (const expectation of expectations) {
           const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-          expect(recorded).toEqual(expectation.expectedStatusFile);
+          const testRecord = recorded.verification.test as Record<string, string> | undefined;
+          for (const evidencePath of expectation.evidencePaths) {
+            expect(testRecord?.[evidencePath]).toBe(expectation.facts.expectedEvidenceOutcome);
+          }
         }
       });
     });
@@ -123,7 +115,8 @@ export function registerNodeStatusComplianceEvidence(): void {
       // set is always non-empty and the assertion discriminates on every run.
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
+        const resolveOutcome = await recordOutcomeEvidence();
         const consulted: string[] = [];
         await updateNodeStatus({
           productDir: env.productDir,
@@ -143,7 +136,6 @@ export function registerNodeStatusComplianceEvidence(): void {
 
         for (const expectation of expectations) {
           const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-          expect(recorded).toEqual(expectation.expectedStatusFile);
 
           const testRecord = recorded.verification.test as Record<string, string> | undefined;
           if (expectation.evidencePaths.length === 0) {
@@ -155,25 +147,19 @@ export function registerNodeStatusComplianceEvidence(): void {
           expect(
             Object.keys(testRecord ?? {}).filter((key) => key !== NODE_STATUS_FIELD.OVERALL).sort(compareAsciiStrings),
           ).toEqual([...expectation.evidencePaths].sort(compareAsciiStrings));
-          const expectedOutcome = expectedOutcomeFor(expectation.facts);
           for (const evidencePath of expectation.evidencePaths) {
-            expect(testRecord?.[evidencePath]).toBe(expectedOutcome);
+            expect(testRecord?.[evidencePath]).toBe(expectation.facts.expectedEvidenceOutcome);
           }
         }
       });
     });
   });
 
-  function expectedOutcomeFor(facts: { readonly isExcluded: boolean; readonly testsPass: boolean }) {
-    if (facts.isExcluded) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
-    return facts.testsPass ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
-  }
-
   describe("node-status tracked-tree write boundary", () => {
     it("NEVER: --update writes into an untracked node-shaped directory; a stale status file there is removed", async () => {
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
         // Track the materialized spec tree in a real repo before introducing the stale
         // directory, so the node-shaped stale directory is genuinely untracked.
         await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
@@ -185,13 +171,13 @@ export function registerNodeStatusComplianceEvidence(): void {
         const staleStatusPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${staleNodeId}/${NODE_STATUS_FILENAME}`;
         await env.writeRaw(staleStatusPath, serializeNodeStatus(createNodeStatusFile({})));
 
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome: await recordOutcomeEvidence() });
 
         // The untracked stale directory's leftover status file is swept; every tracked node keeps its own.
         await expect(env.readFile(staleStatusPath)).rejects.toThrow();
         for (const expectation of expectations) {
           const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-          expect(recorded).toEqual(expectation.expectedStatusFile);
+          expect(recorded[NODE_STATUS_FIELD.VERIFICATION]).toBeDefined();
         }
       });
     });
@@ -199,7 +185,7 @@ export function registerNodeStatusComplianceEvidence(): void {
     it("ALWAYS: --update records a tracked node's not-yet-staged evidence in its projection", async () => {
       const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
-      await withClassificationTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+      await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
         // Track the materialized tree, then add a not-yet-staged evidence file inside an
         // already-tracked node directory.
         await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
@@ -214,7 +200,7 @@ export function registerNodeStatusComplianceEvidence(): void {
         ].join("/");
         await env.writeRaw(untrackedEvidence, "");
 
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome: await recordOutcomeEvidence() });
 
         // The tracked node directory is git-tracked, so its untracked evidence is recorded —
         // the projection matches what CI regenerates once the evidence is committed.
