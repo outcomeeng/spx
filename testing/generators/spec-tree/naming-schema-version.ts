@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 
 import {
   canonicalNamingSchemaVersion,
+  compareNumericVersionIdentifiers,
   DECISION_SUFFIXES,
   type NamingSchemaVersion,
   NODE_SUFFIXES,
@@ -322,28 +323,37 @@ function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeig
 }
 
 function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistrySuffixScenario> {
-  return fc.integer({ min: 0, max: NODE_SUFFIXES.length - 1 }).map((demotedIndex) => {
-    const demotedRegistrySuffix = NODE_SUFFIXES[demotedIndex];
-    const canonicalRegistrySuffixes = NODE_SUFFIXES.filter((_, index) => index !== demotedIndex);
-    const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
-    return {
-      schemaVersions: [
-        buildNamingSchemaVersion(
-          RECOGNITION_SCENARIO_VERSION.PRIOR,
-          [demotedRegistrySuffix],
-          DECISION_SUFFIXES,
-          specFileSuffixForRole(false),
-        ),
-        buildNamingSchemaVersion(
-          RECOGNITION_SCENARIO_VERSION.CANONICAL,
-          canonicalRegistrySuffixes,
-          DECISION_SUFFIXES,
-          specFileSuffixForRole(true),
-        ),
-      ],
-      demotedRegistrySuffix,
-      demotedVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
-      canonicalRegistrySuffix,
-    };
-  });
+  return fc
+    .tuple(
+      fc.integer({ min: 0, max: NODE_SUFFIXES.length - 1 }),
+      arbitrarySemver(),
+      arbitrarySemver(),
+    )
+    .filter(([, leftVersion, rightVersion]) => compareNumericVersionIdentifiers(leftVersion, rightVersion) !== 0)
+    .map(([demotedIndex, leftVersion, rightVersion]) => {
+      const demotedRegistrySuffix = NODE_SUFFIXES[demotedIndex];
+      const canonicalRegistrySuffixes = NODE_SUFFIXES.filter((_, index) => index !== demotedIndex);
+      const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
+      const priorVersion = compareNumericVersionIdentifiers(leftVersion, rightVersion) < 0 ? leftVersion : rightVersion;
+      const canonicalVersion = priorVersion === leftVersion ? rightVersion : leftVersion;
+      return {
+        schemaVersions: [
+          buildNamingSchemaVersion(
+            priorVersion,
+            [demotedRegistrySuffix],
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(false),
+          ),
+          buildNamingSchemaVersion(
+            canonicalVersion,
+            canonicalRegistrySuffixes,
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(true),
+          ),
+        ],
+        demotedRegistrySuffix,
+        demotedVersion: priorVersion,
+        canonicalRegistrySuffix,
+      };
+    });
 }

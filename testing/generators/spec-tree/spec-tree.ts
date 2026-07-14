@@ -1,13 +1,17 @@
 import * as fc from "fast-check";
 
 import {
+  canonicalNamingSchemaVersion,
+  compareNamingSchemaVersions,
   type DecisionKind,
+  type NamingSchemaVersion,
   type NodeKind,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecTreeDecisionSourceEntry,
@@ -41,6 +45,40 @@ export type AssemblyNodeOrders = {
   readonly rootOrder: number;
   readonly childOrder: number;
   readonly peerOrder: number;
+};
+
+export const SPEC_TREE_SOURCE_MAPPING_CASE_KIND = {
+  PRODUCT_RELATIVE_REFS: "product-relative-refs",
+  RECOGNIZED_ENTRY_ROLE: "recognized-entry-role",
+  DECISION_SHAPED_DESCENT: "decision-shaped-descent",
+} as const;
+
+export type SpecTreeSourceMappingCaseKind =
+  (typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND)[keyof typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND];
+
+export type RecognizedSpecTreeSourceEntryRole =
+  | typeof SPEC_TREE_ENTRY_TYPE.PRODUCT
+  | typeof SPEC_TREE_ENTRY_TYPE.NODE
+  | typeof SPEC_TREE_ENTRY_TYPE.DECISION
+  | typeof SPEC_TREE_ENTRY_TYPE.EVIDENCE;
+
+export type SpecTreeSourceMappingCase =
+  | {
+    readonly title: string;
+    readonly kind:
+      | typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS
+      | typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT;
+  }
+  | {
+    readonly title: string;
+    readonly kind: typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE;
+    readonly entryType: RecognizedSpecTreeSourceEntryRole;
+  };
+
+export type SupersededNodeSuffixCase = {
+  readonly title: string;
+  readonly suffix: string;
+  readonly version: string;
 };
 
 const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
@@ -87,10 +125,70 @@ export const SPEC_TREE_TEST_GENERATOR = {
   childSourceOrderAbove: arbitraryChildSourceOrderAbove,
   evidenceFileName: arbitraryEvidenceFileName,
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
+  invalidOrderedDirectory: arbitraryInvalidOrderedDirectory,
   supersededNodeSuffix: arbitrarySupersededNodeSuffix,
   sourceRef: arbitrarySourceRef,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
+
+export function specTreeSourceMappingCases(): readonly SpecTreeSourceMappingCase[] {
+  return [
+    {
+      title: "uses product-root-relative refs and an inclusion predicate",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS,
+    },
+    {
+      title: "maps product records",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
+      entryType: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+    },
+    {
+      title: "maps node records",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
+      entryType: SPEC_TREE_ENTRY_TYPE.NODE,
+    },
+    {
+      title: "maps decision records",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
+      entryType: SPEC_TREE_ENTRY_TYPE.DECISION,
+    },
+    {
+      title: "maps co-located evidence records",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
+      entryType: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
+    },
+    {
+      title: "descends through directories whose names match decision grammar",
+      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT,
+    },
+  ];
+}
+
+export function supersededNodeSuffixCases(
+  versions: readonly NamingSchemaVersion[] = SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+): readonly SupersededNodeSuffixCase[] {
+  const canonical = canonicalNamingSchemaVersion(versions);
+  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
+  const seen = new Set<string>();
+  const cases: SupersededNodeSuffixCase[] = [];
+  const priorVersions = versions
+    .filter((version) => version !== canonical)
+    .sort((left, right) => compareNamingSchemaVersions(right, left));
+
+  for (const version of priorVersions) {
+    for (const suffix of version.nodeSuffixes) {
+      if (canonicalSuffixes.has(suffix) || seen.has(suffix)) continue;
+      seen.add(suffix);
+      cases.push({
+        title: `retains ${suffix} as superseded under naming schema ${version.version}`,
+        suffix,
+        version: version.version,
+      });
+    }
+  }
+
+  return cases;
+}
 
 export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
@@ -369,6 +467,12 @@ function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitra
   )
     .map(([firstCharacter, rest]) => `.${firstCharacter}${rest}`)
     .map((suffix) => disambiguateRegisteredSuffix(suffix, nodeSuffixes));
+}
+
+function arbitraryInvalidOrderedDirectory(registry: SpecTreeRegistry): fc.Arbitrary<string> {
+  return fc
+    .tuple(arbitraryFilesystemOrder(), arbitrarySourceSlug(), arbitraryUnregisteredNodeSuffix(registry))
+    .map(([order, slug, suffix]) => `${order}-${slug}${suffix}`);
 }
 
 function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {
