@@ -100,3 +100,15 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 **Impact:** Keeping testable product behavior under `[audit]` weakens the spec-test map and conflicts with the rule that `[audit]` is judgment evidence, not a placeholder for behavior the product can verify.
 
 **Resolution:** Revisit each product-level `[audit]` assertion and reclassify any deterministic behavior to `[test]` with co-located product-root evidence. Start with the CLI latency, deterministic context ingestion, config governance, persisted execution state, `git rev-parse` fallback, and no-network core-operations assertions. Keep judgment-only product properties as `[audit]`.
+
+## Test assertion flow lives in harnesses instead of executed test files
+
+Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
+
+[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
+
+**Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
+
+**Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
+
+**Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
