@@ -3,7 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
-import { RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
+import { normalizeDocumentationPathSeparators, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
 import type {
   DocumentationPromoter,
   DocumentationReader,
@@ -85,7 +85,7 @@ async function stageDocumentationSet(
   const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
   try {
     const documents = await Promise.all(verified.map(async ({ sourcePath, targetPath }) => {
-      const stagedPath = join(workingDirectory, sourcePath);
+      const stagedPath = join(workingDirectory, normalizeDocumentationPathSeparators(sourcePath));
       const originalContent = await readFile(targetPath, DOCUMENTATION_TEXT_ENCODING);
       await mkdir(dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, originalContent, DOCUMENTATION_TEXT_ENCODING);
@@ -166,11 +166,13 @@ export function resolveCanonicalDocumentationTarget(
   pathOperations: DocumentationPathOperations = DOCUMENTATION_PATH_OPERATIONS,
 ): string | undefined {
   if (pathOperations.isAbsolute(sourcePath)) return undefined;
-  const targetPath = pathOperations.resolve(canonicalProductDir, sourcePath);
-  const pathFromRoot = pathOperations.relative(canonicalProductDir, targetPath);
+  const normalizedSourcePath = normalizeDocumentationPathSeparators(sourcePath);
   const configuredPath = pathOperations.sep === "\\"
-    ? sourcePath.replaceAll(RELEASE_DOCUMENTATION_PATH_SEPARATOR, pathOperations.sep)
-    : sourcePath;
+    ? normalizedSourcePath.replaceAll(RELEASE_DOCUMENTATION_PATH_SEPARATOR, pathOperations.sep)
+    : normalizedSourcePath;
+  if (pathOperations.isAbsolute(configuredPath)) return undefined;
+  const targetPath = pathOperations.resolve(canonicalProductDir, configuredPath);
+  const pathFromRoot = pathOperations.relative(canonicalProductDir, targetPath);
   return isContainedPath(pathFromRoot, pathOperations)
       && pathFromRoot === configuredPath
     ? targetPath
