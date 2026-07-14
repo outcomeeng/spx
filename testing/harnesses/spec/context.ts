@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
 import { build } from "tsup";
-import { expect } from "vitest";
+import { expect, it } from "vitest";
 
 import {
   type ContextOptions,
@@ -49,7 +49,9 @@ import {
   specContextNestedAmbiguousTarget as nestedAmbiguousTarget,
   specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
   type SpecContextTargetDiagnosticSafetyCase,
+  specContextTargetDiagnosticSafetyCases,
   type SpecContextTargetMappingCase,
+  specContextTargetMappingCases,
   specContextUnrecognizedNodeDirectoryTarget as unrecognizedNodeDirectoryTarget,
 } from "@testing/generators/spec-tree/context-target";
 import {
@@ -66,6 +68,19 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+
+const PARAMETERIZED_CONTEXT_CASE_TITLE = "$title";
+
+export function registerSpecContextTargetMappingEvidence(): void {
+  it.each(specContextTargetMappingCases())(
+    PARAMETERIZED_CONTEXT_CASE_TITLE,
+    assertSpecContextTargetMappingCase,
+  );
+  it.each(specContextTargetDiagnosticSafetyCases())(
+    PARAMETERIZED_CONTEXT_CASE_TITLE,
+    assertSpecContextTargetDiagnosticSafetyCase,
+  );
+}
 
 function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;

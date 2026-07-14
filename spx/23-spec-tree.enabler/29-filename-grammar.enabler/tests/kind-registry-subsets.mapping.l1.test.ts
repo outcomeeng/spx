@@ -1,54 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe } from "vitest";
 
-import {
-  DECISION_KINDS,
-  DECISION_SUFFIXES,
-  type Kind,
-  KIND_REGISTRY,
-  NODE_KINDS,
-  NODE_SUFFIXES,
-  SPEC_TREE_KIND_CATEGORY,
-} from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
+import { registerKindRegistrySubsetEvidence } from "@testing/harnesses/spec-tree/filename-grammar";
 
-describe("node kinds", () => {
-  it("includes exactly the kinds whose category is node", () => {
-    const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-      (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
-    );
-    expect([...NODE_KINDS].sort(compareAsciiStrings)).toEqual([...expected].sort(compareAsciiStrings));
-  });
-
-  it("excludes every kind whose category is decision", () => {
-    for (const kind of NODE_KINDS) {
-      expect(KIND_REGISTRY[kind].category).toBe(SPEC_TREE_KIND_CATEGORY.NODE);
-    }
-  });
-});
-
-describe("decision kinds", () => {
-  it("includes exactly the kinds whose category is decision", () => {
-    const expected = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-      (k) => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,
-    );
-    expect([...DECISION_KINDS].sort(compareAsciiStrings)).toEqual([...expected].sort(compareAsciiStrings));
-  });
-
-  it("excludes every kind whose category is node", () => {
-    for (const kind of DECISION_KINDS) {
-      expect(KIND_REGISTRY[kind].category).toBe(SPEC_TREE_KIND_CATEGORY.DECISION);
-    }
-  });
-});
-
-describe("suffix sub-registries", () => {
-  it("NODE_SUFFIXES contains the suffix of every node kind and nothing else", () => {
-    const expected = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
-    expect([...NODE_SUFFIXES].sort(compareAsciiStrings)).toEqual([...expected].sort(compareAsciiStrings));
-  });
-
-  it("DECISION_SUFFIXES contains the suffix of every decision kind and nothing else", () => {
-    const expected = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
-    expect([...DECISION_SUFFIXES].sort(compareAsciiStrings)).toEqual([...expected].sort(compareAsciiStrings));
-  });
-});
+describe("kind registry subsets", registerKindRegistrySubsetEvidence);
