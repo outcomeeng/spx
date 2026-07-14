@@ -38,6 +38,12 @@ export type VersionBump = {
   readonly packageVersion: string;
 };
 
+type ReleaseVersionProgression = {
+  readonly version: string;
+  readonly previousTag: string;
+  readonly versionDelta: VersionDelta;
+};
+
 type SemverParts = {
   readonly major: number;
   readonly minor: number;
@@ -155,18 +161,14 @@ function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
   return arbitraryCommitSequence(RELEASE_NOTES_COMMITS).chain((fixtures) =>
     fc
       .record({
-        version: arbitrarySemver(),
-        previousTag: arbitraryReleaseTag(),
-        versionDelta: fc.constantFrom(VERSION_DELTA.MAJOR, VERSION_DELTA.MINOR, VERSION_DELTA.PATCH),
+        progression: arbitraryReleaseVersionProgression(),
         shas: fc.uniqueArray(arbitraryCommitSha(), {
           minLength: fixtures.length,
           maxLength: fixtures.length,
         }),
       })
-      .map(({ version, previousTag, versionDelta, shas }): ReleaseData => ({
-        version,
-        previousTag,
-        versionDelta,
+      .map(({ progression, shas }): ReleaseData => ({
+        ...progression,
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
         changedPaths: fixtures.map((fixture) => fixture.path),
       }))
@@ -176,22 +178,30 @@ function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
 function arbitraryReleaseDataWithSubjects(subjects: readonly string[]): fc.Arbitrary<ReleaseData> {
   return fc
     .record({
-      version: arbitrarySemver(),
-      previousTag: arbitraryReleaseTag(),
-      versionDelta: fc.constantFrom(VERSION_DELTA.MAJOR, VERSION_DELTA.MINOR, VERSION_DELTA.PATCH),
+      progression: arbitraryReleaseVersionProgression(),
       shas: fc.uniqueArray(arbitraryCommitSha(), {
         minLength: subjects.length,
         maxLength: subjects.length,
       }),
       changedPaths: arbitraryCommitSequence(subjects.length),
     })
-    .map(({ version, previousTag, versionDelta, shas, changedPaths }): ReleaseData => ({
-      version,
-      previousTag,
-      versionDelta,
+    .map(({ progression, shas, changedPaths }): ReleaseData => ({
+      ...progression,
       commits: subjects.map((subject, index) => ({ sha: shas[index], subject })),
       changedPaths: changedPaths.map((fixture) => fixture.path),
     }));
+}
+
+function arbitraryReleaseVersionProgression(): fc.Arbitrary<ReleaseVersionProgression> {
+  return fc
+    .constantFrom(VERSION_DELTA.MAJOR, VERSION_DELTA.MINOR, VERSION_DELTA.PATCH)
+    .chain((versionDelta) =>
+      arbitraryVersionBumpFor(versionDelta).map(({ previousTag, packageVersion }) => ({
+        version: packageVersion,
+        previousTag,
+        versionDelta,
+      }))
+    );
 }
 
 function arbitraryVersionBumpFor(delta: VersionDelta): fc.Arbitrary<VersionBump> {

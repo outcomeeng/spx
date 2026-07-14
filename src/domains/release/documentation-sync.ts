@@ -1,7 +1,8 @@
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
-import type { ReleaseData } from "@/domains/release/release-data";
+import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
 export const DOCUMENTATION_SYNC_PROMPT_INSTRUCTION =
@@ -18,6 +19,9 @@ export const DOCUMENTATION_SYNC_AGENT_MAX_TURNS = 10;
 export const DOCUMENTATION_SYNC_AUDIT_MAX_TURNS = 3;
 export const DOCUMENTATION_SYNC_AUDIT_APPROVED = "APPROVED";
 export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
+const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
+const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
+const VERSION_REFERENCE_DIGIT_BOUNDARY = String.raw`\d`;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -101,7 +105,7 @@ export async function composeDocumentationSync(
     });
     const documents = await Promise.all(stage.documents.map(async ({ sourcePath, stagedPath, targetPath }) => {
       const content = await options.readDocument(stagedPath);
-      assertReleasedVersionPresent(content, options.releaseData.version, sourcePath);
+      assertReleasedVersionReferencesUpdated(content, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, content };
     }));
     await options.faithfulnessAuditor({
@@ -138,10 +142,27 @@ export function createDocumentationFaithfulnessAuditor(
   };
 }
 
-function assertReleasedVersionPresent(content: string, version: string, path: string): void {
-  if (!content.includes(version)) {
-    throw new Error(`Updated documentation does not reference release version ${version}: ${path}`);
+function assertReleasedVersionReferencesUpdated(
+  content: string,
+  releaseData: ReleaseData,
+  path: string,
+): void {
+  if (!containsReleaseVersionReference(content, releaseData.version)) {
+    throw new Error(`Updated documentation does not reference release version ${releaseData.version}: ${path}`);
   }
+  if (releaseData.previousTag === null) return;
+  const previousVersion = releaseVersionFromTag(releaseData.previousTag);
+  if (containsReleaseVersionReference(content, previousVersion)) {
+    throw new Error(`Updated documentation still references previous release version ${previousVersion}: ${path}`);
+  }
+}
+
+function containsReleaseVersionReference(content: string, version: string): boolean {
+  const escapedVersion = version.replace(REGEXP_SPECIAL_CHARACTER_PATTERN, REGEXP_ESCAPE_REPLACEMENT);
+  return new RegExp(
+    `(?<!${VERSION_REFERENCE_DIGIT_BOUNDARY})${RELEASE_TAG_PREFIX}?${escapedVersion}(?!${VERSION_REFERENCE_DIGIT_BOUNDARY})`,
+    "u",
+  ).test(content);
 }
 
 function buildDocumentationFaithfulnessAuditPrompt(

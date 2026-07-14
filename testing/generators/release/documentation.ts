@@ -10,7 +10,7 @@ import {
   DOCUMENTATION_FILE_EXTENSION,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
 } from "@/domains/release/documentation-sync";
-import type { ReleaseData } from "@/domains/release/release-data";
+import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
@@ -269,30 +269,34 @@ function arbitraryDocumentationSyncScenario(
       arbitraryPathSegment(),
       arbitraryPathSegment(),
       arbitraryPathSegment(),
-      arbitraryPathSegment(),
     )
-    .map(([releaseData, paths, priorVersion, specState, domainState, ambientContent]) => ({
-      releaseData,
-      config,
-      paths,
-      original: Object.fromEntries(
-        paths.map((path) => [path, `${DOCUMENT_PREFIX}${priorVersion}${VERSION_SEPARATOR}${priorVersion}\n`]),
-      ),
-      updated: Object.fromEntries(
-        paths.map((path) => [
-          path,
-          `${DOCUMENT_PREFIX}${releaseData.version}${VERSION_SEPARATOR}${releaseData.version}\n`,
-        ]),
-      ),
-      ambientState: [
-        {
-          path: `${SPEC_TREE_DIRECTORY}/${specState}${SPEC_NODE_SUFFIX}/${specState}${DOCUMENTATION_FILE_EXTENSION}`,
-          content: `${ambientContent}-${specState}`,
-        },
-        {
-          path: `${SOURCE_DOMAIN_DIRECTORY}/${domainState}${TYPESCRIPT_FILE_EXTENSION}`,
-          content: `${ambientContent}-${domainState}`,
-        },
-      ],
-    }));
+    .map(([releaseData, paths, specState, domainState, ambientContent]) => {
+      const priorVersion = releaseData.previousTag === null
+        ? releaseData.version
+        : releaseVersionFromTag(releaseData.previousTag);
+      return {
+        releaseData,
+        config,
+        paths,
+        original: Object.fromEntries(
+          paths.map((path) => [path, `${DOCUMENT_PREFIX}${priorVersion}${VERSION_SEPARATOR}${priorVersion}\n`]),
+        ),
+        updated: Object.fromEntries(
+          paths.map((path) => [
+            path,
+            `${DOCUMENT_PREFIX}${releaseData.version}${VERSION_SEPARATOR}${releaseData.version}\n`,
+          ]),
+        ),
+        ambientState: [
+          {
+            path: `${SPEC_TREE_DIRECTORY}/${specState}${SPEC_NODE_SUFFIX}/${specState}${DOCUMENTATION_FILE_EXTENSION}`,
+            content: `${ambientContent}-${specState}`,
+          },
+          {
+            path: `${SOURCE_DOMAIN_DIRECTORY}/${domainState}${TYPESCRIPT_FILE_EXTENSION}`,
+            content: `${ambientContent}-${domainState}`,
+          },
+        ],
+      };
+    });
 }
