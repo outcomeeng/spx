@@ -516,6 +516,18 @@ export function arbitraryValidSessionInstant(): fc.Arbitrary<Date> {
   });
 }
 
+/** Two distinct valid session instants for chronological-order properties. */
+export function arbitraryDistinctSessionInstantPair(): fc.Arbitrary<readonly [Date, Date]> {
+  return fc
+    .tuple(arbitraryValidSessionInstant(), arbitraryValidSessionInstant())
+    .filter(([left, right]) => left.getTime() !== right.getTime());
+}
+
+/** Content that cannot open a YAML frontmatter document. */
+export function arbitraryNonFrontMatterContent(): fc.Arbitrary<string> {
+  return fc.string().filter((content) => !content.startsWith(SESSION_FRONT_MATTER_DELIMITER));
+}
+
 /**
  * Arbitrary session ID in the `YYYY-MM-DD_HH-mm-ss` shape, formatted through the
  * production `generateSessionId` so the test domain tracks the source format
