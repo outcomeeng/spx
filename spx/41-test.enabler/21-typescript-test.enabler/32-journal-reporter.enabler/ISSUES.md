@@ -20,7 +20,7 @@ unverified:
   treats `skipped`/`pending` as no-finding — the same as passing — but no generator,
   fixture, or test drives those two states, so `journal-reporter.md`'s Mappings claim
   ("a failing test case records a finding, a passing test case records no finding") is
-  unverified for two of the four states the reporter's field map names.
+  unverified for two of the four states the reporter's source contract names.
 - **A module whose collection fails before any case resolves.** An import or syntax
   error faults a module during collection, so it emits no `onTestCaseResult` and appends
   no finding; if Vitest also skips `onTestModuleStart` for it, the run resolves `failed`
@@ -42,8 +42,7 @@ fuller evidence contract when that work lands.
 
 **Evidence:** CI review on PR #406; `src/test/languages/journal-reporter.ts`
 `onTestCaseResult`/`onTestRunEnd`; `testing/generators/testing/journal-reporter.ts`
-`GENERATED_CASE_STATE`; `journal-reporter.md` Mappings assertion; the Vitest field map in
-this node's `PLAN.md`.
+`GENERATED_CASE_STATE`; and the `journal-reporter.md` Mappings assertion.
 
 ## FOLLOW-UP: the recorder-backed sink needs a single-writer guarantee under multi-module runs
 

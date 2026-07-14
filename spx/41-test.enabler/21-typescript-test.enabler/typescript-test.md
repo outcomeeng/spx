@@ -11,7 +11,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
 - Given an excluded node path in `spx.config.{toml,json,yaml}`, when `spx test passing` runs, then vitest is invoked with `--exclude=spx/{node}/**` for that node ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given a TypeScript test imports a module that does not exist, when vitest runs against that file without exclusion, then vitest exits non-zero ([test](tests/typescript-test.scenario.l2.test.ts))
-- Given a project where language detection reports TypeScript absent, when `spx test` runs, then vitest is not invoked ([test](tests/typescript-test.scenario.l1.test.ts))
+- Given a product where language detection reports TypeScript absent, when `spx test` runs, then vitest is not invoked ([test](tests/typescript-test.scenario.l1.test.ts))
 
 ### Mappings
 
