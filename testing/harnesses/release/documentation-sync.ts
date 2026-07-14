@@ -31,6 +31,7 @@ import {
   type DocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
+import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
@@ -83,7 +84,7 @@ class DocumentationWritingAgent implements AgentRunner {
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writeReleasedVersion(input.releaseData.version, input.documents);
+    await writeReleasedVersion(input.releaseData, input.documents);
   }
 }
 
@@ -93,7 +94,17 @@ class FirstDocumentationWritingAgent implements AgentRunner {
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writeReleasedVersion(input.releaseData.version, input.documents.slice(0, 1));
+    await writeReleasedVersion(input.releaseData, input.documents.slice(0, 1));
+  }
+}
+
+class PartiallyUpdatingDocumentationAgent implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    const input = parseDocumentationSyncPromptInput(request.prompt);
+    await writeFirstReleasedVersionReference(input.releaseData, input.documents);
   }
 }
 
@@ -233,17 +244,38 @@ function parseDocumentationSyncPromptInput(prompt: string): {
 }
 
 async function writeReleasedVersion(
-  version: string,
+  releaseData: ReleaseData,
   documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[],
 ): Promise<void> {
   for (const path of documents) {
     const content = await readFile(path.stagedPath, "utf8");
-    const priorVersion = content.match(TRAILING_VERSION_REFERENCE)?.[1];
-    if (priorVersion === undefined) {
-      throw new Error(`No trailing version reference in ${path.sourcePath}`);
-    }
-    await writeFile(path.stagedPath, content.replaceAll(priorVersion, version));
+    await writeFile(
+      path.stagedPath,
+      content.replaceAll(previousReleaseVersion(releaseData, content, path.sourcePath), releaseData.version),
+    );
   }
+}
+
+async function writeFirstReleasedVersionReference(
+  releaseData: ReleaseData,
+  documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[],
+): Promise<void> {
+  for (const path of documents) {
+    const content = await readFile(path.stagedPath, "utf8");
+    await writeFile(
+      path.stagedPath,
+      content.replace(previousReleaseVersion(releaseData, content, path.sourcePath), releaseData.version),
+    );
+  }
+}
+
+function previousReleaseVersion(releaseData: ReleaseData, content: string, sourcePath: string): string {
+  if (releaseData.previousTag !== null) return releaseVersionFromTag(releaseData.previousTag);
+  const priorVersion = content.match(TRAILING_VERSION_REFERENCE)?.[1];
+  if (priorVersion === undefined) {
+    throw new Error(`No trailing version reference in ${sourcePath}`);
+  }
+  return priorVersion;
 }
 
 async function expectProductDocumentationUnchanged(
@@ -273,13 +305,14 @@ async function assertDocumentationFailureLeavesProductUnchanged(
 
 async function assertVersionValidationPrecedesFaithfulnessAudit(
   scenario: DocumentationSyncScenario,
+  agentRunner: AgentRunner,
 ): Promise<void> {
   const auditor = new RecordingDocumentationAuditor();
   const promoter = new RecordingDocumentationPromoter();
   await withDocumentationScenario(scenario, async (options, readProductDocument) => {
     await expect(composeDocumentationSync({
       ...options,
-      agentRunner: new PassiveDocumentationAgent(),
+      agentRunner,
       faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
       promoteDocumentation: promoter.promote,
     })).rejects.toThrow();
@@ -510,6 +543,14 @@ function registerComplianceTests(): void {
     it("validates every released version before invoking the faithfulness audit", async () => {
       await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        new PassiveDocumentationAgent(),
+      );
+    });
+
+    it("rejects partially updated version references before invoking the faithfulness audit", async () => {
+      await assertVersionValidationPrecedesFaithfulnessAudit(
+        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        new PartiallyUpdatingDocumentationAgent(),
       );
     });
 

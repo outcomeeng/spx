@@ -66,7 +66,7 @@ interface SemverParts {
  * not rely on the delta until that decision lands.
  */
 export function classifyVersionDelta(previousTag: string, packageVersion: string): VersionDelta {
-  const previous = parseSemver(stripReleaseTagPrefix(previousTag));
+  const previous = parseSemver(releaseVersionFromTag(previousTag));
   const current = parseSemver(packageVersion);
   if (previous.major !== current.major) return VERSION_DELTA.MAJOR;
   if (previous.minor !== current.minor) return VERSION_DELTA.MINOR;
@@ -106,7 +106,7 @@ async function resolvePreviousReleaseTag(
   return closestReleaseTag(GIT_ROOT_COMMAND.HEAD, tagsAtHead, productDir, deps);
 }
 
-function stripReleaseTagPrefix(tag: string): string {
+export function releaseVersionFromTag(tag: string): string {
   return tag.startsWith(RELEASE_TAG_PREFIX) ? tag.slice(RELEASE_TAG_PREFIX.length) : tag;
 }
 
