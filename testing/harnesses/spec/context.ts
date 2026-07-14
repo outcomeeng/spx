@@ -30,7 +30,7 @@ import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
@@ -639,9 +639,12 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
       `spx/${target.parentId}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
     const higherAncestorDecisionPath =
       `spx/${target.parentId}/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
+    for (const filename of SPEC_TREE_GRAMMAR.COORDINATION_NOTES) {
+      await env.writeRaw(`spx/${filename}`, `# Product ${filename}\n`);
+      await env.writeRaw(`spx/${target.parentId}/${filename}`, `# Ancestor ${filename}\n`);
+      await env.writeRaw(`spx/${target.id}/${filename}`, `# Target ${filename}\n`);
+    }
     await env.writeRaw(`spx/${lowerSibling}/${env.fixture.root.slug}.md`, "# Lower sibling\n");
-    await env.writeRaw(`spx/${target.id}/PLAN.md`, "# Plan\n");
-    await env.writeRaw(`spx/${target.id}/ISSUES.md`, "# Issues\n");
     await env.writeRaw(evidencePath, "import { describe, it } from \"vitest\";\n");
     await env.writeRaw(targetDecisionPath, "# Target decision\n");
     await env.writeRaw(higherTargetDecisionPath, "# Higher target decision\n");
@@ -665,14 +668,20 @@ export async function assertSpecContextManifestIncludesDocuments(): Promise<void
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.TARGET)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.DECISION)).toBe(true);
     expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE)).toBe(true);
-    expect(manifest.documents).toContainEqual({
-      path: `spx/${target.id}/PLAN.md`,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: `spx/${target.id}/ISSUES.md`,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
-    });
+    for (const filename of SPEC_TREE_GRAMMAR.COORDINATION_NOTES) {
+      expect(manifest.documents).toContainEqual({
+        path: `spx/${filename}`,
+        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
+      });
+      expect(manifest.documents).toContainEqual({
+        path: `spx/${target.parentId}/${filename}`,
+        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
+      });
+      expect(manifest.documents).toContainEqual({
+        path: `spx/${target.id}/${filename}`,
+        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
+      });
+    }
     expect(manifest.documents).toContainEqual({
       path: `spx/${lowerSibling}/${env.fixture.root.slug}.md`,
       role: SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING,
