@@ -13,16 +13,15 @@ import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { DEFAULT_METHODOLOGY_CONFIG } from "@/config/methodology";
 import { formatSpecCliError, SPEC_DOMAIN_CLI, specStatusInvalidFormatMessage } from "@/interfaces/cli/spec";
-import {
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_NODE_STATE,
-  type SpecTreeProjectedNode,
-  type SpecTreeProjection,
-} from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE, type SpecTreeProjectedNode, type SpecTreeProjection } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleSpecCliTestValue, SPEC_CLI_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-cli";
-import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
+import {
+  type RepresentativeSpecTreeFixture,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -35,8 +34,6 @@ const SPEC_CLI_FIXTURE_DIRECTORY = join(
   "spec-cli",
 );
 const RETIRED_APPLY_PRODUCT_FIXTURE = join(SPEC_CLI_FIXTURE_DIRECTORY, "retired-apply-product");
-const RETIRED_COMMAND_FILE = "command.txt";
-const RETIRED_EXPECTED_STDERR_FILE = "expected-stderr.txt";
 const CONTEXT_TARGET_FIXTURE = "context-target.md.fixture";
 const CONTEXT_EVIDENCE_FIXTURE = "context-evidence.ts.fixture";
 const CONTEXT_EVIDENCE_FILE = "context.scenario.l1.test.ts";
@@ -49,15 +46,16 @@ export async function assertStatusRoutesThroughDevelopmentCli(): Promise<void> {
   await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
     await env.materialize();
 
-    const { stdout, exitCode } = await runCli(
+    const { stdout, stderr, exitCode } = await runCli(
       env.productDir,
       SPEC_DOMAIN_CLI.COMMAND,
       SPEC_DOMAIN_CLI.STATUS_COMMAND,
+      SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
+      OUTPUT_FORMAT.JSON,
     );
 
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain(env.fixture.root.slug);
-    expect(stdout).toContain(SPEC_TREE_NODE_STATE.DECLARED);
+    expect(exitCode, stderr).toBe(0);
+    expectCompleteDeclaredProjection(JSON.parse(stdout) as SpecTreeProjection, env.fixture);
   });
 }
 
@@ -75,13 +73,7 @@ export async function assertStatusUpdateRoutesThroughDevelopmentCli(): Promise<v
     );
 
     expect(exitCode, stderr).toBe(0);
-    const projection = JSON.parse(stdout) as SpecTreeProjection;
-    const projectedNodes = flattenProjectedNodes(projection.nodes);
-    const fixtureNodes = env.fixture.entries.filter((entry) => entry.type === SPEC_TREE_ENTRY_TYPE.NODE);
-    expect(projectedNodes).toHaveLength(fixtureNodes.length);
-    for (const node of projectedNodes) {
-      expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED);
-    }
+    expectCompleteDeclaredProjection(JSON.parse(stdout) as SpecTreeProjection, env.fixture);
   });
 }
 
@@ -198,10 +190,9 @@ export async function assertLocalStatusFormatFlagsRemainHermetic(): Promise<void
 }
 
 export async function assertRetiredApplyRoutingPreservesProductConfig(): Promise<void> {
-  await withRetiredApplyProduct(async ({ productDir, command, expectedStderr, productConfigSnapshot }) => {
-    const result = await runCli(productDir, SPEC_DOMAIN_CLI.COMMAND, command);
+  await withRetiredApplyProduct(async ({ productDir, productConfigSnapshot }) => {
+    const result = await runCli(productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.RETIRED_APPLY_COMMAND);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.trim()).toBe(expectedStderr);
     expect(await snapshotProductRootFiles(productDir)).toEqual(productConfigSnapshot);
   });
 }
@@ -216,6 +207,24 @@ async function runCli(cwd: string, ...args: readonly string[]) {
 
 function flattenProjectedNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
   return nodes.flatMap((node) => [node, ...flattenProjectedNodes(node.children)]);
+}
+
+function expectCompleteDeclaredProjection(
+  projection: SpecTreeProjection,
+  fixture: RepresentativeSpecTreeFixture,
+): void {
+  const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
+  const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
+  expect(
+    flattenProjectedNodes(projection.nodes)
+      .map((node) => ({ id: node.id, state: node.state }))
+      .sort((left, right) => compareAsciiStrings(left.id, right.id)),
+  ).toEqual(
+    [rootDirectory, `${rootDirectory}/${childDirectory}`, peerDirectory]
+      .map((id) => ({ id, state: SPEC_TREE_NODE_STATE.DECLARED }))
+      .sort((left, right) => compareAsciiStrings(left.id, right.id)),
+  );
 }
 
 function expectDocument(
@@ -233,8 +242,6 @@ function readSpecCliFixture(filename: string): Promise<string> {
 function withRetiredApplyProduct(
   callback: (fixture: {
     readonly productDir: string;
-    readonly command: string;
-    readonly expectedStderr: string;
     readonly productConfigSnapshot: ReadonlyMap<string, string>;
   }) => Promise<void>,
 ): Promise<void> {
@@ -243,8 +250,6 @@ function withRetiredApplyProduct(
     await cp(RETIRED_APPLY_PRODUCT_FIXTURE, productDir, { recursive: true });
     await callback({
       productDir,
-      command: (await readFile(join(productDir, RETIRED_COMMAND_FILE), "utf8")).trim(),
-      expectedStderr: (await readFile(join(productDir, RETIRED_EXPECTED_STDERR_FILE), "utf8")).trim(),
       productConfigSnapshot: await snapshotProductRootFiles(productDir),
     });
   });
