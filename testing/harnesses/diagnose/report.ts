@@ -10,11 +10,7 @@ import {
   renderReportVerbose,
 } from "@/domains/diagnose/report";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
-import {
-  arbitraryReport,
-  diagnoseReportOracleSchema,
-  independentReportJson,
-} from "@testing/generators/diagnose/report";
+import { arbitraryReport, independentReportJson } from "@testing/generators/diagnose/report";
 import {
   type InvalidDiagnoseReportCase,
   type StyledBucketCase,
@@ -26,11 +22,10 @@ export function assertJsonReportPreservesSchema(): void {
   assertProperty(
     arbitraryReport(),
     (report) => {
-      const renderedValue: unknown = JSON.parse(renderReportJson(report));
-      const schemaResult = diagnoseReportOracleSchema.safeParse(renderedValue);
-      expect(schemaResult.success).toBe(true);
-      if (!schemaResult.success) throw new Error(schemaResult.error.message);
-      expect(schemaResult.data).toStrictEqual(report);
+      const rendered = parseDiagnoseReportJson(renderReportJson(report));
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) throw new Error(rendered.error);
+      expect(rendered.value).toStrictEqual(report);
 
       const parsed = parseDiagnoseReportJson(independentReportJson(report));
       expect(parsed.ok).toBe(true);

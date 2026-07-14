@@ -8,7 +8,6 @@
  */
 
 import fc from "fast-check";
-import { z } from "zod";
 
 import {
   classifyMarketplaceInstall,
@@ -26,21 +25,10 @@ import { classifySessionStore, type SessionStoreReading } from "@/domains/diagno
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
-import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
-import {
-  type CheckRecord,
-  type DiagnoseReport,
-  OVERALL_VERDICT,
-  type OverallVerdict,
-  VERDICT_BUCKET,
-  type VerdictBucket,
-} from "@/domains/diagnose/types";
+import { CHECK_NAME, type DiagnoseManifest } from "@/domains/diagnose/manifest";
+import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
 
 import { arbitraryMethodologySource, arbitraryNameToken, arbitrarySpxFloor } from "./manifest";
-
-const checkNameSchema = z.enum(Object.values(CHECK_NAME) as [CheckName, ...CheckName[]]);
-const verdictBucketSchema = z.enum(Object.values(VERDICT_BUCKET) as [VerdictBucket, ...VerdictBucket[]]);
-const overallVerdictSchema = z.enum(Object.values(OVERALL_VERDICT) as [OverallVerdict, ...OverallVerdict[]]);
 
 export interface CompleteDiagnoseRunScenario {
   readonly manifest: DiagnoseManifest;
@@ -51,20 +39,6 @@ export interface CompleteDiagnoseRunScenario {
   readonly marketplaceInstall: MarketplaceInstallReading;
   readonly methodologyContext: MethodologyContextReading;
 }
-
-/** Strict test-side schema for the rendered diagnose JSON contract. */
-export const diagnoseReportOracleSchema = z.object({
-  checks: z.array(
-    z.object({
-      name: checkNameSchema,
-      verdict: z.string(),
-      bucket: verdictBucketSchema,
-      readings: z.record(z.string(), z.string()),
-      remediation: z.string(),
-    }).strict(),
-  ),
-  overall: overallVerdictSchema,
-}).strict();
 
 const arbitrarySpxReading = (): fc.Arbitrary<SpxReachabilityReading> =>
   fc.record({
