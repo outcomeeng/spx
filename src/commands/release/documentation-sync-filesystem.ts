@@ -13,6 +13,7 @@ import { type AtomicWriteFileSystem, writeFileAtomic } from "@/lib/atomic-file-w
 
 const DOCUMENTATION_TEXT_ENCODING = "utf8";
 const DOCUMENTATION_STAGE_DIRECTORY_PREFIX = "spx-documentation-sync-stage-";
+const DOCUMENTATION_ROLLBACK_FAILURE_MESSAGE = "Documentation promotion rollback failed";
 const ATOMIC_WRITE_FILE_SYSTEM: AtomicWriteFileSystem = {
   writeFile: async (path, data) => {
     await writeFile(path, data, DOCUMENTATION_TEXT_ENCODING);
@@ -27,6 +28,12 @@ export interface DocumentationSyncFilesystem {
   readonly stageDocumentation: DocumentationStager;
   readonly readDocument: DocumentationReader;
   readonly promoteDocumentation: DocumentationPromoter;
+}
+
+export type DocumentationAtomicWriter = (path: string, content: string) => Promise<void>;
+
+export interface DocumentationSyncFilesystemDependencies {
+  readonly writeDocumentAtomic: DocumentationAtomicWriter;
 }
 
 interface VerifiedDocumentationPath {
@@ -48,11 +55,22 @@ const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
   sep,
 };
 
-export function createDocumentationSyncFilesystem(): DocumentationSyncFilesystem {
+const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFilesystemDependencies = {
+  writeDocumentAtomic: async (path, content) => {
+    await writeFileAtomic(path, content, {
+      fs: ATOMIC_WRITE_FILE_SYSTEM,
+      randomBytes,
+    });
+  },
+};
+
+export function createDocumentationSyncFilesystem(
+  dependencies: DocumentationSyncFilesystemDependencies = DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES,
+): DocumentationSyncFilesystem {
   return {
     stageDocumentation: stageDocumentationSet,
     readDocument: async (path) => await readFile(path, DOCUMENTATION_TEXT_ENCODING),
-    promoteDocumentation: promoteDocumentationSet,
+    promoteDocumentation: async (documents) => await promoteDocumentationSet(documents, dependencies),
   };
 }
 
@@ -85,15 +103,45 @@ async function stageDocumentationSet(
 
 async function promoteDocumentationSet(
   documents: readonly { readonly path: string; readonly content: string }[],
+  dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  await Promise.all(documents.map(async ({ path }) => await verifyCanonicalTarget(path)));
-  for (const { path, content } of documents) {
+  const originals = await Promise.all(documents.map(async ({ path }) => {
     await verifyCanonicalTarget(path);
-    await writeFileAtomic(path, content, {
-      fs: ATOMIC_WRITE_FILE_SYSTEM,
-      randomBytes,
-    });
+    return { path, content: await readFile(path, DOCUMENTATION_TEXT_ENCODING) };
+  }));
+  const promoted: { readonly path: string; readonly content: string }[] = [];
+  try {
+    for (const [index, { path, content }] of documents.entries()) {
+      await verifyCanonicalTarget(path);
+      await dependencies.writeDocumentAtomic(path, content);
+      promoted.push(originals[index]);
+    }
+  } catch (promotionError) {
+    const rollbackErrors = await restorePromotedDocumentation(promoted, dependencies);
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [promotionError, ...rollbackErrors],
+        DOCUMENTATION_ROLLBACK_FAILURE_MESSAGE,
+      );
+    }
+    throw promotionError;
   }
+}
+
+async function restorePromotedDocumentation(
+  promoted: readonly { readonly path: string; readonly content: string }[],
+  dependencies: DocumentationSyncFilesystemDependencies,
+): Promise<readonly unknown[]> {
+  const rollbackErrors: unknown[] = [];
+  for (const { path, content } of [...promoted].reverse()) {
+    try {
+      await verifyCanonicalTarget(path);
+      await dependencies.writeDocumentAtomic(path, content);
+    } catch (error) {
+      rollbackErrors.push(error);
+    }
+  }
+  return rollbackErrors;
 }
 
 async function verifyDocumentationPath(
