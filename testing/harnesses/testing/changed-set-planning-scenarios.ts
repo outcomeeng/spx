@@ -39,10 +39,7 @@ import {
   tsconfigWithPaths,
 } from "@testing/generators/testing/changed-set-planning";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import {
-  sampleTypescriptRunnerValue,
-  TYPESCRIPT_RUNNER_TEST_GENERATOR,
-} from "@testing/generators/testing/typescript-runner";
+import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   defaultBaseRef,
@@ -332,18 +329,17 @@ export function registerChangedSetPlanningScenarioTests(): void {
     });
 
     it("selects only artifact-descriptor consumers for a changed packaged entrypoint", async () => {
-      const scenario = sampleTypescriptRunnerValue(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.artifactRelatedTests(),
-      );
-      const tsconfigContent = scenario.candidateContents.get(TYPESCRIPT_MARKER);
+      const scenarios = TYPESCRIPT_RUNNER_TEST_GENERATOR.artifactRelatedTestMappings();
+      const firstScenario = scenarios[0];
+      const tsconfigContent = firstScenario.candidateContents.get(TYPESCRIPT_MARKER);
       if (tsconfigContent === undefined) {
-        throw new Error("artifact related-test scenario carries no TypeScript config");
+        throw new Error("artifact related-test mappings carry no TypeScript config");
       }
       const candidateContents = new Map(
-        [...scenario.candidateContents].filter(([path]) => path !== TYPESCRIPT_MARKER),
+        scenarios.flatMap((scenario) => [...scenario.candidateContents].filter(([path]) => path !== TYPESCRIPT_MARKER)),
       );
       const git = stagedSourceCandidatesGitRunner(
-        [scenario.changedSourcePath],
+        [firstScenario.changedSourcePath],
         candidateContents,
         tsconfigContent,
       );
@@ -361,10 +357,16 @@ export function registerChangedSetPlanningScenarioTests(): void {
       );
 
       expect(plan.targets).toEqual({
-        operands: nativeStringOrder(scenario.selectedTestPaths),
+        operands: nativeStringOrder(scenarios.flatMap((scenario) => scenario.expectedTestPaths)),
         recursive: false,
       });
-      expect(plan.targets.operands).not.toContain(scenario.unrelatedTestPath);
+      expect(plan.targets.operands).toEqual(
+        expect.not.arrayContaining(
+          scenarios
+            .filter((scenario) => scenario.expectedTestPaths.length === 0)
+            .map((scenario) => scenario.candidateTestPath),
+        ),
+      );
       expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 

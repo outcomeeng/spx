@@ -10,14 +10,23 @@
 import fc from "fast-check";
 import { z } from "zod";
 
-import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
-import { classifyMethodologyContext } from "@/domains/diagnose/checks/methodology-context";
-import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
-import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
-import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
-import { classifyWorktreePool } from "@/domains/diagnose/checks/worktree-pool";
+import {
+  classifyMarketplaceInstall,
+  type MarketplaceInstallReading,
+} from "@/domains/diagnose/checks/marketplace-install";
+import {
+  classifyMethodologyContext,
+  type MethodologyContextReading,
+} from "@/domains/diagnose/checks/methodology-context";
+import {
+  classifySessionEnvironment,
+  type SessionEnvironmentReading,
+} from "@/domains/diagnose/checks/session-environment";
+import { classifySessionStore, type SessionStoreReading } from "@/domains/diagnose/checks/session-store";
+import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
+import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
-import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
+import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import {
   type CheckRecord,
   type DiagnoseReport,
@@ -34,8 +43,13 @@ const verdictBucketSchema = z.enum(Object.values(VERDICT_BUCKET) as [VerdictBuck
 const overallVerdictSchema = z.enum(Object.values(OVERALL_VERDICT) as [OverallVerdict, ...OverallVerdict[]]);
 
 export interface CompleteDiagnoseRunScenario {
-  readonly checks: readonly CheckName[];
-  readonly records: readonly CheckRecord[];
+  readonly manifest: DiagnoseManifest;
+  readonly spxReachability: SpxReachabilityReading;
+  readonly sessionEnvironment: SessionEnvironmentReading;
+  readonly worktreePool: WorktreePoolReading;
+  readonly sessionStore: SessionStoreReading;
+  readonly marketplaceInstall: MarketplaceInstallReading;
+  readonly methodologyContext: MethodologyContextReading;
 }
 
 /** Strict test-side schema for the rendered diagnose JSON contract. */
@@ -52,23 +66,31 @@ export const diagnoseReportOracleSchema = z.object({
   overall: overallVerdictSchema,
 }).strict();
 
-const arbitrarySpxRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitrarySpxReading = (): fc.Arbitrary<SpxReachabilityReading> =>
   fc.record({
     errored: fc.boolean(),
     resolvedPath: fc.option(arbitraryNameToken(), { nil: null }),
     version: fc.option(arbitrarySpxFloor(), { nil: null }),
-    floor: fc.option(arbitrarySpxFloor(), { nil: undefined }),
-  }).map(({ floor, ...reading }) => classifySpxReachability(reading, floor));
+  });
 
-const arbitrarySessionEnvironmentRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitrarySpxRecord = (): fc.Arbitrary<CheckRecord> =>
+  fc.tuple(
+    arbitrarySpxReading(),
+    fc.option(arbitrarySpxFloor(), { nil: undefined }),
+  ).map(([reading, floor]) => classifySpxReachability(reading, floor));
+
+const arbitrarySessionEnvironmentReading = (): fc.Arbitrary<SessionEnvironmentReading> =>
   fc.record({
     errored: fc.boolean(),
     hookPresent: fc.boolean(),
     sessionIdentity: fc.boolean(),
     worktreeClaimed: fc.boolean(),
-  }).map(classifySessionEnvironment);
+  });
 
-const arbitraryWorktreePoolRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitrarySessionEnvironmentRecord = (): fc.Arbitrary<CheckRecord> =>
+  arbitrarySessionEnvironmentReading().map(classifySessionEnvironment);
+
+const arbitraryWorktreePoolReading = (): fc.Arbitrary<WorktreePoolReading> =>
   fc.record({
     errored: fc.boolean(),
     bareRepository: fc.boolean(),
@@ -79,24 +101,33 @@ const arbitraryWorktreePoolRecord = (): fc.Arbitrary<CheckRecord> =>
     mainCheckoutBranchRead: fc.boolean(),
     running: fc.nat(),
     free: fc.nat(),
-  }).map(classifyWorktreePool);
+  });
 
-const arbitrarySessionStoreRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitraryWorktreePoolRecord = (): fc.Arbitrary<CheckRecord> =>
+  arbitraryWorktreePoolReading().map(classifyWorktreePool);
+
+const arbitrarySessionStoreReading = (): fc.Arbitrary<SessionStoreReading> =>
   fc.record({
     errored: fc.boolean(),
     orphanedClaims: fc.nat(),
-  }).map(classifySessionStore);
+  });
 
-const arbitraryMarketplaceInstallRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitrarySessionStoreRecord = (): fc.Arbitrary<CheckRecord> =>
+  arbitrarySessionStoreReading().map(classifySessionStore);
+
+const arbitraryMarketplaceInstallReading = (): fc.Arbitrary<MarketplaceInstallReading> =>
   fc.record({
     configured: fc.boolean(),
     errored: fc.boolean(),
     surfacePresent: fc.boolean(),
     unregistered: fc.boolean(),
     drifted: fc.boolean(),
-  }).map(classifyMarketplaceInstall);
+  });
 
-const arbitraryMethodologyContextRecord = (): fc.Arbitrary<CheckRecord> =>
+const arbitraryMarketplaceInstallRecord = (): fc.Arbitrary<CheckRecord> =>
+  arbitraryMarketplaceInstallReading().map(classifyMarketplaceInstall);
+
+const arbitraryMethodologyContextReading = (): fc.Arbitrary<MethodologyContextReading> =>
   fc.record({
     configured: fc.boolean(),
     configuredSource: fc.option(arbitraryMethodologySource(), { nil: null }),
@@ -104,7 +135,10 @@ const arbitraryMethodologyContextRecord = (): fc.Arbitrary<CheckRecord> =>
     observedSource: fc.option(arbitraryMethodologySource(), { nil: null }),
     observedVersion: fc.option(arbitrarySpxFloor(), { nil: null }),
     errored: fc.boolean(),
-  }).map(classifyMethodologyContext);
+  });
+
+const arbitraryMethodologyContextRecord = (): fc.Arbitrary<CheckRecord> =>
+  arbitraryMethodologyContextReading().map(classifyMethodologyContext);
 
 /** A coherent provider-owned record built through the provider classifier. */
 export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
@@ -117,18 +151,32 @@ export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
     arbitraryMethodologyContextRecord(),
   );
 
-/** One classified record for every source-owned diagnose provider. */
+/** Raw readings for every source-owned diagnose provider and their shared manifest. */
 export const arbitraryCompleteDiagnoseRunScenario = (): fc.Arbitrary<CompleteDiagnoseRunScenario> =>
   fc.tuple(
-    arbitrarySpxRecord(),
-    arbitrarySessionEnvironmentRecord(),
-    arbitraryWorktreePoolRecord(),
-    arbitrarySessionStoreRecord(),
-    arbitraryMarketplaceInstallRecord(),
-    arbitraryMethodologyContextRecord(),
-  ).map((records) => ({
-    checks: records.map((record) => record.name as CheckName),
-    records,
+    arbitrarySpxReading(),
+    arbitrarySessionEnvironmentReading(),
+    arbitraryWorktreePoolReading(),
+    arbitrarySessionStoreReading(),
+    arbitraryMarketplaceInstallReading(),
+    arbitraryMethodologyContextReading(),
+    fc.option(arbitrarySpxFloor(), { nil: undefined }),
+  ).map(([
+    spxReachability,
+    sessionEnvironment,
+    worktreePool,
+    sessionStore,
+    marketplaceInstall,
+    methodologyContext,
+    spxFloor,
+  ]) => ({
+    manifest: { checks: Object.values(CHECK_NAME), spxFloor },
+    spxReachability,
+    sessionEnvironment,
+    worktreePool,
+    sessionStore,
+    marketplaceInstall,
+    methodologyContext,
   }));
 
 /** Variable bucket sequences for fold determinism properties. */

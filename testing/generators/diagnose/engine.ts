@@ -12,14 +12,23 @@ export interface FoldMappingCase {
   readonly overall: OverallVerdict;
 }
 
-/** Finite source-derived selection cases covering inclusion, exclusion, and order. */
+function orderedSelections(
+  remaining: readonly CheckName[],
+  selected: readonly CheckName[] = [],
+): readonly (readonly CheckName[])[] {
+  return remaining.flatMap((check, index) => {
+    const next = [...selected, check];
+    const rest = remaining.filter((_, candidateIndex) => candidateIndex !== index);
+    return [next, ...orderedSelections(rest, next)];
+  });
+}
+
+/** Every valid non-empty ordered selection from the source-owned check set. */
 export function checkSelectionCases(): readonly CheckSelectionCase[] {
-  const checks = Object.values(CHECK_NAME);
-  return [
-    { name: "source order", checks },
-    { name: "reverse order", checks: [...checks].reverse() },
-    { name: "selected endpoints only", checks: [checks[0], checks[checks.length - 1]] },
-  ];
+  return orderedSelections(Object.values(CHECK_NAME)).map((checks) => ({
+    name: checks.join(" -> "),
+    checks,
+  }));
 }
 
 export function missingRunnerCheck(): CheckName {
