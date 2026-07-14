@@ -15,14 +15,15 @@ import {
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_GRAMMAR,
   type SpecTreeDecision,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_CONTEXT_DOCUMENT_ROLE = {
@@ -33,11 +34,6 @@ export const SPEC_CONTEXT_DOCUMENT_ROLE = {
   LOWER_INDEX_SIBLING: "lower-index-sibling",
   EVIDENCE: "evidence",
   COORDINATION: "coordination",
-} as const;
-
-export const SPEC_CONTEXT_COORDINATION_FILE = {
-  PLAN: "PLAN.md",
-  ISSUES: "ISSUES.md",
 } as const;
 
 export interface SpecContextDocument {
@@ -208,10 +204,11 @@ async function coordinationDocuments(
   target: SpecTreeNode,
   includePath: (path: string) => boolean | Promise<boolean>,
 ): Promise<readonly string[]> {
-  return [
-    await optionalFile(productDir, childSpecPath(target.id, SPEC_CONTEXT_COORDINATION_FILE.PLAN), includePath),
-    await optionalFile(productDir, childSpecPath(target.id, SPEC_CONTEXT_COORDINATION_FILE.ISSUES), includePath),
-  ].filter((path): path is string => path !== undefined);
+  return (await Promise.all(
+    SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((filename) =>
+      optionalFile(productDir, childSpecPath(target.id, filename), includePath)
+    ),
+  )).filter((path): path is string => path !== undefined);
 }
 
 async function buildManifest(
