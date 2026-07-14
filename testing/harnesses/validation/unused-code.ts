@@ -12,7 +12,7 @@ import { VALIDATION_STREAMED_TERMINAL_OUTPUT } from "@/commands/validation/types
 import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
-import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
+import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   arbitraryDiscoveredKnipExecutablePath,
@@ -32,6 +32,16 @@ import {
 } from "@testing/harnesses/validation/knip-support";
 import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
+
+function recordingOutputStreams(
+  stdout: string[],
+  stderr: string[],
+): ValidationSubprocessOutputStreams {
+  return {
+    stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
+    stderr: { write: (chunk) => stderr.push(Buffer.from(chunk).toString()) > 0 },
+  };
+}
 
 export const unusedCodeScenarioCases = collectHarnessTestCases(() => {
   describe("Knip unused-code scenarios", () => {
@@ -298,6 +308,8 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
           const validationCalls: KnipValidationCall[] = [];
+          const streamedStdout: string[] = [];
+          const streamedStderr: string[] = [];
           const runner = new OutputRecordingSpawnOptionsRunner(
             failureDetail,
             VALIDATION_EXIT_CODES.FAILURE,
@@ -313,13 +325,15 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
               cwd: env.productDir,
               files: [sourceFilePath],
               streamedPipelineOutput: true,
-              outputStreams: discardValidationSubprocessOutputStreams,
+              outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
             },
             createRecordingKnipCommandDeps(env.productDir, validationCalls, runner),
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
           expect(result.output).toBe(failureDetail);
+          expect(streamedStdout).toEqual([failureDetail]);
+          expect(streamedStderr).toHaveLength(0);
           expect(result.terminalOutput).toBe(VALIDATION_STREAMED_TERMINAL_OUTPUT);
         },
       );
