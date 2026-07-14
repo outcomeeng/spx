@@ -835,6 +835,41 @@ function createJournalOpenFailureFileSystem(
   };
 }
 
+/** True for a run journal file — the JSONL the run-context event is appended to. */
+function isRunJournalFile(path: string): boolean {
+  const targetName = basename(path);
+  return targetName.startsWith(STATE_STORE_PATH.RUN_FILE_PREFIX)
+    && targetName.endsWith(STATE_STORE_PATH.JSONL_EXTENSION);
+}
+
+/**
+ * A filesystem that rejects the run-context event write while allowing the empty run-file create,
+ * so `start` fails at recording drive mode after opening the run. Open writes the run file empty;
+ * the run-context event is the first non-empty write to that file, whether appended or written.
+ */
+function createRunContextAppendFailureFileSystem(
+  fs: StateStoreFileSystem = createInMemoryStateStoreFileSystem(),
+): StateStoreFileSystem {
+  return {
+    appendFile: async (path, data) => {
+      if (isRunJournalFile(path)) throw new Error("verify harness: run-context event append rejected");
+      await fs.appendFile(path, data);
+    },
+    lstat: (path) => fs.lstat(path),
+    mkdir: (path, options) => fs.mkdir(path, options),
+    readFile: (path, encoding) => fs.readFile(path, encoding),
+    readdir: (path, options) => fs.readdir(path, options),
+    rename: (from, to) => fs.rename(from, to),
+    rm: (path, options) => fs.rm(path, options),
+    writeFile: async (path, data, options) => {
+      if (isRunJournalFile(path) && data.length > 0) {
+        throw new Error("verify harness: run-context event write rejected");
+      }
+      await fs.writeFile(path, data, options);
+    },
+  };
+}
+
 function scenarioRunsDir(scenario: VerifyRunContextScenario): string {
   const branchSlug = slugBranchIdentity(resolveBranchIdentity({
     branchName: scenario.branchIdentity,
@@ -2805,6 +2840,31 @@ export async function assertStartPreservesReusedVerificationContextWhenInputPers
   );
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
   expect(started.output).toContain(VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED);
+  await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+}
+
+export async function assertStartRemovesOpenedRunArtifactsWhenRunContextFails(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createRunContextAppendFailureFileSystem();
+  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(started.output).toContain(VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED);
+  const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
+  expect(runEntries).toHaveLength(0);
+  await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
+}
+
+export async function assertStartPreservesReusedVerificationContextWhenRunContextFails(): Promise<void> {
+  const scenario = createVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+  expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const started = await verifyStartCommand(
+    verifyStartOptions(scenario),
+    verifyDeps(scenario, createRunContextAppendFailureFileSystem(fs)),
+  );
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(started.output).toContain(VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED);
   await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
 }
 

@@ -3,10 +3,12 @@ import { describe, it } from "vitest";
 import {
   assertStartPreservesReusedVerificationContextWhenInputPersistenceFails,
   assertStartPreservesReusedVerificationContextWhenJournalOpenFails,
+  assertStartPreservesReusedVerificationContextWhenRunContextFails,
   assertStartRecordsInputForInputReplay,
   assertStartRejectsChangedScopeFailureBeforeOpeningRun,
   assertStartRejectsUnsupportedVerificationTypeBeforeOpeningRun,
   assertStartRemovesOpenedRunArtifactsWhenInputPersistenceFails,
+  assertStartRemovesOpenedRunArtifactsWhenRunContextFails,
   assertStartRemovesVerificationContextWhenJournalOpenFails,
   assertStartReportsInputReadFailuresBeforeOpeningRun,
   assertStartReportsPersistableRunLocator,
@@ -45,6 +47,14 @@ describe("verify start compliance", () => {
 
   it("preserves a reused verification context when recorded-input persistence fails", async () => {
     await assertStartPreservesReusedVerificationContextWhenInputPersistenceFails();
+  });
+
+  it("removes opened run artifacts when recording the run drive mode fails", async () => {
+    await assertStartRemovesOpenedRunArtifactsWhenRunContextFails();
+  });
+
+  it("preserves a reused verification context when recording the run drive mode fails", async () => {
+    await assertStartPreservesReusedVerificationContextWhenRunContextFails();
   });
 
   it("records the verification input at start so the input verb replays it", async () => {
