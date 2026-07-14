@@ -1,8 +1,8 @@
 # Plan: Source adapter boundary review
 
-> **Reconcile against `spx/PLAN.md` first.** This source-adapter boundary was opened by the backend restructuring. The corrected model renames "materialization" to `backend`, separates `persistence` (records / journals / snapshots) from `backend` and `delivery`, and requires additive migration. Source-entry vocabulary remains logical spec-tree foundation behavior; filesystem walking over tracked `spx/` files may move under the local backend. Where this note predates that model, the root plan governs.
+> **Reconcile against `spx/PLAN.md` first.** The root plan separates persistence, backend, delivery, and node state and requires additive migration. Source-entry vocabulary remains spec-tree foundation behavior; filesystem walking over tracked `spx/` files remains inventory until a reviewed target projection names its receiver. Where this note predates that model, the root plan governs.
 
-This coordination note records the source-adapter boundary question opened by the materialization restructure.
+This coordination note records the unresolved source-adapter boundary.
 
 ## Current role
 
@@ -10,7 +10,7 @@ This coordination note records the source-adapter boundary question opened by th
 
 ## Boundary question
 
-The filesystem-backed adapter may belong partly under the new materialization backend, while the source-entry vocabulary remains part of the logical foundation.
+The source-entry vocabulary belongs to the spec-tree foundation. The filesystem-backed adapter's target receiver remains unresolved until configured node kinds and methodology context injection support the reviewed target structure.
 
 ## Candidate split
 
@@ -18,9 +18,9 @@ The filesystem-backed adapter may belong partly under the new materialization ba
 | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Source-entry record shape                 | `spx/23-spec-tree.enabler/32-spec-tree-source.enabler`                                   |
 | In-memory source fixture adapter          | `spx/23-spec-tree.enabler/32-spec-tree-source.enabler` or test infrastructure            |
-| Filesystem walk over tracked `spx/` files | `spx/23-spec-tree.enabler/24-materialization.enabler/21-filesystem-git-backend.enabler`  |
+| Filesystem walk over tracked `spx/` files | Parked target backend receiver under the root `spx/PLAN.md` re-entry conditions          |
 | Invalid/superseded residual retention     | source layer if it is grammar-driven; backend layer if it is storage-completeness-driven |
 
 ## Next action
 
-Run `/decompose spx/23-spec-tree.enabler` and decide whether to move filesystem-specific source behavior under the backend or leave it as the first backend implementation of the source port.
+Re-enter `/decompose-next` and `/decompose spx/23-spec-tree.enabler` after configured node kinds and methodology context injection exist. Decide the filesystem-specific source receiver and ordering from a reviewed dependency-evidence matrix before moving behavior.
