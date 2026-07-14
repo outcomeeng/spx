@@ -1,6 +1,10 @@
 import * as fc from "fast-check";
 
-import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
+import {
+  DEFAULT_RELEASE_DOCUMENTATION_PATHS,
+  RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+  RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+} from "@/domains/release/config";
 import type { DocumentationSyncConfig } from "@/domains/release/config";
 import {
   DOCUMENTATION_FILE_EXTENSION,
@@ -98,6 +102,17 @@ export function arbitraryConfiguredDocumentationSyncScenario(): fc.Arbitrary<Doc
 
 export function arbitraryMultiDocumentSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
   return arbitraryConfiguredDocumentationSyncScenarioWithMinimum(MULTI_DOCUMENT_COUNT_MIN);
+}
+
+export function mixedSeparatorDocumentationPathAliases(): readonly string[] {
+  const slashSeparatedPath = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario()).paths[0];
+  return [
+    slashSeparatedPath,
+    slashSeparatedPath.replaceAll(
+      RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+      RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+    ),
+  ];
 }
 
 export function documentationPathFailureCases(): readonly DocumentationPathFailureCase[] {

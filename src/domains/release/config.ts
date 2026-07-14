@@ -8,6 +8,7 @@ export const RELEASE_CONFIG_FIELDS = {
 
 export const DEFAULT_RELEASE_DOCUMENTATION_PATHS = ["README.md"] as const;
 export const RELEASE_DOCUMENTATION_PATH_SEPARATOR = "/";
+export const RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR = "\\";
 
 export interface DocumentationSyncConfig {
   readonly paths?: readonly string[];
@@ -53,7 +54,14 @@ function isNonEmptyUniqueStringArray(value: unknown): value is readonly string[]
   return Array.isArray(value)
     && value.length > 0
     && value.every((path) => typeof path === "string" && path.trim().length > 0)
-    && new Set(value).size === value.length;
+    && new Set(value.map(normalizeDocumentationPathSeparators)).size === value.length;
+}
+
+export function normalizeDocumentationPathSeparators(path: string): string {
+  return path.replaceAll(
+    RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+    RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+  );
 }
 
 export const releaseConfigDescriptor: ConfigDescriptor<ReleaseConfig> = {
