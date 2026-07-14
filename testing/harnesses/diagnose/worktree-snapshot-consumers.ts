@@ -35,9 +35,7 @@ import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
-import {
-  sampleDiagnoseTestValue,
-} from "@testing/generators/diagnose/manifest";
+import { sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import {
   sampleDistinctPathUnsafeAgentSessionIdentities,
   sampleDistinctSessionIds,
@@ -231,7 +229,9 @@ export function assertDoingSessionClaimMapping(): void {
 
   expect(doingSessionBackedByClaim(session, new Set([session.id]))).toBe(true);
   expect(doingSessionBackedByClaim(session, new Set([agentSessionId]))).toBe(true);
-  expect(doingSessionBackedByClaim(sessionWithoutAgentSessionId, new Set([sessionWithoutAgentSessionId.id]))).toBe(true);
+  expect(doingSessionBackedByClaim(sessionWithoutAgentSessionId, new Set([sessionWithoutAgentSessionId.id]))).toBe(
+    true,
+  );
   expect(doingSessionBackedByClaim(session, new Set())).toBe(false);
   expect(doingSessionBackedByClaim(sessionWithoutAgentSessionId, new Set())).toBe(false);
 }
