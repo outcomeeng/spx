@@ -2,12 +2,6 @@
 
 The entries below are broader than this node; they are recorded here because the spec-tree governance work lives here. Tracked, not blocking.
 
-## Spec declaration contains an implementation-surface section
-
-`spx/23-spec-tree.enabler/spec-tree.md` contains a `## Public Surface` section and a TypeScript contract block before `## Assertions`. The product routing guide requires a spec file to contain only its type opening and typed assertions, so this content is misplaced even when the contract itself remains valid product or architecture truth.
-
-**Revisit condition:** before the next `/align`, `/author`, `/refactor`, or implementation slice touching `spx/23-spec-tree.enabler`, determine the correct durable owner for the public-surface contract, move or restate it through the governing workflow, remove the non-declaration section from the spec, and verify the node with `/align`.
-
 ## ADR template: the TypeScript architecting skills diverge from the canonical template
 
 `typescript:standardizing-typescript-architecture` and `typescript:architecting-typescript` describe an ADR template — `## Purpose` / `## Context` / `## Decision` / `## Rationale` / `## Trade-offs` / `## Invariants` / `## Compliance` with `([review])` tags — that contradicts the canonical `/understanding` template they claim to derive from: decision-first (no `## Purpose` heading), `## Rationale`, `## Invariants`, `## Verification` with `### Audit` / `### Eval` / `### Testing` carrying `([audit])` / `([eval])` / evidence-type tags. `spec-tree:audit-adr` audits against the canonical template, so an ADR authored to the TypeScript skills' described template rejects on section structure and tag validity.
