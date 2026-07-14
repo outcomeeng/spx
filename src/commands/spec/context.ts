@@ -177,14 +177,6 @@ function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly
   );
 }
 
-async function optionalFile(
-  productDir: string,
-  relativePath: string,
-  includePath: (path: string) => boolean | Promise<boolean>,
-): Promise<string | undefined> {
-  return optionalSpecTreeFile(productDir, fullSpecPath(relativePath), includePath);
-}
-
 async function optionalSpecTreeFile(
   productDir: string,
   specTreePath: string,
@@ -201,13 +193,17 @@ async function optionalSpecTreeFile(
 
 async function coordinationDocuments(
   productDir: string,
-  target: SpecTreeNode,
+  contextNodes: readonly SpecTreeNode[],
   includePath: (path: string) => boolean | Promise<boolean>,
 ): Promise<readonly string[]> {
-  return (await Promise.all(
-    SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((filename) =>
-      optionalFile(productDir, childSpecPath(target.id, filename), includePath)
+  const paths = [
+    ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((filename) => fullSpecPath(filename)),
+    ...contextNodes.flatMap((node) =>
+      SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((filename) => fullSpecPath(childSpecPath(node.id, filename)))
     ),
+  ];
+  return (await Promise.all(
+    paths.map((path) => optionalSpecTreeFile(productDir, path, includePath)),
   )).filter((path): path is string => path !== undefined);
 }
 
@@ -284,7 +280,7 @@ async function buildManifest(
       includePath,
     );
   }
-  for (const path of await coordinationDocuments(productDir, target, includePath)) {
+  for (const path of await coordinationDocuments(productDir, contextNodes, includePath)) {
     pushDocument(documents, SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION, path);
   }
 
