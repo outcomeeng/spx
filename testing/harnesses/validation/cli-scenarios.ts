@@ -1,5 +1,5 @@
 import { symlink } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, join } from "node:path";
 
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
@@ -35,7 +35,7 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-const VALIDATION_ESCAPING_SYMLINK_TARGET_PREFIX = "spx-validation-cli-outside-";
+const VALIDATION_CLI_TEMP_DIR_PREFIX = "spx-validation-cli-";
 
 async function expectRegisteredSubcommandRuns(): Promise<void> {
   await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
@@ -126,28 +126,30 @@ async function expectEscapingPathOperandsRejected(): Promise<void> {
 }
 
 async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Promise<void> {
-  await withEmptyValidationProject(async (productRoot) => {
-    const symlinkRoot = join(dirname(productRoot), `${basename(productRoot)}-link`);
-    const operand = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-    await symlink(productRoot, symlinkRoot, "dir");
+  await withTempDir(VALIDATION_CLI_TEMP_DIR_PREFIX, async (invocationContainer) => {
+    await withEmptyValidationProject(async (productRoot) => {
+      const symlinkRoot = join(invocationContainer, basename(productRoot));
+      const operand = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+      await symlink(productRoot, symlinkRoot, "dir");
 
-    const result = await runValidationSubprocess(
-      [
-        validationCliDefinition.subcommands.format.commandName,
-        operand,
-      ],
-      { cwd: symlinkRoot },
-    );
+      const result = await runValidationSubprocess(
+        [
+          validationCliDefinition.subcommands.format.commandName,
+          operand,
+        ],
+        { cwd: symlinkRoot },
+      );
 
-    expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
-    expect(result.stdout.length).toBeGreaterThan(VALIDATION_EMPTY_CLI_OPERAND.length);
-    expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
-    expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+      expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
+      expect(result.stdout.length).toBeGreaterThan(VALIDATION_EMPTY_CLI_OPERAND.length);
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.messageLabel);
+      expect(result.stderr).not.toContain(validationCliDefinition.diagnostics.invalidPathOperand.reason);
+    });
   });
 }
 
 async function expectMissingPathBelowEscapingSymlinkAncestorRejected(): Promise<void> {
-  await withTempDir(VALIDATION_ESCAPING_SYMLINK_TARGET_PREFIX, async (outsideRoot) => {
+  await withTempDir(VALIDATION_CLI_TEMP_DIR_PREFIX, async (outsideRoot) => {
     await withEmptyValidationProject(async (productRoot) => {
       const symlinkName = sampleLiteralTestValue(arbitraryPathSegment());
       const symlinkRoot = join(productRoot, symlinkName);
