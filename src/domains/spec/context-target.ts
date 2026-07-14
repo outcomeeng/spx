@@ -1,3 +1,4 @@
+import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeNode,
@@ -55,6 +56,10 @@ type SpecContextArtifactEntry = Extract<
 
 const TARGET_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const SPEC_TREE_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+const NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES = [
+  ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
+  NODE_STATUS_FILENAME,
+] as const;
 
 function trimTrailingSeparators(target: string): string {
   let end = target.length;
@@ -97,9 +102,11 @@ function artifactOwnerId(entry: SpecContextArtifactEntry): string | undefined {
   return entry.parentId;
 }
 
-function coordinationNoteOwnerId(snapshot: SpecTreeSnapshot, normalized: string): string | undefined {
+function nonSnapshotNodeArtifactOwnerId(snapshot: SpecTreeSnapshot, normalized: string): string | undefined {
   return snapshot.allNodes.find((node) =>
-    SPEC_TREE_GRAMMAR.COORDINATION_NOTES.some((noteName) => `${node.id}${TARGET_SEPARATOR}${noteName}` === normalized)
+    NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES.some(
+      (filename) => `${node.id}${TARGET_SEPARATOR}${filename}` === normalized,
+    )
   )?.id;
 }
 
@@ -108,12 +115,12 @@ function resolveArtifact(
   input: string,
   normalized: string,
 ): SpecContextTargetFailure | undefined {
-  const coordinationOwnerId = coordinationNoteOwnerId(snapshot, normalized);
-  if (coordinationOwnerId !== undefined) {
+  const nonSnapshotArtifactOwnerId = nonSnapshotNodeArtifactOwnerId(snapshot, normalized);
+  if (nonSnapshotArtifactOwnerId !== undefined) {
     return {
       input,
       kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
-      ownerId: coordinationOwnerId,
+      ownerId: nonSnapshotArtifactOwnerId,
     };
   }
   const artifact = snapshot.entries
