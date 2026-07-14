@@ -1,5 +1,5 @@
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { dirname, join, parse } from "node:path";
+import { dirname, isAbsolute, join, parse, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
@@ -35,6 +35,7 @@ import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY,
+  SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE,
   SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND,
   specContextAbbreviatedTarget as abbreviatedTarget,
   specContextAmbiguousTargetFixture as ambiguousTargetFixture,
@@ -123,6 +124,10 @@ async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
 }
 
 async function runSpecCli(productDir: string, ...args: readonly string[]) {
+  return (await runSpecCliWithIsolation(productDir, ...args)).result;
+}
+
+async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
   const isolationDir = join(productDir, SPEC_CLI_ISOLATION.DIRECTORY);
   const homeDir = join(isolationDir, SPEC_CLI_ISOLATION.HOME_DIRECTORY);
   const tempDir = join(isolationDir, SPEC_CLI_ISOLATION.TEMP_DIRECTORY);
@@ -130,11 +135,10 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
   const xdgConfigDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_CONFIG_DIRECTORY);
   const xdgDataDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_DATA_DIRECTORY);
   const xdgStateDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_STATE_DIRECTORY);
+  const mutableStateDirectories = [homeDir, tempDir, xdgCacheDir, xdgConfigDir, xdgDataDir, xdgStateDir];
   const networkAttemptsFile = join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_ATTEMPTS_FILE);
   await Promise.all(
-    [homeDir, tempDir, xdgCacheDir, xdgConfigDir, xdgDataDir, xdgStateDir].map((path) =>
-      mkdir(path, { recursive: true })
-    ),
+    mutableStateDirectories.map((path) => mkdir(path, { recursive: true })),
   );
   const networkGuardModule = await buildSpecCliNetworkGuard(isolationDir);
   const writableProductDir = await realpath(productDir);
@@ -177,7 +181,22 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
     },
   );
   expect(JSON.parse(await readFile(networkAttemptsFile, "utf8"))).toEqual([]);
-  return result;
+  return {
+    mutableStateDirectories: await Promise.all(mutableStateDirectories.map((path) => realpath(path))),
+    productDirectory: writableProductDir,
+    result,
+    writableDirectories: [
+      ...new Set(await Promise.all([productDir, writableProductDir].map((path) => realpath(path)))),
+    ],
+  };
+}
+
+function isWithinProductDirectory(productDir: string, candidate: string): boolean {
+  const relativePath = relative(productDir, candidate);
+  return relativePath.length > 0
+    && relativePath !== ".."
+    && !relativePath.startsWith(`..${sep}`)
+    && !isAbsolute(relativePath);
 }
 
 function assertDeclaredStatusRows(
@@ -301,12 +320,23 @@ async function assertSpecContextRejectsArtifactTarget(
     },
   }, async (env) => {
     const fixture = artifactTargetFixture(env.fixture, mappingCase);
-    const snapshot = await env.readMemorySnapshot(fixture.sourceFixture);
-    expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
-      failure: fixture.failure,
-      ok: false,
-    });
-    const message = formatSpecContextTargetFailure(fixture.failure);
+    let message: string;
+    if (fixture.filesystemArtifact === undefined) {
+      const snapshot = await env.readMemorySnapshot(fixture.sourceFixture);
+      expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
+        failure: fixture.failure,
+        ok: false,
+      });
+      message = formatSpecContextTargetFailure(fixture.failure);
+    } else {
+      await env.materialize(fixture.sourceFixture);
+      if (fixture.filesystemArtifact.type === SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE.DIRECTORY) {
+        await mkdir(join(env.productDir, fixture.target), { recursive: true });
+      } else {
+        await env.writeRaw(fixture.target, fixture.filesystemArtifact.content);
+      }
+      message = await rejectedContextMessage(fixture.target, env.productDir);
+    }
     expect(message).toContain(fixture.target);
     expect(message).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[fixture.failure.kind]);
     if (fixture.failure.kind === SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH) {
@@ -491,6 +521,26 @@ export async function assertSpecStatusCliAcceptsLocalJsonFormat(): Promise<void>
     );
     expect(result.exitCode).toBe(0);
     expect(() => JSON.parse(result.stdout)).not.toThrow();
+  });
+}
+
+export async function assertSpecStatusCliConfinesMutableState(): Promise<void> {
+  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+    await env.materialize();
+    const execution = await runSpecCliWithIsolation(
+      env.productDir,
+      SPEC_DOMAIN_CLI.COMMAND,
+      SPEC_DOMAIN_CLI.STATUS_COMMAND,
+      SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
+      OUTPUT_FORMAT.JSON,
+    );
+    expect(execution.result.exitCode, execution.result.stderr).toBe(0);
+    expect(
+      execution.mutableStateDirectories.every((path) => isWithinProductDirectory(execution.productDirectory, path)),
+    )
+      .toBe(true);
+    expect(execution.writableDirectories.every((path) => path === execution.productDirectory))
+      .toBe(true);
   });
 }
 
