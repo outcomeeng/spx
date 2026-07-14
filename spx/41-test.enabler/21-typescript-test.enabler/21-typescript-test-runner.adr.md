@@ -26,6 +26,7 @@ Writing exclusions into `vitest.config.ts` is rejected because it mutates produc
 
 - ALWAYS: `runTests` accepts an injected command-execution dependency — enables `l1` testing of command construction without invoking vitest or mocking ([audit])
 - ALWAYS: the detection predicate is owned by the TypeScript descriptor and accepts only a test override for `l1` gate tests ([audit])
+- ALWAYS: the optional test detection override is a Stage 5 Exception 7 contract probe — a dependency-injected contract stub controls only the descriptor's detection result while production calls descriptor-owned detection ([audit])
 - ALWAYS: `excludeFlag` maps an excluded node path to `--exclude=spx/{nodePath}/**` as a pure function ([audit])
 - ALWAYS: command construction, executable lookup or package-manager invocation, explicit test-file arguments, and exclusion arguments remain inside the TypeScript runner adapter ([audit])
 - ALWAYS: test-file pattern matching for `*.test.ts` and `*.test.tsx` is a pure function over file paths ([audit])

@@ -156,7 +156,7 @@ agent-output path whose behavior they are trying to verify.
 On an idle machine it takes roughly 45 seconds; under high load it can stretch to
 about 20 minutes. Parallel PR work multiplies that cost: each agent repeatedly
 runs the full suite during every push-readiness loop. A ten-agent workload turns a
-missing targeted-test surface into repository-wide resource contention and
+missing targeted-test surface into product-wide resource contention and
 review-loop latency. The product needs a first-class targeted path so agents can
 verify the files or node they changed without exercising unrelated tests on every
 iteration.
