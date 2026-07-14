@@ -509,7 +509,11 @@ const SESSION_ID_SAMPLE_SEED = 0x5e5520;
  * draw instants from this domain instead of re-declaring date bounds inline.
  */
 export function arbitraryValidSessionInstant(): fc.Arbitrary<Date> {
-  return fc.date({ min: SESSION_ID_MIN_DATE, max: SESSION_ID_MAX_DATE, noInvalidDate: true });
+  return fc.date({ min: SESSION_ID_MIN_DATE, max: SESSION_ID_MAX_DATE, noInvalidDate: true }).map((instant) => {
+    const wholeSecondInstant = new Date(instant);
+    wholeSecondInstant.setUTCMilliseconds(0);
+    return wholeSecondInstant;
+  });
 }
 
 /**
