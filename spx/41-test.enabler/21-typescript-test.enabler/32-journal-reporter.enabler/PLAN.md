@@ -35,28 +35,25 @@ Delivered and committed on `feat/test-verification-reporter`:
 - Reporter `l1` evidence — `journal-reporter.mapping.l1.test.ts` and
   `journal-reporter.compliance.l1.test.ts` (mapping, per-hook streaming,
   programmatic registration) pass. `pnpm run validate` green.
+- Reporter `scenario.l2` — real programmatic Vitest run. `createVitestRunStarter`
+  (`src/test/languages/journal-reporter.ts`) starts Vitest through
+  `startVitest("test", [...testPaths], { root, watch: false, reporters })` via a
+  lazy `import("vitest/node")`, closes the instance, and restores `process.exitCode`
+  around the run. The run streams over `testing/fixtures/vitest/mixed.test.ts.fixture`
+  (one passing, one runtime-failing case in one module), materialized by
+  `withMixedVitestProject` into an isolated temp project. `startVitest` nested inside
+  the outer Vitest worker executes cleanly — no subprocess harness needed. The sink
+  observes one scope and one finding; `journal-reporter.scenario.l2.test.ts` passes.
 
-Both nodes remain in `spx/EXCLUDE`.
+Both nodes remain in `spx/EXCLUDE` pending graduation.
 
 ## Remaining for the reporter node
 
-1. **`scenario.l2` — real programmatic Vitest run.** Confirmed feasible: Vitest's
-   config `reporters` accepts a `Reporter` instance (`InlineReporter`), so the
-   production `createVitestRunStarter` calls `startVitest("test", [...testPaths],
-   { root, watch: false, reporters: [...reporters] })` then `vitest.close()`.
-   Integration caveats to resolve: this runs `startVitest` **in-process, nested
-   inside a Vitest test** — validate it executes cleanly (or drive it through a
-   subprocess harness if nesting conflicts); and it needs a single-module fixture
-   holding one passing and one failing case (the sibling
-   `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler` uses
-   separate `testing/fixtures/vitest/{passing,failing}.test.ts.fixture` — add a
-   mixed fixture). Assert the recording sink observes one scope and one finding
-   from the real run.
-2. **Graduate both nodes.** Remove the two `spx/EXCLUDE` entries, then regenerate
+1. **Graduate both nodes.** Remove the two `spx/EXCLUDE` entries, then regenerate
    `spx.status.json` via the `CLAUDE.md` procedure (`pnpm run build` ->
    `tsx src/cli.ts test passing` -> `tsx src/cli.ts spec status --update`); never
    hand-edit status.
-3. **Audits + review.** `/apply` gates over the changeset: `test-evidence-auditor`,
+2. **Audits + review.** `/apply` gates over the changeset: `test-evidence-auditor`,
    `implementation-auditor`, then the whole-changeset `changes-reviewer` (this is
    a cross-node change touching `src/` and `testing/`).
 
@@ -99,10 +96,12 @@ contracts are the shared contract both nodes build against.
      reporter registered on a programmatically started Vitest run through the Node
      API, not a `--reporter` flag (spy run-starter).
    - `journal-reporter.scenario.l2.test.ts` — real programmatic Vitest run over a
-     fixture module with one passing and one failing case (reuse the committed
-     `testing/fixtures/vitest/{passing,failing}.test.ts.fixture` that the sibling
-     `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler`
-     already uses); recording sink observes one scope and one finding.
+     single module holding one passing and one failing case. The failing case is a
+     runtime assertion failure, not the sibling `failing.test.ts.fixture`'s missing
+     import: an import error faults the module before any case resolves, so it emits
+     no `onTestCaseResult` finding. The dedicated
+     `testing/fixtures/vitest/mixed.test.ts.fixture` supplies both cases in one
+     module; the recording sink observes one scope and one finding.
    - Implementation: the pure translator reporter (implements Vitest's `Reporter`,
      Vitest 4.1.10: `onTestModuleStart/End`, `onTestCaseResult`, `onTestRunEnd`),
      the programmatic run through `startVitest` with the reporter registered, and
