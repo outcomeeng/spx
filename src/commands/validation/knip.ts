@@ -99,7 +99,6 @@ export async function knipCommand(
     paths: files,
     validationPathFilter: validationPathFilterForTool(validationConfig.paths, VALIDATION_PATH_TOOL_SUBSECTIONS.KNIP),
     markExplicitPathsAsValidationFilter: true,
-    bypassExplicitPathValidationFilter: true,
   });
   const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(
     VALIDATION_STAGE_DISPLAY_NAMES.KNIP,

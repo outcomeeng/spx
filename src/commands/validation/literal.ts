@@ -220,7 +220,6 @@ function resolveExplicitLiteralTypeScriptScope(
     paths: options.files,
     validationPathFilter: pathConfig,
     markExplicitPathsAsValidationFilter: true,
-    bypassExplicitPathValidationFilter: true,
   });
 }
 

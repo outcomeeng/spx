@@ -114,7 +114,6 @@ export interface TypeScriptValidationScopeFilter {
   readonly paths?: readonly string[];
   readonly validationPathFilter: ValidationPathFilterConfig;
   readonly markExplicitPathsAsValidationFilter?: boolean;
-  readonly bypassExplicitPathValidationFilter?: boolean;
 }
 
 interface TypeScriptFileDiscoveryOptions {
@@ -885,45 +884,28 @@ export function resolveTypeScriptValidationScope(
 ): ScopeConfig {
   const baseScopeConfig = getTypeScriptScope(filter.scope, filter.productDir, deps);
   const scopeConfig = applyValidationPathFilterToScope(baseScopeConfig, filter.validationPathFilter);
-  const explicitTargetScopeConfig = filter.bypassExplicitPathValidationFilter === true ? baseScopeConfig : scopeConfig;
   const explicitTargets = filterExplicitTypeScriptScopeTargets({
     paths: filter.paths,
     productDir: filter.productDir,
     validationPathFilter: filter.validationPathFilter,
-    scopeConfig: explicitTargetScopeConfig,
-    bypassValidationPathFilter: filter.bypassExplicitPathValidationFilter,
+    scopeConfig: baseScopeConfig,
+    bypassValidationPathFilter: true,
   }, deps);
 
   if (filter.paths !== undefined && filter.paths.length > 0 && explicitTargets?.length === 0) {
-    const toolScopeTargets = filterExplicitTypeScriptScopeTargets({
-      paths: filter.paths,
-      productDir: filter.productDir,
-      validationPathFilter: filter.validationPathFilter,
-      scopeConfig: baseScopeConfig,
-      bypassValidationPathFilter: true,
-    }, deps);
-    const explicitPathNoMatches = toolScopeTargets?.length === 0;
     return {
       ...scopeConfig,
       directories: [],
       filePatterns: [],
-      ...(explicitPathNoMatches
-        ? {
-          explicitPathNoMatches: true,
-          filteredByValidationPaths: undefined,
-          filteredByValidationPathIncludes: undefined,
-          filteredByValidationPathNoMatches: undefined,
-        }
-        : {
-          filteredByValidationPaths: true,
-          filteredByValidationPathIncludes: true,
-          filteredByValidationPathNoMatches: true,
-        }),
+      explicitPathNoMatches: true,
+      filteredByValidationPaths: undefined,
+      filteredByValidationPathIncludes: undefined,
+      filteredByValidationPathNoMatches: undefined,
     };
   }
 
   if (explicitTargets !== undefined && explicitTargets.length > 0) {
-    const explicitScopeConfig = constrainTypeScriptScopeToExplicitTargets(explicitTargetScopeConfig, explicitTargets);
+    const explicitScopeConfig = constrainTypeScriptScopeToExplicitTargets(baseScopeConfig, explicitTargets);
     return filter.markExplicitPathsAsValidationFilter === true
       ? {
         ...explicitScopeConfig,

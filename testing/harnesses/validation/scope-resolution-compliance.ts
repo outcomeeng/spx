@@ -816,7 +816,6 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
             VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
           ),
           markExplicitPathsAsValidationFilter: true,
-          bypassExplicitPathValidationFilter: true,
         });
 
         expect(scopeConfig.filteredByValidationPathNoMatches).not.toBe(true);
@@ -999,7 +998,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     );
   });
 
-  it("preserves validation include directories below TypeScript directory operands", async () => {
+  it("bypasses nested validation includes for explicit TypeScript directory operands", async () => {
     await withValidationEnv(
       { fixture: PROJECT_FIXTURES.CLEAN_PROJECT },
       async ({ path }) => {
@@ -1045,6 +1044,9 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
         });
 
         expect(scopeConfig.filePatterns).toContain(
+          `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
+        );
+        expect(scopeConfig.filePatterns).not.toContain(
           `${VALIDATION_PIPELINE_DATA.sourceDirectoryName}/${VALIDATION_PIPELINE_DATA.narrowedSourceDirectoryName}${TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX}`,
         );
       },
@@ -1106,7 +1108,6 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
           { include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] },
           VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
         ),
-        bypassExplicitPathValidationFilter: true,
       });
 
       expect(scopeConfig.explicitPathNoMatches).toBe(true);
