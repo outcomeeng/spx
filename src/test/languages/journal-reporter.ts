@@ -27,12 +27,17 @@ export interface TestFinding {
   readonly errors: readonly string[];
 }
 
-/** The evidence-append port the reporter forwards scope and finding events to. */
+/**
+ * The evidence-append port the reporter forwards scope and finding events to. Each
+ * append is awaitable so a sink backed by asynchronous journal writes completes its
+ * write before the reporter hook returns; a synchronous sink returns `void` and is
+ * awaited to no effect.
+ */
 export interface TestRunEvidenceSink {
   /** Records that a test module was covered by the run. */
-  appendScope(unit: TestScopeUnit): void;
+  appendScope(unit: TestScopeUnit): void | Promise<void>;
   /** Records that a test case failed. */
-  appendFinding(finding: TestFinding): void;
+  appendFinding(finding: TestFinding): void | Promise<void>;
 }
 
 /** Terminal statuses a journal-streaming run yields for the executor to seal with. */
@@ -87,19 +92,22 @@ function findingErrorMessages(errors: ReadonlyArray<{ readonly message?: string 
 /**
  * Builds a journal reporter that forwards each Vitest lifecycle event to the sink as
  * it fires: a started module records a scope, a failing case records a finding, a
- * passing case records nothing, and run end captures the terminal status. Constructs
- * no journal events and performs no I/O — every durable effect flows through the sink.
+ * passing case records nothing, and run end captures the terminal status. Each hook
+ * awaits its sink append before returning, and Vitest awaits the hook, so an async
+ * sink's write completes before the run advances to the next hook or run end.
+ * Constructs no journal events and performs no I/O — every durable effect flows
+ * through the sink.
  */
 export function createJournalReporter(sink: TestRunEvidenceSink): JournalReporter {
   let terminalStatus: JournalRunTerminalStatus | undefined;
   return {
-    onTestModuleStart(module: TestModule): void {
-      sink.appendScope({ moduleId: module.moduleId });
+    async onTestModuleStart(module: TestModule): Promise<void> {
+      await sink.appendScope({ moduleId: module.moduleId });
     },
-    onTestCaseResult(testCase: TestCase): void {
+    async onTestCaseResult(testCase: TestCase): Promise<void> {
       const result = testCase.result();
       if (result.state !== VITEST_FAILED_CASE_STATE) return;
-      sink.appendFinding({
+      await sink.appendFinding({
         moduleId: testCase.module.moduleId,
         testName: testCase.fullName,
         errors: findingErrorMessages(result.errors),
