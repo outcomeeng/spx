@@ -71,6 +71,20 @@ export function isLocalOverlayPath(path: string): boolean {
   return !path.slice(prefix.length).includes(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 }
 
+/** File extension local overlays carry. */
+export const SPEC_CONTEXT_OVERLAY_EXTENSION = ".md";
+
+/** Full path of the lifecycle overlay relative to the product root. */
+export const SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH =
+  `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}/${SPEC_CONTEXT_LIFECYCLE_OVERLAY_FILENAME}`;
+
+/** Whether `path` names a local overlay: a markdown file directly inside the overlay directory. */
+export function isLocalOverlayPath(path: string): boolean {
+  const prefix = `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}/`;
+  if (!path.startsWith(prefix) || !path.endsWith(SPEC_CONTEXT_OVERLAY_EXTENSION)) return false;
+  return !path.slice(prefix.length).includes("/");
+}
+
 export interface SpecContextReadDocument {
   readonly role: SpecContextReadRole;
   readonly path: string;
