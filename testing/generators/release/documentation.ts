@@ -22,6 +22,9 @@ const DOCUMENT_PREFIX = "# ";
 const VERSION_SEPARATOR = "\n\n";
 const SEMANTIC_VERSION_PRERELEASE_SEPARATOR = "-";
 const SEMANTIC_VERSION_BUILD_SEPARATOR = "+";
+const SEMANTIC_VERSION_COMPARISON_PREFIX = ">=";
+const SEMANTIC_VERSION_GROUP_OPEN = "(";
+const SEMANTIC_VERSION_GROUP_CLOSE = ")";
 const SPEC_TREE_DIRECTORY = "spx";
 const SOURCE_DOMAIN_DIRECTORY = "src/domains";
 const SPEC_NODE_SUFFIX = ".enabler";
@@ -158,10 +161,15 @@ export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitra
 
 export function arbitraryReleaseVersionVariantOnlyScenario(): fc.Arbitrary<DocumentationSyncScenario> {
   return arbitraryFirstReleaseDocumentationSyncScenario().chain((scenario) =>
-    arbitrarySemanticVersionVariant(scenario.releaseData.version).map((variant) => ({
-      ...scenario,
-      updated: documentationForPaths(scenario.paths, [variant]),
-    }))
+    fc
+      .tuple(
+        arbitrarySemanticVersionVariant(scenario.releaseData.version),
+        arbitraryEmbeddedSemanticVersion(scenario.releaseData.version),
+      )
+      .map(([variant, embedded]) => ({
+        ...scenario,
+        updated: documentationForPaths(scenario.paths, [variant, embedded]),
+      }))
   );
 }
 
@@ -382,11 +390,13 @@ function arbitraryScenarioWithPreservedVersionVariant(
   scenario: DocumentationSyncScenario,
   version: string,
 ): fc.Arbitrary<DocumentationSyncScenario> {
-  return arbitrarySemanticVersionVariant(version).map((variant) => ({
-    ...scenario,
-    original: appendDocumentationVersion(scenario.original, variant),
-    updated: appendDocumentationVersion(scenario.updated, variant),
-  }));
+  return fc
+    .tuple(arbitrarySemanticVersionVariant(version), arbitraryEmbeddedSemanticVersion(version))
+    .map(([variant, embedded]) => ({
+      ...scenario,
+      original: appendDocumentationVersions(scenario.original, [variant, embedded]),
+      updated: appendDocumentationVersions(scenario.updated, [variant, embedded]),
+    }));
 }
 
 function arbitrarySemanticVersionVariant(version: string): fc.Arbitrary<string> {
@@ -398,6 +408,14 @@ function arbitrarySemanticVersionVariant(version: string): fc.Arbitrary<string> 
     .map(([separator, identifier]) => `${version}${separator}${identifier}`);
 }
 
+function arbitraryEmbeddedSemanticVersion(version: string): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryPathSegment().map((packageName) => `${packageName}${SEMANTIC_VERSION_PRERELEASE_SEPARATOR}${version}`),
+    fc.constant(`${SEMANTIC_VERSION_COMPARISON_PREFIX}${version}`),
+    fc.constant(`${SEMANTIC_VERSION_GROUP_OPEN}${version}${SEMANTIC_VERSION_GROUP_CLOSE}`),
+  );
+}
+
 function documentationForPaths(
   paths: readonly string[],
   versions: readonly string[],
@@ -407,14 +425,14 @@ function documentationForPaths(
   );
 }
 
-function appendDocumentationVersion(
+function appendDocumentationVersions(
   documents: Readonly<Partial<Record<string, string>>>,
-  version: string,
+  versions: readonly string[],
 ): Readonly<Partial<Record<string, string>>> {
   return Object.fromEntries(
     Object.entries(documents).map(([path, content]) => {
       if (content === undefined) throw new Error(`Generated documentation has no content for ${path}`);
-      return [path, `${content.trimEnd()}${VERSION_SEPARATOR}${version}\n`];
+      return [path, `${content.trimEnd()}${VERSION_SEPARATOR}${versions.join(VERSION_SEPARATOR)}\n`];
     }),
   );
 }
