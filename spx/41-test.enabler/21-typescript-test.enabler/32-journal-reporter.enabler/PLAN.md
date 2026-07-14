@@ -20,6 +20,56 @@
 
 Both are Declared and in `spx/EXCLUDE`.
 
+## Progress (this session)
+
+Delivered and committed on `feat/test-verification-reporter`:
+
+- `32-test-harness.enabler` — implemented and GREEN (recording sink, spy
+  run-starter, run-scenario generator; `test-harness.property.l1.test.ts` passes).
+- Reporter evidence contract — `src/test/languages/journal-reporter.ts`: producer
+  types, `TestRunEvidenceSink` port, terminal-status registry, `VitestRunStarter`
+  contract.
+- Reporter translation behavior — `createJournalReporter` (module -> scope,
+  failing case -> finding, passing case -> none, run-end reason -> terminal
+  status) and `runTestsStreaming` (registers the reporter on an injected starter).
+- Reporter `l1` evidence — `journal-reporter.mapping.l1.test.ts` and
+  `journal-reporter.compliance.l1.test.ts` (mapping, per-hook streaming,
+  programmatic registration) pass. `pnpm run validate` green.
+
+Both nodes remain in `spx/EXCLUDE`.
+
+## Remaining for the reporter node
+
+1. **`scenario.l2` — real programmatic Vitest run.** Confirmed feasible: Vitest's
+   config `reporters` accepts a `Reporter` instance (`InlineReporter`), so the
+   production `createVitestRunStarter` calls `startVitest("test", [...testPaths],
+   { root, watch: false, reporters: [...reporters] })` then `vitest.close()`.
+   Integration caveats to resolve: this runs `startVitest` **in-process, nested
+   inside a Vitest test** — validate it executes cleanly (or drive it through a
+   subprocess harness if nesting conflicts); and it needs a single-module fixture
+   holding one passing and one failing case (the sibling
+   `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler` uses
+   separate `testing/fixtures/vitest/{passing,failing}.test.ts.fixture` — add a
+   mixed fixture). Assert the recording sink observes one scope and one finding
+   from the real run.
+2. **Graduate both nodes.** Remove the two `spx/EXCLUDE` entries, then regenerate
+   `spx.status.json` via the `CLAUDE.md` procedure (`pnpm run build` ->
+   `tsx src/cli.ts test passing` -> `tsx src/cli.ts spec status --update`); never
+   hand-edit status.
+3. **Audits + review.** `/apply` gates over the changeset: `test-evidence-auditor`,
+   `implementation-auditor`, then the whole-changeset `changes-reviewer` (this is
+   a cross-node change touching `src/` and `testing/`).
+
+## Then the rest of slice 1
+
+Per `spx/34-verification.enabler/PLAN.md`: the executor
+(`spx/34-verification.enabler/43-execute.enabler` + `src/commands/verification-exec/`,
+wiring the reporter through `src/test/registry.ts` and registering the `test`
+type's validators in the recorder), the `spx verification test run` command path
+(`spx/60-surfaces.enabler/21-cli-surface.enabler`), and the fold path in
+`spx spec status --update` (`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler`).
+Then `/merge`.
+
 ## Build order (both nodes)
 
 The recording sink implements the reporter's `TestRunEvidenceSink` port and the
