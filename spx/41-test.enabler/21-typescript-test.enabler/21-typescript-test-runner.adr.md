@@ -8,7 +8,7 @@ Injecting the command runner and allowing a test-only detection override makes c
 
 Static TypeScript imports describe source-to-source dependencies, while a packaged executable reaches its entrypoint through a build artifact. Import closure therefore resolves ordinary source dependencies, and source-owned artifact descriptors supply the non-import build edges without teaching the planner or test infrastructure a CLI-specific exception. A full-tree product-input classification for an artifact entrypoint is rejected because it suppresses related-test resolution and selects unrelated tests.
 
-Writing exclusions into `vitest.config.ts` was rejected because it mutates product configuration the node must never write; putting TypeScript detection in the CLI orchestration layer was rejected because it makes orchestration reference language identity outside the registry; skipping the detection gate to let Vitest no-op on a non-TypeScript product was rejected because it invokes a subprocess pointlessly and conflates "absent" with "passed".
+Writing exclusions into `vitest.config.ts` is rejected because it mutates product configuration the node must never write; putting TypeScript detection in the CLI orchestration layer is rejected because it makes orchestration reference language identity outside the registry; skipping the detection gate to let Vitest no-op on a non-TypeScript product is rejected because it invokes a subprocess pointlessly and conflates "absent" with "passed".
 
 ## Invariants
 

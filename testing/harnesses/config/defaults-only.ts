@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
+import { productionRegistry } from "@/config/registry";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
@@ -20,15 +20,13 @@ export function registerConfigDefaultsOnlyScenarios(): void {
       await withTestEnv(emptyConfig(), async ({ productDir }) => {
         await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-        const result = await resolveConfig(productDir, [
-          specTreeConfigDescriptor,
-        ]);
+        const result = await resolveConfig(productDir, productionRegistry);
 
         expect(result.ok).toBe(true);
         if (result.ok) {
-          expect(result.value[specTreeConfigDescriptor.section]).toEqual(
-            specTreeConfigDescriptor.defaults,
-          );
+          for (const descriptor of productionRegistry) {
+            expect(result.value[descriptor.section]).toEqual(descriptor.defaults);
+          }
         }
       });
     });
@@ -37,14 +35,12 @@ export function registerConfigDefaultsOnlyScenarios(): void {
       await withTestEnv(emptyConfig(), async ({ productDir }) => {
         await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-        const result = await resolveConfig(productDir, [
-          specTreeConfigDescriptor,
-        ]);
+        const result = await resolveConfig(productDir, productionRegistry);
 
         expect(result.ok).toBe(true);
         if (result.ok) {
-          expect(Object.keys(result.value)).toContain(
-            specTreeConfigDescriptor.section,
+          expect(Object.keys(result.value).sort(compareAsciiStrings)).toEqual(
+            productionRegistry.map((descriptor) => descriptor.section).sort(compareAsciiStrings),
           );
         }
       });
@@ -52,18 +48,13 @@ export function registerConfigDefaultsOnlyScenarios(): void {
 
     it("treats an empty product config file the same as an absent file — defaults apply uniformly", async () => {
       await withTestEnv(emptyConfig(), async ({ productDir }) => {
-        const result = await resolveConfig(productDir, [
-          specTreeConfigDescriptor,
-        ]);
+        const result = await resolveConfig(productDir, productionRegistry);
 
         expect(result.ok).toBe(true);
         if (result.ok) {
-          const specTree = result.value[
-            specTreeConfigDescriptor.section
-          ] as typeof specTreeConfigDescriptor.defaults;
-          expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
-            Object.keys(KIND_REGISTRY).sort(compareAsciiStrings),
-          );
+          for (const descriptor of productionRegistry) {
+            expect(result.value[descriptor.section]).toEqual(descriptor.defaults);
+          }
         }
       });
     });
