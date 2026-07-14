@@ -118,14 +118,25 @@ export function assertRecordingSinkRecordsInOrder(
   findings: readonly TestFinding[],
 ): void {
   const sink = createRecordingEvidenceSink();
-  for (const unit of scopes) sink.appendScope(unit);
-  for (const finding of findings) sink.appendFinding(finding);
+  // Interleave scope and finding appends so the recorded call order exercises
+  // cross-channel invocation order: a sink that grouped calls by kind rather than
+  // preserving invocation order would record a different sink.calls sequence and fail.
+  const expectedCalls: RecordedSinkCall[] = [];
+  for (let i = 0; i < Math.max(scopes.length, findings.length); i += 1) {
+    if (i < scopes.length) {
+      const unit = scopes[i];
+      sink.appendScope(unit);
+      expectedCalls.push({ kind: "scope", unit });
+    }
+    if (i < findings.length) {
+      const finding = findings[i];
+      sink.appendFinding(finding);
+      expectedCalls.push({ kind: "finding", finding });
+    }
+  }
   expect(sink.scopes).toEqual(scopes);
   expect(sink.findings).toEqual(findings);
-  expect(sink.calls).toEqual([
-    ...scopes.map((unit): RecordedSinkCall => ({ kind: "scope", unit })),
-    ...findings.map((finding): RecordedSinkCall => ({ kind: "finding", finding })),
-  ]);
+  expect(sink.calls).toEqual(expectedCalls);
 }
 
 /**
