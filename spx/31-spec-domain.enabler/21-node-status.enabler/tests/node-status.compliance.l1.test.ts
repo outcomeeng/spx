@@ -1,9 +1,10 @@
 import {
-  assertCiRejectsNodeStatusProjectionDrift,
+  assertCiWorkflowRejectsProjectionDrift,
   assertMalformedExcludeEntriesAreRejected,
   assertMissingNodeStatusReturnsUndefined,
   assertNodeOutcomeResolverConsultationIsScoped,
   assertNodeStatusFilesOnlyWrittenByUpdate,
+  assertRegenerationOverwritesDriftedProjection,
   assertUnstagedEvidenceInTrackedNodeIsRecorded,
   assertUntrackedNodeStatusIsRemoved,
 } from "@testing/harnesses/node-status/node-status-compliance";
@@ -16,8 +17,12 @@ describe("node-status write authority", () => {
 });
 
 describe("node-status CI drift check", () => {
-  it("ALWAYS: CI refreshes committed status projections and rejects spx drift", async () => {
-    await assertCiRejectsNodeStatusProjectionDrift();
+  it("ALWAYS: regenerating from the checkout overwrites a drifted committed projection", async () => {
+    await assertRegenerationOverwritesDriftedProjection();
+  });
+
+  it("ALWAYS: CI runs the projection check after the suite and rejects drift through git", async () => {
+    await assertCiWorkflowRejectsProjectionDrift();
   });
 });
 
