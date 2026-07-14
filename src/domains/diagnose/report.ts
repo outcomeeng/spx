@@ -46,6 +46,7 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
+import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
   SEVERITY,
@@ -535,7 +536,9 @@ function toVerboseModel(report: DiagnoseReport): StyledReportModel {
         header: text.header,
         details: [
           `${DIAGNOSE_TEXT_LABEL.CONCLUSION}: ${text.header}`,
-          ...Object.entries(check.readings).map(([name, value]) => `${name}: ${value}`),
+          ...Object.entries(check.readings).map(
+            ([name, value]) => `${escapeCliArgument(name)}: ${escapeCliArgument(value)}`,
+          ),
           `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
         ],
       };
