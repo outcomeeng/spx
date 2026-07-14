@@ -1,6 +1,7 @@
 import { execa } from "execa";
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
@@ -16,6 +17,7 @@ import {
 import { testingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   JOURNAL_REPORTER_TEST_GENERATOR,
@@ -48,10 +50,10 @@ const VITEST_FIXTURE_DIR = join(
   "fixtures",
   "vitest",
 );
-const TEMP_PROJECT_PREFIX = "spx-vitest-";
+const TEMP_PRODUCT_PREFIX = "spx-vitest-";
 export const COPIED_SUITE_NAME = "suite.test.ts";
 
-// Committed inert fixture suites copied into a temp project for the real-vitest run.
+// Committed inert fixture suites copied into a temporary product for the real Vitest run.
 export const VITEST_FIXTURE = {
   PASSING: "passing.test.ts.fixture",
   FAILING: "failing.test.ts.fixture",
@@ -86,9 +88,9 @@ export function createRecordingCommandRunner(options: {
   };
 }
 
-// A real command runner that executes from the repo root (where vitest resolves);
-// the runner's `--root <projectRoot>` flag isolates vitest to the temp project.
-export function repoRootedCommandRunner(): TestRunnerDependencies {
+// A real command runner that executes from the product root (where Vitest resolves);
+// the runner's `--root <productDir>` flag isolates Vitest to the temporary product.
+export function productRootedCommandRunner(): TestRunnerDependencies {
   return createRepoRootedRecordingCommandRunner();
 }
 
@@ -128,26 +130,68 @@ function generatedTestPathForPattern(pattern: string): string {
   ].join("/");
 }
 
-// Copies a committed fixture suite into a temp project outside the repo so vitest
+// Copies a committed fixture suite into a temporary product outside the repository so Vitest
 // resolves no inherited config and runs the suite under defaults.
-export function withTempVitestProject(
+export function withTempVitestProduct(
   fixture: VitestFixture,
-  callback: (projectRoot: string) => Promise<void>,
+  callback: (productDir: string) => Promise<void>,
 ): Promise<void> {
-  return withTempVitestProjectAt(fixture, COPIED_SUITE_NAME, callback);
+  return withTempVitestProductAt(fixture, COPIED_SUITE_NAME, callback);
 }
 
-export function withTempVitestProjectAt(
+export function withTempVitestProductAt(
   fixture: VitestFixture,
   relativeTestPath: string,
   callback: (productDir: string) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
-    const targetPath = join(projectRoot, relativeTestPath);
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const targetPath = join(productDir, relativeTestPath);
     await mkdir(dirname(targetPath), { recursive: true });
     await copyFile(join(VITEST_FIXTURE_DIR, fixture), targetPath);
-    await callback(projectRoot);
+    await callback(productDir);
   });
+}
+
+export function registerTempVitestProductScenarioEvidence(): void {
+  describe("withTempVitestProduct", () => {
+    it("materializes the Vitest fixture suite under the OS temp root and removes the product after the callback returns", async () => {
+      const tempRootPrefix = resolve(tmpdir()) + sep;
+      let capturedProductDir = "";
+
+      await withTempVitestProduct(VITEST_FIXTURE.PASSING, async (productDir) => {
+        capturedProductDir = productDir;
+
+        expect(resolve(productDir).startsWith(tempRootPrefix)).toBe(true);
+        expect(await readdir(productDir)).toEqual([COPIED_SUITE_NAME]);
+      });
+
+      expect(await pathExists(capturedProductDir)).toBe(false);
+    });
+
+    it("removes the Vitest product and rethrows the original error when the callback throws", async () => {
+      let capturedProductDir = "";
+      const failure = new Error(sampleLiteralTestValue(arbitraryDomainLiteral()));
+
+      await expect(
+        withTempVitestProduct(VITEST_FIXTURE.FAILING, async (productDir) => {
+          capturedProductDir = productDir;
+          expect(await pathExists(productDir)).toBe(true);
+          throw failure;
+        }),
+      ).rejects.toBe(failure);
+
+      expect(await pathExists(capturedProductDir)).toBe(false);
+    });
+  });
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function writeVitestFixture(
@@ -252,7 +296,7 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
       const [testPath, failingDecoyPath] = sampleTypescriptRunnerValue(
         TYPESCRIPT_RUNNER_TEST_GENERATOR.testPathPair(),
       );
-      await withTempVitestProjectAt(
+      await withTempVitestProductAt(
         VITEST_FIXTURE.PASSING,
         testPath,
         async (productDir) => {
@@ -281,7 +325,7 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
       const testPath = sampleTypescriptRunnerValue(
         TYPESCRIPT_RUNNER_TEST_GENERATOR.testFilePath(),
       );
-      await withTempVitestProjectAt(
+      await withTempVitestProductAt(
         VITEST_FIXTURE.FAILING,
         testPath,
         async (productDir) => {

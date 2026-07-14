@@ -24,7 +24,7 @@ export interface TestRunCommandOutput {
 /** Dependencies injected into a language runner's detection and invocation paths. */
 export interface TestRunnerDependencies {
   /** Optional test override for descriptor-owned language presence detection. */
-  readonly isLanguagePresent?: (projectRoot: string) => boolean;
+  readonly isLanguagePresent?: (productDir: string) => boolean;
   /** Executes a command, returning its terminal exit code. */
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
 }
@@ -44,14 +44,14 @@ export interface RelatedTestResolution {
 
 /** Dependencies injected into a language's related-test resolver. */
 export interface RelatedTestDependencies {
-  readonly isLanguagePresent?: (projectRoot: string) => boolean;
+  readonly isLanguagePresent?: (productDir: string) => boolean;
   readonly runCommand: (command: string, args: readonly string[]) => Promise<RelatedTestCommandResult>;
   readonly readFile: (path: string) => Promise<string>;
 }
 
 /** Request to resolve source files to related test file paths. */
 export interface RelatedTestRequest {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly sourcePaths: readonly string[];
   readonly candidateTestPaths: readonly string[];
   readonly baseRef: string;
@@ -127,8 +127,8 @@ export interface JournalStreamRunDependencies {
 
 /** A request to run a language's tests over a set of discovered paths. */
 export interface TestRunRequest {
-  /** Project root passed to the runner as its working root. */
-  readonly projectRoot: string;
+  /** Product directory passed to the runner as its working root. */
+  readonly productDir: string;
   /** Discovered test file paths to run; empty runs the runner's full scope. */
   readonly testPaths: readonly string[];
   /** Node paths excluded from the passing scope, mapped to runner exclusion flags. */
@@ -162,8 +162,8 @@ export interface TestingLanguageDescriptor {
   matchesTestFile(filePath: string): boolean;
   /** Maps an excluded node path to the runner's exclusion flag. */
   excludeFlag(nodePath: string): string;
-  /** Whether the language is present at the project root. */
-  detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean;
+  /** Whether the language is present in the product directory. */
+  detect(productDir: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean;
   /** Invokes the runner, gated on detection, through the injected command runner. */
   runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation>;
   /** Resolves source files to related test file paths without running those tests. */

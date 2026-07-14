@@ -103,7 +103,7 @@ export async function runTests(
   for (const group of groups) {
     const invocation = await group.language.runTests(
       {
-        projectRoot: options.productDir,
+        productDir: options.productDir,
         testPaths: group.testPaths,
         excludedNodePaths: runnerExcludedNodePaths,
       },

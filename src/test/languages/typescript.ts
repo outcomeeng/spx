@@ -50,8 +50,8 @@ const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
 export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_PREFIX = "--exclude=spx/";
 export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_SUFFIX = "/**";
 
-// vitest runs through the project's package manager so the project's node_modules
-// provides the binary; `--root` makes the project under test explicit.
+// Vitest runs through the product's package manager so the product's node_modules
+// provides the binary; `--root` makes the product under test explicit.
 const PACKAGE_MANAGER_COMMAND = "pnpm";
 const VITEST_INVOKE_ARGS = ["exec", "vitest", "run"] as const;
 const VITEST_ROOT_FLAG = "--root";
@@ -82,19 +82,19 @@ function excludeFlag(nodePath: string): string {
   return `${TYPESCRIPT_VITEST_EXCLUDE_FLAG_PREFIX}${nodePath}${TYPESCRIPT_VITEST_EXCLUDE_FLAG_SUFFIX}`;
 }
 
-function detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
-  return deps?.isLanguagePresent?.(projectRoot) ?? detectTypeScript(projectRoot).present;
+function detect(productDir: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
+  return deps?.isLanguagePresent?.(productDir) ?? detectTypeScript(productDir).present;
 }
 
 async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation> {
-  if (!detect(request.projectRoot, deps)) {
+  if (!detect(request.productDir, deps)) {
     return { invoked: false };
   }
 
   const args = [
     ...VITEST_INVOKE_ARGS,
     VITEST_ROOT_FLAG,
-    request.projectRoot,
+    request.productDir,
     ...request.testPaths,
     ...request.excludedNodePaths.map(excludeFlag),
   ];
@@ -374,7 +374,7 @@ async function relatedTestPaths(
   request: RelatedTestRequest,
   deps: RelatedTestDependencies,
 ): Promise<RelatedTestResolution> {
-  if (!detect(request.projectRoot, deps)) {
+  if (!detect(request.productDir, deps)) {
     return { testPaths: [], resolvedSourcePaths: [] };
   }
   const sourcePaths = new Set(request.sourcePaths);
