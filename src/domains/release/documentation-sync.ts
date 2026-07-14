@@ -30,6 +30,7 @@ export interface StagedDocumentation {
     readonly sourcePath: string;
     readonly stagedPath: string;
     readonly targetPath: string;
+    readonly originalContent: string;
   }[];
   readonly cleanup: () => Promise<void>;
 }
@@ -64,7 +65,11 @@ export type DocumentationPromoter = (
 export type DocumentationFaithfulnessAuditor = (
   input: {
     readonly releaseData: ReleaseData;
-    readonly documents: readonly { readonly path: string; readonly content: string }[];
+    readonly documents: readonly {
+      readonly path: string;
+      readonly originalContent: string;
+      readonly updatedContent: string;
+    }[];
   },
 ) => Promise<void>;
 
@@ -108,17 +113,22 @@ export async function composeDocumentationSync(
       sourcePath,
       stagedPath,
       targetPath,
+      originalContent,
     }) => {
-      const content = await options.readDocument(stagedPath);
-      assertReleasedVersionReferencesUpdated(content, options.releaseData, sourcePath);
-      return { path: sourcePath, targetPath, content };
+      const updatedContent = await options.readDocument(stagedPath);
+      assertReleasedVersionReferencesUpdated(updatedContent, options.releaseData, sourcePath);
+      return { path: sourcePath, targetPath, originalContent, updatedContent };
     }));
     await options.faithfulnessAuditor({
       releaseData: options.releaseData,
-      documents: documents.map(({ path, content }) => ({ path, content })),
+      documents: documents.map(({ path, originalContent, updatedContent }) => ({
+        path,
+        originalContent,
+        updatedContent,
+      })),
     });
     await options.promoteDocumentation(
-      documents.map(({ targetPath, content }) => ({ path: targetPath, content })),
+      documents.map(({ targetPath, updatedContent }) => ({ path: targetPath, content: updatedContent })),
     );
     return { paths };
   } finally {
@@ -174,9 +184,9 @@ function buildDocumentationFaithfulnessAuditPrompt(
   input: Parameters<DocumentationFaithfulnessAuditor>[0],
 ): string {
   return [
-    "Audit whether every documentation change is supported by the supplied release data.",
-    `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported.`,
-    `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported or omitted release claim.`,
+    "Audit whether every original-to-updated documentation transformation faithfully applies the supplied release data, including updating each previous-release reference rather than deleting it.",
+    `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported and every previous-release reference remains represented by the released version.`,
+    `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported claim, deleted previous-release reference, or omitted release update.`,
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
     encodeReleasePromptData(input),
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,

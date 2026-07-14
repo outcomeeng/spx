@@ -89,7 +89,7 @@ async function stageDocumentationSet(
       const originalContent = await readFile(targetPath, DOCUMENTATION_TEXT_ENCODING);
       await mkdir(dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, originalContent, DOCUMENTATION_TEXT_ENCODING);
-      return { sourcePath, stagedPath, targetPath };
+      return { sourcePath, stagedPath, targetPath, originalContent };
     }));
     return {
       workingDirectory,
