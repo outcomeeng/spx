@@ -6,14 +6,20 @@ import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
   createNodeStatusProvider,
-  NODE_STATUS_FIELD,
+  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
   readNodeStatus,
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
-import { createFilesystemSpecTreeSource, readSpecTree, type SpecTreeNode } from "@/lib/spec-tree";
+import {
+  createFilesystemSpecTreeSource,
+  readSpecTree,
+  SPEC_TREE_NODE_STATE,
+  type SpecTreeNode,
+  type SpecTreeNodeState,
+} from "@/lib/spec-tree";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import {
   type ClassificationTreeNodeExpectation,
@@ -39,6 +45,14 @@ export async function assertNodeStatusUpdateWritesVerificationProjection(): Prom
     for (const expectation of expectations) {
       const recorded = JSON.parse(await env.readFile(expectation.statusPath));
       expectRecordedEvidence(recorded, expectation);
+    }
+
+    const projectedSnapshot = await readSpecTree({
+      source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+      evidence: createNodeStatusProvider(env.productDir),
+    });
+    for (const expectation of expectations) {
+      expect(nodeStateById(projectedSnapshot.nodes, expectation.nodeId)).toBe(expectedNodeState(expectation));
     }
   });
 }
@@ -94,15 +108,18 @@ function expectRecordedEvidence(recorded: unknown, expectation: ClassificationTr
     return;
   }
 
-  const testRecord = verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST];
-  expect(testRecord).toBeDefined();
   const expectedOutcomes = Object.fromEntries(
     expectation.evidencePaths.map((path) => [path, expectation.facts.expectedEvidenceOutcome]),
   );
-  expect(testRecord[NODE_STATUS_FIELD.OVERALL]).toBe(
-    createNodeStatusMechanismRecord(expectedOutcomes)[NODE_STATUS_FIELD.OVERALL],
-  );
-  for (const evidencePath of expectation.evidencePaths) {
-    expect(testRecord[evidencePath]).toBe(expectation.facts.expectedEvidenceOutcome);
-  }
+  expect(verification).toEqual({
+    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(expectedOutcomes),
+  });
+}
+
+function expectedNodeState(expectation: ClassificationTreeNodeExpectation): SpecTreeNodeState {
+  if (!expectation.facts.hasVerificationReferences) return SPEC_TREE_NODE_STATE.DECLARED;
+  if (expectation.facts.isExcluded) return SPEC_TREE_NODE_STATE.SPECIFIED;
+  return expectation.facts.expectedEvidenceOutcome === NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+    ? SPEC_TREE_NODE_STATE.PASSING
+    : SPEC_TREE_NODE_STATE.FAILING;
 }

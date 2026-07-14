@@ -63,6 +63,7 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
 
     for (const expectation of expectations) {
       const recorded = JSON.parse(await env.readFile(expectation.statusPath));
+      expect(recorded[NODE_STATUS_FIELD.SCHEMA_VERSION]).toBe(1);
       const testRecord = recorded.verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST] as
         | Record<string, string>
         | undefined;
