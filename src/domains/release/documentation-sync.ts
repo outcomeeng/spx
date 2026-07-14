@@ -22,6 +22,7 @@ export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_DIGIT_BOUNDARY = String.raw`\d`;
+const SEMANTIC_VERSION_REFERENCE_PATTERN = /(?<!\d)v?(\d+\.\d+\.\d+)(?!\d)/gu;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -29,6 +30,7 @@ export interface StagedDocumentation {
     readonly sourcePath: string;
     readonly stagedPath: string;
     readonly targetPath: string;
+    readonly originalContent: string;
   }[];
   readonly cleanup: () => Promise<void>;
 }
@@ -103,9 +105,14 @@ export async function composeDocumentationSync(
       permissionMode: DOCUMENTATION_SYNC_AGENT_PERMISSION_MODE,
       maxTurns: DOCUMENTATION_SYNC_AGENT_MAX_TURNS,
     });
-    const documents = await Promise.all(stage.documents.map(async ({ sourcePath, stagedPath, targetPath }) => {
+    const documents = await Promise.all(stage.documents.map(async ({
+      sourcePath,
+      stagedPath,
+      targetPath,
+      originalContent,
+    }) => {
       const content = await options.readDocument(stagedPath);
-      assertReleasedVersionReferencesUpdated(content, options.releaseData, sourcePath);
+      assertReleasedVersionReferencesUpdated(originalContent, content, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, content };
     }));
     await options.faithfulnessAuditor({
@@ -143,6 +150,7 @@ export function createDocumentationFaithfulnessAuditor(
 }
 
 function assertReleasedVersionReferencesUpdated(
+  originalContent: string,
   content: string,
   releaseData: ReleaseData,
   path: string,
@@ -150,11 +158,57 @@ function assertReleasedVersionReferencesUpdated(
   if (!containsReleaseVersionReference(content, releaseData.version)) {
     throw new Error(`Updated documentation does not reference release version ${releaseData.version}: ${path}`);
   }
-  if (releaseData.previousTag === null) return;
+  if (releaseData.previousTag === null) {
+    assertFirstReleaseVersionReferencesUpdated(originalContent, content, releaseData.version, path);
+    return;
+  }
   const previousVersion = releaseVersionFromTag(releaseData.previousTag);
   if (containsReleaseVersionReference(content, previousVersion)) {
     throw new Error(`Updated documentation still references previous release version ${previousVersion}: ${path}`);
   }
+}
+
+function assertFirstReleaseVersionReferencesUpdated(
+  originalContent: string,
+  content: string,
+  releaseVersion: string,
+  path: string,
+): void {
+  const originalReferences = countSemanticVersionReferences(originalContent);
+  const updatedReferences = countSemanticVersionReferences(content);
+  let containsPriorReference = false;
+  let replacedPriorReference = false;
+
+  for (const [version, originalCount] of originalReferences) {
+    if (version === releaseVersion) continue;
+    containsPriorReference = true;
+    const updatedCount = updatedReferences.get(version) ?? 0;
+    if (updatedCount === originalCount) continue;
+    if (updatedCount === 0) {
+      replacedPriorReference = true;
+      continue;
+    }
+    throw new Error(`Updated documentation only partially replaced version ${version}: ${path}`);
+  }
+
+  if (
+    !originalReferences.has(releaseVersion)
+    && containsPriorReference
+    && !replacedPriorReference
+  ) {
+    throw new Error(
+      `Updated documentation added release version ${releaseVersion} without replacing a prior version: ${path}`,
+    );
+  }
+}
+
+function countSemanticVersionReferences(content: string): ReadonlyMap<string, number> {
+  const references = new Map<string, number>();
+  for (const match of content.matchAll(SEMANTIC_VERSION_REFERENCE_PATTERN)) {
+    const version = match[1];
+    references.set(version, (references.get(version) ?? 0) + 1);
+  }
+  return references;
 }
 
 function containsReleaseVersionReference(content: string, version: string): boolean {

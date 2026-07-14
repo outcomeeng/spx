@@ -66,6 +66,7 @@ export const RELEASE_TEST_GENERATOR = {
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
+  releaseDataWithoutPreviousTag: arbitraryReleaseDataWithoutPreviousTag,
   releaseDataWithSubjects: arbitraryReleaseDataWithSubjects,
 } as const;
 
@@ -169,6 +170,26 @@ function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
       })
       .map(({ progression, shas }): ReleaseData => ({
         ...progression,
+        commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
+        changedPaths: fixtures.map((fixture) => fixture.path),
+      }))
+  );
+}
+
+function arbitraryReleaseDataWithoutPreviousTag(): fc.Arbitrary<ReleaseData> {
+  return arbitraryCommitSequence(FULL_HISTORY_COMMITS).chain((fixtures) =>
+    fc
+      .record({
+        version: arbitrarySemver(),
+        shas: fc.uniqueArray(arbitraryCommitSha(), {
+          minLength: fixtures.length,
+          maxLength: fixtures.length,
+        }),
+      })
+      .map(({ version, shas }): ReleaseData => ({
+        version,
+        previousTag: null,
+        versionDelta: null,
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
         changedPaths: fixtures.map((fixture) => fixture.path),
       }))

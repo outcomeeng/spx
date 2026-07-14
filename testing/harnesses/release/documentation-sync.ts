@@ -38,6 +38,7 @@ import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
   arbitraryDuplicateDocumentationPathSet,
+  arbitraryFirstReleaseDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
@@ -455,6 +456,16 @@ function registerScenarioTests(): void {
         }
       });
     });
+
+    it("updates every first-release version reference to the released version", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        await runDocumentationSyncCli(options);
+        for (const path of scenario.paths) {
+          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+        }
+      });
+    });
   });
 }
 
@@ -550,6 +561,13 @@ function registerComplianceTests(): void {
     it("rejects partially updated version references before invoking the faithfulness audit", async () => {
       await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        new PartiallyUpdatingDocumentationAgent(),
+      );
+    });
+
+    it("rejects partially updated first-release version references before invoking the faithfulness audit", async () => {
+      await assertVersionValidationPrecedesFaithfulnessAudit(
+        sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
         new PartiallyUpdatingDocumentationAgent(),
       );
     });
