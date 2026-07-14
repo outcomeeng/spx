@@ -5,6 +5,7 @@ import {
   arbitraryPermissionConflictScenario,
   arbitraryPermissionMergePermutationScenario,
   arbitraryPermissionMergeScenario,
+  arbitraryPermissionSubsumptionMergeScenario,
   arbitraryPermissionUnionScenario,
   sampleScenario,
 } from "@testing/generators/claude/permissions/scenarios";
@@ -42,6 +43,27 @@ export function assertMergeIsCommutative(
           structuredClone(scenario.global),
           structuredClone(scenario.permutedLocal),
         ),
+      );
+    },
+    { level: PROPERTY_LEVEL.L1 },
+  );
+}
+
+export function assertMergeRemovesSubsumedPermissions(
+  mergePermissions: MergePermissions,
+): void {
+  assertProperty(
+    arbitraryPermissionSubsumptionMergeScenario(),
+    (scenario) => {
+      const output = mergePermissions(
+        structuredClone(scenario.global),
+        structuredClone(scenario.local),
+      );
+
+      assert.deepEqual(output.merged.allow, [scenario.broader]);
+      assert.deepEqual(
+        new Set(output.result.subsumed),
+        new Set([scenario.middle, scenario.narrower]),
       );
     },
     { level: PROPERTY_LEVEL.L1 },

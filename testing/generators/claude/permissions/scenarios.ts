@@ -18,6 +18,16 @@ export interface DiscoveryTreeScenario {
   readonly settingsParents: readonly (readonly string[])[];
 }
 
+export interface DiscoveryBoundaryScenario {
+  readonly missingRootSegment: string;
+  readonly fileRootName: string;
+  readonly validParent: readonly string[];
+  readonly outsideParent: readonly string[];
+  readonly decoyFileName: string;
+  readonly decoyDirectoryName: string;
+  readonly nestedParent: readonly string[];
+}
+
 export interface ValidSettingsScenario {
   readonly settings: ClaudeSettings;
   readonly expectedPermissions: readonly Permission[];
@@ -57,6 +67,12 @@ export interface PermissionConflictScenario extends PermissionMergeScenario {
   readonly permission: string;
 }
 
+export interface PermissionSubsumptionMergeScenario extends PermissionMergeScenario {
+  readonly broader: string;
+  readonly middle: string;
+  readonly narrower: string;
+}
+
 export interface SubsumptionChainScenario {
   readonly broader: Permission;
   readonly middle: Permission;
@@ -88,6 +104,22 @@ export function arbitraryVaryingDepthDiscoveryTree(): fc.Arbitrary<DiscoveryTree
         [second, third],
         [fourth, fifth, sixth],
       ],
+    }),
+  );
+}
+
+export function arbitraryDiscoveryBoundaryScenario(): fc.Arbitrary<DiscoveryBoundaryScenario> {
+  return fc.uniqueArray(arbitraryPathSegment(), { minLength: 9, maxLength: 9 }).map(
+    (
+      [missingRoot, fileRoot, validParent, outsideParent, decoyFile, decoyDirectory, nested, nestedChild, fileSuffix],
+    ) => ({
+      missingRootSegment: missingRoot,
+      fileRootName: `${fileRoot}.${fileSuffix}`,
+      validParent: [validParent],
+      outsideParent: [outsideParent],
+      decoyFileName: `${decoyFile}.${fileSuffix}`,
+      decoyDirectoryName: `${decoyDirectory}.json`,
+      nestedParent: [nested, nestedChild],
     }),
   );
 }
@@ -190,6 +222,16 @@ export function arbitraryPermissionConflictScenario(): fc.Arbitrary<PermissionCo
     global: { allow: [permission.raw] },
     local: [{ deny: [permission.raw] }],
     permission: permission.raw,
+  }));
+}
+
+export function arbitraryPermissionSubsumptionMergeScenario(): fc.Arbitrary<PermissionSubsumptionMergeScenario> {
+  return arbitrarySubsumptionChain().map((scenario) => ({
+    global: { allow: [scenario.broader.raw] },
+    local: [{ allow: [scenario.middle.raw, scenario.narrower.raw] }],
+    broader: scenario.broader.raw,
+    middle: scenario.middle.raw,
+    narrower: scenario.narrower.raw,
   }));
 }
 

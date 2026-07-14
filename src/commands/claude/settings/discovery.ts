@@ -6,6 +6,15 @@ import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+export const DISCOVERY_ERROR_MESSAGE = {
+  DIRECTORY_NOT_FOUND: "Directory not found",
+  PATH_NOT_DIRECTORY: "Path is not a directory",
+  PERMISSION_DENIED: "Permission denied",
+  SEARCH_FAILED: "Failed to search directory",
+} as const;
+
+export type FindSettingsFiles = (root: string) => Promise<string[]>;
+
 /**
  * Recursively find all .claude/settings.local.json files under a root directory
  *
@@ -41,7 +50,7 @@ async function findSettingsFilesInDirectory(
 ): Promise<string[]> {
   const stats = await fs.stat(normalizedRoot);
   if (!stats.isDirectory()) {
-    throw new Error(`Path is not a directory: ${normalizedRoot}`);
+    throw new Error(`${DISCOVERY_ERROR_MESSAGE.PATH_NOT_DIRECTORY}: ${normalizedRoot}`);
   }
 
   const entries = await fs.readdir(normalizedRoot, { withFileTypes: true });
@@ -70,9 +79,13 @@ async function settingsFilesForEntry(
 
 function discoveryError(normalizedRoot: string, error: unknown): Error {
   if (!(error instanceof Error)) return new Error(unknownErrorMessage(error));
-  if (error.message.includes("ENOENT")) return new Error(`Directory not found: ${normalizedRoot}`);
-  if (error.message.includes("EACCES")) return new Error(`Permission denied: ${normalizedRoot}`);
-  return new Error(`Failed to search directory "${normalizedRoot}": ${error.message}`);
+  if (error.message.includes("ENOENT")) {
+    return new Error(`${DISCOVERY_ERROR_MESSAGE.DIRECTORY_NOT_FOUND}: ${normalizedRoot}`);
+  }
+  if (error.message.includes("EACCES")) {
+    return new Error(`${DISCOVERY_ERROR_MESSAGE.PERMISSION_DENIED}: ${normalizedRoot}`);
+  }
+  return new Error(`${DISCOVERY_ERROR_MESSAGE.SEARCH_FAILED} "${normalizedRoot}": ${error.message}`);
 }
 
 function unknownErrorMessage(error: unknown): string {
