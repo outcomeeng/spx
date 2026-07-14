@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { mkdir, open, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -221,6 +221,7 @@ class RetargetingDocumentationFileOpener {
 
   constructor(
     private readonly shouldRetarget: (path: string) => boolean,
+    private readonly replacementPath: string,
     private readonly replacementContent: string,
   ) {}
 
@@ -231,8 +232,11 @@ class RetargetingDocumentationFileOpener {
       readText: async () => {
         if (!this.hasRetargeted && this.shouldRetarget(path)) {
           this.hasRetargeted = true;
-          await rm(path);
-          await writeFile(path, this.replacementContent);
+          await replaceDocumentationPathIdentity(
+            path,
+            this.replacementPath,
+            this.replacementContent,
+          );
         }
         return (await handle.readFile()).toString();
       },
@@ -246,13 +250,17 @@ class IdentityReplacingDocumentationAtomicWriter {
 
   constructor(
     private readonly targetPath: string,
+    private readonly replacementPath: string,
     private readonly replacementContent: string,
   ) {}
 
   readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
     if (path === this.targetPath) {
-      await rm(path);
-      await writeFile(path, this.replacementContent);
+      await replaceDocumentationPathIdentity(
+        path,
+        this.replacementPath,
+        this.replacementContent,
+      );
     }
     await writeDocumentationAfterGuard(path, content, guard);
     this.writes += 1;
@@ -543,24 +551,28 @@ async function assertDocumentationReadIdentityChangeRejected(
   target: DocumentationReadRaceTarget,
 ): Promise<void> {
   const primary = primaryDocumentation(scenario);
-  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-    const opener = new RetargetingDocumentationFileOpener(
-      target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
-        ? (path) => path === join(options.productDir, primary.path)
-        : (path) => !isPathContained(options.productDir, path),
-      target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
-        ? primary.originalContent
-        : primary.updatedContent,
-    );
-    const writer = new RecordingDocumentationAtomicWriter();
-    const filesystem = createDocumentationSyncFilesystem({
-      openDocumentationFile: opener.open,
-      writeDocumentAtomic: writer.write,
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+      const canonicalProductDir = await realpath(options.productDir);
+      const opener = new RetargetingDocumentationFileOpener(
+        target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+          ? (path) => path === join(canonicalProductDir, primary.path)
+          : (path) => !isPathContained(canonicalProductDir, path),
+        join(externalDir, primary.path),
+        target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+          ? primary.originalContent
+          : primary.updatedContent,
+      );
+      const writer = new RecordingDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({
+        openDocumentationFile: opener.open,
+        writeDocumentAtomic: writer.write,
+      });
+      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
+      if (target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT) expect(agent.requests).toHaveLength(0);
+      expect(writer.writes).toBe(0);
+      await expectProductDocumentationUnchanged(scenario, readProductDocument);
     });
-    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
-    if (target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT) expect(agent.requests).toHaveLength(0);
-    expect(writer.writes).toBe(0);
-    await expectProductDocumentationUnchanged(scenario, readProductDocument);
   });
 }
 
@@ -568,16 +580,30 @@ async function assertPromotionIdentityChangeRejected(
   scenario: DocumentationSyncScenario,
 ): Promise<void> {
   const primary = primaryDocumentation(scenario);
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    const writer = new IdentityReplacingDocumentationAtomicWriter(
-      join(options.productDir, primary.path),
-      primary.originalContent,
-    );
-    const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
-    expect(writer.writes).toBe(0);
-    await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+      const canonicalProductDir = await realpath(options.productDir);
+      const writer = new IdentityReplacingDocumentationAtomicWriter(
+        join(canonicalProductDir, primary.path),
+        join(externalDir, primary.path),
+        primary.originalContent,
+      );
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
+      expect(writer.writes).toBe(0);
+      await expectProductDocumentationUnchanged(scenario, readProductDocument);
+    });
   });
+}
+
+async function replaceDocumentationPathIdentity(
+  targetPath: string,
+  replacementPath: string,
+  replacementContent: string,
+): Promise<void> {
+  await mkdir(dirname(replacementPath), { recursive: true });
+  await writeFile(replacementPath, replacementContent);
+  await rename(replacementPath, targetPath);
 }
 
 async function assertRollbackPreservesPostPromotionEdit(
