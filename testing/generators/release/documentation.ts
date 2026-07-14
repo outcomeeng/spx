@@ -126,6 +126,12 @@ export function arbitraryMultiDocumentSyncScenario(): fc.Arbitrary<Documentation
   return arbitraryConfiguredDocumentationSyncScenarioWithMinimum(MULTI_DOCUMENT_COUNT_MIN);
 }
 
+export function arbitrarySingleDocumentSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
+  return fc
+    .tuple(arbitraryDocumentationPath())
+    .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
+}
+
 export function arbitraryFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
   return fc
     .uniqueArray(arbitraryDocumentationPath(), {
