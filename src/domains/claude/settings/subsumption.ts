@@ -7,7 +7,14 @@
  */
 import { normalizePath } from "@/lib/file-system/normalizePath";
 import { parsePermission } from "./parser";
-import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } from "./types";
+import {
+  type Permission,
+  type PermissionCategory,
+  SCOPE_PATH_PREFIX,
+  SCOPE_PATTERN_TYPE,
+  type ScopePattern,
+  type SubsumptionResult,
+} from "./types";
 
 /**
  * Parse a scope string to extract pattern type and value
@@ -30,18 +37,16 @@ import type { Permission, PermissionCategory, ScopePattern, SubsumptionResult } 
 export function parseScopePattern(scope: string): ScopePattern {
   // Check if scope contains path indicators
   if (
-    scope.includes("file_path:")
-    || scope.includes("directory_path:")
-    || scope.includes("path:")
+    Object.values(SCOPE_PATH_PREFIX).some((prefix) => scope.startsWith(prefix))
   ) {
     // Extract path after the colon
     const colonIndex = scope.indexOf(":");
     const pattern = colonIndex >= 0 ? scope.substring(colonIndex + 1) : scope;
-    return { type: "path", pattern };
+    return { type: SCOPE_PATTERN_TYPE.PATH, pattern };
   }
 
   // Default to command pattern (e.g., "git:*", "npm:*")
-  return { type: "command", pattern: scope };
+  return { type: SCOPE_PATTERN_TYPE.COMMAND, pattern: scope };
 }
 
 /**
@@ -95,7 +100,10 @@ export function subsumes(broader: Permission, narrower: Permission): boolean {
   const narrowerScope = parseScopePattern(narrower.scope);
 
   // 4. Handle command patterns (e.g., "git:*")
-  if (broaderScope.type === "command" && narrowerScope.type === "command") {
+  if (
+    broaderScope.type === SCOPE_PATTERN_TYPE.COMMAND
+    && narrowerScope.type === SCOPE_PATTERN_TYPE.COMMAND
+  ) {
     // Extract base command by removing :* suffix
     const broaderBase = broaderScope.pattern.replace(/:?\*+$/, "");
     const narrowerFull = narrowerScope.pattern.replace(/:?\*+$/, "");
@@ -104,15 +112,14 @@ export function subsumes(broader: Permission, narrower: Permission): boolean {
     // "git:*" subsumes "git log:*" if:
     // - narrowerFull starts with broaderBase
     // - narrowerFull is longer (more specific)
-    if (narrowerFull.startsWith(broaderBase)) {
-      // Additional specificity check: narrower must add more detail
-      // e.g., "git" subsumes "git log", but not "git" subsumes "git"
-      return narrowerFull.length > broaderBase.length;
-    }
+    return narrowerFull.startsWith(`${broaderBase} `);
   }
 
   // 5. Handle path patterns (e.g., "/Users/user/Code/**")
-  if (broaderScope.type === "path" && narrowerScope.type === "path") {
+  if (
+    broaderScope.type === SCOPE_PATTERN_TYPE.PATH
+    && narrowerScope.type === SCOPE_PATTERN_TYPE.PATH
+  ) {
     // Normalize paths for comparison
     const broaderPath = normalizePath(broaderScope.pattern.replace(/\/?\*+$/, ""));
     const narrowerPath = normalizePath(narrowerScope.pattern.replace(/\/?\*+$/, ""));

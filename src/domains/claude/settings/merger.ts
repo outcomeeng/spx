@@ -160,7 +160,7 @@ export function mergePermissions(
   } = resolveConflicts(afterSubsumption);
 
   // Combine subsumptions from step 2 and step 3
-  const subsumed = [...allSubsumed, ...conflictSubsumed];
+  const subsumed = [...allSubsumed, ...conflictSubsumed].sort(compareAsciiStrings);
 
   // Step 4: Deduplicate using Sets and sort
   const merged = dedupeAndSort(resolved);
@@ -232,8 +232,8 @@ export function resolveConflicts(permissions: Permissions): {
     // Check if any deny permission subsumes this allow permission
     for (const denyPerm of deny) {
       try {
-        const allowParsed = parsePermission(allowPerm, "allow");
-        const denyParsed = parsePermission(denyPerm, "deny");
+        const allowParsed = parsePermission(allowPerm, PERMISSION_CATEGORY.ALLOW);
+        const denyParsed = parsePermission(denyPerm, PERMISSION_CATEGORY.DENY);
 
         if (subsumes(denyParsed, allowParsed)) {
           // Deny subsumes allow - remove from allow

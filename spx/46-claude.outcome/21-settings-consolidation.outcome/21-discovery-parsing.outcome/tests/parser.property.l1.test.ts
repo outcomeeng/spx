@@ -1,4 +1,4 @@
-import { parseAllSettings } from "@/lib/claude/permissions/parser";
+import { parseAllSettings } from "@/commands/claude/settings/parser";
 import { assertParsingPreservesCardinalityAndOrder } from "@testing/harnesses/claude/permissions/parser";
 import { describe, test } from "vitest";
 

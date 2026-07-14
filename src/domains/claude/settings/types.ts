@@ -28,6 +28,12 @@ export const SCOPE_PATTERN_TYPE = {
 
 export type ScopePatternType = (typeof SCOPE_PATTERN_TYPE)[keyof typeof SCOPE_PATTERN_TYPE];
 
+export const SCOPE_PATH_PREFIX = {
+  FILE: "file_path:",
+  DIRECTORY: "directory_path:",
+  PATH: "path:",
+} as const;
+
 /**
  * Permission string with its type (allow/deny/ask) and parsed components
  *
@@ -146,7 +152,7 @@ export interface ConsolidationResult {
   conflictsResolved: number;
   /** Path to backup file created (if applicable) */
   backupPath?: string;
-  /** Path to output file (if --output-file was used) */
+  /** Path to a separately written output file. */
   outputPath?: string;
 }
 

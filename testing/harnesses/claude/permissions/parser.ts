@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { CLAUDE_LOCAL_SETTINGS_FILE } from "@/lib/claude/permissions/discovery";
-import { SETTINGS_FILE_PARSE_STATUS, type SettingsFileParseResult } from "@/lib/claude/permissions/types";
+import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
+import { SETTINGS_FILE_PARSE_STATUS, type SettingsFileParseResult } from "@/domains/claude/settings/types";
 import {
   arbitraryMalformedThenValidSequence,
   arbitraryParserSequence,
@@ -24,7 +24,7 @@ export async function assertExtractsTypedPermissionRecords(
 ): Promise<void> {
   await withPermissionsTempDir(async (productDir) => {
     const scenario = sampleScenario(arbitraryValidSettings());
-    const filePath = join(productDir, CLAUDE_LOCAL_SETTINGS_FILE);
+    const filePath = join(productDir, CLAUDE_SETTINGS_PATH.LOCAL_FILE);
     await writeFile(filePath, JSON.stringify(scenario.settings));
     const result = await parseSettingsFile(filePath);
 

@@ -1,7 +1,6 @@
 /**
- * Parser for Claude Code settings files and permissions
+ * Pure parsing for Claude Code settings content and permissions.
  */
-import fs from "node:fs/promises";
 import {
   type ClaudeSettings,
   type Permission,
@@ -21,23 +20,26 @@ export function formatPermission(type: string, scope: string): string {
   return `${type}(${scope})`;
 }
 /**
- * Parse a settings.json file and extract typed permissions.
+ * Parse settings-file content and extract typed permissions.
  *
- * @param filePath - Absolute path to settings.json file
+ * @param filePath - Source path reported in the result
+ * @param content - Settings-file JSON content
  * @returns A success result with parsed settings and permissions, or an error result with the input path and diagnostic
  *
  * @example
  * ```typescript
- * const result = await parseSettingsFile("/path/to/.claude/settings.json");
+ * const result = parseSettingsContent("/path/to/.claude/settings.json", "{}");
  * console.log(result.status);
  * ```
  */
-export async function parseSettingsFile(filePath: string): Promise<SettingsFileParseResult> {
+export function parseSettingsContent(
+  filePath: string,
+  content: string,
+): SettingsFileParseResult {
   try {
-    const content = await fs.readFile(filePath, "utf-8");
     const parsed: unknown = JSON.parse(content);
     if (!isClaudeSettings(parsed)) {
-      return settingsFileParseError(filePath, SETTINGS_OBJECT_ERROR);
+      return createSettingsFileParseError(filePath, SETTINGS_OBJECT_ERROR);
     }
 
     return {
@@ -47,7 +49,7 @@ export async function parseSettingsFile(filePath: string): Promise<SettingsFileP
       permissions: parseAllPermissions(parsed.permissions ?? {}),
     };
   } catch (error) {
-    return settingsFileParseError(filePath, errorMessage(error));
+    return createSettingsFileParseError(filePath, error);
   }
 }
 
@@ -55,11 +57,14 @@ function isClaudeSettings(value: unknown): value is ClaudeSettings {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function settingsFileParseError(filePath: string, error: string): SettingsFileParseError {
+export function createSettingsFileParseError(
+  filePath: string,
+  error: unknown,
+): SettingsFileParseError {
   return {
     status: SETTINGS_FILE_PARSE_STATUS.ERROR,
     filePath,
-    error,
+    error: errorMessage(error),
   };
 }
 
@@ -148,26 +153,4 @@ function parsePermissionsByCategory(
     }
   }
   return result;
-}
-
-/**
- * Read and parse multiple settings files while preserving one ordered result per input path.
- *
- * @param filePaths - Array of absolute paths to settings files
- * @returns Ordered success or error results for every input path
- *
- * @example
- * ```typescript
- * const files = [
- *   "/Users/user/Code/project-a/.claude/settings.local.json",
- *   "/Users/user/Code/project-b/.claude/settings.local.json"
- * ];
- * const results = await parseAllSettings(files);
- * // Returns one success or error result per path.
- * ```
- */
-export async function parseAllSettings(
-  filePaths: readonly string[],
-): Promise<SettingsFileParseResult[]> {
-  return Promise.all(filePaths.map(parseSettingsFile));
 }
