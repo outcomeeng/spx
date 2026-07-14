@@ -10,7 +10,11 @@ import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationLanguageDescriptor } from "@/validation/languages/types";
 
 const MARKDOWN_LANGUAGE_NAME = "markdown";
-const RUN_BY_DEFAULT = { default: VALIDATION_STAGE_PARTICIPATION.RUN } as const;
+export const MARKDOWN_VALIDATION_STAGE_PARTICIPATION = {
+  [VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+  },
+} as const;
 
 export const markdownValidationLanguage: ValidationLanguageDescriptor = {
   name: MARKDOWN_LANGUAGE_NAME,
@@ -18,7 +22,7 @@ export const markdownValidationLanguage: ValidationLanguageDescriptor = {
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN,
       failsPipeline: true,
-      participation: RUN_BY_DEFAULT,
+      participation: MARKDOWN_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN],
       run: (context) => markdownCommand({ cwd: context.cwd, files: context.files, quiet: context.quiet }),
     },
   ],

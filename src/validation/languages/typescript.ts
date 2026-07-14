@@ -51,29 +51,35 @@ export const TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN: Readonly<Record<TypeScriptV
   [TYPESCRIPT_VALIDATION_CONCERN.UNUSED_CODE]: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
 };
 
-const RUN_BY_DEFAULT: ValidationStageParticipationPolicy = {
-  default: VALIDATION_STAGE_PARTICIPATION.RUN,
-};
-
-const circularParticipation: ValidationStageParticipationPolicy = {
-  default: VALIDATION_STAGE_PARTICIPATION.RUN,
-  override: {
-    flag: "--skip-circular",
-    description: "Skip circular dependency detection for this validation all run",
-    participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-    reason: SKIP_CIRCULAR_REASON,
+export const TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION = {
+  [VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    override: {
+      flag: "--skip-circular",
+      description: "Skip circular dependency detection for this validation all run",
+      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+      reason: SKIP_CIRCULAR_REASON,
+    },
   },
-};
-
-const literalParticipation: ValidationStageParticipationPolicy = {
-  default: VALIDATION_STAGE_PARTICIPATION.RUN,
-  override: {
-    flag: "--skip-literal",
-    description: "Skip literal reuse detection for this validation all run",
-    participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-    reason: SKIP_LITERAL_REASON,
+  [VALIDATION_STAGE_DISPLAY_NAMES.KNIP]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
   },
-};
+  [VALIDATION_STAGE_DISPLAY_NAMES.ESLINT]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+  },
+  [VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+  },
+  [VALIDATION_STAGE_DISPLAY_NAMES.LITERAL]: {
+    default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    override: {
+      flag: "--skip-literal",
+      description: "Skip literal reuse detection for this validation all run",
+      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
+      reason: SKIP_LITERAL_REASON,
+    },
+  },
+} as const satisfies Readonly<Record<string, ValidationStageParticipationPolicy>>;
 
 export interface KnipStageDeps {
   readonly knipCommand: typeof knipCommand;
@@ -126,19 +132,19 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
       failsPipeline: true,
-      participation: circularParticipation,
+      participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR],
       run: runCircularStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
       failsPipeline: true,
-      participation: RUN_BY_DEFAULT,
+      participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.KNIP],
       run: runKnipStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
       failsPipeline: true,
-      participation: RUN_BY_DEFAULT,
+      participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.ESLINT],
       run: (context) =>
         lintCommand({
           cwd: context.cwd,
@@ -154,7 +160,7 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
       failsPipeline: true,
-      participation: RUN_BY_DEFAULT,
+      participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT],
       run: (context) =>
         typescriptCommand({
           cwd: context.cwd,
@@ -169,7 +175,7 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
       failsPipeline: true,
-      participation: literalParticipation,
+      participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.LITERAL],
       run: runLiteralStage,
     },
   ],

@@ -12,19 +12,18 @@ import {
 } from "@/validation/literal/index";
 import {
   arbitraryDistinctLiteralKindValuePair,
-  arbitraryDomainLiteral,
   arbitraryLiteralLocation,
+  arbitraryLiteralSourceSnippet,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/literal/literal";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 interface FixtureFile {
   readonly filename: string;
-  readonly literal: string;
+  readonly source: string;
 }
 
 interface DetectionFixture {
@@ -108,7 +107,7 @@ export const literalDetectionPropertyCases = collectHarnessTestCases(() => {
 function arbitraryFixtureFile(filenameArbitrary: fc.Arbitrary<string>): fc.Arbitrary<FixtureFile> {
   return fc.record({
     filename: filenameArbitrary,
-    literal: arbitraryDomainLiteral(),
+    source: arbitraryLiteralSourceSnippet(),
   });
 }
 
@@ -134,9 +133,7 @@ function collectFixture(fixture: DetectionFixture, fileOrder: readonly FixtureFi
 
   for (const file of fileOrder) {
     const occurrences = collectLiterals(
-      srcFilenames.has(file.filename)
-        ? buildStringDeclaration(file.literal)
-        : buildStringAssertion(file.literal),
+      file.source,
       file.filename,
       DEFAULT_LITERAL_COLLECT_OPTIONS,
     );

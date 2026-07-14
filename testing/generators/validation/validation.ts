@@ -14,7 +14,9 @@ import {
   VALIDATION_STEP_LINE_PATTERN,
 } from "@/commands/validation/messages";
 import { VALIDATION_RUNTIME_ANTI_MARKERS } from "@/commands/validation/runtime-diagnostics";
+import { TYPESCRIPT_TOOL_DISCOVERY } from "@/commands/validation/typescript";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
+import { validationAllOverrideCliOptions } from "@/interfaces/cli/validation";
 import {
   VALIDATION_EMPTY_CLI_OPERAND,
   validationCliDefinition,
@@ -29,7 +31,12 @@ import type { ValidationStageParticipationOverride } from "@/validation/language
 import { TYPESCRIPT_VALIDATION_CONCERN, type TypeScriptValidationConcern } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { VALIDATION_SCOPES, type ValidationScope } from "@/validation/types";
+import {
+  arbitraryDomainLiteral,
+  arbitrarySourceFilePath,
+  LITERAL_TEST_GENERATOR_COUNTS,
+} from "@testing/generators/literal/literal";
 const CONTROL_ARGUMENT_PARTS = ["bad", "\x01", "arg", "\x1f", "end"] as const;
 const UNICODE_ARGUMENT_PARTS = ["unicode", "é", "ø", "日", "語"] as const;
 const LITERAL_PROBLEM_KINDS = Object.values(LITERAL_PROBLEM_KIND);
@@ -206,6 +213,17 @@ export function arbitraryDiscoveredKnipExecutablePath(productDir: string): fc.Ar
   );
 }
 
+export function arbitraryDiscoveredTypeScriptExecutablePath(productDir: string): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral().map((directory) =>
+    resolve(
+      productDir,
+      EXTERNAL_EXECUTABLE_PARENT_SEGMENT,
+      directory,
+      TYPESCRIPT_TOOL_DISCOVERY.EXECUTABLE_NAME,
+    )
+  );
+}
+
 export interface ValidationPipelineScenario {
   readonly title: string;
   readonly kind: ValidationPipelineScenarioKind;
@@ -370,6 +388,39 @@ export interface ValidationAdditiveStageScenario {
   readonly addedStageName: string;
   readonly insertionIndex: number;
   readonly stageFailures: readonly boolean[];
+}
+
+export interface ValidationStableVerdictScenario {
+  readonly commandOptions: {
+    readonly files?: string[];
+    readonly json: boolean;
+    readonly participationOverrides: readonly `--${string}`[];
+    readonly quiet: boolean;
+    readonly scope: ValidationScope;
+  };
+  readonly stageFailures: readonly boolean[];
+}
+
+export function arbitraryValidationStableVerdictScenario(): fc.Arbitrary<ValidationStableVerdictScenario> {
+  return fc.record({
+    commandOptions: fc.record({
+      files: fc.option(
+        fc.uniqueArray(arbitrarySourceFilePath(), {
+          minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+          maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+        }),
+        { nil: undefined },
+      ),
+      json: fc.boolean(),
+      participationOverrides: fc.subarray(validationAllOverrideCliOptions.map((option) => option.flag)),
+      quiet: fc.boolean(),
+      scope: fc.constantFrom(...Object.values(VALIDATION_SCOPES)),
+    }),
+    stageFailures: fc.array(fc.boolean(), {
+      minLength: validationPipelineStages.length,
+      maxLength: validationPipelineStages.length,
+    }),
+  });
 }
 
 export function arbitraryValidationAdditiveStageScenario(): fc.Arbitrary<ValidationAdditiveStageScenario> {
