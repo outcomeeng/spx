@@ -50,7 +50,7 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 
 ### Compliance
 
-- ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([review])
+- ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([audit])
 - NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-spec-references.ts))
-- ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([review])
-- NEVER: enforce compliance by reading source files as strings — AST analysis is the only valid enforcement mechanism for structural rules ([review])
+- ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([audit])
+- NEVER: enforce compliance by reading source files as strings — AST analysis is the only valid enforcement mechanism for structural rules ([audit])
