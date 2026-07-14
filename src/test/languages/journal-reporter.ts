@@ -18,8 +18,8 @@ import {
 
 /** How a journal-streaming run starts Vitest: the scope to run and the reporters registered on it. */
 export interface VitestRunStartOptions {
-  /** Project root the run executes against. */
-  readonly projectRoot: string;
+  /** Product directory the run executes against. */
+  readonly productDir: string;
   /** Test file paths the run covers; empty runs the runner's full scope. */
   readonly testPaths: readonly string[];
   /** Reporters registered on the run — the journal reporter among them. */
@@ -105,7 +105,7 @@ export async function runTestsStreaming(
 ): Promise<JournalRunTerminalStatus> {
   const reporter = createJournalReporter(deps.sink);
   await deps.starter.start({
-    projectRoot: request.projectRoot,
+    productDir: request.productDir,
     testPaths: request.testPaths,
     reporters: [reporter],
   });
@@ -114,7 +114,7 @@ export async function runTestsStreaming(
 
 /**
  * Builds the production Vitest run starter: it loads Vitest's Node API lazily, starts
- * a single non-watch run rooted at the request's project root with the given reporters
+ * a single non-watch run rooted at the request's product directory with the given reporters
  * registered on it, and closes the instance when the run resolves. Vitest is loaded
  * through a dynamic import so the heavy Node API stays off this module's import path
  * and resolves only when a run actually starts. A run that observes a failing case sets
@@ -128,7 +128,7 @@ export function createVitestRunStarter(): VitestRunStarter {
       const priorExitCode = process.exitCode;
       try {
         const vitest = await startVitest("test", [...options.testPaths], {
-          root: options.projectRoot,
+          root: options.productDir,
           watch: false,
           reporters: [...options.reporters],
         });

@@ -265,8 +265,8 @@ class ErrorThenCloseRunner implements ProcessRunner {
   }
 }
 
-describe("ALWAYS: TypeScript scope resolution uses the requested project root", () => {
-  it("discovers TypeScript directories under the requested project root", async () => {
+describe("ALWAYS: TypeScript scope resolution uses the requested product directory", () => {
+  it("discovers TypeScript directories under the requested product directory", async () => {
     await withTestEnv({}, async (env) => {
       await env.writeRaw(
         VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile,
@@ -678,7 +678,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     });
   });
 
-  it("runs TypeScript validation from the requested project root", async () => {
+  it("runs TypeScript validation from the requested product directory", async () => {
     const { checkedPaths, productDir, result, runner } = await runTypeScriptValidationFromProductDir({
       scope: VALIDATION_SCOPES.FULL,
     });
@@ -689,7 +689,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested project root", 
     expect(runner.options.every((options) => options.cwd === productDir)).toBe(true);
   });
 
-  it("runs file-scoped TypeScript validation from the requested project root", async () => {
+  it("runs file-scoped TypeScript validation from the requested product directory", async () => {
     const { checkedPaths, productDir, result, runner } = await runTypeScriptValidationFromProductDir({
       scope: VALIDATION_SCOPES.FULL,
       files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],

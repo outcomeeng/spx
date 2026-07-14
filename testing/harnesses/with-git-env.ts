@@ -27,7 +27,7 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/** Project root resolved from this helper's location */
+/** Product root resolved from this helper's location. */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
 const BASELINE_COMMIT_MESSAGE = "baseline fixture";
 const RECURSIVE_COPY = { recursive: true } as const;

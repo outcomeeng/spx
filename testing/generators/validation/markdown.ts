@@ -41,7 +41,7 @@ const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
 const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
-const PROJECT_ABSOLUTE_SOURCE_CONTENT = "# Source\n\n[absolute](/spx/target.md)\n";
+const PRODUCT_ABSOLUTE_SOURCE_CONTENT = "# Source\n\n[absolute](/spx/target.md)\n";
 const IGNORED_LINK_TYPES_CONTENT =
   "# Links\n\n[external](https://example.com/missing)\n\n<a href=\"./missing.html\">HTML</a>\n";
 const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
@@ -102,7 +102,7 @@ export const MARKDOWN_SCENARIO_KIND = {
   BROKEN_LINKS: "brokenLinks",
   BROKEN_FRAGMENT: "brokenFragment",
   ERROR_SHAPE: "errorShape",
-  PROJECT_ABSOLUTE_LINK: "projectAbsoluteLink",
+  PRODUCT_ABSOLUTE_LINK: "productAbsoluteLink",
   NO_SIDE_EFFECTS: "noSideEffects",
   DEFAULT_DIRECTORIES: "defaultDirectories",
   EXCLUDE_NODE: "excludeNode",
@@ -167,7 +167,7 @@ export const MARKDOWN_VALIDATION_DATA = {
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
   validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
-  projectAbsoluteSourceContent: PROJECT_ABSOLUTE_SOURCE_CONTENT,
+  productAbsoluteSourceContent: PRODUCT_ABSOLUTE_SOURCE_CONTENT,
   ignoredLinkTypesContent: IGNORED_LINK_TYPES_CONTENT,
   unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
   helpFlag: MARKDOWN_HELP_FLAG,
@@ -218,8 +218,8 @@ export function markdownUnitScenarios(): MarkdownValidationScenario[] {
       kind: MARKDOWN_SCENARIO_KIND.ERROR_SHAPE,
     },
     {
-      title: "project absolute links resolve from project root",
-      kind: MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+      title: "product-absolute links resolve from the product directory",
+      kind: MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK,
     },
     {
       title: "validation does not create files in validated directories",

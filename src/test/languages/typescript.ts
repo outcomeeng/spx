@@ -418,7 +418,7 @@ export async function runTestsStreaming(
   request: JournalRunRequest,
   deps: JournalStreamRunDependencies & { readonly starter?: VitestRunStarter },
 ): Promise<JournalRunInvocation> {
-  if (!detect(request.projectRoot, deps)) {
+  if (!detect(request.productDir, deps)) {
     return { invoked: false };
   }
   const terminalStatus = await reporterRunTestsStreaming(request, {

@@ -38,7 +38,7 @@ import {
   createRecordingEvidenceSink,
   createScenarioDrivingVitestRunStarter,
   expectedFindingsForScenario,
-  withMixedVitestProject,
+  withMixedVitestProduct,
 } from "@testing/harnesses/testing/journal-reporter";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -543,18 +543,18 @@ export function registerTypescriptRunnerComplianceTests(): void {
 export function registerTypescriptRunnerStreamingL2Tests(): void {
   describe("typescript descriptor journal-streaming run drives real vitest", () => {
     it("resolves the default vitest starter and streams evidence when driven with only a sink", async () => {
-      await withMixedVitestProject(async (projectRoot, testFileName) => {
+      await withMixedVitestProduct(async (productDir, testFileName) => {
         const exitCodeBeforeRun = process.exitCode;
         const sink = createRecordingEvidenceSink();
 
         // A language-neutral consumer supplies only the sink, so the descriptor resolves its
         // default production Vitest starter and streams over a real programmatic run. Detection
-        // is forced present because the isolated temp project carries no TypeScript marker.
+        // is forced present because the isolated temp product carries no TypeScript marker.
         const streamingRun = typescriptTestingLanguage.runTestsStreaming;
         expect(streamingRun).toBeDefined();
         if (streamingRun === undefined) return;
         const invocation = await streamingRun(
-          { projectRoot, testPaths: [testFileName] },
+          { productDir, testPaths: [testFileName] },
           { sink, isLanguagePresent: () => true },
         );
 

@@ -13,9 +13,9 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 
-/** The scope a journal-streaming run covers: a project root and the test paths to run. */
+/** The scope a journal-streaming run covers: a product directory and the test paths to run. */
 export interface GeneratedRunRequest {
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly testPaths: readonly string[];
 }
 
@@ -76,7 +76,7 @@ function arbitraryTerminalStatus(): fc.Arbitrary<JournalRunTerminalStatus> {
 
 function arbitraryRunRequest(): fc.Arbitrary<GeneratedRunRequest> {
   return fc.record({
-    projectRoot: CONFIG_TEST_GENERATOR.productDir(),
+    productDir: CONFIG_TEST_GENERATOR.productDir(),
     testPaths: fc.array(arbitraryTestFilePath(), { maxLength: MAX_TEST_PATHS }),
   });
 }
