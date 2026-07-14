@@ -1,8 +1,8 @@
 /**
- * The session-store diagnose check — classifies the `.spx/` session store from
+ * The session-store diagnose check — reports the `.spx/` session store from
  * `spx session list` joined to the shared worktree pool snapshot's live claim
- * set. The classification is pure over the gathered reading; the reading is
- * obtained through a dependency-injected probe.
+ * set. The orphan count remains informational; classification is pure over the
+ * gathered reading, which is obtained through a dependency-injected probe.
  *
  * @module domains/diagnose/checks/session-store
  */
@@ -16,7 +16,6 @@ import type { SessionRecord } from "@/domains/session/list";
 /** The session-store verdict labels. */
 export const SESSION_STORE_VERDICT = {
   CONSISTENT: "consistent",
-  ORPHANED_CLAIMS: "orphaned-claims",
   UNKNOWN: "unknown",
 } as const;
 
@@ -26,7 +25,7 @@ export type SessionStoreVerdict = (typeof SESSION_STORE_VERDICT)[keyof typeof SE
 export interface SessionStoreReading {
   /** True when a command errored. */
   readonly errored: boolean;
-  /** The number of doing sessions whose backing worktree reads `free` or is absent. */
+  /** Informational count of doing sessions without a matching live claim. */
   readonly orphanedClaims: number;
 }
 
@@ -44,8 +43,6 @@ export function doingSessionBackedByClaim(session: SessionRecord, claimedSession
 
 const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
   [SESSION_STORE_VERDICT.CONSISTENT]: "Session store is consistent; no action needed.",
-  [SESSION_STORE_VERDICT.ORPHANED_CLAIMS]:
-    "Release or reclaim doing sessions whose backing worktree reads free or is absent (spx session release).",
   [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and occupancy claims.",
 };
 
@@ -69,9 +66,6 @@ function record(
 export function classifySessionStore(reading: SessionStoreReading): CheckRecord {
   if (reading.errored) {
     return record(SESSION_STORE_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
-  }
-  if (reading.orphanedClaims > 0) {
-    return record(SESSION_STORE_VERDICT.ORPHANED_CLAIMS, VERDICT_BUCKET.DEGRADED, reading);
   }
   return record(SESSION_STORE_VERDICT.CONSISTENT, VERDICT_BUCKET.HEALTHY, reading);
 }

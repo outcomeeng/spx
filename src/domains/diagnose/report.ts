@@ -109,13 +109,12 @@ export const DIAGNOSE_TEXT_HEADER = {
   METHODOLOGY_VERSION_MISMATCH: "methodology version mismatch",
   RENDERING_UNAVAILABLE: "diagnosis detail unavailable",
   SESSION_START_NO_OP: "SessionStart hook did not establish a session",
-  SESSION_STORE_CLEAN: "session store clean",
+  SESSION_STORE_READABLE: "session store readable",
   SESSION_STORE_UNKNOWN: "session store state unknown",
   SPX_BELOW_FLOOR: "spx version below required floor",
   SPX_INSTALLED: "spx installed",
   SPX_UNREACHABLE: "spx is not on PATH",
   SPX_UNKNOWN: "spx install state unknown",
-  STALE_DOING_SESSIONS: "stale doing sessions",
   WORKTREE_POOL_INVALID: "worktree pool invalid",
   WORKTREE_POOL_UNKNOWN: "worktree pool state unknown",
   WORKTREE_POOL_VALID: "worktree pool valid",
@@ -134,9 +133,7 @@ export const DIAGNOSE_TEXT_DETAIL = {
     "Install the configured methodology version or change top-level methodology.version.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
-  SESSION_STORE_CLEAN: "No stale doing sessions found.",
-  SESSION_STORE_ORPHANED_FIX:
-    "inspect `spx session list --status doing`, then release stale sessions with `spx session release <id>`.",
+  SESSION_STORE_READABLE: "Session store is readable; unmatched doing-session counts are informational.",
   SESSION_START_NO_OP_PROBLEM:
     "SPX_WORKTREE_CLAIM_PATH is present, but no agent session identity or running worktree claim was found.",
   SESSION_START_NO_OP_FIX:
@@ -282,10 +279,6 @@ function reading(check: CheckRecord, key: string): string | undefined {
   return check.readings[key];
 }
 
-function singularOrPlural(count: string, singular: string, plural: string): string {
-  return count === "1" ? singular : plural;
-}
-
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
   const version = reading(check, "version");
   const path = reading(check, "path");
@@ -427,26 +420,11 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
 }
 
 function sessionStoreText(check: CheckRecord): DiagnoseHumanText {
-  const orphaned = reading(check, "orphaned") ?? "0";
   switch (check.verdict as SessionStoreVerdict) {
     case SESSION_STORE_VERDICT.CONSISTENT:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
-        details: [DIAGNOSE_TEXT_DETAIL.SESSION_STORE_CLEAN],
-      };
-    case SESSION_STORE_VERDICT.ORPHANED_CLAIMS:
-      return {
-        header: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
-        details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${orphaned} ${
-            singularOrPlural(
-              orphaned,
-              "doing session has",
-              "doing sessions have",
-            )
-          } no live worktree claim.`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SESSION_STORE_ORPHANED_FIX}`,
-        ],
+        header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_READABLE,
+        details: [DIAGNOSE_TEXT_DETAIL.SESSION_STORE_READABLE],
       };
     case SESSION_STORE_VERDICT.UNKNOWN:
       return {
