@@ -143,3 +143,31 @@ export async function runTestsStreaming(
   });
   return reporter.terminalStatus ?? JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED;
 }
+
+/**
+ * Builds the production Vitest run starter: it loads Vitest's Node API lazily, starts
+ * a single non-watch run rooted at the request's project root with the given reporters
+ * registered on it, and closes the instance when the run resolves. Vitest is loaded
+ * through a dynamic import so the heavy Node API stays off this module's import path
+ * and resolves only when a run actually starts. A run that observes a failing case sets
+ * `process.exitCode`, which the starter restores around the run so a streaming run whose
+ * findings come from failing cases never leaks a non-zero exit code to its caller.
+ */
+export function createVitestRunStarter(): VitestRunStarter {
+  return {
+    async start(options: VitestRunStartOptions): Promise<void> {
+      const { startVitest } = await import("vitest/node");
+      const priorExitCode = process.exitCode;
+      try {
+        const vitest = await startVitest("test", [...options.testPaths], {
+          root: options.projectRoot,
+          watch: false,
+          reporters: [...options.reporters],
+        });
+        await vitest.close();
+      } finally {
+        process.exitCode = priorExitCode;
+      }
+    },
+  };
+}
