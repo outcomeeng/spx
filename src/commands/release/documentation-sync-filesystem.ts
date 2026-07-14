@@ -3,6 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
+import { RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
 import type {
   DocumentationPromoter,
   DocumentationReader,
@@ -32,6 +33,20 @@ interface VerifiedDocumentationPath {
   readonly sourcePath: string;
   readonly targetPath: string;
 }
+
+export interface DocumentationPathOperations {
+  readonly isAbsolute: (path: string) => boolean;
+  readonly relative: (from: string, to: string) => string;
+  readonly resolve: (...paths: string[]) => string;
+  readonly sep: string;
+}
+
+const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+};
 
 export function createDocumentationSyncFilesystem(): DocumentationSyncFilesystem {
   return {
@@ -88,12 +103,29 @@ async function verifyDocumentationPath(
   if (isAbsolute(sourcePath)) {
     throw new Error(`Documentation path must be relative to the product: ${sourcePath}`);
   }
-  const targetPath = resolve(canonicalProductDir, sourcePath);
-  if (!isContainedPath(canonicalProductDir, targetPath) || relative(canonicalProductDir, targetPath) !== sourcePath) {
+  const targetPath = resolveCanonicalDocumentationTarget(canonicalProductDir, sourcePath);
+  if (targetPath === undefined) {
     throw new Error(`Documentation path escapes or is not canonical within the product: ${sourcePath}`);
   }
   await verifyCanonicalTarget(targetPath);
   return { sourcePath, targetPath };
+}
+
+export function resolveCanonicalDocumentationTarget(
+  canonicalProductDir: string,
+  sourcePath: string,
+  pathOperations: DocumentationPathOperations = DOCUMENTATION_PATH_OPERATIONS,
+): string | undefined {
+  if (pathOperations.isAbsolute(sourcePath)) return undefined;
+  const targetPath = pathOperations.resolve(canonicalProductDir, sourcePath);
+  const pathFromRoot = pathOperations.relative(canonicalProductDir, targetPath);
+  const configuredPath = pathOperations.sep === "\\"
+    ? sourcePath.replaceAll(RELEASE_DOCUMENTATION_PATH_SEPARATOR, pathOperations.sep)
+    : sourcePath;
+  return isContainedPath(pathFromRoot, pathOperations)
+      && pathFromRoot === configuredPath
+    ? targetPath
+    : undefined;
 }
 
 async function verifyCanonicalTarget(targetPath: string): Promise<void> {
@@ -109,10 +141,12 @@ async function verifyCanonicalTarget(targetPath: string): Promise<void> {
   }
 }
 
-function isContainedPath(root: string, candidate: string): boolean {
-  const pathFromRoot = relative(root, candidate);
+function isContainedPath(
+  pathFromRoot: string,
+  pathOperations: DocumentationPathOperations,
+): boolean {
   return pathFromRoot.length > 0
     && pathFromRoot !== ".."
-    && !pathFromRoot.startsWith(`..${sep}`)
-    && !isAbsolute(pathFromRoot);
+    && !pathFromRoot.startsWith(`..${pathOperations.sep}`)
+    && !pathOperations.isAbsolute(pathFromRoot);
 }

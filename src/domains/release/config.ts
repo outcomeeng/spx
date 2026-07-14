@@ -7,6 +7,7 @@ export const RELEASE_CONFIG_FIELDS = {
 } as const;
 
 export const DEFAULT_RELEASE_DOCUMENTATION_PATHS = ["README.md"] as const;
+export const RELEASE_DOCUMENTATION_PATH_SEPARATOR = "/";
 
 export interface DocumentationSyncConfig {
   readonly paths?: readonly string[];
