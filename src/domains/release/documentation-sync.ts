@@ -57,9 +57,13 @@ export type DocumentationStager = (
 
 export type DocumentationReader = (path: string) => Promise<string>;
 
-export type DocumentationPromoter = (
-  documents: readonly { readonly path: string; readonly content: string }[],
-) => Promise<void>;
+export interface DocumentationPromotion {
+  readonly path: string;
+  readonly originalContent: string;
+  readonly content: string;
+}
+
+export type DocumentationPromoter = (documents: readonly DocumentationPromotion[]) => Promise<void>;
 
 export type DocumentationFaithfulnessAuditor = (
   input: {
@@ -127,7 +131,11 @@ export async function composeDocumentationSync(
       })),
     });
     await options.promoteDocumentation(
-      documents.map(({ targetPath, updatedContent }) => ({ path: targetPath, content: updatedContent })),
+      documents.map(({ targetPath, originalContent, updatedContent }) => ({
+        path: targetPath,
+        originalContent,
+        content: updatedContent,
+      })),
     );
     return { paths };
   } finally {
