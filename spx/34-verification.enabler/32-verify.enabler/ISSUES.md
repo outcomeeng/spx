@@ -67,3 +67,34 @@ Renaming the three module segments to `verification` reconciles them, and touche
 the verify domain, the CLI registry, and the verify test harness. Settle whether the composition
 ADR's `{domain}.ts` rule binds the module segment to the registered domain name, or admits a module
 name that differs from the command name, before renaming.
+
+## The lifecycle-operation `### Mappings` assertion cites scenario evidence for four rows
+
+`verify.md`'s single `### Mappings` assertion ("Verification-run lifecycle operations map to run
+behavior: …") enumerates seven operation→behavior rows, each with its own `[test]` citation. Four
+rows — `start` creates context and journal, `input` returns recorded input, `finish` records
+terminal completion and seals, and `render` projects the journal — cite only a `scenario`-typed
+test (`verify-start.scenario.l1`, `verify-input.scenario.l1`, `verify-lifecycle.scenario.l1`,
+`verify-render.scenario.l1`). A scenario proves one existential case, so it does not establish the
+row as a universal input→output correspondence the way a `### Mappings` claim asserts; the other
+three rows (`scope`, `finding`, `status`) pair a `compliance`-typed test and are adequately backed.
+The sibling `compliance` tests for the four rows exercise rejection and edge paths
+(`verify-start.compliance` covers start's failure/cleanup paths, not the happy-path create), so the
+happy-path mapping behavior is genuinely scenario-covered and a citation swap does not close the
+gap.
+
+**Resolution:** restructure this assertion — move the four happy-path lifecycle-flow rows to a
+`### Scenarios` heading (they demonstrate specific interactions), keeping only universal-backed rows
+under `### Mappings`, or author parameterized mapping evidence for the operation→behavior
+correspondence and cite it. Settle whether the lifecycle operation→behavior correspondence is a
+mapping or a set of scenarios before editing.
+
+**Tracking classification:** pre-existing content outside this changeset's shipped diff (the
+drive-mode retag touched only the two `[test]`/`[audit]` bullets); a verify-lifecycle spec-structure
+concern independent of the reporter work that carries the diff. Surfaced by `spec-auditor` while
+auditing the drive-mode-assertion retag.
+
+**Evidence:** `spec-auditor` full-node audit of `verify.md`;
+`spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/`,
+`.../43-terminal-projection.enabler/tests/`; the assertion-type routing in
+`/understand` `references/assertion-types.md`.
