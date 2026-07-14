@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { assertRecordingSinkRecordsInOrder } from "@testing/harnesses/testing/journal-reporter";
+import {
+  assertAsyncSinkRecordsAfterMacrotask,
+  assertRecordingSinkRecordsInOrder,
+} from "@testing/harnesses/testing/journal-reporter";
 
 describe("journal reporter recording evidence sink", () => {
   it("records every scope and finding append in invocation order", () => {
@@ -13,6 +16,19 @@ describe("journal reporter recording evidence sink", () => {
         JOURNAL_REPORTER_TEST_GENERATOR.findings(),
       ),
       ([scopes, findings]) => assertRecordingSinkRecordsInOrder(scopes, findings),
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+});
+
+describe("journal reporter async recording evidence sink", () => {
+  it("records each append only after a macrotask boundary, not on a microtask tick", async () => {
+    await assertProperty(
+      fc.tuple(
+        JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit(),
+        JOURNAL_REPORTER_TEST_GENERATOR.finding(),
+      ),
+      async ([unit, finding]) => assertAsyncSinkRecordsAfterMacrotask(unit, finding),
       { level: PROPERTY_LEVEL.L1 },
     );
   });
