@@ -56,6 +56,7 @@ import {
   type AuditScopeUnit,
   filterAuditScopeUnitsForPriorContext,
   findTerminalEvent,
+  projectVerifyRun,
   REVIEW_SCOPE_COVERAGE_STATE,
   TERMINAL_METADATA_VALIDATION_ERROR,
   validateAuditFinding,
@@ -1299,6 +1300,39 @@ export async function assertSpxDrivenRunAdvertisesNoEvidenceAppendAction(): Prom
     expect(projected.nextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
     expect(projected.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
   }
+}
+
+/**
+ * Asserts a run history carrying no run-context event folds to caller-driven and advertises the
+ * caller evidence-append actions — the pre-migration default the fold applies when drive mode was
+ * never recorded. Built by dropping the run-context event from a real spx-driven run's history, so
+ * the fold's absent-event branch is exercised directly rather than only through `verifyStartCommand`.
+ */
+export async function assertAbsentRunContextFoldsToCallerDriveMode(): Promise<void> {
+  const { scenario, fs, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
+  const events = await readVerifyRunEvents(scenario, runToken, fs);
+  const withoutRunContext = events.filter((event) => event.type !== VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  const projection = projectVerifyRun(withoutRunContext);
+  expect(projection.driveMode).toBe(VERIFY_DRIVE_MODE.CALLER);
+  expect(projection.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
+  expect(projection.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
+}
+
+/**
+ * Asserts a run-context event whose drive-mode field is absent folds to caller-driven — the fold's
+ * malformed-data branch. Built by blanking the run-context event's data on a real spx-driven run's
+ * history, so a recorded event that omits the drive-mode field cannot silently project as spx-driven.
+ */
+export async function assertMalformedRunContextFoldsToCallerDriveMode(): Promise<void> {
+  const { scenario, fs, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
+  const events = await readVerifyRunEvents(scenario, runToken, fs);
+  const malformed = events.map((event) =>
+    event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE ? { ...event, data: {} } : event
+  );
+  const projection = projectVerifyRun(malformed);
+  expect(projection.driveMode).toBe(VERIFY_DRIVE_MODE.CALLER);
+  expect(projection.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
+  expect(projection.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
 }
 
 function toJsonValue(value: unknown): JsonValue {
