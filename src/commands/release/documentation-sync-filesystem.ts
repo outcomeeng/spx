@@ -33,7 +33,13 @@ export interface DocumentationSyncFilesystem {
   readonly promoteDocumentation: DocumentationPromoter;
 }
 
-export type DocumentationAtomicWriter = (path: string, content: string) => Promise<void>;
+export type DocumentationReplacementGuard = () => Promise<void>;
+
+export type DocumentationAtomicWriter = (
+  path: string,
+  content: string,
+  guard: DocumentationReplacementGuard,
+) => Promise<void>;
 
 export interface DocumentationFileHandle {
   readonly stat: () => Promise<Stats>;
@@ -68,12 +74,22 @@ const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
 };
 
 const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFilesystemDependencies = {
-  writeDocumentAtomic: async (path, content) => {
+  writeDocumentAtomic: async (path, content, guard) => {
     await writeFileAtomic(path, content, {
-      fs: ATOMIC_WRITE_FILE_SYSTEM,
+      fs: {
+        ...ATOMIC_WRITE_FILE_SYSTEM,
+        rename: async (from, to) => {
+          await guard();
+          await rename(from, to);
+        },
+      },
       randomBytes,
     });
   },
+};
+
+const UNGUARDED_DOCUMENTATION_REPLACEMENT: DocumentationReplacementGuard = async () => {
+  await Promise.resolve();
 };
 
 export function createDocumentationSyncFilesystem(
@@ -143,7 +159,7 @@ async function promoteDocumentationSet(
     for (const document of documents) {
       const { path, content } = document;
       await assertDocumentationUnchanged(document);
-      await dependencies.writeDocumentAtomic(path, content);
+      await dependencies.writeDocumentAtomic(path, content, UNGUARDED_DOCUMENTATION_REPLACEMENT);
       promoted.push(document);
     }
   } catch (promotionError) {
@@ -182,7 +198,7 @@ async function restorePromotedDocumentation(
   for (const { path, originalContent } of [...promoted].reverse()) {
     try {
       await verifyCanonicalTarget(path);
-      await dependencies.writeDocumentAtomic(path, originalContent);
+      await dependencies.writeDocumentAtomic(path, originalContent, UNGUARDED_DOCUMENTATION_REPLACEMENT);
     } catch (error) {
       rollbackErrors.push(error);
     }
