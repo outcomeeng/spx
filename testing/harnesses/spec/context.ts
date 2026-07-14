@@ -204,6 +204,12 @@ async function assertSpecContextRejectsArtifactTarget(
       failure: fixture.failure,
       ok: false,
     });
+    const message = formatSpecContextTargetFailure(fixture.failure);
+    expect(message).toContain(fixture.target);
+    expect(message).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[fixture.failure.kind]);
+    if (fixture.failure.kind === SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH) {
+      expect(message).toContain(fixture.failure.ownerId);
+    }
   });
 }
 

@@ -142,7 +142,14 @@ export type SpecContextEmptySegmentTargetFixture = {
 };
 
 export type SpecContextArtifactTargetFixture = {
-  readonly failure: SpecContextTargetFailure;
+  readonly failure: Extract<
+    SpecContextTargetFailure,
+    {
+      readonly kind:
+        | typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH
+        | typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH;
+    }
+  >;
   readonly sourceFixture: RepresentativeSpecTreeFixture;
   readonly target: string;
 };
