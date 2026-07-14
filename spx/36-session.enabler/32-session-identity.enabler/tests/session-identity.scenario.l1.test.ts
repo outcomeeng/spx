@@ -152,19 +152,8 @@ describe("generateSessionId → parseSessionId roundtrip (property-based)", () =
   });
 
   it("GIVEN two different times WHEN generated THEN lexicographic order matches chronological order", () => {
-    const validDate = fc.record({
-      year: fc.integer({ min: 2000, max: 2099 }),
-      month: fc.integer({ min: 0, max: 11 }),
-      day: fc.integer({ min: 1, max: 28 }),
-      hour: fc.integer({ min: 0, max: 23 }),
-      minute: fc.integer({ min: 0, max: 59 }),
-      second: fc.integer({ min: 0, max: 59 }),
-    });
-
     fc.assert(
-      fc.property(validDate, validDate, (a, b) => {
-        const dateA = new Date(Date.UTC(a.year, a.month, a.day, a.hour, a.minute, a.second));
-        const dateB = new Date(Date.UTC(b.year, b.month, b.day, b.hour, b.minute, b.second));
+      fc.property(arbitraryValidSessionInstant(), arbitraryValidSessionInstant(), (dateA, dateB) => {
         const idA = generateSessionId({ now: () => dateA });
         const idB = generateSessionId({ now: () => dateB });
 
