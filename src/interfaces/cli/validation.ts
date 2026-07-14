@@ -14,8 +14,8 @@ import {
 } from "@/commands/validation";
 import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
+import { SPX_PROGRAM_NAME } from "@/interfaces/cli/invocation";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,
