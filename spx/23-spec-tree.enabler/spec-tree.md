@@ -4,29 +4,6 @@ PROVIDES a backend-neutral spec-tree library with a single public TypeScript sur
 SO THAT spec commands, spec application, validation, testing, session handoff, and future adapters for filesystem, Linear, GitHub Issues, ORM-backed records, or paper ledgers
 CAN consume the product's spec tree through stable contracts without owning traversal, suffix parsing, hierarchy assembly, state derivation, or registry vocabulary themselves
 
-## Public Surface
-
-The public tree-operations module is `src/lib/spec-tree/index.ts`. The kind registry and spec-tree config descriptor live inside the same library at `src/lib/spec-tree/config.ts` per `21-kind-registry.adr.md`; there is no separate `src/spec` directory for spec-tree behavior.
-
-It exports these contracts:
-
-```ts
-export type SpecTreeSource = {
-  entries(): AsyncIterable<SpecTreeSourceEntry>;
-  readText?(ref: SpecTreeSourceRef): Promise<string>;
-};
-
-export type SpecTreeOptions = {
-  source: SpecTreeSource;
-  registry?: SpecTreeRegistry;
-  evidence?: SpecTreeEvidenceProvider;
-};
-
-export function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot>;
-export function projectSpecTree(snapshot: SpecTreeSnapshot): SpecTreeProjection;
-export function findNextSpecTreeNode(snapshot: SpecTreeSnapshot): SpecTreeNode | null;
-```
-
 ## Assertions
 
 ### Scenarios
