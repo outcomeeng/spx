@@ -8,7 +8,7 @@ CAN receive methodology identity, product root, ancestor specs, decisions, lower
 
 ### Mappings
 
-- Context target forms map to resolution outcomes as follows: canonical node paths, paths with an optional leading `spx/`, paths with trailing separators, and paths whose node-directory segments uniquely prefix one sibling resolve to the canonical full node path; unknown segments identify the unresolved input; ambiguous segments identify every matching sibling; node-owned artifact paths identify their owning node without selecting it; and product-root decision paths direct the caller to choose a node whose context includes the decision ([test](tests/context-target-resolution.mapping.l1.test.ts))
+- Context target forms map to resolution outcomes as follows: canonical node paths, paths with an optional leading `spx/`, paths with trailing separators, and paths whose node-directory segments uniquely prefix one sibling resolve to the canonical full node path; unknown segments identify the unresolved input; ambiguous segments identify every matching sibling; node-owned artifact paths identify their owning node without selecting it; and product-root artifact paths — the product spec and root decisions — direct the caller to choose a node whose context includes the artifact ([test](tests/context-target-resolution.mapping.l1.test.ts))
 
 ### Compliance
 
