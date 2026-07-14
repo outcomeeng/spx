@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { expect } from "vitest";
 
 import { allCommand } from "@/commands/validation/all";
+import { formatSummary } from "@/commands/validation/format";
 import { KNIP_VALIDATION_STEP_NAME, knipCommand } from "@/commands/validation/knip";
 import {
   formatTypeScriptAbsentSkipMessage,
@@ -366,7 +367,12 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           );
           expect(knipCompletions[0]?.output).toContain(VALIDATION_STREAMED_STAGE_RESULT);
           expect(result.output.split(VALIDATION_STREAMED_STAGE_RESULT)).toHaveLength(2);
-          expect(result.terminalOutput).toContain(VALIDATION_PIPELINE_DATA.summaryStatus.FAILED);
+          const terminalSummary = formatSummary({
+            success: false,
+            totalDurationMs: result.durationMs ?? 0,
+          });
+          expect(result.output).not.toContain(terminalSummary);
+          expect(result.terminalOutput).toBe(`\n${terminalSummary}`);
         },
       );
     });

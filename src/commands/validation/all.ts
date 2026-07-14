@@ -350,10 +350,11 @@ export async function allCommand(
   let terminalOutput: string | undefined;
   if (!quiet) {
     const summary = formatSummary({ success: !hasFailure, totalDurationMs });
-    outputs.push("", summary); // Empty line before summary
     deps.writeOutput?.(`\n${summary}`);
     if (onStageComplete !== undefined) {
       terminalOutput = `\n${summary}`;
+    } else {
+      outputs.push("", summary); // Empty line before summary
     }
   }
 
