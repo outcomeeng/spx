@@ -1,5 +1,6 @@
 import { copyFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { expect } from "vitest";
@@ -51,6 +52,34 @@ export function createRecordingEvidenceSink(): RecordingEvidenceSink {
     },
     get calls(): readonly RecordedSinkCall[] {
       return calls;
+    },
+    get scopes(): readonly TestScopeUnit[] {
+      return scopes;
+    },
+    get findings(): readonly TestFinding[] {
+      return findings;
+    },
+  };
+}
+
+/** An async recording evidence sink: each append records only after a macrotask, so a reporter that fails to await it has recorded nothing by the time its hook returns (Stage 5 exception 6: observability). */
+export interface AsyncRecordingEvidenceSink extends TestRunEvidenceSink {
+  readonly scopes: readonly TestScopeUnit[];
+  readonly findings: readonly TestFinding[];
+}
+
+/** Builds an async recording sink whose appends land on a macrotask boundary before recording, so an awaiting reporter records them and a fire-and-forget one does not. */
+export function createAsyncRecordingEvidenceSink(): AsyncRecordingEvidenceSink {
+  const scopes: TestScopeUnit[] = [];
+  const findings: TestFinding[] = [];
+  return {
+    async appendScope(unit: TestScopeUnit): Promise<void> {
+      await delay(0);
+      scopes.push(unit);
+    },
+    async appendFinding(finding: TestFinding): Promise<void> {
+      await delay(0);
+      findings.push(finding);
     },
     get scopes(): readonly TestScopeUnit[] {
       return scopes;
@@ -113,19 +142,19 @@ function buildTestCaseDouble(moduleId: string, runCase: GeneratedRunCase): TestC
   } as unknown as TestCase;
 }
 
-/** Fires a reporter's lifecycle hooks over a generated scenario in run order, sealing with the given reason. */
-export function driveReporterOverScenario(
+/** Fires a reporter's lifecycle hooks over a generated scenario in run order, awaiting each hook, sealing with the given reason. */
+export async function driveReporterOverScenario(
   reporter: Reporter,
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
-): void {
+): Promise<void> {
   const testModule = buildTestModuleDouble(scenario.moduleId);
-  reporter.onTestModuleStart?.(testModule);
+  await reporter.onTestModuleStart?.(testModule);
   for (const runCase of scenario.cases) {
-    reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
+    await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
   }
-  reporter.onTestModuleEnd?.(testModule);
-  reporter.onTestRunEnd?.([testModule], [], reason);
+  await reporter.onTestModuleEnd?.(testModule);
+  await reporter.onTestRunEnd?.([testModule], [], reason);
 }
 
 function expectedFindings(scenario: GeneratedRunScenario): readonly TestFinding[] {
@@ -135,13 +164,13 @@ function expectedFindings(scenario: GeneratedRunScenario): readonly TestFinding[
 }
 
 /** Asserts the reporter maps a scenario to one module scope, a finding per failing case, none per passing case, and the run reason to its terminal status. */
-export function assertJournalReporterMapping(
+export async function assertJournalReporterMapping(
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
-): void {
+): Promise<void> {
   const sink = createRecordingEvidenceSink();
   const reporter = createJournalReporter(sink);
-  driveReporterOverScenario(reporter, scenario, reason);
+  await driveReporterOverScenario(reporter, scenario, reason);
   expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
   expect(sink.findings).toEqual(expectedFindings(scenario));
   expect(reporter.terminalStatus).toBe(reason);
@@ -152,14 +181,14 @@ export function assertJournalReporterMapping(
  * recorded on module start and a failing-case finding on that case's result, both
  * before run end rather than batched at the terminal event.
  */
-export function assertReporterStreamsPerHook(scenario: GeneratedRunScenario): void {
+export async function assertReporterStreamsPerHook(scenario: GeneratedRunScenario): Promise<void> {
   const sink = createRecordingEvidenceSink();
   const reporter = createJournalReporter(sink);
   const testModule = buildTestModuleDouble(scenario.moduleId);
-  reporter.onTestModuleStart?.(testModule);
+  await reporter.onTestModuleStart?.(testModule);
   expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
   for (const runCase of scenario.cases) {
-    reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
+    await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
     if (runCase.state === GENERATED_CASE_STATE.FAILED) {
       expect(sink.findings.at(-1)).toEqual({
         moduleId: scenario.moduleId,
@@ -168,6 +197,24 @@ export function assertReporterStreamsPerHook(scenario: GeneratedRunScenario): vo
       });
     }
   }
+}
+
+/**
+ * Asserts the reporter awaits each sink append: driven over a scenario with an async
+ * sink whose writes land only after a macrotask, the recorded scope and findings match
+ * the scenario — which holds only when each hook awaits its append before returning, so
+ * the streaming guarantee survives an asynchronous journal backing.
+ */
+export async function assertReporterAwaitsAsyncAppends(scenario: GeneratedRunScenario): Promise<void> {
+  const sink = createAsyncRecordingEvidenceSink();
+  const reporter = createJournalReporter(sink);
+  const testModule = buildTestModuleDouble(scenario.moduleId);
+  await reporter.onTestModuleStart?.(testModule);
+  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+  for (const runCase of scenario.cases) {
+    await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
+  }
+  expect(sink.findings).toEqual(expectedFindings(scenario));
 }
 
 /** Asserts a journal-streaming run registers the journal reporter on a programmatically started run through the injected starter, carrying no command-line reporter flag. */
@@ -210,6 +257,7 @@ export function withMixedVitestProject(
  */
 export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
   await withMixedVitestProject(async (projectRoot, testFileName) => {
+    const exitCodeBeforeRun = process.exitCode;
     const sink = createRecordingEvidenceSink();
     const terminalStatus = await runTestsStreaming(
       { projectRoot, testPaths: [testFileName] },
@@ -220,5 +268,6 @@ export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
     expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
     expect(sink.findings[0]?.errors.length).toBeGreaterThan(0);
     expect(terminalStatus).toBe(JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+    expect(process.exitCode).toBe(exitCodeBeforeRun);
   });
 }

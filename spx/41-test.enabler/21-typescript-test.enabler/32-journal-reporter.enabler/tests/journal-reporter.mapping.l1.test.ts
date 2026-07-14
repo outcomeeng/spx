@@ -6,13 +6,13 @@ import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/prop
 import { assertJournalReporterMapping } from "@testing/harnesses/testing/journal-reporter";
 
 describe("journal reporter hook-to-evidence mapping", () => {
-  it("maps a module to a scope, failing cases to findings, passing cases to none, and run end to a terminal status", () => {
-    assertProperty(
+  it("maps a module to a scope, failing cases to findings, passing cases to none, and run end to a terminal status", async () => {
+    await assertProperty(
       fc.tuple(
         JOURNAL_REPORTER_TEST_GENERATOR.runScenario(),
         JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus(),
       ),
-      ([scenario, reason]) => assertJournalReporterMapping(scenario, reason),
+      async ([scenario, reason]) => assertJournalReporterMapping(scenario, reason),
       { level: PROPERTY_LEVEL.L1 },
     );
   });
