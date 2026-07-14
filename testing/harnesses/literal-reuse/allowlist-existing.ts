@@ -1,6 +1,8 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import * as fc from "fast-check";
+
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
@@ -22,7 +24,10 @@ import {
   literalConfigDescriptor,
   type LiteralValueAllowlistConfig,
 } from "@/validation/literal/config";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { collectHarnessTestCases, expect, it } from "@testing/harnesses/vitest-registration";
 
 interface ConfigFixtureEnv {
   readonly productDir: string;
@@ -131,3 +136,18 @@ export function readLiteralAllowlist(parsedConfig: unknown): LiteralConfig {
   }
   return validated.value;
 }
+
+export const allowlistExistingHarnessPropertyCases = collectHarnessTestCases(() => {
+  it("readLiteralAllowlist returns buildConfigWithAllowlist's include list merged over the literal defaults", () => {
+    assertProperty(
+      fc.array(arbitraryDomainLiteral()),
+      (include) => {
+        expect(readLiteralAllowlist(buildConfigWithAllowlist({ include }))).toEqual({
+          ...LITERAL_DEFAULTS,
+          include,
+        });
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+});
