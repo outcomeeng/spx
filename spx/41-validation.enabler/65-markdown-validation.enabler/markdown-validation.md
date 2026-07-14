@@ -1,6 +1,6 @@
 PROVIDES markdownlint-cli2-based link integrity and structural quality checking for markdown files in `spx/` and `docs/`
 SO THAT `spx validation all` and `spx validation markdown`
-CAN catch broken cross-references and structural defects before they reach the repository
+CAN catch broken cross-references and structural defects before they reach the product
 
 ## Assertions
 
