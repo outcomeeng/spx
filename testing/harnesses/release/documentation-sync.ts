@@ -155,6 +155,29 @@ class FailingSecondDocumentationAtomicWriter {
   };
 }
 
+class RecordingDocumentationAtomicWriter {
+  writes = 0;
+
+  readonly write: DocumentationAtomicWriter = async (path, content) => {
+    this.writes += 1;
+    await writeFile(path, content);
+  };
+}
+
+class InterveningDocumentationEditPromoter {
+  constructor(
+    private readonly productDir: string,
+    private readonly sourcePath: string,
+    private readonly content: string,
+    private readonly delegate: DocumentationPromoter,
+  ) {}
+
+  readonly promote: DocumentationPromoter = async (documents) => {
+    await writeFile(join(this.productDir, this.sourcePath), this.content);
+    await this.delegate(documents);
+  };
+}
+
 interface DocumentationFailureControls {
   readonly agentRunner?: AgentRunner;
   readonly readDocument?: DocumentationReader;
@@ -285,6 +308,18 @@ async function expectProductDocumentationUnchanged(
 ): Promise<void> {
   for (const path of scenario.paths) {
     await expect(readProductDocument(path)).resolves.toBe(scenario.original[path]);
+  }
+}
+
+async function expectOnlyInterveningDocumentationEdit(
+  scenario: DocumentationSyncScenario,
+  interveningPath: string,
+  readProductDocument: DocumentationReader,
+): Promise<void> {
+  for (const path of scenario.paths) {
+    await expect(readProductDocument(path)).resolves.toBe(
+      path === interveningPath ? scenario.intervening[path] : scenario.original[path],
+    );
   }
 }
 
@@ -635,6 +670,30 @@ function registerComplianceTests(): void {
         })).rejects.toThrow();
         expect(writer.failures).toBe(1);
         await expectProductDocumentationUnchanged(scenario, readProductDocument);
+      });
+    });
+
+    it("leaves the complete staged set unpromoted when a document changes after staging", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+      const interveningPath = scenario.paths.at(-1);
+      if (interveningPath === undefined) throw new Error("Generated documentation set is empty");
+      const interveningContent = scenario.intervening[interveningPath];
+      if (interveningContent === undefined) throw new Error(`No intervening documentation for ${interveningPath}`);
+      const writer = new RecordingDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        const promoter = new InterveningDocumentationEditPromoter(
+          options.productDir,
+          interveningPath,
+          interveningContent,
+          filesystem.promoteDocumentation,
+        );
+        await expect(composeDocumentationSync({
+          ...options,
+          promoteDocumentation: promoter.promote,
+        })).rejects.toThrow();
+        expect(writer.writes).toBe(0);
+        await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
       });
     });
 
