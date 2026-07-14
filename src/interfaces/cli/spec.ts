@@ -30,7 +30,9 @@ export const SPEC_DOMAIN_CLI = {
 } as const;
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
+  ERROR_PREFIX: "Error",
   INVALID_PREFIX: "Invalid format",
+  VALID_OPTIONS_PREFIX: "Must be one of",
 } as const;
 
 export const SPEC_CONTEXT_OUTPUT_FORMAT = {
@@ -40,7 +42,7 @@ export const SPEC_CONTEXT_OUTPUT_FORMAT = {
 
 export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
 
-const VALID_STATUS_FORMATS: readonly OutputFormat[] = [
+export const SPEC_STATUS_OUTPUT_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
   OUTPUT_FORMAT.JSON,
   OUTPUT_FORMAT.MARKDOWN,
@@ -72,7 +74,7 @@ function handleCommandError(io: CliIo, error: unknown): never {
       message = UNPRINTABLE_ERROR_MESSAGE;
     }
   }
-  io.writeStderr(`Error: ${message}\n`);
+  io.writeStderr(`${SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX}: ${message}\n`);
   return io.exit(1);
 }
 
@@ -118,13 +120,13 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
     return "text";
   }
 
-  if (VALID_STATUS_FORMATS.includes(options.format as OutputFormat)) {
+  if (SPEC_STATUS_OUTPUT_FORMATS.includes(options.format as OutputFormat)) {
     return options.format as OutputFormat;
   }
 
   throw new Error(
-    `${SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX} "${options.format}". Must be one of: ${
-      VALID_STATUS_FORMATS.join(", ")
+    `${SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX} "${options.format}". ${SPEC_STATUS_FORMAT_MESSAGE.VALID_OPTIONS_PREFIX}: ${
+      SPEC_STATUS_OUTPUT_FORMATS.join(", ")
     }`,
   );
 }

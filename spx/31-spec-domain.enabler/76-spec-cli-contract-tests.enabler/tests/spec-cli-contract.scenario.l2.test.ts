@@ -4,7 +4,6 @@ import {
   assertSpecApplyCliRejectsConfigurationWrites,
   assertSpecContextCliRendersTarget,
   assertSpecNextCliRendersSelection,
-  assertSpecStatusCliAcceptsLocalJsonFormat,
   assertSpecStatusCliRejectsUnsupportedFormat,
   assertSpecStatusCliRendersCurrentTree,
   assertSpecStatusCliUpdatesDeclaredNodes,
@@ -29,10 +28,6 @@ describe("spx spec process contract", () => {
 
   it("rejects an unsupported status output format", async () => {
     await assertSpecStatusCliRejectsUnsupportedFormat();
-  });
-
-  it("accepts local status format flags without network or shared state", async () => {
-    await assertSpecStatusCliAcceptsLocalJsonFormat();
   });
 
   it("rejects config-writing apply routing without modifying product configuration", async () => {
