@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
 export const NODE_STATUS_EXCLUDE_FILENAME = "EXCLUDE";
-const PATH_SEGMENT_SEPARATOR = "/";
-const CURRENT_DIRECTORY_SEGMENT = ".";
-const PARENT_DIRECTORY_SEGMENT = "..";
+export const NODE_STATUS_EXCLUDE_PATH_GRAMMAR = {
+  SEGMENT_SEPARATOR: "/",
+  CURRENT_DIRECTORY_SEGMENT: ".",
+  PARENT_DIRECTORY_SEGMENT: "..",
+} as const;
 
 type NodeStatusExclusionEntry = {
   readonly id?: string;
@@ -37,16 +39,22 @@ function parseExcludeEntries(content: string): readonly string[] {
 }
 
 function validateExcludeEntry(entry: string): string {
-  const segments = entry.split(PATH_SEGMENT_SEPARATOR);
+  const segments = entry.split(NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR);
   if (
-    entry.startsWith(PATH_SEGMENT_SEPARATOR)
+    entry.startsWith(NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR)
     || segments.some((segment) =>
-      segment.length === 0 || segment === CURRENT_DIRECTORY_SEGMENT || segment === PARENT_DIRECTORY_SEGMENT
+      segment.length === 0
+      || segment === NODE_STATUS_EXCLUDE_PATH_GRAMMAR.CURRENT_DIRECTORY_SEGMENT
+      || segment === NODE_STATUS_EXCLUDE_PATH_GRAMMAR.PARENT_DIRECTORY_SEGMENT
     )
   ) {
-    throw new Error(`Invalid ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${NODE_STATUS_EXCLUDE_FILENAME} entry: ${entry}`);
+    throw new Error(nodeStatusInvalidExcludeEntryMessage(entry));
   }
   return entry;
+}
+
+export function nodeStatusInvalidExcludeEntryMessage(entry: string): string {
+  return `Invalid ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${NODE_STATUS_EXCLUDE_FILENAME} entry: ${entry}`;
 }
 
 export function createNodeStatusExcludeReader(productDir: string): NodeStatusExcludeReader {

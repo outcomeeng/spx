@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
+import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import type {
   NodeClassificationFacts,
   NodeStatusEvidenceOutcome,
@@ -11,9 +12,11 @@ import type {
 import {
   createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
+  NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { KIND_REGISTRY } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,
@@ -26,15 +29,9 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const CONSULTATION_CLASS_COUNT = 3;
 export const NODE_STATUS_READABLE_SLUGS = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"] as const;
-const STATUS_REFERENCE_MODES = ["scenario", "mapping", "property", "compliance", "conformance"] as const;
-const STATUS_REFERENCE_LEVELS = ["l1", "l2", "l3"] as const;
 const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const STATUS_VERIFICATION_MECHANISMS = Object.values(NODE_STATUS_VERIFICATION_MECHANISM);
-const STATUS_EVIDENCE_OUTCOMES = [
-  "passed",
-  "failed",
-  "not-run",
-] as const satisfies readonly NodeStatusEvidenceOutcome[];
+const STATUS_EVIDENCE_OUTCOMES: readonly NodeStatusEvidenceOutcome[] = Object.values(NODE_STATUS_EVIDENCE_OUTCOME);
 
 export type ClassificationFixtureFacts = {
   readonly hasVerificationReferences: boolean;
@@ -60,6 +57,11 @@ export const NODE_STATUS_TEST_GENERATOR = {
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   verification: arbitraryVerification,
+  trackedFile: arbitraryTrackedFile,
+  trackedFileSet: arbitraryTrackedFileSet,
+  invalidExcludeEntry: arbitraryInvalidExcludeEntry,
+  orphanStatusPath: arbitraryOrphanStatusPath,
+  untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
 } as const;
 
 export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -123,14 +125,70 @@ function arbitraryStatusReference(): fc.Arbitrary<string> {
   return fc
     .record({
       name: fc.stringMatching(STATUS_REFERENCE_NAME_PATTERN),
-      mode: fc.constantFrom(...STATUS_REFERENCE_MODES),
-      level: fc.constantFrom(...STATUS_REFERENCE_LEVELS),
+      mode: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.MODES),
+      level: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS),
     })
     .map(({ name, mode, level }) => `tests/${name}.${mode}.${level}.test.ts`);
 }
 
 function arbitraryEvidenceOutcome(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
   return fc.constantFrom(...STATUS_EVIDENCE_OUTCOMES);
+}
+
+function arbitraryTrackedFile(): fc.Arbitrary<string> {
+  return fc
+    .array(arbitraryNodeSlug(), { minLength: 1, maxLength: 4 })
+    .map((segments) => segments.join(TRACKED_PATH_DIRECTORY_SEPARATOR));
+}
+
+function arbitraryTrackedFileSet(): fc.Arbitrary<ReadonlySet<string>> {
+  return fc
+    .array(arbitraryTrackedFile(), { minLength: 0, maxLength: 6 })
+    .map((files) => new Set(files));
+}
+
+function arbitraryInvalidExcludeEntry(): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryNodeSlug().map((slug) => `${NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR}${slug}`),
+    fc.tuple(arbitraryNodeSlug(), arbitraryNodeSlug()).map(([parent, child]) =>
+      [parent, NODE_STATUS_EXCLUDE_PATH_GRAMMAR.CURRENT_DIRECTORY_SEGMENT, child].join(
+        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+      )
+    ),
+    arbitraryNodeSlug().map((slug) =>
+      [NODE_STATUS_EXCLUDE_PATH_GRAMMAR.PARENT_DIRECTORY_SEGMENT, slug].join(
+        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+      )
+    ),
+    fc.tuple(arbitraryNodeSlug(), arbitraryNodeSlug()).map(([parent, child]) =>
+      [parent, child].join(
+        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR.repeat(2),
+      )
+    ),
+  );
+}
+
+function arbitraryOrphanStatusPath(): fc.Arbitrary<string> {
+  return arbitraryNodeSlug().map((slug) =>
+    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, slug, NODE_STATUS_FILENAME].join(
+      NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+    )
+  );
+}
+
+function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []): fc.Arbitrary<string> {
+  return fc
+    .record({
+      order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      slug: arbitraryNodeSlug(),
+    })
+    .map(({ order, slug }) => `${order}-${slug}${ENABLER_SUFFIX}`)
+    .filter((nodeId) => !takenNodeIds.includes(nodeId))
+    .map((nodeId) =>
+      [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME].join(
+        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+      )
+    );
 }
 
 function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {

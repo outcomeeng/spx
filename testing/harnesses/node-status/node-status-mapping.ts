@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { expect } from "vitest";
 
 import {
   classifyNodeStatus,
@@ -14,132 +14,122 @@ import {
   createGeneratedTestVerification,
 } from "@testing/generators/node-status/node-status";
 
-// The rows below exercise the precedence contract declared in node-status.md:
-// no verification -> declared; EXCLUDE-listed -> specified; all outcomes pass -> passing;
-// every other verified, non-excluded outcome shape -> failing.
-
-export function registerNodeStatusMappingEvidence(): void {
-  describe("classifyNodeStatus over the full fact cube", () => {
-    it("resolves to declared whenever the node has no linked verification, regardless of other facts", () => {
-      for (const isExcluded of [false, true]) {
-        for (const outcome of Object.values(NODE_STATUS_EVIDENCE_OUTCOME)) {
-          expect(classifyNodeStatus({
-            hasVerificationReferences: false,
-            isExcluded,
-            verification: createGeneratedTestVerification([outcome]),
-          })).toBe(
-            SPEC_TREE_NODE_STATE.DECLARED,
-          );
-        }
-      }
-    });
-
-    it("resolves a verified, EXCLUDE-listed node to specified, regardless of verification outcome", () => {
-      for (const outcome of Object.values(NODE_STATUS_EVIDENCE_OUTCOME)) {
-        expect(classifyNodeStatus({
-          hasVerificationReferences: true,
-          isExcluded: true,
-          verification: createGeneratedTestVerification([outcome]),
-        })).toBe(
-          SPEC_TREE_NODE_STATE.SPECIFIED,
-        );
-      }
-    });
-
-    it("resolves a verified, non-excluded node whose outcomes pass to passing", () => {
+export function assertUnverifiedNodesAreDeclared(): void {
+  for (const isExcluded of [false, true]) {
+    for (const outcome of Object.values(NODE_STATUS_EVIDENCE_OUTCOME)) {
       expect(classifyNodeStatus({
-        hasVerificationReferences: true,
-        isExcluded: false,
-        verification: createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.PASSED]),
+        hasVerificationReferences: false,
+        isExcluded,
+        verification: createGeneratedTestVerification([outcome]),
       })).toBe(
-        SPEC_TREE_NODE_STATE.PASSING,
+        SPEC_TREE_NODE_STATE.DECLARED,
       );
-    });
+    }
+  }
+}
 
-    it("resolves a verified, non-excluded node whose mechanisms all pass to passing", () => {
-      expect(classifyNodeStatus({
-        hasVerificationReferences: true,
-        isExcluded: false,
-        verification: {
-          [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
-            NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-          ])),
-          [NODE_STATUS_VERIFICATION_MECHANISM.EVAL]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
-            NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-          ])),
-        },
-      })).toBe(
-        SPEC_TREE_NODE_STATE.PASSING,
-      );
-    });
+export function assertExcludedVerifiedNodesAreSpecified(): void {
+  for (const outcome of Object.values(NODE_STATUS_EVIDENCE_OUTCOME)) {
+    expect(classifyNodeStatus({
+      hasVerificationReferences: true,
+      isExcluded: true,
+      verification: createGeneratedTestVerification([outcome]),
+    })).toBe(
+      SPEC_TREE_NODE_STATE.SPECIFIED,
+    );
+  }
+}
 
-    it("resolves a verified, non-excluded node with any non-passing mechanism to failing", () => {
-      expect(classifyNodeStatus({
-        hasVerificationReferences: true,
-        isExcluded: false,
-        verification: {
-          [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
-            NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-          ])),
-          [NODE_STATUS_VERIFICATION_MECHANISM.AUDIT]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
-            NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-          ])),
-        },
-      })).toBe(
-        SPEC_TREE_NODE_STATE.FAILING,
-      );
-    });
+export function assertPassingTestOutcomeClassifiesPassing(): void {
+  expect(classifyNodeStatus({
+    hasVerificationReferences: true,
+    isExcluded: false,
+    verification: createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.PASSED]),
+  })).toBe(
+    SPEC_TREE_NODE_STATE.PASSING,
+  );
+}
 
-    it("resolves a verified, non-excluded node whose outcomes do not all pass to failing", () => {
-      for (
-        const verification of [
-          createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.FAILED]),
-          createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
-          createGeneratedTestVerification([
-            NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-            NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-          ]),
-        ]
-      ) {
-        expect(classifyNodeStatus({
-          hasVerificationReferences: true,
-          isExcluded: false,
-          verification,
-        })).toBe(
-          SPEC_TREE_NODE_STATE.FAILING,
-        );
-      }
-    });
-  });
-
-  describe("rollupNodeStatusMechanism", () => {
-    it("maps all passed outcomes to passed", () => {
-      expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+export function assertAllPassingMechanismsClassifyPassing(): void {
+  expect(classifyNodeStatus({
+    hasVerificationReferences: true,
+    isExcluded: false,
+    verification: {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
         NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      ])),
+      [NODE_STATUS_VERIFICATION_MECHANISM.EVAL]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
         NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-      ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.PASSED);
-    });
+      ])),
+    },
+  })).toBe(
+    SPEC_TREE_NODE_STATE.PASSING,
+  );
+}
 
-    it("maps any failed outcome to failed", () => {
-      expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+export function assertNonPassingMechanismClassifiesFailing(): void {
+  expect(classifyNodeStatus({
+    hasVerificationReferences: true,
+    isExcluded: false,
+    verification: {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
         NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-        NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+      ])),
+      [NODE_STATUS_VERIFICATION_MECHANISM.AUDIT]: createNodeStatusMechanismRecord(createGeneratedEvidenceOutcomes([
         NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-      ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.FAILED);
-    });
+      ])),
+    },
+  })).toBe(
+    SPEC_TREE_NODE_STATE.FAILING,
+  );
+}
 
-    it("maps passed plus not-run outcomes to partial", () => {
-      expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+export function assertNonPassingOutcomesClassifyFailing(): void {
+  for (
+    const verification of [
+      createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.FAILED]),
+      createGeneratedTestVerification([NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
+      createGeneratedTestVerification([
         NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
         NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-      ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.PARTIAL);
-    });
+      ]),
+    ]
+  ) {
+    expect(classifyNodeStatus({
+      hasVerificationReferences: true,
+      isExcluded: false,
+      verification,
+    })).toBe(
+      SPEC_TREE_NODE_STATE.FAILING,
+    );
+  }
+}
 
-    it("maps all not-run outcomes to not-run", () => {
-      expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
-        NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-        NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-      ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.NOT_RUN);
-    });
-  });
+export function assertPassedOutcomesRollUpPassed(): void {
+  expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+    NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+    NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+  ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.PASSED);
+}
+
+export function assertFailedOutcomeRollsUpFailed(): void {
+  expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+    NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+    NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+    NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+  ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.FAILED);
+}
+
+export function assertMixedPassedAndNotRunRollsUpPartial(): void {
+  expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+    NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+    NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+  ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.PARTIAL);
+}
+
+export function assertNotRunOutcomesRollUpNotRun(): void {
+  expect(rollupNodeStatusMechanism(createGeneratedEvidenceOutcomes([
+    NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+    NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
+  ]))).toBe(NODE_STATUS_MECHANISM_OVERALL.NOT_RUN);
 }
