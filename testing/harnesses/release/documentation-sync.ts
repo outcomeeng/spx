@@ -1,4 +1,5 @@
-import { mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, open, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -9,6 +10,9 @@ import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/rele
 import {
   createDocumentationSyncFilesystem,
   type DocumentationAtomicWriter,
+  type DocumentationFileOpener,
+  type DocumentationReplacementGuard,
+  type DocumentationSyncFilesystem,
   resolveCanonicalDocumentationTarget,
 } from "@/commands/release/documentation-sync-filesystem";
 import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
@@ -34,6 +38,7 @@ import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
@@ -45,6 +50,7 @@ import {
   arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
   arbitraryReleaseVersionVariantOnlyScenario,
+  arbitrarySingleDocumentSyncScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
@@ -59,6 +65,10 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const EXTERNAL_DIRECTORY_PREFIX = "spx-documentation-sync-external-";
+const DOCUMENTATION_READ_RACE_TARGET = {
+  PRODUCT: "product",
+  STAGED: "staged",
+} as const;
 const DOCUMENTATION_PATH_SEMANTICS = [
   {
     label: "POSIX",
@@ -170,12 +180,12 @@ class FailingSecondDocumentationAtomicWriter {
   successfulWrites = 0;
   failures = 0;
 
-  readonly write: DocumentationAtomicWriter = async (path, content) => {
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
     if (this.successfulWrites === 1 && this.failures === 0) {
       this.failures += 1;
       throw new Error("Second documentation promotion failed");
     }
-    await writeFile(path, content);
+    await writeDocumentationAfterGuard(path, content, guard);
     this.successfulWrites += 1;
   };
 }
@@ -183,9 +193,9 @@ class FailingSecondDocumentationAtomicWriter {
 class RecordingDocumentationAtomicWriter {
   writes = 0;
 
-  readonly write: DocumentationAtomicWriter = async (path, content) => {
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
+    await writeDocumentationAfterGuard(path, content, guard);
     this.writes += 1;
-    await writeFile(path, content);
   };
 }
 
@@ -197,13 +207,86 @@ class InterveningDuringPromotionAtomicWriter {
     private readonly interveningContent: string,
   ) {}
 
-  readonly write: DocumentationAtomicWriter = async (path, content) => {
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
     if (!this.hasInjectedEdit) {
       this.hasInjectedEdit = true;
       await writeFile(this.interveningPath, this.interveningContent);
     }
-    await writeFile(path, content);
+    await writeDocumentationAfterGuard(path, content, guard);
   };
+}
+
+class RetargetingDocumentationFileOpener {
+  private hasRetargeted = false;
+
+  constructor(
+    private readonly shouldRetarget: (path: string) => boolean,
+    private readonly replacementContent: string,
+  ) {}
+
+  readonly open: DocumentationFileOpener = async (path) => {
+    const handle = await open(path, constants.O_RDONLY);
+    return {
+      stat: async () => await handle.stat(),
+      readText: async () => {
+        if (!this.hasRetargeted && this.shouldRetarget(path)) {
+          this.hasRetargeted = true;
+          await rm(path);
+          await writeFile(path, this.replacementContent);
+        }
+        return (await handle.readFile()).toString();
+      },
+      close: async () => await handle.close(),
+    };
+  };
+}
+
+class IdentityReplacingDocumentationAtomicWriter {
+  writes = 0;
+
+  constructor(
+    private readonly targetPath: string,
+    private readonly replacementContent: string,
+  ) {}
+
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
+    if (path === this.targetPath) {
+      await rm(path);
+      await writeFile(path, this.replacementContent);
+    }
+    await writeDocumentationAfterGuard(path, content, guard);
+    this.writes += 1;
+  };
+}
+
+class PostPromotionEditFailingAtomicWriter {
+  successfulWrites = 0;
+  failures = 0;
+
+  constructor(
+    private readonly promotedPath: string,
+    private readonly interveningContent: string,
+  ) {}
+
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
+    if (this.successfulWrites === 1 && this.failures === 0) {
+      await guard();
+      await writeFile(this.promotedPath, this.interveningContent);
+      this.failures += 1;
+      throw new Error("Documentation promotion failed after an intervening edit");
+    }
+    await writeDocumentationAfterGuard(path, content, guard);
+    this.successfulWrites += 1;
+  };
+}
+
+async function writeDocumentationAfterGuard(
+  path: string,
+  content: string,
+  guard: DocumentationReplacementGuard,
+): Promise<void> {
+  await guard();
+  await writeFile(path, content);
 }
 
 class InterveningDocumentationEditPromoter {
@@ -226,6 +309,15 @@ interface DocumentationFailureControls {
 }
 
 type ProductDocumentationReader = (path: string) => Promise<string>;
+
+type DocumentationReadRaceTarget = typeof DOCUMENTATION_READ_RACE_TARGET[keyof typeof DOCUMENTATION_READ_RACE_TARGET];
+
+interface PrimaryDocumentation {
+  readonly path: string;
+  readonly originalContent: string;
+  readonly updatedContent: string;
+  readonly interveningContent: string;
+}
 
 class RecordingDocumentationAuditor implements AgentAuditor {
   readonly requests: AgentAuditRequest[] = [];
@@ -426,6 +518,106 @@ async function assertStagedSymlinkRejectedBeforeAuditAndPromotion(
       await expectProductDocumentationUnchanged(scenario, readProductDocument);
     });
   });
+}
+
+async function assertProductStagingIdentityChangeRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  await assertDocumentationReadIdentityChangeRejected(
+    scenario,
+    DOCUMENTATION_READ_RACE_TARGET.PRODUCT,
+  );
+}
+
+async function assertStagedReadbackIdentityChangeRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  await assertDocumentationReadIdentityChangeRejected(
+    scenario,
+    DOCUMENTATION_READ_RACE_TARGET.STAGED,
+  );
+}
+
+async function assertDocumentationReadIdentityChangeRejected(
+  scenario: DocumentationSyncScenario,
+  target: DocumentationReadRaceTarget,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+    const opener = new RetargetingDocumentationFileOpener(
+      target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+        ? (path) => path === join(options.productDir, primary.path)
+        : (path) => !isPathContained(options.productDir, path),
+      target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+        ? primary.originalContent
+        : primary.updatedContent,
+    );
+    const writer = new RecordingDocumentationAtomicWriter();
+    const filesystem = createDocumentationSyncFilesystem({
+      openDocumentationFile: opener.open,
+      writeDocumentAtomic: writer.write,
+    });
+    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
+    if (target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT) expect(agent.requests).toHaveLength(0);
+    expect(writer.writes).toBe(0);
+    await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertPromotionIdentityChangeRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    const writer = new IdentityReplacingDocumentationAtomicWriter(
+      join(options.productDir, primary.path),
+      primary.originalContent,
+    );
+    const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
+    expect(writer.writes).toBe(0);
+    await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertRollbackPreservesPostPromotionEdit(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    const writer = new PostPromotionEditFailingAtomicWriter(
+      join(options.productDir, primary.path),
+      primary.interveningContent,
+    );
+    const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
+    expect(writer.failures).toBe(1);
+    await expectOnlyInterveningDocumentationEdit(scenario, primary.path, readProductDocument);
+  });
+}
+
+function composeWithDocumentationFilesystem(
+  options: ComposeDocumentationSyncOptions,
+  filesystem: DocumentationSyncFilesystem,
+): Promise<{ readonly paths: readonly string[] }> {
+  return composeDocumentationSync({
+    ...options,
+    stageDocumentation: filesystem.stageDocumentation,
+    readDocument: filesystem.readDocument,
+    promoteDocumentation: filesystem.promoteDocumentation,
+  });
+}
+
+function primaryDocumentation(scenario: DocumentationSyncScenario): PrimaryDocumentation {
+  const path = scenario.paths.at(0);
+  if (path === undefined) throw new Error("Generated documentation set is empty");
+  const originalContent = scenario.original[path];
+  const updatedContent = scenario.updated[path];
+  const interveningContent = scenario.intervening[path];
+  if (originalContent === undefined || updatedContent === undefined || interveningContent === undefined) {
+    throw new Error(`Generated primary documentation is incomplete: ${path}`);
+  }
+  return { path, originalContent, updatedContent, interveningContent };
 }
 
 async function assertDocumentationPathFailure(
@@ -708,6 +900,18 @@ function registerComplianceTests(): void {
       );
     });
 
+    it("rejects product documentation identity changes during staging reads", async () => {
+      await assertProductStagingIdentityChangeRejected(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
+    it("rejects staged documentation identity changes during read-back", async () => {
+      await assertStagedReadbackIdentityChangeRejected(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
     it("validates every released version before invoking the faithfulness audit", async () => {
       await assertVersionValidationPrecedesFaithfulnessAudit(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
@@ -792,6 +996,18 @@ function registerComplianceTests(): void {
         })).rejects.toThrow();
         await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
       });
+    });
+
+    it("rejects a target identity change at the atomic replacement boundary", async () => {
+      await assertPromotionIdentityChangeRejected(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
+    it("preserves a post-promotion edit when rollback follows a later failure", async () => {
+      await assertRollbackPreservesPostPromotionEdit(
+        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+      );
     });
 
     it("audits the read-back set before promoting any document", async () => {
