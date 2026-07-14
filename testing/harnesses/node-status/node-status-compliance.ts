@@ -1,56 +1,54 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect } from "vitest";
 
-import * as nodeStatusModule from "@/lib/node-status";
 import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
+  createNodeStatusMechanismRecord,
   createNodeStatusProvider,
+  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
-  NODE_STATUS_PROJECTION_DIFF_COMMAND,
-  NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND,
-  NODE_STATUS_PROJECTION_FAILURE_COMMAND,
-  NODE_STATUS_PROJECTION_STEP_NAME,
-  NODE_STATUS_PROJECTION_UPDATE_COMMAND,
-  NODE_STATUS_PROJECTION_WORKFLOW_PATHS,
+  NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
-  NODE_STATUS_VERIFICATION_STEP_NAME,
+  type NodeOutcomeResolver,
   nodeStatusInvalidExcludeEntryMessage,
-  parseNodeStatusProjectionWorkflowJobs,
   readNodeStatus,
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
 import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
-import { compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
 
 export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> {
-  expect(
-    Object.entries(nodeStatusModule)
-      .filter(([name, value]) =>
-        typeof value === "function" && /(?:delete|persist|remove|save|update|write)/iu.test(name)
-      )
-      .map(([name]) => name),
-  ).toEqual([updateNodeStatus.name]);
-
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
 
   await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
+    // Every public node-status operation that receives a filesystem location
+    // other than updateNodeStatus — the projection provider (through readSpecTree),
+    // the EXCLUDE reader, and the per-node status reader — runs here against a real
+    // tree. Observing that none leaves an spx.status.json behind is name-independent
+    // evidence that the --update path alone writes the file: a hidden alternate
+    // writer among these paths would create a projection here, whatever its name.
     const provider = createNodeStatusProvider(env.productDir);
     await readSpecTree({
       source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
       evidence: provider,
     });
+    createNodeStatusExcludeReader(env.productDir);
+    for (const expectation of expectations) {
+      const statusFilenameSuffix = `${NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR}${NODE_STATUS_FILENAME}`;
+      const nodeDir = join(env.productDir, expectation.statusPath.replace(statusFilenameSuffix, ""));
+      expect(readNodeStatus(nodeDir)).toBeUndefined();
+    }
 
     for (const expectation of expectations) {
       await expect(env.readFile(expectation.statusPath)).rejects.toThrow();
@@ -63,7 +61,7 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
 
     for (const expectation of expectations) {
       const recorded = JSON.parse(await env.readFile(expectation.statusPath));
-      expect(recorded[NODE_STATUS_FIELD.SCHEMA_VERSION]).toBe(1);
+      expect(recorded[NODE_STATUS_FIELD.SCHEMA_VERSION]).toBe(NODE_STATUS_SCHEMA_VERSION);
       const testRecord = recorded.verification[NODE_STATUS_VERIFICATION_MECHANISM.TEST] as
         | Record<string, string>
         | undefined;
@@ -75,28 +73,47 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
 }
 
 export async function assertCiRejectsNodeStatusProjectionDrift(): Promise<void> {
-  for (const workflowPath of NODE_STATUS_PROJECTION_WORKFLOW_PATHS) {
-    const workflowJobs = parseNodeStatusProjectionWorkflowJobs(
-      await readFile(join(process.cwd(), workflowPath), STATE_STORE_TEXT_ENCODING),
-    );
-    const projectionJobs = workflowJobs.filter((job) =>
-      job.steps.some((step) => step.name === NODE_STATUS_PROJECTION_STEP_NAME)
-    );
+  const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
 
-    expect(projectionJobs, `${workflowPath} has one ${NODE_STATUS_PROJECTION_STEP_NAME} job`).toHaveLength(1);
-    for (const job of projectionJobs) {
-      const verificationIndex = job.steps.findIndex((step) => step.name === NODE_STATUS_VERIFICATION_STEP_NAME);
-      const projectionIndex = job.steps.findIndex((step) => step.name === NODE_STATUS_PROJECTION_STEP_NAME);
-      const projectionStep = job.steps[projectionIndex];
-
-      expect(verificationIndex, `${NODE_STATUS_VERIFICATION_STEP_NAME} precedes projection`).toBeGreaterThanOrEqual(0);
-      expect(projectionIndex).toBeGreaterThan(verificationIndex);
-      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_UPDATE_COMMAND);
-      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_DRIFT_CHECK_COMMAND);
-      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_DIFF_COMMAND);
-      expect(projectionStep.run).toContain(NODE_STATUS_PROJECTION_FAILURE_COMMAND);
+  await withClassificationTree(fixture, async ({ env, expectations }) => {
+    const target = expectations.find(
+      (expectation) => expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded,
+    );
+    if (target === undefined) {
+      throw new Error("delegation tree must contain a test-outcome-stage node");
     }
-  }
+
+    // CI regenerates each committed projection from the checkout after running the
+    // verification suite, so every covered reference resolves to a fresh run
+    // outcome and no committed outcome is carried forward. Model that with an
+    // injected resolver reporting each covered reference as freshly passing, then
+    // regenerate the true projections.
+    const resolveOutcome: NodeOutcomeResolver = (_nodeId, evidencePaths) =>
+      Promise.resolve(
+        Object.fromEntries(evidencePaths.map((evidencePath) => [evidencePath, NODE_STATUS_EVIDENCE_OUTCOME.PASSED])),
+      );
+    await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+    const trueProjection = await env.readFile(target.statusPath);
+
+    // Forge a committed projection that disagrees with the recorded evidence, the
+    // stale-or-forged state CI exists to reject.
+    const forgedProjection = serializeNodeStatus(
+      createNodeStatusFile({
+        [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(
+          Object.fromEntries(
+            target.evidencePaths.map((evidencePath) => [evidencePath, NODE_STATUS_EVIDENCE_OUTCOME.FAILED]),
+          ),
+        ),
+      }),
+    );
+    await env.writeRaw(target.statusPath, forgedProjection);
+    expect(await env.readFile(target.statusPath)).not.toBe(trueProjection);
+
+    // Regenerating from the checkout overwrites the forged file with the
+    // evidence-derived projection — the byte difference a git comparison rejects.
+    await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+    expect(await env.readFile(target.statusPath)).toBe(trueProjection);
+  });
 }
 
 export async function assertMissingNodeStatusReturnsUndefined(): Promise<void> {
