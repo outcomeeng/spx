@@ -1,16 +1,19 @@
 import { join } from "node:path";
 import { expect } from "vitest";
 
+import { allCommand } from "@/commands/validation/all";
 import { KNIP_VALIDATION_STEP_NAME, knipCommand } from "@/commands/validation/knip";
 import {
   formatTypeScriptAbsentSkipMessage,
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
+  VALIDATION_STREAMED_STAGE_RESULT,
 } from "@/commands/validation/messages";
-import { VALIDATION_STREAMED_TERMINAL_OUTPUT } from "@/commands/validation/types";
+import { VALIDATION_STREAMED_TERMINAL_OUTPUT, type ValidationStageCompletion } from "@/commands/validation/types";
 import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
+import { runKnipStage, typescriptValidationLanguage } from "@/validation/languages/typescript";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -310,6 +313,7 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           const validationCalls: KnipValidationCall[] = [];
           const streamedStdout: string[] = [];
           const streamedStderr: string[] = [];
+          const stageCompletions: ValidationStageCompletion[] = [];
           const runner = new OutputRecordingSpawnOptionsRunner(
             failureDetail,
             VALIDATION_EXIT_CODES.FAILURE,
@@ -320,21 +324,44 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
             sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
           );
 
-          const result = await knipCommand(
+          const knipStage = typescriptValidationLanguage.stages.find(
+            (stage) => stage.name === VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+          );
+          if (knipStage === undefined) {
+            throw new Error("TypeScript validation registry has no Knip stage");
+          }
+          const knipDeps = createRecordingKnipCommandDeps(
+            env.productDir,
+            validationCalls,
+            runner,
+          );
+          const result = await allCommand(
             {
               cwd: env.productDir,
               files: [sourceFilePath],
-              streamedPipelineOutput: true,
+              validationStages: [{
+                ...knipStage,
+                run: (context) =>
+                  runKnipStage(context, {
+                    knipCommand: (options) => knipCommand(options, knipDeps),
+                  }),
+              }],
+              onStageComplete: (completion) => stageCompletions.push(completion),
               outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
             },
-            createRecordingKnipCommandDeps(env.productDir, validationCalls, runner),
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-          expect(result.output).toBe(failureDetail);
           expect(streamedStdout).toEqual([failureDetail]);
           expect(streamedStderr).toHaveLength(0);
-          expect(result.terminalOutput).toBe(VALIDATION_STREAMED_TERMINAL_OUTPUT);
+          expect(stageCompletions).toHaveLength(1);
+          expect(stageCompletions[0]?.result.output).toBe(failureDetail);
+          expect(stageCompletions[0]?.result.terminalOutput).toBe(
+            VALIDATION_STREAMED_TERMINAL_OUTPUT,
+          );
+          expect(stageCompletions[0]?.output).toContain(VALIDATION_STREAMED_STAGE_RESULT);
+          expect(result.output.split(VALIDATION_STREAMED_STAGE_RESULT)).toHaveLength(2);
+          expect(result.terminalOutput).toContain(VALIDATION_PIPELINE_DATA.summaryStatus.FAILED);
         },
       );
     });
