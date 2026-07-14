@@ -1,4 +1,12 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/26-release.enabler/32-documentation-sync.enabler/tests/documentation-sync.compliance.l1.test.ts": "passed",
+      "spx/26-release.enabler/32-documentation-sync.enabler/tests/documentation-sync.mapping.l1.test.ts": "passed",
+      "spx/26-release.enabler/32-documentation-sync.enabler/tests/documentation-sync.property.l1.test.ts": "passed",
+      "spx/26-release.enabler/32-documentation-sync.enabler/tests/documentation-sync.scenario.l1.test.ts": "passed"
+    }
+  }
 }
