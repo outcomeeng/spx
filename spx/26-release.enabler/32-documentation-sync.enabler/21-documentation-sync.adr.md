@@ -1,6 +1,6 @@
 # Documentation Sync Architecture
 
-Documentation sync resolves its document set from the registered `release.documentation.paths` configuration, defaults that set to the product README, stages existing documents in an isolated real-filesystem workspace, invokes the injected agent runner against the staged paths, reads every staged document back, validates product release-version references, audits the complete changed set by comparing each original document with its staged read-back content against release data through a separate agent-auditor query, and promotes the set only after every document passes. The previous product release version is the exact version derived from `ReleaseData.previousTag`; when no previous tag exists, structural validation has no prior release version to reject. The `spx release docs sync` Commander path composes the registered release descriptor, shared release-data computation, production agent boundary, filesystem adapter, and pure documentation-sync domain composition.
+Documentation sync resolves its document set from the registered `release.documentation.paths` configuration, defaults that set to the product README, stages existing documents in an isolated real-filesystem workspace, invokes the injected agent runner against the staged paths, reads every staged document back, validates product release-version references, audits the complete changed set by comparing each original document with its staged read-back content against release data through a separate agent-auditor query, and promotes the set only after every document passes. A structural product release-version reference is an exact release version, optionally prefixed by the registered release-tag prefix, bounded by whitespace or document edges. The previous product release version is derived from `ReleaseData.previousTag`; when no previous tag exists, structural validation has no prior release version to reject. The `spx release docs sync` Commander path composes the registered release descriptor, shared release-data computation, production agent boundary, filesystem adapter, and pure documentation-sync domain composition.
 
 ## Rationale
 
@@ -11,7 +11,7 @@ The document set is release policy, so its descriptor lives with the release dom
 - Every configured document path resolves canonically to a regular non-symlink file inside the product working tree.
 - The producing query writes only inside the isolated staging workspace; product documentation changes only through the promotion boundary after complete-set validation.
 - The audit input is exactly the shared release data and the configured document set paired by path with original and staged read-back content.
-- Structural version validation rejects only the exact previous product release version derived from `ReleaseData.previousTag`; every other semantic version is outside that stale-reference predicate.
+- Structural version validation rejects only the exact standalone previous product release-version token derived from `ReleaseData.previousTag`; larger non-whitespace tokens and every other semantic version are outside that stale-reference predicate.
 
 ## Verification
 
@@ -20,7 +20,7 @@ The document set is release policy, so its descriptor lives with the release dom
 - ALWAYS: omitted `release.documentation.paths` resolves to the product README and every configured non-empty path set resolves in declared order without duplicates ([property])
 - ALWAYS: every staged document contains the released version and, when `ReleaseData.previousTag` exists, contains no exact reference to that previous product release version before the faithfulness audit and promotion run ([compliance])
 - ALWAYS: the faithfulness audit receives the original and staged read-back content for every configured document path before promotion runs ([compliance])
-- ALWAYS: structural version validation preserves every semantic version other than the exact previous product release version derived from `ReleaseData.previousTag` ([property])
+- ALWAYS: structural version validation preserves every semantic version other than the exact standalone previous product release-version token derived from `ReleaseData.previousTag`, including exact release values embedded in larger non-whitespace tokens ([property])
 - ALWAYS: path traversal, canonical escape, final symlink, missing file, directory target, failed generation, failed read-back, failed version validation, and rejected faithfulness audit leave product documentation unpromoted ([compliance])
 - NEVER: promote any document until the complete configured set has passed read-back, version validation, and faithfulness audit ([compliance])
 
