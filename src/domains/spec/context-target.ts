@@ -103,11 +103,22 @@ function artifactOwnerId(entry: SpecContextArtifactEntry): string | undefined {
 }
 
 function nonSnapshotNodeArtifactOwnerId(snapshot: SpecTreeSnapshot, normalized: string): string | undefined {
-  return snapshot.allNodes.find((node) =>
-    NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES.some(
-      (filename) => `${node.id}${TARGET_SEPARATOR}${filename}` === normalized,
-    )
-  )?.id;
+  return snapshot.allNodes.find((node) => {
+    if (
+      NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES.some(
+        (filename) => `${node.id}${TARGET_SEPARATOR}${filename}` === normalized,
+      )
+    ) {
+      return true;
+    }
+    const evalPrefix = `${node.id}${TARGET_SEPARATOR}${SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME}${TARGET_SEPARATOR}`;
+    if (!normalized.startsWith(evalPrefix)) return false;
+    const evalSegments = normalized.slice(evalPrefix.length).split(TARGET_SEPARATOR);
+    if (evalSegments.length !== 2 || evalSegments[0]?.length === 0) return false;
+    const artifactName = evalSegments[1];
+    return artifactName === SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME
+      || SPEC_TREE_GRAMMAR.EVAL.FILES.some((filename) => filename === artifactName);
+  })?.id;
 }
 
 function resolveArtifact(

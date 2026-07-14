@@ -18,6 +18,7 @@ import {
   type DecisionKind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree/config";
 import {
@@ -48,6 +49,11 @@ const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
   PRODUCT_SPEC: SPEC_TREE_ENTRY_TYPE.PRODUCT,
   ROOT_DECISION: "root-decision",
   TEST_EVIDENCE: "test-evidence",
+} as const;
+
+const SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES = {
+  DIRECTORY: "directory",
+  FILE: "file",
 } as const;
 
 const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES = {
@@ -90,13 +96,26 @@ type SpecContextNonDecisionArtifactMappingCaseKind =
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PRODUCT_SPEC
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
 
+type SpecContextEvalArtifactName =
+  | (typeof SPEC_TREE_GRAMMAR.EVAL.FILES)[number]
+  | typeof SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME;
+
 type SpecContextDecisionArtifactMappingCaseKind =
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_DECISION
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ROOT_DECISION;
 
 export type SpecContextArtifactMappingCase =
   | {
-    readonly artifactKind: SpecContextNonDecisionArtifactMappingCaseKind;
+    readonly artifactKind: typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE;
+    readonly evalArtifactName: SpecContextEvalArtifactName;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly title: string;
+  }
+  | {
+    readonly artifactKind: Exclude<
+      SpecContextNonDecisionArtifactMappingCaseKind,
+      typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
+    >;
     readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
     readonly title: string;
   }
@@ -157,10 +176,16 @@ export type SpecContextArtifactTargetFixture = {
   >;
   readonly sourceFixture: RepresentativeSpecTreeFixture;
   readonly target: string;
+  readonly filesystemArtifact?: {
+    readonly content: string;
+    readonly type:
+      (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES];
+  };
 };
 
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
 export const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND = SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES;
+export const SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE = SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES;
 export const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION = SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES;
 export const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY = SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES;
 
@@ -242,6 +267,27 @@ function ownedArtifactTargetFixture(
       ownerId: fixture.root.id,
     },
     sourceFixture,
+    target,
+  };
+}
+
+function filesystemOwnedArtifactTargetFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  target: string,
+  type:
+    (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES],
+): SpecContextArtifactTargetFixture {
+  return {
+    failure: {
+      input: target,
+      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
+      ownerId: specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root),
+    },
+    filesystemArtifact: {
+      content: fixture.root.title ?? fixture.root.slug,
+      type,
+    },
+    sourceFixture: fixture,
     target,
   };
 }
@@ -430,14 +476,30 @@ export function specContextArtifactTargetFixture(
       return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
     }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE: {
-      const target = `spx/${fixture.root.id}/${fixture.decision.slug}/${SPEC_TREE_GRAMMAR.EVAL_LANE[0]}`;
-      return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
+      const target = [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        rootDirectory,
+        SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME,
+        fixture.decision.slug,
+        mappingCase.evalArtifactName,
+      ].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
+      return filesystemOwnedArtifactTargetFixture(
+        fixture,
+        target,
+        mappingCase.evalArtifactName === SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME
+          ? SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.DIRECTORY
+          : SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.FILE,
+      );
     }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN:
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES:
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS: {
-      const target = `spx/${fixture.root.id}/${mappingCase.artifactKind}`;
-      return ownedArtifactTargetFixture(fixture, fixture, target);
+      const target = `spx/${rootDirectory}/${mappingCase.artifactKind}`;
+      return filesystemOwnedArtifactTargetFixture(
+        fixture,
+        target,
+        SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.FILE,
+      );
     }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION: {
       const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
@@ -514,11 +576,15 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
       title: "maps a co-located test evidence path to its owning node",
     },
-    {
+    ...[
+      ...SPEC_TREE_GRAMMAR.EVAL.FILES,
+      SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME,
+    ].map((evalArtifactName): SpecContextArtifactMappingCase => ({
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE,
+      evalArtifactName,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a co-located eval evidence path to its owning node",
-    },
+      title: `maps the co-located eval ${evalArtifactName} path to its owning node`,
+    })),
     {
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,

@@ -1,6 +1,9 @@
 import { describe, it } from "vitest";
 
-import { assertSpecStatusCliAcceptsLocalJsonFormat } from "@testing/harnesses/spec/context";
+import {
+  assertSpecStatusCliAcceptsLocalJsonFormat,
+  assertSpecStatusCliConfinesMutableState,
+} from "@testing/harnesses/spec/context";
 
 describe("spx spec process isolation", () => {
   it("invokes the packaged executable with zero outbound network attempts", async () => {
@@ -8,6 +11,6 @@ describe("spx spec process isolation", () => {
   });
 
   it("confines mutable process state to the temp product directory", async () => {
-    await assertSpecStatusCliAcceptsLocalJsonFormat();
+    await assertSpecStatusCliConfinesMutableState();
   });
 });

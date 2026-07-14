@@ -52,8 +52,8 @@ testable eval-lane assertion. Add it after the recognition tests pass.
 4. Write tests covering every form, then implement the recognizer in
    `src/lib/spec-tree/`. Before the eval-lane placement rule can derive from the
    grammar, add an eval-lane container directory token (`evals`) to
-   `SPEC_TREE_GRAMMAR` in `29-filename-grammar.enabler`: the grammar currently
-   carries only the inner eval-lane file names (`EVAL_LANE`), so recognizing the
-   `evals/{rule}/` container from the grammar surface — rather than a hard-coded
-   literal the oracle ADR forbids — needs the container name single-sourced there.
+   `SPEC_TREE_GRAMMAR` in `29-filename-grammar.enabler`: the structured `EVAL`
+   contract carries the `evals` container, inner definition filenames, and `runs`
+   directory name, so recognition consumes the complete lane shape without a
+   parallel literal.
 5. Run audit gates, then add the deferred `[eval]` assertion.

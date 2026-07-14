@@ -97,7 +97,11 @@ export const SPEC_TREE_GRAMMAR = {
   },
   PATH_SEPARATOR: "/",
   COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
-  EVAL_LANE: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl", "runs"],
+  EVAL: {
+    DIRECTORY_NAME: "evals",
+    FILES: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],
+    RUNS_DIRECTORY_NAME: "runs",
+  },
   SPEC_FILE: {
     CANONICAL_SUFFIX: ".spec.md",
     PRIOR_SUFFIX: ".md",
@@ -120,7 +124,7 @@ export type NamingSchemaVersion = {
   readonly order: SpecTreeOrderGrammar;
   readonly pathSeparator: string;
   readonly coordinationNotes: readonly string[];
-  readonly evalLane: readonly string[];
+  readonly eval: typeof SPEC_TREE_GRAMMAR.EVAL;
   readonly specFileSuffix: string;
 };
 
@@ -145,7 +149,7 @@ function namingSchemaVersion(
     order: SPEC_TREE_GRAMMAR.ORDER,
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
-    evalLane: SPEC_TREE_GRAMMAR.EVAL_LANE,
+    eval: SPEC_TREE_GRAMMAR.EVAL,
     specFileSuffix,
   };
 }
