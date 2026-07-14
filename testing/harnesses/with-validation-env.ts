@@ -8,7 +8,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/** Project root resolved from this helper's location */
+/** Product root resolved from this helper's location. */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
 const FIXTURES_PATH = resolve(__dirname, "../fixtures");
 
@@ -49,17 +49,17 @@ export interface TestEnvContext {
  * Options for creating a test environment.
  */
 export interface TestEnvOptions {
-  /** Name of the fixture project to copy from testing/fixtures/projects/ */
+  /** Name of the fixture product to copy from testing/fixtures/projects/. */
   fixture: FixtureName;
 }
 
 /**
- * Creates an isolated test environment with a fixture project.
+ * Creates an isolated test environment with a fixture product.
  *
  * This harness:
  * 1. Creates a temporary directory
- * 2. Copies the specified fixture project into it
- * 3. Symlinks node_modules from project root (fast, no install needed)
+ * 2. Copies the specified fixture product into it
+ * 3. Symlinks node_modules from the product root (fast, no install needed)
  * 4. Runs the test callback with the temp directory path
  * 5. Cleans up the temp directory after the test (even if test fails)
  *
@@ -79,14 +79,14 @@ export function withValidationEnv(
   testFn: (context: TestEnvContext) => Promise<void>,
 ): Promise<void> {
   return withTempDir("spx-test-", async (tempDir) => {
-    // Copy fixture project to temp directory
+    // Copy fixture product to temp directory.
     const fixtureSource = join(FIXTURES_PATH, opts.fixture);
     const fixtureDest = join(tempDir, opts.fixture);
 
     await cp(fixtureSource, fixtureDest, { recursive: true });
     await runGit(fixtureDest, [GIT_TEST_SUBCOMMANDS.INIT]);
 
-    // Symlink node_modules from project root (fast, no install needed)
+    // Symlink node_modules from the product root.
     await symlink(join(PRODUCT_ROOT, "node_modules"), join(fixtureDest, "node_modules"));
 
     // Run test callback with context

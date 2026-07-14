@@ -109,10 +109,10 @@ export type JournalRunInvocation =
     readonly terminalStatus: JournalRunTerminalStatus;
   };
 
-/** The scope a journal-streaming run covers: the project root and the test paths to run. */
+/** The scope a journal-streaming run covers: the product directory and the test paths to run. */
 export interface JournalRunRequest {
-  /** Project root the run executes against. */
-  readonly projectRoot: string;
+  /** Product directory the run executes against. */
+  readonly productDir: string;
   /** Test file paths the run covers; empty runs the runner's full scope. */
   readonly testPaths: readonly string[];
 }
@@ -122,7 +122,7 @@ export interface JournalStreamRunDependencies {
   /** The evidence-append port the run streams per-module scope and per-failing-case findings into. */
   readonly sink: TestRunEvidenceSink;
   /** Optional test override for descriptor-owned language presence detection. */
-  readonly isLanguagePresent?: (projectRoot: string) => boolean;
+  readonly isLanguagePresent?: (productDir: string) => boolean;
 }
 
 /** A request to run a language's tests over a set of discovered paths. */

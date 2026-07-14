@@ -284,7 +284,7 @@ export async function assertReporterAwaitsAsyncAppends(scenario: GeneratedRunSce
 
 /** Asserts a journal-streaming run registers the journal reporter on a programmatically started run through the injected starter, carrying no command-line reporter flag. */
 export async function assertRunRegistersReporterProgrammatically(
-  request: { readonly projectRoot: string; readonly testPaths: readonly string[] },
+  request: { readonly productDir: string; readonly testPaths: readonly string[] },
 ): Promise<void> {
   const starter = createSpyVitestRunStarter();
   await runTestsStreaming(request, { sink: createRecordingEvidenceSink(), starter });
@@ -298,19 +298,19 @@ const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "
 // module — the real-run counterpart of the sibling runner's single-outcome fixtures.
 const MIXED_FIXTURE = "mixed.test.ts.fixture";
 const MIXED_SUITE_NAME = "suite.test.ts";
-const TEMP_PROJECT_PREFIX = "spx-journal-reporter-";
+const TEMP_PRODUCT_PREFIX = "spx-journal-reporter-";
 
 /**
- * Materializes the committed mixed-case fixture into a fresh temp project outside the
+ * Materializes the committed mixed-case fixture into a fresh temp product outside the
  * repository — so the programmatic run resolves no inherited Vitest config — and invokes
- * the callback with the project root and the copied suite's relative path.
+ * the callback with the product directory and the copied suite's relative path.
  */
-export function withMixedVitestProject(
-  callback: (projectRoot: string, testFileName: string) => Promise<void>,
+export function withMixedVitestProduct(
+  callback: (productDir: string, testFileName: string) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
-    await copyFile(join(VITEST_FIXTURE_DIR, MIXED_FIXTURE), join(projectRoot, MIXED_SUITE_NAME));
-    await callback(projectRoot, MIXED_SUITE_NAME);
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    await copyFile(join(VITEST_FIXTURE_DIR, MIXED_FIXTURE), join(productDir, MIXED_SUITE_NAME));
+    await callback(productDir, MIXED_SUITE_NAME);
   });
 }
 
@@ -321,11 +321,11 @@ export function withMixedVitestProject(
  * and yields the failed terminal status. The passing case records no finding.
  */
 export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
-  await withMixedVitestProject(async (projectRoot, testFileName) => {
+  await withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;
     const sink = createRecordingEvidenceSink();
     const terminalStatus = await runTestsStreaming(
-      { projectRoot, testPaths: [testFileName] },
+      { productDir, testPaths: [testFileName] },
       { sink, starter: createVitestRunStarter() },
     );
     expect(sink.scopes).toHaveLength(1);

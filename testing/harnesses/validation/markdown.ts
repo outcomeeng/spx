@@ -74,7 +74,7 @@ export async function runMarkdownValidationScenario(scenario: MarkdownValidation
       return runBrokenFragmentScenario(scenario);
     case MARKDOWN_SCENARIO_KIND.ERROR_SHAPE:
       return runErrorShapeScenario(scenario);
-    case MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK:
+    case MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK:
       return runProjectAbsoluteLinkScenario();
     case MARKDOWN_SCENARIO_KIND.NO_SIDE_EFFECTS:
       return runNoSideEffectsScenario(scenario);
@@ -224,7 +224,7 @@ async function runProjectAbsoluteLinkScenario(): Promise<void> {
       MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
     );
     const sourceFile = join(spxDir, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile);
-    await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.projectAbsoluteSourceContent);
+    await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.productAbsoluteSourceContent);
 
     const result = await markdownCommand({
       cwd: path,
@@ -663,7 +663,7 @@ const MARKDOWN_MAPPING_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = 
   MARKDOWN_SCENARIO_KIND.CLEAN_TREE,
   MARKDOWN_SCENARIO_KIND.DATA_URI_ALLOWED,
   MARKDOWN_SCENARIO_KIND.IGNORED_LINK_TYPES,
-  MARKDOWN_SCENARIO_KIND.PROJECT_ABSOLUTE_LINK,
+  MARKDOWN_SCENARIO_KIND.PRODUCT_ABSOLUTE_LINK,
   MARKDOWN_SCENARIO_KIND.CONFIG_BUILDER,
 ]);
 const MARKDOWN_COMPLIANCE_KINDS: ReadonlySet<MarkdownValidationScenario["kind"]> = new Set([

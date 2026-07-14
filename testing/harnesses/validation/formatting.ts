@@ -615,9 +615,9 @@ async function runParticipationOverrideScenario(): Promise<void> {
 }
 
 /**
- * Run the formatting command against a temp project that has no `dprint.jsonc`.
+ * Run the formatting command against a temp product that has no `dprint.jsonc`.
  *
- * The project carries an unformatted file but no config, so the stage must skip
+ * The product carries an unformatted file but no config, so the stage must skip
  * rather than let a personal global dprint config decide the verdict.
  */
 export function runFormattingWithoutConfig(

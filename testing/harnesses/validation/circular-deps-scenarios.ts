@@ -1312,7 +1312,7 @@ export function registerCircularDependencyScenarios(): void {
       });
     });
 
-    it("skips the project root when TypeScript config includes only non-TypeScript globs", async () => {
+    it("skips the product directory when TypeScript config includes only non-TypeScript globs", async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         await writeFile(
           join(path, VALIDATION_PIPELINE_DATA.sourceDirectoryName, VALIDATION_PIPELINE_DATA.markdownOnlyFileName),
@@ -1835,7 +1835,7 @@ export function registerCircularDependencyScenarios(): void {
       });
     });
 
-    it("skips explicit relative paths that escape the project root", async () => {
+    it("skips explicit relative paths that escape the product directory", async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
         const validationCalls: ScopeConfig[] = [];
         const deps: CircularCommandDeps = {
