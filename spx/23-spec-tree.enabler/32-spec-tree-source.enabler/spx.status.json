@@ -4,7 +4,9 @@
     "test": {
       "overall": "passed",
       "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/tests/residual-retention.mapping.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/tests/spec-tree-source.mapping.l1.test.ts": "passed"
+      "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/tests/residual-retention.property.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/tests/spec-tree-source.mapping.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/tests/spec-tree-source.property.l1.test.ts": "passed"
     }
   }
 }
