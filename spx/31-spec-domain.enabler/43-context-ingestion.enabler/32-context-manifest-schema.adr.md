@@ -21,7 +21,7 @@ The digest hashes the file's raw bytes before any decode: a decoded-text digest 
 ### Audit
 
 - ALWAYS: role classification, read-order construction, citation extraction, and digest computation are pure functions accepting all external state as parameters, with filesystem and git reads confined to the command handler per `spx/14-cli-composition.adr.md` ([audit])
-- ALWAYS: the command handler reaches git and the filesystem through injected dependencies so tests exercise the real projection code paths over temp-directory fixtures ([audit])
+- ALWAYS: the command handler reaches git through injected dependencies and reads documents only from the resolved worktree-local product directory, so tests exercise the real projection code paths over temp-directory fixtures ([audit])
 - ALWAYS: the content-mode digest is computed over raw file bytes before text decoding, and the digest value names its algorithm ([audit])
 - ALWAYS: content mode decodes documents as strict UTF-8, and the first read or decode failure aborts the entire projection with a diagnostic naming the exact failing path ([audit])
 - NEVER: content mode truncates, elides, or substitutes any read-class document's bytes ([audit])
