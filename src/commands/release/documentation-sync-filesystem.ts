@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import type { Stats } from "node:fs";
-import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { constants, type Stats } from "node:fs";
+import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
@@ -15,6 +15,7 @@ import { type AtomicWriteFileSystem, writeFileAtomic } from "@/lib/atomic-file-w
 import { isPathContained } from "@/lib/file-system/pathContainment";
 
 const DOCUMENTATION_TEXT_ENCODING = "utf8";
+const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW;
 const DOCUMENTATION_STAGE_DIRECTORY_PREFIX = "spx-documentation-sync-stage-";
 const DOCUMENTATION_ROLLBACK_FAILURE_MESSAGE = "Documentation promotion rollback failed";
 const ATOMIC_WRITE_FILE_SYSTEM: AtomicWriteFileSystem = {
@@ -50,13 +51,19 @@ export interface DocumentationFileHandle {
 export type DocumentationFileOpener = (path: string) => Promise<DocumentationFileHandle>;
 
 export interface DocumentationSyncFilesystemDependencies {
-  readonly openDocumentationFile?: DocumentationFileOpener;
+  readonly openDocumentationFile: DocumentationFileOpener;
   readonly writeDocumentAtomic: DocumentationAtomicWriter;
 }
 
 interface VerifiedDocumentationPath {
   readonly sourcePath: string;
   readonly targetPath: string;
+  readonly originalContent: string;
+}
+
+interface BoundDocumentationSnapshot {
+  readonly content: string;
+  readonly stats: Stats;
 }
 
 export interface DocumentationPathOperations {
@@ -74,6 +81,14 @@ const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
 };
 
 const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFilesystemDependencies = {
+  openDocumentationFile: async (path) => {
+    const handle = await open(path, DOCUMENTATION_OPEN_FLAGS);
+    return {
+      stat: async () => await handle.stat(),
+      readText: async () => (await handle.readFile()).toString(),
+      close: async () => await handle.close(),
+    };
+  },
   writeDocumentAtomic: async (path, content, guard) => {
     await writeFileAtomic(path, content, {
       fs: {
@@ -88,16 +103,15 @@ const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFiles
   },
 };
 
-const UNGUARDED_DOCUMENTATION_REPLACEMENT: DocumentationReplacementGuard = async () => {
-  await Promise.resolve();
-};
-
 export function createDocumentationSyncFilesystem(
-  dependencies: DocumentationSyncFilesystemDependencies = DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES,
+  overrides: Partial<DocumentationSyncFilesystemDependencies> = {},
 ): DocumentationSyncFilesystem {
+  const dependencies = { ...DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES, ...overrides };
   return {
-    stageDocumentation: stageDocumentationSet,
-    readDocument: readStagedDocumentation,
+    stageDocumentation: async (productDir, paths) =>
+      await stageDocumentationSet(productDir, paths, dependencies.openDocumentationFile),
+    readDocument: async (workingDirectory, path) =>
+      await readStagedDocumentation(workingDirectory, path, dependencies.openDocumentationFile),
     promoteDocumentation: async (documents) => await promoteDocumentationSet(documents, dependencies),
   };
 }
@@ -105,35 +119,32 @@ export function createDocumentationSyncFilesystem(
 async function readStagedDocumentation(
   workingDirectory: string,
   path: string,
+  openDocumentationFile: DocumentationFileOpener,
 ): Promise<string> {
   const canonicalWorkingDirectory = await realpath(workingDirectory);
-  const stats = await lstat(path);
-  if (stats.isSymbolicLink()) {
-    throw new Error(`Staged documentation path is a symbolic link: ${path}`);
-  }
-  if (!stats.isFile()) {
-    throw new Error(`Staged documentation path is not a regular file: ${path}`);
-  }
-  const canonicalPath = await realpath(path);
-  if (!isPathContained(canonicalWorkingDirectory, canonicalPath)) {
-    throw new Error(`Staged documentation path resolves outside its workspace: ${path}`);
-  }
-  return await readFile(path, DOCUMENTATION_TEXT_ENCODING);
+  return (await readBoundDocumentationSnapshot(
+    path,
+    canonicalWorkingDirectory,
+    false,
+    openDocumentationFile,
+  )).content;
 }
 
 async function stageDocumentationSet(
   productDir: string,
   paths: readonly string[],
+  openDocumentationFile: DocumentationFileOpener,
 ) {
   const canonicalProductDir = await realpath(productDir);
   const verified = await Promise.all(
-    paths.map(async (sourcePath) => await verifyDocumentationPath(canonicalProductDir, sourcePath)),
+    paths.map(async (sourcePath) =>
+      await verifyDocumentationPath(canonicalProductDir, sourcePath, openDocumentationFile)
+    ),
   );
   const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
   try {
-    const documents = await Promise.all(verified.map(async ({ sourcePath, targetPath }) => {
+    const documents = await Promise.all(verified.map(async ({ sourcePath, targetPath, originalContent }) => {
       const stagedPath = join(workingDirectory, normalizeDocumentationPathSeparators(sourcePath));
-      const originalContent = await readFile(targetPath, DOCUMENTATION_TEXT_ENCODING);
       await mkdir(dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, originalContent, DOCUMENTATION_TEXT_ENCODING);
       return { sourcePath, stagedPath, targetPath, originalContent };
@@ -153,13 +164,16 @@ async function promoteDocumentationSet(
   documents: readonly DocumentationPromotion[],
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  await assertDocumentationSetUnchanged(documents);
+  await assertDocumentationSetUnchanged(documents, dependencies.openDocumentationFile);
   const promoted: DocumentationPromotion[] = [];
   try {
     for (const document of documents) {
-      const { path, content } = document;
-      await assertDocumentationUnchanged(document);
-      await dependencies.writeDocumentAtomic(path, content, UNGUARDED_DOCUMENTATION_REPLACEMENT);
+      await replaceDocumentation(
+        document.path,
+        document.originalContent,
+        document.content,
+        dependencies,
+      );
       promoted.push(document);
     }
   } catch (promotionError) {
@@ -176,18 +190,24 @@ async function promoteDocumentationSet(
 
 async function assertDocumentationSetUnchanged(
   documents: readonly DocumentationPromotion[],
+  openDocumentationFile: DocumentationFileOpener,
 ): Promise<void> {
-  await Promise.all(documents.map(assertDocumentationUnchanged));
+  await Promise.all(
+    documents.map(async (document) => await assertDocumentationUnchanged(document, openDocumentationFile)),
+  );
 }
 
 async function assertDocumentationUnchanged(
   { path, originalContent }: DocumentationPromotion,
+  openDocumentationFile: DocumentationFileOpener,
 ): Promise<void> {
-  await verifyCanonicalTarget(path);
-  const currentContent = await readFile(path, DOCUMENTATION_TEXT_ENCODING);
-  if (currentContent !== originalContent) {
-    throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
-  }
+  const currentContent = (await readBoundDocumentationSnapshot(
+    path,
+    undefined,
+    true,
+    openDocumentationFile,
+  )).content;
+  assertDocumentationContent(path, currentContent, originalContent);
 }
 
 async function restorePromotedDocumentation(
@@ -195,10 +215,9 @@ async function restorePromotedDocumentation(
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<readonly unknown[]> {
   const rollbackErrors: unknown[] = [];
-  for (const { path, originalContent } of [...promoted].reverse()) {
+  for (const { path, originalContent, content } of [...promoted].reverse()) {
     try {
-      await verifyCanonicalTarget(path);
-      await dependencies.writeDocumentAtomic(path, originalContent, UNGUARDED_DOCUMENTATION_REPLACEMENT);
+      await replaceDocumentation(path, content, originalContent, dependencies);
     } catch (error) {
       rollbackErrors.push(error);
     }
@@ -209,6 +228,7 @@ async function restorePromotedDocumentation(
 async function verifyDocumentationPath(
   canonicalProductDir: string,
   sourcePath: string,
+  openDocumentationFile: DocumentationFileOpener,
 ): Promise<VerifiedDocumentationPath> {
   if (isAbsolute(sourcePath)) {
     throw new Error(`Documentation path must be relative to the product: ${sourcePath}`);
@@ -217,8 +237,13 @@ async function verifyDocumentationPath(
   if (targetPath === undefined) {
     throw new Error(`Documentation path escapes or is not canonical within the product: ${sourcePath}`);
   }
-  await verifyCanonicalTarget(targetPath);
-  return { sourcePath, targetPath };
+  const originalContent = (await readBoundDocumentationSnapshot(
+    targetPath,
+    canonicalProductDir,
+    true,
+    openDocumentationFile,
+  )).content;
+  return { sourcePath, targetPath, originalContent };
 }
 
 export function resolveCanonicalDocumentationTarget(
@@ -240,16 +265,121 @@ export function resolveCanonicalDocumentationTarget(
     : undefined;
 }
 
-async function verifyCanonicalTarget(targetPath: string): Promise<void> {
-  const stats = await lstat(targetPath);
-  if (stats.isSymbolicLink()) {
-    throw new Error(`Documentation path is a symbolic link: ${targetPath}`);
+async function replaceDocumentation(
+  path: string,
+  expectedContent: string,
+  replacementContent: string,
+  dependencies: DocumentationSyncFilesystemDependencies,
+): Promise<void> {
+  await withBoundDocumentationFile(
+    path,
+    undefined,
+    true,
+    dependencies.openDocumentationFile,
+    async (handle, stats, assertPathStillBound) => {
+      const currentContent = await handle.readText();
+      await assertPathStillBound();
+      assertDocumentationContent(path, currentContent, expectedContent);
+      const guard: DocumentationReplacementGuard = async () => {
+        await assertPathStillBound();
+        const snapshot = await readBoundDocumentationSnapshot(
+          path,
+          undefined,
+          true,
+          dependencies.openDocumentationFile,
+        );
+        if (!isSameFileIdentity(stats, snapshot.stats)) {
+          throw new Error(`Documentation file identity changed before replacement: ${path}`);
+        }
+        assertDocumentationContent(path, snapshot.content, expectedContent);
+      };
+      await dependencies.writeDocumentAtomic(path, replacementContent, guard);
+    },
+  );
+}
+
+async function readBoundDocumentationSnapshot(
+  path: string,
+  canonicalRoot: string | undefined,
+  requireCanonicalPath: boolean,
+  openDocumentationFile: DocumentationFileOpener,
+): Promise<BoundDocumentationSnapshot> {
+  return await withBoundDocumentationFile(
+    path,
+    canonicalRoot,
+    requireCanonicalPath,
+    openDocumentationFile,
+    async (handle, stats, assertPathStillBound) => {
+      const content = await handle.readText();
+      await assertPathStillBound();
+      return { content, stats };
+    },
+  );
+}
+
+async function withBoundDocumentationFile<T>(
+  path: string,
+  canonicalRoot: string | undefined,
+  requireCanonicalPath: boolean,
+  openDocumentationFile: DocumentationFileOpener,
+  use: (
+    handle: DocumentationFileHandle,
+    stats: Stats,
+    assertPathStillBound: DocumentationReplacementGuard,
+  ) => Promise<T>,
+): Promise<T> {
+  const handle = await openDocumentationFile(path);
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) {
+      throw new Error(`Documentation path is not a regular file: ${path}`);
+    }
+    const assertPathStillBound: DocumentationReplacementGuard = async () => {
+      await assertDocumentationPathBound(path, stats, canonicalRoot, requireCanonicalPath);
+    };
+    await assertPathStillBound();
+    return await use(handle, stats, assertPathStillBound);
+  } finally {
+    await handle.close();
   }
-  if (!stats.isFile()) {
-    throw new Error(`Documentation path is not a regular file: ${targetPath}`);
+}
+
+async function assertDocumentationPathBound(
+  path: string,
+  openStats: Stats,
+  canonicalRoot: string | undefined,
+  requireCanonicalPath: boolean,
+): Promise<void> {
+  const pathStats = await lstat(path);
+  if (pathStats.isSymbolicLink()) {
+    throw new Error(`Documentation path is a symbolic link: ${path}`);
   }
-  if (await realpath(targetPath) !== targetPath) {
-    throw new Error(`Documentation path resolves through a symbolic link: ${targetPath}`);
+  if (!pathStats.isFile()) {
+    throw new Error(`Documentation path is not a regular file: ${path}`);
+  }
+  if (!isSameFileIdentity(openStats, pathStats)) {
+    throw new Error(`Documentation file identity changed: ${path}`);
+  }
+  const canonicalPath = await realpath(path);
+  if (canonicalRoot !== undefined && !isPathContained(canonicalRoot, canonicalPath)) {
+    throw new Error(`Documentation path resolves outside its permitted root: ${path}`);
+  }
+  if (requireCanonicalPath && canonicalPath !== path) {
+    throw new Error(`Documentation path resolves through a symbolic link: ${path}`);
+  }
+}
+
+function isSameFileIdentity(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function assertDocumentationContent(
+  path: string,
+  currentContent: string,
+  expectedContent: string,
+): void {
+  if (currentContent !== expectedContent) {
+    throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
   }
 }
 
