@@ -35,6 +35,7 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Link type resolution for local rule behavior: relative link (`./foo.md`) resolves from the file's directory; external URL (`https://...`) is not checked; HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Link type resolution for command behavior: product-absolute link (`/spx/foo.md`) resolves from the product root via `root_path` config ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Enabled built-in rules: MD001 (heading increment), MD003 (heading style), MD009 (no trailing spaces), MD010 (no hard tabs), MD024 (no duplicate headings — `siblings_only` for `spx/`, disabled for `docs/`), MD025 (single top-level heading), MD047 (file ends with newline). All other built-in rules are disabled ([test](tests/markdown-validation.mapping.l1.test.ts))
+- Markdown full-pipeline participation defaults to run ([test](tests/markdown-validation.mapping.l1.test.ts))
 
 ### Compliance
 
