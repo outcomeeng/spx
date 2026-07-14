@@ -177,7 +177,7 @@ async function relatedTestPaths(
     if (language.relatedTestPaths === undefined) continue;
     const relatedDeps = deps.relatedDepsFor(language.name);
     const languageResolution = await language.relatedTestPaths(
-      { projectRoot: options.productDir, sourcePaths: sourceFiles, candidateTestPaths, baseRef },
+      { productDir: options.productDir, sourcePaths: sourceFiles, candidateTestPaths, baseRef },
       options.staged === true
         ? { ...relatedDeps, readFile: (path) => readStagedFile(options.productDir, path, deps.git) }
         : relatedDeps,

@@ -35,7 +35,13 @@ export const PYTHON_RUNNER_TEST_GENERATOR = {
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   present: arbitraryPresence,
+  invocationGateScenario: arbitraryInvocationGateScenario,
 } as const;
+
+export interface PythonRunnerInvocationGateScenario {
+  readonly present: boolean;
+  readonly exitCode: number;
+}
 
 export function samplePythonRunnerValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return sampleConfigTestValue(arbitrary);
@@ -101,4 +107,11 @@ function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
   return fc.boolean();
+}
+
+function arbitraryInvocationGateScenario(): fc.Arbitrary<PythonRunnerInvocationGateScenario> {
+  return fc.record({
+    present: arbitraryPresence(),
+    exitCode: arbitraryExitCode(),
+  });
 }

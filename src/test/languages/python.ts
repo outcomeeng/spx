@@ -66,12 +66,12 @@ function excludeFlag(nodePath: string): string {
   return `${PYTHON_PYTEST_IGNORE_FLAG_PREFIX}${nodePath}${PYTHON_PYTEST_IGNORE_FLAG_SUFFIX}`;
 }
 
-function detect(projectRoot: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
-  return deps?.isLanguagePresent?.(projectRoot) ?? detectPython(projectRoot).present;
+function detect(productDir: string, deps?: Pick<TestRunnerDependencies, "isLanguagePresent">): boolean {
+  return deps?.isLanguagePresent?.(productDir) ?? detectPython(productDir).present;
 }
 
 async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation> {
-  if (!detect(request.projectRoot, deps)) {
+  if (!detect(request.productDir, deps)) {
     return { invoked: false };
   }
 
