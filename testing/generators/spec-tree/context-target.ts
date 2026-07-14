@@ -1,13 +1,26 @@
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
-import { SPEC_TREE_ENTRY_TYPE, type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import {
-  orderedDirectoryName,
+  SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+  type SpecTreeDecisionSourceEntry,
+  type SpecTreeEvidenceSourceEntry,
+  type SpecTreeNode,
+  type SpecTreeNodeSourceEntry,
+  type SpecTreeSnapshot,
+  type SpecTreeSourceEntry,
+} from "@/lib/spec-tree";
+import {
+  DECISION_KINDS,
+  type DecisionKind,
+  KIND_REGISTRY,
+  NODE_SUFFIXES,
+  SPEC_TREE_GRAMMAR,
+} from "@/lib/spec-tree/config";
+import {
   type RepresentativeSpecTreeFixture,
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 
@@ -18,13 +31,20 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
   CANONICAL: "canonical",
   EMPTY_SEGMENT: "empty-segment",
   INVALID_DIRECTORY: SPEC_TREE_ENTRY_TYPE.INVALID,
-  ISSUES_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
-  PLAN_ARTIFACT: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
   ROOTED: "rooted",
-  ROOT_ARTIFACT: "root-artifact",
   SUPERSEDED_DIRECTORY: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
   TRAILING_SEPARATOR: "trailing-separator",
   UNKNOWN: "unknown",
+} as const;
+
+const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
+  EVAL_EVIDENCE: "eval-evidence",
+  ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
+  NODE_DECISION: "node-decision",
+  NODE_SPEC: "node-spec",
+  PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
+  ROOT_DECISION: "root-decision",
+  TEST_EVIDENCE: "test-evidence",
 } as const;
 
 const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES = {
@@ -51,10 +71,6 @@ export type SpecContextEmptySegmentPosition =
 export type SpecContextEmptySegmentTopology =
   (typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES];
 
-export type SpecContextCoordinationNoteName =
-  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.PLAN_ARTIFACT
-  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ISSUES_ARTIFACT;
-
 export type SpecContextEmptySegmentMappingCase = {
   readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT;
   readonly position: SpecContextEmptySegmentPosition;
@@ -62,24 +78,44 @@ export type SpecContextEmptySegmentMappingCase = {
   readonly topology: SpecContextEmptySegmentTopology;
 };
 
+type SpecContextNodeArtifactMappingCaseKind =
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ISSUES
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_SPEC
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PLAN
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
+
+type SpecContextDecisionArtifactMappingCaseKind =
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_DECISION
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ROOT_DECISION;
+
+export type SpecContextArtifactMappingCase =
+  | {
+    readonly artifactKind: SpecContextNodeArtifactMappingCaseKind;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly title: string;
+  }
+  | {
+    readonly artifactKind: SpecContextDecisionArtifactMappingCaseKind;
+    readonly decisionKind: DecisionKind;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly title: string;
+  };
+
 export type SpecContextTargetMappingCase =
   | {
     readonly kind: Exclude<
       SpecContextTargetMappingCaseKind,
       | UnrecognizedNodeDirectoryCaseKind
-      | SpecContextCoordinationNoteName
+      | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT
       | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT
     >;
     readonly title: string;
   }
+  | SpecContextArtifactMappingCase
   | SpecContextEmptySegmentMappingCase
   | {
-    readonly directoryName: string;
     readonly kind: UnrecognizedNodeDirectoryCaseKind;
-    readonly title: string;
-  }
-  | {
-    readonly kind: SpecContextCoordinationNoteName;
     readonly title: string;
   };
 
@@ -105,17 +141,102 @@ export type SpecContextEmptySegmentTargetFixture = {
   readonly target: string;
 };
 
+export type SpecContextArtifactTargetFixture = {
+  readonly failure: SpecContextTargetFailure;
+  readonly sourceFixture: RepresentativeSpecTreeFixture;
+  readonly target: string;
+};
+
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
+export const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND = SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES;
 export const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION = SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES;
 export const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY = SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES;
 
-function unrecognizedNodeDirectoryName(kind: UnrecognizedNodeDirectoryCaseKind): string {
-  const suffix = sampleSpecTreeTestValue(
-    kind === SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY
-      ? SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY)
-      : SPEC_TREE_TEST_GENERATOR.supersededNodeSuffix(),
-  );
-  return orderedDirectoryName(suffix);
+function unregisteredNodeSuffix(seed: string): string {
+  const registeredSuffixes = new Set([...NODE_SUFFIXES, ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES]);
+  let candidate = `.${seed}`;
+  while (registeredSuffixes.has(candidate)) candidate = `${candidate}-${seed}`;
+  return candidate;
+}
+
+function supersededNodeSuffix(): string {
+  return SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0];
+}
+
+function replaceFixtureEntry(
+  entries: readonly SpecTreeSourceEntry[],
+  replacement: SpecTreeSourceEntry,
+): readonly SpecTreeSourceEntry[] {
+  return entries.map((entry) => entry.id === replacement.id ? replacement : entry);
+}
+
+function sourceRef(path: string): { readonly id: string; readonly path: string } {
+  return { id: path, path };
+}
+
+function nodeArtifactFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  target: string,
+): RepresentativeSpecTreeFixture {
+  const root: SpecTreeNodeSourceEntry = { ...fixture.root, ref: sourceRef(target) };
+  return { ...fixture, entries: replaceFixtureEntry(fixture.entries, root), root };
+}
+
+function decisionArtifactFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  decisionKind: DecisionKind,
+  parentId: string | undefined,
+  target: string,
+): RepresentativeSpecTreeFixture {
+  const decision: SpecTreeDecisionSourceEntry = {
+    ...fixture.decision,
+    kind: decisionKind,
+    parentId,
+    ref: sourceRef(target),
+  };
+  return { ...fixture, decision, entries: replaceFixtureEntry(fixture.entries, decision) };
+}
+
+function evidenceArtifactFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  target: string,
+): RepresentativeSpecTreeFixture {
+  const childEvidence: SpecTreeEvidenceSourceEntry = {
+    ...fixture.childEvidence,
+    parentId: fixture.root.id,
+    ref: sourceRef(target),
+    status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
+  };
+  return { ...fixture, childEvidence, entries: replaceFixtureEntry(fixture.entries, childEvidence) };
+}
+
+function ownedArtifactTargetFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  sourceFixture: RepresentativeSpecTreeFixture,
+  target: string,
+): SpecContextArtifactTargetFixture {
+  return {
+    failure: {
+      input: target,
+      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
+      ownerId: fixture.root.id,
+    },
+    sourceFixture,
+    target,
+  };
+}
+
+function decisionArtifactMappingCases(
+  artifactKind: SpecContextDecisionArtifactMappingCaseKind,
+): readonly SpecContextArtifactMappingCase[] {
+  return DECISION_KINDS.map((decisionKind) => ({
+    artifactKind,
+    decisionKind,
+    kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+    title: artifactKind === SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION
+      ? `maps a node-owned ${KIND_REGISTRY[decisionKind].label} path to its owning node`
+      : `maps a product-root ${KIND_REGISTRY[decisionKind].label} path to node-selection guidance`,
+  }));
 }
 
 function nodeSegment(nodeId: string): string {
@@ -238,11 +359,67 @@ export function specContextEmptySegmentSourceFixture(
   }
 }
 
-export function specContextCoordinationNoteTarget(
-  target: SpecTreeNode,
-  noteName: SpecContextCoordinationNoteName,
+export function specContextUnrecognizedNodeDirectoryTarget(
+  fixture: RepresentativeSpecTreeFixture,
+  kind: UnrecognizedNodeDirectoryCaseKind,
 ): string {
-  return `spx/${target.id}/${noteName}`;
+  const suffix = kind === SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY
+    ? unregisteredNodeSuffix(fixture.decision.slug)
+    : supersededNodeSuffix();
+  return `${fixture.root.order}-${fixture.root.slug}${suffix}`;
+}
+
+export function specContextArtifactTargetFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  mappingCase: SpecContextArtifactMappingCase,
+): SpecContextArtifactTargetFixture {
+  const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+  switch (mappingCase.artifactKind) {
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_SPEC: {
+      const target = `spx/${rootDirectory}/${fixture.root.slug}.md`;
+      return ownedArtifactTargetFixture(fixture, nodeArtifactFixture(fixture, target), target);
+    }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION: {
+      const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
+      const target = `spx/${fixture.root.id}/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
+      return ownedArtifactTargetFixture(
+        fixture,
+        decisionArtifactFixture(fixture, mappingCase.decisionKind, fixture.root.id, target),
+        target,
+      );
+    }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.TEST_EVIDENCE: {
+      const filename = [
+        fixture.root.slug,
+        SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
+        SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
+        ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
+      ].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
+      const target = `spx/${fixture.root.id}/${SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME}/${filename}`;
+      return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
+    }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE: {
+      const target = `spx/${fixture.root.id}/${fixture.decision.slug}/${SPEC_TREE_GRAMMAR.EVAL_LANE[0]}`;
+      return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
+    }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN:
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES: {
+      const target = `spx/${fixture.root.id}/${mappingCase.artifactKind}`;
+      return ownedArtifactTargetFixture(fixture, fixture, target);
+    }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION: {
+      const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
+      const target = `spx/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
+      return {
+        failure: {
+          input: target,
+          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
+        },
+        sourceFixture: decisionArtifactFixture(fixture, mappingCase.decisionKind, undefined, target),
+        target,
+      };
+    }
+  }
 }
 
 export function specContextTargetMappingCases(): readonly SpecContextTargetMappingCase[] {
@@ -290,28 +467,37 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       title: "maps an ambiguous segment to a candidate diagnostic",
     },
     {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_SPEC,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps an artifact path to an owning-node diagnostic",
+      title: "maps a node spec path to its owning node",
+    },
+    ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION),
+    {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.TEST_EVIDENCE,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a co-located test evidence path to its owning node",
     },
     {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT,
-      title: "maps a product-root decision path to node-selection guidance",
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a co-located eval evidence path to its owning node",
     },
     {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.PLAN_ARTIFACT,
-      title: "maps a node-local plan path to an owning-node diagnostic",
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a node-local plan path to its owning node",
     },
     {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ISSUES_ARTIFACT,
-      title: "maps a node-local issues path to an owning-node diagnostic",
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a node-local issues path to its owning node",
     },
+    ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION),
     {
-      directoryName: unrecognizedNodeDirectoryName(SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY),
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY,
       title: "maps an invalid node-directory path to an unresolved-input diagnostic",
     },
     {
-      directoryName: unrecognizedNodeDirectoryName(SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY),
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY,
       title: "maps a superseded node-directory path to an unresolved-input diagnostic",
     },

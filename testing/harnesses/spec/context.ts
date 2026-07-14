@@ -31,8 +31,8 @@ import {
   SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND,
   specContextAbbreviatedTarget as abbreviatedTarget,
   specContextAmbiguousTargetFixture as ambiguousTargetFixture,
-  type SpecContextCoordinationNoteName,
-  specContextCoordinationNoteTarget as coordinationNoteTarget,
+  type SpecContextArtifactMappingCase,
+  specContextArtifactTargetFixture as artifactTargetFixture,
   type SpecContextEmptySegmentMappingCase,
   specContextEmptySegmentSourceFixture as emptySegmentSourceFixture,
   specContextEmptySegmentTargetFixture as emptySegmentTargetFixture,
@@ -42,6 +42,7 @@ import {
   specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
   type SpecContextTargetDiagnosticSafetyCase,
   type SpecContextTargetMappingCase,
+  specContextUnrecognizedNodeDirectoryTarget as unrecognizedNodeDirectoryTarget,
 } from "@testing/generators/spec-tree/context-target";
 import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
@@ -189,79 +190,45 @@ export async function assertSpecContextRejectsNestedWholePathDisambiguation(): P
   });
 }
 
-export async function assertSpecContextRejectsArtifactTarget(): Promise<void> {
-  await withSpecTreeEnv({
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
-  }, async (env) => {
-    await env.materialize();
-    const snapshot = await env.readFilesystemSnapshot();
-    const target = snapshot.allNodes[0];
-    const artifact = target.ref?.path;
-    expect(artifact).toBeDefined();
-    if (artifact === undefined) return;
-    const message = await rejectedContextMessage(artifact, env.productDir);
-    expect(message).toContain(artifact);
-    expect(message).toContain(`spx/${target.id}`);
-    expect(message).toContain(
-      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH],
-    );
-  });
-}
-
-export async function assertSpecContextRejectsRootArtifactTarget(): Promise<void> {
-  await withSpecTreeEnv({
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
-  }, async (env) => {
-    await env.materialize();
-    const suffix = KIND_REGISTRY[env.fixture.decision.kind].suffix;
-    const artifact = `spx/${env.fixture.decision.order}-${env.fixture.decision.slug}${suffix}`;
-    await env.writeRaw(artifact, "# Product-root decision\n");
-    const message = await rejectedContextMessage(artifact, env.productDir);
-    expect(message).toContain(artifact);
-    expect(message).toContain(
-      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH],
-    );
-  });
-}
-
-async function assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(target: string): Promise<void> {
-  await withSpecTreeEnv({
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
-  }, async (env) => {
-    await env.materialize();
-    await mkdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, target), { recursive: true });
-    const message = await rejectedContextMessage(target, env.productDir);
-    expect(message).toContain(target);
-    expect(message).toContain(
-      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT],
-    );
-  });
-}
-
-async function assertSpecContextRejectsCoordinationNoteTarget(
-  noteName: SpecContextCoordinationNoteName,
+async function assertSpecContextRejectsArtifactTarget(
+  mappingCase: SpecContextArtifactMappingCase,
 ): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
       [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
     },
   }, async (env) => {
+    const fixture = artifactTargetFixture(env.fixture, mappingCase);
+    const snapshot = await env.readMemorySnapshot(fixture.sourceFixture);
+    expect(resolveSpecContextTarget(snapshot, fixture.target)).toMatchObject({
+      failure: fixture.failure,
+      ok: false,
+    });
+  });
+}
+
+async function assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(
+  mappingCase: Extract<
+    SpecContextTargetMappingCase,
+    {
+      readonly kind:
+        | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY
+        | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY;
+    }
+  >,
+): Promise<void> {
+  await withSpecTreeEnv({
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  }, async (env) => {
+    const target = unrecognizedNodeDirectoryTarget(env.fixture, mappingCase.kind);
     await env.materialize();
-    const snapshot = await env.readFilesystemSnapshot();
-    const target = snapshot.allNodes[0];
-    const artifact = coordinationNoteTarget(target, noteName);
-    await env.writeRaw(artifact, "");
-    const message = await rejectedContextMessage(artifact, env.productDir);
-    expect(message).toContain(artifact);
-    expect(message).toContain(`spx/${target.id}`);
+    await mkdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, target), { recursive: true });
+    const message = await rejectedContextMessage(target, env.productDir);
+    expect(message).toContain(target);
     expect(message).toContain(
-      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH],
+      SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT],
     );
   });
 }
@@ -326,18 +293,11 @@ export async function assertSpecContextTargetMappingCase(mappingCase: SpecContex
       await assertSpecContextRejectsAmbiguousTarget();
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT:
-      await assertSpecContextRejectsArtifactTarget();
-      return;
-    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOT_ARTIFACT:
-      await assertSpecContextRejectsRootArtifactTarget();
-      return;
-    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.PLAN_ARTIFACT:
-    case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ISSUES_ARTIFACT:
-      await assertSpecContextRejectsCoordinationNoteTarget(mappingCase.kind);
+      await assertSpecContextRejectsArtifactTarget(mappingCase);
       return;
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY:
     case SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY:
-      await assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(mappingCase.directoryName);
+      await assertSpecContextRejectsUnrecognizedNodeDirectoryTarget(mappingCase);
   }
 }
 
