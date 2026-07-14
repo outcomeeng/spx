@@ -14,6 +14,7 @@ import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import {
+  composeValidationPipelineStages,
   VALIDATION_STAGE_PARTICIPATION_POLICIES,
   validationPipelineStages,
   validationRegistry,
@@ -52,26 +53,32 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
       expect(resolveFullPipelineStages(undefined)).toBe(validationPipelineStages);
     });
 
-    it("runs the exact ordered stage collection supplied through the full-pipeline command input", async () => {
+    it("rejects registry bypass by running a conflicting controlled registry", async () => {
       await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
         await assertProperty(
-          fc.uniqueArray(
-            arbitraryDomainLiteral().filter(
-              (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
+          fc.record({
+            languageName: arbitraryDomainLiteral(),
+            stageNames: fc.uniqueArray(
+              arbitraryDomainLiteral().filter(
+                (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
+              ),
+              { minLength: 1, maxLength: validationPipelineStages.length },
             ),
-            { minLength: 1, maxLength: validationPipelineStages.length },
-          ),
-          async (stageNames) => {
+          }),
+          async ({ languageName, stageNames }) => {
             const executedStageNames: string[] = [];
-            const validationStages = stageNames.map((name) => ({
-              name,
-              failsPipeline: true,
-              participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
-              run: () => {
-                executedStageNames.push(name);
-                return Promise.resolve({ exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: name });
-              },
-            }));
+            const validationStages = composeValidationPipelineStages([{
+              name: languageName,
+              stages: stageNames.map((name) => ({
+                name,
+                failsPipeline: true,
+                participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+                run: () => {
+                  executedStageNames.push(name);
+                  return Promise.resolve({ exitCode: VALIDATION_EXIT_CODES.FAILURE, output: name });
+                },
+              })),
+            }]);
 
             const result = await allCommand({
               cwd: path,
@@ -79,7 +86,7 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
               validationStages,
             });
 
-            expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+            expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
             expect(executedStageNames).toEqual(stageNames);
           },
           { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
