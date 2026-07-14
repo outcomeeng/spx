@@ -104,6 +104,21 @@ export function arbitraryMultiDocumentSyncScenario(): fc.Arbitrary<Documentation
   return arbitraryConfiguredDocumentationSyncScenarioWithMinimum(MULTI_DOCUMENT_COUNT_MIN);
 }
 
+export function arbitraryFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
+  return fc
+    .uniqueArray(arbitraryDocumentationPath(), {
+      minLength: DOCUMENT_COUNT_MIN,
+      maxLength: DOCUMENT_COUNT_MAX,
+    })
+    .chain((paths) =>
+      arbitraryDocumentationSyncScenario(
+        fc.constant(paths),
+        { paths },
+        RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag(),
+      )
+    );
+}
+
 export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
   return fc
     .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), fc.boolean())
@@ -261,21 +276,23 @@ function createLinkedDocumentationPathFailureCase(
 function arbitraryDocumentationSyncScenario(
   pathsArbitrary: fc.Arbitrary<readonly string[]>,
   config: DocumentationSyncConfig,
+  releaseDataArbitrary: fc.Arbitrary<ReleaseData> = RELEASE_TEST_GENERATOR.releaseData(),
 ): fc.Arbitrary<DocumentationSyncScenario> {
-  return fc
-    .tuple(
-      RELEASE_TEST_GENERATOR.releaseData(),
-      pathsArbitrary,
-      arbitraryPathSegment(),
-      arbitraryPathSegment(),
-      arbitraryPathSegment(),
-    )
-    .map(([releaseData, paths, specState, domainState, ambientContent]) => {
-      const priorVersion = releaseData.previousTag === null
-        ? releaseData.version
-        : releaseVersionFromTag(releaseData.previousTag);
-      return {
-        releaseData,
+  return releaseDataArbitrary.chain((releaseData) => {
+    const priorVersionArbitrary = releaseData.previousTag === null
+      ? RELEASE_TEST_GENERATOR.semver().filter((version) => version !== releaseData.version)
+      : fc.constant(releaseVersionFromTag(releaseData.previousTag));
+    return fc
+      .tuple(
+        fc.constant(releaseData),
+        pathsArbitrary,
+        priorVersionArbitrary,
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+      )
+      .map(([scenarioReleaseData, paths, priorVersion, specState, domainState, ambientContent]) => ({
+        releaseData: scenarioReleaseData,
         config,
         paths,
         original: Object.fromEntries(
@@ -284,7 +301,7 @@ function arbitraryDocumentationSyncScenario(
         updated: Object.fromEntries(
           paths.map((path) => [
             path,
-            `${DOCUMENT_PREFIX}${releaseData.version}${VERSION_SEPARATOR}${releaseData.version}\n`,
+            `${DOCUMENT_PREFIX}${scenarioReleaseData.version}${VERSION_SEPARATOR}${scenarioReleaseData.version}\n`,
           ]),
         ),
         ambientState: [
@@ -297,6 +314,6 @@ function arbitraryDocumentationSyncScenario(
             content: `${ambientContent}-${domainState}`,
           },
         ],
-      };
-    });
+      }));
+  });
 }
