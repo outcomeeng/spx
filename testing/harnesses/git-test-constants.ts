@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 
+import { PACKAGED_CLI_ARTIFACT } from "@/interfaces/cli/artifact";
 import { withoutGitEnvironment } from "@/lib/git/environment";
 
 export const GIT_TEST_COMMAND = "git";
@@ -53,7 +54,7 @@ export const GIT_TEST_OUTPUT = {
 } as const;
 
 export const GIT_TEST_EXECUTABLE = {
-  NODE: "node",
+  NODE: PACKAGED_CLI_ARTIFACT.runtimeExecutable,
 } as const;
 
 export const GIT_TEST_CONFIG = {

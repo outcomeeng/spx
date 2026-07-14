@@ -39,6 +39,10 @@ import {
   tsconfigWithPaths,
 } from "@testing/generators/testing/changed-set-planning";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  sampleTypescriptRunnerValue,
+  TYPESCRIPT_RUNNER_TEST_GENERATOR,
+} from "@testing/generators/testing/typescript-runner";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   defaultBaseRef,
@@ -324,6 +328,43 @@ export function registerChangedSetPlanningScenarioTests(): void {
       });
 
       expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    });
+
+    it("selects only artifact-descriptor consumers for a changed packaged entrypoint", async () => {
+      const scenario = sampleTypescriptRunnerValue(
+        TYPESCRIPT_RUNNER_TEST_GENERATOR.artifactRelatedTests(),
+      );
+      const tsconfigContent = scenario.candidateContents.get(TYPESCRIPT_MARKER);
+      if (tsconfigContent === undefined) {
+        throw new Error("artifact related-test scenario carries no TypeScript config");
+      }
+      const candidateContents = new Map(
+        [...scenario.candidateContents].filter(([path]) => path !== TYPESCRIPT_MARKER),
+      );
+      const git = stagedSourceCandidatesGitRunner(
+        [scenario.changedSourcePath],
+        candidateContents,
+        tsconfigContent,
+      );
+
+      const plan = await planChangedTestSelection(
+        {
+          productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()),
+          staged: true,
+        },
+        {
+          git: git.git,
+          registry: registry([typescriptTestingLanguage]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({
+        operands: nativeStringOrder(scenario.selectedTestPaths),
+        recursive: false,
+      });
+      expect(plan.targets.operands).not.toContain(scenario.unrelatedTestPath);
       expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 

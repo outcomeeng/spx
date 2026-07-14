@@ -11,6 +11,7 @@ import { posix } from "node:path";
 import ts from "typescript";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
+import { PACKAGED_CLI_ARTIFACT, type SourceArtifactDescriptor } from "@/interfaces/cli/artifact";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   createVitestRunStarter,
@@ -39,13 +40,13 @@ export const TYPESCRIPT_TEST_FILE_PATTERNS: readonly string[] = TYPESCRIPT_TEST_
 const TYPESCRIPT_PRODUCT_INPUT_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
-  "src/cli.ts",
   TYPESCRIPT_MARKER,
   "vitest.config.js",
   "vitest.config.mjs",
   "vitest.config.ts",
   "vitest.config.mts",
 ] as const;
+const TYPESCRIPT_SOURCE_ARTIFACTS: readonly SourceArtifactDescriptor[] = [PACKAGED_CLI_ARTIFACT];
 
 /** vitest exclusion-flag format: an excluded node path maps to `--exclude=spx/{nodePath}/**`. */
 export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_PREFIX = "--exclude=spx/";
@@ -268,6 +269,17 @@ function isTraversableModulePath(path: string): boolean {
 type ModuleTextCache = Map<string, Promise<string | null>>;
 type ReachabilityCache = Map<string, Promise<readonly string[]>>;
 
+function artifactSourceMatches(
+  importCandidates: readonly string[],
+  sourcePaths: ReadonlySet<string>,
+): readonly string[] {
+  return TYPESCRIPT_SOURCE_ARTIFACTS.flatMap((artifact) =>
+    importCandidates.includes(artifact.descriptorPath)
+      ? artifact.sourceEntrypointPaths.filter((sourcePath) => sourcePaths.has(sourcePath))
+      : []
+  );
+}
+
 async function changedSourcesReachableFromText(
   importerPath: string,
   importerText: string,
@@ -284,6 +296,7 @@ async function changedSourcesReachableFromText(
     const candidates = candidateImportPaths(importerPath, specifier, mappings).filter(isProductRelativePath);
     const directMatches = candidates.filter((candidate) => sourcePaths.has(candidate));
     for (const candidate of directMatches) matched.add(candidate);
+    for (const sourcePath of artifactSourceMatches(candidates, sourcePaths)) matched.add(sourcePath);
     for (const candidate of candidates) {
       if (!isConcreteSourcePath(candidate) || !isTraversableModulePath(candidate)) continue;
       for (

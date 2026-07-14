@@ -4,6 +4,8 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { PACKAGED_CLI_ARTIFACT } from "@/interfaces/cli/artifact";
+
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 /**
@@ -14,17 +16,20 @@ export const PRODUCT_ROOT = resolve(__dirname, "../..");
 /**
  * Node.js executable used by subprocess CLI tests.
  */
-export const NODE_EXECUTABLE = "node";
+export const NODE_EXECUTABLE = PACKAGED_CLI_ARTIFACT.runtimeExecutable;
 
 /**
  * CLI binary path (absolute path)
  */
-export const CLI_PATH = resolve(PRODUCT_ROOT, "bin/spx.js");
+export const CLI_PATH = resolve(PRODUCT_ROOT, PACKAGED_CLI_ARTIFACT.launcherPath);
 
 /**
  * Common CLI flags used across test files.
  */
-export const VERSION_FLAG = "--version";
+export const VERSION_FLAG = PACKAGED_CLI_ARTIFACT.invocationFlags.version;
+
+/** Source entrypoints compiled into the packaged CLI. */
+export const CLI_SOURCE_ENTRYPOINT_PATHS = PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths;
 
 /**
  * CLI performance thresholds in milliseconds

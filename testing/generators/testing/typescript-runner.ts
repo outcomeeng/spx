@@ -1,6 +1,8 @@
 import * as fc from "fast-check";
 
+import { PACKAGED_CLI_ARTIFACT } from "@/interfaces/cli/artifact";
 import { TYPESCRIPT_TEST_FILE_SUFFIXES } from "@/test/languages/typescript";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 const NON_MATCHING_EXTENSIONS = [
@@ -26,6 +28,18 @@ const NODE_PATH_PAIR_LENGTH = 2;
 const MIN_EXIT_CODE = 0;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_EXIT_CODE = 255;
+const SOURCE_ROOT_PREFIX = "src/";
+const TYPESCRIPT_ALIAS_PREFIX = "@/";
+const TESTING_ALIAS_PREFIX = "@testing/";
+const GENERATED_CONSUMER_PATH = "testing/harnesses/generated-artifact-consumer.ts";
+const UNRELATED_SOURCE_PATH = "src/version.ts";
+
+export interface ArtifactRelatedTestScenario {
+  readonly changedSourcePath: string;
+  readonly selectedTestPaths: readonly string[];
+  readonly unrelatedTestPath: string;
+  readonly candidateContents: ReadonlyMap<string, string>;
+}
 
 export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   testFilePath: arbitraryTypeScriptTestFilePath,
@@ -38,6 +52,7 @@ export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   present: arbitraryPresence,
+  artifactRelatedTests: arbitraryArtifactRelatedTestScenario,
 } as const;
 
 export function sampleTypescriptRunnerValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -128,4 +143,47 @@ function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
   return fc.boolean();
+}
+
+function sourceAlias(path: string): string {
+  return `${TYPESCRIPT_ALIAS_PREFIX}${path.slice(SOURCE_ROOT_PREFIX.length).replace(/\.ts$/u, "")}`;
+}
+
+function testingAlias(path: string): string {
+  return `${TESTING_ALIAS_PREFIX}${path.slice("testing/".length).replace(/\.ts$/u, "")}`;
+}
+
+function importStatement(specifier: string): string {
+  return `import ${JSON.stringify(specifier)};`;
+}
+
+function arbitraryArtifactRelatedTestScenario(): fc.Arbitrary<ArtifactRelatedTestScenario> {
+  return fc.uniqueArray(arbitraryTypeScriptTestFilePath(), { minLength: 3, maxLength: 3 }).map(
+    ([directTestPath, transitiveTestPath, unrelatedTestPath]) => {
+      const descriptorImport = importStatement(sourceAlias(PACKAGED_CLI_ARTIFACT.descriptorPath));
+      return {
+        changedSourcePath: PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0],
+        selectedTestPaths: [directTestPath, transitiveTestPath],
+        unrelatedTestPath,
+        candidateContents: new Map([
+          [
+            TYPESCRIPT_MARKER,
+            JSON.stringify({
+              compilerOptions: {
+                paths: {
+                  "@/*": ["src/*"],
+                  "@testing/*": ["testing/*"],
+                },
+              },
+            }),
+          ],
+          [directTestPath, descriptorImport],
+          [transitiveTestPath, importStatement(testingAlias(GENERATED_CONSUMER_PATH))],
+          [unrelatedTestPath, importStatement(sourceAlias(UNRELATED_SOURCE_PATH))],
+          [GENERATED_CONSUMER_PATH, descriptorImport],
+          [UNRELATED_SOURCE_PATH, "export const unrelated = true;"],
+        ]),
+      };
+    },
+  );
 }

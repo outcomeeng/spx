@@ -60,14 +60,25 @@ function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<re
   if (!Array.isArray(raw) || raw.length === 0) {
     return { ok: false, error: "manifest `checks` must be a non-empty array of check names" };
   }
-  const unavailable = raw.filter((name) => !available.has(name as string));
+  const checks: CheckName[] = [];
+  const unavailable: string[] = [];
+  for (const name of raw) {
+    if (typeof name !== "string") {
+      return { ok: false, error: "manifest `checks` entries must be check-name strings" };
+    }
+    if (available.has(name)) {
+      checks.push(name as CheckName);
+    } else {
+      unavailable.push(name);
+    }
+  }
   if (unavailable.length > 0) {
     return {
       ok: false,
       error: `manifest \`checks\` names checks not available in this build: ${unavailable.join(", ")}`,
     };
   }
-  return { ok: true, value: raw as readonly CheckName[] };
+  return { ok: true, value: checks };
 }
 
 function validateManifestMethodology(

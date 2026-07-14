@@ -62,7 +62,7 @@ import {
   type DiagnoseExitCodeCase,
   expectedHumanHeader,
 } from "@testing/generators/diagnose/report-scenarios";
-import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE, VERSION_FLAG } from "@testing/harnesses/constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -247,7 +247,7 @@ function providerSection(output: string, header: string): string {
 }
 
 async function packagedCliVersion(): Promise<string> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, "--version"]);
+  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, VERSION_FLAG]);
   return result.stdout;
 }
 
