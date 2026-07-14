@@ -1,3 +1,7 @@
+import { copyFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { expect } from "vitest";
 import type { Reporter, TestCase, TestModule } from "vitest/node";
 
@@ -9,9 +13,15 @@ import type {
   VitestRunStarter,
   VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
-import { createJournalReporter, runTestsStreaming } from "@/test/languages/journal-reporter";
+import {
+  createJournalReporter,
+  createVitestRunStarter,
+  JOURNAL_RUN_TERMINAL_STATUS,
+  runTestsStreaming,
+} from "@/test/languages/journal-reporter";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
 import { GENERATED_CASE_STATE } from "@testing/generators/testing/journal-reporter";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** One recorded append against a recording evidence sink, preserving invocation order. */
 export type RecordedSinkCall =
@@ -169,4 +179,46 @@ export async function assertRunRegistersReporterProgrammatically(
   expect(starter.startedRuns).toHaveLength(1);
   expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
   expect(starter.startedRuns[0]?.testPaths).toEqual(request.testPaths);
+}
+
+const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");
+// A committed inert suite holding one passing and one runtime-failing case in one
+// module — the real-run counterpart of the sibling runner's single-outcome fixtures.
+const MIXED_FIXTURE = "mixed.test.ts.fixture";
+const MIXED_SUITE_NAME = "suite.test.ts";
+const TEMP_PROJECT_PREFIX = "spx-journal-reporter-";
+
+/**
+ * Materializes the committed mixed-case fixture into a fresh temp project outside the
+ * repository — so the programmatic run resolves no inherited Vitest config — and invokes
+ * the callback with the project root and the copied suite's relative path.
+ */
+export function withMixedVitestProject(
+  callback: (projectRoot: string, testFileName: string) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PROJECT_PREFIX, async (projectRoot) => {
+    await copyFile(join(VITEST_FIXTURE_DIR, MIXED_FIXTURE), join(projectRoot, MIXED_SUITE_NAME));
+    await callback(projectRoot, MIXED_SUITE_NAME);
+  });
+}
+
+/**
+ * Drives a real programmatic Vitest run over the mixed fixture with the production
+ * starter and a recording sink, asserting the run records exactly one module scope and
+ * one finding — for the failing case, carrying error text and the module's identity —
+ * and yields the failed terminal status. The passing case records no finding.
+ */
+export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
+  await withMixedVitestProject(async (projectRoot, testFileName) => {
+    const sink = createRecordingEvidenceSink();
+    const terminalStatus = await runTestsStreaming(
+      { projectRoot, testPaths: [testFileName] },
+      { sink, starter: createVitestRunStarter() },
+    );
+    expect(sink.scopes).toHaveLength(1);
+    expect(sink.findings).toHaveLength(1);
+    expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
+    expect(sink.findings[0]?.errors.length).toBeGreaterThan(0);
+    expect(terminalStatus).toBe(JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+  });
 }

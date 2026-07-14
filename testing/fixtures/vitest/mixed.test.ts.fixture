@@ -1,0 +1,9 @@
+import { expect, test } from "vitest";
+
+test("mixed suite passing case", () => {
+  expect(true).toBe(true);
+});
+
+test("mixed suite failing case", () => {
+  expect(1 + 1).toBe(3);
+});
