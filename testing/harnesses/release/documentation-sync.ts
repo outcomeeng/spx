@@ -8,10 +8,16 @@ import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } fr
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
   createDocumentationSyncFilesystem,
+  type DocumentationAtomicWriter,
   resolveCanonicalDocumentationTarget,
 } from "@/commands/release/documentation-sync-filesystem";
 import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
-import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, RELEASE_CONFIG_FIELDS, RELEASE_SECTION } from "@/domains/release/config";
+import {
+  DEFAULT_RELEASE_DOCUMENTATION_PATHS,
+  RELEASE_CONFIG_FIELDS,
+  RELEASE_SECTION,
+  releaseConfigDescriptor,
+} from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
@@ -38,6 +44,7 @@ import {
   documentationPathFailureCases,
   documentationPathMappingCases,
   type DocumentationSyncScenario,
+  mixedSeparatorDocumentationPathAliases,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -112,6 +119,20 @@ class RecordingDocumentationPromoter {
 
   readonly promote: DocumentationPromoter = async (documents) => {
     this.calls.push(documents);
+  };
+}
+
+class FailingSecondDocumentationAtomicWriter {
+  successfulWrites = 0;
+  failures = 0;
+
+  readonly write: DocumentationAtomicWriter = async (path, content) => {
+    if (this.successfulWrites === 1 && this.failures === 0) {
+      this.failures += 1;
+      throw new Error("Second documentation promotion failed");
+    }
+    await writeFile(path, content);
+    this.successfulWrites += 1;
   };
 }
 
@@ -424,6 +445,16 @@ function registerMappingTests(): void {
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
     });
+
+    it("rejects configured paths that alias across platform separators", () => {
+      expect(
+        releaseConfigDescriptor.validate({
+          [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+            [RELEASE_CONFIG_FIELDS.PATHS]: mixedSeparatorDocumentationPathAliases(),
+          },
+        }).ok,
+      ).toBe(false);
+    });
   });
 }
 
@@ -460,6 +491,20 @@ function registerComplianceTests(): void {
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
         { agentRunner: new FirstDocumentationWritingAgent() },
       );
+    });
+
+    it("restores earlier documents when a later atomic promotion fails", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+      const writer = new FailingSecondDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        await expect(composeDocumentationSync({
+          ...options,
+          promoteDocumentation: filesystem.promoteDocumentation,
+        })).rejects.toThrow();
+        expect(writer.failures).toBe(1);
+        await expectProductDocumentationUnchanged(scenario, readProductDocument);
+      });
     });
 
     it("audits the read-back set before promoting any document", async () => {
