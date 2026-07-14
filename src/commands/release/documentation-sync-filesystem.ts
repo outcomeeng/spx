@@ -86,9 +86,10 @@ async function stageDocumentationSet(
   try {
     const documents = await Promise.all(verified.map(async ({ sourcePath, targetPath }) => {
       const stagedPath = join(workingDirectory, sourcePath);
+      const originalContent = await readFile(targetPath, DOCUMENTATION_TEXT_ENCODING);
       await mkdir(dirname(stagedPath), { recursive: true });
-      await writeFile(stagedPath, await readFile(targetPath, DOCUMENTATION_TEXT_ENCODING), DOCUMENTATION_TEXT_ENCODING);
-      return { sourcePath, stagedPath, targetPath };
+      await writeFile(stagedPath, originalContent, DOCUMENTATION_TEXT_ENCODING);
+      return { sourcePath, stagedPath, targetPath, originalContent };
     }));
     return {
       workingDirectory,
