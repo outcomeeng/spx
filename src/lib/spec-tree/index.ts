@@ -16,7 +16,6 @@ import {
   compareNamingSchemaVersions,
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
@@ -25,13 +24,37 @@ import {
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
+  compareNumericVersionIdentifiers,
+  DECISION_KINDS,
+  DECISION_SUFFIXES,
+  KIND_REGISTRY,
+  NODE_KINDS,
+  NODE_SUFFIXES,
+  SPEC_TREE_ADR_KIND,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_VERSION,
+  SPEC_TREE_NODE_STATE,
+  SPEC_TREE_SECTION,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+  specTreeConfigDescriptor,
   supersededNodeSuffixes,
 } from "./config";
-export { SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR, SPEC_TREE_NODE_STATE } from "./config";
-export type { NamingSchemaVersion, SpecTreeNodeState } from "./config";
+export type {
+  DecisionKind,
+  Kind,
+  KindDefinition,
+  NamingSchemaVersion,
+  NodeKind,
+  SpecTreeConfig,
+  SpecTreeEvidenceGrammar,
+  SpecTreeKindCategory,
+  SpecTreeNodeState,
+} from "./config";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",
@@ -73,8 +96,6 @@ export const SPEC_TREE_EVIDENCE_STATUS = {
 } as const;
 
 export type SpecTreeEvidenceStatus = (typeof SPEC_TREE_EVIDENCE_STATUS)[keyof typeof SPEC_TREE_EVIDENCE_STATUS];
-
-const SPEC_TREE_EVIDENCE_FILE_TAILS = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS);
 
 export const SPEC_TREE_PROJECTION = {
   VERSION: 1,
@@ -346,7 +367,10 @@ export function recognizeSpecTreeFilesystemEntry(
     return recognizeDirectoryRecord(record, name, registry, schemaVersions);
   }
 
-  if (record.parentId !== undefined && isEvidenceFile(record.relativePath)) {
+  if (
+    record.parentId !== undefined
+    && isEvidenceFile(record.relativePath, canonicalNamingSchemaVersion(schemaVersions))
+  ) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
       id: record.relativePath,
@@ -784,18 +808,19 @@ function isProductFile(relativePath: string): boolean {
   return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR) && relativePath.endsWith(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
 }
 
-function isEvidenceFile(relativePath: string): boolean {
-  const segments = relativePath.split(SPEC_TREE_PATH_SEPARATOR);
+function isEvidenceFile(relativePath: string, version: NamingSchemaVersion): boolean {
+  const segments = relativePath.split(version.pathSeparator);
   if (segments.length < SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS) return false;
 
   const filename = segments.at(-1) ?? "";
   const directoryName = segments.at(-SPEC_TREE_PARENT_SEGMENT_OFFSET);
-  const filenameSegments = filename.split(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  const filenameSegments = filename.split(version.evidence.SEGMENT_SEPARATOR);
+  const evidenceFileTails = Object.values(version.evidence.TAILS);
 
-  return directoryName === SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME
-    && SPEC_TREE_EVIDENCE_FILE_TAILS.some((tail) =>
-      SPEC_TREE_EVIDENCE_FILE.MODES.some((mode) =>
-        SPEC_TREE_EVIDENCE_FILE.LEVELS.some((level) => filenameHasEvidenceSuffix(filenameSegments, mode, level, tail))
+  return directoryName === version.evidence.DIRECTORY_NAME
+    && evidenceFileTails.some((tail) =>
+      version.evidence.MODES.some((mode) =>
+        version.evidence.LEVELS.some((level) => filenameHasEvidenceSuffix(filenameSegments, mode, level, tail))
       )
     );
 }

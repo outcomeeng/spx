@@ -9,7 +9,7 @@ import {
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree";
 import {
   type ClassificationFixtureFacts,
   NODE_STATUS_READABLE_SLUGS,

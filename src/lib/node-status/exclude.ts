@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
 export const NODE_STATUS_EXCLUDE_FILENAME = "EXCLUDE";
 const PATH_SEGMENT_SEPARATOR = "/";

@@ -8,7 +8,7 @@ import {
   NODE_KINDS,
   NODE_SUFFIXES,
   SPEC_TREE_KIND_CATEGORY,
-} from "@/lib/spec-tree/config";
+} from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 describe("node kinds", () => {

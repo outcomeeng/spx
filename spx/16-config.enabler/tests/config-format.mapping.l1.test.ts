@@ -13,7 +13,7 @@ import {
   serializeConfigFileSections,
   serializeConfigFileSectionsWithSetIn,
 } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";

@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   createFilesystemSpecTreeSource,
+  DECISION_SUFFIXES,
+  NODE_KINDS,
+  NODE_SUFFIXES,
   readSpecTree,
   recognizeSpecTreeFilesystemEntry,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
 } from "@/lib/spec-tree";
-import { DECISION_SUFFIXES, NODE_KINDS, NODE_SUFFIXES, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   arbitraryDecisionPath,

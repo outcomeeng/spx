@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_FIELDS,
   CONFIG_TEST_GENERATOR,

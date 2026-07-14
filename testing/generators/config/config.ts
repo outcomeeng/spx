@@ -9,7 +9,7 @@ import {
   FILE_INCLUSION_SECTION,
   type FileInclusionConfig,
 } from "@/lib/file-inclusion/config";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_SECTION } from "@/lib/spec-tree/config";
+import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 
 const GENERATED_SEGMENT_MIN_LENGTH = 3;
 const GENERATED_SEGMENT_MAX_LENGTH = 12;

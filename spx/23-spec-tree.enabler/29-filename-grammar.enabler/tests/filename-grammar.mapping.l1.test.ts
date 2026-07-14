@@ -1,17 +1,19 @@
 import { describe, it } from "vitest";
 
+import { FILENAME_GRAMMAR_TOKEN_CASES } from "@testing/generators/spec-tree/filename-grammar";
 import {
   assertCanonicalSuffixesComeFromKindRegistry,
   assertEvidenceFileGrammarUsesSharedRegistryObject,
-  assertFilenameGrammarTokenGroupsAreNonEmpty,
+  assertFilenameGrammarTokenGroupIsNonEmpty,
   assertPriorNodeSuffixesStayInsidePriorSchemas,
   assertPriorNodeSuffixesStayOutsideLiveRegistry,
 } from "@testing/harnesses/spec-tree/filename-grammar";
 
 describe("filename grammar token vocabulary", () => {
-  it("resolves every grammar token group to a non-empty value on the registry surface", () => {
-    assertFilenameGrammarTokenGroupsAreNonEmpty();
-  });
+  it.each(FILENAME_GRAMMAR_TOKEN_CASES)(
+    "resolves $name to a non-empty value",
+    assertFilenameGrammarTokenGroupIsNonEmpty,
+  );
 
   it("exposes the evidence-file grammar as the one shared object, not a re-declared constant", () => {
     assertEvidenceFileGrammarUsesSharedRegistryObject();

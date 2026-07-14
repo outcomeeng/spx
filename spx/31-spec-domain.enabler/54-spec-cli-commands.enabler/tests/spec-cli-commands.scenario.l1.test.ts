@@ -30,13 +30,15 @@ import {
 } from "@/lib/node-status";
 import {
   getKindDefinition,
+  KIND_REGISTRY,
+  type NodeKind,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { PYTHON_TEST_FILE_PREFIX } from "@/test/languages/python";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";

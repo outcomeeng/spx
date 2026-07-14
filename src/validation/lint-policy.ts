@@ -3,8 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/lib/git/environment";
-import { SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
-import { NODE_SUFFIXES, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;

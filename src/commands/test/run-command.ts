@@ -46,8 +46,7 @@ import {
 } from "@/test/run-state";
 
 import { changedPathsForDirtyWorktree } from "@/lib/git/changed-paths";
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import {
   CHANGED_TEST_INDEX_PATH_PREFIX,
   CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,

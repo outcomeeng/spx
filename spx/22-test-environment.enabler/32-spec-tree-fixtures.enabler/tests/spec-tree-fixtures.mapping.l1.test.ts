@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree, SPEC_TREE_ENTRY_TYPE } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, readSpecTree, SPEC_TREE_ENTRY_TYPE } from "@/lib/spec-tree";
 import {
   buildRepresentativeFixture,
   createSource,

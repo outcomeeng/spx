@@ -6,7 +6,7 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 
 import {

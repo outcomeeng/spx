@@ -1,7 +1,11 @@
 import { join } from "node:path";
 
-import type { SpecTreeEvidenceProvider, SpecTreeNodeSourceEntry } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import {
+  SPEC_TREE_CONFIG,
+  type SpecTreeEvidenceProvider,
+  type SpecTreeNodeSourceEntry,
+  type SpecTreeNodeState,
+} from "@/lib/spec-tree";
 import { classifyNodeStatus, hasNodeStatusVerificationReferences } from "./classify";
 import { createNodeStatusExcludeReader } from "./exclude";
 import { readNodeStatus } from "./read";

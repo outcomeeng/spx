@@ -8,7 +8,7 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_SECTION,
   specTreeConfigDescriptor,
-} from "@/lib/spec-tree/config";
+} from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 describe("specTreeConfigDescriptor.section", () => {

@@ -2,13 +2,13 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
+  KIND_REGISTRY,
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 

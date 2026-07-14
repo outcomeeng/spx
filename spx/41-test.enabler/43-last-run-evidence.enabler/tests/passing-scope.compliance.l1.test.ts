@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { runTestsCommand } from "@/commands/test";
 import type { GitDependencies } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, testingConfigDescriptor } from "@/test/config";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";

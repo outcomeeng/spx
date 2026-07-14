@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   createFilesystemSpecTreeSource,
   getKindDefinition,
+  KIND_REGISTRY,
+  type NodeKind,
   projectSpecTree,
   readSpecTree,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
@@ -14,7 +17,6 @@ import {
   type SpecTreeProjection,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   sampleDecisionKind,
   sampleSpecTreeTestValue,

@@ -6,7 +6,7 @@ import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver
 import { statusCommand } from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
 import { getKindDefinition, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";

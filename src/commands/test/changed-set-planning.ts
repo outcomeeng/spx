@@ -9,7 +9,7 @@ import {
 } from "@/lib/git/changed-paths";
 import { GIT_NAME_STATUS_FLAG, GIT_NULL_DELIMITED_FLAG, pathsFromNulDelimited } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND, type GitDependencies, resolveDefaultBranch, resolveRefSha } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";

@@ -2,8 +2,7 @@ import { sep } from "node:path/posix";
 
 import * as fc from "fast-check";
 
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import type { TestingLanguageDescriptor } from "@/test/languages/types";
 import { testingRegistry } from "@/test/registry";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";

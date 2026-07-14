@@ -7,7 +7,7 @@ import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
 import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   VALIDATION_KNIP_SUBSECTION,
   VALIDATION_LITERAL_SUBSECTION,

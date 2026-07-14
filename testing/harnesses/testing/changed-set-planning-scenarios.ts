@@ -19,7 +19,7 @@ import { CONFIG_FILENAMES } from "@/config/index";
 import { partitionChangedPaths } from "@/domains/test/changed-set-planning";
 import { GIT_RENAME_STATUS_EXAMPLE, GIT_RENAMED_PATH_SUFFIX, pathsFromNameStatus } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestRequest, TestingLanguageDescriptor } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";

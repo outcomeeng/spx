@@ -1,7 +1,6 @@
 import { CONFIG_FILENAMES } from "@/config/filenames";
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 const PATH_SEPARATOR = "/";

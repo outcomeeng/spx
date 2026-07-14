@@ -20,8 +20,7 @@ import {
 } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import type { GitDependencies } from "@/lib/git/root";
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor } from "@/test/languages/types";

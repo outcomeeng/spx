@@ -8,7 +8,7 @@ import {
   type SpecTreeNodeState,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { specContextAbbreviatedTarget } from "@testing/generators/spec-tree/context-target";
 import {
   type RepresentativeSpecTreeFixture,

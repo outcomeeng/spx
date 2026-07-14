@@ -1,7 +1,13 @@
 import * as fc from "fast-check";
 
-import { canonicalNamingSchemaVersion, type NamingSchemaVersion, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import { DECISION_SUFFIXES, NODE_SUFFIXES } from "@/lib/spec-tree/config";
+import {
+  canonicalNamingSchemaVersion,
+  DECISION_SUFFIXES,
+  type NamingSchemaVersion,
+  NODE_SUFFIXES,
+  SPEC_TREE_GRAMMAR,
+  type SpecTreeEvidenceGrammar,
+} from "@/lib/spec-tree";
 
 const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_COMPONENT_MAX: 25,
@@ -12,8 +18,8 @@ const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   DECISION_SUFFIX_SET_MAX: 3,
   VERSION_TUPLE_MIN: 2,
   VERSION_TUPLE_MAX: 5,
-  PROPERTY_RUN_COUNT: 50,
   RECOGNITION_FOREIGN_SUFFIX_COUNT: 2,
+  EVIDENCE_TOKEN_MAX_LENGTH: 10,
 } as const;
 
 // Fixture-scoped version identifiers, deliberately distinct from the production
@@ -50,16 +56,39 @@ export type CanonicalForeignSuffixScenario = {
   readonly foreignCanonicalSuffix: string;
 };
 
+export type InjectedEvidenceGrammarScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly relativePath: string;
+};
+
+export type NonNumericVersionPair = {
+  readonly invalid: NamingSchemaVersion;
+  readonly valid: NamingSchemaVersion;
+};
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
-  counts: {
-    propertyRunCount: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.PROPERTY_RUN_COUNT,
-  },
   version: arbitraryNamingSchemaVersion,
+  versionComparisonPair: arbitraryNamingSchemaVersionComparisonPair,
+  nonNumericVersionPair: arbitraryNonNumericVersionPair,
   versionTuple: arbitraryNamingSchemaVersionTuple,
   recognitionScenario: arbitraryRecognitionVersionScenario,
   demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
   canonicalForeignSuffixScenario: arbitraryCanonicalForeignSuffixScenario,
+  injectedEvidenceGrammarScenario: arbitraryInjectedEvidenceGrammarScenario,
 } as const;
+
+function arbitraryNamingSchemaVersionComparisonPair(): fc.Arbitrary<
+  readonly [NamingSchemaVersion, NamingSchemaVersion]
+> {
+  return fc.tuple(arbitraryNamingSchemaVersion(), arbitraryNamingSchemaVersion());
+}
+
+function arbitraryNonNumericVersionPair(): fc.Arbitrary<NonNumericVersionPair> {
+  return arbitraryNamingSchemaVersion().map((valid) => ({
+    invalid: { ...valid, version: `${valid.version}-alpha` },
+    valid,
+  }));
+}
 
 function arbitrarySemver(): fc.Arbitrary<string> {
   return fc
@@ -92,13 +121,14 @@ function buildNamingSchemaVersion(
   nodeSuffixes: readonly string[],
   decisionSuffixes: readonly string[],
   specFileSuffix: string,
+  evidence: SpecTreeEvidenceGrammar = SPEC_TREE_GRAMMAR.EVIDENCE,
 ): NamingSchemaVersion {
   return {
     version,
     nodeSuffixes,
     decisionSuffixes,
     productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
-    evidence: SPEC_TREE_GRAMMAR.EVIDENCE,
+    evidence,
     runners: SPEC_TREE_GRAMMAR.RUNNERS,
     order: SPEC_TREE_GRAMMAR.ORDER,
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
@@ -106,6 +136,42 @@ function buildNamingSchemaVersion(
     eval: SPEC_TREE_GRAMMAR.EVAL,
     specFileSuffix,
   };
+}
+
+function arbitraryEvidenceToken(): fc.Arbitrary<string> {
+  return fc.string({
+    unit: fc.constantFrom(...SUFFIX_REST_CHARACTERS),
+    minLength: 1,
+    maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.EVIDENCE_TOKEN_MAX_LENGTH,
+  });
+}
+
+function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEvidenceGrammarScenario> {
+  return fc
+    .tuple(
+      arbitraryRecognitionVersionScenario(),
+      arbitraryEvidenceToken(),
+      arbitraryEvidenceToken(),
+      arbitraryEvidenceToken(),
+      arbitraryEvidenceToken(),
+      arbitraryEvidenceToken(),
+    )
+    .map(([scenario, directoryName, subject, mode, level, tail]) => {
+      const evidence: SpecTreeEvidenceGrammar = {
+        DIRECTORY_NAME: directoryName,
+        MODES: [mode],
+        LEVELS: [level],
+        TAILS: { INJECTED: [tail] },
+        SEGMENT_SEPARATOR: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
+      };
+      return {
+        schemaVersions: scenario.schemaVersions.map((version) => ({ ...version, evidence })),
+        relativePath: [
+          directoryName,
+          [subject, mode, level, tail].join(evidence.SEGMENT_SEPARATOR),
+        ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+      };
+    });
 }
 
 // The canonical (highest-version) member carries the spec document-kind suffix;

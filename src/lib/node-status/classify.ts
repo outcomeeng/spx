@@ -1,4 +1,4 @@
-import { SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import { SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree";
 
 /**
  * The observable facts that determine a spec-tree node's lifecycle state.

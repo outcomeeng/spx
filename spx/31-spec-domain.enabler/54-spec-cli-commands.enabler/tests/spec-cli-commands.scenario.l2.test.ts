@@ -6,7 +6,7 @@ import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver
 import { statusCommand } from "@/commands/spec/status";
 import { NODE_STATUS_EVIDENCE_OUTCOME, NODE_STATUS_FILENAME, type NodeStatusFile } from "@/lib/node-status";
 import { getKindDefinition, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { type NodeKind, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";

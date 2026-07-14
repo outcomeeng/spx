@@ -11,7 +11,7 @@ import { posix } from "node:path";
 import ts from "typescript";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import type {
   RelatedTestDependencies,
   RelatedTestRequest,

@@ -21,8 +21,13 @@ import {
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
-import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import {
+  createFilesystemSpecTreeSource,
+  KIND_REGISTRY,
+  readSpecTree,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+} from "@/lib/spec-tree";
 import { compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import {

@@ -13,7 +13,7 @@ import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";

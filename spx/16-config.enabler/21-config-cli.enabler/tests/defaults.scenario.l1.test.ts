@@ -10,7 +10,7 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import type { Config, ConfigDescriptor } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 

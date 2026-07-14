@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  KIND_REGISTRY,
   recognizeSpecTreeFilesystemEntry,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import {
   sampleDecisionKind,
   sampleNodeKind,

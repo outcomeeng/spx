@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalNamingSchemaVersion,
   createFilesystemSpecTreeSource,
+  KIND_REGISTRY,
   readSpecTree,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
 import { NAMING_SCHEMA_VERSION_TEST_GENERATOR } from "@testing/generators/spec-tree/naming-schema-version";
 import {
   orderedDirectoryName,

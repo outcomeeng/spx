@@ -2,7 +2,7 @@ import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/
 import { diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { runtimeConfigDescriptor } from "@/lib/agent-run-journal/config";
 import { fileInclusionConfigDescriptor } from "@/lib/file-inclusion/config";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { testingConfigDescriptor } from "@/test/config";
 import { validationConfigDescriptor } from "@/validation/config/descriptor";
 
