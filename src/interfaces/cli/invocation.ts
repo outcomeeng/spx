@@ -11,6 +11,7 @@ export const SOURCE_CLI_EXECUTABLE = "tsx";
 export const SOURCE_CLI_ENTRYPOINT = "src/cli.ts";
 export const PACKAGED_CLI_EXECUTABLE = "node";
 export const PACKAGED_CLI_ENTRYPOINT = "bin/spx.js";
+export const SPX_PROGRAM_NAME = "spx";
 
 export const CLI_EXIT_CODE = {
   SUCCESS: 0,

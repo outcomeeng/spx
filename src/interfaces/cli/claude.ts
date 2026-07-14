@@ -6,7 +6,7 @@ import { consolidateCommand } from "@/commands/claude/settings/consolidate";
 import { CLAUDE_SETTINGS_PATH } from "@/domains/claude/settings/files";
 import type { ConsolidationReportUsage } from "@/domains/claude/settings/reporter";
 import type { Domain } from "@/domains/types";
-import { CLI_EXIT_CODE, PACKAGED_CLI_INVOCATION } from "@/interfaces/cli/invocation";
+import { CLI_EXIT_CODE, SPX_PROGRAM_NAME } from "@/interfaces/cli/invocation";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import type { Command } from "commander";
 import { homedir } from "node:os";
@@ -39,12 +39,8 @@ function consolidationReportUsage(): ConsolidationReportUsage {
     CLAUDE_SETTINGS_CLI.CONSOLIDATE_COMMAND,
   ].join(" ");
   return {
-    writeGlobalSettings: `${PACKAGED_CLI_INVOCATION} ${commandPath} ${
-      optionDefinition(CLAUDE_SETTINGS_CLI.OPTION.WRITE)
-    }`,
-    writeOutputFile: `${PACKAGED_CLI_INVOCATION} ${commandPath} ${
-      optionDefinition(CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE)
-    }`,
+    writeGlobalSettings: `${SPX_PROGRAM_NAME} ${commandPath} ${optionDefinition(CLAUDE_SETTINGS_CLI.OPTION.WRITE)}`,
+    writeOutputFile: `${SPX_PROGRAM_NAME} ${commandPath} ${optionDefinition(CLAUDE_SETTINGS_CLI.OPTION.OUTPUT_FILE)}`,
   };
 }
 

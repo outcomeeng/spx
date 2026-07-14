@@ -15,7 +15,7 @@ import {
   CLI_EXIT_CODE,
   PACKAGED_CLI_ENTRYPOINT,
   PACKAGED_CLI_EXECUTABLE,
-  PACKAGED_CLI_INVOCATION,
+  SPX_PROGRAM_NAME,
 } from "@/interfaces/cli/invocation";
 import {
   arbitraryConsolidationCliScenario,
@@ -198,7 +198,7 @@ function consolidateCommandPath(): string[] {
 
 function consolidationUsage(option: string, operand?: string): string {
   return [
-    PACKAGED_CLI_INVOCATION,
+    SPX_PROGRAM_NAME,
     ...consolidateCommandPath(),
     option,
     ...(operand === undefined ? [] : [operand]),

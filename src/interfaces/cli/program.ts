@@ -2,12 +2,12 @@ import { Command } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
+import { SPX_PROGRAM_NAME } from "@/interfaces/cli/invocation";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
 
-export const SPX_PROGRAM_NAME = "spx";
 const SPX_PROGRAM_DESCRIPTION = "Fast, deterministic CLI tool for spec workflow management";
 
 export type CliProgramOptions = Partial<CliIo> & {
