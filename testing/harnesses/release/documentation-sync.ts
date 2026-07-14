@@ -164,6 +164,23 @@ class RecordingDocumentationAtomicWriter {
   };
 }
 
+class InterveningDuringPromotionAtomicWriter {
+  private hasInjectedEdit = false;
+
+  constructor(
+    private readonly interveningPath: string,
+    private readonly interveningContent: string,
+  ) {}
+
+  readonly write: DocumentationAtomicWriter = async (path, content) => {
+    if (!this.hasInjectedEdit) {
+      this.hasInjectedEdit = true;
+      await writeFile(this.interveningPath, this.interveningContent);
+    }
+    await writeFile(path, content);
+  };
+}
+
 class InterveningDocumentationEditPromoter {
   constructor(
     private readonly productDir: string,
@@ -693,6 +710,25 @@ function registerComplianceTests(): void {
           promoteDocumentation: promoter.promote,
         })).rejects.toThrow();
         expect(writer.writes).toBe(0);
+        await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
+      });
+    });
+
+    it("rolls back earlier writes when a later document changes during promotion", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+      const interveningPath = scenario.paths[1];
+      const interveningContent = scenario.intervening[interveningPath];
+      if (interveningContent === undefined) throw new Error(`No intervening documentation for ${interveningPath}`);
+      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+        const writer = new InterveningDuringPromotionAtomicWriter(
+          join(options.productDir, interveningPath),
+          interveningContent,
+        );
+        const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+        await expect(composeDocumentationSync({
+          ...options,
+          promoteDocumentation: filesystem.promoteDocumentation,
+        })).rejects.toThrow();
         await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
       });
     });
