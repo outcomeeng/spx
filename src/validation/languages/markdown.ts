@@ -10,9 +10,15 @@ import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationLanguageDescriptor } from "@/validation/languages/types";
 
 const MARKDOWN_LANGUAGE_NAME = "markdown";
+const SKIP_MARKDOWN_REASON = "skip-markdown";
 export const MARKDOWN_VALIDATION_STAGE_PARTICIPATION = {
   [VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_MARKDOWN_REASON,
+    override: {
+      flag: "--skip-markdown",
+      description: "Skip Markdown validation for this validation all run",
+    },
   },
 } as const;
 

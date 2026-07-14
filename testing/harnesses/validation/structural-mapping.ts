@@ -2,7 +2,12 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
 
-import { type TypeScriptValidationConcern, typescriptValidationLanguage } from "@/validation/languages/typescript";
+import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
+import {
+  TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION,
+  type TypeScriptValidationConcern,
+  typescriptValidationLanguage,
+} from "@/validation/languages/typescript";
 import { validationPipelineStages, validationRegistry } from "@/validation/registry";
 import {
   typescriptValidationConcernMappings,
@@ -35,5 +40,15 @@ export const validationStructuralMappingCases = collectHarnessTestCases(() => {
         expectValidationStructuralMapping(concern, stageName);
       });
     }
+
+    it("maps every TypeScript stage default to run", () => {
+      expect(
+        Object.values(TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION).map((policy) => policy.default),
+      ).toEqual(
+        Object.values(TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION).map(
+          () => VALIDATION_STAGE_PARTICIPATION.RUN,
+        ),
+      );
+    });
   });
 });

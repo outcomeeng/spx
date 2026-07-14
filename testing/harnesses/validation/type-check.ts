@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { execa } from "execa";
 import * as fc from "fast-check";
@@ -14,9 +14,14 @@ import {
   type TypeScriptCommandDeps,
 } from "@/commands/validation/typescript";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { EPIPE_CODE, EPIPE_EXIT_CODE, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
+import { EPIPE_CODE, EPIPE_EXIT_CODE, SIGTERM_NAME, UNCAUGHT_EVENT_NAME } from "@/lib/process-lifecycle";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { detectTypeScript, discoverTool, type ToolDiscoveryDeps } from "@/validation/discovery";
+import {
+  TYPESCRIPT_VALIDATION_CONCERN,
+  TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN,
+} from "@/validation/languages/typescript";
+import { validationPipelineStages } from "@/validation/registry";
 import {
   forwardValidationSubprocessOutput,
   VALIDATION_SUBPROCESS_EVENTS,
@@ -31,7 +36,7 @@ import {
 } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { CLI_PATH } from "@testing/harnesses/constants";
-import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
+import { runSpawnFixture, SPAWN_FIXTURE_STREAM_EVENTS } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   RecordingValidationChild,
@@ -40,6 +45,24 @@ import {
 import { HARNESS_TIMEOUT, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const EXPECTED_PIPED_STDIO = "pipe";
+const CONTROLLED_TSC_EXECUTABLE_MODE = 0o755;
+const CONTROLLED_TSC_WRITE_INTERVAL_MS = 1;
+const CONTROLLED_TSC_SAFETY_TIMEOUT_MS = 2_000;
+const CONTROLLED_TSC_EXIT_POLL_INTERVAL_MS = 10;
+const CONTROLLED_TSC_EXIT_POLL_TIMEOUT_MS = CONTROLLED_TSC_SAFETY_TIMEOUT_MS + 1_000;
+const CONTROLLED_TSC_SHEBANG = "#!/usr/bin/env node";
+const CONTROLLED_TSC_FILESYSTEM_MODULE = "node:fs";
+const CONTROLLED_TSC_STATE_FIELDS = {
+  EXIT_OBSERVED: "exitObserved",
+  STARTED_PID: "startedPid",
+  TERMINATION_SIGNAL: "terminationSignal",
+} as const;
+
+interface ControlledTscState {
+  readonly exitObserved: boolean;
+  readonly startedPid: number;
+  readonly terminationSignal: NodeJS.Signals | null;
+}
 
 class RecordingWritable implements ValidationWritableStream {
   readonly chunks: string[] = [];
@@ -202,16 +225,24 @@ export function registerTypeCheckComplianceTests(): void {
 
   it("terminates through the lifecycle handler when the TypeScript output consumer closes", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.WITH_TYPE_ERRORS }, async ({ path }) => {
+      const marker = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const statePath = join(path, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
+      await installControlledTsc(path, statePath, marker);
+
       const result = await runSpawnFixture({
         command: process.execPath,
-        args: validationAllArgs(),
+        args: validationTypeScriptOnlyPipelineArgs(),
         cwd: path,
-        destroyStdoutAfterMs: 0,
+        destroyStdoutAfterMarker: marker,
       });
+      const state = await waitForControlledTscExit(statePath);
 
+      expect(result.stdoutMarkerObserved).toBe(true);
       expect(result.exitCode).toBe(EPIPE_EXIT_CODE);
       expect(result.stderr).not.toContain(UNCAUGHT_EVENT_NAME);
       expect(result.stderr).not.toContain(EPIPE_CODE);
+      expect(state.terminationSignal).toBe(SIGTERM_NAME);
+      expect(state.exitObserved).toBe(true);
     });
   });
 
@@ -301,14 +332,105 @@ export function registerTypeCheckComplianceTests(): void {
   });
 }
 
+function validationTypeScriptOnlyPipelineArgs(): string[] {
+  const typeScriptStageName = TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN[TYPESCRIPT_VALIDATION_CONCERN.TYPE_CHECK];
+  const unrelatedStageOverrides = validationPipelineStages
+    .filter((stage) => stage.name !== typeScriptStageName)
+    .map((stage) => stage.participation.override.flag);
+  return [
+    CLI_PATH,
+    validationCliDefinition.domain.commandName,
+    validationCliDefinition.subcommands.all.commandName,
+    ...unrelatedStageOverrides,
+  ];
+}
+
 function validationTypeScriptAliasArgs(): string[] {
   const alias = validationCliDefinition.subcommands.typescript.alias;
   if (alias === undefined) throw new Error("TypeScript validation alias is not registered");
   return [CLI_PATH, validationCliDefinition.domain.commandName, alias];
 }
 
-function validationAllArgs(): string[] {
-  return [CLI_PATH, validationCliDefinition.domain.commandName, validationCliDefinition.subcommands.all.commandName];
+async function installControlledTsc(productDir: string, statePath: string, marker: string): Promise<void> {
+  const toolPath = join(productDir, ...TYPESCRIPT_TOOL_DISCOVERY.PRODUCT_EXECUTABLE_SEGMENTS);
+  await unlink(dirname(dirname(toolPath)));
+  await mkdir(dirname(toolPath), { recursive: true });
+  await mkdir(dirname(statePath), { recursive: true });
+  await writeFile(
+    toolPath,
+    createControlledTscScript(statePath, marker),
+    VALIDATION_PIPELINE_DATA.fixtureTextEncoding,
+  );
+  await chmod(toolPath, CONTROLLED_TSC_EXECUTABLE_MODE);
+}
+
+function createControlledTscScript(statePath: string, marker: string): string {
+  const statePathLiteral = JSON.stringify(statePath);
+  const markerLiteral = JSON.stringify(marker);
+  const filesystemModuleLiteral = JSON.stringify(CONTROLLED_TSC_FILESYSTEM_MODULE);
+  const stdoutErrorEventLiteral = JSON.stringify(SPAWN_FIXTURE_STREAM_EVENTS.ERROR);
+  const processExitEventLiteral = JSON.stringify(SPAWN_FIXTURE_STREAM_EVENTS.EXIT);
+  const terminationSignalLiteral = JSON.stringify(SIGTERM_NAME);
+  const startedPidFieldLiteral = JSON.stringify(CONTROLLED_TSC_STATE_FIELDS.STARTED_PID);
+  const terminationSignalFieldLiteral = JSON.stringify(CONTROLLED_TSC_STATE_FIELDS.TERMINATION_SIGNAL);
+  const exitObservedFieldLiteral = JSON.stringify(CONTROLLED_TSC_STATE_FIELDS.EXIT_OBSERVED);
+
+  return [
+    CONTROLLED_TSC_SHEBANG,
+    `const { writeFileSync } = require(${filesystemModuleLiteral});`,
+    `const statePath = ${statePathLiteral};`,
+    "let terminationSignal = null;",
+    `const persist = (exitObserved) => writeFileSync(statePath, JSON.stringify({ [${startedPidFieldLiteral}]: process.pid, [${terminationSignalFieldLiteral}]: terminationSignal, [${exitObservedFieldLiteral}]: exitObserved }));`,
+    "persist(false);",
+    `process.stdout.on(${stdoutErrorEventLiteral}, () => {});`,
+    `process.on(${processExitEventLiteral}, () => persist(true));`,
+    `process.on(${terminationSignalLiteral}, () => { terminationSignal = ${terminationSignalLiteral}; process.exit(${EPIPE_EXIT_CODE}); });`,
+    `const writer = setInterval(() => process.stdout.write(${markerLiteral}), ${CONTROLLED_TSC_WRITE_INTERVAL_MS});`,
+    `setTimeout(() => { clearInterval(writer); process.exit(${EPIPE_EXIT_CODE}); }, ${CONTROLLED_TSC_SAFETY_TIMEOUT_MS});`,
+    `process.stdout.write(${markerLiteral});`,
+  ].join("\n");
+}
+
+async function waitForControlledTscExit(statePath: string): Promise<ControlledTscState> {
+  const deadline = Date.now() + CONTROLLED_TSC_EXIT_POLL_TIMEOUT_MS;
+  let state = await readControlledTscState(statePath);
+  while (!state.exitObserved && Date.now() < deadline) {
+    await delay(CONTROLLED_TSC_EXIT_POLL_INTERVAL_MS);
+    state = await readControlledTscState(statePath);
+  }
+  if (!state.exitObserved) {
+    throw new Error(`Controlled tsc did not exit before its safety deadline: ${statePath}`);
+  }
+  return state;
+}
+
+async function readControlledTscState(statePath: string): Promise<ControlledTscState> {
+  const parsed: unknown = JSON.parse(
+    await readFile(statePath, VALIDATION_PIPELINE_DATA.fixtureTextEncoding),
+  );
+  if (!isControlledTscState(parsed)) {
+    throw new Error(`Controlled tsc wrote invalid lifecycle state: ${statePath}`);
+  }
+  return parsed;
+}
+
+function isControlledTscState(value: unknown): value is ControlledTscState {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const startedPidField = CONTROLLED_TSC_STATE_FIELDS.STARTED_PID;
+  const terminationSignalField = CONTROLLED_TSC_STATE_FIELDS.TERMINATION_SIGNAL;
+  const exitObservedField = CONTROLLED_TSC_STATE_FIELDS.EXIT_OBSERVED;
+  return startedPidField in value
+    && typeof value[startedPidField] === "number"
+    && terminationSignalField in value
+    && (value[terminationSignalField] === null || value[terminationSignalField] === SIGTERM_NAME)
+    && exitObservedField in value
+    && typeof value[exitObservedField] === "boolean";
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function runTypeScriptValidation(

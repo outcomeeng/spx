@@ -23,6 +23,9 @@ import {
 
 const TYPESCRIPT_LANGUAGE_NAME = "typescript";
 const SKIP_CIRCULAR_REASON = "skip-circular";
+const SKIP_KNIP_REASON = "skip-knip";
+const SKIP_LINT_REASON = "skip-lint";
+const SKIP_TYPESCRIPT_REASON = "skip-typescript";
 const SKIP_LITERAL_REASON = "skip-literal";
 
 export const TYPESCRIPT_VALIDATION_CONCERN = {
@@ -54,29 +57,42 @@ export const TYPESCRIPT_VALIDATION_STAGE_BY_CONCERN: Readonly<Record<TypeScriptV
 export const TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION = {
   [VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_CIRCULAR_REASON,
     override: {
       flag: "--skip-circular",
       description: "Skip circular dependency detection for this validation all run",
-      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-      reason: SKIP_CIRCULAR_REASON,
     },
   },
   [VALIDATION_STAGE_DISPLAY_NAMES.KNIP]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_KNIP_REASON,
+    override: {
+      flag: "--skip-knip",
+      description: "Skip unused-code detection for this validation all run",
+    },
   },
   [VALIDATION_STAGE_DISPLAY_NAMES.ESLINT]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_LINT_REASON,
+    override: {
+      flag: "--skip-lint",
+      description: "Skip ESLint validation for this validation all run",
+    },
   },
   [VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_TYPESCRIPT_REASON,
+    override: {
+      flag: "--skip-typescript",
+      description: "Skip TypeScript validation for this validation all run",
+    },
   },
   [VALIDATION_STAGE_DISPLAY_NAMES.LITERAL]: {
     default: VALIDATION_STAGE_PARTICIPATION.RUN,
+    skipReason: SKIP_LITERAL_REASON,
     override: {
       flag: "--skip-literal",
       description: "Skip literal reuse detection for this validation all run",
-      participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-      reason: SKIP_LITERAL_REASON,
     },
   },
 } as const satisfies Readonly<Record<string, ValidationStageParticipationPolicy>>;

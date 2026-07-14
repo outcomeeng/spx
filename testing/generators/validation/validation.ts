@@ -26,7 +26,7 @@ import {
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import type { ValidationStageParticipationOverride } from "@/validation/languages/types";
+import type { ValidationStageParticipationPolicy } from "@/validation/languages/types";
 import { TYPESCRIPT_VALIDATION_CONCERN, type TypeScriptValidationConcern } from "@/validation/languages/typescript";
 import { VALIDATION_PIPELINE_TOTAL_STEPS, validationPipelineStages } from "@/validation/registry";
 import { KNIP_COMMAND_TOKENS, KNIP_LOCAL_BIN_SEGMENTS } from "@/validation/steps/knip";
@@ -150,15 +150,17 @@ const OUTPUT_LINE_SEPARATOR = "\n";
 const VALIDATION_STEP_OUTCOME_PASS = "pass";
 const VALIDATION_STEP_OUTCOME_SKIP = "skip";
 const VALIDATION_STEP_OUTCOME_FAIL = "fail";
-const CIRCULAR_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
-const LITERAL_OVERRIDE = validationStageOverride(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
+const CIRCULAR_PARTICIPATION = validationStageParticipation(VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR);
+const LITERAL_PARTICIPATION = validationStageParticipation(VALIDATION_STAGE_DISPLAY_NAMES.LITERAL);
+const CIRCULAR_OVERRIDE = CIRCULAR_PARTICIPATION.override;
+const LITERAL_OVERRIDE = LITERAL_PARTICIPATION.override;
 
-function validationStageOverride(stageName: string): ValidationStageParticipationOverride {
-  const override = validationPipelineStages.find((stage) => stage.name === stageName)?.participation.override;
-  if (override === undefined) {
-    throw new Error(`Validation stage ${stageName} does not declare a full-pipeline override`);
+function validationStageParticipation(stageName: string): ValidationStageParticipationPolicy {
+  const participation = validationPipelineStages.find((stage) => stage.name === stageName)?.participation;
+  if (participation === undefined) {
+    throw new Error(`Validation stage ${stageName} does not declare full-pipeline participation`);
   }
-  return override;
+  return participation;
 }
 
 export interface ValidationSubprocessScenario {
@@ -268,10 +270,10 @@ export const VALIDATION_PIPELINE_DATA = {
     DETAIL_B_TO_A: CIRCULAR_DEPENDENCY_DETAIL_B_TO_A,
   },
   circularSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR}: skipped (${CIRCULAR_OVERRIDE.flag})`,
-  circularSkipJsonOutput: formatValidationStageSkipJsonOutput(CIRCULAR_OVERRIDE.reason, 0),
+  circularSkipJsonOutput: formatValidationStageSkipJsonOutput(CIRCULAR_PARTICIPATION.skipReason, 0),
   skipCircularFlag: CIRCULAR_OVERRIDE.flag,
   literalSkipOutput: `${VALIDATION_STAGE_DISPLAY_NAMES.LITERAL}: skipped (${LITERAL_OVERRIDE.flag})`,
-  literalSkipJsonOutput: formatValidationStageSkipJsonOutput(LITERAL_OVERRIDE.reason, 0),
+  literalSkipJsonOutput: formatValidationStageSkipJsonOutput(LITERAL_PARTICIPATION.skipReason, 0),
   skipLiteralFlag: LITERAL_OVERRIDE.flag,
   quietFlag: "--quiet",
   jsonFlag: "--json",

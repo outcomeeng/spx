@@ -21,11 +21,7 @@ import {
   validationLiteralProblemKinds,
 } from "@/interfaces/cli/validation-contract";
 import { sanitizeCliArgument, SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
-import {
-  VALIDATION_STAGE_PARTICIPATION,
-  type ValidationStage,
-  type ValidationStageContext,
-} from "@/validation/languages/types";
+import { type ValidationStage, type ValidationStageContext } from "@/validation/languages/types";
 import { validationPipelineStages } from "@/validation/registry";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
@@ -86,9 +82,13 @@ function controlledValidationStages(observedContexts: ObservedValidationStageCon
 }
 
 function overridableValidationStage(stages: readonly ValidationStage[]): ValidationStage {
-  const stage = stages.find((candidate) => candidate.participation.override !== undefined);
-  if (stage === undefined) throw new Error("validation registry has no overridable stage");
-  return stage;
+  return stages[0];
+}
+
+function registeredParticipationPolicy(stageName: string): ValidationStage["participation"] {
+  const stage = validationPipelineStages.find((candidate) => candidate.name === stageName);
+  if (stage === undefined) throw new Error(`validation registry has no ${stageName} stage`);
+  return stage.participation;
 }
 
 async function expectRegisteredSubcommandRuns(): Promise<void> {
@@ -133,7 +133,7 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
-      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      participation: registeredParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
       run: async () => ({
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
         output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
@@ -142,7 +142,7 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       failsPipeline: true,
-      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      participation: registeredParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
       run: async () => {
         laterStageStarted.resolve();
         await releaseLaterStage.promise;
@@ -189,7 +189,6 @@ async function expectOverrideProducesHumanSkipOutput(): Promise<void> {
   const stages = controlledValidationStages(observedContexts);
   const overriddenStage = overridableValidationStage(stages);
   const override = overriddenStage.participation.override;
-  if (override === undefined) throw new Error("selected validation stage has no override");
 
   const result = await runValidationInProcess(
     [validationCliDefinition.subcommands.all.commandName, override.flag],
@@ -216,7 +215,6 @@ async function expectOverrideProducesJsonSkipSentinel(): Promise<void> {
   const stages = controlledValidationStages();
   const overriddenStage = overridableValidationStage(stages);
   const override = overriddenStage.participation.override;
-  if (override === undefined) throw new Error("selected validation stage has no override");
 
   const result = await runValidationInProcess(
     [
@@ -231,7 +229,9 @@ async function expectOverrideProducesJsonSkipSentinel(): Promise<void> {
 
   expect(result.stderr).toBe(validationCliEmptyOutput());
   expect(skipped?.output).toEqual(
-    JSON.parse(formatValidationStageSkipJsonOutput(override.reason, skipped?.durationMs ?? 0)),
+    JSON.parse(
+      formatValidationStageSkipJsonOutput(overriddenStage.participation.skipReason, skipped?.durationMs ?? 0),
+    ),
   );
 }
 
@@ -252,7 +252,6 @@ async function expectProductionOverridePreservesOtherDefaults(): Promise<void> {
   const stages = controlledValidationStages(observedContexts);
   const overriddenStage = overridableValidationStage(stages);
   const override = overriddenStage.participation.override;
-  if (override === undefined) throw new Error("selected validation stage has no override");
 
   const result = await runValidationInProcess(
     [
@@ -491,16 +490,12 @@ async function expectValidationAllHelpListsSkipFlags(): Promise<void> {
   expect(result.exitCode).toBeLessThan(validationCliSuccessExitCodeUpperBound());
   expect(result.stderr).toHaveLength(VALIDATION_EMPTY_CLI_OPERAND.length);
   for (const stage of validationPipelineStages) {
-    if (stage.participation.override !== undefined) {
-      expect(result.stdout).toContain(stage.participation.override.flag);
-    }
+    expect(result.stdout).toContain(stage.participation.override.flag);
   }
 }
 
 async function expectFullPipelineOverridesScopedToAllCommand(): Promise<void> {
-  const overrides = validationPipelineStages.flatMap((stage) =>
-    stage.participation.override === undefined ? [] : [stage.participation.override]
-  );
+  const overrides = validationPipelineStages.map((stage) => stage.participation.override);
   for (const definition of Object.values(validationCliDefinition.subcommands)) {
     if (definition.commandName === validationCliDefinition.subcommands.all.commandName) continue;
     for (const override of overrides) {

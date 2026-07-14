@@ -52,21 +52,36 @@ export const typescriptValidationComplianceCases = collectHarnessTestCases(() =>
   describe("TypeScript descriptor participation compliance", () => {
     for (const registeredStage of typescriptValidationLanguage.stages) {
       it(`${registeredStage.name} follows a descriptor default changed to skip`, async () => {
+        let executionCount = 0;
         const stage: ValidationStage = {
           ...registeredStage,
           participation: {
+            ...registeredStage.participation,
             default: VALIDATION_STAGE_PARTICIPATION.SKIP,
-            defaultSkipReason: registeredStage.name,
+            skipReason: registeredStage.name,
           },
           run: async () => {
-            throw new Error(`${registeredStage.name} ran despite its descriptor default`);
+            executionCount += 1;
+            return { exitCode: 0, output: registeredStage.name };
           },
         };
 
-        const result = await allCommand({ cwd: process.cwd(), validationStages: [stage] });
+        const defaultResult = await allCommand({ cwd: process.cwd(), validationStages: [stage] });
+        const overrideResult = await allCommand({
+          cwd: process.cwd(),
+          validationStages: [stage],
+          participationOverrides: [stage.participation.override.flag],
+        });
 
-        expect(result.exitCode).toBe(0);
-        expect(result.output).toContain(formatValidationStageSkipOutput(registeredStage.name, registeredStage.name));
+        expect(defaultResult.exitCode).toBe(0);
+        expect(defaultResult.output).toContain(
+          formatValidationStageSkipOutput(registeredStage.name, registeredStage.name),
+        );
+        expect(overrideResult.exitCode).toBe(0);
+        expect(overrideResult.output).not.toContain(
+          formatValidationStageSkipOutput(registeredStage.name, registeredStage.name),
+        );
+        expect(executionCount).toBe(1);
       });
     }
   });

@@ -191,17 +191,15 @@ export const validationPipelineSkipScenarioCases = collectHarnessTestCases(
 );
 
 export function expectValidationAllOverrideOptionsDerived(): void {
-  const descriptorOwnedOptions = validationPipelineStages.flatMap((stage) => {
+  const descriptorOwnedOptions = validationPipelineStages.map((stage) => {
     const override = stage.participation.override;
-    return override === undefined
-      ? []
-      : [{
-        stageName: stage.name,
-        flag: override.flag,
-        description: override.description,
-        reason: override.reason,
-        optionPropertyName: validationOptionPropertyName(override.flag),
-      }];
+    return {
+      stageName: stage.name,
+      flag: override.flag,
+      description: override.description,
+      reason: stage.participation.skipReason,
+      optionPropertyName: validationOptionPropertyName(override.flag),
+    };
   });
   expect(validationAllOverrideCliOptions).toEqual(descriptorOwnedOptions);
 }
@@ -230,7 +228,10 @@ export function expectValidationAllOverrideMetadataRejectsUnsupportedFlags(): vo
   expect(() =>
     deriveValidationAllOverrideCliOptions([{
       ...validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG),
-      participation: { default: VALIDATION_STAGE_PARTICIPATION.SKIP },
+      participation: {
+        ...validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG).participation,
+        skipReason: "",
+      },
     }])
   ).toThrow();
 }
@@ -244,9 +245,8 @@ function validationOverrideMetadataTestStage(flag: string): ValidationStage {
       override: {
         flag: flag as `--${string}`,
         description: OVERRIDE_METADATA_TEST_DESCRIPTION,
-        participation: VALIDATION_STAGE_PARTICIPATION.SKIP,
-        reason: OVERRIDE_METADATA_TEST_REASON,
       },
+      skipReason: OVERRIDE_METADATA_TEST_REASON,
     },
     run: () => Promise.resolve({ exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS, output: "" }),
   };
@@ -605,7 +605,7 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
-      participation: { default: "run" },
+      participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
       run: () =>
         Promise.resolve({
           exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
@@ -615,7 +615,7 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       failsPipeline: true,
-      participation: { default: "run" },
+      participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
       run: async () => {
         secondStageStarted.resolve();
         await releaseSecondStage.promise;
@@ -972,14 +972,15 @@ async function runStepDurationScenario(
       return {
         ...stage,
         participation: {
+          ...stage.participation,
           default: VALIDATION_STAGE_PARTICIPATION.SKIP,
-          defaultSkipReason: stage.name,
+          skipReason: stage.name,
         },
       };
     }
     return {
       ...stage,
-      participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+      participation: stage.participation,
       run: () =>
         Promise.resolve({
           exitCode: stage.name === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT
@@ -1079,7 +1080,7 @@ async function runAdditiveVerdictsScenario(
       const addedStage: ValidationStage = {
         name: addedStageName,
         failsPipeline: true,
-        participation: { default: VALIDATION_STAGE_PARTICIPATION.RUN },
+        participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
         run: () =>
           Promise.resolve({
             exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
@@ -1101,11 +1102,22 @@ async function runAdditiveVerdictsScenario(
       for (const [index] of existingStages.entries()) {
         const baseStep = index + 1;
         const extendedStep = index < insertionIndex ? baseStep : baseStep + 1;
-        expect(extendedOutcomes.get(extendedStep)).toBe(baseOutcomes.get(baseStep));
+        const expectedOutcome = stageFailures[index]
+          ? VALIDATION_PIPELINE_DATA.outcome.fail
+          : VALIDATION_PIPELINE_DATA.outcome.pass;
+        expect(baseOutcomes.get(baseStep)).toBe(expectedOutcome);
+        expect(extendedOutcomes.get(extendedStep)).toBe(expectedOutcome);
       }
+      expect(extendedOutcomes.get(insertionIndex + 1)).toBe(VALIDATION_PIPELINE_DATA.outcome.pass);
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
+}
+
+function validationParticipationPolicy(stageName: string): ValidationStage["participation"] {
+  const stage = validationPipelineStages.find((candidate) => candidate.name === stageName);
+  if (stage === undefined) throw new Error(`validation registry has no ${stageName} stage`);
+  return stage.participation;
 }
 
 async function writeLiteralSkipFixture(path: string): Promise<void> {

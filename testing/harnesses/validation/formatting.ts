@@ -585,9 +585,6 @@ async function runGitignoreSkipScenario(): Promise<void> {
 async function runParticipationOverrideScenario(): Promise<void> {
   const formattingStage = formattingValidationLanguage.stages[0];
   const override = formattingStage.participation.override;
-  if (override === undefined) {
-    throw new Error("Formatting stage participation metadata is missing");
-  }
   let executionCount = 0;
   const observableStage = {
     ...formattingStage,
