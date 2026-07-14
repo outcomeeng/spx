@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   MARKDOWN_PRIMARY_FILE_EXTENSION,
   MARKDOWN_VALIDATION_TARGET_KIND,

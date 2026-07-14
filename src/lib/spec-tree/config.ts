@@ -111,7 +111,13 @@ export const SPEC_TREE_GRAMMAR = {
 
 export const SPEC_TREE_EVIDENCE_FILE = SPEC_TREE_GRAMMAR.EVIDENCE;
 
-export type SpecTreeEvidenceGrammar = typeof SPEC_TREE_GRAMMAR.EVIDENCE;
+export type SpecTreeEvidenceGrammar = {
+  readonly DIRECTORY_NAME: string;
+  readonly MODES: readonly string[];
+  readonly LEVELS: readonly string[];
+  readonly TAILS: Readonly<Record<string, readonly string[]>>;
+  readonly SEGMENT_SEPARATOR: string;
+};
 export type SpecTreeOrderGrammar = typeof SPEC_TREE_GRAMMAR.ORDER;
 
 export type NamingSchemaVersion = {

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
-import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
+import { NODE_KINDS, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "@/validation/lint-policy-constants";
 import { VALIDATION_PIPELINE_TOTAL_STEPS } from "@/validation/registry";
 import {
@@ -297,12 +297,12 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   importExecAndSpawn: `import { exec, spawn } from "node:child_process";`,
   nonRegistryIndex: `const first = values[0];`,
   registryIndexType: `type NodeKind = (typeof NODE_KINDS)[number];`,
-  namedRegistryAccess: `import { KIND_REGISTRY } from "@/lib/spec-tree/config"; const kind = KIND_REGISTRY.enabler;`,
+  namedRegistryAccess: `import { KIND_REGISTRY } from "@/lib/spec-tree"; const kind = KIND_REGISTRY.enabler;`,
   nodeStateRegistryIndex: `const state = SPEC_TREE_NODE_STATES[2];`,
   generatorRegistryPosition: `const kind = NODE_KINDS[0];`,
   decisionKindsPosition: `const kind = DECISION_KINDS[0];`,
   nodeKindsAssertionPosition: `expect(node.kind).toBe(NODE_KINDS[1]);`,
-  importedSourceConstant: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(kind).toBe(NODE_KINDS[0]);`,
+  importedSourceConstant: `import { NODE_KINDS } from "@/lib/spec-tree"; expect(kind).toBe(NODE_KINDS[0]);`,
   uppercaseTypeAlias: `type NODE_KIND = "enabler";`,
   uppercaseClass: `class NODE_BUILDER { build(): string { return "node"; } }`,
   generatedHelper: `const generatedNodeKind = sampleNodeKind(registry);`,
@@ -317,8 +317,8 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   objectRegistry: `const sectionModes = { STRICT: "strict", LENIENT: "lenient" } as const;`,
   tupleRegistry: `const sectionModes = ["strict", "lenient"] as const;`,
   sourceOwnedStates:
-    `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
-  sourceOwnedKinds: `import { NODE_KINDS } from "@/lib/spec-tree/config"; expect(node.kind).toBe(NODE_KINDS[0])`,
+    `import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree"; expect(node.state).toBe(SPEC_TREE_NODE_STATE.DECLARED)`,
+  sourceOwnedKinds: `import { NODE_KINDS } from "@/lib/spec-tree"; expect(node.kind).toBe(NODE_KINDS[0])`,
   sourceOwnedSessionFrontmatter:
     `import { SESSION_FRONT_MATTER } from "@/domains/session/types"; const key = SESSION_FRONT_MATTER.PRIORITY;`,
   declaredPathAssertion: `expect(file).toBe("declared.md")`,

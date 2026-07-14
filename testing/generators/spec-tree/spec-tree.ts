@@ -1,26 +1,24 @@
 import * as fc from "fast-check";
 
 import {
+  type DecisionKind,
+  type NodeKind,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
+  type SpecTreeKindCategory,
   type SpecTreeNodeSourceEntry,
   type SpecTreeRegistry,
   type SpecTreeSource,
   type SpecTreeSourceEntry,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
-import {
-  type DecisionKind,
-  type NodeKind,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_KIND_CATEGORY,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree/config";
 
 type SpecTreeEntryDiscriminatorKey =
   | typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE

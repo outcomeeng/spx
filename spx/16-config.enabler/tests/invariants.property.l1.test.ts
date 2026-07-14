@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { RESULT_VALUE_KEY } from "@/config/types";
-import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";

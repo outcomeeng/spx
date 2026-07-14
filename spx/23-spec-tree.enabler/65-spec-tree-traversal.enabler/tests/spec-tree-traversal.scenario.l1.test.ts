@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findNextSpecTreeNode, readSpecTree, SPEC_TREE_EVIDENCE_STATUS } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { findNextSpecTreeNode, KIND_REGISTRY, readSpecTree, SPEC_TREE_EVIDENCE_STATUS } from "@/lib/spec-tree";
 import {
   buildEvidenceEntry,
   buildRepresentativeFixture,

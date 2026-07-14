@@ -16,7 +16,7 @@ import {
   type SpecTreeNode,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,

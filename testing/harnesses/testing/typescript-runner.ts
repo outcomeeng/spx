@@ -4,8 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import type { TestRunnerDependencies } from "@/test/languages/types";
 import { TYPESCRIPT_TEST_FILE_PATTERNS, typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";

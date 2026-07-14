@@ -6,7 +6,7 @@ import { showCommand } from "@/commands/config/show";
 import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
 import type { Config, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 function makeDeps(resolved: Result<Config>): CliDeps {

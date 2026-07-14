@@ -8,7 +8,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_NEXT_MESSAGE = {

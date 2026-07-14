@@ -9,22 +9,20 @@ import type { SpecTreeEnvFixtureWriterMethod } from "@/domains/spec/fixture-writ
 import {
   createFilesystemSpecTreeSource,
   getKindDefinition,
+  type Kind,
+  KIND_REGISTRY,
+  type KindDefinition,
   projectSpecTree,
   readSpecTree,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
+  type SpecTreeConfig,
+  type SpecTreeKindCategory,
   type SpecTreeProjection,
   type SpecTreeRegistry,
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
-import {
-  type Kind,
-  KIND_REGISTRY,
-  type KindDefinition,
-  SPEC_TREE_CONFIG,
-  type SpecTreeConfig,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree/config";
 import {
   buildRepresentativeFixture,
   createSource,

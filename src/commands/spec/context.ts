@@ -22,7 +22,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_CONTEXT_DOCUMENT_ROLE = {

@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";

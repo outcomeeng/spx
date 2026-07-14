@@ -5,7 +5,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS_SEGMENT: "ambiguous-segment",

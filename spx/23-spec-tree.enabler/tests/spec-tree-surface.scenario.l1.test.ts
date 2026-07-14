@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { findNextSpecTreeNode, projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import {
+  findNextSpecTreeNode,
+  KIND_REGISTRY,
+  projectSpecTree,
+  readSpecTree,
+  SPEC_TREE_NODE_STATE,
+} from "@/lib/spec-tree";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 

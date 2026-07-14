@@ -12,7 +12,7 @@ import {
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import { CONFIG_FILENAMES } from "@/config/index";
 import type { GitDependencies } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";

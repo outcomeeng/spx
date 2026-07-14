@@ -9,7 +9,7 @@ import {
   type NodeStatusEvidenceOutcome,
   rollupNodeStatusMechanism,
 } from "@/lib/node-status";
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 
 // The rows below exercise the precedence contract declared in node-status.md:

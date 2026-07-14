@@ -3,8 +3,14 @@ import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
 import {
+  DECISION_KINDS,
+  type DecisionKind,
+  KIND_REGISTRY,
+  NODE_SUFFIXES,
+  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
@@ -13,14 +19,6 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import {
-  DECISION_KINDS,
-  type DecisionKind,
-  KIND_REGISTRY,
-  NODE_SUFFIXES,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_GRAMMAR,
-} from "@/lib/spec-tree/config";
 import {
   type RepresentativeSpecTreeFixture,
   specTreeFixtureNodeDirectoryName,

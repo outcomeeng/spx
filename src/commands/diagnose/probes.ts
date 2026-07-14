@@ -54,7 +54,7 @@ import {
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
-import { compareNumericVersionIdentifiers } from "@/lib/spec-tree/config";
+import { compareNumericVersionIdentifiers } from "@/lib/spec-tree";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";

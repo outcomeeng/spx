@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { validatePathFilterConfig } from "@/config/primitives/path-filter";
 import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
-import { DECISION_KINDS, NODE_KINDS, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_SECTION } from "@/lib/spec-tree/config";
+import { DECISION_KINDS, NODE_KINDS, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/test/config";
 import { CONFIG_GENERATOR } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";

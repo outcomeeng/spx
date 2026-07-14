@@ -2,8 +2,7 @@ import type { Dirent } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
-import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const SPEC_ROOT_DIRECTORY = SPEC_TREE_CONFIG.ROOT_DIRECTORY;

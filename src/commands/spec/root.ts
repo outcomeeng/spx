@@ -1,5 +1,5 @@
 import { detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
 export const SPEC_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:

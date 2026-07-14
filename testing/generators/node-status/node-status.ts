@@ -8,7 +8,7 @@ import type {
   NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
 import { createNodeStatusMechanismRecord, NODE_STATUS_VERIFICATION_MECHANISM } from "@/lib/node-status";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,

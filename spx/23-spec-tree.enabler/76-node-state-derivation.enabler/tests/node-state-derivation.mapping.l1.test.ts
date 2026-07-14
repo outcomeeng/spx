@@ -7,7 +7,7 @@ import {
   type SpecTreeEvidenceStatus,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 import {
   buildEvidenceEntry,
   buildNodeEntry,

@@ -14,12 +14,7 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import {
-  KIND_REGISTRY,
-  SPEC_TREE_CONFIG_FIELDS,
-  SPEC_TREE_SECTION,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {

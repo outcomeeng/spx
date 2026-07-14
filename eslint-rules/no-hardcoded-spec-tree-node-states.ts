@@ -7,7 +7,7 @@
 
 import type { Rule } from "eslint";
 
-import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree/config";
+import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree";
 import { SPX_RULE_PREFIX } from "./import-source";
 import {
   isInTestDescription,
@@ -36,7 +36,7 @@ const rule: Rule.RuleModule = {
     schema: [],
     messages: {
       [USE_SPEC_TREE_NODE_STATES_MESSAGE_ID]:
-        "Do not hardcode source-owned spec-tree node state '{{value}}'. Import SPEC_TREE_NODE_STATE from '@/lib/spec-tree/config' and reference that registry.",
+        "Do not hardcode source-owned spec-tree node state '{{value}}'. Import SPEC_TREE_NODE_STATE from '@/lib/spec-tree' and reference that registry.",
     },
   },
   create(context: Rule.RuleContext): Rule.RuleListener {

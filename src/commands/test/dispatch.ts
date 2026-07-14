@@ -6,7 +6,7 @@ import {
   resolveTargetedTestFiles,
   type TargetSelection,
 } from "@/domains/test";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,

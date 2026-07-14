@@ -7,8 +7,13 @@ import {
   SPEC_STATUS_MESSAGE,
   SPEC_STATUS_TABLE_HEADER,
 } from "@/commands/spec/status";
-import { projectSpecTree, readSpecTree, SPEC_TREE_NODE_STATE, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import {
+  KIND_REGISTRY,
+  projectSpecTree,
+  readSpecTree,
+  SPEC_TREE_NODE_STATE,
+  SPEC_TREE_PROJECTION,
+} from "@/lib/spec-tree";
 import {
   buildNodeEntry,
   buildRepresentativeFixture,

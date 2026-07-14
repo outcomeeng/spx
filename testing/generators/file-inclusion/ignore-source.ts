@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import { DEFAULT_IGNORE_SOURCE_OVERRIDES, type IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
-import { SPEC_TREE_CONFIG, specTreeConfigDescriptor } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { GIT_WORKTREE_TEST_GENERATOR } from "@testing/generators/git-worktree/git-worktree";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 

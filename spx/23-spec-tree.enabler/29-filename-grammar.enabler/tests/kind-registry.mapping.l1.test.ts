@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type Kind, KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "@/lib/spec-tree/config";
+import { type Kind, KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_KIND_CATEGORY } from "@/lib/spec-tree";
 
 describe("KIND_REGISTRY", () => {
   it("exposes each kind as a key whose value carries registry metadata", () => {

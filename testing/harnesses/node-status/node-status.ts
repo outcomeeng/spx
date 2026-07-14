@@ -9,7 +9,7 @@ import {
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, type SpecTreeNodeState } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import type {
   ClassificationFixtureFacts,

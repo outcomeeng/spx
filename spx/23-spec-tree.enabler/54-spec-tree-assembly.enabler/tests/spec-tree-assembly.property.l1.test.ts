@@ -1,8 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { readSpecTree } from "@/lib/spec-tree";
-import { KIND_REGISTRY } from "@/lib/spec-tree/config";
+import { KIND_REGISTRY, readSpecTree } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import {
   buildNodeEntry,

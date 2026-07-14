@@ -5,7 +5,7 @@ import {
   type NodeOutcomeResolver,
   type NodeStatusEvidenceOutcome,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import type { TestingLanguageDescriptor, TestRunnerDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
