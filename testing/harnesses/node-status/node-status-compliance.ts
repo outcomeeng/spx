@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 import {
   createNodeStatusExcludeReader,
@@ -27,6 +29,41 @@ import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/gene
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
+
+// The CI wiring the "regenerates … and rejects a mismatch" assertion names: the
+// workflow file, the verification-suite step the projection check must follow,
+// the projection step, and the commands that regenerate the projection and fail
+// the job on drift. These are the contract the wiring assertion checks against
+// the real workflow, so the harness owns them; a production module owns none.
+const PROJECTION_WORKFLOW_PATH = ".github/workflows/deterministic-verification.yml";
+const PROJECTION_VERIFICATION_SUITE_STEP = "Test (passing scope)";
+const PROJECTION_CHECK_STEP = "Check committed status projection";
+const PROJECTION_UPDATE_COMMAND = "pnpm exec tsx src/cli.ts spec status --update --format json";
+const PROJECTION_DRIFT_STATUS_COMMAND = "git status --porcelain -- spx";
+const PROJECTION_DRIFT_DIFF_COMMAND = "git diff -- spx";
+const PROJECTION_FAILURE_COMMAND = "exit 1";
+const SINGLE_PROJECTION_JOB = 1;
+const STEP_NOT_FOUND = -1;
+
+type WorkflowStep = { readonly name?: string; readonly run?: string };
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  return typeof candidate === "object" && candidate !== null;
+}
+
+function isWorkflowStep(candidate: unknown): candidate is WorkflowStep {
+  return isRecord(candidate)
+    && (candidate.name === undefined || typeof candidate.name === "string")
+    && (candidate.run === undefined || typeof candidate.run === "string");
+}
+
+function parseWorkflowJobSteps(raw: string): readonly (readonly WorkflowStep[])[] {
+  const workflow = parseYaml(raw) as unknown;
+  if (!isRecord(workflow) || !isRecord(workflow.jobs)) return [];
+  return Object.values(workflow.jobs).flatMap((job) =>
+    isRecord(job) && Array.isArray(job.steps) ? [job.steps.filter(isWorkflowStep)] : []
+  );
+}
 
 export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> {
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.classificationTree());
@@ -72,7 +109,7 @@ export async function assertNodeStatusFilesOnlyWrittenByUpdate(): Promise<void> 
   });
 }
 
-export async function assertCiRejectsNodeStatusProjectionDrift(): Promise<void> {
+export async function assertRegenerationOverwritesDriftedProjection(): Promise<void> {
   const fixture = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.delegationTree());
 
   await withClassificationTree(fixture, async ({ env, expectations }) => {
@@ -114,6 +151,28 @@ export async function assertCiRejectsNodeStatusProjectionDrift(): Promise<void> 
     await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
     expect(await env.readFile(target.statusPath)).toBe(trueProjection);
   });
+}
+
+export async function assertCiWorkflowRejectsProjectionDrift(): Promise<void> {
+  // The behavioral test proves regeneration overwrites drift; this proves CI wires
+  // that regeneration in — the projection check runs after the verification suite
+  // (so it folds fresh evidence) and fails the job on any committed drift through
+  // git. Deleting or reordering the projection step in the workflow fails here.
+  const jobSteps = parseWorkflowJobSteps(await readFile(join(process.cwd(), PROJECTION_WORKFLOW_PATH), "utf8"));
+  const projectionJobs = jobSteps.filter((steps) => steps.some((step) => step.name === PROJECTION_CHECK_STEP));
+
+  expect(projectionJobs).toHaveLength(SINGLE_PROJECTION_JOB);
+  for (const steps of projectionJobs) {
+    const suiteIndex = steps.findIndex((step) => step.name === PROJECTION_VERIFICATION_SUITE_STEP);
+    const projectionIndex = steps.findIndex((step) => step.name === PROJECTION_CHECK_STEP);
+
+    expect(suiteIndex).toBeGreaterThan(STEP_NOT_FOUND);
+    expect(projectionIndex).toBeGreaterThan(suiteIndex);
+    expect(steps[projectionIndex].run).toContain(PROJECTION_UPDATE_COMMAND);
+    expect(steps[projectionIndex].run).toContain(PROJECTION_DRIFT_STATUS_COMMAND);
+    expect(steps[projectionIndex].run).toContain(PROJECTION_DRIFT_DIFF_COMMAND);
+    expect(steps[projectionIndex].run).toContain(PROJECTION_FAILURE_COMMAND);
+  }
 }
 
 export async function assertMissingNodeStatusReturnsUndefined(): Promise<void> {
