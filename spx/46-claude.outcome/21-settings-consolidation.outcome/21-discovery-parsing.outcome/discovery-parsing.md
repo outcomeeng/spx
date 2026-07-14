@@ -14,7 +14,7 @@ CONTRIBUTING TO eliminating permission drift by ensuring no project's settings a
 
 ### Properties
 
-- Discovery is exhaustive: every `settings.local.json` under the root is found ([test](tests/discovery.property.l1.test.ts))
+- Discovery is exhaustive: every `.claude/settings.local.json` target under the root is found ([test](tests/discovery.property.l1.test.ts))
 - Parsing maps every valid permission entry to a typed record carrying its raw value, type, scope, and category ([test](tests/parser.property.l1.test.ts))
 - Parsing retains an error result for every malformed JSON file while continuing with later paths ([test](tests/parser.property.l1.test.ts))
 - Parsing preserves input cardinality and order: every settings-file path yields one ordered success or error result ([test](tests/parser.property.l1.test.ts))
