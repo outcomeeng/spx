@@ -11,17 +11,14 @@ import {
   type LiteralOccurrence,
 } from "@/validation/literal/index";
 import {
+  arbitraryDistinctLiteralKindValuePair,
   arbitraryDomainLiteral,
-  arbitraryDomainNumber,
+  arbitraryLiteralLocation,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
 } from "@testing/generators/literal/literal";
-import {
-  buildNumericDeclaration,
-  buildStringAssertion,
-  buildStringDeclaration,
-} from "@testing/harnesses/literal/snippets";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
@@ -69,8 +66,8 @@ export const literalDetectionPropertyCases = collectHarnessTestCases(() => {
       assertProperty(
         arbitraryDetectionFixture(),
         (fixture) => {
-          expect(canonicalSort(collectFixture(fixture, naturalOrder(fixture))))
-            .toEqual(canonicalSort(collectFixture(fixture, naturalOrder(fixture))));
+          expect(collectFixture(fixture, naturalOrder(fixture)))
+            .toEqual(collectFixture(fixture, naturalOrder(fixture)));
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
@@ -90,24 +87,15 @@ export const literalDetectionPropertyCases = collectHarnessTestCases(() => {
     it("builds injective index keys over literal kind and value", () => {
       assertProperty(
         fc.record({
-          literal: arbitraryDomainNumber(),
-          stringFilename: arbitrarySourceFilePath(),
-          numberFilename: arbitrarySourceFilePath(),
+          pair: arbitraryDistinctLiteralKindValuePair(),
+          firstLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
+          secondLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
         }),
         (entries) => {
-          const value = String(entries.literal);
           expect(
             buildIndex([
-              ...collectLiterals(
-                buildStringDeclaration(value),
-                entries.stringFilename,
-                DEFAULT_LITERAL_COLLECT_OPTIONS,
-              ),
-              ...collectLiterals(
-                buildNumericDeclaration(value),
-                entries.numberFilename,
-                DEFAULT_LITERAL_COLLECT_OPTIONS,
-              ),
+              { ...entries.pair.first, loc: entries.firstLocation },
+              { ...entries.pair.second, loc: entries.secondLocation },
             ]).size,
           ).toBe(LITERAL_TEST_GENERATOR_COUNTS.two);
         },

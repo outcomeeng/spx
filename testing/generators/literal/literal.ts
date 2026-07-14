@@ -127,6 +127,43 @@ export function arbitraryDomainNumber(): fc.Arbitrary<number> {
   return fc.integer({ min, max });
 }
 
+export interface LiteralKindValue {
+  readonly kind: LiteralKind;
+  readonly value: string;
+}
+
+export interface DistinctLiteralKindValuePair {
+  readonly first: LiteralKindValue;
+  readonly second: LiteralKindValue;
+}
+
+export function arbitraryDistinctLiteralKindValuePair(): fc.Arbitrary<DistinctLiteralKindValuePair> {
+  return fc.oneof(
+    fc.uniqueArray(arbitraryDomainLiteral(), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+    }).map(([first, second]) => ({
+      first: { kind: LITERAL_KIND.STRING, value: first },
+      second: { kind: LITERAL_KIND.STRING, value: second },
+    })),
+    fc.uniqueArray(arbitraryDomainNumber(), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+    }).map(([first, second]) => ({
+      first: { kind: LITERAL_KIND.NUMBER, value: String(first) },
+      second: { kind: LITERAL_KIND.NUMBER, value: String(second) },
+    })),
+    arbitraryDomainNumber().map((value) => ({
+      first: { kind: LITERAL_KIND.STRING, value: String(value) },
+      second: { kind: LITERAL_KIND.NUMBER, value: String(value) },
+    })),
+    fc.tuple(arbitraryDomainLiteral(), arbitraryDomainNumber()).map(([literal, number]) => ({
+      first: { kind: LITERAL_KIND.STRING, value: literal },
+      second: { kind: LITERAL_KIND.NUMBER, value: String(number) },
+    })),
+  );
+}
+
 export function arbitraryLiteralLocation(fileArb: fc.Arbitrary<string>): fc.Arbitrary<LiteralLocation> {
   return fc.record({
     file: fileArb,
