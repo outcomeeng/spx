@@ -2,10 +2,9 @@ import { describe, it } from "vitest";
 
 import {
   assertSpecContextIgnoresUnrelatedHarnessConfigDefects,
+  assertSpecContextManifestCarriesSchemaVersionAndBootstrap,
   assertSpecContextManifestIgnoresUntrackedScratchNodes,
-  assertSpecContextManifestIncludesDocuments,
   assertSpecContextManifestIncludesMethodology,
-  assertSpecContextManifestListsSameAndHigherSiblings,
   assertSpecContextManifestOmitsMissingNodeSpecs,
   assertSpecContextPrefersExactTarget,
   assertSpecContextRejectsAmbiguousTarget,
@@ -33,12 +32,8 @@ describe("spec context ingestion compliance", () => {
     await assertSpecContextManifestIncludesMethodology();
   });
 
-  it("includes deterministic spec-tree documents in the manifest", async () => {
-    await assertSpecContextManifestIncludesDocuments();
-  });
-
-  it("lists same-index and higher-index siblings separately", async () => {
-    await assertSpecContextManifestListsSameAndHigherSiblings();
+  it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
+    await assertSpecContextManifestCarriesSchemaVersionAndBootstrap();
   });
 
   it("excludes untracked node-shaped scratch paths from the manifest", async () => {

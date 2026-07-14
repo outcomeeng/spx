@@ -1,17 +1,33 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { chmod, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, parse, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
+import * as fc from "fast-check";
 import { build } from "tsup";
 import { expect, it } from "vitest";
 
 import {
   type ContextOptions,
-  SPEC_CONTEXT_DOCUMENT_ROLE,
   SPEC_CONTEXT_TEXT_LABEL,
-  type SpecContextManifest,
 } from "@/commands/spec/context";
+import type { Config } from "@/config/types";
+import {
+  decodeContextDocumentUtf8,
+  formatInvalidContextDocumentError,
+  formatMissingCitedDecisionError,
+  formatUnreadableContextDocumentError,
+  SPEC_CONTEXT_DIGEST_ALGORITHM,
+  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_LISTED_ROLE,
+  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+  SPEC_CONTEXT_READ_ROLE,
+  SPEC_CONTEXT_READ_ROLE_ORDER,
+  specContextBootstrap,
+  specContextDigest,
+  type SpecContextManifest,
+} from "@/domains/spec/context-manifest";
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
@@ -20,6 +36,7 @@ import { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/do
 import {
   contextOutputForFormat,
   formatSpecContextTargetFailure,
+  SPEC_CONTEXT_CONTENT_MESSAGE,
   SPEC_CONTEXT_OUTPUT_FORMAT,
   SPEC_DOMAIN_CLI,
 } from "@/interfaces/cli/spec";
@@ -60,11 +77,23 @@ import {
   specCliDeclaredStatusRows,
   specCliUnsupportedStatusFormatFixture,
 } from "@testing/generators/spec-tree/spec-cli";
-import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
+import {
+  type RepresentativeSpecTreeFixture,
+  RETIRED_SPEC_APPLY_FIXTURE,
+  SPEC_TREE_TEST_GENERATOR,
+  sampleSpecTreeTestValue,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import {
+  arbitraryDecisionPath,
+  arbitraryNodePath,
+  type CurrentSpecTreeEnv,
+  withSpecTreeEnv,
+} from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
@@ -500,11 +529,11 @@ export async function assertSpecContextCliRendersTarget(): Promise<void> {
     );
     const manifest = JSON.parse(result.stdout) as {
       readonly target: string;
-      readonly documents: readonly { readonly role: string }[];
+      readonly read: readonly { readonly role: string }[];
     };
     expect(result.exitCode).toBe(0);
     expect(manifest.target).toBe(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target}`);
-    expect(manifest.documents.some((document) => document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT)).toBe(true);
+    expect(manifest.read.some((document) => document.role === SPEC_CONTEXT_READ_ROLE.PRODUCT)).toBe(true);
   });
 }
 
@@ -617,137 +646,6 @@ export async function assertSpecContextManifestIncludesMethodology(): Promise<vo
   });
 }
 
-export async function assertSpecContextManifestIncludesDocuments(): Promise<void> {
-  await withSpecTreeEnv({
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
-  }, async (env) => {
-    await env.materialize();
-    const snapshot = await env.readFilesystemSnapshot();
-    const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
-    const lowerSibling = lowerSiblingDirectoryName(env.fixture);
-    const evidencePath = `spx/${target.id}/tests/${target.slug}.scenario.l1.test.ts`;
-    const decisionSuffix = KIND_REGISTRY[env.fixture.decision.kind].suffix;
-    const targetDecisionPath =
-      `spx/${target.id}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const higherTargetDecisionPath =
-      `spx/${target.id}/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const productDecisionPath = `spx/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const higherProductDecisionPath = `spx/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const ancestorDecisionPath =
-      `spx/${target.parentId}/${env.fixture.decision.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    const higherAncestorDecisionPath =
-      `spx/${target.parentId}/${env.fixture.peer.order}-${env.fixture.decision.slug}${decisionSuffix}`;
-    for (const filename of SPEC_TREE_GRAMMAR.COORDINATION_NOTES) {
-      await env.writeRaw(`spx/${filename}`, `# Product ${filename}\n`);
-      await env.writeRaw(`spx/${target.parentId}/${filename}`, `# Ancestor ${filename}\n`);
-      await env.writeRaw(`spx/${target.id}/${filename}`, `# Target ${filename}\n`);
-    }
-    await env.writeRaw(`spx/${lowerSibling}/${env.fixture.root.slug}.md`, "# Lower sibling\n");
-    await env.writeRaw(evidencePath, "import { describe, it } from \"vitest\";\n");
-    await env.writeRaw(targetDecisionPath, "# Target decision\n");
-    await env.writeRaw(higherTargetDecisionPath, "# Higher target decision\n");
-    await env.writeRaw(productDecisionPath, "# Product decision\n");
-    await env.writeRaw(higherProductDecisionPath, "# Higher product decision\n");
-    await env.writeRaw(higherAncestorDecisionPath, "# Higher ancestor decision\n");
-    const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
-    const productPath = snapshot.product?.ref?.path;
-    const ancestorPath = snapshot.allNodes.find((node) => node.id === target.parentId)?.ref?.path;
-    expect(productPath).toBeDefined();
-    expect(ancestorPath).toBeDefined();
-    const roles = new Set(manifest.documents.map((document) => document.role));
-    expect(manifest.documents).toContainEqual({
-      path: productPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: ancestorPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.ANCESTOR,
-    });
-    expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.TARGET)).toBe(true);
-    expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.DECISION)).toBe(true);
-    expect(roles.has(SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE)).toBe(true);
-    for (const filename of SPEC_TREE_GRAMMAR.COORDINATION_NOTES) {
-      expect(manifest.documents).toContainEqual({
-        path: `spx/${filename}`,
-        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
-      });
-      expect(manifest.documents).toContainEqual({
-        path: `spx/${target.parentId}/${filename}`,
-        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
-      });
-      expect(manifest.documents).toContainEqual({
-        path: `spx/${target.id}/${filename}`,
-        role: SPEC_CONTEXT_DOCUMENT_ROLE.COORDINATION,
-      });
-    }
-    expect(manifest.documents).toContainEqual({
-      path: `spx/${lowerSibling}/${env.fixture.root.slug}.md`,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.LOWER_INDEX_SIBLING,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: evidencePath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.EVIDENCE,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: targetDecisionPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: higherTargetDecisionPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: productDecisionPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
-    });
-    expect(manifest.documents).toContainEqual({
-      path: ancestorDecisionPath,
-      role: SPEC_CONTEXT_DOCUMENT_ROLE.DECISION,
-    });
-    expect(manifest.documents.map((document) => document.path)).not.toContain(higherProductDecisionPath);
-    expect(manifest.documents.map((document) => document.path)).not.toContain(higherAncestorDecisionPath);
-    const productIndex = manifest.documents.findIndex((document) =>
-      document.role === SPEC_CONTEXT_DOCUMENT_ROLE.PRODUCT
-    );
-    const targetIndex = manifest.documents.findIndex((document) => document.role === SPEC_CONTEXT_DOCUMENT_ROLE.TARGET);
-    expect(productIndex).toBeGreaterThanOrEqual(0);
-    expect(targetIndex).toBeGreaterThan(productIndex);
-    expect(manifest.documents.length).toBeGreaterThan(0);
-  });
-}
-
-export async function assertSpecContextManifestListsSameAndHigherSiblings(): Promise<void> {
-  await withSpecTreeEnv({
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
-  }, async (env) => {
-    await env.materialize();
-    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-    const sameIndexSibling = sameIndexSiblingDirectoryName(env.fixture);
-    const higherIndexSibling = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.peer);
-    await env.writeRaw(`spx/${sameIndexSibling}/${env.fixture.root.slug}-same.md`, "# Same sibling\n");
-
-    const manifest = parseContextManifest(await contextCommand({ target, cwd: env.productDir }));
-    const output = await contextTextCommand({ target, cwd: env.productDir });
-
-    expect(manifest.siblings.sameIndex).toContain(`spx/${sameIndexSibling}`);
-    expect(manifest.siblings.higherIndex).toContain(`spx/${higherIndexSibling}`);
-    expect(manifest.documents.map((document) => document.path)).not.toContain(
-      `spx/${sameIndexSibling}/${env.fixture.root.slug}-same.md`,
-    );
-    expect(manifest.documents.map((document) => document.path)).not.toContain(
-      `spx/${higherIndexSibling}/${env.fixture.peer.slug}.md`,
-    );
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.SAME_INDEX_SIBLINGS}:`);
-    expect(output).toContain(`  - spx/${sameIndexSibling}`);
-    expect(output).toContain(`${SPEC_CONTEXT_TEXT_LABEL.HIGHER_INDEX_SIBLINGS}:`);
-    expect(output).toContain(`  - spx/${higherIndexSibling}`);
-  });
-}
-
 export async function assertSpecContextManifestIgnoresUntrackedScratchNodes(): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
@@ -772,10 +670,8 @@ export async function assertSpecContextManifestIgnoresUntrackedScratchNodes(): P
       }),
     );
 
-    expect(manifest.documents.map((document) => document.path)).not.toContain(
-      `spx/${scratch}/${env.fixture.root.slug}.md`,
-    );
-    expect(manifest.documents.map((document) => document.path)).not.toContain(`spx/${target}/PLAN.md`);
+    expect(allManifestPaths(manifest)).not.toContain(`spx/${scratch}/${env.fixture.root.slug}.md`);
+    expect(allManifestPaths(manifest)).not.toContain(`spx/${target}/PLAN.md`);
   });
 }
 
@@ -829,7 +725,7 @@ export async function assertSpecContextUsesLinkedWorktreeRoot(): Promise<void> {
 
       expect(manifest.productDir).toBe(await realpath(linkedProductDir));
       expect(manifest.target).toBe(`spx/${target}`);
-      expect(manifest.documents.map((document) => document.path)).not.toContain(scratchPath);
+      expect(allManifestPaths(manifest)).not.toContain(scratchPath);
     } finally {
       await removeTempDir(linkedParent);
     }
@@ -851,9 +747,7 @@ export async function assertSpecContextManifestOmitsMissingNodeSpecs(): Promise<
     const manifest = parseContextManifest(await contextCommand({ target: missingChild, cwd: env.productDir }));
 
     expect(manifest.target).toBe(`spx/${missingChild}`);
-    expect(manifest.documents.map((document) => document.path)).not.toContain(
-      `spx/${missingChild}/metadata-only.md`,
-    );
+    expect(allManifestPaths(manifest)).not.toContain(`spx/${missingChild}/metadata-only.md`);
   });
 }
 
@@ -877,7 +771,12 @@ export async function assertSpecContextTextIncludesContext(): Promise<void> {
     expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGET}: spx/${target.id}`);
     expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
     expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
-    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.DOCUMENTS}:`);
+    expect(textOutput).toContain(
+      `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`,
+    );
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: false`);
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
+    expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
     expect(parseContextManifest(jsonOutput).target).toBe(`spx/${target.id}`);
   });
 }
@@ -900,6 +799,11 @@ export async function assertSpecContextRejectsMalformedMethodologyConfig(): Prom
   });
 }
 
+// The two assertions below witness the CONTEXT COMMAND's wiring to the shared
+// methodology resolver. The resolver's own behavior is owned and deeply tested
+// by the methodology-config node; these exist so a refactor of this command's
+// config path cannot silently drop the legacy-placement rejection or start
+// failing on unrelated config content.
 export async function assertSpecContextRejectsHarnessMethodologyConfig(): Promise<void> {
   await withSpecTreeEnv({
     [SPEC_TREE_CONFIG.SECTION]: {
@@ -937,5 +841,505 @@ export async function assertSpecContextIgnoresUnrelatedHarnessConfigDefects(): P
       source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
       version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
     });
+  });
+}
+
+function specTreeKindsConfig(): Config {
+  return {
+    [SPEC_TREE_CONFIG.SECTION]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+  };
+}
+
+function readPaths(manifest: SpecContextManifest): readonly string[] {
+  return manifest.read.map((document) => document.path);
+}
+
+function listedPaths(manifest: SpecContextManifest): readonly string[] {
+  return manifest.listed.map((entry) => entry.path);
+}
+
+function allManifestPaths(manifest: SpecContextManifest): readonly string[] {
+  return [...readPaths(manifest), ...listedPaths(manifest)];
+}
+
+/** Paths for the fully populated context fixture `withRichContextEnv` materializes. */
+interface RichContextPaths {
+  readonly targetId: string;
+  readonly rootDirectory: string;
+  readonly productPath: string;
+  readonly rootSpecPath: string;
+  readonly targetSpecPath: string;
+  readonly ancestorDecisionPath: string;
+  readonly higherAncestorDecisionPath: string;
+  readonly higherProductDecisionPath: string;
+  readonly lowerSiblingSpecPath: string;
+  readonly citedDecisionPath: string;
+  readonly transitiveCitedDecisionPath: string;
+  readonly evidencePath: string;
+  readonly rootPlanPath: string;
+  readonly rootIssuesPath: string;
+  readonly ancestorPlanPath: string;
+  readonly targetIssuesPath: string;
+  /** Exact text written to the target ISSUES note; carries multi-byte UTF-8 so a wrong-encoding decode is caught. */
+  readonly targetIssuesText: string;
+  readonly rootGuidePaths: readonly string[];
+  readonly ancestorGuidePath: string;
+  readonly lifecycleOverlayPath: string;
+  readonly listedOverlayPath: string;
+  readonly sameIndexSiblingPath: string;
+  readonly higherIndexSiblingPath: string;
+}
+
+/**
+ * Materializes a spec tree exercising every manifest role at once: nested
+ * target with ancestor, decisions above and below the constraining order,
+ * a lower-index sibling that also cites the shared decision (multi-citer
+ * provenance), coordination notes at the product root, the ancestor, and the
+ * target, runtime guides at the product root and along the node path, both
+ * overlay classes, co-located evidence, and a transitive cited-decision chain
+ * rooted in the target spec. The product-root PLAN note embeds a
+ * citation-shaped path to a decision that does not exist, proving
+ * coordination notes never bind citations.
+ */
+async function withRichContextEnv(
+  callback: (env: CurrentSpecTreeEnv, paths: RichContextPaths) => Promise<void>,
+): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const fixture = env.fixture;
+    const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
+    const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
+    const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
+    const targetId = `${rootDirectory}/${childDirectory}`;
+    const decisionSuffix = KIND_REGISTRY[fixture.decision.kind].suffix;
+    const snapshot = await env.readFilesystemSnapshot();
+    const productPath = snapshot.product?.ref?.path;
+    expect(productPath).toBeDefined();
+
+    const paths: RichContextPaths = {
+      targetId,
+      rootDirectory,
+      productPath: productPath as string,
+      rootSpecPath: `spx/${rootDirectory}/${fixture.root.slug}.md`,
+      targetSpecPath: `spx/${targetId}/${fixture.child.slug}.md`,
+      ancestorDecisionPath: `spx/${rootDirectory}/${fixture.decision.order}-${fixture.decision.slug}${decisionSuffix}`,
+      higherAncestorDecisionPath:
+        `spx/${rootDirectory}/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
+      higherProductDecisionPath: `spx/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
+      lowerSiblingSpecPath: `spx/${lowerSiblingDirectoryName(fixture)}/${fixture.root.slug}.md`,
+      citedDecisionPath:
+        `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-cited${decisionSuffix}`,
+      transitiveCitedDecisionPath:
+        `spx/${peerDirectory}/${fixture.peer.order}-${fixture.decision.slug}-transitive${decisionSuffix}`,
+      evidencePath: `spx/${targetId}/tests/${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName())}`,
+      rootPlanPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
+      rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
+      ancestorPlanPath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
+      targetIssuesPath: `spx/${targetId}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
+      targetIssuesText: "# Target issues — Prüfung ✓ 文脈\n",
+      rootGuidePaths: SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => filename),
+      ancestorGuidePath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.GUIDE_FILES[0]}`,
+      lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+      listedOverlayPath: `spx/${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}/${
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
+      }${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
+      sameIndexSiblingPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}`,
+      higherIndexSiblingPath: `spx/${peerDirectory}`,
+    };
+
+    await env.writeRaw(paths.targetSpecPath, `# ${fixture.child.slug}\n\nGoverned by ${paths.citedDecisionPath}\n`);
+    await env.writeRaw(
+      paths.citedDecisionPath,
+      `# Cited decision\n\nRefines ${paths.transitiveCitedDecisionPath}\n`,
+    );
+    await env.writeRaw(paths.transitiveCitedDecisionPath, "# Transitive cited decision\n");
+    await env.writeRaw(
+      paths.lowerSiblingSpecPath,
+      `# Lower sibling\n\nAlso governed by ${paths.citedDecisionPath}\n`,
+    );
+    await env.writeRaw(paths.higherAncestorDecisionPath, "# Higher ancestor decision\n");
+    await env.writeRaw(paths.higherProductDecisionPath, "# Higher product decision\n");
+    await env.writeRaw(paths.evidencePath, "import { describe, it } from \"vitest\";\n");
+    await env.writeRaw(paths.rootPlanPath, "# Plan\n\nMentions spx/99-unscanned.pdr.md without binding it.\n");
+    await env.writeRaw(paths.rootIssuesPath, "# Issues\n");
+    await env.writeRaw(paths.ancestorPlanPath, "# Ancestor plan\n");
+    await env.writeRaw(paths.targetIssuesPath, paths.targetIssuesText);
+    for (const guidePath of paths.rootGuidePaths) {
+      await env.writeRaw(guidePath, "# Guide\n");
+    }
+    await env.writeRaw(paths.ancestorGuidePath, "# Ancestor guide\n");
+    await env.writeRaw(paths.lifecycleOverlayPath, "# Lifecycle overlay\n");
+    await env.writeRaw(paths.listedOverlayPath, "# Listed overlay\n");
+    await env.writeRaw(
+      `spx/${sameIndexSiblingDirectoryName(env.fixture)}/${fixture.root.slug}-same.md`,
+      "# Same sibling\n",
+    );
+
+    await callback(env, paths);
+  });
+}
+
+export async function assertSpecContextManifestCarriesSchemaVersionAndBootstrap(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const manifest = parseContextManifest(await contextCommand({ target: target.id, cwd: env.productDir }));
+    expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
+    expect(specContextBootstrap(0)).toBe(true);
+    expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
+    expect(manifest.bootstrap).toBe(specContextBootstrap(snapshot.allNodes.length));
+  });
+}
+
+export async function assertSpecContextManifestClassifiesRolesIntoReadAndListed(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+
+    const readRoles = new Set<string>(SPEC_CONTEXT_READ_ROLE_ORDER);
+    for (const document of manifest.read) {
+      expect(readRoles.has(document.role)).toBe(true);
+    }
+    const listedRoles = new Set<string>(Object.values(SPEC_CONTEXT_LISTED_ROLE));
+    for (const entry of manifest.listed) {
+      expect(listedRoles.has(entry.role)).toBe(true);
+    }
+
+    expect(manifest.read).toContainEqual({ role: SPEC_CONTEXT_READ_ROLE.PRODUCT, path: paths.productPath });
+    expect(manifest.read).toContainEqual({ role: SPEC_CONTEXT_READ_ROLE.ANCESTOR, path: paths.rootSpecPath });
+    expect(manifest.read).toContainEqual({ role: SPEC_CONTEXT_READ_ROLE.TARGET, path: paths.targetSpecPath });
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.DECISION,
+      path: paths.ancestorDecisionPath,
+    });
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING,
+      path: paths.lowerSiblingSpecPath,
+    });
+    expect(manifest.read).toContainEqual({ role: SPEC_CONTEXT_READ_ROLE.COORDINATION, path: paths.rootPlanPath });
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.GUIDE,
+      path: paths.rootGuidePaths[0],
+    });
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
+      path: paths.citedDecisionPath,
+      citedBy: [paths.targetSpecPath, paths.lowerSiblingSpecPath],
+    });
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY,
+      path: paths.lifecycleOverlayPath,
+    });
+
+    expect(manifest.listed).toContainEqual({ role: SPEC_CONTEXT_LISTED_ROLE.EVIDENCE, path: paths.evidencePath });
+    expect(manifest.listed).toContainEqual({ role: SPEC_CONTEXT_LISTED_ROLE.OVERLAY, path: paths.listedOverlayPath });
+
+    expect(readPaths(manifest)).not.toContain(paths.higherProductDecisionPath);
+    expect(readPaths(manifest)).not.toContain(paths.higherAncestorDecisionPath);
+    expect(readPaths(manifest)).not.toContain(paths.evidencePath);
+    expect(readPaths(manifest)).not.toContain(paths.listedOverlayPath);
+
+    const rootManifest = parseContextManifest(
+      await contextCommand({ target: paths.rootDirectory, cwd: env.productDir }),
+    );
+    expect(rootManifest.listed).toContainEqual({
+      role: SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING,
+      path: paths.sameIndexSiblingPath,
+    });
+    expect(rootManifest.listed).toContainEqual({
+      role: SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING,
+      path: paths.higherIndexSiblingPath,
+    });
+    expect(readPaths(rootManifest)).not.toContain(`${paths.sameIndexSiblingPath}/${env.fixture.root.slug}-same.md`);
+  });
+}
+
+export async function assertSpecContextReadEntriesFollowGroupOrder(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    const groupIndexes = manifest.read.map((document) => SPEC_CONTEXT_READ_ROLE_ORDER.indexOf(document.role));
+    for (const groupIndex of groupIndexes) {
+      expect(groupIndex).toBeGreaterThanOrEqual(0);
+    }
+    for (let position = 1; position < groupIndexes.length; position += 1) {
+      expect(groupIndexes[position]).toBeGreaterThanOrEqual(groupIndexes[position - 1]);
+    }
+    const uniquePaths = readPaths(manifest);
+    expect(new Set(uniquePaths).size).toBe(uniquePaths.length);
+  });
+}
+
+export async function assertSpecContextIncludesCitedDecisionsWithProvenance(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    const citedEntries = manifest.read.filter(
+      (document) => document.role === SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
+    );
+    expect(citedEntries).toEqual([
+      {
+        role: SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
+        path: paths.citedDecisionPath,
+        // The target spec and the lower-index sibling both cite this decision;
+        // provenance accumulates every citer once, in read order.
+        citedBy: [paths.targetSpecPath, paths.lowerSiblingSpecPath],
+      },
+      {
+        role: SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
+        path: paths.transitiveCitedDecisionPath,
+        citedBy: [paths.citedDecisionPath],
+      },
+    ]);
+  });
+}
+
+export async function assertSpecContextIgnoresTraversalCitationShapes(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const targetSpecPath = target.ref?.path;
+    expect(targetSpecPath).toBeDefined();
+    await env.writeRaw(
+      targetSpecPath as string,
+      `# ${target.slug}\n\nMentions spx/../../outside-product.adr.md without binding it.\n`,
+    );
+
+    const manifest = parseContextManifest(
+      await contextCommand({ target: target.id, cwd: env.productDir, content: true }),
+    );
+
+    expect(allManifestPaths(manifest).some((path) => path.includes(".."))).toBe(false);
+  });
+}
+
+export async function assertSpecContextRejectsMissingCitedDecision(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const targetSpecPath = target.ref?.path;
+    expect(targetSpecPath).toBeDefined();
+    const missingCitedPath = `spx/${target.id}/98-absent.adr.md`;
+    await env.writeRaw(targetSpecPath as string, `# ${target.slug}\n\nGoverned by ${missingCitedPath}\n`);
+
+    await expect(contextCommand({ target: target.id, cwd: env.productDir })).rejects.toThrow(
+      formatMissingCitedDecisionError(missingCitedPath, targetSpecPath as string),
+    );
+  });
+}
+
+export async function assertSpecContextIncludesCoordinationAtAllLevels(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    const coordinationPaths = manifest.read
+      .filter((document) => document.role === SPEC_CONTEXT_READ_ROLE.COORDINATION)
+      .map((document) => document.path);
+    expect(coordinationPaths).toEqual([
+      paths.rootPlanPath,
+      paths.rootIssuesPath,
+      paths.ancestorPlanPath,
+      paths.targetIssuesPath,
+    ]);
+  });
+}
+
+export async function assertSpecContextIncludesGuidesAlongPath(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    const guidePaths = manifest.read
+      .filter((document) => document.role === SPEC_CONTEXT_READ_ROLE.GUIDE)
+      .map((document) => document.path);
+    expect(guidePaths).toEqual([...paths.rootGuidePaths, paths.ancestorGuidePath]);
+  });
+}
+
+export async function assertSpecContextClassifiesOverlays(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    expect(manifest.read).toContainEqual({
+      role: SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY,
+      path: paths.lifecycleOverlayPath,
+    });
+    expect(manifest.listed).toContainEqual({
+      role: SPEC_CONTEXT_LISTED_ROLE.OVERLAY,
+      path: paths.listedOverlayPath,
+    });
+    expect(readPaths(manifest)).not.toContain(paths.listedOverlayPath);
+    expect(listedPaths(manifest)).not.toContain(paths.lifecycleOverlayPath);
+  });
+}
+
+export async function assertSpecContextExcludesSymlinkEscapes(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const snapshot = await env.readFilesystemSnapshot();
+    const target = snapshot.allNodes[0];
+    const outsideParent = await createTempDir("spx-context-outside-");
+    try {
+      const outsideSecretPath = join(outsideParent, "outside-secret.md");
+      // The marker carries no newline or JSON-escapable character, so it
+      // appears verbatim inside a JSON-encoded content field — a leak is
+      // observable in the raw output regardless of JSON string escaping.
+      const secretMarker = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await writeFile(outsideSecretPath, `# Outside secret ${secretMarker}\n`);
+      const escapingGuidePath = SPEC_TREE_GRAMMAR.GUIDE_FILES[1];
+      await symlink(outsideSecretPath, join(env.productDir, escapingGuidePath));
+
+      const manifestJson = await contextCommand({ target: target.id, cwd: env.productDir, content: true });
+      const manifest = parseContextManifest(manifestJson);
+
+      expect(allManifestPaths(manifest)).not.toContain(escapingGuidePath);
+      expect(manifestJson).not.toContain(secretMarker);
+    } finally {
+      await removeTempDir(outsideParent);
+    }
+  });
+}
+
+export async function assertSpecContextProjectionIsDeterministic(): Promise<void> {
+  await assertProperty(
+    fc.tuple(
+      arbitraryNodePath(specTreeKindsConfig()),
+      arbitraryDecisionPath(specTreeKindsConfig()),
+    ),
+    async ([extraNodeDirectory, extraDecisionFile]) => {
+      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+        await env.materialize();
+        await env.writeRaw(`spx/${extraNodeDirectory}/extra.md`, "# Extra node\n");
+        await env.writeRaw(`spx/${extraDecisionFile}`, "# Extra decision\n");
+        const snapshot = await env.readFilesystemSnapshot();
+        const target = snapshot.allNodes[0];
+        const firstJson = await contextCommand({ target: target.id, cwd: env.productDir });
+        const secondJson = await contextCommand({ target: target.id, cwd: env.productDir });
+        const firstText = await contextTextCommand({ target: target.id, cwd: env.productDir });
+        const secondText = await contextTextCommand({ target: target.id, cwd: env.productDir });
+        const firstContent = await contextCommand({ target: target.id, cwd: env.productDir, content: true });
+        const secondContent = await contextCommand({ target: target.id, cwd: env.productDir, content: true });
+        expect(secondJson).toBe(firstJson);
+        expect(secondText).toBe(firstText);
+        expect(secondContent).toBe(firstContent);
+      });
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+}
+
+export async function assertSpecContextContentModeCarriesExactBytes(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(
+      await contextCommand({ target: paths.targetId, cwd: env.productDir, content: true }),
+    );
+    expect(manifest.read.length).toBeGreaterThan(0);
+    // The written multi-byte string is the encoding-independent oracle: a
+    // wrong-encoding decode reproduces ASCII documents byte-for-byte but not
+    // this one.
+    expect(
+      manifest.read.find((document) => document.path === paths.targetIssuesPath)?.content,
+    ).toBe(paths.targetIssuesText);
+    for (const document of manifest.read) {
+      const rawBytes = await readFile(join(env.productDir, document.path));
+      expect(document.content).toBe(decodeContextDocumentUtf8(rawBytes));
+      expect(document.digest).toBe(specContextDigest(rawBytes));
+      expect(document.digest).toBe(
+        `${SPEC_CONTEXT_DIGEST_ALGORITHM}:${createHash(SPEC_CONTEXT_DIGEST_ALGORITHM).update(rawBytes).digest("hex")}`,
+      );
+      expect(document.bytes).toBe(rawBytes.byteLength);
+    }
+    for (const entry of manifest.listed) {
+      expect(entry).not.toHaveProperty("content");
+      expect(entry).not.toHaveProperty("digest");
+      expect(entry).not.toHaveProperty("bytes");
+    }
+  });
+}
+
+export async function assertSpecContextContentModeRejectsInvalidUtf8(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    await writeFile(join(env.productDir, paths.ancestorPlanPath), Buffer.from([0xff, 0xfe, 0xfd]));
+    await expect(
+      contextCommand({ target: paths.targetId, cwd: env.productDir, content: true }),
+    ).rejects.toThrow(formatInvalidContextDocumentError(paths.ancestorPlanPath));
+  });
+  // A citation-scanned structural document fails with the same exact-path
+  // diagnostic — never a missing-citation error over mangled bytes and never
+  // a raw filesystem error.
+  await withRichContextEnv(async (env, paths) => {
+    await writeFile(join(env.productDir, paths.targetSpecPath), Buffer.from([0xff, 0xfe, 0xfd]));
+    await expect(
+      contextCommand({ target: paths.targetId, cwd: env.productDir, content: true }),
+    ).rejects.toThrow(formatInvalidContextDocumentError(paths.targetSpecPath));
+  });
+}
+
+export async function assertSpecContextContentModeRejectsUnreadableDocument(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    // Removing every permission bit makes the read fail on POSIX non-root
+    // runners; restored afterwards so temp-directory cleanup stays quiet.
+    await chmod(join(env.productDir, paths.ancestorPlanPath), 0o000);
+    try {
+      await expect(
+        contextCommand({ target: paths.targetId, cwd: env.productDir, content: true }),
+      ).rejects.toThrow(formatUnreadableContextDocumentError(paths.ancestorPlanPath));
+    } finally {
+      await chmod(join(env.productDir, paths.ancestorPlanPath), 0o644);
+    }
+  });
+}
+
+export async function assertSpecContextWithoutContentModeOmitsContentFields(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    for (const document of [...manifest.read, ...manifest.listed]) {
+      expect(document).not.toHaveProperty("content");
+      expect(document).not.toHaveProperty("digest");
+      expect(document).not.toHaveProperty("bytes");
+    }
+  });
+}
+
+export async function assertSpecContextCliEmitsContent(): Promise<void> {
+  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+    await env.materialize();
+    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+    const result = await runSpecCli(
+      env.productDir,
+      SPEC_DOMAIN_CLI.COMMAND,
+      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+      target,
+      SPEC_DOMAIN_CLI.JSON_OPTION,
+      SPEC_DOMAIN_CLI.CONTENT_OPTION,
+    );
+    const manifest = JSON.parse(result.stdout) as {
+      readonly read: readonly {
+        readonly content?: string;
+        readonly digest?: string;
+        readonly bytes?: number;
+      }[];
+    };
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(manifest.read.length).toBeGreaterThan(0);
+    for (const document of manifest.read) {
+      expect(document.content).toBeDefined();
+      expect(document.digest).toBeDefined();
+      expect(document.bytes).toBeDefined();
+    }
+  });
+}
+
+export async function assertSpecContextCliRejectsContentWithoutJson(): Promise<void> {
+  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+    await env.materialize();
+    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+    const result = await runSpecCli(
+      env.productDir,
+      SPEC_DOMAIN_CLI.COMMAND,
+      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+      target,
+      SPEC_DOMAIN_CLI.CONTENT_OPTION,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
   });
 }
