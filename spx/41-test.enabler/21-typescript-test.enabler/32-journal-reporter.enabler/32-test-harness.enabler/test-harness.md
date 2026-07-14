@@ -1,8 +1,8 @@
 # Reporter Test Harness
 
-PROVIDES the journal-reporter test fixtures — a recording evidence sink that captures the reporter's scope and finding appends, a spy Vitest run-starter that records how a journal-streaming run starts Vitest, and a generator for reporter run scenarios (a module id with pass and fail cases and error text)
+PROVIDES the journal-reporter test fixtures — a recording evidence sink that captures the reporter's scope and finding appends, a spy Vitest run-starter that records how a journal-streaming run starts Vitest, a generator for reporter run scenarios (a module id with pass and fail cases and error text), and a mixed-case Vitest fixture materialized into an isolated temp project for the reporter's real programmatic run
 SO THAT the `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` tests
-CAN verify the hook-to-evidence translation and streaming at `l1` through recorded sink calls, assert programmatic Node-API registration without spawning Vitest, and draw reporter input from a generator rather than hardcoded module ids, case names, or error text
+CAN verify the hook-to-evidence translation and streaming at `l1` through recorded sink calls, assert programmatic Node-API registration without spawning Vitest, draw reporter input from a generator rather than hardcoded module ids, case names, or error text, and drive a real programmatic Vitest run at `l2` over a single module holding one passing and one failing case
 
 ## Assertions
 
@@ -16,3 +16,4 @@ CAN verify the hook-to-evidence translation and streaming at `l1` through record
 - ALWAYS: the recording evidence sink is a pure in-memory double implementing the reporter's `TestRunEvidenceSink` port — it records calls without constructing a journal event or performing I/O ([audit])
 - ALWAYS: the spy run-starter records the Vitest start options a journal-streaming run supplies, including the registered reporters and the absence of a `--reporter` command flag, without spawning Vitest ([audit])
 - ALWAYS: the run-scenario generator holds the reporter's input field vocabulary independently of the reporter source, so a divergence between the generated shape and the reporter's consumed shape fails a consuming test ([audit])
+- ALWAYS: the real-run fixture is a committed inert suite holding one passing case and one runtime-failing case in a single module, materialized into an isolated temp project outside the repository so the reporter's programmatic run resolves it under Vitest defaults with no inherited product configuration ([audit])
