@@ -1,5 +1,7 @@
 import * as fc from "fast-check";
+import { posix } from "node:path";
 
+import { SOURCE_DOMAIN_ROOT_PREFIX } from "@/config/source-roots";
 import {
   DEFAULT_RELEASE_DOCUMENTATION_PATHS,
   RELEASE_DOCUMENTATION_PATH_SEPARATOR,
@@ -12,6 +14,7 @@ import {
 } from "@/domains/release/documentation-sync";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
@@ -25,10 +28,6 @@ const SEMANTIC_VERSION_BUILD_SEPARATOR = "+";
 const SEMANTIC_VERSION_COMPARISON_PREFIX = ">=";
 const SEMANTIC_VERSION_GROUP_OPEN = "(";
 const SEMANTIC_VERSION_GROUP_CLOSE = ")";
-const SPEC_TREE_DIRECTORY = "spx";
-const SOURCE_DOMAIN_DIRECTORY = "src/domains";
-const SPEC_NODE_SUFFIX = ".enabler";
-const TYPESCRIPT_FILE_EXTENSION = ".ts";
 
 export interface AmbientProductState {
   readonly path: string;
@@ -389,12 +388,15 @@ function arbitraryDocumentationSyncScenario(
           intervening: documentationForPaths(paths, [interveningContent]),
           ambientState: [
             {
-              path:
-                `${SPEC_TREE_DIRECTORY}/${specState}${SPEC_NODE_SUFFIX}/${specState}${DOCUMENTATION_FILE_EXTENSION}`,
+              path: posix.join(
+                SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+                `${specState}${KIND_REGISTRY.enabler.suffix}`,
+                `${specState}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+              ),
               content: `${ambientContent}-${specState}`,
             },
             {
-              path: `${SOURCE_DOMAIN_DIRECTORY}/${domainState}${TYPESCRIPT_FILE_EXTENSION}`,
+              path: `${SOURCE_DOMAIN_ROOT_PREFIX}${domainState}`,
               content: `${ambientContent}-${domainState}`,
             },
           ],
