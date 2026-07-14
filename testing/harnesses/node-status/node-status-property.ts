@@ -3,7 +3,7 @@ import { expect } from "vitest";
 import {
   classifyNodeStatus,
   createNodeStatusFile,
-  NODE_STATUS_SCHEMA_VERSION,
+  NODE_STATUS_FIELD,
   parseNodeStatusFile,
   serializeNodeStatus,
 } from "@/lib/node-status";
@@ -14,11 +14,15 @@ export function assertNodeStatusSerializationParses(): void {
   assertProperty(
     NODE_STATUS_TEST_GENERATOR.facts(),
     (facts) => {
+      const verification = facts.verification ?? {};
       const parsed = parseNodeStatusFile(
-        JSON.parse(serializeNodeStatus(createNodeStatusFile(facts.verification ?? {}))),
+        JSON.parse(serializeNodeStatus(createNodeStatusFile(verification))),
         "generated-status",
       );
-      expect(parsed).toEqual(createNodeStatusFile(facts.verification ?? {}));
+      expect(parsed).toEqual({
+        [NODE_STATUS_FIELD.SCHEMA_VERSION]: 1,
+        [NODE_STATUS_FIELD.VERIFICATION]: verification,
+      });
     },
     { level: PROPERTY_LEVEL.L1 },
   );
@@ -32,8 +36,8 @@ export function assertNodeStatusRoundTripPreservesVerification(): void {
       const parsed = parseNodeStatusFile(JSON.parse(serialized), "generated-status");
 
       expect(parsed).toEqual({
-        schemaVersion: NODE_STATUS_SCHEMA_VERSION,
-        verification,
+        [NODE_STATUS_FIELD.SCHEMA_VERSION]: 1,
+        [NODE_STATUS_FIELD.VERIFICATION]: verification,
       });
     },
     { level: PROPERTY_LEVEL.L1 },
