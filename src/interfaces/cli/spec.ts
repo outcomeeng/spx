@@ -24,9 +24,14 @@ export const SPEC_DOMAIN_CLI = {
   NEXT_COMMAND: "next",
   CONTEXT_COMMAND: "context",
   JSON_OPTION: "--json",
+  CONTENT_OPTION: "--content",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
   UPDATE_OPTION: "--update",
+} as const;
+
+export const SPEC_CONTEXT_CONTENT_MESSAGE = {
+  REQUIRES_JSON: `${SPEC_DOMAIN_CLI.CONTENT_OPTION} requires ${SPEC_DOMAIN_CLI.JSON_OPTION}`,
 } as const;
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
@@ -140,12 +145,24 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .description("Load deterministic context for a spec-tree node")
     .argument("<target>", "Spec-tree node path")
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
-    .action(async (target: string, options: { json?: boolean }) => {
+    .option(
+      SPEC_DOMAIN_CLI.CONTENT_OPTION,
+      `Include each read document's exact content, digest, and byte count (requires ${SPEC_DOMAIN_CLI.JSON_OPTION})`,
+    )
+    .action(async (target: string, options: { json?: boolean; content?: boolean }) => {
       try {
+        if (options.content === true && options.json !== true) {
+          throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+        }
         const format = options.json === true
           ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
           : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
-        const output = await contextOutputForFormat(format, { target, cwd: productDir(), onWarning });
+        const output = await contextOutputForFormat(format, {
+          target,
+          cwd: productDir(),
+          content: options.content === true,
+          onWarning,
+        });
         writeOutput(invocation.io, output);
       } catch (error) {
         handleCommandError(invocation.io, error);

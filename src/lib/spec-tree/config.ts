@@ -97,6 +97,12 @@ export const SPEC_TREE_GRAMMAR = {
   },
   PATH_SEPARATOR: "/",
   COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
+  GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
+  LOCAL_OVERLAYS: {
+    DIRECTORY_NAME: "local",
+    LIFECYCLE_FILENAME: "merging.md",
+    EXTENSION: ".md",
+  },
   EVAL: {
     DIRECTORY_NAME: "evals",
     FILES: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],

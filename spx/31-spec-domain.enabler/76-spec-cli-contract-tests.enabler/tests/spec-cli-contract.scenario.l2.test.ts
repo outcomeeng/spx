@@ -2,6 +2,8 @@ import { describe, it } from "vitest";
 
 import {
   assertSpecApplyCliRejectsConfigurationWrites,
+  assertSpecContextCliEmitsContent,
+  assertSpecContextCliRejectsContentWithoutJson,
   assertSpecContextCliRendersTarget,
   assertSpecNextCliRendersSelection,
   assertSpecStatusCliRejectsUnsupportedFormat,
@@ -24,6 +26,14 @@ describe("spx spec process contract", () => {
 
   it("routes context through the packaged executable", async () => {
     await assertSpecContextCliRendersTarget();
+  });
+
+  it("routes content-bearing context through the packaged executable", async () => {
+    await assertSpecContextCliEmitsContent();
+  });
+
+  it("rejects a content request without the machine output flag", async () => {
+    await assertSpecContextCliRejectsContentWithoutJson();
   });
 
   it("rejects an unsupported status output format", async () => {
