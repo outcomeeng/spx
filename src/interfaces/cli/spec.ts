@@ -161,9 +161,8 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
         const format = resolveStatusFormat(options);
-        // The per-node runner pipes child stdout to process.stderr here so stdout
-        // carries only the status rollup; a --json rollup therefore stays parseable
-        // even when --update runs a node's tests for stale, failing, or absent evidence.
+        // Resolver diagnostics go to stderr so stdout carries only the status
+        // rollup and --json stays parseable while --update folds recorded evidence.
         const output = options.update === true
           ? await statusCommand({
             cwd: productDir(),
