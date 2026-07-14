@@ -106,7 +106,6 @@ export async function typescriptCommand(
       VALIDATION_PATH_TOOL_SUBSECTIONS.TYPESCRIPT,
     ),
     markExplicitPathsAsValidationFilter: true,
-    bypassExplicitPathValidationFilter: true,
   });
 
   const noTargetsMessage = formatValidationScopeNoTargetsSkipMessage(

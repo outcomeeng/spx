@@ -115,7 +115,6 @@ export async function lintCommand(
     paths: files,
     validationPathFilter,
     markExplicitPathsAsValidationFilter: explicitMode,
-    bypassExplicitPathValidationFilter: true,
   });
   const explicitTargets = explicitMode
     ? filterExplicitTypeScriptScopeTargets({
