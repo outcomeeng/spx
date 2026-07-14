@@ -41,6 +41,7 @@ export interface DocumentationSyncScenario {
   readonly paths: readonly string[];
   readonly original: Readonly<Partial<Record<string, string>>>;
   readonly updated: Readonly<Partial<Record<string, string>>>;
+  readonly intervening: Readonly<Partial<Record<string, string>>>;
   readonly ambientState: readonly AmbientProductState[];
 }
 
@@ -361,8 +362,17 @@ function arbitraryDocumentationSyncScenario(
         arbitraryPathSegment(),
         arbitraryPathSegment(),
         arbitraryPathSegment(),
+        arbitraryPathSegment(),
       )
-      .map(([scenarioReleaseData, paths, unrelatedVersion, specState, domainState, ambientContent]) => {
+      .map(([
+        scenarioReleaseData,
+        paths,
+        unrelatedVersion,
+        specState,
+        domainState,
+        ambientContent,
+        interveningContent,
+      ]) => {
         const versionReferences = createDocumentationVersionReferences(scenarioReleaseData, unrelatedVersion);
         return {
           releaseData: scenarioReleaseData,
@@ -370,6 +380,7 @@ function arbitraryDocumentationSyncScenario(
           paths,
           original: documentationForPaths(paths, versionReferences.original),
           updated: documentationForPaths(paths, versionReferences.updated),
+          intervening: documentationForPaths(paths, [interveningContent]),
           ambientState: [
             {
               path:
