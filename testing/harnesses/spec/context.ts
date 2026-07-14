@@ -23,6 +23,7 @@ import {
   SPEC_STATUS_FORMAT_MESSAGE,
 } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
@@ -48,12 +49,17 @@ import {
   type SpecContextTargetMappingCase,
   specContextUnrecognizedNodeDirectoryTarget as unrecognizedNodeDirectoryTarget,
 } from "@testing/generators/spec-tree/context-target";
-import { specCliUnsupportedStatusFormat } from "@testing/generators/spec-tree/spec-cli";
+import {
+  specCliApplyProtectionFixture,
+  specCliContextTargetFixture,
+  specCliUnsupportedStatusFormat,
+} from "@testing/generators/spec-tree/spec-cli";
 import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 function parseContextManifest(output: string): SpecContextManifest {
@@ -95,8 +101,59 @@ async function rejectedContextMessage(target: string, productDir: string): Promi
   throw new Error(`Expected spec context target to be rejected: ${target}`);
 }
 
-function runSpecCli(productDir: string, ...args: readonly string[]) {
-  return execa(NODE_EXECUTABLE, [CLI_PATH, ...args], { cwd: productDir, reject: false });
+async function runSpecCli(productDir: string, ...args: readonly string[]) {
+  const isolationDir = join(productDir, SPEC_CLI_ISOLATION.DIRECTORY);
+  const homeDir = join(isolationDir, SPEC_CLI_ISOLATION.HOME_DIRECTORY);
+  const tempDir = join(isolationDir, SPEC_CLI_ISOLATION.TEMP_DIRECTORY);
+  const xdgCacheDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_CACHE_DIRECTORY);
+  const xdgConfigDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_CONFIG_DIRECTORY);
+  const xdgDataDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_DATA_DIRECTORY);
+  const xdgStateDir = join(isolationDir, SPEC_CLI_ISOLATION.XDG_STATE_DIRECTORY);
+  await Promise.all(
+    [homeDir, tempDir, xdgCacheDir, xdgConfigDir, xdgDataDir, xdgStateDir].map((path) =>
+      mkdir(path, { recursive: true })
+    ),
+  );
+  const writableProductDir = await realpath(productDir);
+  const result = await execa(
+    NODE_EXECUTABLE,
+    [
+      "--permission",
+      "--allow-fs-read=*",
+      `--allow-fs-write=${productDir}`,
+      `--allow-fs-write=${writableProductDir}`,
+      "--allow-child-process",
+      "--allow-worker",
+      "--import",
+      import.meta.resolve("tsx"),
+      "--import",
+      new URL("./spec-cli-network-guard.ts", import.meta.url).href,
+      CLI_PATH,
+      ...args,
+    ],
+    {
+      cwd: productDir,
+      env: {
+        HOME: homeDir,
+        PATH: process.env.PATH,
+        [SPEC_CLI_ISOLATION.GIT_EXECUTABLE_ENV]: GIT_ROOT_COMMAND.EXECUTABLE,
+        [SPEC_CLI_ISOLATION.GIT_READ_SUBCOMMANDS_ENV]: JSON.stringify([
+          GIT_ROOT_COMMAND.REV_PARSE,
+          GIT_LS_FILES_COMMAND,
+        ]),
+        TEMP: tempDir,
+        TMP: tempDir,
+        TMPDIR: tempDir,
+        XDG_CACHE_HOME: xdgCacheDir,
+        XDG_CONFIG_HOME: xdgConfigDir,
+        XDG_DATA_HOME: xdgDataDir,
+        XDG_STATE_HOME: xdgStateDir,
+      },
+      extendEnv: false,
+      reject: false,
+    },
+  );
+  return result;
 }
 
 async function assertSpecContextResolvesTarget(
@@ -405,15 +462,15 @@ export async function assertSpecStatusCliAcceptsLocalJsonFormat(): Promise<void>
 export async function assertSpecApplyCliRejectsConfigurationWrites(): Promise<void> {
   await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
     await env.materialize();
-    const nodePath = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-    const pyprojectContent = `[${RETIRED_SPEC_APPLY_FIXTURE.pytestSection}]\naddopts = ""\n`;
-    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, `${nodePath}\n`);
-    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, pyprojectContent);
+    const fixture = specCliApplyProtectionFixture(env.fixture);
+    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, fixture.excludeContent);
+    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, fixture.pythonConfigContent);
+    const before = await Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)));
     const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
     expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
-    expect(await env.readFile(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile)).toBe(pyprojectContent);
+    await expect(Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)))).resolves.toEqual(before);
   });
 }
 
@@ -426,15 +483,16 @@ export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<v
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
+    const fixture = specCliContextTargetFixture(snapshot, target);
     const result = await runSpecCli(
       env.productDir,
       SPEC_DOMAIN_CLI.COMMAND,
       SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-      `spx/${abbreviatedTarget(snapshot, target)}/`,
+      fixture.invocationTarget,
       SPEC_DOMAIN_CLI.JSON_OPTION,
     );
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseContextManifest(result.stdout).target).toBe(`spx/${target.id}`);
+    expect(parseContextManifest(result.stdout).target).toBe(fixture.expectedTarget);
   });
 }
 
