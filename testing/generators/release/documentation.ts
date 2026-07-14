@@ -39,6 +39,11 @@ export interface DocumentationSyncScenario {
   readonly ambientState: readonly AmbientProductState[];
 }
 
+export interface DocumentationVersionPreservationScenarios {
+  readonly withPreviousTag: DocumentationSyncScenario;
+  readonly withoutPreviousTag: DocumentationSyncScenario;
+}
+
 interface DocumentationVersionReferences {
   readonly original: readonly string[];
   readonly updated: readonly string[];
@@ -128,6 +133,15 @@ export function arbitraryFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<D
         RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag(),
       )
     );
+}
+
+export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitrary<
+  DocumentationVersionPreservationScenarios
+> {
+  return fc.record({
+    withPreviousTag: arbitraryConfiguredDocumentationSyncScenario(),
+    withoutPreviousTag: arbitraryFirstReleaseDocumentationSyncScenario(),
+  });
 }
 
 export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
