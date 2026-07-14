@@ -1,12 +1,15 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
 import { expect } from "vitest";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
-import { createDocumentationSyncFilesystem } from "@/commands/release/documentation-sync-filesystem";
+import {
+  createDocumentationSyncFilesystem,
+  resolveCanonicalDocumentationTarget,
+} from "@/commands/release/documentation-sync-filesystem";
 import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, RELEASE_CONFIG_FIELDS, RELEASE_SECTION } from "@/domains/release/config";
 import {
@@ -26,6 +29,7 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryNestedDocumentationSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
   documentationPathMappingCases,
   type DocumentationSyncScenario,
@@ -36,6 +40,28 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const TRAILING_VERSION_REFERENCE = /([^\n]+)\n$/u;
+const DOCUMENTATION_PATH_SEMANTICS = [
+  {
+    label: "POSIX",
+    join: posix.join,
+    operations: {
+      isAbsolute: posix.isAbsolute,
+      relative: posix.relative,
+      resolve: posix.resolve,
+      sep: posix.sep,
+    },
+  },
+  {
+    label: "Windows",
+    join: win32.join,
+    operations: {
+      isAbsolute: win32.isAbsolute,
+      relative: win32.relative,
+      resolve: win32.resolve,
+      sep: win32.sep,
+    },
+  },
+] as const;
 
 class DocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
@@ -221,6 +247,18 @@ function registerMappingTests(): void {
           .toEqual(expected);
       });
     });
+
+    it.each(DOCUMENTATION_PATH_SEMANTICS)(
+      "resolves nested slash-separated paths with $label semantics",
+      ({ join: joinPath, operations }) => {
+        const scenario = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario());
+        const sourcePath = scenario.paths[0];
+        const productDir = joinPath(operations.sep, PRODUCT_DIRECTORY_PREFIX);
+        expect(resolveCanonicalDocumentationTarget(productDir, sourcePath, operations)).toBe(
+          operations.resolve(productDir, sourcePath),
+        );
+      },
+    );
   });
 }
 
