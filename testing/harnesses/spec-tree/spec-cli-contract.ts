@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { cp, readFile } from "node:fs/promises";
+import { cp, readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
@@ -37,7 +37,6 @@ const SPEC_CLI_FIXTURE_DIRECTORY = join(
 const RETIRED_APPLY_PRODUCT_FIXTURE = join(SPEC_CLI_FIXTURE_DIRECTORY, "retired-apply-product");
 const RETIRED_COMMAND_FILE = "command.txt";
 const RETIRED_EXPECTED_STDERR_FILE = "expected-stderr.txt";
-const RETIRED_PYTHON_CONFIG_FILE = "pyproject.toml";
 const CONTEXT_TARGET_FIXTURE = "context-target.md.fixture";
 const CONTEXT_EVIDENCE_FIXTURE = "context-evidence.ts.fixture";
 const CONTEXT_EVIDENCE_FILE = "context.scenario.l1.test.ts";
@@ -199,11 +198,11 @@ export async function assertLocalStatusFormatFlagsRemainHermetic(): Promise<void
 }
 
 export async function assertRetiredApplyRoutingPreservesProductConfig(): Promise<void> {
-  await withRetiredApplyProduct(async ({ productDir, command, expectedStderr, pythonConfigContent }) => {
+  await withRetiredApplyProduct(async ({ productDir, command, expectedStderr, productConfigSnapshot }) => {
     const result = await runCli(productDir, SPEC_DOMAIN_CLI.COMMAND, command);
     expect(result.exitCode).toBe(1);
     expect(result.stderr.trim()).toBe(expectedStderr);
-    expect(await readFile(join(productDir, RETIRED_PYTHON_CONFIG_FILE), "utf8")).toBe(pythonConfigContent);
+    expect(await snapshotProductRootFiles(productDir)).toEqual(productConfigSnapshot);
   });
 }
 
@@ -236,7 +235,7 @@ function withRetiredApplyProduct(
     readonly productDir: string;
     readonly command: string;
     readonly expectedStderr: string;
-    readonly pythonConfigContent: string;
+    readonly productConfigSnapshot: ReadonlyMap<string, string>;
   }) => Promise<void>,
 ): Promise<void> {
   return withTempDir(TEMP_RETIRED_PRODUCT_PREFIX, async (temporaryDirectory) => {
@@ -246,7 +245,19 @@ function withRetiredApplyProduct(
       productDir,
       command: (await readFile(join(productDir, RETIRED_COMMAND_FILE), "utf8")).trim(),
       expectedStderr: (await readFile(join(productDir, RETIRED_EXPECTED_STDERR_FILE), "utf8")).trim(),
-      pythonConfigContent: await readFile(join(productDir, RETIRED_PYTHON_CONFIG_FILE), "utf8"),
+      productConfigSnapshot: await snapshotProductRootFiles(productDir),
     });
   });
+}
+
+async function snapshotProductRootFiles(productDir: string): Promise<ReadonlyMap<string, string>> {
+  const entries = await readdir(productDir, { withFileTypes: true });
+  return new Map(
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map(async (entry) => [entry.name, await readFile(join(productDir, entry.name), "utf8")] as const),
+    ),
+  );
 }
