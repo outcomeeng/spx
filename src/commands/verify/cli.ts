@@ -122,6 +122,7 @@ export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
 const VERIFY_START_ROLLBACK_ARTIFACT = {
   CONTEXT_FILE: "verification context file",
   RUN_FILE: "journal run file",
+  INPUT_RECORD: "recorded input file",
 } as const;
 
 export interface VerifyCliDeps {
@@ -383,7 +384,7 @@ async function removeStartedRunArtifact(
 }
 
 async function removeStartedRunArtifacts(
-  artifacts: { readonly contextPath?: string; readonly runFile?: string },
+  artifacts: { readonly contextPath?: string; readonly runFile?: string; readonly inputRecordPath?: string },
   deps: VerifyCliDeps,
 ): Promise<Result<void>> {
   const rollbackErrors: string[] = [];
@@ -402,6 +403,14 @@ async function removeStartedRunArtifacts(
       deps,
     );
     if (!runRollback.ok) rollbackErrors.push(runRollback.error);
+  }
+  if (artifacts.inputRecordPath !== undefined) {
+    const inputRollback = await removeStartedRunArtifact(
+      artifacts.inputRecordPath,
+      VERIFY_START_ROLLBACK_ARTIFACT.INPUT_RECORD,
+      deps,
+    );
+    if (!inputRollback.ok) rollbackErrors.push(inputRollback.error);
   }
   if (rollbackErrors.length > 0) return { ok: false, error: rollbackErrors.join("; ") };
   return { ok: true, value: undefined };
@@ -505,11 +514,14 @@ async function recordRunContext(
   return { ok: true, value: undefined };
 }
 
-/** The started-run artifacts a failed start rolls back: the reused-or-created context file and, once opened, the run file. */
-function startedRunArtifacts(
-  args: CompleteVerifyStartArgs,
-  runFile?: string,
-): { readonly contextPath?: string; readonly runFile?: string } {
+/** The started-run artifacts a failed start rolls back: the reused-or-created context file, the run file, and the recorded input sidecar. */
+interface StartedRunArtifacts {
+  readonly contextPath?: string;
+  readonly runFile?: string;
+  readonly inputRecordPath?: string;
+}
+
+function startedRunArtifacts(args: CompleteVerifyStartArgs, runFile?: string): StartedRunArtifacts {
   return {
     ...(args.contextCreated ? { contextPath: args.contextPath } : {}),
     ...(runFile === undefined ? {} : { runFile }),
@@ -518,7 +530,7 @@ function startedRunArtifacts(
 
 /** Roll back the started-run artifacts, then report the primary error, appending any rollback failure. */
 async function rollbackStartAndError(
-  artifacts: { readonly contextPath?: string; readonly runFile?: string },
+  artifacts: StartedRunArtifacts,
   primaryError: string,
   deps: VerifyCliDeps,
 ): Promise<CliCommandResult> {
@@ -537,11 +549,6 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   }
   const { runToken, runFile } = JSON.parse(opened.output) as { readonly runToken: string; readonly runFile: string };
 
-  const runContext = await recordRunContext(runToken, args, deps);
-  if (!runContext.ok) {
-    return rollbackStartAndError(startedRunArtifacts(args, runFile), runContext.error, deps);
-  }
-
   const runScope: VerifyRunScope = {
     productDir: args.productDir,
     branchSlug: args.branchSlug,
@@ -558,6 +565,20 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   const persisted = await persistInputRecord(runScope, recorded, deps);
   if (!persisted.ok) {
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
+  }
+
+  // Record the run's drive mode last: the append streams to the backend, and a rollback cannot
+  // un-stream an emitted event, so it runs only after every rollbackable local write (run file,
+  // context, input sidecar) has succeeded. On failure the sidecar joins the rollback set.
+  const inputRecordPath = verifyInputRecordPath(runScope);
+  if (!inputRecordPath.ok) return errorResult(inputRecordPath.error);
+  const runContext = await recordRunContext(runToken, args, deps);
+  if (!runContext.ok) {
+    return rollbackStartAndError(
+      { ...startedRunArtifacts(args, runFile), inputRecordPath: inputRecordPath.value },
+      runContext.error,
+      deps,
+    );
   }
 
   const namespace = verifyRunsDir(runScope);
