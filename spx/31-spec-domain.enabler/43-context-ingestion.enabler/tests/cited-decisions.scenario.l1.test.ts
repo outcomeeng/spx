@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertSpecContextIgnoresTraversalCitationShapes,
   assertSpecContextIncludesCitedDecisionsWithProvenance,
   assertSpecContextRejectsMissingCitedDecision,
 } from "@testing/harnesses/spec/context";
@@ -12,5 +13,9 @@ describe("spec context cited decisions", () => {
 
   it("fails naming the cited path and the citing document when a cited decision is absent", async () => {
     await assertSpecContextRejectsMissingCitedDecision();
+  });
+
+  it("binds no read entry for a citation-shaped path carrying a relative segment", async () => {
+    await assertSpecContextIgnoresTraversalCitationShapes();
   });
 });
