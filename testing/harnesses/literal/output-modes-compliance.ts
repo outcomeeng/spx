@@ -147,6 +147,7 @@ export function registerLiteralOutputModeCompliance(): void {
     });
 
     it("ALWAYS: --kind <k> with no problems of kind <k> produces no-problems-of-kind message and exit 0", async () => {
+      // reuse side: only test-dupe problems exist, so --kind reuse finds none.
       await withLiteralFixtureEnv({}, async (env) => {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeTsConfigMarker();
@@ -161,6 +162,25 @@ export function registerLiteralOutputModeCompliance(): void {
 
         expect(result.exitCode).toBe(0);
         expect(result.output).toBe(expectedNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
+      });
+
+      // dupe side: only src↔test reuse problems exist, so --kind dupe finds none.
+      await withLiteralFixtureEnv({}, async (env) => {
+        const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
+        await env.writeSourceReuseFixture({
+          literal: inputs.reuseLiteral,
+          sourceFile: inputs.reuseSourceFile,
+          testFile: inputs.reuseTestFile,
+        });
+
+        const result = await literalCommand({
+          cwd: env.productDir,
+          config: LITERAL_DEFAULTS,
+          kind: LITERAL_PROBLEM_KIND.DUPE,
+        });
+
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe(expectedNoProblemsOfKind(LITERAL_PROBLEM_KIND.DUPE));
       });
     });
 
@@ -186,15 +206,27 @@ export function registerLiteralOutputModeCompliance(): void {
         const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
         await env.writeReuseFixture(inputs);
 
-        const result = await literalCommand({
-          cwd: env.productDir,
-          config: LITERAL_DEFAULTS,
-          kind: LITERAL_PROBLEM_KIND.REUSE,
-          json: true,
-        });
+        const [reuseResult, dupeResult] = await Promise.all([
+          literalCommand({
+            cwd: env.productDir,
+            config: LITERAL_DEFAULTS,
+            kind: LITERAL_PROBLEM_KIND.REUSE,
+            json: true,
+          }),
+          literalCommand({
+            cwd: env.productDir,
+            config: LITERAL_DEFAULTS,
+            kind: LITERAL_PROBLEM_KIND.DUPE,
+            json: true,
+          }),
+        ]);
 
-        const findings = parseLiteralReuseResult(JSON.parse(result.output));
-        expect(findings).toEqual(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.REUSE));
+        expect(parseLiteralReuseResult(JSON.parse(reuseResult.output))).toEqual(
+          expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.REUSE),
+        );
+        expect(parseLiteralReuseResult(JSON.parse(dupeResult.output))).toEqual(
+          expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.DUPE),
+        );
       });
     });
   });

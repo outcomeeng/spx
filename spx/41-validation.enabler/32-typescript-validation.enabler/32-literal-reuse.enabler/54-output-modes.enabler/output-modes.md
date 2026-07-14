@@ -12,12 +12,8 @@ CAN consume the problem set in the form their tooling expects, scoped to the kin
 - Given the detector is invoked with `--json`, when it completes, then the output parses through `parseLiteralReuseResult` without throwing ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--kind dupe` is specified, when the detector runs, then only test↔test duplication problems appear in the output ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--kind reuse` is specified, when the detector runs, then only src↔test reuse problems appear in the output ([test](tests/output-modes.scenario.l1.test.ts))
-- Given `--kind reuse` is specified and only test↔test duplication problems exist, when the detector runs, then exit code is 0 and output is "Literal: No problems of type reuse" ([test](tests/output-modes.scenario.l1.test.ts))
-- Given `--files-with-problems` is specified, when the detector runs with problems, then output contains one unique file path per line sorted lexicographically with no line number ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--kind reuse --files-with-problems` is specified, when the detector runs, then output contains only unique file paths from src↔test reuse problems ([test](tests/output-modes.scenario.l1.test.ts))
-- Given `--literals` is specified, when the detector runs with problems, then output contains one unique literal value per line sorted lexicographically ([test](tests/output-modes.scenario.l1.test.ts))
 - Given `--verbose` is specified, when the detector runs with problems, then output groups problems into a REUSE section and a DUPE section, each listing file headers with per-problem lines indented beneath them ([test](tests/output-modes.scenario.l1.test.ts))
-- Given `--kind reuse --json` is specified, when the detector runs, then the JSON output sets `testDupe` to an empty array and `srcReuse` to the matching problems ([test](tests/output-modes.scenario.l1.test.ts))
 
 ### Mappings
 
