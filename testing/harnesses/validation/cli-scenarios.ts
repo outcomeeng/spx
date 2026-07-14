@@ -50,6 +50,7 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VALIDATION_CLI_TEMP_DIR_PREFIX = "spx-validation-cli-";
+const VALIDATION_OUTSIDE_TEMP_PREFIX = "spx-validation-outside-";
 
 interface ValidationCliDeferred {
   readonly promise: Promise<void>;
@@ -372,8 +373,8 @@ async function expectSymlinkedInvocationDirectoryResolvesInProductOperand(): Pro
 }
 
 async function expectMissingPathBelowEscapingSymlinkAncestorRejected(): Promise<void> {
-  await withTempDir(VALIDATION_CLI_TEMP_DIR_PREFIX, async (outsideRoot) => {
-    await withEmptyValidationProject(async (productDir) => {
+  await withEmptyValidationProject(async (productDir) => {
+    await withTempDir(VALIDATION_OUTSIDE_TEMP_PREFIX, async (outsideRoot) => {
       const symlinkName = sampleLiteralTestValue(arbitraryPathSegment());
       const symlinkRoot = join(productDir, symlinkName);
       const operand = join(symlinkName, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
