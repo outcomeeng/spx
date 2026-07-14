@@ -1,5 +1,6 @@
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
+import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
 import {
   SPEC_TREE_ENTRY_TYPE,
@@ -42,6 +43,7 @@ const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
   ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
   NODE_DECISION: "node-decision",
   NODE_SPEC: "node-spec",
+  NODE_STATUS: NODE_STATUS_FILENAME,
   PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
   ROOT_DECISION: "root-decision",
   TEST_EVIDENCE: "test-evidence",
@@ -82,6 +84,7 @@ type SpecContextNodeArtifactMappingCaseKind =
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ISSUES
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_SPEC
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_STATUS
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PLAN
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
 
@@ -410,7 +413,8 @@ export function specContextArtifactTargetFixture(
       return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
     }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN:
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES: {
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES:
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS: {
       const target = `spx/${fixture.root.id}/${mappingCase.artifactKind}`;
       return ownedArtifactTargetFixture(fixture, fixture, target);
     }
@@ -498,6 +502,11 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
       title: "maps a node-local issues path to its owning node",
+    },
+    {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a node status path to its owning node",
     },
     ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION),
     {

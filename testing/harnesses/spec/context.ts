@@ -27,6 +27,7 @@ import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-con
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { type SpecTreeNode, type SpecTreeSnapshot } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS } from "@/lib/spec-tree/config";
@@ -771,7 +772,7 @@ export async function assertSpecContextManifestOmitsMissingNodeSpecs(): Promise<
     const snapshot = await env.readFilesystemSnapshot();
     const target = snapshot.allNodes[0];
     const missingChild = `${target.id}/21-metadata-only.enabler`;
-    await env.writeRaw(`spx/${missingChild}/spx.status.json`, "{}");
+    await env.writeRaw(`spx/${missingChild}/${NODE_STATUS_FILENAME}`, "{}");
 
     const manifest = parseContextManifest(await contextCommand({ target: missingChild, cwd: env.productDir }));
 
