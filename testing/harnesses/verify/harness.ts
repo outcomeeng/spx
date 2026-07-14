@@ -62,15 +62,19 @@ import {
   validateAuditScope,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_DRIVE_MODE,
   VERIFY_INPUT_RECORD,
   VERIFY_INPUT_SOURCE,
   VERIFY_LIFECYCLE_ACTION,
+  VERIFY_RUN_CONTEXT_EVENT_FIELD,
+  VERIFY_RUN_CONTEXT_EVENT_TYPE,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_TERMINAL_EVENT_TYPE,
   VERIFY_VERIFICATION_TYPE,
   type VerifyAppendEventType,
+  type VerifyDriveMode,
   verifyInputRecordPath,
   verifyRunsDir,
 } from "@/domains/verify/verify";
@@ -728,7 +732,17 @@ export function verifyDeps(scenario: VerifyRunContextScenario, fs: VerifyStateSt
     processEnv: {},
     now: () => scenario.launchedAt,
     readInputSource: async () => scenario.inputContent,
+    journalBinding: { localSink: createRecordingStreamSink().sink },
   };
+}
+
+/** Compose start deps that record the run's drive mode, so a test can open a caller-driven or spx-driven run. */
+export function verifyDepsWithDriveMode(
+  scenario: VerifyRunContextScenario,
+  fs: VerifyStateStoreFileSystem,
+  driveMode: VerifyDriveMode,
+): VerifyCliDeps {
+  return { ...verifyDeps(scenario, fs), driveMode };
 }
 
 export function parseStartReport(output: string): VerifyStartReport {
@@ -1066,6 +1080,13 @@ function countEventsOfType(events: readonly JournalEvent[], eventType: VerifyApp
   return events.filter((event) => event.type === eventType).length;
 }
 
+const VERIFY_APPEND_EVENT_TYPES: readonly string[] = Object.values(VERIFY_APPEND_EVENT_TYPE);
+
+/** The evidence-append events (scope and finding) a run recorded, excluding the run-context and terminal events. */
+function countAppendEvents(events: readonly JournalEvent[]): number {
+  return events.filter((event) => VERIFY_APPEND_EVENT_TYPES.includes(event.type)).length;
+}
+
 function lastObservedSequence(events: readonly JournalEvent[]): number {
   return Math.max(...events.map((event) => event.seq));
 }
@@ -1165,6 +1186,84 @@ async function auditAppendScenario(): Promise<{
   );
   const runToken = await startedRunToken(scenario, deps);
   return { scenario, fs, deps, runToken };
+}
+
+/** The run-context events a run's journal carries, each recording a drive mode. */
+async function runContextEvents(
+  scenario: VerifyRunContextScenario,
+  fs: VerifyStateStoreFileSystem,
+  runToken: string,
+): Promise<readonly JournalEvent[]> {
+  const events = await readVerifyRunEvents(scenario, runToken, fs);
+  return events.filter((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+}
+
+function recordedDriveMode(runContext: JournalEvent | undefined): unknown {
+  const data = runContext?.data;
+  return typeof data === "object" && data !== null && !Array.isArray(data)
+    ? (data as Record<string, unknown>)[VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]
+    : undefined;
+}
+
+/** Start a run under the given drive mode and return its run token, scenario, and store. */
+async function startRunWithDriveMode(driveMode: VerifyDriveMode): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly fs: VerifyStateStoreFileSystem;
+  readonly deps: VerifyCliDeps;
+  readonly runToken: string;
+}> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDepsWithDriveMode(scenario, fs, driveMode);
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  return { scenario, fs, deps, runToken: parseStartReport(started.output).runToken };
+}
+
+/** Asserts a caller-path start records exactly one run-context event carrying caller-driven drive mode. */
+export async function assertStartRecordsCallerDriveModeByDefault(): Promise<void> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
+  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const runContexts = await runContextEvents(scenario, fs, parseStartReport(started.output).runToken);
+  expect(runContexts).toHaveLength(1);
+  expect(recordedDriveMode(runContexts[0])).toBe(VERIFY_DRIVE_MODE.CALLER);
+}
+
+/** Asserts an spx-driven start records the run-context event carrying spx-driven drive mode. */
+export async function assertStartRecordsSpxDriveModeWhenSpxDriven(): Promise<void> {
+  const { scenario, fs, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
+  const runContexts = await runContextEvents(scenario, fs, runToken);
+  expect(runContexts).toHaveLength(1);
+  expect(recordedDriveMode(runContexts[0])).toBe(VERIFY_DRIVE_MODE.SPX);
+}
+
+/** Asserts a caller-driven run's status and render advertise the caller evidence-append actions. */
+export async function assertCallerDrivenRunAdvertisesEvidenceAppendActions(): Promise<void> {
+  const { scenario, deps, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.CALLER);
+  const status = parseStatusReport((await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output);
+  const render = parseRenderReport((await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output);
+  for (const projected of [status, render] as const) {
+    expect(projected.driveMode).toBe(VERIFY_DRIVE_MODE.CALLER);
+    expect(projected.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
+    expect(projected.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
+    expect(projected.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
+  }
+}
+
+/** Asserts an unsealed spx-driven run's status and render advertise no caller evidence-append action. */
+export async function assertSpxDrivenRunAdvertisesNoEvidenceAppendAction(): Promise<void> {
+  const { scenario, deps, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
+  const status = parseStatusReport((await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output);
+  const render = parseRenderReport((await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output);
+  for (const projected of [status, render] as const) {
+    expect(projected.driveMode).toBe(VERIFY_DRIVE_MODE.SPX);
+    expect(projected.sealed).toBe(false);
+    expect(projected.nextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
+    expect(projected.nextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
+    expect(projected.nextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
+  }
 }
 
 function toJsonValue(value: unknown): JsonValue {
@@ -2906,7 +3005,7 @@ export async function assertAppendIdempotencyReturnsExistingSequenceForRepeatedK
   expect(first.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const firstReport = parseAppendReport(first.output);
   expect(firstReport.idempotent).toBe(false);
-  expect(await readVerifyRunEvents(scenario, runToken, fs)).toHaveLength(1);
+  expect(countAppendEvents(await readVerifyRunEvents(scenario, runToken, fs))).toBe(1);
 
   const repeat = await verifyAppendScopeCommand(
     verifyAppendOptions(scenario, { run: runToken, payload, idempotencyKey: keys.first }),
@@ -2916,7 +3015,7 @@ export async function assertAppendIdempotencyReturnsExistingSequenceForRepeatedK
   const repeatReport = parseAppendReport(repeat.output);
   expect(repeatReport.sequence).toBe(firstReport.sequence);
   expect(repeatReport.idempotent).toBe(true);
-  expect(await readVerifyRunEvents(scenario, runToken, fs)).toHaveLength(1);
+  expect(countAppendEvents(await readVerifyRunEvents(scenario, runToken, fs))).toBe(1);
 
   const fresh = await verifyAppendScopeCommand(
     verifyAppendOptions(scenario, { run: runToken, payload, idempotencyKey: keys.second }),
@@ -2926,7 +3025,7 @@ export async function assertAppendIdempotencyReturnsExistingSequenceForRepeatedK
   const freshReport = parseAppendReport(fresh.output);
   expect(freshReport.idempotent).toBe(false);
   expect(freshReport.sequence).toBeGreaterThan(firstReport.sequence);
-  expect(await readVerifyRunEvents(scenario, runToken, fs)).toHaveLength(2);
+  expect(countAppendEvents(await readVerifyRunEvents(scenario, runToken, fs))).toBe(2);
 }
 
 export async function assertFindingEvidenceDeduplicatesByIdempotencyKey(): Promise<void> {

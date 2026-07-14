@@ -17,6 +17,7 @@ import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journa
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import {
   buildAppendEvent,
+  buildRunContextEvent,
   buildRunLocator,
   buildTerminalEvent,
   type ChangesetScope,
@@ -35,11 +36,13 @@ import {
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
   type VerifyAppendEventType,
+  type VerifyDriveMode,
   verifyInputRecordPath,
   type VerifyRunProjection,
   type VerifyRunScope,
@@ -100,6 +103,7 @@ export const VERIFY_CLI_ERROR = {
   TERMINAL_STATUS_CONFLICT:
     "spx verification run terminal status conflicts with verification-type terminal metadata: status-conflict",
   FINISH_FAILED: "spx verification run could not record terminal completion",
+  RUN_CONTEXT_FAILED: "spx verification run could not record the run drive mode",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
@@ -130,8 +134,10 @@ export interface VerifyCliDeps {
   readonly readInputSource: (source: string) => Promise<string>;
   /** Reads the append payload from its `--payload` source; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
-  /** The journal streaming binding the descriptor injects; the append verbs stream through it. */
+  /** The journal streaming binding the descriptor injects; the append verbs and start stream through it. */
   readonly journalBinding?: JournalStreamBinding;
+  /** The run's drive mode recorded at start; the caller path defaults to caller-driven, spx execution supplies spx-driven. */
+  readonly driveMode?: VerifyDriveMode;
 }
 
 export interface VerifyStartCliOptions {
@@ -213,6 +219,7 @@ export interface VerifyStatusReport {
   readonly verificationType: string;
   readonly scopeType: string;
   readonly sealed: boolean;
+  readonly driveMode: string;
   readonly lastSequence: number;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
@@ -224,8 +231,10 @@ export interface VerifyRenderReport {
   readonly runToken: string;
   readonly findingCount: number;
   readonly sealed: boolean;
+  readonly driveMode: string;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
+  readonly nextActions: readonly string[];
   readonly events: readonly JournalEvent[];
 }
 
@@ -467,6 +476,56 @@ interface CompleteVerifyStartArgs {
   readonly contextCreated: boolean;
 }
 
+/**
+ * Record the run's drive mode on a verify-owned run-context event so status and render fold it to
+ * filter next actions. The caller path defaults to caller-driven; spx execution supplies spx-driven.
+ * The append streams through the same journal binding the evidence-append verbs use.
+ */
+async function recordRunContext(
+  runToken: string,
+  args: CompleteVerifyStartArgs,
+  deps: VerifyCliDeps,
+): Promise<Result<void>> {
+  const binding = deps.journalBinding;
+  if (binding === undefined) return { ok: false, error: VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED };
+  const event = buildRunContextEvent({
+    runToken,
+    driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
+    at: deps.now?.() ?? new Date(),
+  });
+  const journalScope: JournalRunCliScope = {
+    type: args.options.verificationType,
+    runToken,
+    branchSlug: args.branchSlug,
+  };
+  const appended = await journalAppendCommand(journalScope, event, binding, forwardDeps(deps));
+  if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED}: ${appended.output}` };
+  }
+  return { ok: true, value: undefined };
+}
+
+/** The started-run artifacts a failed start rolls back: the reused-or-created context file and, once opened, the run file. */
+function startedRunArtifacts(
+  args: CompleteVerifyStartArgs,
+  runFile?: string,
+): { readonly contextPath?: string; readonly runFile?: string } {
+  return {
+    ...(args.contextCreated ? { contextPath: args.contextPath } : {}),
+    ...(runFile === undefined ? {} : { runFile }),
+  };
+}
+
+/** Roll back the started-run artifacts, then report the primary error, appending any rollback failure. */
+async function rollbackStartAndError(
+  artifacts: { readonly contextPath?: string; readonly runFile?: string },
+  primaryError: string,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const rollback = await removeStartedRunArtifacts(artifacts, deps);
+  return errorResult(rollback.ok ? primaryError : `${primaryError}; ${rollback.error}`);
+}
+
 async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promise<CliCommandResult> {
   const { options, deps } = args;
   const opened = await journalOpenCommand(
@@ -474,13 +533,14 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     forwardDeps(deps),
   );
   if (opened.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-    const rollback = await removeStartedRunArtifacts(
-      { ...(args.contextCreated ? { contextPath: args.contextPath } : {}) },
-      deps,
-    );
-    return errorResult(rollback.ok ? opened.output : `${opened.output}; ${rollback.error}`);
+    return rollbackStartAndError(startedRunArtifacts(args), opened.output, deps);
   }
   const { runToken, runFile } = JSON.parse(opened.output) as { readonly runToken: string; readonly runFile: string };
+
+  const runContext = await recordRunContext(runToken, args, deps);
+  if (!runContext.ok) {
+    return rollbackStartAndError(startedRunArtifacts(args, runFile), runContext.error, deps);
+  }
 
   const runScope: VerifyRunScope = {
     productDir: args.productDir,
@@ -497,11 +557,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   };
   const persisted = await persistInputRecord(runScope, recorded, deps);
   if (!persisted.ok) {
-    const rollback = await removeStartedRunArtifacts(
-      { ...(args.contextCreated ? { contextPath: args.contextPath } : {}), runFile },
-      deps,
-    );
-    return errorResult(rollback.ok ? persisted.error : `${persisted.error}; ${rollback.error}`);
+    return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
   }
 
   const namespace = verifyRunsDir(runScope);
@@ -1194,6 +1250,7 @@ export async function verifyStatusCommand(
     verificationType: options.verificationType,
     scopeType: options.scopeType,
     sealed: projection.sealed,
+    driveMode: projection.driveMode,
     lastSequence: projection.lastSequence,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
@@ -1227,8 +1284,10 @@ export async function verifyRenderCommand(
     runToken: run.value.runToken,
     findingCount: projection.findingCount,
     sealed: projection.sealed,
+    driveMode: projection.driveMode,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
+    nextActions: projection.nextActions,
     events: events.value,
   };
   return okResult(JSON.stringify(report));

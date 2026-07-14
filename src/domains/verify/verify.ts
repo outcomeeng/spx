@@ -39,6 +39,37 @@ const UNSEALED_NEXT_ACTIONS: readonly string[] = [
   VERIFY_LIFECYCLE_ACTION.FINISH,
 ];
 
+/** The lifecycle actions a caller drives by appending its own evidence; an spx-driven run advertises none of them. */
+const CALLER_EVIDENCE_APPEND_ACTIONS: readonly string[] = [
+  VERIFY_LIFECYCLE_ACTION.SCOPE_ADD,
+  VERIFY_LIFECYCLE_ACTION.FINDING_ADD,
+];
+
+/**
+ * The party that drives a verification run to completion, recorded once at `start`. A caller drives
+ * its own evidence appends; spx opens, streams, and seals the run within one invocation, so no
+ * caller appends to an spx-driven run.
+ */
+export const VERIFY_DRIVE_MODE = {
+  CALLER: "caller",
+  SPX: "spx",
+} as const;
+
+export type VerifyDriveMode = (typeof VERIFY_DRIVE_MODE)[keyof typeof VERIFY_DRIVE_MODE];
+
+const VERIFY_DRIVE_MODES: ReadonlySet<string> = new Set(Object.values(VERIFY_DRIVE_MODE));
+
+/** Whether a value is a drive mode the run lifecycle records. */
+export function isVerifyDriveMode(value: string): value is VerifyDriveMode {
+  return VERIFY_DRIVE_MODES.has(value);
+}
+
+/** The unsealed next actions a run advertises for its drive mode: an spx-driven run drops the caller evidence-append actions. */
+function unsealedNextActionsForDriveMode(driveMode: VerifyDriveMode): readonly string[] {
+  if (driveMode === VERIFY_DRIVE_MODE.CALLER) return UNSEALED_NEXT_ACTIONS;
+  return UNSEALED_NEXT_ACTIONS.filter((action) => !CALLER_EVIDENCE_APPEND_ACTIONS.includes(action));
+}
+
 /**
  * The verification types whose finding payloads `spx verification run finding add` validates. Each
  * type registers a finding validator (see `FINDING_VALIDATORS`); dispatch is a registry lookup
@@ -1115,6 +1146,35 @@ export function buildAppendEvent(args: {
   };
 }
 
+/** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode. */
+export const VERIFY_RUN_CONTEXT_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.run-context` as const;
+
+/** The `data` field the run-context event records: the run's drive mode. */
+export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
+  DRIVE_MODE: "driveMode",
+} as const;
+
+/** The id prefix the run-context event carries; with the run token it forms a stable per-run event id. */
+export const VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX = "verify-run-context-";
+
+/** Build the run-context event input recording the run's drive mode at start. */
+export function buildRunContextEvent(args: {
+  readonly runToken: string;
+  readonly driveMode: VerifyDriveMode;
+  readonly at: Date;
+}): JournalEventInput {
+  return {
+    id: `${VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX}${args.runToken}`,
+    source: VERIFY_EVENT_SOURCE,
+    type: VERIFY_RUN_CONTEXT_EVENT_TYPE,
+    time: args.at.toISOString(),
+    attempt: VERIFY_APPEND_ATTEMPT,
+    data: {
+      [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
+    },
+  };
+}
+
 /** The CloudEvents `type` the verify terminal-completion event carries, distinguishing it from appends. */
 export const VERIFY_TERMINAL_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.terminal` as const;
 
@@ -1160,11 +1220,24 @@ export function buildTerminalEvent(args: {
 /** The run's projected lifecycle state, folded from its journal event history. */
 export interface VerifyRunProjection {
   readonly sealed: boolean;
+  readonly driveMode: VerifyDriveMode;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
   readonly lastSequence: number;
   readonly nextActions: readonly string[];
+}
+
+/**
+ * The run's drive mode folded from its run-context event. A run opened before drive mode was
+ * recorded, or one whose run-context event is absent, folds to caller-driven — the mode under
+ * which a caller appends its own evidence.
+ */
+export function driveModeOf(events: readonly JournalEvent[]): VerifyDriveMode {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return VERIFY_DRIVE_MODE.CALLER;
+  const driveMode = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE];
+  return typeof driveMode === "string" && isVerifyDriveMode(driveMode) ? driveMode : VERIFY_DRIVE_MODE.CALLER;
 }
 
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */
@@ -1223,12 +1296,14 @@ export function projectVerifyRun(
   const terminalStatus = terminalStatusOf(terminal);
   const terminalMetadata = terminalMetadataOf(terminal);
   const sealed = terminal !== undefined;
+  const driveMode = driveModeOf(events);
   return {
     sealed,
+    driveMode,
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
     ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),
     lastSequence: lastSequenceOf(events),
-    nextActions: sealed ? [] : UNSEALED_NEXT_ACTIONS,
+    nextActions: sealed ? [] : unsealedNextActionsForDriveMode(driveMode),
   };
 }
