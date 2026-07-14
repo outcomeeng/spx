@@ -5,9 +5,7 @@
  * into these producer values and forwards them to an injected TestRunEvidenceSink.
  * The verification executor supplies a sink backed by the recorder's evidence-append
  * ports; tests supply a recording sink. The reporter constructs no journal events
- * and performs no I/O — every durable effect flows through the sink. Governed by
- * the reporter architecture decision at
- * spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler.
+ * and performs no I/O — every durable effect flows through the sink.
  */
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
