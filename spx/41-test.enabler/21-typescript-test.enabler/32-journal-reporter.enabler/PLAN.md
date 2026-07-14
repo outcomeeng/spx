@@ -52,6 +52,17 @@ whole-changeset `changes-reviewer` converged — two DEBT findings on the
 executor-scope claims plus one same-class residual, all resolved by scoping the
 registry reach to the executor and audit-tagging the drive-mode assertions.
 
+The open PR (#406) CI review then surfaced three more findings, repaired in the
+same changeset: (A) the real-run `l2` harness now asserts the streaming run
+restores `process.exitCode`; (B) the `TestRunEvidenceSink` port is awaitable and
+the reporter's hooks `await` each append — a new compliance assertion
+(`journal-reporter.compliance.l1.test.ts`) and the ADR rationale/invariant record
+that the run streams correctly under an asynchronous journal-backed sink; (C) the
+reporter yields Vitest's terminal-status vocabulary (`passed`), which the
+recorder's `JOURNAL_RUN_STATE_STATUS` lacks — tracked to the executor node's
+`spx/34-verification.enabler/43-execute.enabler/ISSUES.md`, out of the reporter's
+diff, for the executor's `/apply` to adapt.
+
 ## Remaining for the reporter node
 
 Graduation, the `/apply` audit gates, and the whole-changeset review are complete;
