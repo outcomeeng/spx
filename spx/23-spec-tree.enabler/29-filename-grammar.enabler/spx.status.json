@@ -4,10 +4,9 @@
     "test": {
       "overall": "passed",
       "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/filename-grammar.mapping.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-single-source.compliance.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-subsets.mapping.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-suffixes.property.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-types.property.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-suffixes.mapping.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry-types.mapping.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/kind-registry.mapping.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/naming-schema-versions.property.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/29-filename-grammar.enabler/tests/naming-version.compliance.l1.test.ts": "passed",

@@ -4,7 +4,7 @@
     "test": {
       "overall": "passed",
       "spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/entry-recognition.mapping.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/evidence-recognition.mapping.l1.test.ts": "passed",
+      "spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/evidence-recognition.property.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/version-classification.compliance.l1.test.ts": "passed",
       "spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/version-classification.property.l1.test.ts": "passed"
     }
