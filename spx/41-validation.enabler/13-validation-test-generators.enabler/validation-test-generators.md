@@ -1,6 +1,6 @@
 # Validation Test Generators
 
-PROVIDES coherent generated validation configurations, tool descriptors, project layouts, path scopes, pipeline outcomes, and command scenarios composed from production-owned validation contracts
+PROVIDES coherent generated validation configurations, tool descriptors, product layouts, path scopes, pipeline outcomes, and command scenarios composed from production-owned validation contracts
 SO THAT the validation test harness and validation behavior evidence
 CAN explore configuration, discovery, scope resolution, pipeline, and tool behavior without assertion files or harnesses reconstructing protocol vocabulary or related values
 

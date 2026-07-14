@@ -8,7 +8,7 @@ CAN verify lifecycle classification, persisted status projections, and resolver 
 
 ### Properties
 
-- Generated classification-tree fixtures materialize tracked node specs, linked evidence files, EXCLUDE membership, expected status projections, and resolver outcomes that correspond to each generated node's facts ([test](tests/node-status-test-support.property.l1.test.ts))
+- Generated classification-tree fixtures materialize tracked node specs and linked evidence from inert payloads, derive EXCLUDE membership from each generated node's facts, record test outcomes through the testing command, and resolve those recorded outcomes through the production node-outcome resolver ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated delegation-tree fixtures contain one test-outcome-stage node, one declared node, and one specified node, so status-update delegation evidence always spans every consultation class ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated node slugs come from the source-owned readable slug pool, so counterexamples avoid arbitrary punctuation and consecutive hyphens ([test](tests/node-status-test-support.property.l1.test.ts))
 
