@@ -55,6 +55,12 @@ export interface DocumentationPathMappingCase {
   readonly expected: readonly string[];
 }
 
+export interface DocumentationPathAliasCase {
+  readonly canonicalPath: string;
+  readonly configuredPath: string;
+  readonly content: string;
+}
+
 export const DOCUMENTATION_PATH_FAILURE_KIND = {
   TRAVERSAL: "traversal",
   CANONICAL_ESCAPE: "canonical-escape",
@@ -229,6 +235,22 @@ export function arbitraryNestedDocumentationSyncScenario(): fc.Arbitrary<Documen
     .tuple(arbitraryPathSegment(), arbitraryDocumentationPath())
     .map(([directory, filename]) => [`${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`])
     .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
+}
+
+export function arbitraryDocumentationPathAliasCase(): fc.Arbitrary<DocumentationPathAliasCase> {
+  return fc
+    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), arbitraryPathSegment())
+    .map(([directory, filename, content]) => {
+      const canonicalPath = `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`;
+      return {
+        canonicalPath,
+        configuredPath: canonicalPath.replaceAll(
+          RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+          RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+        ),
+        content,
+      };
+    });
 }
 
 export function arbitraryPromptBoundaryDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
