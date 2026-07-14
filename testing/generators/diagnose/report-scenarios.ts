@@ -375,11 +375,11 @@ export function supportedTranslationBranches(): readonly TranslationBranchCase[]
     },
     {
       check: classifySessionStore({ errored: false, orphanedClaims: 0 }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
+      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_READABLE,
     },
     {
       check: classifySessionStore({ errored: false, orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1 })) }),
-      header: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
+      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_READABLE,
     },
     {
       check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
@@ -435,8 +435,7 @@ const HUMAN_HEADER_BY_VERDICT: Readonly<Partial<Record<string, Readonly<Partial<
     ]),
   ),
   [CHECK_NAME.SESSION_STORE]: {
-    [SESSION_STORE_VERDICT.CONSISTENT]: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
-    [SESSION_STORE_VERDICT.ORPHANED_CLAIMS]: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
+    [SESSION_STORE_VERDICT.CONSISTENT]: DIAGNOSE_TEXT_HEADER.SESSION_STORE_READABLE,
     [SESSION_STORE_VERDICT.UNKNOWN]: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
   },
   [CHECK_NAME.MARKETPLACE_INSTALL]: {
