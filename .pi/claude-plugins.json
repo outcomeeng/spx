@@ -7,6 +7,7 @@
   },
   "plugins": {
     "spec-tree@outcomeeng": {},
+    "instructions@outcomeeng": {},
     "typescript@outcomeeng": {},
     "prose@outcomeeng": {}
   }
