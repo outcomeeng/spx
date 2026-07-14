@@ -6,7 +6,7 @@ The TypeScript Vitest runner adapter is a `typescriptTestingLanguage` descriptor
 
 Injecting the command runner and allowing a test-only detection override makes command construction, the detection gate, and exclusion-flag generation verifiable at `l1` without invoking real Vitest or mocking. Passing exclusions as invocation-time flags keeps the product's `vitest.config.ts`, `tsconfig.json`, and `package.json` unmodified. Modeling the runner as an ADR-19 descriptor lets the parent dispatch iterate registered languages without naming TypeScript, and the descriptor contract is the same module its Python peer imports.
 
-Writing exclusions into `vitest.config.ts` was rejected because it mutates product configuration the node must never write; putting TypeScript detection in the CLI orchestration layer was rejected because it makes orchestration reference language identity outside the registry; skipping the detection gate to let Vitest no-op on a non-TypeScript product was rejected because it invokes a subprocess pointlessly and conflates "absent" with "passed".
+Runner descriptors own test scope because writing exclusions into `vitest.config.ts` mutates product configuration the node must never write. The language registry owns TypeScript detection so CLI orchestration remains language-neutral. The detection gate prevents pointless subprocess invocation and preserves the distinction between "absent" and "passed".
 
 ## Invariants
 
