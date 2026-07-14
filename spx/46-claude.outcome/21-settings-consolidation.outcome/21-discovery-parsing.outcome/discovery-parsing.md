@@ -9,6 +9,8 @@ CONTRIBUTING TO eliminating permission drift by ensuring no project's settings a
 ### Scenarios
 
 - Given a directory tree with `settings.local.json` files inside `.claude/` directories at varying depths, when discovery runs, then all are found ([test](tests/discovery.scenario.l1.test.ts))
+- Given a missing root or a root that is a file, when discovery runs, then it rejects with a path-specific directory diagnostic ([test](tests/discovery.scenario.l1.test.ts))
+- Given an exact `.claude/settings.local.json` target alongside non-target entries and a `settings.local.json` outside `.claude/`, when discovery runs, then only the exact target is returned ([test](tests/discovery.scenario.l1.test.ts))
 
 ### Properties
 
