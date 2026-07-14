@@ -32,6 +32,7 @@ import { DEFAULT_SESSION_METADATA, type SessionRecord } from "@/domains/session/
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
+import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import {
@@ -194,11 +195,12 @@ export function assertSessionEnvironmentSnapshotMapping(): void {
 }
 
 export function assertSessionStoreClassificationMapping(): void {
+  const orphanedClaims = sampleDiagnoseTestValue(fc.integer({ min: 1 }));
   const unknown = classifySessionStore({ errored: true, orphanedClaims: 0 });
   const consistent = classifySessionStore({ errored: false, orphanedClaims: 0 });
   const consistentWithOrphans = classifySessionStore({
     errored: false,
-    orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1 })),
+    orphanedClaims,
   });
 
   expect(unknown.verdict).toBe(SESSION_STORE_VERDICT.UNKNOWN);
@@ -209,7 +211,11 @@ export function assertSessionStoreClassificationMapping(): void {
   expect(consistent.remediation.length).toBeGreaterThan(0);
   expect(consistentWithOrphans.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
   expect(consistentWithOrphans.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+  expect(Object.values(consistentWithOrphans.readings)).toEqual([String(orphanedClaims)]);
   expect(consistentWithOrphans.remediation).toBe(consistent.remediation);
+  expect(unknown.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
+  expect(consistent.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
+  expect(consistentWithOrphans.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
 }
 
 export function assertDoingSessionClaimMapping(): void {
