@@ -45,6 +45,7 @@ const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
   NODE_SPEC: "node-spec",
   NODE_STATUS: NODE_STATUS_FILENAME,
   PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
+  PRODUCT_SPEC: SPEC_TREE_ENTRY_TYPE.PRODUCT,
   ROOT_DECISION: "root-decision",
   TEST_EVIDENCE: "test-evidence",
 } as const;
@@ -80,12 +81,13 @@ export type SpecContextEmptySegmentMappingCase = {
   readonly topology: SpecContextEmptySegmentTopology;
 };
 
-type SpecContextNodeArtifactMappingCaseKind =
+type SpecContextNonDecisionArtifactMappingCaseKind =
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ISSUES
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_SPEC
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_STATUS
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PLAN
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PRODUCT_SPEC
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
 
 type SpecContextDecisionArtifactMappingCaseKind =
@@ -94,7 +96,7 @@ type SpecContextDecisionArtifactMappingCaseKind =
 
 export type SpecContextArtifactMappingCase =
   | {
-    readonly artifactKind: SpecContextNodeArtifactMappingCaseKind;
+    readonly artifactKind: SpecContextNonDecisionArtifactMappingCaseKind;
     readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
     readonly title: string;
   }
@@ -190,6 +192,14 @@ function nodeArtifactFixture(
 ): RepresentativeSpecTreeFixture {
   const root: SpecTreeNodeSourceEntry = { ...fixture.root, ref: sourceRef(target) };
   return { ...fixture, entries: replaceFixtureEntry(fixture.entries, root), root };
+}
+
+function productArtifactFixture(
+  fixture: RepresentativeSpecTreeFixture,
+  target: string,
+): RepresentativeSpecTreeFixture {
+  const product = { ...fixture.product, ref: sourceRef(target) };
+  return { ...fixture, entries: replaceFixtureEntry(fixture.entries, product), product };
 }
 
 function decisionArtifactFixture(
@@ -389,6 +399,17 @@ export function specContextArtifactTargetFixture(
       const target = `spx/${rootDirectory}/${fixture.root.slug}.md`;
       return ownedArtifactTargetFixture(fixture, nodeArtifactFixture(fixture, target), target);
     }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PRODUCT_SPEC: {
+      const target = `spx/${fixture.product.id}${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX}`;
+      return {
+        failure: {
+          input: target,
+          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
+        },
+        sourceFixture: productArtifactFixture(fixture, target),
+        target,
+      };
+    }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION: {
       const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
       const target = `spx/${fixture.root.id}/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
@@ -481,6 +502,11 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_SPEC,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
       title: "maps a node spec path to its owning node",
+    },
+    {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PRODUCT_SPEC,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps the product spec path to node-selection guidance",
     },
     ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION),
     {
