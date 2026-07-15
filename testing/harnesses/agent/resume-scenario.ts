@@ -111,6 +111,7 @@ describe("agent resume discovery scenarios", () => {
     const codexOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 39);
     const claudeOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 40);
     const codexOtherBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
+    const piWithoutBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 42);
 
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(codexOnBranch)),
@@ -127,6 +128,11 @@ describe("agent resume discovery scenarios", () => {
       codexTranscript({ sessionId: codexOtherBranch, cwd: cwdA, timestamp, branch: otherBranch }),
       nowMs,
     );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piWithoutBranch)),
+      piTranscript({ sessionId: piWithoutBranch, cwd: cwdA, timestamp }),
+      nowMs - 2,
+    );
 
     const candidates = await discoverAgentResumeCandidates({
       invocationDir,
@@ -140,6 +146,7 @@ describe("agent resume discovery scenarios", () => {
     expect(new Set(candidates.map((candidate) => candidate.sessionId))).toEqual(
       new Set([codexOnBranch, claudeOnBranch]),
     );
+    expect(candidates.some((candidate) => candidate.sessionId === piWithoutBranch)).toBe(false);
   });
 
   it("lets the interactive picker choose Pi from mixed agent candidates and launches its native command", async () => {
