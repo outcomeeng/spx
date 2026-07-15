@@ -89,19 +89,25 @@ const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFiles
       close: async () => await handle.close(),
     };
   },
-  writeDocumentAtomic: async (path, content, guard) => {
+  writeDocumentAtomic: createDocumentationAtomicWriter(),
+};
+
+export function createDocumentationAtomicWriter(
+  fileSystem: AtomicWriteFileSystem = ATOMIC_WRITE_FILE_SYSTEM,
+): DocumentationAtomicWriter {
+  return async (path, content, guard) => {
     await writeFileAtomic(path, content, {
       fs: {
-        ...ATOMIC_WRITE_FILE_SYSTEM,
+        ...fileSystem,
         rename: async (from, to) => {
           await guard();
-          await rename(from, to);
+          await fileSystem.rename(from, to);
         },
       },
       randomBytes,
     });
-  },
-};
+  };
+}
 
 export function createDocumentationSyncFilesystem(
   overrides: Partial<DocumentationSyncFilesystemDependencies> = {},
@@ -271,31 +277,26 @@ async function replaceDocumentation(
   replacementContent: string,
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  await withBoundDocumentationFile(
+  const initialSnapshot = await readBoundDocumentationSnapshot(
     path,
     undefined,
     true,
     dependencies.openDocumentationFile,
-    async (handle, stats, assertPathStillBound) => {
-      const currentContent = await handle.readText();
-      await assertPathStillBound();
-      assertDocumentationContent(path, currentContent, expectedContent);
-      const guard: DocumentationReplacementGuard = async () => {
-        await assertPathStillBound();
-        const snapshot = await readBoundDocumentationSnapshot(
-          path,
-          undefined,
-          true,
-          dependencies.openDocumentationFile,
-        );
-        if (!isSameFileIdentity(stats, snapshot.stats)) {
-          throw new Error(`Documentation file identity changed before replacement: ${path}`);
-        }
-        assertDocumentationContent(path, snapshot.content, expectedContent);
-      };
-      await dependencies.writeDocumentAtomic(path, replacementContent, guard);
-    },
   );
+  assertDocumentationContent(path, initialSnapshot.content, expectedContent);
+  const guard: DocumentationReplacementGuard = async () => {
+    const replacementSnapshot = await readBoundDocumentationSnapshot(
+      path,
+      undefined,
+      true,
+      dependencies.openDocumentationFile,
+    );
+    if (!isSameFileIdentity(initialSnapshot.stats, replacementSnapshot.stats)) {
+      throw new Error(`Documentation file identity changed before replacement: ${path}`);
+    }
+    assertDocumentationContent(path, replacementSnapshot.content, expectedContent);
+  };
+  await dependencies.writeDocumentAtomic(path, replacementContent, guard);
 }
 
 async function readBoundDocumentationSnapshot(
