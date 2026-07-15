@@ -62,6 +62,22 @@ function arbitraryFinding(): fc.Arbitrary<TestFinding> {
   });
 }
 
+/** The message the reporter records for a Vitest error carrying no message: the `error.message ?? ""` fallback. */
+const ABSENT_ERROR_MESSAGE = "";
+
+/**
+ * A finding whose error messages are the reporter's message-absent fallback. A failing case whose
+ * Vitest errors carry no message resolves each to an empty string, so consumers must accept empty
+ * message strings.
+ */
+function arbitraryFindingWithoutErrorMessages(): fc.Arbitrary<TestFinding> {
+  return fc.record({
+    moduleId: arbitraryTestFilePath(),
+    testName: arbitraryDomainLiteral(),
+    errors: fc.array(fc.constant(ABSENT_ERROR_MESSAGE), { minLength: MIN_ERRORS, maxLength: MAX_ERRORS }),
+  });
+}
+
 function arbitraryScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
   return fc.array(arbitraryScopeUnit(), { maxLength: MAX_SCOPE_UNITS });
 }
@@ -132,6 +148,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   scopeUnit: arbitraryScopeUnit,
   scopeUnits: arbitraryScopeUnits,
   finding: arbitraryFinding,
+  findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,
   runRequest: arbitraryRunRequest,
