@@ -1619,6 +1619,9 @@ function registerComplianceTests(): void {
             stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
           })),
         });
+        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).not.toContain(
+          DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+        );
         expect(auditor.requests).toHaveLength(1);
         expect(parseDocumentationPromptDataBlock(auditor.requests[0].prompt)).toEqual({
           releaseData: scenario.releaseData,
