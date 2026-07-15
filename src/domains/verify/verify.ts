@@ -6,7 +6,6 @@ import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/jou
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
-import type { TestFinding, TestScopeUnit } from "@/test/languages/types";
 
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
@@ -1027,6 +1026,18 @@ function validateAuditFindingForRun(input: EvidenceValidationInput): AuditFindin
   const finding = validateAuditFinding(input.payload);
   if (finding === undefined) return undefined;
   return auditFindingReferencesRecordedScope(input.events, finding) ? finding : undefined;
+}
+
+/** One inspected test module recorded as `test` scope evidence, owned by the verify domain. */
+export interface TestScopeUnit {
+  readonly moduleId: string;
+}
+
+/** One failing test case recorded as a `test` finding, owned by the verify domain. */
+export interface TestFinding {
+  readonly moduleId: string;
+  readonly testName: string;
+  readonly errors: readonly string[];
 }
 
 /** Validate a `test` scope payload as one inspected test module. */
