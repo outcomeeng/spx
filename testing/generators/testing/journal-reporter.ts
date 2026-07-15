@@ -163,6 +163,24 @@ function arbitraryMixedRunScenario(): fc.Arbitrary<GeneratedRunScenario> {
     }));
 }
 
+/** The separator a naive `moduleId + separator + testName` finding key would join on; a collision-safe key must encode the pair without straddling it. */
+const NAIVE_FINDING_KEY_SEPARATOR = "::";
+
+/**
+ * Two distinct findings whose module id and test name straddle the naive separator differently, so a
+ * `moduleId + separator + testName` join collapses them onto one key while the pair stays genuinely
+ * distinct. The related values must agree — the two module-id/test-name splits share the same middle
+ * segment — so the pair is one coherent scenario rather than independent draws.
+ */
+function arbitraryCollidingFindingPair(): fc.Arbitrary<readonly [TestFinding, TestFinding]> {
+  return fc
+    .tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral(), arbitraryDomainLiteral())
+    .map(([left, middle, right]) => [
+      { moduleId: `${left}${NAIVE_FINDING_KEY_SEPARATOR}${middle}`, testName: right, errors: [] },
+      { moduleId: left, testName: `${middle}${NAIVE_FINDING_KEY_SEPARATOR}${right}`, errors: [] },
+    ]);
+}
+
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
   mixedRunScenario: arbitraryMixedRunScenario,
@@ -174,6 +192,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   invalidScopeUnit: arbitraryInvalidScopeUnit,
   finding: arbitraryFinding,
   findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,
+  collidingFindingPair: arbitraryCollidingFindingPair,
   invalidFinding: arbitraryInvalidFinding,
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,

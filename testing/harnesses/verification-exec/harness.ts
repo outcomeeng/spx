@@ -200,9 +200,6 @@ function gatedOutOutcome(): ControlledRunOutcome {
   return { scopeUnits: [], findings: [], invocation: { invoked: false } };
 }
 
-/** A separator a naive `moduleId + separator + testName` key would join on, used to build a colliding finding pair. */
-const NAIVE_FINDING_KEY_SEPARATOR = "::";
-
 /** An outcome whose runner reports an interrupted terminal status after streaming one inspected unit. */
 function interruptedRunnerOutcome(): ControlledRunOutcome {
   return {
@@ -607,19 +604,9 @@ export async function assertTestRunnerGatesOutWhenNoLanguageStreams(): Promise<v
  */
 export async function assertExecutorRecordsSeparatorStraddlingFindingsDistinctly(): Promise<void> {
   const harness = createExecutorHarness();
-  const left = arbitraryDomainLiteralValue();
-  const middle = arbitraryDomainLiteralValue();
-  const right = arbitraryDomainLiteralValue();
-  const first: TestFinding = {
-    moduleId: `${left}${NAIVE_FINDING_KEY_SEPARATOR}${middle}`,
-    testName: right,
-    errors: [],
-  };
-  const second: TestFinding = {
-    moduleId: left,
-    testName: `${middle}${NAIVE_FINDING_KEY_SEPARATOR}${right}`,
-    errors: [],
-  };
+  const [first, second] = sampleJournalReporterValue(
+    JOURNAL_REPORTER_TEST_GENERATOR.collidingFindingPair(),
+  );
   const controlled = createControlledRunner({
     scopeUnits: [],
     findings: [first, second],
