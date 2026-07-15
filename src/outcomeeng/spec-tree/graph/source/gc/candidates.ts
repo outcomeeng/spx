@@ -6,11 +6,12 @@
  * @module outcomeeng/spec-tree/graph/source/gc/candidates
  */
 
+import { SOURCE_OWNERSHIP_CLASSIFICATION } from "../kernel/classification";
 import type { SourceOwnershipRecord } from "../kernel/classify";
 
 /** Returns the records whose classification marks them garbage-collection candidates. */
 export function deriveGarbageCollectionCandidates(
-  _records: readonly SourceOwnershipRecord[],
+  records: readonly SourceOwnershipRecord[],
 ): readonly SourceOwnershipRecord[] {
-  throw new Error("deriveGarbageCollectionCandidates is not implemented");
+  return records.filter((record) => record.classification === SOURCE_OWNERSHIP_CLASSIFICATION.UNOWNED);
 }
