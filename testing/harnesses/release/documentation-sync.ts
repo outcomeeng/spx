@@ -42,6 +42,7 @@ import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
+import type { AtomicWriteFileSystem } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
@@ -340,29 +341,31 @@ class PostPromotionEditFailingAtomicWriter {
   };
 }
 
-class PostPromotionIdentityReplacingFailingAtomicWriter {
-  successfulWrites = 0;
+class PostRenameIdentityReplacingAtomicFileSystem implements AtomicWriteFileSystem {
+  successfulRenames = 0;
   failures = 0;
 
   constructor(
-    private readonly promotedPath: string,
     private readonly replacementPath: string,
     private readonly promotedContent: string,
   ) {}
 
-  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
-    if (this.successfulWrites === 1 && this.failures === 0) {
-      await replaceDocumentationPathIdentity(
-        this.promotedPath,
-        this.replacementPath,
-        this.promotedContent,
-      );
+  readonly writeFile = async (path: string, content: string): Promise<void> => {
+    await writeFile(path, content);
+  };
+
+  readonly rename = async (from: string, to: string): Promise<void> => {
+    if (this.successfulRenames === 1 && this.failures === 0) {
       this.failures += 1;
       throw new Error("Documentation promotion failed after an identity replacement");
     }
-    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
-    this.successfulWrites += 1;
-    return promotedIdentity;
+    await rename(from, to);
+    await replaceDocumentationPathIdentity(to, this.replacementPath, this.promotedContent);
+    this.successfulRenames += 1;
+  };
+
+  readonly rm = async (path: string, options: { readonly force: true }): Promise<void> => {
+    await rm(path, options);
   };
 }
 
@@ -800,14 +803,15 @@ async function assertRollbackPreservesPostPromotionIdentityReplacement(
   const primary = primaryDocumentation(scenario);
   await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
     await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-      const writer = new PostPromotionIdentityReplacingFailingAtomicWriter(
-        join(options.productDir, primary.path),
+      const fileSystem = new PostRenameIdentityReplacingAtomicFileSystem(
         join(externalDir, primary.path),
         primary.updatedContent,
       );
-      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      const filesystem = createDocumentationSyncFilesystem({
+        writeDocumentAtomic: createDocumentationAtomicWriter(fileSystem),
+      });
       await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
-      expect(writer.failures).toBe(1);
+      expect(fileSystem.failures).toBe(1);
       for (const path of scenario.paths) {
         await expect(readProductDocument(path)).resolves.toBe(
           path === primary.path ? primary.updatedContent : scenario.original[path],

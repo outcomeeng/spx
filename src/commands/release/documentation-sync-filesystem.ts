@@ -112,8 +112,8 @@ export function createDocumentationAtomicWriter(
         ...fileSystem,
         rename: async (from, to) => {
           await guard();
+          promotedIdentity = toDocumentationFileIdentity(await lstat(from));
           await fileSystem.rename(from, to);
-          promotedIdentity = toDocumentationFileIdentity(await lstat(to));
         },
       },
       randomBytes,
