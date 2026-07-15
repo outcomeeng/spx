@@ -816,9 +816,10 @@ export function validateReviewTerminal(input: TerminalValidationInput): Terminal
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
   }
   // A review run seals only with a status in the review vocabulary. The journal terminal statuses
-  // `isVerifyTerminalStatus` admits but review never uses — `failed` and `interrupted` — never seal a
-  // review, even on a clean run whose evidence and metadata compute no concrete expected status; any
-  // status outside the journal vocabulary is already rejected upstream before this validator runs.
+  // `isVerifyTerminalStatus` admits but review never uses — `failed`, `interrupted`, and the
+  // deterministic-runner status `passed` — never seal a review, even on a clean run whose evidence and
+  // metadata compute no concrete expected status; any status outside the journal vocabulary is already
+  // rejected upstream before this validator runs.
   if (!REVIEW_TERMINAL_STATUSES.has(input.terminalStatus)) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
   }
