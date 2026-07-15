@@ -21,8 +21,20 @@ import {
 } from "./subprocess-output";
 
 export const DPRINT_EXECUTABLE_SPECIFIER = "dprint/bin.cjs";
-/** Executable from the runtime dependency shipped with the published CLI. */
-export const DPRINT_COMMAND = createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER);
+
+let cachedDprintCommand: string | undefined;
+
+/**
+ * Resolve the pinned dprint executable from the published package, memoized on
+ * first use. Deferred from module scope so a broken dprint install fails only
+ * the formatting stage rather than crashing every CLI command whose import
+ * chain reaches the validation domain. The resolve still hard-fails when the
+ * executable is unresolvable, with no skip path, per the dprint-integration ADR.
+ */
+export function resolveDprintCommand(): string {
+  cachedDprintCommand ??= createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER);
+  return cachedDprintCommand;
+}
 export const DPRINT_CHECK_SUBCOMMAND = "check";
 export const DPRINT_EXCLUDES_OPTION = "--excludes";
 export const DPRINT_OPTIONS_TERMINATOR = "--";
@@ -98,7 +110,7 @@ export async function validateFormatting(
   const args = buildDprintCheckArgs({ files: context.files, excludes: context.excludes });
 
   return new Promise((resolve) => {
-    const child = spawnManagedSubprocess(runner, DPRINT_COMMAND, args, { cwd: context.productDir });
+    const child = spawnManagedSubprocess(runner, resolveDprintCommand(), args, { cwd: context.productDir });
     const chunks: string[] = [];
     const capture = (chunk: string | Uint8Array): void => {
       chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
