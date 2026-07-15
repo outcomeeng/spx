@@ -8,37 +8,39 @@ import {
   arbitraryJournalIdentity,
   journalRunFilePath,
 } from "@testing/generators/agent-run-journal";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 /** Prove sequence exclusivity when independent stores append to one run history concurrently. */
 export async function assertOverlappingAppendSequenceProperty(): Promise<void> {
-  await fc.assert(
-    fc.asyncProperty(
+  await assertProperty(
+    fc.tuple(
       arbitraryJournalEventInput(),
       arbitraryJournalEventInput(),
       arbitraryJournalIdentity(),
-      async (leftInput, rightInput, identity) => {
-        const fs = createInMemoryStateStoreFileSystem();
-        const runFilePath = journalRunFilePath(identity.streamid);
-        const leftJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
-        const rightJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
-        const outcomes = await Promise.allSettled([
-          leftJournal.append(leftInput),
-          rightJournal.append(rightInput),
-        ]);
-        const replay = await createAppendableJournalStore({ runFilePath, fs }).readAll();
-        const fulfilled = outcomes.filter(isFulfilled);
-        const rejected = outcomes.filter(isRejected);
-
-        expect(replay.map((event) => event.seq)).toEqual(
-          replay.map((_event, index) => JOURNAL_SEQ_BASE + index),
-        );
-        expect(new Set(replay.map((event) => event.seq)).size).toBe(replay.length);
-        expect(fulfilled).toHaveLength(replay.length);
-        expect(rejected).toHaveLength(1);
-        expect(rejectionMessage(rejected[0])).toBe(JOURNAL_ERROR.SEQ_CONSUMED);
-      },
     ),
+    async ([leftInput, rightInput, identity]) => {
+      const fs = createInMemoryStateStoreFileSystem();
+      const runFilePath = journalRunFilePath(identity.streamid);
+      const leftJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+      const rightJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+      const outcomes = await Promise.allSettled([
+        leftJournal.append(leftInput),
+        rightJournal.append(rightInput),
+      ]);
+      const replay = await createAppendableJournalStore({ runFilePath, fs }).readAll();
+      const fulfilled = outcomes.filter(isFulfilled);
+      const rejected = outcomes.filter(isRejected);
+
+      expect(replay.map((event) => event.seq)).toEqual(
+        replay.map((_event, index) => JOURNAL_SEQ_BASE + index),
+      );
+      expect(new Set(replay.map((event) => event.seq)).size).toBe(replay.length);
+      expect(fulfilled).toHaveLength(replay.length);
+      expect(rejected).toHaveLength(1);
+      expect(rejectionMessage(rejected[0])).toBe(JOURNAL_ERROR.SEQ_CONSUMED);
+    },
+    { level: PROPERTY_LEVEL.L1 },
   );
 }
 
