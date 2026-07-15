@@ -15,4 +15,5 @@ CAN classify TypeScript source artifacts against linked-test evidence without SP
 
 - ALWAYS: the source graph provider registry reaches the TypeScript provider descriptor through an explicit import statement ([test](tests/typescript-source-graph.compliance.l1.test.ts))
 - ALWAYS: every emitted fact carries a registered provider fact kind and provenance naming the `typescript` language and the emitting tool ([test](tests/typescript-source-graph.compliance.l1.test.ts))
-- NEVER: the provider reads the filesystem, invokes a process, or parses TypeScript source text — facts derive only from tool output supplied through the provider's typed input boundary ([test](tests/typescript-source-graph.compliance.l1.test.ts))
+- ALWAYS: facts derive deterministically and only from data present in the tool output supplied through the provider's typed input boundary ([test](tests/typescript-source-graph.compliance.l1.test.ts))
+- NEVER: the provider reads the filesystem, invokes a process, or parses TypeScript source text ([audit])

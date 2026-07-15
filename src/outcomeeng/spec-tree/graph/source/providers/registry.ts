@@ -12,7 +12,7 @@ import { TYPESCRIPT_COVERAGE_PROVIDER } from "./typescript/coverage";
 import { TYPESCRIPT_MODULE_GRAPH_PROVIDER } from "./typescript/module-graph";
 
 /** Every registered provider descriptor, reached through explicit import statements. */
-export const SOURCE_GRAPH_PROVIDER_REGISTRY: readonly SourceGraphProviderDescriptor<never>[] = [
+export const SOURCE_GRAPH_PROVIDER_REGISTRY: readonly SourceGraphProviderDescriptor<unknown>[] = [
   TYPESCRIPT_COVERAGE_PROVIDER,
   TYPESCRIPT_MODULE_GRAPH_PROVIDER,
 ];

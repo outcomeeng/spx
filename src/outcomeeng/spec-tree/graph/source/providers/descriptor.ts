@@ -58,5 +58,7 @@ export interface RawProviderFact {
 export interface SourceGraphProviderDescriptor<Input> {
   readonly language: SourceGraphLanguage;
   readonly provider: string;
-  readonly collectFacts: (input: Input) => readonly RawProviderFact[];
+  // Method syntax (bivariant parameters) keeps every concrete descriptor
+  // assignable to the registry's uniform element type while staying invokable.
+  collectFacts(input: Input): readonly RawProviderFact[];
 }
