@@ -6,7 +6,7 @@ import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
 export const DOCUMENTATION_SYNC_PROMPT_INSTRUCTION =
-  "Update every staged documentation file so its version references and behavior descriptions match the supplied release data.";
+  "Update every staged documentation file so it contains the released version and its version references and behavior descriptions match the supplied release data, including when no previous release exists.";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN = "<documentation-sync-input>";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE = "</documentation-sync-input>";
 export const DOCUMENTATION_SYNC_AGENT_TOOLS = [
