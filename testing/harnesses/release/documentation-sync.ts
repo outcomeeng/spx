@@ -1,8 +1,10 @@
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { Command } from "commander";
+import { execa } from "execa";
 import { expect } from "vitest";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
@@ -74,6 +76,13 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
 const EXTERNAL_DIRECTORY_PREFIX = "spx-documentation-sync-external-";
+const DOCUMENTATION_FIFO_COMMAND = "mkfifo";
+const DOCUMENTATION_FIFO_BLOCK_DETECTION_MS = 100;
+const DOCUMENTATION_FIFO_STAGE_OUTCOME = {
+  BLOCKED: "blocked",
+  REJECTED: "rejected",
+  RESOLVED: "resolved",
+} as const;
 const DOCUMENTATION_READ_RACE_TARGET = {
   PRODUCT: "product",
   STAGED: "staged",
@@ -604,6 +613,40 @@ async function assertDuplicateDocumentationIdentityRejected(
     expect(agent.requests).toHaveLength(0);
     expect(promoter.calls).toHaveLength(0);
     await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertFifoRejectedWithoutBlocking(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  const promoter = new RecordingDocumentationPromoter();
+  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+    const fifoPath = join(options.productDir, primary.path);
+    await rm(fifoPath);
+    await execa(DOCUMENTATION_FIFO_COMMAND, [fifoPath]);
+    const sync = composeDocumentationSync({
+      ...options,
+      promoteDocumentation: promoter.promote,
+    });
+    const outcome = await Promise.race([
+      sync.then(
+        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.RESOLVED,
+        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.REJECTED,
+      ),
+      delay(DOCUMENTATION_FIFO_BLOCK_DETECTION_MS).then(
+        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED,
+      ),
+    ]);
+    if (outcome === DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED) {
+      await Promise.allSettled([
+        sync,
+        writeFile(fifoPath, primary.originalContent),
+      ]);
+    }
+    expect(outcome).toBe(DOCUMENTATION_FIFO_STAGE_OUTCOME.REJECTED);
+    expect(agent.requests).toHaveLength(0);
+    expect(promoter.calls).toHaveLength(0);
   });
 }
 
@@ -1240,6 +1283,12 @@ function registerComplianceTests(): void {
     it("rejects configured documentation paths that share one file identity", async () => {
       await assertDuplicateDocumentationIdentityRejected(
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+      );
+    });
+
+    it("rejects FIFO documentation paths without blocking on open", async () => {
+      await assertFifoRejectedWithoutBlocking(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
       );
     });
 
