@@ -101,6 +101,10 @@ describe("resolveConfig — resolution scope (C1)", () => {
           serializeConfig(format, rootConfig),
         );
         await writeRaw(
+          join(scope.productDirectory, nestedOnly.kind),
+          serializeConfig(format, nestedConfig),
+        );
+        await writeRaw(
           writeConfigPath(join(scope.productDirectory, scope.nestedDirectory), format),
           serializeConfig(format, nestedConfig),
         );

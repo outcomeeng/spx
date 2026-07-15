@@ -6,6 +6,8 @@ import { showCommand } from "@/commands/config/show";
 import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
 import type { Config, Result } from "@/config/types";
+import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
@@ -126,6 +128,16 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
     }
 
     expect(traps.tripped).toEqual([]);
+  });
+});
+
+describe("invariants — config source scope", () => {
+  it("registers presentation options only, with no alternate config source", () => {
+    expect(
+      createCliProgram({ domains: [configDomain] }).commands
+        .find((command) => command.name() === CONFIG_CLI.commandName)
+        ?.commands.flatMap((command) => command.options.map((option) => option.long)),
+    ).toEqual([CONFIG_CLI.flags.json, CONFIG_CLI.flags.json]);
   });
 });
 
