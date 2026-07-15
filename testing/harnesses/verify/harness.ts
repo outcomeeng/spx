@@ -1319,6 +1319,41 @@ export async function assertSpxDrivenRunAdvertisesNoEvidenceAppendAction(): Prom
 }
 
 /**
+ * Asserts an spx-driven run rejects a caller evidence-append: a caller holding the run's token cannot
+ * add scope or finding evidence to a run spx opens, streams, and seals within one invocation — the
+ * enforcement counterpart of the next-action projection filter that already hides those actions. Both
+ * append verbs reject with the spx-driven-append error, and the run's journal is unchanged.
+ */
+export async function assertSpxDrivenRunRejectsCallerEvidenceAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
+  const eventsBefore = await readVerifyRunEvents(scenario, runToken, fs);
+
+  // An external caller over the same store asserts no spx drive mode — the append verbs expose no
+  // drive-mode flag — so its deps carry caller-driven mode and a payload reader, unlike the executor's
+  // own recorder operations that assert spx drive mode.
+  const externalCaller: VerifyCliDeps = {
+    ...deps,
+    driveMode: VERIFY_DRIVE_MODE.CALLER,
+    readPayloadSource: async (source) => source,
+  };
+
+  for (const appendCommand of APPEND_COMMANDS) {
+    const rejected = await appendCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken())),
+        idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+      }),
+      externalCaller,
+    );
+    expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(rejected.output).toBe(VERIFY_CLI_ERROR.SPX_DRIVEN_APPEND_REJECTED);
+  }
+
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBefore);
+}
+
+/**
  * Asserts a run history carrying no run-context event folds to caller-driven and advertises the
  * caller evidence-append actions — the pre-migration default the fold applies when drive mode was
  * never recorded. Built by dropping the run-context event from a real spx-driven run's history, so
