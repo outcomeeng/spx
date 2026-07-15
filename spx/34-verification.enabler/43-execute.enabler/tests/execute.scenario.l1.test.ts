@@ -2,8 +2,10 @@ import { describe, it } from "vitest";
 
 import {
   assertExecutorDrivesRunnerAndReportsLocator,
+  assertExecutorGatesUnsupportedTypeWithoutRecording,
   assertExecutorRecordsFindingWithoutErrorMessages,
   assertExecutorRecordsScopeFindingAndTerminal,
+  assertExecutorSealsGatedOutRunAsInterrupted,
 } from "@testing/harnesses/verification-exec/harness";
 
 describe("spx-driven verification executor scenarios", () => {
@@ -17,5 +19,13 @@ describe("spx-driven verification executor scenarios", () => {
 
   it("records a failing case whose errors carry no message", async () => {
     await assertExecutorRecordsFindingWithoutErrorMessages();
+  });
+
+  it("opens no run and reports the run not executed when the verification type resolves to no runner", async () => {
+    await assertExecutorGatesUnsupportedTypeWithoutRecording();
+  });
+
+  it("finishes a gated-out run as interrupted, recording no scope or finding", async () => {
+    await assertExecutorSealsGatedOutRunAsInterrupted();
   });
 });

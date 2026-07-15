@@ -19,11 +19,12 @@ import {
   resolveTestRunner,
   resolveVerificationRunner,
 } from "@/commands/verification-exec";
-import { createRecorderOperations } from "@/commands/verification-exec/recorder-operations";
+import { createRecorderOperations, RECORDER_OPERATION_ERROR } from "@/commands/verification-exec/recorder-operations";
 import { verifyRenderCommand, verifyStatusCommand } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   driveModeOf,
+  type RunLocator,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
   VERIFY_EVENT_SOURCE,
@@ -191,6 +192,11 @@ function failingMixedOutcome(): ControlledRunOutcome {
     findings: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())],
     invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
   };
+}
+
+/** A gated-out outcome: detection gated the runner out, so it streams no scope or finding and reports no terminal status. */
+function gatedOutOutcome(): ControlledRunOutcome {
+  return { scopeUnits: [], findings: [], invocation: { invoked: false } };
 }
 
 /**
@@ -406,4 +412,84 @@ export async function assertExecutorReachesRunnerThroughRegistry(): Promise<void
 
   expect(streamed).toEqual([streamedUnit]);
   expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED });
+}
+
+/**
+ * Scenario: a verification type that resolves to no runner opens no run — spx reports the run not
+ * executed and drives no recorder lifecycle operation, so no journal I/O occurs for an unsupported type.
+ */
+export async function assertExecutorGatesUnsupportedTypeWithoutRecording(): Promise<void> {
+  const harness = createExecutorHarness();
+  const spy = spyOnRecorder(harness.recorder);
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => undefined,
+    recorder: spy.recorder,
+  });
+
+  expect(result.executed).toBe(false);
+  expect(spy.openCalls()).toBe(0);
+  expect(spy.scopeCalls()).toBe(0);
+  expect(spy.findingCalls()).toBe(0);
+  expect(spy.finishCalls()).toBe(0);
+}
+
+/**
+ * Scenario: a runner that detection gates out reports no work, so spx records no scope or finding and
+ * finishes the run with the interrupted terminal status the recorder derives for a gated-out run.
+ */
+export async function assertExecutorSealsGatedOutRunAsInterrupted(): Promise<void> {
+  const harness = createExecutorHarness();
+  const controlled = createControlledRunner(gatedOutOutcome());
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => controlled.runner,
+    recorder: harness.recorder,
+  });
+
+  expect(result.executed).toBe(true);
+  if (!result.executed) return;
+  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+
+  const report = parseRenderReport(
+    (await verifyRenderCommand(
+      verifyRenderOptions(harness.scenario, result.run.runToken),
+      verifyDeps(harness.scenario, harness.fs),
+    )).output,
+  );
+  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(0);
+  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
+  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+  expect(report.sealed).toBe(true);
+}
+
+/**
+ * Compliance: each recorder lifecycle operation surfaces a non-OK recorder command as a raised failure
+ * rather than swallowing it — `open` over a malformed scope, and scope, finding, and finish over a run
+ * token the store never opened, each raise their operation's failure prefix.
+ */
+export async function assertRecorderRaisesWhenLifecycleCommandFails(): Promise<void> {
+  const harness = createExecutorHarness();
+  const scopeUnit = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
+  const finding = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding());
+
+  await expect(
+    harness.recorder.open({ ...harness.request, scope: sampleJournalReporterValue(arbitraryDomainLiteral()) }),
+  ).rejects.toThrow(RECORDER_OPERATION_ERROR.OPEN_FAILED);
+
+  const opened = await harness.recorder.open(harness.request);
+  const missingRun: RunLocator = {
+    ...opened,
+    runToken: sampleJournalReporterValue(arbitraryDomainLiteral()),
+  };
+
+  await expect(harness.recorder.appendScope(missingRun, scopeUnit)).rejects.toThrow(
+    RECORDER_OPERATION_ERROR.SCOPE_FAILED,
+  );
+  await expect(harness.recorder.appendFinding(missingRun, finding)).rejects.toThrow(
+    RECORDER_OPERATION_ERROR.FINDING_FAILED,
+  );
+  await expect(
+    harness.recorder.finish(missingRun, JOURNAL_RUN_STATE_STATUS.INTERRUPTED),
+  ).rejects.toThrow(RECORDER_OPERATION_ERROR.FINISH_FAILED);
 }
