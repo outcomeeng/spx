@@ -5,7 +5,7 @@
 [plugins."prose@outcomeeng"]
 enabled = true
 
-[plugins."develop@outcomeeng"]
+[plugins."instructions@outcomeeng"]
 enabled = true
 
 [plugins."typescript@outcomeeng"]
