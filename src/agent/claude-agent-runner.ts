@@ -20,22 +20,14 @@ import {
   authorizeAgentFileToolPath,
 } from "./agent-runner";
 
-const AGENT_FILE_TOOL_PATH_INPUT_FIELD = "file_path";
+export const AGENT_FILE_TOOL_PATH_INPUT_FIELD = "file_path";
 const AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE = "Agent file tool target is outside its working directory";
 
 export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
   async run(request: AgentRunRequest): Promise<void> {
     await runClaudeQuery(
       request.prompt,
-      {
-        cwd: request.workingDirectory,
-        settingSources: [],
-        tools: [...request.tools],
-        allowedTools: autoAllowedAgentTools(request.allowedTools),
-        canUseTool: createAgentToolPermission(request),
-        permissionMode: request.permissionMode,
-        maxTurns: request.maxTurns,
-      },
+      createAgentRunOptions(request),
     );
   }
 
@@ -53,6 +45,18 @@ export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
     );
     return result.result;
   }
+}
+
+export function createAgentRunOptions(request: AgentRunRequest): Options {
+  return {
+    cwd: request.workingDirectory,
+    settingSources: [],
+    tools: [...request.tools],
+    allowedTools: autoAllowedAgentTools(request.allowedTools),
+    canUseTool: createAgentToolPermission(request),
+    permissionMode: request.permissionMode,
+    maxTurns: request.maxTurns,
+  };
 }
 
 function autoAllowedAgentTools(allowedTools: readonly AgentRunTool[]): AgentRunTool[] {
