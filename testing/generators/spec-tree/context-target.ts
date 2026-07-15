@@ -38,6 +38,7 @@ const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
 } as const;
 
 const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
+  AGENT_GUIDE: SPEC_TREE_GRAMMAR.GUIDE_FILES[1],
   EVAL_EVIDENCE: "eval-evidence",
   ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
   NODE_DECISION: "node-decision",
@@ -46,6 +47,7 @@ const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
   PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
   PRODUCT_SPEC: SPEC_TREE_ENTRY_TYPE.PRODUCT,
   ROOT_DECISION: "root-decision",
+  RUNTIME_GUIDE: SPEC_TREE_GRAMMAR.GUIDE_FILES[0],
   TEST_EVIDENCE: "test-evidence",
 } as const;
 
@@ -86,12 +88,14 @@ export type SpecContextEmptySegmentMappingCase = {
 };
 
 type SpecContextNonDecisionArtifactMappingCaseKind =
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.AGENT_GUIDE
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ISSUES
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_SPEC
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_STATUS
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PLAN
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PRODUCT_SPEC
+  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.RUNTIME_GUIDE
   | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
 
 type SpecContextEvalArtifactName =
@@ -491,6 +495,8 @@ export function specContextArtifactTargetFixture(
     }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN:
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES:
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.RUNTIME_GUIDE:
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.AGENT_GUIDE:
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS: {
       const target = `spx/${rootDirectory}/${mappingCase.artifactKind}`;
       return filesystemOwnedArtifactTargetFixture(
@@ -592,6 +598,16 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES,
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
       title: "maps a node-local issues path to its owning node",
+    },
+    {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.RUNTIME_GUIDE,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a node-local runtime guide path to its owning node",
+    },
+    {
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.AGENT_GUIDE,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      title: "maps a node-local agent guide path to its owning node",
     },
     {
       artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS,
