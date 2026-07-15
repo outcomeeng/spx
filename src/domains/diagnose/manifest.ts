@@ -20,6 +20,7 @@ export const CHECK_NAME = {
   SPX_REACHABILITY: "spx-reachability",
   WORKTREE_POOL: "worktree-pool",
   SESSION_STORE: "session-store",
+  PLUGIN_BOOTSTRAP: "plugin-bootstrap",
   MARKETPLACE_INSTALL: "marketplace-install",
   METHODOLOGY_CONTEXT: "methodology-context",
 } as const;

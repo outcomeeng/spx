@@ -10,6 +10,10 @@
 
 import type { Result } from "@/config/types";
 import {
+  PLUGIN_BOOTSTRAP_DECLARATION_VERDICT,
+  type PluginBootstrapDeclarationVerdict,
+} from "@/domains/agent-environment/plugin-bootstrap-status";
+import {
   MARKETPLACE_INSTALL_VERDICT,
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
@@ -103,6 +107,8 @@ export const DIAGNOSE_TEXT_HEADER = {
   MARKETPLACE_DRIFT: "plugin installation drift",
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
   MARKETPLACE_UNKNOWN: "plugin marketplace state unknown",
+  PLUGIN_BOOTSTRAP_CONFIGURED: "product plugin intent configured",
+  PLUGIN_BOOTSTRAP_MISSING: "product plugin baseline missing",
   METHODOLOGY_RESOLVED: "methodology context resolved",
   METHODOLOGY_UNAVAILABLE: "methodology context unavailable",
   METHODOLOGY_UNKNOWN: "methodology context unknown",
@@ -132,6 +138,7 @@ export const DIAGNOSE_TEXT_DETAIL = {
   METHODOLOGY_VERSION_MISMATCH_FIX:
     "Install the configured methodology version or change top-level methodology.version.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
+  PLUGIN_BOOTSTRAP_CONFIGURED: "Every enabled agent declares spec-tree from the outcomeeng marketplace.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_READABLE: "Session store is readable; unmatched doing-session counts are informational.",
   SESSION_START_NO_OP_PROBLEM:
@@ -197,7 +204,13 @@ function parseCheckRecord(value: unknown): Result<CheckRecord> {
   }
   return {
     ok: true,
-    value: { name, verdict, bucket, readings: readings as Readonly<Record<string, string>>, remediation },
+    value: {
+      name,
+      verdict,
+      bucket: bucket as VerdictBucket,
+      readings: readings as Readonly<Record<string, string>>,
+      remediation,
+    },
   };
 }
 
@@ -476,6 +489,23 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
   }
 }
 
+function pluginBootstrapText(check: CheckRecord): DiagnoseHumanText {
+  switch (check.verdict as PluginBootstrapDeclarationVerdict) {
+    case PLUGIN_BOOTSTRAP_DECLARATION_VERDICT.HEALTHY:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_CONFIGURED,
+        details: [DIAGNOSE_TEXT_DETAIL.PLUGIN_BOOTSTRAP_CONFIGURED],
+      };
+    case PLUGIN_BOOTSTRAP_DECLARATION_VERDICT.BASELINE_MISSING:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_MISSING,
+        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`],
+      };
+    default:
+      return fallbackText(check);
+  }
+}
+
 function fallbackText(_check: CheckRecord): DiagnoseHumanText {
   return {
     header: DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE,
@@ -496,6 +526,8 @@ function humanText(check: CheckRecord): DiagnoseHumanText {
       return worktreePoolText(check);
     case CHECK_NAME.SESSION_STORE:
       return sessionStoreText(check);
+    case CHECK_NAME.PLUGIN_BOOTSTRAP:
+      return pluginBootstrapText(check);
     case CHECK_NAME.MARKETPLACE_INSTALL:
       return marketplaceInstallText(check);
     case CHECK_NAME.METHODOLOGY_CONTEXT:

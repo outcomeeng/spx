@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { expect } from "vitest";
 
+import { DEFAULT_HARNESS_ENVIRONMENT_CONFIG } from "@/domains/agent-environment/config";
+
 import { diagnoseCommand } from "@/commands/diagnose";
 import {
   createMethodologyContextProbe,
@@ -244,6 +246,7 @@ export async function assertUnknownMethodologyDiagnose(): Promise<void> {
 export async function assertMethodologyRunnerHandlesMissingMethodologyFact(): Promise<void> {
   const result = await runDiagnose({
     checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
+    harnessEnvironment: DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   }, {
     [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner({
       probe: () => {

@@ -2,16 +2,16 @@ import fc from "fast-check";
 
 import {
   AGENT,
-  DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   type Agent,
   type AgentMarketplaceConfig,
   type AgentPluginConfig,
+  DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
 import {
   PLUGIN_BOOTSTRAP_DECLARATION_VERDICT,
-  REQUIRED_PLUGIN_BOOTSTRAP,
   type PluginBootstrapDeclarationStatus,
+  REQUIRED_PLUGIN_BOOTSTRAP,
 } from "@/domains/agent-environment/plugin-bootstrap-status";
 import {
   arbitraryMarketplaceSource,

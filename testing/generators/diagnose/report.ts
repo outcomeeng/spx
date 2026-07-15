@@ -9,6 +9,7 @@
 
 import fc from "fast-check";
 
+import { DEFAULT_HARNESS_ENVIRONMENT_CONFIG } from "@/domains/agent-environment/config";
 import {
   classifyMarketplaceInstall,
   type MarketplaceInstallReading,
@@ -17,6 +18,7 @@ import {
   classifyMethodologyContext,
   type MethodologyContextReading,
 } from "@/domains/diagnose/checks/methodology-context";
+import { classifyPluginBootstrap } from "@/domains/diagnose/checks/plugin-bootstrap";
 import {
   classifySessionEnvironment,
   type SessionEnvironmentReading,
@@ -24,14 +26,16 @@ import {
 import { classifySessionStore, type SessionStoreReading } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import { classifyWorktreePool, type WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
+import type { DiagnoseFacts } from "@/domains/diagnose/effective-facts";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
-import { CHECK_NAME, type DiagnoseManifest } from "@/domains/diagnose/manifest";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
 
+import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
 import { arbitraryMethodologySource, arbitraryNameToken, arbitrarySpxFloor } from "./manifest";
 
 export interface CompleteDiagnoseRunScenario {
-  readonly manifest: DiagnoseManifest;
+  readonly manifest: DiagnoseFacts;
   readonly spxReachability: SpxReachabilityReading;
   readonly sessionEnvironment: SessionEnvironmentReading;
   readonly worktreePool: WorktreePoolReading;
@@ -101,6 +105,9 @@ const arbitraryMarketplaceInstallReading = (): fc.Arbitrary<MarketplaceInstallRe
 const arbitraryMarketplaceInstallRecord = (): fc.Arbitrary<CheckRecord> =>
   arbitraryMarketplaceInstallReading().map(classifyMarketplaceInstall);
 
+const arbitraryPluginBootstrapRecord = (): fc.Arbitrary<CheckRecord> =>
+  fc.constantFrom(...pluginBootstrapMappingCases()).map((testCase) => classifyPluginBootstrap(testCase.config));
+
 const arbitraryMethodologyContextReading = (): fc.Arbitrary<MethodologyContextReading> =>
   fc.record({
     configured: fc.boolean(),
@@ -121,6 +128,7 @@ export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
     arbitrarySessionEnvironmentRecord(),
     arbitraryWorktreePoolRecord(),
     arbitrarySessionStoreRecord(),
+    arbitraryPluginBootstrapRecord(),
     arbitraryMarketplaceInstallRecord(),
     arbitraryMethodologyContextRecord(),
   );
@@ -144,7 +152,11 @@ export const arbitraryCompleteDiagnoseRunScenario = (): fc.Arbitrary<CompleteDia
     methodologyContext,
     spxFloor,
   ]) => ({
-    manifest: { checks: Object.values(CHECK_NAME), spxFloor },
+    manifest: {
+      checks: Object.values(CHECK_NAME),
+      spxFloor,
+      harnessEnvironment: DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
+    },
     spxReachability,
     sessionEnvironment,
     worktreePool,

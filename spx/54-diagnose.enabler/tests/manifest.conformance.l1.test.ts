@@ -5,8 +5,8 @@ import {
   assertInvalidManifestRootsRejected,
   assertRequiredManifestFactsRejected,
   assertUnavailableManifestCheckRejected,
-  assertUnknownManifestFieldsRejected,
   assertUnknownManifestCheckRejected,
+  assertUnknownManifestFieldsRejected,
   assertUnselectedMethodologyFactsIgnored,
 } from "@testing/harnesses/diagnose/manifest";
 
