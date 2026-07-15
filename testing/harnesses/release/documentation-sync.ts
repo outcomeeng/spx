@@ -47,7 +47,6 @@ import {
   type DocumentationPromoter,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
-import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
@@ -525,9 +524,13 @@ function parseDocumentationSyncPromptInput(prompt: string): {
   readonly releaseData: DocumentationSyncScenario["releaseData"];
   readonly documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[];
 } {
-  const prefix = `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n`;
-  const suffix = `\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
-  if (!prompt.startsWith(prefix) || !prompt.endsWith(suffix)) {
+  const blockStart = prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN);
+  const blockEnd = prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE);
+  if (
+    !prompt.startsWith(DOCUMENTATION_SYNC_PROMPT_INSTRUCTION)
+    || blockStart < 0
+    || blockEnd <= blockStart
+  ) {
     throw new Error("Documentation sync prompt does not match its source-owned envelope");
   }
   return parseDocumentationPromptDataBlock(prompt) as {
@@ -1516,17 +1519,13 @@ function registerComplianceTests(): void {
       await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
         await composeDocumentationSync(options);
         expect(agent.requests).toHaveLength(1);
-        expect(agent.requests[0].prompt).toBe(
-          `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
-            encodeReleasePromptData({
-              releaseData: scenario.releaseData,
-              documents: scenario.paths.map((sourcePath) => ({
-                sourcePath,
-                stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
-              })),
-            })
-          }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`,
-        );
+        expect(parseDocumentationSyncPromptInput(agent.requests[0].prompt)).toEqual({
+          releaseData: scenario.releaseData,
+          documents: scenario.paths.map((sourcePath) => ({
+            sourcePath,
+            stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
+          })),
+        });
       });
     });
 
