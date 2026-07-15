@@ -26,5 +26,7 @@ The injected filesystem owns the hard-link primitive alongside reads, writes, re
 
 - ALWAYS: JSONL serialization completes in a unique temporary sibling before the injected filesystem hard-links that file to the deterministic destination ([audit])
 - ALWAYS: the production filesystem adapter uses a no-overwrite hard-link operation and maps destination `EEXIST` to `STATE_STORE_ERROR.RECORD_ALREADY_EXISTS` ([audit])
+- ALWAYS: publication receives filesystem operations and temporary-name randomness through explicit injected dependencies, with production defaults supplied only at the adapter boundary ([audit])
 - NEVER: rename, destination-first exclusive creation, or read-then-clear recovery substitutes for the hard-link publication boundary ([audit])
 - NEVER: temporary-name cleanup changes the success or collision result after the destination link commits ([audit])
+- NEVER: process globals, module interception, `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the injected filesystem and temporary-name seams in publication tests ([audit])
