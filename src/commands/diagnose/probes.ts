@@ -468,7 +468,8 @@ function splitPluginId(pluginId: string): { readonly name: string; readonly mark
 /**
  * Normalizes the installed plugins from `claude`/`codex plugin list --json`, or
  * null when the output is unparseable. Claude emits a flat array of
- * `{ id: "name@marketplace", enabled }`; Codex emits `{ installed: [{ name, enabled }] }`.
+ * `{ id: "name@marketplace", enabled }`; Codex emits
+ * `{ installed: [{ pluginId, name, marketplaceName, enabled }] }`.
  */
 function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | null {
   try {
