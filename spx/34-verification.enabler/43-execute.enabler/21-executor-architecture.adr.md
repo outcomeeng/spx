@@ -28,6 +28,7 @@ The runner reports `passed`, `failed`, or `interrupted`; the recorder terminal-s
 - ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts` ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: an unsupported verification type opens no run ([scenario](tests/execute.scenario.l1.test.ts))
 - ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([scenario](tests/execute.scenario.l1.test.ts))
+- ALWAYS: a runner failure after the run opens finishes the run with an `interrupted` terminal status before the failure surfaces, so the executor leaves no opened run unsealed ([compliance](tests/execute.compliance.l1.test.ts))
 
 ### Audit
 
