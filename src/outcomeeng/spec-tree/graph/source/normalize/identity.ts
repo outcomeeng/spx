@@ -5,11 +5,19 @@
  * fact kind, and a named provider bind normalized identities that retain
  * their provenance.
  *
+ * Containment follows the canonical predicates in
+ * `src/lib/file-system/pathContainment.ts`: a Windows-rooted raw path never
+ * binds under a product directory this slice addresses, and every other raw
+ * path binds only when it resolves inside the product directory. No separator
+ * rewriting happens — a backslash is a literal POSIX filename character, so a
+ * raw path is never silently reshaped into a different identity.
+ *
  * @module outcomeeng/spec-tree/graph/source/normalize/identity
  */
 
 import { posix } from "node:path";
 
+import { isPathContained, usesWindowsPathSemantics } from "@/lib/file-system/pathContainment";
 import {
   PROVIDER_FACT_KIND,
   type ProviderFactKind,
@@ -38,13 +46,6 @@ export function formatUnresolvableProviderFactPathError(path: string): string {
   return `Source graph fact path does not resolve inside the product directory: ${path}`;
 }
 
-const PATH_SEPARATOR = "/";
-const WINDOWS_SEPARATOR = "\\";
-const PARENT_SEGMENT_PREFIX = "../";
-const CURRENT_DIRECTORY = ".";
-/** Windows-syntax absolute path: a drive-letter root or a UNC root, in either separator style. */
-const WINDOWS_ABSOLUTE_PATTERN = /^[a-zA-Z]:[\\/]|^[\\/]{2}/;
-
 function isRegisteredLanguage(language: string): language is SourceGraphLanguage {
   return (Object.values(SOURCE_GRAPH_LANGUAGE) as readonly string[]).includes(language);
 }
@@ -54,31 +55,20 @@ function isRegisteredFactKind(kind: string): kind is ProviderFactKind {
 }
 
 /**
- * Normalizes one raw path to a product-root-relative POSIX identity. An
- * absolute path binds only under `productDir`; a relative path binds only
- * when it stays inside the product directory.
+ * Normalizes one raw path to a product-root-relative POSIX identity. A path
+ * binds only when it resolves inside the product directory and is not the
+ * product directory itself; Windows-rooted paths never bind.
  */
 function normalizeArtifactPath(productDir: string, rawPath: string): string {
-  const posixPath = rawPath.split(WINDOWS_SEPARATOR).join(PATH_SEPARATOR);
-  const posixProductDir = productDir.split(WINDOWS_SEPARATOR).join(PATH_SEPARATOR);
-  const productPrefix = posixProductDir.endsWith(PATH_SEPARATOR)
-    ? posixProductDir
-    : `${posixProductDir}${PATH_SEPARATOR}`;
-  const relativePath = posixPath.startsWith(productPrefix) ? posixPath.slice(productPrefix.length) : posixPath;
-  // A path still absolute under either syntax after prefix stripping never
-  // entered the product directory; POSIX absoluteness alone misses drive
-  // letters and UNC roots once backslashes are rewritten.
-  if (WINDOWS_ABSOLUTE_PATTERN.test(relativePath)) {
+  if (
+    rawPath.length === 0
+    || usesWindowsPathSemantics(rawPath)
+    || !isPathContained(productDir, rawPath)
+  ) {
     throw new Error(formatUnresolvableProviderFactPathError(rawPath));
   }
-  const normalized = posix.normalize(relativePath);
-  if (
-    normalized.length === 0
-    || normalized === CURRENT_DIRECTORY
-    || posix.isAbsolute(normalized)
-    || normalized === PARENT_SEGMENT_PREFIX.slice(0, 2)
-    || normalized.startsWith(PARENT_SEGMENT_PREFIX)
-  ) {
+  const normalized = posix.relative(productDir, posix.resolve(productDir, rawPath));
+  if (normalized.length === 0) {
     throw new Error(formatUnresolvableProviderFactPathError(rawPath));
   }
   return normalized;
