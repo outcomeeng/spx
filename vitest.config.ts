@@ -1,5 +1,7 @@
 import { defineConfig } from "vitest/config";
 
+import { VITEST_TEST_TIMEOUT } from "./testing/vitest-policy";
+
 const root = import.meta.dirname;
 
 export default defineConfig({
@@ -18,7 +20,7 @@ export default defineConfig({
     include: ["spx/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "testing/fixtures/**/*.test.ts"],
     // Integration/e2e tests spawn subprocesses; under full concurrency (130 files, forks pool) isolation runs of 4–9s can exceed 15s
-    testTimeout: 30_000,
+    testTimeout: VITEST_TEST_TIMEOUT,
     // Use forks instead of threads for integration tests that need process.chdir()
     pool: "forks",
     coverage: {
