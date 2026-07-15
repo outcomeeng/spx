@@ -431,7 +431,7 @@ export function arbitraryPromptBoundaryDocumentationSyncScenario(): fc.Arbitrary
             if (content === undefined) throw new Error(`No generated documentation for ${path}`);
             return [
               path,
-              content.replace(scenario.releaseData.version, boundaryVersion),
+              content.replaceAll(scenario.releaseData.version, boundaryVersion),
             ];
           }),
         ),
