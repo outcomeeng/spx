@@ -87,6 +87,7 @@ export async function validateKnip(
   outputStreams: ValidationSubprocessOutputStreams = defaultValidationSubprocessOutputStreams,
 ): Promise<{
   success: boolean;
+  output?: string;
   error?: string;
 }> {
   try {
@@ -115,7 +116,7 @@ async function runKnipSubprocess(
   deps: KnipDeps,
   outputStreams: ValidationSubprocessOutputStreams,
   toolPath?: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; output?: string; error?: string }> {
   const scopedTsconfig = typescriptScope.filteredByValidationPaths
     ? await createScopedKnipTsconfig(productDir, typescriptScope, deps)
     : undefined;
@@ -157,7 +158,7 @@ async function runKnipSubprocess(
   });
 
   return new Promise((resolve) => {
-    const resolveAfterCleanup = (result: { success: boolean; error?: string }) => {
+    const resolveAfterCleanup = (result: { success: boolean; output?: string; error?: string }) => {
       if (resultResolved) {
         return;
       }
@@ -167,7 +168,7 @@ async function runKnipSubprocess(
 
     knipProcess.on("close", (code) => {
       if (code === 0) {
-        resolveAfterCleanup({ success: true });
+        resolveAfterCleanup({ success: true, output: knipOutput });
       } else {
         const errorOutput = knipOutput || knipError || "Unused code detected";
         resolveAfterCleanup({

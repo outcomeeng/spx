@@ -127,8 +127,12 @@ export async function knipCommand(
 
   // Map result to command output
   if (result.success) {
-    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS;
-    return { exitCode: 0, output, durationMs };
+    const output = quiet
+      ? ""
+      : [VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS, result.output].filter((line) => line !== undefined && line.length > 0)
+        .join("\n");
+    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
+    return { exitCode: 0, output, terminalOutput, durationMs };
   } else {
     const output = result.error ?? VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE;
     const terminalOutput = streamedValidationTerminalOutput(result.error, json, streamedPipelineOutput);
