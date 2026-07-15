@@ -1,7 +1,7 @@
 # Atomic File Write
 
 PROVIDES a single atomic file-replacement primitive — serialize content to a uniquely named temporary sibling of the target file, then rename it over the target — built over an injected filesystem interface and an injected random-bytes source
-SO THAT the Claude settings writer, the validation literal allowlist writer, and the worktree occupancy-claim store
+SO THAT the validation literal allowlist writer and the worktree occupancy-claim store
 CAN replace a file without a concurrent reader observing a partial write, without two concurrent writers of the same target colliding on the temporary path, and without a cross-device rename failure
 
 ## Assertions
