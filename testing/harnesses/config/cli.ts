@@ -7,8 +7,14 @@ import { expect } from "vitest";
 import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
 import type { CliDeps } from "@/commands/config/types";
-import { validateCommand } from "@/commands/config/validate";
-import { absentConfigFileReadResult, type ConfigFileReadResult, resolveConfigFromReadResult } from "@/config/index";
+import { VALIDATE_SUCCESS_TOKENS, validateCommand } from "@/commands/config/validate";
+import {
+  absentConfigFileReadResult,
+  type ConfigFileReadResult,
+  DEFAULT_CONFIG_FILE_FORMAT,
+  resolveConfigFromReadResult,
+  serializeConfigFileSections,
+} from "@/config/index";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -204,13 +210,15 @@ export async function assertConfigHandlersResolveResults(): Promise<void> {
 }
 
 export async function assertSuccessfulShowAndDefaultsUseStdout(): Promise<void> {
-  const deps = configCliDeps({ ok: true, value: configCliDefaults() });
+  const defaults = configCliDefaults();
+  const deps = configCliDeps({ ok: true, value: defaults });
+  const serialized = serializeConfigFileSections(DEFAULT_CONFIG_FILE_FORMAT, defaults);
   const show = await showCommand({}, deps);
-  const defaults = await defaultsCommand({}, deps);
-  expect(show.stdout.length).toBeGreaterThan(0);
+  const listedDefaults = await defaultsCommand({}, deps);
+  expect(show.stdout).toBe(serialized.value);
   expect(show.stderr).toHaveLength(0);
-  expect(defaults.stdout.length).toBeGreaterThan(0);
-  expect(defaults.stderr).toHaveLength(0);
+  expect(listedDefaults.stdout).toBe(serialized.value);
+  expect(listedDefaults.stderr).toHaveLength(0);
 }
 
 export async function assertFailedResolutionUsesStderr(): Promise<void> {
@@ -227,7 +235,14 @@ export async function assertFailedResolutionUsesStderr(): Promise<void> {
 }
 
 export async function assertSuccessfulValidateUsesStdout(): Promise<void> {
-  const result = await validateCommand({}, configCliDeps({ ok: true, value: configCliDefaults() }));
-  expect(result.stdout.length).toBeGreaterThan(0);
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  const result = await validateCommand(
+    {},
+    configCliDeps({ ok: true, value: configCliDefaults() }, { productDir }),
+  );
+  expect(result.stdout).toBe(
+    `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${productDir}; `
+      + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`,
+  );
   expect(result.stderr).toHaveLength(0);
 }
