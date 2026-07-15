@@ -562,6 +562,16 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     digest: args.inputDigest,
     content: args.inputContent,
   };
+
+  // Resolve the recorded-input path up front so the rollback set is known before any local write:
+  // every failure branch below then rolls back the artifacts already created, and the run-context
+  // append reuses this path rather than re-deriving it. This failure rolls back only the run file
+  // and context because the input sidecar is not yet written.
+  const inputRecordPath = verifyInputRecordPath(runScope);
+  if (!inputRecordPath.ok) {
+    return rollbackStartAndError(startedRunArtifacts(args, runFile), inputRecordPath.error, deps);
+  }
+
   const persisted = await persistInputRecord(runScope, recorded, deps);
   if (!persisted.ok) {
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
@@ -570,8 +580,6 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   // Record the run's drive mode last: the append streams to the backend, and a rollback cannot
   // un-stream an emitted event, so it runs only after every rollbackable local write (run file,
   // context, input sidecar) has succeeded. On failure the sidecar joins the rollback set.
-  const inputRecordPath = verifyInputRecordPath(runScope);
-  if (!inputRecordPath.ok) return errorResult(inputRecordPath.error);
   const runContext = await recordRunContext(runToken, args, deps);
   if (!runContext.ok) {
     return rollbackStartAndError(
