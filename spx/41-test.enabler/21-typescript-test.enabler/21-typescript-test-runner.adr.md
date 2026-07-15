@@ -28,6 +28,7 @@ Writing exclusions into `vitest.config.ts` was rejected because it mutates produ
 - ALWAYS: the descriptor conforms to the `TestingLanguageDescriptor` contract per `spx/19-language-registration.adr.md` ([audit])
 - ALWAYS: the descriptor's journal-streaming run accepts the evidence sink and the run-starter as injected dependencies — enables `l1` verification that the descriptor drives the run without a real Vitest run or mocking ([audit])
 - ALWAYS: the journal-streaming run delegates its programmatic Vitest run and reporter to `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`, so the descriptor constructs no reporter or journal event of its own ([audit])
+- ALWAYS: the journal-streaming run is gated on the detection result like the CLI-flag run — it yields a gated-out run without invoking Vitest when TypeScript is absent, and starts the run only when detection passes ([audit])
 - ALWAYS: a language-neutral consumer reaches the journal-streaming run through the testing registry enumeration per `spx/19-language-registration.adr.md`, never by importing the TypeScript descriptor or reporter module directly ([audit])
 - NEVER: the journal-streaming run is selected through a `--reporter` command flag — the reporter is registered on the programmatically started run per `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` ([audit])
 - NEVER: write to `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusions pass as invocation-time flags ([audit])
