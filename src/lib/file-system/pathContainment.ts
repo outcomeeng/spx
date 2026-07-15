@@ -66,7 +66,14 @@ export function canonicalTargetPath(
   );
 }
 
-function usesWindowsPathSemantics(root: string): boolean {
+/**
+ * Whether `path` carries a Windows-syntax absolute root — a drive-letter,
+ * UNC, or extended-length root in either separator style. This module owns
+ * the Windows-root grammar; consumers deciding containment or rejecting
+ * Windows-rooted inputs use this predicate rather than restating the
+ * patterns.
+ */
+export function usesWindowsPathSemantics(root: string): boolean {
   return WINDOWS_DRIVE_ROOT_PATTERN.test(root)
     || WINDOWS_UNC_ROOT_PATTERN.test(root)
     || WINDOWS_EXTENDED_LENGTH_ROOT_PATTERN.test(root);
