@@ -1090,6 +1090,11 @@ export function validateTestTerminal(input: TerminalValidationInput): TerminalMe
   if (!TEST_TERMINAL_STATUSES.has(input.terminalStatus)) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
   }
+  // A passing deterministic run produces no findings, so `passed` never seals a run whose evidence
+  // already records failures — the public recorder path never marks a run with findings as passing.
+  if (input.terminalStatus === JOURNAL_RUN_STATE_STATUS.PASSED && countVerifyFindings(input.events) > 0) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+  }
   return { ok: true, value: undefined };
 }
 
