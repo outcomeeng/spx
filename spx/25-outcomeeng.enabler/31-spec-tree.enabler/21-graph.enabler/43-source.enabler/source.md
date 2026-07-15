@@ -14,3 +14,4 @@ CAN identify owned, reachable, covered, and unowned implementation artifacts for
 - ALWAYS: source graph facts retain language and provider provenance alongside normalized artifact identity ([test](tests/source.compliance.l1.test.ts))
 - ALWAYS: TypeScript, Python, and Rust source facts map into the same ownership classification vocabulary ([test](tests/source.compliance.l1.test.ts))
 - ALWAYS: garbage-collection candidates derive from source graph classification, not from a language import graph alone ([test](tests/source.compliance.l1.test.ts))
+- NEVER: a fact path that escapes, never enters, or names no location inside the product directory binds a normalized artifact identity ([test](tests/source.compliance.l1.test.ts))
