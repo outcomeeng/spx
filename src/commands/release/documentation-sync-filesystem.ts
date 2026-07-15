@@ -330,7 +330,7 @@ async function withBoundDocumentationFile<T>(
   requireCanonicalPath: boolean,
   openDocumentationFile: DocumentationFileOpener,
   resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver,
-  use: (
+  consume: (
     handle: DocumentationFileHandle,
     stats: Stats,
     assertPathStillBound: DocumentationReplacementGuard,
@@ -352,7 +352,7 @@ async function withBoundDocumentationFile<T>(
       );
     };
     await assertPathStillBound();
-    return await use(handle, stats, assertPathStillBound);
+    return await consume(handle, stats, assertPathStillBound);
   } finally {
     await handle.close();
   }
