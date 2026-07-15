@@ -3,7 +3,7 @@
  * the diagnostic facts a user-mode run judges against: the spx-version floor,
  * the marketplace identity, the expected plugin set, and the check set. Every
  * field is optional; an omitted fact falls back to a per-check safe default at
- * resolution time, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`.
+ * resolution time.
  * Structural validation only; the engine resolves and judges the facts.
  *
  * @module domains/diagnose/config
