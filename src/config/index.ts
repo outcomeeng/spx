@@ -38,6 +38,10 @@ export type ConfigFileReadResult =
   | { readonly kind: "ambiguous"; readonly detected: readonly ConfigFilename[] }
   | { readonly kind: "absent" };
 
+export function absentConfigFileReadResult(): { readonly ok: true; readonly value: ConfigFileReadResult } {
+  return { ok: true, value: { kind: "absent" } };
+}
+
 const JSON_INDENT = 2;
 
 export async function resolveConfig(
@@ -114,7 +118,7 @@ export async function readProductConfigFile(productDir: string): Promise<Result<
     }
     detected.push({ filename, format, path, raw });
   }
-  if (detected.length === 0) return { ok: true, value: { kind: "absent" } };
+  if (detected.length === 0) return absentConfigFileReadResult();
   if (detected.length > 1) {
     return {
       ok: true,

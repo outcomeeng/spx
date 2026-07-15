@@ -1,6 +1,6 @@
 import * as fc from "fast-check";
 
-import type { ConfigFileReadResult } from "@/config/index";
+import { absentConfigFileReadResult, type ConfigFileReadResult, resolveConfigFromReadResult } from "@/config/index";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -14,7 +14,13 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_SECTION,
+  specTreeConfigDescriptor,
+  type SpecTreeKindCategory,
+} from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {
@@ -77,6 +83,14 @@ export type GeneratedResolutionScope = {
   readonly nestedDirectory: string;
 };
 
+export type GeneratedConfigCliDeterminismCase = {
+  readonly asJson: boolean;
+  readonly productDir: string;
+  readonly resolutionError: string | undefined;
+  readonly readError: string | undefined;
+  readonly includeDescriptor: boolean;
+};
+
 export type GeneratedInvalidPathFilter = {
   readonly value: unknown;
   readonly path: string;
@@ -95,6 +109,7 @@ export type GeneratedHarnessEnvironmentConfig = {
 
 export const CONFIG_TEST_GENERATOR = {
   absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
+  configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
@@ -427,11 +442,25 @@ function arbitraryEnvironmentSentinel(): fc.Arbitrary<GeneratedEnvironmentSentin
 }
 
 function arbitraryAbsentConfigFileReadResult(): fc.Arbitrary<Result<ConfigFileReadResult>> {
-  return fc.constant({ ok: true, value: { kind: "absent" } });
+  return fc.constant(absentConfigFileReadResult());
 }
 
 function arbitrarySpecTreeDefaultsConfig(): fc.Arbitrary<Record<string, unknown>> {
-  return fc.constant({ [SPEC_TREE_SECTION]: { [SPEC_TREE_CONFIG_FIELDS.KINDS]: { ...KIND_REGISTRY } } });
+  const resolved = resolveConfigFromReadResult(absentConfigFileReadResult().value, [specTreeConfigDescriptor]);
+  if (!resolved.ok) {
+    throw new Error(resolved.error);
+  }
+  return fc.constant(resolved.value);
+}
+
+function arbitraryConfigCliDeterminismCase(): fc.Arbitrary<GeneratedConfigCliDeterminismCase> {
+  return fc.record({
+    asJson: fc.boolean(),
+    productDir: arbitraryProductDir(),
+    resolutionError: fc.option(arbitrarySpecTreeUnknownKindError(), { nil: undefined }),
+    readError: fc.option(arbitraryConfigScalar(), { nil: undefined }),
+    includeDescriptor: fc.boolean(),
+  });
 }
 
 function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> {
