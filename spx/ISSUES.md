@@ -67,13 +67,13 @@ Literal-reuse cleanup spans product config, CLI help text, value allowlist tests
 
 One concern remains:
 
-1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, settings-permission strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
+1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
 
 **Skills:** `/typescript:testing-typescript`, `/typescript:auditing-typescript-tests`, `/spec-tree:testing`.
 
 **Scope:** Multi-node; clean up one owning subtree at a time.
 
-**Resolution:** For each finding, classify the literal — source-owned value, generator input, or fixture data. Export source-owned values from the owning module, generate variable inputs through `fast-check`, or move durable real-world data to fixture files. Once an entire subtree is clean, validate end-to-end and remove the matching debt-manifest entry.
+**Resolution:** For each finding, classify the literal — source-owned value, generator input, or fixture data. Export source-owned values from the owning module, generate variable inputs through `fast-check`, or move durable real-world data to fixture files. Validate each owning subtree end-to-end after cleanup.
 
 ## PDR-11 scope does not cover testing
 
