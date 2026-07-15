@@ -28,6 +28,8 @@ export const DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION =
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_NON_WHITESPACE_PATTERN = String.raw`\S`;
+const JSON_LEFT_ANGLE_BRACKET_PATTERN = /</gu;
+const JSON_LEFT_ANGLE_BRACKET_ESCAPE = String.raw`\u003c`;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -57,7 +59,11 @@ export interface DocumentationSyncPromptInput {
 export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
-  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${input.releaseData.version}.\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
+  const encodedVersion = JSON.stringify(input.releaseData.version).replace(
+    JSON_LEFT_ANGLE_BRACKET_PATTERN,
+    JSON_LEFT_ANGLE_BRACKET_ESCAPE,
+  );
+  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
     encodeReleasePromptData(input)
   }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
 }

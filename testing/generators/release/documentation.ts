@@ -411,17 +411,33 @@ export function arbitraryDocumentationPathAliasCases(): fc.Arbitrary<readonly Do
 }
 
 export function arbitraryPromptBoundaryDocumentationSyncScenario(): fc.Arbitrary<DocumentationSyncScenario> {
-  return arbitraryConfiguredDocumentationSyncScenario().map((scenario) => ({
-    ...scenario,
-    releaseData: {
-      ...scenario.releaseData,
-      commits: scenario.releaseData.commits.map((commit, index) =>
-        index === 0
-          ? { ...commit, subject: `${commit.subject}${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}` }
-          : commit
-      ),
-    },
-  }));
+  return arbitraryConfiguredDocumentationSyncScenario().chain((scenario) =>
+    arbitraryPathSegment().map((segment) => {
+      const boundaryVersion =
+        `${scenario.releaseData.version}\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}${segment}`;
+      return {
+        ...scenario,
+        releaseData: {
+          ...scenario.releaseData,
+          version: boundaryVersion,
+          commits: scenario.releaseData.commits.map((commit, index) =>
+            index === 0
+              ? { ...commit, subject: `${commit.subject}${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}` }
+              : commit
+          ),
+        },
+        updated: Object.fromEntries(
+          Object.entries(scenario.updated).map(([path, content]) => {
+            if (content === undefined) throw new Error(`No generated documentation for ${path}`);
+            return [
+              path,
+              content.replace(scenario.releaseData.version, boundaryVersion),
+            ];
+          }),
+        ),
+      };
+    })
+  );
 }
 
 function arbitraryDocumentationPath(): fc.Arbitrary<string> {
