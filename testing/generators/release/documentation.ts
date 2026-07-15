@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
-import { AGENT_RUN_TOOLS, type AgentRunTool } from "@/agent/agent-runner";
+import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentRunRequest, type AgentRunTool } from "@/agent/agent-runner";
 import { SOURCE_DOMAIN_ROOT_PREFIX } from "@/config/source-roots";
 import {
   DEFAULT_RELEASE_DOCUMENTATION_PATHS,
@@ -11,6 +11,7 @@ import {
 import type { DocumentationSyncConfig } from "@/domains/release/config";
 import {
   DOCUMENTATION_FILE_EXTENSION,
+  DOCUMENTATION_SYNC_AGENT_MAX_TURNS,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
 } from "@/domains/release/documentation-sync";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
@@ -57,7 +58,7 @@ export interface DocumentationUnrelatedVersionRewriteScenario {
 }
 
 export interface DocumentationAgentFileToolBoundaryScenario {
-  readonly workingDirectory: string;
+  readonly request: AgentRunRequest;
   readonly tool: AgentRunTool;
   readonly containedPath: string;
   readonly escapedPaths: readonly string[];
@@ -227,7 +228,14 @@ export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitr
     .map(([rootSegment, containedSegment, escapedSegment, tool]) => {
       const workingDirectory = posix.resolve(posix.sep, rootSegment);
       return {
-        workingDirectory,
+        request: {
+          prompt: rootSegment,
+          workingDirectory,
+          tools: [tool],
+          allowedTools: [tool],
+          permissionMode: AGENT_PERMISSION_MODES.DONT_ASK,
+          maxTurns: DOCUMENTATION_SYNC_AGENT_MAX_TURNS,
+        },
         tool,
         containedPath: posix.join(workingDirectory, containedSegment),
         escapedPaths: [

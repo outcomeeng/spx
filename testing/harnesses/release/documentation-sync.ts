@@ -13,8 +13,8 @@ import {
   type AgentAuditRequest,
   type AgentRunner,
   type AgentRunRequest,
-  authorizeAgentFileToolPath,
 } from "@/agent/agent-runner";
+import { AGENT_FILE_TOOL_PATH_INPUT_FIELD, createAgentRunOptions } from "@/agent/claude-agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
   createDocumentationAtomicWriter,
@@ -683,24 +683,34 @@ async function assertUnrelatedVersionRewriteRejected(
   });
 }
 
-function assertDocumentationAgentFileToolBoundary(
+async function assertDocumentationAgentFileToolBoundary(
   scenario: DocumentationAgentFileToolBoundaryScenario,
-): void {
-  expect(
-    authorizeAgentFileToolPath(
-      scenario.workingDirectory,
+): Promise<void> {
+  const options = createAgentRunOptions(scenario.request);
+  expect(options.allowedTools).not.toContain(scenario.tool);
+  if (options.canUseTool === undefined) {
+    throw new Error("Agent run options do not enforce tool permissions");
+  }
+  const permissionContext = {
+    signal: new AbortController().signal,
+    toolUseID: scenario.containedPath,
+    requestId: scenario.request.prompt,
+  };
+  await expect(
+    options.canUseTool(
       scenario.tool,
-      scenario.containedPath,
+      { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: scenario.containedPath },
+      permissionContext,
     ),
-  ).toBe(AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW);
+  ).resolves.toMatchObject({ behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW });
   for (const escapedPath of scenario.escapedPaths) {
-    expect(
-      authorizeAgentFileToolPath(
-        scenario.workingDirectory,
+    await expect(
+      options.canUseTool(
         scenario.tool,
-        escapedPath,
+        { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: escapedPath },
+        permissionContext,
       ),
-    ).toBe(AGENT_TOOL_PERMISSION_BEHAVIOR.DENY);
+    ).resolves.toMatchObject({ behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY });
   }
 }
 
@@ -1263,8 +1273,8 @@ function registerPropertyTests(): void {
       );
     });
 
-    it("confines every generated agent file mutation to the staging workspace", () => {
-      assertProperty(
+    it("confines every generated agent file mutation to the staging workspace", async () => {
+      await assertProperty(
         arbitraryDocumentationAgentFileToolBoundaryScenario(),
         assertDocumentationAgentFileToolBoundary,
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
