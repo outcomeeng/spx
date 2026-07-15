@@ -12,6 +12,7 @@ import { type ChildProcess, execFile, type SpawnOptions } from "node:child_proce
 import { EventEmitter } from "node:events";
 import { readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
@@ -36,8 +37,8 @@ import {
   buildDprintCheckArgs,
   DPRINT_CHECK_SUBCOMMAND,
   DPRINT_EXCLUDES_OPTION,
+  DPRINT_EXECUTABLE_SPECIFIER,
   type FormattingValidationContext,
-  resolveDprintCommand,
   validateFormatting,
 } from "@/validation/steps/formatting";
 import type { ValidationWritableStream } from "@/validation/steps/subprocess-output";
@@ -58,6 +59,10 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const execFileAsync = promisify(execFile);
 
 const DPRINT_COMMAND_NAME = "dprint";
+// Independent oracle for the spawned dprint path: resolved here from the
+// source-owned specifier rather than via the production resolveDprintCommand(),
+// so a defect in that resolver is caught instead of mirrored.
+const EXPECTED_DPRINT_COMMAND = createRequire(import.meta.url).resolve(DPRINT_EXECUTABLE_SPECIFIER);
 const DPRINT_FORMAT_SUBCOMMAND = "fmt";
 const FORMATTING_TEMP_PREFIX = "dprint-validation-";
 const FORMATTING_HARNESS_TIMEOUT = 30_000;
@@ -198,7 +203,7 @@ export function registerFormattingComplianceEvidence(): void {
       expect(result.output).toBe(`${stdoutChunk}${stderrChunk}`);
       expect(stdout.chunks).toEqual([stdoutChunk]);
       expect(stderr.chunks).toEqual([stderrChunk]);
-      expect(runner.commands).toEqual([resolveDprintCommand()]);
+      expect(runner.commands).toEqual([EXPECTED_DPRINT_COMMAND]);
       expect(runner.args).toEqual([[DPRINT_CHECK_SUBCOMMAND]]);
       expect(runner.spawnOptions?.cwd).toBe(productDir);
     });
