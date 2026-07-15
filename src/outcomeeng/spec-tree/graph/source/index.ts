@@ -36,7 +36,7 @@ export {
   type SourceGraphLanguage,
   type SourceGraphProviderDescriptor,
 } from "./providers/descriptor";
-export { SOURCE_GRAPH_PROVIDER_REGISTRY } from "./providers/registry";
+export { type RegisteredSourceGraphProvider, SOURCE_GRAPH_PROVIDER_REGISTRY } from "./providers/registry";
 export {
   TYPESCRIPT_COVERAGE_PROVIDER,
   TYPESCRIPT_COVERAGE_PROVIDER_ID,

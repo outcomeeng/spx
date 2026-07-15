@@ -7,12 +7,23 @@
  * @module outcomeeng/spec-tree/graph/source/providers/registry
  */
 
-import type { SourceGraphProviderDescriptor } from "./descriptor";
+import type { SourceGraphLanguage } from "./descriptor";
 import { TYPESCRIPT_COVERAGE_PROVIDER } from "./typescript/coverage";
 import { TYPESCRIPT_MODULE_GRAPH_PROVIDER } from "./typescript/module-graph";
 
-/** Every registered provider descriptor, reached through explicit import statements. */
-export const SOURCE_GRAPH_PROVIDER_REGISTRY: readonly SourceGraphProviderDescriptor<unknown>[] = [
+/**
+ * Enumeration view of a registered provider: identity and provenance only.
+ * Fact collection stays behind each provider's concrete typed export, so
+ * registry-driven code cannot invoke a descriptor with another provider's
+ * payload; the host that acquires tool output owns the typed pairing.
+ */
+export interface RegisteredSourceGraphProvider {
+  readonly language: SourceGraphLanguage;
+  readonly provider: string;
+}
+
+/** Every registered provider, reached through explicit import statements. */
+export const SOURCE_GRAPH_PROVIDER_REGISTRY: readonly RegisteredSourceGraphProvider[] = [
   TYPESCRIPT_COVERAGE_PROVIDER,
   TYPESCRIPT_MODULE_GRAPH_PROVIDER,
 ];
