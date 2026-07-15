@@ -31,6 +31,7 @@ import {
   claudeProjectDirName,
   codexSessionStoreDir,
   discoverAgentResumeCandidates,
+  piSessionStoreDir,
   isPathInsideOrEqual,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
@@ -130,14 +131,19 @@ const CONFIGURED_AGENT_HOME_SAMPLE = {
   DEFAULT_HOME: 401,
   CODEX_HOME: 402,
   CLAUDE_HOME: 403,
-  WORKTREE_ROOT: 404,
-  CODEX_CWD: 405,
-  CLAUDE_CWD: 406,
-  CODEX_SESSION_ID: 407,
-  CLAUDE_SESSION_ID: 408,
-  DEFAULT_SESSION_ID: 409,
-  NOW_MS: 410,
-  DEFAULT_CLAUDE_SESSION_ID: 411,
+  PI_AGENT_HOME: 404,
+  PI_SESSION_HOME: 405,
+  WORKTREE_ROOT: 406,
+  CODEX_CWD: 407,
+  CLAUDE_CWD: 408,
+  PI_CWD: 409,
+  CODEX_SESSION_ID: 410,
+  CLAUDE_SESSION_ID: 411,
+  PI_SESSION_ID: 412,
+  DEFAULT_SESSION_ID: 413,
+  NOW_MS: 414,
+  DEFAULT_CLAUDE_SESSION_ID: 415,
+  DEFAULT_PI_SESSION_ID: 416,
 } as const;
 
 export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
@@ -390,6 +396,19 @@ export function claudeCodeTranscript(input: TranscriptInput): string {
   return withTranscriptPadding(row, input.padToBytes);
 }
 
+export function piTranscript(input: TranscriptInput): string {
+  return withTranscriptPadding(
+    JSON.stringify({
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
+      [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+      [AGENT_SESSION_JSON_FIELDS.ID]: input.sessionId,
+      [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
+      [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
+    }),
+    input.padToBytes,
+  );
+}
+
 export function agentTranscriptActivityRow(timestamp: string): string {
   return JSON.stringify({ [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp });
 }
@@ -438,6 +457,27 @@ export function claudeSubagentTranscriptPath(homeDir: string, cwd: string, fileN
     claudeProjectDirName(cwd),
     AGENT_SESSION_STORE.CLAUDE_SUBAGENTS_DIR,
     fileName,
+  );
+}
+
+export function piTranscriptPath(homeDir: string, fileName: string): string {
+  return piTranscriptPathFromSessionDir(agentHomeDirsFromHomeDir(homeDir).piSessions, fileName);
+}
+
+function piTranscriptPathFromSessionDir(piSessionDir: string, fileName: string): string {
+  return join(piSessionDir, fileName);
+}
+
+export function writePiTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptFileInput,
+): string {
+  return writeTranscriptFile(
+    fs,
+    piTranscriptPath(homeDir, agentSessionJsonlName(input.sessionId)),
+    piTranscript(input),
+    input,
   );
 }
 
@@ -572,6 +612,17 @@ export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
       nowMs - index,
     );
   }
+  const piCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 6);
+  const piIds: string[] = [];
+  for (let index = 0; index < piCount; index += 1) {
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 50 + index);
+    piIds.push(sessionId);
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(sessionId)),
+      piTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+  }
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
@@ -584,8 +635,10 @@ export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
 
   const codexResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX);
   const claudeResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE);
+  const piResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI);
   expect(codexResult.map((candidate) => candidate.sessionId)).toEqual(codexIds.slice(0, cap));
   expect(claudeResult.map((candidate) => candidate.sessionId)).toEqual(claudeIds.slice(0, cap));
+  expect(piResult.map((candidate) => candidate.sessionId)).toEqual(piIds.slice(0, cap));
   const timestampedActivity = candidates
     .map((candidate) => candidate.lastActivityAtMs)
     .filter((activityAtMs): activityAtMs is number => activityAtMs !== null);
@@ -890,6 +943,55 @@ export async function assertExcludesClaudeSubagentTranscripts(): Promise<void> {
   });
 
   expect(candidates.map((candidate) => candidate.sessionId)).toEqual([topLevelId]);
+}
+
+export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 166);
+  const timestamp = new Date(nowMs).toISOString();
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 167);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 168);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 169);
+  const validId = sampleAgentResumeValue(arbitraryAgentSessionId(), 170);
+  const invalidTypeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 171);
+  const unversionedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 172);
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(validId)),
+    piTranscript({ sessionId: validId, cwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(invalidTypeId)),
+    JSON.stringify({
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META,
+      [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+      [AGENT_SESSION_JSON_FIELDS.ID]: invalidTypeId,
+      [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp,
+      [AGENT_SESSION_JSON_FIELDS.CWD]: cwd,
+    }),
+    nowMs - 1,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(unversionedId)),
+    JSON.stringify({
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
+      [AGENT_SESSION_JSON_FIELDS.ID]: unversionedId,
+      [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp,
+      [AGENT_SESSION_JSON_FIELDS.CWD]: cwd,
+    }),
+    nowMs - 2,
+  );
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    scope: worktreeResumeScope(),
+    fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+  });
+
+  expect(candidates.map((candidate) => candidate.sessionId)).toEqual([validId]);
 }
 
 export async function assertIncludesCodexVsCodeTranscripts(): Promise<void> {
@@ -1336,6 +1438,13 @@ export function assertDefaultAgentSessionStoreDirs(): void {
   expect(claudeCodeSessionStoreDir(agentHomeDirs.claudeCode)).toBe(
     join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR),
   );
+  expect(agentHomeDirs.piAgent).toBe(
+    join(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR),
+  );
+  expect(agentHomeDirs.piSessions).toBe(
+    join(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
+  );
+  expect(piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions)).toBe(agentHomeDirs.piSessions);
 }
 
 export function assertAgentHomeResolutionHonorsEnvironment(): void {
@@ -1348,10 +1457,20 @@ export function assertAgentHomeResolutionHonorsEnvironment(): void {
     arbitraryAgentWorktreeRoot(),
     CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME,
   );
+  const configuredPiAgentHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME,
+  );
+  const configuredPiSessionHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME,
+  );
   const resolved = resolveAgentHomeDirs(
     {
       [AGENT_HOME_ENV.CODEX]: configuredCodexHome,
       [AGENT_HOME_ENV.CLAUDE]: configuredClaudeHome,
+      [AGENT_HOME_ENV.PI_AGENT]: configuredPiAgentHome,
+      [AGENT_HOME_ENV.PI_SESSIONS]: configuredPiSessionHome,
     },
     { homeDir: () => defaultHome },
   );
@@ -1359,6 +1478,8 @@ export function assertAgentHomeResolutionHonorsEnvironment(): void {
   expect(resolved).toEqual({
     codex: configuredCodexHome,
     claudeCode: configuredClaudeHome,
+    piAgent: configuredPiAgentHome,
+    piSessions: configuredPiSessionHome,
   });
 }
 
@@ -1384,7 +1505,9 @@ export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void>
 
   expect(output).toContain(fixture.codexSessionId);
   expect(output).toContain(fixture.claudeSessionId);
+  expect(output).toContain(fixture.piSessionId);
   expect(output).not.toContain(fixture.defaultSessionId);
+  expect(output).not.toContain(fixture.defaultPiSessionId);
 }
 
 export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
@@ -1432,18 +1555,26 @@ async function withAgentHomeEnvironment<T>(
 ): Promise<T> {
   const originalCodexHome = process.env[AGENT_HOME_ENV.CODEX];
   const originalClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
+  const originalPiAgentHome = process.env[AGENT_HOME_ENV.PI_AGENT];
+  const originalPiSessionHome = process.env[AGENT_HOME_ENV.PI_SESSIONS];
   if (agentHomeDirs === null) {
     delete process.env[AGENT_HOME_ENV.CODEX];
     delete process.env[AGENT_HOME_ENV.CLAUDE];
+    delete process.env[AGENT_HOME_ENV.PI_AGENT];
+    delete process.env[AGENT_HOME_ENV.PI_SESSIONS];
   } else {
     process.env[AGENT_HOME_ENV.CODEX] = agentHomeDirs.codex;
     process.env[AGENT_HOME_ENV.CLAUDE] = agentHomeDirs.claudeCode;
+    process.env[AGENT_HOME_ENV.PI_AGENT] = agentHomeDirs.piAgent;
+    process.env[AGENT_HOME_ENV.PI_SESSIONS] = agentHomeDirs.piSessions;
   }
   try {
     return await callback();
   } finally {
     restoreEnvironmentVariable(AGENT_HOME_ENV.CODEX, originalCodexHome);
     restoreEnvironmentVariable(AGENT_HOME_ENV.CLAUDE, originalClaudeHome);
+    restoreEnvironmentVariable(AGENT_HOME_ENV.PI_AGENT, originalPiAgentHome);
+    restoreEnvironmentVariable(AGENT_HOME_ENV.PI_SESSIONS, originalPiSessionHome);
   }
 }
 
@@ -1461,10 +1592,13 @@ interface ConfiguredAgentHomeFixture {
   readonly worktreeRoot: string;
   readonly codexCwd: string;
   readonly claudeCwd: string;
+  readonly piCwd: string;
   readonly codexSessionId: string;
   readonly claudeSessionId: string;
+  readonly piSessionId: string;
   readonly defaultSessionId: string;
   readonly defaultClaudeSessionId: string;
+  readonly defaultPiSessionId: string;
   readonly nowMs: number;
 }
 
@@ -1474,6 +1608,8 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   const agentHomeDirs = {
     codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
     claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
+    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
+    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
   };
   const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT);
   const codexCwd = sampleAgentResumeValue(
@@ -1484,6 +1620,10 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionCwd(worktreeRoot),
     CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CWD,
   );
+  const piCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(worktreeRoot),
+    CONFIGURED_AGENT_HOME_SAMPLE.PI_CWD,
+  );
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), CONFIGURED_AGENT_HOME_SAMPLE.NOW_MS);
   const codexSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -1493,6 +1633,10 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
   );
+  const piSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_ID,
+  );
   const defaultSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
@@ -1500,6 +1644,10 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   const defaultClaudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
+  );
+  const defaultPiSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_PI_SESSION_ID,
   );
   const timestamp = new Date(nowMs).toISOString();
   const defaultHomeDirs = agentHomeDirsFromHomeDir(homedir());
@@ -1516,6 +1664,11 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
       agentSessionJsonlName(claudeSessionId),
     ),
     claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    piTranscriptPathFromSessionDir(agentHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
+    piTranscript({ sessionId: piSessionId, cwd: piCwd, timestamp }),
     nowMs,
   );
   writeCodexTranscriptFile(fs, defaultHome, {
@@ -1538,6 +1691,11 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     claudeCodeTranscript({ sessionId: defaultClaudeSessionId, cwd: claudeCwd, timestamp }),
     nowMs,
   );
+  fs.writeFile(
+    piTranscriptPathFromSessionDir(defaultHomeDirs.piSessions, agentSessionJsonlName(defaultPiSessionId)),
+    piTranscript({ sessionId: defaultPiSessionId, cwd: piCwd, timestamp }),
+    nowMs,
+  );
 
   return {
     fs,
@@ -1545,10 +1703,13 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     worktreeRoot,
     codexCwd,
     claudeCwd,
+    piCwd,
     codexSessionId,
     claudeSessionId,
+    piSessionId,
     defaultSessionId,
     defaultClaudeSessionId,
+    defaultPiSessionId,
     nowMs,
   };
 }

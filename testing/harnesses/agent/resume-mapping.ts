@@ -225,9 +225,10 @@ describe("agent resume mode behavior mappings", () => {
 });
 
 describe("agent resume launch command mappings", () => {
-  it("maps Codex and Claude Code candidates to native resume commands from the recorded cwd", () => {
+  it("maps Codex, Claude Code, and Pi candidates to native resume commands from the recorded cwd", () => {
     const codex = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CODEX });
     const claudeCode = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CLAUDE_CODE });
+    const pi = agentResumeCandidate({ agent: AGENT_SESSION_KIND.PI });
 
     expect(buildAgentResumeLaunchCommand(codex)).toEqual({
       command: AGENT_RESUME_COMMAND.CODEX_BINARY,
@@ -238,6 +239,11 @@ describe("agent resume launch command mappings", () => {
       command: AGENT_RESUME_COMMAND.CLAUDE_BINARY,
       args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, claudeCode.sessionId],
       cwd: claudeCode.cwd,
+    });
+    expect(buildAgentResumeLaunchCommand(pi)).toEqual({
+      command: AGENT_RESUME_COMMAND.PI_BINARY,
+      args: [AGENT_RESUME_COMMAND.PI_SESSION, pi.sourcePath],
+      cwd: pi.cwd,
     });
   });
 });
