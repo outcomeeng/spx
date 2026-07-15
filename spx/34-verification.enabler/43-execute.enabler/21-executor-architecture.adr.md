@@ -26,8 +26,8 @@ The runner reports `passed`, `failed`, or `interrupted`; the recorder terminal-s
 - ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts` ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: an unsupported verification type opens no run ([scenario](tests/execute.scenario.l1.test.ts))
-- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([scenario](tests/execute.scenario.l1.test.ts))
+- ALWAYS: an unsupported verification type opens no run ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([mapping](tests/execute.mapping.l1.test.ts))
 - ALWAYS: a runner failure after the run opens finishes the run with an `interrupted` terminal status before the failure surfaces, so the executor leaves no opened run unsealed ([compliance](tests/execute.compliance.l1.test.ts))
 
 ### Audit

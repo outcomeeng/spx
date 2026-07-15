@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 
 import {
+  assertExecutorGatesUnsupportedTypeWithoutRecording,
   assertExecutorOpensSpxDrivenRunWithoutEvidenceAppendActions,
   assertExecutorReachesRunnerThroughRegistry,
   assertExecutorRecordsOnlyThroughRecorderOperations,
@@ -23,6 +24,10 @@ describe("spx-driven verification executor compliance", () => {
 
   it("reaches the test type's runner through the testing registry, naming no language", async () => {
     await assertExecutorReachesRunnerThroughRegistry();
+  });
+
+  it("opens no run when the verification type resolves to no runner", async () => {
+    await assertExecutorGatesUnsupportedTypeWithoutRecording();
   });
 
   it("raises rather than swallows a non-OK recorder command for open, scope, finding, and finish", async () => {

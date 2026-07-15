@@ -16,12 +16,13 @@ import {
   type ExecutorRecorderOperations,
   type ExecutorRunRequest,
   type JournalStreamingRunner,
+  recorderTerminalStatusFor,
   resolveTestRunner,
   resolveVerificationRunner,
 } from "@/commands/verification-exec";
 import { createRecorderOperations, RECORDER_OPERATION_ERROR } from "@/commands/verification-exec/recorder-operations";
 import { verifyRenderCommand, verifyStatusCommand } from "@/commands/verify/cli";
-import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
 import {
   driveModeOf,
   type RunLocator,
@@ -445,7 +446,7 @@ export async function assertExecutorReachesRunnerThroughRegistry(): Promise<void
 }
 
 /**
- * Scenario: a verification type that resolves to no runner opens no run — spx reports the run not
+ * Compliance: a verification type that resolves to no runner opens no run — spx reports the run not
  * executed and drives no recorder lifecycle operation, so no journal I/O occurs for an unsupported type.
  */
 export async function assertExecutorGatesUnsupportedTypeWithoutRecording(): Promise<void> {
@@ -541,6 +542,28 @@ export async function assertExecutorMapsInterruptedRunnerReport(): Promise<void>
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
   expect(report.sealed).toBe(true);
+}
+
+/**
+ * Mapping: the executor's terminal-status function is total over the runner's terminal-status domain,
+ * carrying each of `passed`, `failed`, and `interrupted` onto its information-preserving recorder
+ * status — passed→passed, failed→failed, interrupted→interrupted. The mapping's input column equals the
+ * whole runner terminal-status enum (totality), and its output column carries distinct recorder statuses
+ * (no two runner statuses collapse onto one), so every runner terminal status maps to exactly one
+ * recorder terminal status.
+ */
+export function assertExecutorMapsEveryRunnerTerminalStatus(): void {
+  const mapping: ReadonlyArray<readonly [JournalRunTerminalStatus, JournalRunStateStatus]> = [
+    [JOURNAL_RUN_TERMINAL_STATUS.PASSED, JOURNAL_RUN_STATE_STATUS.PASSED],
+    [JOURNAL_RUN_TERMINAL_STATUS.FAILED, JOURNAL_RUN_STATE_STATUS.FAILED],
+    [JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED, JOURNAL_RUN_STATE_STATUS.INTERRUPTED],
+  ];
+
+  expect(mapping.map(([runner]) => runner)).toEqual(Object.values(JOURNAL_RUN_TERMINAL_STATUS));
+  for (const [runner, expectedRecorderStatus] of mapping) {
+    expect(recorderTerminalStatusFor(runner)).toBe(expectedRecorderStatus);
+  }
+  expect(new Set(mapping.map(([, recorderStatus]) => recorderStatus)).size).toBe(mapping.length);
 }
 
 /**
