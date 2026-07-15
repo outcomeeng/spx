@@ -20,7 +20,7 @@ import {
 } from "@/lib/file-system/pathContainment";
 
 const DOCUMENTATION_TEXT_ENCODING = "utf8";
-const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW;
+const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
 const DOCUMENTATION_STAGE_DIRECTORY_PREFIX = "spx-documentation-sync-stage-";
 const DOCUMENTATION_ROLLBACK_FAILURE_MESSAGE = "Documentation promotion rollback failed";
 const ATOMIC_WRITE_FILE_SYSTEM: AtomicWriteFileSystem = {
@@ -95,6 +95,7 @@ const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
 
 const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFilesystemDependencies = {
   openDocumentationFile: async (path) => {
+    assertRegularDocumentationPath(path, await lstat(path));
     const handle = await open(path, DOCUMENTATION_OPEN_FLAGS);
     return {
       stat: async () => await handle.stat(),
@@ -420,12 +421,7 @@ async function assertDocumentationPathBound(
   resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver,
 ): Promise<void> {
   const pathStats = await lstat(path);
-  if (pathStats.isSymbolicLink()) {
-    throw new Error(`Documentation path is a symbolic link: ${path}`);
-  }
-  if (!pathStats.isFile()) {
-    throw new Error(`Documentation path is not a regular file: ${path}`);
-  }
+  assertRegularDocumentationPath(path, pathStats);
   if (!isSameFileIdentity(openStats, pathStats)) {
     throw new Error(`Documentation file identity changed: ${path}`);
   }
@@ -439,6 +435,15 @@ async function assertDocumentationPathBound(
   }
   if (requireCanonicalPath && canonicalPath !== path) {
     throw new Error(`Documentation path resolves through a symbolic link: ${path}`);
+  }
+}
+
+function assertRegularDocumentationPath(path: string, stats: Stats): void {
+  if (stats.isSymbolicLink()) {
+    throw new Error(`Documentation path is a symbolic link: ${path}`);
+  }
+  if (!stats.isFile()) {
+    throw new Error(`Documentation path is not a regular file: ${path}`);
   }
 }
 
