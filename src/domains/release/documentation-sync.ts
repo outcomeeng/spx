@@ -23,6 +23,8 @@ export const DOCUMENTATION_SYNC_AGENT_MAX_TURNS = 10;
 export const DOCUMENTATION_SYNC_AUDIT_MAX_TURNS = 3;
 export const DOCUMENTATION_SYNC_AUDIT_APPROVED = "APPROVED";
 export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
+export const DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION =
+  "When an original document has no previous-release reference, adding a concise current-release reference using the exact released version is a supported release update.";
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_NON_WHITESPACE_PATTERN = String.raw`\S`;
@@ -205,6 +207,7 @@ function buildDocumentationFaithfulnessAuditPrompt(
 ): string {
   return [
     "Audit whether every original-to-updated documentation transformation faithfully applies the supplied release data, including updating each previous-release reference rather than deleting it.",
+    DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
     `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported and every previous-release reference remains represented by the released version.`,
     `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported claim, deleted previous-release reference, or omitted release update.`,
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
