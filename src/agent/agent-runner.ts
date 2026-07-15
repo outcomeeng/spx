@@ -44,6 +44,11 @@ export const AGENT_RUN_TOOLS = {
   EDIT: "Edit",
 } as const;
 export type AgentRunTool = (typeof AGENT_RUN_TOOLS)[keyof typeof AGENT_RUN_TOOLS];
+export const AGENT_FILE_TOOLS = [
+  AGENT_RUN_TOOLS.READ,
+  AGENT_RUN_TOOLS.WRITE,
+  AGENT_RUN_TOOLS.EDIT,
+] as const satisfies readonly AgentRunTool[];
 export const AGENT_TOOL_PERMISSION_BEHAVIOR = {
   ALLOW: "allow",
   DENY: "deny",
@@ -56,7 +61,7 @@ export function authorizeAgentFileToolPath(
   tool: AgentRunTool,
   filePath: string,
 ): AgentToolPermissionBehavior {
-  return (tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT)
+  return AGENT_FILE_TOOLS.includes(tool)
       && filePath.length > 0
       && isPathContained(workingDirectory, filePath)
     ? AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW

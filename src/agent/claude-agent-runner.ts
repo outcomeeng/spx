@@ -9,6 +9,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 
 import {
+  AGENT_FILE_TOOLS,
   AGENT_PERMISSION_MODES,
   AGENT_RUN_TOOLS,
   AGENT_TOOL_PERMISSION_BEHAVIOR,
@@ -60,7 +61,7 @@ export function createAgentRunOptions(request: AgentRunRequest): Options {
 }
 
 function autoAllowedAgentTools(allowedTools: readonly AgentRunTool[]): AgentRunTool[] {
-  return allowedTools.filter((tool) => !isAgentFileMutationTool(tool));
+  return allowedTools.filter((tool) => !isAgentFileTool(tool));
 }
 
 function createAgentToolPermission(request: AgentRunRequest): CanUseTool {
@@ -68,7 +69,7 @@ function createAgentToolPermission(request: AgentRunRequest): CanUseTool {
     if (!isAgentRunTool(toolName) || !request.allowedTools.includes(toolName)) {
       return deniedAgentToolPermission();
     }
-    if (!isAgentFileMutationTool(toolName)) {
+    if (!isAgentFileTool(toolName)) {
       return { behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW, updatedInput: input };
     }
     const filePath = input[AGENT_FILE_TOOL_PATH_INPUT_FIELD];
@@ -94,8 +95,8 @@ function isAgentRunTool(toolName: string): toolName is AgentRunTool {
   return Object.values(AGENT_RUN_TOOLS).some((tool) => tool === toolName);
 }
 
-function isAgentFileMutationTool(tool: AgentRunTool): boolean {
-  return tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT;
+function isAgentFileTool(tool: AgentRunTool): boolean {
+  return AGENT_FILE_TOOLS.includes(tool);
 }
 
 async function runClaudeQuery(prompt: string, options: Options): Promise<SDKResultSuccess> {
