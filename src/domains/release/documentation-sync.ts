@@ -59,10 +59,9 @@ export interface DocumentationSyncPromptInput {
 export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
-  const encodedVersion = JSON.stringify(input.releaseData.version).replace(
-    JSON_LEFT_ANGLE_BRACKET_PATTERN,
-    JSON_LEFT_ANGLE_BRACKET_ESCAPE,
-  );
+  const encodedVersion = JSON.stringify(input.releaseData.version)
+    .slice(1, -1)
+    .replace(JSON_LEFT_ANGLE_BRACKET_PATTERN, JSON_LEFT_ANGLE_BRACKET_ESCAPE);
   return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
     encodeReleasePromptData(input)
   }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
