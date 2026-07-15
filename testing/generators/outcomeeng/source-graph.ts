@@ -336,8 +336,8 @@ function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: st
     case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
       return `${productDir}${PREFIX_ADJACENT_SUFFIX}${posix.sep}${canonicalPath}`;
     case UNRESOLVABLE_PATH_VARIANT.WINDOWS_DRIVE_ABSOLUTE: {
-      const [drive] = canonicalPath;
-      return `${(drive ?? FALLBACK_DRIVE_LETTER).toUpperCase()}${WINDOWS_DRIVE_DESIGNATOR}${win32.sep}${
+      const drive = canonicalPath.slice(0, 1) || FALLBACK_DRIVE_LETTER;
+      return `${drive.toUpperCase()}${WINDOWS_DRIVE_DESIGNATOR}${win32.sep}${
         canonicalPath.split(posix.sep).join(win32.sep)
       }`;
     }
