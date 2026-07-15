@@ -1,70 +1,24 @@
 # PLAN
 
-> Reconcile against `spx/PLAN.md`, `spx/25-outcomeeng.enabler/31-spec-tree.enabler/PLAN.md`, and `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/PLAN.md` first. This is the first materialized graph slice.
+> Reconcile against `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/PLAN.md` first. The source-graph kernel is implemented and passing; this note coordinates the remaining provider slices.
 
-## Objective
+## Shipped Structure
 
-Create the Outcome Engineering source graph slice: a graph over implementation source artifacts that explains which files are owned by durable product truth, which files are covered without ownership, which files are only reachable, and which files are unowned garbage-collection candidates.
-
-SPX must not parse implementation files in the source graph. The spec/test graph boundary supplies declared test evidence-link facts from product truth. Language-specific providers supply source facts from established tooling.
-
-## Decomposition
-
-Target structure after `/decompose`:
+The kernel lives under `src/outcomeeng/spec-tree/graph/source/` as modules inside this node — ownership model (`kernel/`), provider descriptor contracts and explicit-import registry (`providers/`), canonical product-root-relative path identity (`normalize/`), and garbage-collection candidate derivation (`gc/`). The child enablers are the language providers only:
 
 ```text
-spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/
-├── 21-spec.enabler/          # reserved provider graph: durable truth and linked test declarations
-├── 32-test.enabler/          # reserved provider graph: tests derived from spec assertions
-└── 43-source.enabler/        # first materialized slice
-```
-
-Inside `43-source.enabler`, extract shared enablers before language-specific providers:
-
-```text
-21-ownership-model.enabler/
-21-provider-contract.enabler/
-21-provider-fact-normalization.enabler/
 32-typescript-source-graph.enabler/
 32-python-source-graph.enabler/
 32-rust-source-graph.enabler/
-43-garbage-collection.enabler/
 ```
 
-Ordering evidence:
-
-| Predecessor                                                                       | Basis             | Successor                                                                           | Consequence if absent                                                                                       |
-| --------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/21-spec.enabler` | Truth hierarchy   | `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/32-test.enabler`   | Tests cannot be interpreted as evidence without the assertions and links they verify.                       |
-| `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/32-test.enabler` | Provider/consumer | `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler` | Source files cannot be owned by product truth without spec-linked tests that exercise or reach them.        |
-| `ownership-model`, `provider-contract`, `provider-fact-normalization`             | Shared substrate  | language source graph providers                                                     | Providers cannot produce comparable facts without shared identity, provenance, and normalization contracts. |
-| language source graph providers                                                   | Provider/consumer | `43-garbage-collection.enabler`                                                     | GC cannot classify unowned source without normalized provider facts.                                        |
-
-## Implementation Boundary
-
-Implement the source graph as Outcome Engineering graph core, not under a command-domain path. Target:
-
-```text
-src/outcomeeng/spec-tree/graph/source/
-```
-
-Use a host/kernel split:
-
-```text
-src/outcomeeng/spec-tree/graph/source/
-├── kernel/              # pure ownership model, classification, graph vocabulary
-├── providers/           # descriptor contracts and host-side provider adapters
-├── normalize/           # product-root-relative identity and provenance normalization
-└── gc/                  # candidate derivation from normalized classifications
-```
-
-The TypeScript code is the first host implementation. Keep the pure kernel free of Commander, process I/O, filesystem reads, git subprocesses, and TypeScript-only AST concerns. That keeps the graph contract movable to a future Rust module while TypeScript remains the CLI/package host.
+The providers are independent peers sharing the kernel's ownership model, provider contract, and normalization substrate.
 
 ## Provider Direction
 
-The first provider set should use established tools instead of SPX parsing implementation source:
+Providers consume established tooling output; SPX never parses implementation source itself:
 
-- TypeScript: Vitest/Vite coverage facts plus TypeScript compiler API or `ts-morph` module facts. The source graph consumes their outputs; it does not scan source text itself.
+- TypeScript: Vitest/Vite coverage facts plus TypeScript compiler API or `ts-morph` module facts.
 - Python: coverage.py for executed coverage and grimp for static import graph facts.
 - Rust: cargo llvm-cov for executed coverage and rust-analyzer module graph facts.
 
@@ -74,50 +28,16 @@ Provider output is evidence, not ownership authority. Ownership authority is:
 spec assertion -> declared test evidence-link fact -> linked test file -> provider facts -> source ownership classification
 ```
 
-## Authoring Plan
+## Remaining Work
 
-1. Invoke `/decompose spx/25-outcomeeng.enabler` and confirm the new `spx/25-outcomeeng.enabler/31-spec-tree.enabler` aggregate placement.
-2. Invoke `/decompose spx/25-outcomeeng.enabler/31-spec-tree.enabler` and confirm `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler`.
-3. Invoke `/decompose spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler` and confirm the `spec -> test -> source` ordering.
-4. Invoke `/author` to create the parent and source graph specs.
-5. Add any PDR needed for user-visible source ownership and garbage-collection semantics.
-6. Add any ADR needed for provider boundaries, fact normalization, and the no-implementation-parsing rule.
-7. Run PDR, ADR, and spec auditors until APPROVED.
-
-## Apply Plan
-
-After authoring produces the source graph assertions:
-
-1. Invoke `/apply spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler`.
-2. Use `/test` and the TypeScript testing skill to create the first deterministic evidence.
-3. Implement the first slice in TypeScript by consuming declared test evidence-link facts and provider-style facts through injected provider fixtures.
-4. Keep language/tool provider implementation behind a registry-style contract that mirrors validation's explicit descriptor pattern.
-5. Build the first PR around injected provider facts only: ownership classification, provenance retention, provider normalization, and garbage-collection candidate derivation. Real tool adapters are subsequent language-node slices.
-6. Route changed-test planning toward this graph contract after the source graph owns test-to-source reachability; the existing changed-set related-test adapter is migration evidence, not the target architecture.
-7. Run the TypeScript architecture, test, and code audit gates until APPROVED.
-8. Run changes-reviewer over the whole changeset because this work crosses graph, test, and provider boundaries.
-9. Run `pnpm run validate`, focused `spx test` for the changed node scope, and `pnpm run build` before opening or merging a PR.
-10. Invoke `/merge` and continue until the change reaches the default branch on origin or a lifecycle gate blocks.
-
-## Test Plan
-
-Create the first tests under this node:
-
-- `tests/source.mapping.l1.test.ts` maps linked test evidence and provider facts to every ownership classification: `owned-covered`, `owned-reachable`, `covered-unowned`, `reachable-unowned`, and `unowned`.
-- `tests/source.compliance.l1.test.ts` verifies provider provenance retention, shared vocabulary across TypeScript/Python/Rust facts, the no-direct-source-parsing boundary, and garbage-collection candidate derivation from classifications.
-
-Create reusable generated inputs under:
-
-```text
-testing/generators/outcomeeng/source-graph.ts
-```
-
-The generator owns variable provider facts, source artifact paths, linked test evidence, language ids, provider ids, and classification inputs. Tests import source-owned vocabulary from the graph implementation and generate all variable domain inputs through the generator.
+1. Author the `32-typescript-source-graph.enabler` spec via `/author` (confirm index placement via `/decompose` if the peer set changes). The provider registers through an explicit import in `providers/registry.ts` and emits raw facts the kernel normalizes through `normalize/`.
+2. `/apply` the TypeScript provider: RED tests first, then an adapter that turns Vitest/V8 coverage output and compiler-API module facts into provider facts.
+3. Python and Rust provider slices follow the same shape as independent peers.
+4. After a first real provider lands, add the operator-facing source ownership report (the surface that names this repository's unowned garbage-collection candidates).
+5. Route changed-test planning toward this graph contract once the source graph owns test-to-source reachability; the existing changed-set related-test adapter is migration evidence, not the target architecture.
 
 ## Acceptance
 
-- Source ownership is explained through graph semantics under Outcome Engineering, not as a `spx/23-spec-tree.enabler` library detail.
-- Source graph operations consume declared test evidence-link facts and do not parse implementation source files.
-- Language-specific source facts enter through provider descriptors and normalized provider output.
+- Language-specific source facts enter only through provider descriptors and normalized provider output.
 - TypeScript, Python, and Rust providers are independent peers that share the ownership model, provider contract, and normalization substrate.
 - Garbage-collection candidates are derived from the source graph, not from a language import graph alone.

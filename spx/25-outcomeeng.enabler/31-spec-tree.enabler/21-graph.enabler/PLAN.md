@@ -1,6 +1,6 @@
 # PLAN
 
-> Reconcile against `spx/PLAN.md` and `spx/25-outcomeeng.enabler/31-spec-tree.enabler/PLAN.md` first. This note coordinates the graph aggregate after the first specs are authored.
+> Reconcile against `spx/PLAN.md` and `spx/25-outcomeeng.enabler/31-spec-tree.enabler/PLAN.md` first. This note coordinates the graph aggregate.
 
 ## Graph Decomposition Intent
 
@@ -14,8 +14,6 @@ The graph slices are ordered by truth flow:
 | `32-test.enabler`   | Consumer of spec | Tests derive their meaning from spec assertions and evidence links.                                        |
 | `43-source.enabler` | Consumer of test | Source ownership is established from spec-linked tests plus language/provider facts.                       |
 | `change.enabler`    | Deferred         | Change graph placement needs a later decomposition against `spx/25-outcomeeng.enabler/31-changes.enabler`. |
-
-`43-source.enabler` is the first implementation slice. The lower-index `spec` and `test` graph slices are authored as graph concepts because the source graph depends on their contracts.
 
 ## Shared Concerns
 
@@ -31,20 +29,16 @@ Do not parse implementation source files in SPX. The tree-provider boundary supp
 
 ## Implementation Boundary
 
-The source graph implementation should be shaped as Outcome Engineering graph core, not as a command-domain library. Use a package boundary that can later move behind a Rust implementation without changing the graph contract:
+The source graph implementation is shaped as Outcome Engineering graph core, not as a command-domain library, under a package boundary that can later move behind a Rust implementation without changing the graph contract:
 
 ```text
 src/outcomeeng/spec-tree/graph/source/
 ```
 
-The first TypeScript implementation is a host binding for the graph kernel: typed contracts, normalization, and provider descriptor orchestration. Keep command handlers and CLI adapters outside this path. A later Rust module should be able to own the same graph-kernel contract and expose the same normalized fact vocabulary to the TypeScript host.
+The TypeScript implementation is a host binding for the graph kernel: typed contracts, normalization, and provider descriptor orchestration. Keep command handlers and CLI adapters outside this path.
 
-## First Slice
+## Next Slices
 
-Proceed with:
+The `43-source.enabler` kernel is implemented and passing: ownership classification, provider descriptor contracts, canonical path identity, and garbage-collection candidate derivation, verified against injected provider facts. The next actionable work is the language provider slices under `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler` — see that node's `PLAN.md` for the provider plan and ordering.
 
-```text
-spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler
-```
-
-The source slice should author enough parent graph truth to make its dependency on spec and test graph concepts explicit, then implement the first provider-backed source ownership report.
+The reserved `21-spec.enabler` and `32-test.enabler` slices remain spec-only concepts; materialize their contracts when a consumer needs them. The change graph stays deferred pending decomposition against `spx/25-outcomeeng.enabler/31-changes.enabler`.
