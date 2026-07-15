@@ -23,11 +23,11 @@ CAN read its configuration through a uniform, type-checked API without inline co
 ### Mappings
 
 - `spx.config.json`, `spx.config.yaml`, and `spx.config.toml` each produce an equivalent typed `Config` when they contain the same key-value structure ([test](tests/config-format.mapping.l1.test.ts))
+- Every declared config format maps to config-owned read, parse, and serialize behavior through the config API ([test](tests/format-api.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: resolution reads exactly one recognized config file from the supplied `productDir`; parent directories, nested directories, and unrecognized same-directory files are not resolution inputs ([test](tests/resolution-scope.compliance.l1.test.ts))
-- ALWAYS: every declared config format can be read, parsed, and serialized through the config API ([test](tests/resolution-scope.compliance.l1.test.ts))
 - ALWAYS: config file format probing, raw parsing, and serialization are owned by `src/config/`; downstream modules consume config-file and section APIs instead of importing format parsers, per [`spx/16-config.enabler/21-config-file-formats.adr.md`](21-config-file-formats.adr.md) ([audit])
 - ALWAYS: each descriptor's validator receives only its own section from the config file — validators cannot read other descriptors' values or the raw file content ([test](tests/validation-isolation.compliance.l1.test.ts))
 - ALWAYS: tests for the config module and descriptors construct fixtures programmatically through the shared spec-tree harness — directory trees and config file content are generated, never hand-written, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
