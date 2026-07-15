@@ -3,8 +3,10 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/54-diagnose.enabler/43-methodology-context.enabler/tests/methodology-cache.mapping.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/43-methodology-context.enabler/tests/methodology-context.compliance.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/43-methodology-context.enabler/tests/methodology-context.scenario.l1.test.ts": "passed"
+      "spx/54-diagnose.enabler/43-methodology-context.enabler/tests/methodology-context.scenario.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/43-methodology-context.enabler/tests/methodology-version-selection.property.l1.test.ts": "passed"
     }
   }
 }
