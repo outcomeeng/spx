@@ -22,6 +22,7 @@ import {
   buildTerminalEvent,
   type ChangesetScope,
   digestRunInput,
+  driveModeOf,
   evidenceValidatorFor,
   findAppendedSequence,
   findTerminalEvent,
@@ -95,6 +96,7 @@ export const VERIFY_CLI_ERROR = {
   SCOPE_INVALID: "spx verification run scope add payload failed verification-type validation",
   FINDING_INVALID: "spx verification run finding add payload failed verification-type validation",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
+  SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
   TERMINAL_STATUS_REQUIRED: "spx verification run finish requires --terminal-status <status>",
   TERMINAL_STATUS_INVALID:
@@ -743,6 +745,18 @@ async function readAppendExistingEvents(
  * Validate the append request's required selectors and injected capabilities, then resolve the
  * run's journal scope and storage namespace, so `verifyAppend` orchestrates a prepared run.
  */
+/**
+ * Whether an append invocation is an external caller reaching a run recorded as spx-driven. The
+ * executor's own recorder operations assert spx drive mode on their deps; the append verbs expose no
+ * drive-mode flag, so a CLI caller carries caller-driven mode and does not assert it.
+ */
+function isExternalAppendToSpxDrivenRun(events: readonly JournalEvent[], deps: VerifyCliDeps): boolean {
+  return (
+    driveModeOf(events) === VERIFY_DRIVE_MODE.SPX
+    && (deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER) !== VERIFY_DRIVE_MODE.SPX
+  );
+}
+
 async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDeps): Promise<Result<PreparedAppend>> {
   if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
   if (!isVerifyVerificationType(options.verificationType)) {
@@ -809,6 +823,13 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
         inputPath.value,
       ),
     };
+  }
+
+  // An spx-driven run is opened, streamed, and sealed within one executor invocation, so no external
+  // caller appends to it — the enforcement counterpart of the next-action projection that hides those
+  // actions for it.
+  if (isExternalAppendToSpxDrivenRun(existingEvents.value, deps)) {
+    return { ok: false, error: VERIFY_CLI_ERROR.SPX_DRIVEN_APPEND_REJECTED };
   }
 
   return {
