@@ -53,6 +53,7 @@ import {
   type DocumentationPromoter,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
@@ -1623,6 +1624,9 @@ function registerComplianceTests(): void {
         });
         expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).not.toContain(
           DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+        );
+        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).toContain(
+          encodeReleasePromptData(scenario.releaseData.version).slice(1, -1),
         );
         expect(auditor.requests).toHaveLength(1);
         expect(parseDocumentationPromptDataBlock(auditor.requests[0].prompt)).toEqual({
