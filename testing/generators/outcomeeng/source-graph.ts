@@ -11,8 +11,11 @@
  * @module testing/generators/outcomeeng/source-graph
  */
 
+import { posix, win32 } from "node:path";
+
 import * as fc from "fast-check";
 
+import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
 import {
   formatUnattributableProviderFactError,
   formatUnresolvableProviderFactPathError,
@@ -30,6 +33,16 @@ import {
 
 const PATH_SEGMENT_PATTERN = /^[a-z][a-z0-9-]{0,8}$/;
 const PROVIDER_ID_PATTERN = /^[a-z][a-z0-9-]{2,16}$/;
+/** Adjacent directory sharing the product directory's prefix; exposes prefix-only containment bugs. */
+const PREFIX_ADJACENT_SUFFIX = "-adjacent";
+/** Namespace prefix isolating each merged per-artifact scenario's paths. */
+const GRAPH_ARTIFACT_NAMESPACE = "artifact";
+/** Drive letter used when a canonical path yields none. */
+const FALLBACK_DRIVE_LETTER = "c";
+/** Designator between a drive letter and its root separator in a Windows drive-rooted path. */
+const WINDOWS_DRIVE_DESIGNATOR = ":";
+/** Current-directory segment for redundant-segment encodings. */
+const CURRENT_DIRECTORY_SEGMENT = ".";
 
 /** One registered language drawn from the source-owned registry. */
 export function arbitrarySourceGraphLanguage(): fc.Arbitrary<SourceGraphLanguage> {
@@ -59,7 +72,7 @@ export function arbitraryArtifactPath(): fc.Arbitrary<string> {
       arbitraryPathSegment(),
       arbitraryPathSegment(),
     )
-    .map(([directories, name, extension]) => [...directories, `${name}.${extension}`].join("/"));
+    .map(([directories, name, extension]) => [...directories, `${name}.${extension}`].join(posix.sep));
 }
 
 /** An ownership scenario for one source artifact: coherent input plus the classification it must produce. */
@@ -179,7 +192,7 @@ export interface OwnershipGraphScenario {
 }
 
 function prefixPath(prefix: string, path: string): string {
-  return `${prefix}/${path}`;
+  return `${prefix}${posix.sep}${path}`;
 }
 
 function prefixScenario(scenario: OwnershipScenario, prefix: string): OwnershipScenario {
@@ -201,7 +214,9 @@ function prefixScenario(scenario: OwnershipScenario, prefix: string): OwnershipS
 /** A merged graph over disjoint per-artifact scenarios with the expected classification per artifact. */
 export function arbitraryOwnershipGraphScenario(): fc.Arbitrary<OwnershipGraphScenario> {
   return fc.array(arbitraryAnyOwnershipScenario(), { minLength: 1, maxLength: 4 }).map((scenarios) => {
-    const prefixed = scenarios.map((scenario, index) => prefixScenario(scenario, `artifact-${index}`));
+    const prefixed = scenarios.map((scenario, index) =>
+      prefixScenario(scenario, `${GRAPH_ARTIFACT_NAMESPACE}-${index}`)
+    );
     return {
       input: {
         sourceArtifacts: prefixed.flatMap((scenario) => scenario.input.sourceArtifacts),
@@ -228,12 +243,12 @@ function encodeRawPath(encoding: RawPathEncoding, productDir: string, canonicalP
     case RAW_PATH_ENCODING.PLAIN:
       return canonicalPath;
     case RAW_PATH_ENCODING.DOT_SLASH:
-      return `./${canonicalPath}`;
+      return `${CURRENT_DIRECTORY_SEGMENT}${posix.sep}${canonicalPath}`;
     case RAW_PATH_ENCODING.ABSOLUTE:
       return `${productDir}/${canonicalPath}`;
     case RAW_PATH_ENCODING.INNER_DOT: {
-      const [head, ...rest] = canonicalPath.split("/");
-      return [head, ".", ...rest].join("/");
+      const [head, ...rest] = canonicalPath.split(posix.sep);
+      return [head, CURRENT_DIRECTORY_SEGMENT, ...rest].join(posix.sep);
     }
   }
 }
@@ -251,7 +266,7 @@ export interface NormalizationScenario {
 function arbitraryProductDir(): fc.Arbitrary<string> {
   return fc
     .array(arbitraryPathSegment(), { minLength: 1, maxLength: 2 })
-    .map((segments) => `/${segments.join("/")}`);
+    .map((segments) => `${posix.sep}${segments.join(posix.sep)}`);
 }
 
 /** A coherent normalization scenario: canonical identities, one encoding per path, valid attribution. */
@@ -307,24 +322,26 @@ export type ProviderFactPathField = (typeof PROVIDER_FACT_PATH_FIELD)[keyof type
 function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: string, canonicalPath: string): string {
   switch (variant) {
     case UNRESOLVABLE_PATH_VARIANT.PARENT_ESCAPE:
-      return `../${canonicalPath}`;
+      return `${PATH_CONTAINMENT_PARENT_DIRECTORY}${posix.sep}${canonicalPath}`;
     case UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE: {
-      const [head, ...rest] = canonicalPath.split("/");
-      return [head, "..", "..", ...rest].join("/");
+      const [head, ...rest] = canonicalPath.split(posix.sep);
+      return [head, PATH_CONTAINMENT_PARENT_DIRECTORY, PATH_CONTAINMENT_PARENT_DIRECTORY, ...rest].join(posix.sep);
     }
     case UNRESOLVABLE_PATH_VARIANT.BARE_PARENT: {
-      const [head] = canonicalPath.split("/");
-      return `${head}/../..`;
+      const [head] = canonicalPath.split(posix.sep);
+      return [head, PATH_CONTAINMENT_PARENT_DIRECTORY, PATH_CONTAINMENT_PARENT_DIRECTORY].join(posix.sep);
     }
     case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
-      return `${productDir}-foreign/${canonicalPath}`;
+      return `${productDir}${PREFIX_ADJACENT_SUFFIX}${posix.sep}${canonicalPath}`;
     case UNRESOLVABLE_PATH_VARIANT.WINDOWS_DRIVE_ABSOLUTE: {
       const [drive] = canonicalPath;
-      return `${(drive ?? "c").toUpperCase()}:\\${canonicalPath.split("/").join("\\")}`;
+      return `${(drive ?? FALLBACK_DRIVE_LETTER).toUpperCase()}${WINDOWS_DRIVE_DESIGNATOR}${win32.sep}${
+        canonicalPath.split(posix.sep).join(win32.sep)
+      }`;
     }
     case UNRESOLVABLE_PATH_VARIANT.WINDOWS_UNC_ABSOLUTE: {
-      const [head, ...rest] = canonicalPath.split("/");
-      return `\\\\${head}\\${rest.join("\\")}`;
+      const [head, ...rest] = canonicalPath.split(posix.sep);
+      return `${win32.sep}${win32.sep}${head}${win32.sep}${rest.join(win32.sep)}`;
     }
     case UNRESOLVABLE_PATH_VARIANT.EMPTY:
       return "";
