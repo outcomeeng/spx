@@ -1,9 +1,5 @@
 # Plan: Atomic File Write
 
-## Harness vocabulary guard
-
-Before applying this plan to Claude Code settings or agent-environment consumers, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
-
 The ADR (`21-atomic-file-write.adr.md`) declares that every atomic file replacement in the product routes through `writeFileAtomic`. The primitive and its tests land first; the call-site migrations follow as separate PRs.
 
 ## Landed
@@ -13,6 +9,5 @@ The ADR (`21-atomic-file-write.adr.md`) declares that every atomic file replacem
 
 ## Landed call-site migration
 
-- Route `src/commands/claude/settings/writer.ts` through `writeFileAtomic` — removes its `Math.random` temp suffix (SonarQube `typescript:S2245`) and its `os.tmpdir()` cross-device rename. Update its co-located tests in the agent-environment node.
 - Route `src/validation/literal/allowlist-existing.ts` `productionWriter` through `writeFileAtomic` — removes its `Math.random` temp suffix (`typescript:S2245`). Update its co-located tests.
 - Route `src/domains/worktree/occupancy-store.ts` `writeClaim` through `writeFileAtomic`, with claim writes receiving the shared `RandomBytes` type from `src/lib/atomic-file-write.ts`. Reconcile the occupancy-store spec node and worktree generator around injected random bytes, so a single canonical `RandomBytes` remains.

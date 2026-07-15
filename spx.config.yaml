@@ -2,7 +2,6 @@ validation:
   paths:
     exclude:
       - .work/
-      - spx/46-claude.outcome/
   literal:
     values:
       include:

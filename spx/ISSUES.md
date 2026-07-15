@@ -24,12 +24,6 @@ Resolution condition: group the warnings by rule and owning node, then clear or 
 
 **Resolution:** Decide whether the git-mechanism naming stays as the PDR's observable resolution contract or moves into `spx/17-state.adr.md`, then either close this note or re-home the mechanism content across the PDR and the state ADR in one coherent pass and re-run the PDR and ADR audits.
 
-## Root outcome node remains after enabler-only direction
-
-`spx/46-claude.outcome/` is still a root outcome node. Eliminating every outcome node in the tree requires a separate root-level `/spec-tree:refactoring` pass that audits whether the Claude integration content becomes an enabler, dissolves into existing enablers, or is deleted.
-
-**Resolution:** Track separately from `spx/PLAN.md`. Revisit before declaring the whole spec tree enabler-only.
-
 ## Enabled tests still contain manifest-tracked test-owned named constants
 
 The TypeScript testing guidance forbids test-owned named constants. Several enabled tests still carry them. `spx/no-test-owned-domain-constants` now catches this class, and `eslint.test-owned-constant-debt-nodes.json` downgrades existing debt nodes to warnings during migration. Examples observed during the strict lint cleanup:

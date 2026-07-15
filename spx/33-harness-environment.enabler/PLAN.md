@@ -17,8 +17,6 @@ Define and implement deterministic management for agent instructions, agent conf
 
 ## Implementation notes
 
-- Keep this node broader than the Claude-only outcome subtree.
-- Treat `spx/46-claude.outcome/` as Claude-specific source material for reconciling agent configuration and instruction-management assumptions into this node; it does not own harness-environment product truth.
 - Make agent config reconciliation deterministic and safe to run repeatedly.
 - Keep agentic verification environment bootstrapping hermetically separate from the invoking agent.
 
@@ -32,7 +30,6 @@ Define and implement deterministic management for agent instructions, agent conf
 
 - Deterministic instruction-file reconciliation remains under `spx/33-harness-environment.enabler/21-agent-instructions.enabler/`.
 - Plugin marketplace, plugin, and skill bootstrap status remains under `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/`.
-- `spx/46-claude.outcome/` reconciliation waits until instruction-file reconciliation and plugin bootstrap settle.
 
 ## Evidence required
 
