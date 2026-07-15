@@ -42,6 +42,8 @@ const PATH_SEPARATOR = "/";
 const WINDOWS_SEPARATOR = "\\";
 const PARENT_SEGMENT_PREFIX = "../";
 const CURRENT_DIRECTORY = ".";
+/** Windows-syntax absolute path: a drive-letter root or a UNC root, in either separator style. */
+const WINDOWS_ABSOLUTE_PATTERN = /^[a-zA-Z]:[\\/]|^[\\/]{2}/;
 
 function isRegisteredLanguage(language: string): language is SourceGraphLanguage {
   return (Object.values(SOURCE_GRAPH_LANGUAGE) as readonly string[]).includes(language);
@@ -63,6 +65,12 @@ function normalizeArtifactPath(productDir: string, rawPath: string): string {
     ? posixProductDir
     : `${posixProductDir}${PATH_SEPARATOR}`;
   const relativePath = posixPath.startsWith(productPrefix) ? posixPath.slice(productPrefix.length) : posixPath;
+  // A path still absolute under either syntax after prefix stripping never
+  // entered the product directory; POSIX absoluteness alone misses drive
+  // letters and UNC roots once backslashes are rewritten.
+  if (WINDOWS_ABSOLUTE_PATTERN.test(relativePath)) {
+    throw new Error(formatUnresolvableProviderFactPathError(rawPath));
+  }
   const normalized = posix.normalize(relativePath);
   if (
     normalized.length === 0

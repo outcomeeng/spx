@@ -289,6 +289,8 @@ export const UNRESOLVABLE_PATH_VARIANT = {
   NESTED_ESCAPE: "nested-escape",
   BARE_PARENT: "bare-parent",
   FOREIGN_ABSOLUTE: "foreign-absolute",
+  WINDOWS_DRIVE_ABSOLUTE: "windows-drive-absolute",
+  WINDOWS_UNC_ABSOLUTE: "windows-unc-absolute",
   EMPTY: "empty",
 } as const;
 
@@ -316,6 +318,14 @@ function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: st
     }
     case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
       return `${productDir}-foreign/${canonicalPath}`;
+    case UNRESOLVABLE_PATH_VARIANT.WINDOWS_DRIVE_ABSOLUTE: {
+      const [drive] = canonicalPath;
+      return `${(drive ?? "c").toUpperCase()}:\\${canonicalPath.split("/").join("\\")}`;
+    }
+    case UNRESOLVABLE_PATH_VARIANT.WINDOWS_UNC_ABSOLUTE: {
+      const [head, ...rest] = canonicalPath.split("/");
+      return `\\\\${head}\\${rest.join("\\")}`;
+    }
     case UNRESOLVABLE_PATH_VARIANT.EMPTY:
       return "";
   }
