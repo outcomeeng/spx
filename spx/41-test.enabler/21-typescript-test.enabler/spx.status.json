@@ -4,6 +4,7 @@
     "test": {
       "overall": "passed",
       "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l1.test.ts": "passed",
+      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l2.test.ts": "passed",
       "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.mapping.l1.test.ts": "passed",
       "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts": "passed",
       "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l2.test.ts": "passed"
