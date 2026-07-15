@@ -5,6 +5,7 @@ import {
   assertInvalidManifestRootsRejected,
   assertRequiredManifestFactsRejected,
   assertUnavailableManifestCheckRejected,
+  assertUnknownManifestFieldsRejected,
   assertUnknownManifestCheckRejected,
   assertUnselectedMethodologyFactsIgnored,
 } from "@testing/harnesses/diagnose/manifest";
@@ -20,6 +21,7 @@ describe("a manifest rejects incomplete or unsupported diagnostic facts", () => 
     assertUnselectedMethodologyFactsIgnored,
   );
   it("rejects an unknown check name", assertUnknownManifestCheckRejected);
+  it("rejects unknown and retired manifest fields", assertUnknownManifestFieldsRejected);
   it("rejects a known check unavailable in the current build", assertUnavailableManifestCheckRejected);
   it("rejects empty, absent, non-object, and malformed roots", assertInvalidManifestRootsRejected);
 });
