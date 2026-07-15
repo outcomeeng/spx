@@ -144,8 +144,8 @@ describe("agent resume Pi session-header compliance", () => {
 });
 
 describe("agent resume store path compliance", () => {
-  it("reads Codex, Claude Code, and Pi candidates from their default agent session stores", () => {
-    assertDefaultAgentSessionStoreDirs();
+  it("reads Codex, Claude Code, and Pi candidates from their default agent session stores", async () => {
+    await assertDefaultAgentSessionStoreDirs();
   });
 
   it("reads Pi candidates from PI_CODING_AGENT_DIR sessions when no direct session directory is configured", async () => {

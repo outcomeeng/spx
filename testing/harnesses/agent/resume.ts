@@ -548,8 +548,11 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 233);
   const newestSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 234);
   const olderSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 235);
-  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 236);
+  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 236);
+  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 237);
+  const piActivityAtMs = nowMs - 1;
   const staleOpeningTimestamp = new Date(olderModifiedAtMs).toISOString();
+  const piActivityTimestamp = new Date(piActivityAtMs).toISOString();
   const newestActivityTimestamp = new Date(nowMs).toISOString();
   fs.writeFile(
     claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(newestSessionId)),
@@ -558,6 +561,11 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
       agentTranscriptActivityRow(newestActivityTimestamp),
     ].join("\n"),
     olderModifiedAtMs,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(piSessionId)),
+    piTranscript({ sessionId: piSessionId, cwd, timestamp: piActivityTimestamp }),
+    piActivityAtMs,
   );
   fs.writeFile(
     codexTranscriptPath(homeDir, agentSessionJsonlName(olderSessionId)),
@@ -577,11 +585,13 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
     },
   });
 
-  const [firstLine, secondLine] = output.split("\n");
+  const [firstLine, secondLine, thirdLine] = output.split("\n");
   expect(firstLine).toContain(newestActivityTimestamp);
   expect(firstLine).toContain(newestSessionId);
-  expect(secondLine).toContain(staleOpeningTimestamp);
-  expect(secondLine).toContain(olderSessionId);
+  expect(secondLine).toContain(piActivityTimestamp);
+  expect(secondLine).toContain(piSessionId);
+  expect(thirdLine).toContain(staleOpeningTimestamp);
+  expect(thirdLine).toContain(olderSessionId);
 }
 
 export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
@@ -1436,10 +1446,17 @@ export function assertClaudeProjectNameEncodesPathSeparators(): void {
   expect(windowsEncoded).toBe(posixEncoded);
 }
 
-export function assertDefaultAgentSessionStoreDirs(): void {
+export async function assertDefaultAgentSessionStoreDirs(): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
-
-  const agentHomeDirs = agentHomeDirsFromHomeDir(homeDir);
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 390);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 391);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 392);
+  const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 393);
+  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 394);
+  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 395);
+  const timestamp = new Date(nowMs).toISOString();
+  const agentHomeDirs = resolveAgentHomeDirs({}, { homeDir: () => homeDir });
   expect(codexSessionStoreDir(agentHomeDirs.codex)).toBe(
     join(homeDir, AGENT_SESSION_STORE.CODEX_DIR, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR),
   );
@@ -1453,6 +1470,37 @@ export function assertDefaultAgentSessionStoreDirs(): void {
     join(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
   );
   expect(piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions)).toBe(agentHomeDirs.piSessions);
+  fs.writeFile(
+    codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
+    codexTranscript({ sessionId: codexSessionId, cwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    claudeProjectTranscriptPathFromAgentHome(agentHomeDirs.claudeCode, cwd, agentSessionJsonlName(claudeSessionId)),
+    claudeCodeTranscript({ sessionId: claudeSessionId, cwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    piTranscriptPathFromSessionDir(agentHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
+    piTranscript({ sessionId: piSessionId, cwd, timestamp }),
+    nowMs,
+  );
+
+  const output = await listAgentResumeSessions({
+    cwd,
+    fallbackWorktreeRoot: worktreeRoot,
+    scope: worktreeResumeScope(),
+    deps: {
+      fs,
+      agentHomeDirs: () => agentHomeDirs,
+      nowMs: () => nowMs,
+      resolveWorktreeRoot: async () => worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(codexSessionId);
+  expect(output).toContain(claudeSessionId);
+  expect(output).toContain(piSessionId);
 }
 
 export function assertAgentHomeResolutionHonorsEnvironment(): void {
