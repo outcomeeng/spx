@@ -10,7 +10,9 @@ import {
 import {
   appendJsonlRecord,
   defaultStateStoreFileSystem,
+  ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
+  EXCLUSIVE_CREATE_FLAG,
   hasErrorCode,
   type JsonRecord,
   STATE_STORE_TEXT_ENCODING,
@@ -18,7 +20,10 @@ import {
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
+const SEQUENCE_CLAIM_MARKER_PREFIX = ".seq-";
+const SEQUENCE_CLAIM_MARKER_SUFFIX = ".claimed";
 export const APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT = "";
+export const APPENDABLE_JOURNAL_SEQUENCE_CLAIM_MARKER_CONTENT = "";
 const LINE_SEPARATOR = "\n";
 
 export interface AppendableJournalStoreOptions {
@@ -30,6 +35,10 @@ export interface AppendableJournalStoreOptions {
 
 export function appendableJournalSealMarkerPath(runFilePath: string): string {
   return `${runFilePath}${SEAL_MARKER_SUFFIX}`;
+}
+
+export function appendableJournalSequenceClaimPath(runFilePath: string, sequence: number): string {
+  return `${runFilePath}${SEQUENCE_CLAIM_MARKER_PREFIX}${sequence}${SEQUENCE_CLAIM_MARKER_SUFFIX}`;
 }
 
 /** Bind the agent-run-journal `AppendableBackend` port to a JSONL run file on an injected filesystem. */
@@ -67,8 +76,12 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       if (history.some((event) => event.seq === record.seq)) {
         throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
       }
+      const sequenceClaimPath = await claimSequence(fs, runFilePath, record.seq);
       const result = await appendJsonlRecord(runFilePath, toJsonRecord(record), { fs });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) {
+        await fs.rm(sequenceClaimPath, { force: true });
+        throw new Error(result.error);
+      }
     },
 
     readAll,
@@ -82,6 +95,26 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       return (await readFileOrUndefined(fs, sealMarkerPath)) !== undefined;
     },
   };
+}
+
+async function claimSequence(
+  fs: StateStoreFileSystem,
+  runFilePath: string,
+  sequence: number,
+): Promise<string> {
+  const sequenceClaimPath = appendableJournalSequenceClaimPath(runFilePath, sequence);
+  await fs.mkdir(dirname(sequenceClaimPath), { recursive: true });
+  try {
+    await fs.writeFile(sequenceClaimPath, APPENDABLE_JOURNAL_SEQUENCE_CLAIM_MARKER_CONTENT, {
+      flag: EXCLUSIVE_CREATE_FLAG,
+    });
+    return sequenceClaimPath;
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) {
+      throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+    }
+    throw error;
+  }
 }
 
 function toJsonRecord(event: JournalEvent): JsonRecord {
