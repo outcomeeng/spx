@@ -17,3 +17,20 @@ This mismatch makes config harder to compare with other domains and makes future
 **Resolution:** use `/test` to select the verification mechanism for each affected assertion, then use `/author` to rewrite the declarations and `/align` to verify the node against its decisions and evidence.
 
 **Revisit condition:** before the next `/author`, `/align`, `/test`, or implementation slice touching `spx/16-config.enabler`.
+
+## Executed tests delegate their assertions to config test infrastructure
+
+The `work/verification-tag-alignment` changeset moves the **assertion flow** from two executed config tests into `testing/harnesses/config/resolution.ts`. The resulting test files only call exported `assert*` functions, while the imported test-infrastructure module owns `expect` calls and the behavioral predicates.
+
+**Affected evidence:**
+
+- `spx/16-config.enabler/tests/format-api.mapping.l1.test.ts` delegates its complete predicate to `assertEveryConfigFormatSupportsReadParseSerialize`.
+- `spx/16-config.enabler/tests/resolution-scope.compliance.l1.test.ts` delegates its complete predicate to `assertResolutionUsesOnlyCanonicalProductConfig`.
+
+This shape violates the assertion ownership defined by [`spx/12-test-infrastructure.adr.md`](../12-test-infrastructure.adr.md) and [`spx/local/typescript-tests.md`](../local/typescript-tests.md): executed test files own assertion flow and every `expect`; test infrastructure owns reusable resource lifecycle, controlled boundaries, execution policy, cleanup, and diagnostics.
+
+**Resolution:** return setup and observed results from config test infrastructure, then place each behavioral predicate and `expect` in its executed test file. Move variable input domains or construction-derived expected values into config generators, and expose any required production vocabulary through its production owner.
+
+**Skills:** `spec-tree:apply`, `spec-tree:test`, `spec-tree:audit-tests`.
+
+**Revisit condition:** before publishing or merging the `work/verification-tag-alignment` changeset.
