@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 
 import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation";
-import { SPX_PROGRAM_NAME } from "@/interfaces/cli/invocation";
+import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {
   allValidationCliOptions,
   literalValidationCliOptions,

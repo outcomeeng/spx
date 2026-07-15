@@ -42,14 +42,29 @@ If the domain you need is not in this list, **add it**. Do not hardcode.
 
 ## Sampling from generators
 
-Executed tests do not call [`sampleLiteralTestValue`](../../testing/generators/literal/literal.ts) directly. When scenario or compliance evidence needs one deterministic generated value, add a harness assertion entrypoint that samples the governing arbitrary and performs the behavior assertion. The executed test imports that entrypoint and registers it with the test runner without declaring sampled values or configuration.
+For tests that need a single deterministic value from a generator (scenario/compliance tests that call a real filesystem harness), use `sampleLiteralTestValue`:
 
-`sampleLiteralTestValue` draws one value with a fixed seed. Keeping that call behind the harness entrypoint preserves deterministic evidence without moving generator choice or sampled state into the executed test.
+```typescript
+import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+
+const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
+```
+
+`sampleLiteralTestValue` draws one value with a fixed seed so the test is deterministic but does not repeat the hardcoded value in multiple files.
 
 ---
 
 ## Fixture harness
 
-Harness assertion entrypoints that write files to a real temporary directory compose on [`withLiteralFixtureEnv`](../../testing/harnesses/literal/harness.ts). The entrypoint samples its coherent fixture input from `testing/generators/literal/literal.ts`, passes that input to the fixture environment, performs the behavior assertion, and returns the runner callback. Executed tests import and register the entrypoint; they do not own fixture inputs, environment bindings, lifecycle, or assertions over reusable setup state.
+Tests that write files to a real temp directory use `withLiteralFixtureEnv` from `testing/harnesses/literal/harness.ts`. The harness accepts a `ReuseFixtureInputs` object produced by the generator — it does not accept raw strings.
 
-`withLiteralFixtureEnv` accepts a `LiteralReuseFixtureInputs` object produced by the generator. It does not accept raw strings.
+```typescript
+import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+
+const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
+await withLiteralFixtureEnv({}, async (env) => {
+  await env.writeReuseFixture(inputs);
+  // ...
+});
+```

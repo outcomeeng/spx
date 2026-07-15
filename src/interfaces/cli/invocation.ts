@@ -7,19 +7,8 @@
  * conform to the boundary contract.
  */
 
-export const SOURCE_CLI_EXECUTABLE = "tsx";
-export const SOURCE_CLI_ENTRYPOINT = "src/cli.ts";
-export const PACKAGED_CLI_EXECUTABLE = "node";
-export const PACKAGED_CLI_ENTRYPOINT = "bin/spx.js";
-export const SPX_PROGRAM_NAME = "spx";
-
-export const CLI_EXIT_CODE = {
-  SUCCESS: 0,
-  ERROR: 1,
-} as const;
-
-export const SOURCE_CLI_INVOCATION = `${SOURCE_CLI_EXECUTABLE} ${SOURCE_CLI_ENTRYPOINT}`;
-export const PACKAGED_CLI_INVOCATION = `${PACKAGED_CLI_EXECUTABLE} ${PACKAGED_CLI_ENTRYPOINT}`;
+export const SOURCE_CLI_INVOCATION = "tsx src/cli.ts";
+export const PACKAGED_CLI_INVOCATION = "node bin/spx.js";
 
 export const FORMAT_INVOCATION = "dprint fmt .";
 export const FORMAT_CHECK_INVOCATION = "dprint check .";
