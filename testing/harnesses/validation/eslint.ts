@@ -2,11 +2,14 @@ import type { Linter, Rule } from "eslint";
 import { ESLint, RuleTester } from "eslint";
 import { builtinRules } from "eslint/use-at-your-own-risk";
 import * as fc from "fast-check";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { readTypeScriptExcludeGlobs } from "@/validation/eslint-config-exclusions";
+import { LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "@/validation/lint-policy-constants";
 import noBareStringUnions from "@eslint-rules/no-bare-string-unions";
 import noDeepRelativeImports from "@eslint-rules/no-deep-relative-imports";
 import { MIRROR_RULES } from "@eslint-rules/offline-mirror";
@@ -17,6 +20,7 @@ import {
   astRestrictedSyntaxRuns,
   validationConfigSeverityScenarios,
   validationEslintRuleTesterLanguageOptions,
+  type ValidationLintDebtManifestEntries,
   validationLintScenarios,
   validationRuleRegistrationCases,
   validationRuleTesterHooks,
@@ -39,6 +43,24 @@ const SYNTACTIC_MIRROR_OVERRIDE: Linter.Config = {
     ]),
   ),
 };
+
+const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
+
+function readLintDebtManifestEntries(): ValidationLintDebtManifestEntries {
+  const readManifest = (
+    manifest: (typeof LINT_POLICY_MANIFESTS)[keyof typeof LINT_POLICY_MANIFESTS],
+  ): readonly string[] =>
+    parseLintPolicyManifest(
+      readFileSync(join(REPO_ROOT, manifest.file), "utf-8"),
+      manifest.file,
+      manifest.key,
+    );
+
+  return {
+    testLintDebtNodes: readManifest(LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES),
+    testOwnedConstantDebtNodes: readManifest(LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES),
+  };
+}
 
 export interface ValidationRuleTesterCases {
   readonly valid: RuleTester.ValidTestCase[] | string[];
@@ -130,6 +152,7 @@ export function createValidationEslint(): ESLint {
 }
 
 export function registerValidationEslintIntegrationTests(): void {
+  const lintDebtManifests = readLintDebtManifestEntries();
   describe("ESLint rules integration", () => {
     let eslint: ESLint;
 
@@ -146,7 +169,7 @@ export function registerValidationEslintIntegrationTests(): void {
       }
     });
 
-    const configSeverityScenarios = validationConfigSeverityScenarios();
+    const configSeverityScenarios = validationConfigSeverityScenarios(lintDebtManifests);
     if (configSeverityScenarios.length > 0) {
       describe("configured severity", () => {
         for (const testCase of configSeverityScenarios) {
@@ -161,7 +184,7 @@ export function registerValidationEslintIntegrationTests(): void {
     }
 
     describe("production lint behavior", () => {
-      for (const testCase of validationLintScenarios()) {
+      for (const testCase of validationLintScenarios(lintDebtManifests)) {
         it(testCase.title, async () => {
           const result = await lintValidationText(eslint, testCase);
           for (const expectation of testCase.expectations) {
