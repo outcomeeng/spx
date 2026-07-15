@@ -273,11 +273,16 @@ function decodeContextDocumentOrThrow(path: string, rawBytes: Buffer): string {
   }
 }
 
+/** Bytes and decoded text the citation scan already read, keyed by tree path, reused for content attachment. */
+type ScannedDocuments = Map<string, { readonly rawBytes: Buffer; readonly content: string }>;
+
 /**
  * Resolves full-path decision citations from the structural spec and decision
  * documents, transitively through cited decisions, preserving citing-file
  * provenance. A citation whose decision file is absent from the tracked tree
- * fails the projection naming both exact paths.
+ * fails the projection naming both exact paths. In content mode every scanned
+ * document's bytes and decoded text are recorded in `scannedDocuments`, so
+ * content attachment reuses them instead of reading each document twice.
  */
 async function citedDecisionDocuments(
   productDir: string,
@@ -285,6 +290,7 @@ async function citedDecisionDocuments(
   knownPaths: ReadonlySet<string>,
   includePath: PathInclusion,
   contentRequested: boolean,
+  scannedDocuments: ScannedDocuments,
 ): Promise<readonly SpecContextReadDocument[]> {
   // Content mode promises atomic exact-path failure on the first unreadable
   // or invalid document; the path-only projection carries no such contract,
@@ -297,7 +303,10 @@ async function citedDecisionDocuments(
       if (contentRequested) throw error;
       return undefined;
     }
-    return contentRequested ? decodeContextDocumentOrThrow(path, rawBytes) : rawBytes.toString("utf8");
+    if (!contentRequested) return rawBytes.toString("utf8");
+    const content = decodeContextDocumentOrThrow(path, rawBytes);
+    scannedDocuments.set(path, { rawBytes, content });
+    return content;
   };
   const citersByPath = new Map<string, string[]>();
   const queue: string[] = [];
@@ -361,19 +370,23 @@ async function localOverlayPaths(
 
 /**
  * Attaches each read document's exact UTF-8 content, raw-byte digest, and byte
- * count. The digest hashes the raw bytes before decoding; the first unreadable
- * or non-UTF-8 document aborts the whole projection naming its exact path.
+ * count, reusing bytes the citation scan already read so each document is read
+ * once per projection. The digest hashes the raw bytes before decoding; the
+ * first unreadable or non-UTF-8 document aborts the whole projection naming
+ * its exact path.
  */
 async function withDocumentContent(
   productDir: string,
   read: readonly SpecContextReadDocument[],
+  scannedDocuments: ScannedDocuments,
 ): Promise<readonly SpecContextReadDocument[]> {
   const enriched: SpecContextReadDocument[] = [];
   for (const document of read) {
-    const rawBytes = await readContextDocumentBytes(productDir, document.path);
+    const scanned = scannedDocuments.get(document.path);
+    const rawBytes = scanned?.rawBytes ?? await readContextDocumentBytes(productDir, document.path);
     enriched.push({
       ...document,
-      content: decodeContextDocumentOrThrow(document.path, rawBytes),
+      content: scanned?.content ?? decodeContextDocumentOrThrow(document.path, rawBytes),
       digest: specContextDigest(rawBytes),
       bytes: rawBytes.byteLength,
     });
@@ -451,8 +464,16 @@ async function buildManifest(
   await pushCoordinationDocuments(read, productDir, contextNodes, includePath);
   await pushGuideDocuments(read, productDir, contextNodes, includePath);
   const knownPaths = new Set(read.map((document) => document.path));
+  const scannedDocuments: ScannedDocuments = new Map();
   read.push(
-    ...await citedDecisionDocuments(productDir, structuralDocuments, knownPaths, includePath, contentRequested),
+    ...await citedDecisionDocuments(
+      productDir,
+      structuralDocuments,
+      knownPaths,
+      includePath,
+      contentRequested,
+      scannedDocuments,
+    ),
   );
   const overlayPaths = await localOverlayPaths(productDir, trackedPaths);
   await pushExistingReadDocument(
@@ -496,7 +517,7 @@ async function buildManifest(
     productDir,
     target: fullSpecPath(target.id),
     bootstrap: specContextBootstrap(snapshot.allNodes.length),
-    read: contentRequested ? await withDocumentContent(productDir, read) : read,
+    read: contentRequested ? await withDocumentContent(productDir, read, scannedDocuments) : read,
     listed,
   };
 }
