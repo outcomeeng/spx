@@ -23,5 +23,12 @@ export default defineConfig({
     // them external rather than bundling the React reconciler into dist/.
     "react",
     "ink",
+    // The TypeScript journal-streaming run loads the Vitest Node API through a
+    // dynamic import that resolves only when a run actually starts; keep it
+    // external so the heavy Node API (and its optional `@vitest/ui` import) is
+    // never bundled into dist/.
+    "vitest",
+    "vitest/node",
+    "@vitest/ui",
   ],
 });
