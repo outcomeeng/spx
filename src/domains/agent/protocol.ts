@@ -13,6 +13,12 @@ export const AGENT_SEARCH_SESSION_KINDS = [
 
 export type AgentSearchSessionKind = (typeof AGENT_SEARCH_SESSION_KINDS)[number];
 
+export const AGENT_SEARCH_SESSION_KIND_DESCRIPTION = AGENT_SEARCH_SESSION_KINDS.join(" or ");
+
+export function isAgentSearchSessionKind(value: string): value is AgentSearchSessionKind {
+  return AGENT_SEARCH_SESSION_KINDS.some((kind) => kind === value);
+}
+
 export const AGENT_SESSION_LABEL: Readonly<Record<AgentSessionKind, string>> = {
   [AGENT_SESSION_KIND.CODEX]: "Codex",
   [AGENT_SESSION_KIND.CLAUDE_CODE]: "Claude Code",
