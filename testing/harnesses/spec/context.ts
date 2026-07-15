@@ -27,6 +27,7 @@ import {
   SPEC_CONTEXT_READ_ROLE_ORDER,
   specContextBootstrap,
   specContextDigest,
+  type SpecContextListedRole,
   type SpecContextManifest,
 } from "@/domains/spec/context-manifest";
 import { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/domains/spec/context-target";
@@ -105,6 +106,9 @@ export function registerSpecContextTargetMappingEvidence(): void {
     PARAMETERIZED_CONTEXT_CASE_TITLE,
     assertSpecContextTargetDiagnosticSafetyCase,
   );
+  it("orders ambiguous-segment candidates by code units where locale collation disagrees", async () => {
+    await assertSpecContextOrdersAmbiguousCandidatesByCodeUnits();
+  });
 }
 
 function parseContextManifest(output: string): SpecContextManifest {
@@ -1198,12 +1202,126 @@ export async function assertSpecContextOrdersListedOverlaysByCodeUnits(): Promis
     await env.writeRaw(codeUnitFirstOverlayPath, "# Code-unit-first overlay\n");
     await env.writeRaw(localeFirstOverlayPath, "# Locale-first overlay\n");
 
-    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
-    const divergentPair = manifest.listed
-      .filter((entry) => entry.role === SPEC_CONTEXT_LISTED_ROLE.OVERLAY)
-      .map((entry) => entry.path)
-      .filter((path) => path === codeUnitFirstOverlayPath || path === localeFirstOverlayPath);
-    expect(divergentPair).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
+    const overlayPairIn = (manifest: SpecContextManifest): readonly string[] =>
+      manifest.listed
+        .filter((entry) => entry.role === SPEC_CONTEXT_LISTED_ROLE.OVERLAY)
+        .map((entry) => entry.path)
+        .filter((path) => path === codeUnitFirstOverlayPath || path === localeFirstOverlayPath);
+
+    const fallbackManifest = parseContextManifest(
+      await contextCommand({ target: paths.targetId, cwd: env.productDir }),
+    );
+    expect(overlayPairIn(fallbackManifest)).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
+
+    // The tracked-paths branch is the one a real git worktree takes; it sorts
+    // through the same comparator at a different call site.
+    const snapshot = await env.readFilesystemSnapshot();
+    const trackedPaths = [
+      ...snapshot.entries
+        .map((entry) => entry.ref?.path)
+        .filter((path): path is string => path !== undefined),
+      paths.lifecycleOverlayPath,
+      codeUnitFirstOverlayPath,
+      localeFirstOverlayPath,
+    ];
+    const trackedManifest = parseContextManifest(
+      await contextCommand({
+        target: paths.targetId,
+        cwd: env.productDir,
+        gitDependencies: trackedSpecContextGitDependencies(env.productDir, trackedPaths),
+      }),
+    );
+    expect(overlayPairIn(trackedManifest)).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
+  });
+}
+
+/**
+ * Sibling groups follow code-unit order, proven on directory-name pairs with
+ * distinct leading letters whose locale order is the opposite: the
+ * lower-index read group's identity tie-break, and the same-index and
+ * higher-index listed groups.
+ */
+export async function assertSpecContextOrdersSiblingGroupsByCodeUnits(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const fixture = env.fixture;
+    const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const codeUnitFirstSlug = `Z${slug}`;
+    const localeFirstSlug = `a${slug}`;
+    expect(codeUnitFirstSlug < localeFirstSlug).toBe(true);
+    expect(codeUnitFirstSlug.localeCompare(localeFirstSlug)).toBeGreaterThan(0);
+
+    const lowerOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
+    const targetOrder = lowerOrder + 1;
+    const higherOrder = targetOrder + 1;
+    const targetDirectory = `${targetOrder}-${slug}${nodeSuffix}`;
+    const pairDirectories = (order: number): readonly [string, string] => [
+      `${order}-${codeUnitFirstSlug}${nodeSuffix}`,
+      `${order}-${localeFirstSlug}${nodeSuffix}`,
+    ];
+    const [lowerCodeUnitFirst, lowerLocaleFirst] = pairDirectories(lowerOrder);
+    const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);
+    const [higherCodeUnitFirst, higherLocaleFirst] = pairDirectories(higherOrder);
+
+    await env.writeRaw(`spx/${targetDirectory}/${slug}.md`, "# Ordering target\n");
+    await env.writeRaw(`spx/${lowerCodeUnitFirst}/${codeUnitFirstSlug}.md`, "# Lower pair\n");
+    await env.writeRaw(`spx/${lowerLocaleFirst}/${localeFirstSlug}.md`, "# Lower pair\n");
+    await env.writeRaw(`spx/${sameCodeUnitFirst}/${codeUnitFirstSlug}.md`, "# Same pair\n");
+    await env.writeRaw(`spx/${sameLocaleFirst}/${localeFirstSlug}.md`, "# Same pair\n");
+    await env.writeRaw(`spx/${higherCodeUnitFirst}/${codeUnitFirstSlug}.md`, "# Higher pair\n");
+    await env.writeRaw(`spx/${higherLocaleFirst}/${localeFirstSlug}.md`, "# Higher pair\n");
+
+    const manifest = parseContextManifest(await contextCommand({ target: targetDirectory, cwd: env.productDir }));
+
+    const lowerPair = manifest.read
+      .filter((document) => document.role === SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING)
+      .map((document) => document.path)
+      .filter((path) => path.startsWith(`spx/${lowerCodeUnitFirst}/`) || path.startsWith(`spx/${lowerLocaleFirst}/`));
+    expect(lowerPair).toStrictEqual([
+      `spx/${lowerCodeUnitFirst}/${codeUnitFirstSlug}.md`,
+      `spx/${lowerLocaleFirst}/${localeFirstSlug}.md`,
+    ]);
+
+    const listedPairFor = (role: SpecContextListedRole, pair: readonly [string, string]): readonly string[] =>
+      manifest.listed
+        .filter((entry) => entry.role === role)
+        .map((entry) => entry.path)
+        .filter((path) => path === `spx/${pair[0]}` || path === `spx/${pair[1]}`);
+    expect(listedPairFor(SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING, [sameCodeUnitFirst, sameLocaleFirst]))
+      .toStrictEqual([`spx/${sameCodeUnitFirst}`, `spx/${sameLocaleFirst}`]);
+    expect(listedPairFor(SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING, [higherCodeUnitFirst, higherLocaleFirst]))
+      .toStrictEqual([`spx/${higherCodeUnitFirst}`, `spx/${higherLocaleFirst}`]);
+  });
+}
+
+/**
+ * Ambiguous-segment candidate listings follow code-unit order on a divergent
+ * pair, so the diagnostic's candidate order is host-independent.
+ */
+export async function assertSpecContextOrdersAmbiguousCandidatesByCodeUnits(): Promise<void> {
+  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await env.materialize();
+    const fixture = env.fixture;
+    const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const ambiguousOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
+    const codeUnitFirstDirectory = `${ambiguousOrder}-Z${slug}${nodeSuffix}`;
+    const localeFirstDirectory = `${ambiguousOrder}-a${slug}${nodeSuffix}`;
+    expect(codeUnitFirstDirectory < localeFirstDirectory).toBe(true);
+    expect(codeUnitFirstDirectory.localeCompare(localeFirstDirectory)).toBeGreaterThan(0);
+    await env.writeRaw(`spx/${codeUnitFirstDirectory}/Z${slug}.md`, "# Ambiguous pair\n");
+    await env.writeRaw(`spx/${localeFirstDirectory}/a${slug}.md`, "# Ambiguous pair\n");
+
+    const snapshot = await env.readFilesystemSnapshot();
+    const resolution = resolveSpecContextTarget(snapshot, `${ambiguousOrder}`);
+    if (resolution.ok || resolution.failure.kind !== SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT) {
+      throw new Error("Expected an ambiguous-segment resolution failure for the shared order prefix");
+    }
+    const candidatePair = resolution.failure.candidates.filter(
+      (candidate) => candidate === codeUnitFirstDirectory || candidate === localeFirstDirectory,
+    );
+    expect(candidatePair).toStrictEqual([codeUnitFirstDirectory, localeFirstDirectory]);
   });
 }
 
