@@ -1,6 +1,6 @@
 # Appendable Journal Store Binding
 
-The agent-run-journal's `AppendableBackend` port is implemented under `src/lib/` as a module that persists each event to a deterministic per-sequence JSONL record through the atomic publication contract of `spx/18-state.enabler/43-record-store.enabler/21-atomic-jsonl-publication.adr.md`. The sequence record path is a pure function of the caller-resolved run file path and event sequence. Each `append` serializes the complete event to a unique temporary sibling and atomically hard-links it to that sequence path; a destination collision rejects with `JOURNAL_ERROR.SEQ_CONSUMED`. `readAll` combines conformant per-sequence records with a conformant aggregate run file when one exists, deduplicates by sequence with the atomic sequence record authoritative, and returns events in ascending sequence order.
+The agent-run-journal's `AppendableBackend` port is implemented under `src/lib/` as a module that persists each event to a deterministic per-sequence JSONL record through the atomic publication contract of `spx/18-state.enabler/43-record-store.enabler/21-atomic-jsonl-publication.adr.md`. The sequence record path is a pure function of the caller-resolved run file path and event sequence. Each `append` serializes the complete event to a unique temporary sibling and atomically hard-links it to that sequence path; a destination collision rejects with `JOURNAL_ERROR.SEQ_CONSUMED`. `readAll` returns conformant per-sequence records in ascending sequence order whenever any sequence records exist. It reads the aggregate run file only when the history is sealed and no sequence records exist, the retained hydrated-artifact shape.
 
 The caller-resolved run file remains the retained single-artifact representation. `seal` materializes the ordered sequence records into that aggregate JSONL file before writing the seal marker, so artifact retention and hydration continue to carry one run file plus its marker. An interrupted active run reopens from its sequence records; a hydrated sealed run with no local sequence records reopens from the aggregate. Every filesystem operation flows through the injected `StateStoreFileSystem`; temporary-name generation is injected with a production default.
 
@@ -8,7 +8,7 @@ The caller-resolved run file remains the retained single-artifact representation
 
 The journal contract names no backend, so the local store binds its port without changing `append`, `readAll`, `seal`, or `isSealed`. A complete per-sequence record published by hard link makes sequence allocation and event persistence one atomic visibility boundary: before publication the deterministic sequence path is absent and retryable; after publication it names the complete event and a fresh process replays it. An empty claim followed by a separate aggregate append is rejected because termination between those operations leaves a permanent claim with no event. Read-then-clear recovery is also rejected because a second process can mistake a live writer's claim for a stale one and publish the same sequence.
 
-Per-sequence JSONL records keep active-run appends independent and no-overwrite while preserving the record store's serialization. Materializing the aggregate only at seal avoids concurrent append races in the retained file. Reading the aggregate as a fallback preserves hydrated sealed runs produced by artifact storage, while sequence-record precedence prevents a stale aggregate line from overriding the atomic record for its sequence.
+Per-sequence JSONL records keep active-run appends independent and no-overwrite while preserving the record store's serialization. Materializing the aggregate only at seal avoids concurrent append races in the retained file. An interrupted aggregate write cannot damage live history because sequence records remain authoritative and the seal marker remains absent; retrying seal rematerializes the complete aggregate. Aggregate fallback is restricted to a sealed history with no local sequence records, preserving hydrated runs produced by artifact storage without treating an unsealed aggregate-only file as a supported active journal.
 
 Deriving seal state from a marker file rather than a sentinel event keeps every persisted journal record a CloudEvent. Taking a resolved run file path keeps git topology and `.spx/` scope derivation in the state module per `spx/17-state.adr.md`.
 
@@ -17,7 +17,7 @@ Deriving seal state from a marker file rather than a sentinel event keeps every 
 - The run file, sequence-record, temporary-record, and seal-marker paths are pure functions of their declared inputs.
 - A deterministic sequence path is absent before publication and contains one complete conformant event after publication.
 - Each sequence has at most one authoritative event, and a collision leaves that event unchanged.
-- `readAll` returns every authoritative event exactly once in ascending sequence order across active, restarted, sealed, and hydrated histories.
+- `readAll` returns every authoritative event exactly once in ascending sequence order from sequence records, or from the aggregate only when the history is sealed and no sequence records exist.
 - The seal marker is written only after the aggregate run file contains the ordered replay of every authoritative sequence record.
 
 ## Verification
@@ -26,6 +26,7 @@ Deriving seal state from a marker file rather than a sentinel event keeps every 
 
 - ALWAYS: overlapping appends through backend instances sharing one run path publish an incoming sequence at most once, preserve a replay with unique contiguous sequences, and reject every conflict with `JOURNAL_ERROR.SEQ_CONSUMED` ([property])
 - ALWAYS: interruption before atomic sequence-record publication leaves the sequence reusable through a fresh backend, while interruption after publication leaves the complete event replayable and advances the next append by exactly one ([compliance])
+- ALWAYS: interruption during aggregate seal materialization leaves every sequence record replayable, writes no seal marker, and permits a later seal to rematerialize the complete aggregate ([compliance])
 - ALWAYS: sealing materializes the complete ordered replay into the aggregate run file, and a hydrated backend with only that aggregate and its seal marker replays the same history ([compliance])
 
 ### Audit
@@ -36,3 +37,4 @@ Deriving seal state from a marker file rather than a sentinel event keeps every 
 - ALWAYS: deterministic sequence-path collisions map to `JOURNAL_ERROR.SEQ_CONSUMED` rather than a store-local error ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or module interception substitutes for the filesystem — tests inject a controlled `StateStoreFileSystem` and exercise the real store code paths, per `spx/17-state.adr.md` ([audit])
 - NEVER: the store treats an absent aggregate line as evidence that an existing sequence path is stale or safe to remove ([audit])
+- NEVER: an unsealed aggregate-only file participates in active-run replay; aggregate fallback requires a persisted seal marker and no sequence records ([audit])
