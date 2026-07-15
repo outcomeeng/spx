@@ -25,7 +25,8 @@ The runner reports `passed`, `failed`, or `interrupted`; the recorder terminal-s
 - ALWAYS: the executor records a run's scope, finding, and terminal evidence through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler` ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts`, and an unsupported verification type opens no run ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts` ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: an unsupported verification type opens no run ([scenario](tests/execute.scenario.l1.test.ts))
 - ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([scenario](tests/execute.scenario.l1.test.ts))
 
 ### Audit
