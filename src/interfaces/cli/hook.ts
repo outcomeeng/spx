@@ -23,7 +23,7 @@ import {
   resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
   ERROR_DETAIL_SEPARATOR,

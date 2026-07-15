@@ -1,7 +1,7 @@
 import { Command, type ErrorOptions } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 

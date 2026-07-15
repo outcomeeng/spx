@@ -1,4 +1,4 @@
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 
 import { agentDomain } from "./agent";
 import { compactDomain } from "./compact";

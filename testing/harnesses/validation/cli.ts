@@ -5,7 +5,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { expect } from "vitest";
 
 import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation/messages";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createValidationDomain, type ValidationCommandHandlers, validationDomain } from "@/interfaces/cli/validation";

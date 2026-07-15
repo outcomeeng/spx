@@ -14,7 +14,7 @@ import {
   type DocumentationFaithfulnessAuditor,
 } from "@/domains/release/documentation-sync";
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 

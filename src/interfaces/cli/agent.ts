@@ -30,7 +30,7 @@ import {
   resolveAgentResumeMode,
   worktreeResumeScope,
 } from "@/domains/agent";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
