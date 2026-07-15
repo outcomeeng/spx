@@ -372,6 +372,7 @@ These recur on feature worktrees and have cost real debugging time and machine s
 
 ```
 src/
+├── agent/         # Agent SDK boundary (injected AgentRunner for agent-authored artifacts)
 ├── commands/      # CLI command implementations
 │   ├── session/     # spx session subcommands
 │   ├── spec/        # spx spec subcommands
@@ -382,6 +383,7 @@ src/
 │   ├── agent-environment/
 │   ├── audit/
 │   ├── config/
+│   ├── release/         # Release data and agent-authored release notes
 │   ├── session/
 │   ├── spec/
 │   └── validation/
