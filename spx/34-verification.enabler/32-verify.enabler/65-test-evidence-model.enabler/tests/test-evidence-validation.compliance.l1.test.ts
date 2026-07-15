@@ -4,6 +4,7 @@ import {
   assertInvalidTestFindingRejectedBeforeAppend,
   assertInvalidTestScopeRejectedBeforeAppend,
   assertTestTerminalRejectsAgenticDisposition,
+  assertTestTerminalRejectsPassedWithFindings,
   assertTestTerminalRejectsSuppliedMetadata,
 } from "@testing/harnesses/verify/harness";
 
@@ -22,5 +23,9 @@ describe("test evidence validation", () => {
 
   it("rejects supplied terminal metadata, since a deterministic run produces none", async () => {
     await assertTestTerminalRejectsSuppliedMetadata();
+  });
+
+  it("rejects a passed terminal when findings exist, since a passing run produces none", async () => {
+    await assertTestTerminalRejectsPassedWithFindings();
   });
 });
