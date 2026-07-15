@@ -24,7 +24,7 @@ import {
   arbitraryDiscoveredKnipExecutablePath,
   VALIDATION_PIPELINE_DATA,
 } from "@testing/generators/validation/validation";
-import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
+import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import {
@@ -305,6 +305,54 @@ export const unusedCodePropertyCases = collectHarnessTestCases(() => {
   });
 });
 
+interface StreamingKnipPipelineRun {
+  readonly result: Awaited<ReturnType<typeof allCommand>>;
+  readonly streamedStdout: readonly string[];
+  readonly streamedStderr: readonly string[];
+  readonly stageCompletions: readonly ValidationStageCompletion[];
+}
+
+/**
+ * Run `validation all` over a fixture with only the Knip stage swapped for a
+ * streaming double, so a compliance case can assert how the Knip stage carries
+ * streamed detail and its terminal verdict on either the passing or failing path.
+ */
+async function runFullPipelineWithStreamingKnip(
+  env: LiteralFixtureEnv,
+  sourceFilePath: string,
+  runner: OutputRecordingSpawnOptionsRunner,
+): Promise<StreamingKnipPipelineRun> {
+  const validationCalls: KnipValidationCall[] = [];
+  const streamedStdout: string[] = [];
+  const streamedStderr: string[] = [];
+  const stageCompletions: ValidationStageCompletion[] = [];
+  await env.writeTsConfigMarker();
+  await env.writeSourceFile(
+    sourceFilePath,
+    sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
+  );
+  const knipDeps = createRecordingKnipCommandDeps(env.productDir, validationCalls, runner);
+  const fullPipelineStages = validationPipelineStages.map((stage) =>
+    stage.name === VALIDATION_STAGE_DISPLAY_NAMES.KNIP
+      ? {
+        ...stage,
+        run: (context: ValidationStageContext) =>
+          runKnipStage(context, {
+            knipCommand: (options) => knipCommand(options, knipDeps),
+          }),
+      }
+      : stage
+  );
+  const result = await allCommand({
+    cwd: env.productDir,
+    files: [sourceFilePath],
+    validationStages: fullPipelineStages,
+    onStageComplete: (completion) => stageCompletions.push(completion),
+    outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
+  });
+  return { result, streamedStdout, streamedStderr, stageCompletions };
+}
+
 export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
   describe("Knip unused-code compliance", () => {
     it("emits one terminal verdict after full-pipeline Knip detail streams", async () => {
@@ -313,44 +361,14 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const failureDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-          const validationCalls: KnipValidationCall[] = [];
-          const streamedStdout: string[] = [];
-          const streamedStderr: string[] = [];
-          const stageCompletions: ValidationStageCompletion[] = [];
           const runner = new OutputRecordingSpawnOptionsRunner(
             failureDetail,
             VALIDATION_EXIT_CODES.FAILURE,
           );
-          await env.writeTsConfigMarker();
-          await env.writeSourceFile(
+          const { result, streamedStdout, streamedStderr, stageCompletions } = await runFullPipelineWithStreamingKnip(
+            env,
             sourceFilePath,
-            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-          );
-
-          const knipDeps = createRecordingKnipCommandDeps(
-            env.productDir,
-            validationCalls,
             runner,
-          );
-          const fullPipelineStages = validationPipelineStages.map((stage) =>
-            stage.name === VALIDATION_STAGE_DISPLAY_NAMES.KNIP
-              ? {
-                ...stage,
-                run: (context: ValidationStageContext) =>
-                  runKnipStage(context, {
-                    knipCommand: (options) => knipCommand(options, knipDeps),
-                  }),
-              }
-              : stage
-          );
-          const result = await allCommand(
-            {
-              cwd: env.productDir,
-              files: [sourceFilePath],
-              validationStages: fullPipelineStages,
-              onStageComplete: (completion) => stageCompletions.push(completion),
-              outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
-            },
           );
 
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
@@ -383,44 +401,14 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         async (env) => {
           const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
           const successDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-          const validationCalls: KnipValidationCall[] = [];
-          const streamedStdout: string[] = [];
-          const streamedStderr: string[] = [];
-          const stageCompletions: ValidationStageCompletion[] = [];
           const runner = new OutputRecordingSpawnOptionsRunner(
             successDetail,
             VALIDATION_EXIT_CODES.SUCCESS,
           );
-          await env.writeTsConfigMarker();
-          await env.writeSourceFile(
+          const { result, streamedStdout, streamedStderr, stageCompletions } = await runFullPipelineWithStreamingKnip(
+            env,
             sourceFilePath,
-            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
-          );
-
-          const knipDeps = createRecordingKnipCommandDeps(
-            env.productDir,
-            validationCalls,
             runner,
-          );
-          const fullPipelineStages = validationPipelineStages.map((stage) =>
-            stage.name === VALIDATION_STAGE_DISPLAY_NAMES.KNIP
-              ? {
-                ...stage,
-                run: (context: ValidationStageContext) =>
-                  runKnipStage(context, {
-                    knipCommand: (options) => knipCommand(options, knipDeps),
-                  }),
-              }
-              : stage
-          );
-          const result = await allCommand(
-            {
-              cwd: env.productDir,
-              files: [sourceFilePath],
-              validationStages: fullPipelineStages,
-              onStageComplete: (completion) => stageCompletions.push(completion),
-              outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
-            },
           );
 
           expect(streamedStdout).toEqual([successDetail]);
