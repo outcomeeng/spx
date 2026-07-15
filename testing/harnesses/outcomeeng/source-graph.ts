@@ -18,6 +18,7 @@ import {
   SOURCE_GRAPH_LANGUAGE,
   SOURCE_OWNERSHIP_CLASSIFICATION,
   type SourceGraphLanguage,
+  type SourceOwnershipClassification,
   type SourceOwnershipInput,
 } from "@/outcomeeng/spec-tree/graph/source";
 import {
@@ -26,6 +27,7 @@ import {
   arbitraryNormalizationScenario,
   arbitraryOwnershipGraphScenario,
   arbitraryOwnershipScenario,
+  arbitraryUnresolvablePathFixture,
 } from "@testing/generators/outcomeeng/source-graph";
 import {
   assertProperty,
@@ -37,19 +39,17 @@ import {
 const L1_STANDARD: PropertyClassification = { level: PROPERTY_LEVEL.L1 };
 const L1_SMALL: PropertyClassification = { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL };
 
-/** Every ownership classification is produced by inputs generated to demand exactly it. */
-export function assertOwnershipClassificationMapping(): void {
-  for (const classification of Object.values(SOURCE_OWNERSHIP_CLASSIFICATION)) {
-    assertProperty(
-      arbitraryOwnershipScenario(classification),
-      (scenario) => {
-        const records = classifySourceOwnership(scenario.input);
-        expect(records.map((record) => record.sourcePath)).toStrictEqual([scenario.sourcePath]);
-        expect(records.at(0)?.classification).toBe(classification);
-      },
-      L1_SMALL,
-    );
-  }
+/** One ownership classification is produced by inputs generated to demand exactly it. */
+export function assertOwnershipClassificationMappingFor(classification: SourceOwnershipClassification): void {
+  assertProperty(
+    arbitraryOwnershipScenario(classification),
+    (scenario) => {
+      const records = classifySourceOwnership(scenario.input);
+      expect(records.map((record) => record.sourcePath)).toStrictEqual([scenario.sourcePath]);
+      expect(records.at(0)?.classification).toBe(classification);
+    },
+    L1_SMALL,
+  );
 }
 
 /** Every record's evidence category is exactly the one its classification is justified by. */
@@ -137,6 +137,17 @@ export function assertGcCandidatesDeriveFromClassification(): void {
       expect(candidates).toStrictEqual(
         records.filter((record) => record.classification === SOURCE_OWNERSHIP_CLASSIFICATION.UNOWNED),
       );
+    },
+    L1_STANDARD,
+  );
+}
+
+/** A validly attributed fact whose path escapes or never enters the product directory is rejected. */
+export function assertUnresolvableProviderFactPathRejected(): void {
+  assertProperty(
+    arbitraryUnresolvablePathFixture(),
+    (fixture) => {
+      expect(() => normalizeProviderFact(fixture.productDir, fixture.fact)).toThrowError(fixture.expectedDiagnostic);
     },
     L1_STANDARD,
   );

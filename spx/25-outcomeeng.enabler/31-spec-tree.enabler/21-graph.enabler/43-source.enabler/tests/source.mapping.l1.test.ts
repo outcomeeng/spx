@@ -1,9 +1,13 @@
 import { describe, it } from "vitest";
 
-import { assertOwnershipClassificationMapping } from "@testing/harnesses/outcomeeng/source-graph";
+import { SOURCE_OWNERSHIP_CLASSIFICATION } from "@/outcomeeng/spec-tree/graph/source";
+import { assertOwnershipClassificationMappingFor } from "@testing/harnesses/outcomeeng/source-graph";
 
 describe("source artifact ownership classification", () => {
-  it("maps provider facts and linked tests to every ownership classification", () => {
-    assertOwnershipClassificationMapping();
-  });
+  it.each(Object.values(SOURCE_OWNERSHIP_CLASSIFICATION))(
+    "maps provider facts and linked tests to %s",
+    (classification) => {
+      assertOwnershipClassificationMappingFor(classification);
+    },
+  );
 });

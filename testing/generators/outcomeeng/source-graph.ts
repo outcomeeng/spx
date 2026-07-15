@@ -15,6 +15,7 @@ import * as fc from "fast-check";
 
 import {
   formatUnattributableProviderFactError,
+  formatUnresolvableProviderFactPathError,
   type NormalizedProviderFact,
   PROVIDER_FACT_KIND,
   type ProviderFactKind,
@@ -276,6 +277,73 @@ export function arbitraryNormalizationScenario(): fc.Arbitrary<NormalizationScen
           kind: seed.kind,
           testPath: encodeRawPath(seed.testEncoding, seed.productDir, canonicalTestPath),
           sourcePath: encodeRawPath(seed.sourceEncoding, seed.productDir, canonicalSourcePath),
+          provenance: seed.provenance,
+        },
+      };
+    });
+}
+
+/** Path shapes that bind no product-root-relative identity. */
+export const UNRESOLVABLE_PATH_VARIANT = {
+  PARENT_ESCAPE: "parent-escape",
+  NESTED_ESCAPE: "nested-escape",
+  FOREIGN_ABSOLUTE: "foreign-absolute",
+  EMPTY: "empty",
+} as const;
+
+export type UnresolvablePathVariant = (typeof UNRESOLVABLE_PATH_VARIANT)[keyof typeof UNRESOLVABLE_PATH_VARIANT];
+
+/** The fact fields a path occupies; either must reject an unresolvable path. */
+export const PROVIDER_FACT_PATH_FIELD = {
+  TEST_PATH: "testPath",
+  SOURCE_PATH: "sourcePath",
+} as const;
+
+export type ProviderFactPathField = (typeof PROVIDER_FACT_PATH_FIELD)[keyof typeof PROVIDER_FACT_PATH_FIELD];
+
+function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: string, canonicalPath: string): string {
+  switch (variant) {
+    case UNRESOLVABLE_PATH_VARIANT.PARENT_ESCAPE:
+      return `../${canonicalPath}`;
+    case UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE: {
+      const [head, ...rest] = canonicalPath.split("/");
+      return [head, "..", "..", ...rest].join("/");
+    }
+    case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
+      return `${productDir}-foreign/${canonicalPath}`;
+    case UNRESOLVABLE_PATH_VARIANT.EMPTY:
+      return "";
+  }
+}
+
+/** A validly attributed fact carrying one unresolvable path, plus the exact diagnostic its rejection must carry. */
+export interface UnresolvablePathFixture {
+  readonly productDir: string;
+  readonly fact: RawProviderFact;
+  readonly expectedDiagnostic: string;
+}
+
+/** A fixture whose test or source path escapes, leaves, or never enters the product directory. */
+export function arbitraryUnresolvablePathFixture(): fc.Arbitrary<UnresolvablePathFixture> {
+  return fc
+    .record({
+      variant: fc.constantFrom(...Object.values(UNRESOLVABLE_PATH_VARIANT)),
+      field: fc.constantFrom(...Object.values(PROVIDER_FACT_PATH_FIELD)),
+      productDir: arbitraryProductDir(),
+      paths: fc.uniqueArray(arbitraryArtifactPath(), { minLength: 2, maxLength: 2 }),
+      kind: fc.constantFrom(...Object.values(PROVIDER_FACT_KIND)),
+      provenance: arbitraryProviderFactProvenance(),
+    })
+    .map((seed) => {
+      const [validPath, escapeSeedPath] = seed.paths;
+      const unresolvablePath = encodeUnresolvablePath(seed.variant, seed.productDir, escapeSeedPath);
+      return {
+        productDir: seed.productDir,
+        expectedDiagnostic: formatUnresolvableProviderFactPathError(unresolvablePath),
+        fact: {
+          kind: seed.kind,
+          testPath: seed.field === PROVIDER_FACT_PATH_FIELD.TEST_PATH ? unresolvablePath : validPath,
+          sourcePath: seed.field === PROVIDER_FACT_PATH_FIELD.SOURCE_PATH ? unresolvablePath : validPath,
           provenance: seed.provenance,
         },
       };
