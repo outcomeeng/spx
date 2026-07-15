@@ -6,6 +6,7 @@ import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/jou
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
+import type { TestFinding, TestScopeUnit } from "@/test/languages/types";
 
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
@@ -71,13 +72,16 @@ function unsealedNextActionsForDriveMode(driveMode: VerifyDriveMode): readonly s
 }
 
 /**
- * The verification types whose finding payloads `spx verification run finding add` validates. Each
- * type registers a finding validator (see `FINDING_VALIDATORS`); dispatch is a registry lookup
- * keyed by this vocabulary, never verification-type-name branching.
+ * The verification types whose evidence payloads the run lifecycle validates, whether a caller
+ * appends them through `spx verification run finding add` or spx streams them while it drives the
+ * type's runner. Each type registers scope, finding, and terminal validators (see
+ * `EVIDENCE_VALIDATORS`); dispatch is a registry lookup keyed by this vocabulary, never
+ * verification-type-name branching.
  */
 export const VERIFY_VERIFICATION_TYPE = {
   AUDIT: "audit",
   REVIEW: "review",
+  TEST: "test",
 } as const;
 
 export type VerifyVerificationType = (typeof VERIFY_VERIFICATION_TYPE)[keyof typeof VERIFY_VERIFICATION_TYPE];
@@ -1025,6 +1029,58 @@ function validateAuditFindingForRun(input: EvidenceValidationInput): AuditFindin
   return auditFindingReferencesRecordedScope(input.events, finding) ? finding : undefined;
 }
 
+/** Validate a `test` scope payload as one inspected test module. */
+export function validateTestScope(payload: JsonValue): TestScopeUnit | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const moduleId = readRequiredString(payload, "moduleId");
+  if (moduleId === undefined) return undefined;
+  return { moduleId };
+}
+
+/** Validate a `test` finding payload as one failing test case with its error messages. */
+export function validateTestFinding(payload: JsonValue): TestFinding | undefined {
+  if (!isJsonRecord(payload)) return undefined;
+  const moduleId = readRequiredString(payload, "moduleId");
+  const testName = readRequiredString(payload, "testName");
+  if (moduleId === undefined || testName === undefined) return undefined;
+  const errors = readFindingErrors(payload.errors);
+  if (errors === undefined) return undefined;
+  return { moduleId, testName, errors };
+}
+
+/**
+ * Read a `test` finding's error messages: an array of strings. The reporter maps a Vitest error with
+ * no message to an empty string and a failing case with no error objects to an empty array, so the
+ * validator accepts both — the finding's existence records the failure; the messages are diagnostic
+ * detail.
+ */
+function readFindingErrors(value: JsonValue | undefined): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.every((entry) => typeof entry === "string") ? value : undefined;
+}
+
+/**
+ * The terminal statuses a `test` run seals with — the runner-mapped subset of the journal
+ * vocabulary. A deterministic test run never seals with an agentic disposition (`approved`,
+ * `rejected`), so the terminal validator rejects those and any terminal metadata.
+ */
+const TEST_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  JOURNAL_RUN_STATE_STATUS.PASSED,
+  JOURNAL_RUN_STATE_STATUS.FAILED,
+  JOURNAL_RUN_STATE_STATUS.INTERRUPTED,
+]);
+
+/** Validate a `test` run's terminal completion: a runner-mapped status with no terminal metadata. */
+export function validateTestTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
+  if (input.metadata !== undefined) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+  }
+  if (!TEST_TERMINAL_STATUSES.has(input.terminalStatus)) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+  }
+  return { ok: true, value: undefined };
+}
+
 /**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
@@ -1049,6 +1105,11 @@ const EVIDENCE_VALIDATORS: Readonly<
     [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateReviewScope),
     [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateReviewFinding),
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateReviewTerminal,
+  },
+  [VERIFY_VERIFICATION_TYPE.TEST]: {
+    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateTestScope),
+    [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateTestFinding),
+    [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateTestTerminal,
   },
 };
 
