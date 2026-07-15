@@ -1,7 +1,7 @@
 {
   "enabledPlugins": {
     "prose@outcomeeng": true,
-    "develop@outcomeeng": true,
+    "instructions@outcomeeng": true,
     "typescript@outcomeeng": true,
     "spec-tree@outcomeeng": true,
     "sonarqube@claude-plugins-official": true
