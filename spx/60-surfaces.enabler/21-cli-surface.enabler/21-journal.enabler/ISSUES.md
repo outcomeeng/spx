@@ -104,3 +104,26 @@ scale with the explicit bounds.
 Enhancement: split sealed-run metadata discovery from event loading so the
 command can select the most recent bounded run set before reading per-run event
 history, and read at most the requested event count for each selected run.
+
+## FOLLOW-UP — audit runs lose terminal state in journal-list projection
+
+`spx journal list --limit 50` reports sealed audit runs as
+`terminalState: "missing-state"` even when their event streams contain a
+terminal audit verdict. For example, audit run
+`2026-07-15_21-09-15-216-bc43afdf8d61` on branch slug
+`work-diagnose-output-modes-391a4909` is sealed with six events and is listed as
+missing its terminal state, while `spx journal read --type audit --branch-slug
+work-diagnose-output-modes-391a4909 --run
+2026-07-15_21-09-15-216-bc43afdf8d61 --from 1` returns a
+`sh.spx.verify.terminal` event whose `terminalStatus` is `rejected`. The same
+list projection reports the sealed approved audit run
+`2026-07-15_21-25-31-989-f8bf874036ca` as missing its terminal state.
+
+The list and read surfaces therefore disagree about completed audit runs.
+Terminal-state filtering, audit discovery, and automation that consumes list
+metadata cannot distinguish approved and rejected audit runs reliably.
+
+Resolution: reproduce the mismatch through the journal node's focused tests and
+trace how audit terminal events become list metadata. Revisit before relying on
+`journal list --terminal-state`, audit summary projection, or merge automation
+that consumes list metadata.
