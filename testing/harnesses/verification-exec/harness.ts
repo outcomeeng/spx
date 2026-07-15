@@ -156,7 +156,7 @@ function createExecutorHarness(): ExecutorHarness {
     verificationType: VERIFY_VERIFICATION_TYPE.TEST,
     scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
     scope: scenario.scope,
-    projectRoot: runRequest.projectRoot,
+    productDir: runRequest.productDir,
     testPaths: runRequest.testPaths,
   };
   return { scenario, fs, recorder, request };
@@ -230,7 +230,7 @@ export async function assertExecutorDrivesRunnerAndReportsLocator(): Promise<voi
   expect(result.run.scopeIdentity).toBe(harness.request.scope);
 
   const driven = controlled.request();
-  expect(driven?.projectRoot).toBe(harness.request.projectRoot);
+  expect(driven?.productDir).toBe(harness.request.productDir);
   expect(driven?.testPaths).toEqual(harness.request.testPaths);
 
   const events = await renderRunEvents(harness, result.run.runToken);

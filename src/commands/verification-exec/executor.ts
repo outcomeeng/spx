@@ -56,7 +56,7 @@ export interface ExecutorRunRequest {
   readonly verificationType: string;
   readonly scopeType: string;
   readonly scope: string;
-  readonly projectRoot: string;
+  readonly productDir: string;
   readonly testPaths: readonly string[];
 }
 
@@ -111,7 +111,7 @@ export async function executeVerificationRun(
     appendFinding: (finding) => deps.recorder.appendFinding(run, finding),
   };
   const invocation = await runner.runTestsStreaming(
-    { projectRoot: request.projectRoot, testPaths: request.testPaths },
+    { productDir: request.productDir, testPaths: request.testPaths },
     { sink },
   );
   const terminalStatus = invocation.invoked
