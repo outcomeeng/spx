@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -58,12 +58,14 @@ import {
   arbitraryReleaseVersionVariantOnlyScenario,
   arbitrarySingleDocumentSyncScenario,
   arbitrarySparseDocumentationPathSet,
+  arbitraryUnrelatedVersionRewriteScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
   documentationPathFailureCases,
   documentationPathMappingCases,
   type DocumentationSyncScenario,
+  type DocumentationUnrelatedVersionRewriteScenario,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -577,6 +579,55 @@ async function assertDocumentationFailureLeavesProductUnchanged(
     })).rejects.toThrow();
     expect(promoter.calls).toHaveLength(0);
     await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertDuplicateDocumentationIdentityRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primaryPath = scenario.paths.at(0);
+  const aliasPath = scenario.paths.at(1);
+  if (primaryPath === undefined || aliasPath === undefined) {
+    throw new Error("Generated documentation identity case requires two paths");
+  }
+  const promoter = new RecordingDocumentationPromoter();
+  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+    await rm(join(options.productDir, aliasPath));
+    await link(
+      join(options.productDir, primaryPath),
+      join(options.productDir, aliasPath),
+    );
+    await expect(composeDocumentationSync({
+      ...options,
+      promoteDocumentation: promoter.promote,
+    })).rejects.toThrow();
+    expect(agent.requests).toHaveLength(0);
+    expect(promoter.calls).toHaveLength(0);
+    await expectProductDocumentationUnchanged(scenario, readProductDocument);
+  });
+}
+
+async function assertUnrelatedVersionRewriteRejected(
+  testCase: DocumentationUnrelatedVersionRewriteScenario,
+): Promise<void> {
+  const promoter = new RecordingDocumentationPromoter();
+  await withDocumentationScenario(testCase.scenario, async (options, readProductDocument) => {
+    await expect(composeDocumentationSync({
+      ...options,
+      agentRunner: new DocumentationWritingAgent(testCase.rewritten),
+      faithfulnessAuditor: async (request) => {
+        expect(request.documents.map(({ path, updatedContent }) => ({ path, updatedContent }))).toEqual(
+          testCase.scenario.paths.map((path) => ({
+            path,
+            updatedContent: testCase.rewritten[path],
+          })),
+        );
+        await rejectingDocumentationAuditor(request);
+      },
+      promoteDocumentation: promoter.promote,
+    })).rejects.toThrow();
+    expect(promoter.calls).toHaveLength(0);
+    await expectProductDocumentationUnchanged(testCase.scenario, readProductDocument);
   });
 }
 
@@ -1130,6 +1181,14 @@ function registerPropertyTests(): void {
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
     });
+
+    it("rejects every generated unrelated semantic-version rewrite before promotion", async () => {
+      await assertProperty(
+        arbitraryUnrelatedVersionRewriteScenario(),
+        assertUnrelatedVersionRewriteRejected,
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
   });
 }
 
@@ -1175,6 +1234,12 @@ function registerComplianceTests(): void {
     it("rejects staged documentation identity changes during read-back", async () => {
       await assertStagedReadbackIdentityChangeRejected(
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
+    it("rejects configured documentation paths that share one file identity", async () => {
+      await assertDuplicateDocumentationIdentityRejected(
+        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
       );
     });
 
