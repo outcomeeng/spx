@@ -406,9 +406,9 @@ async function relatedTestPaths(
 
 /**
  * Drives the TypeScript journal-streaming run: delegates the programmatic Vitest run
- * and its reporter to `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`,
- * streaming per-module scope and per-failing-case findings into the injected sink and yielding
- * the run's terminal status. The production Vitest run-starter is the default; an injected
+ * and its reporter to `runTestsStreaming` in `./journal-reporter`, streaming per-module
+ * scope and per-failing-case findings into the injected sink and yielding the run's
+ * terminal status. The production Vitest run-starter is the default; an injected
  * starter lets `l1` tests drive synthetic lifecycle events without a real Vitest run. Widening
  * the descriptor's `{ sink }` dependency to `{ sink, starter? }` conforms to the neutral
  * `TestingLanguageDescriptor` contract while exposing the starter seam TypeScript verification needs.
