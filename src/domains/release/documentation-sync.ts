@@ -29,9 +29,15 @@ export interface StagedDocumentation {
     readonly sourcePath: string;
     readonly stagedPath: string;
     readonly targetPath: string;
+    readonly originalIdentity: DocumentationFileIdentity;
     readonly originalContent: string;
   }[];
   readonly cleanup: () => Promise<void>;
+}
+
+export interface DocumentationFileIdentity {
+  readonly device: number;
+  readonly inode: number;
 }
 
 export interface DocumentationSyncPromptInput {
@@ -59,6 +65,7 @@ export type StagedDocumentationReader = (workingDirectory: string, path: string)
 
 export interface DocumentationPromotion {
   readonly path: string;
+  readonly originalIdentity: DocumentationFileIdentity;
   readonly originalContent: string;
   readonly content: string;
 }
@@ -116,11 +123,12 @@ export async function composeDocumentationSync(
       sourcePath,
       stagedPath,
       targetPath,
+      originalIdentity,
       originalContent,
     }) => {
       const updatedContent = await options.readDocument(stage.workingDirectory, stagedPath);
       assertReleasedVersionReferencesUpdated(updatedContent, options.releaseData, sourcePath);
-      return { path: sourcePath, targetPath, originalContent, updatedContent };
+      return { path: sourcePath, targetPath, originalIdentity, originalContent, updatedContent };
     }));
     await options.faithfulnessAuditor({
       releaseData: options.releaseData,
@@ -131,8 +139,9 @@ export async function composeDocumentationSync(
       })),
     });
     await options.promoteDocumentation(
-      documents.map(({ targetPath, originalContent, updatedContent }) => ({
+      documents.map(({ targetPath, originalIdentity, originalContent, updatedContent }) => ({
         path: targetPath,
+        originalIdentity,
         originalContent,
         content: updatedContent,
       })),
