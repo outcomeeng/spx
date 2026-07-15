@@ -6,20 +6,20 @@ import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 import type { Reporter, TestCase, TestModule } from "vitest/node";
 
-import type {
-  JournalRunTerminalStatus,
-  TestFinding,
-  TestRunEvidenceSink,
-  TestScopeUnit,
-  VitestRunStarter,
-  VitestRunStartOptions,
-} from "@/test/languages/journal-reporter";
 import {
   createJournalReporter,
   createVitestRunStarter,
-  JOURNAL_RUN_TERMINAL_STATUS,
   runTestsStreaming,
+  type VitestRunStarter,
+  type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
+import {
+  JOURNAL_RUN_TERMINAL_STATUS,
+  type JournalRunTerminalStatus,
+  type TestFinding,
+  type TestRunEvidenceSink,
+  type TestScopeUnit,
+} from "@/test/languages/types";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
 import { GENERATED_CASE_STATE } from "@testing/generators/testing/journal-reporter";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -102,6 +102,31 @@ export function createSpyVitestRunStarter(): SpyVitestRunStarter {
     start(options: VitestRunStartOptions): Promise<void> {
       startedRuns.push(options);
       return Promise.resolve();
+    },
+    get startedRuns(): readonly VitestRunStartOptions[] {
+      return startedRuns;
+    },
+  };
+}
+
+/**
+ * Builds a run-starter that records each `start` invocation and drives every registered
+ * reporter's lifecycle hooks over a generated scenario, sealing with the given reason —
+ * so a journal-streaming run streams the scenario's scope and finding evidence into its
+ * sink without spawning Vitest. Lets an `l1` test exercise a streaming run's full
+ * scope-and-finding delivery through the injected starter seam.
+ */
+export function createScenarioDrivingVitestRunStarter(
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): SpyVitestRunStarter {
+  const startedRuns: VitestRunStartOptions[] = [];
+  return {
+    async start(options: VitestRunStartOptions): Promise<void> {
+      startedRuns.push(options);
+      for (const reporter of options.reporters) {
+        await driveReporterOverScenario(reporter, scenario, reason);
+      }
     },
     get startedRuns(): readonly VitestRunStartOptions[] {
       return startedRuns;
@@ -196,7 +221,8 @@ export async function driveReporterOverScenario(
   await reporter.onTestRunEnd?.([testModule], [], reason);
 }
 
-function expectedFindings(scenario: GeneratedRunScenario): readonly TestFinding[] {
+/** The findings a scenario's failing cases map to: one finding per failing case, carrying the module id, case name, and error text. */
+export function expectedFindingsForScenario(scenario: GeneratedRunScenario): readonly TestFinding[] {
   return scenario.cases
     .filter((runCase) => runCase.state === GENERATED_CASE_STATE.FAILED)
     .map((runCase) => ({ moduleId: scenario.moduleId, testName: runCase.testName, errors: runCase.errors }));
@@ -211,7 +237,7 @@ export async function assertJournalReporterMapping(
   const reporter = createJournalReporter(sink);
   await driveReporterOverScenario(reporter, scenario, reason);
   expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
-  expect(sink.findings).toEqual(expectedFindings(scenario));
+  expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
   expect(reporter.terminalStatus).toBe(reason);
 }
 
@@ -253,7 +279,7 @@ export async function assertReporterAwaitsAsyncAppends(scenario: GeneratedRunSce
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
   }
-  expect(sink.findings).toEqual(expectedFindings(scenario));
+  expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
 }
 
 /** Asserts a journal-streaming run registers the journal reporter on a programmatically started run through the injected starter, carrying no command-line reporter flag. */
