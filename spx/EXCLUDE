@@ -14,7 +14,6 @@
 34-verification.enabler/32-verify.enabler/65-review.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler
-34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler
 60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
 25-outcomeeng.enabler/31-spec-tree.enabler
