@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "not-run",
+      "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-evidence-validation.compliance.l1.test.ts": "not-run",
+      "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-finding.conformance.l1.test.ts": "not-run",
+      "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-scope.conformance.l1.test.ts": "not-run"
+    }
+  }
+}

@@ -61,6 +61,8 @@ import {
   TERMINAL_METADATA_VALIDATION_ERROR,
   validateAuditFinding,
   validateAuditScope,
+  validateTestFinding,
+  validateTestScope,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
@@ -115,6 +117,7 @@ import {
 } from "@/lib/state-store";
 import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import {
   type FindingWithKey,
   formatNameStatusZ,
@@ -1224,6 +1227,19 @@ async function auditAppendScenario(): Promise<{
   return { scenario, fs, deps, runToken };
 }
 
+async function testAppendScenario(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly fs: VerifyStateStoreFileSystem;
+  readonly deps: VerifyCliDeps;
+  readonly runToken: string;
+}> {
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.TEST),
+  );
+  const runToken = await startedRunToken(scenario, deps);
+  return { scenario, fs, deps, runToken };
+}
+
 /** The run-context events a run's journal carries, each recording a drive mode. */
 async function runContextEvents(
   scenario: VerifyRunContextScenario,
@@ -1587,6 +1603,114 @@ export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Pro
     eventsBeforeInvalidFinding,
     "empty-evidence audit finding append mutated journal events",
   );
+}
+
+export async function assertTestScopePayloadsConformToSchema(): Promise<void> {
+  await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit(), async (scopeUnit) => {
+    expect(validateTestScope(toJsonValue(scopeUnit))).toEqual(scopeUnit);
+  });
+}
+
+export async function assertTestFindingPayloadsConformToSchema(): Promise<void> {
+  await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.finding(), async (finding) => {
+    expect(validateTestFinding(toJsonValue(finding))).toEqual(finding);
+  });
+}
+
+export async function assertInvalidTestScopeRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await testAppendScenario();
+  const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const eventsBeforeInvalidScope = await readVerifyRunEvents(scenario, runToken, fs);
+
+  await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.invalidScopeUnit(), async (invalidScope) => {
+    const appended = await verifyAppendScopeCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(invalidScope),
+        idempotencyKey: key,
+      }),
+      deps,
+    );
+    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.SCOPE_INVALID) {
+      throw new Error(`expected invalid test scope rejection, received ${appended.output}`);
+    }
+  });
+
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidScope,
+    "invalid test scope append mutated journal events",
+  );
+}
+
+export async function assertInvalidTestFindingRejectedBeforeAppend(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await testAppendScenario();
+  const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
+
+  await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.invalidFinding(), async (invalidFinding) => {
+    const appended = await verifyAppendFindingCommand(
+      verifyAppendOptions(scenario, {
+        run: runToken,
+        payload: JSON.stringify(invalidFinding),
+        idempotencyKey: key,
+      }),
+      deps,
+    );
+    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.FINDING_INVALID) {
+      throw new Error(`expected invalid test finding rejection, received ${appended.output}`);
+    }
+  });
+
+  assertEqualJson(
+    await readVerifyRunEvents(scenario, runToken, fs),
+    eventsBeforeInvalidFinding,
+    "invalid test finding append mutated journal events",
+  );
+}
+
+export async function assertTestTerminalRejectsAgenticDisposition(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await testAppendScenario();
+  const eventsBeforeRejectedFinish = await readVerifyRunEvents(scenario, runToken, fs);
+
+  const rejected = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+    deps,
+  );
+  expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
+
+  const accepted = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED }),
+    deps,
+  );
+  expect(accepted.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseFinishReport(accepted.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
+}
+
+export async function assertTestTerminalRejectsSuppliedMetadata(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await testAppendScenario();
+  const eventsBeforeRejectedFinish = await readVerifyRunEvents(scenario, runToken, fs);
+  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+
+  const rejected = await verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+  expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID);
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
+
+  const accepted = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED }),
+    deps,
+  );
+  expect(accepted.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseFinishReport(accepted.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
 }
 
 async function appendAuditScope(
