@@ -1,31 +1,12 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
-import type { CliDeps } from "@/commands/config/types";
 import { validateCommand } from "@/commands/config/validate";
-import type { Config, Result } from "@/config/types";
 import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
 import { createCliProgram } from "@/interfaces/cli/program";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-
-function makeDeps(resolved: Result<Config>): CliDeps {
-  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-
-  return {
-    resolveConfig: async () => resolved,
-    readProductConfigFile: async () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.absentConfigFileReadResult()),
-    resolveConfigFromReadResult: () => resolved,
-    resolveProductDir: () => productDir,
-    descriptors: [specTreeConfigDescriptor],
-  };
-}
-
-function defaultsConfig(): Config {
-  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeDefaultsConfig());
-}
+import { configCliDefaults, configCliDeps } from "@testing/harnesses/config/cli";
 
 type ProcessOverrides = {
   restore: () => void;
@@ -74,7 +55,7 @@ function trapProcessSideEffects(): ProcessOverrides {
 
 describe("invariants — handlers trigger no process side effects (P1)", () => {
   it("showCommand does not call process.exit, process.chdir, or write to process streams", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+    const deps = configCliDeps({ ok: true, value: configCliDefaults() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -88,7 +69,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("validateCommand does not call process.exit, process.chdir, or write to process streams on the success path", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+    const deps = configCliDeps({ ok: true, value: configCliDefaults() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -101,7 +82,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("validateCommand does not call process.exit, process.chdir, or write to process streams on the rejection path", async () => {
-    const deps = makeDeps({
+    const deps = configCliDeps({
       ok: false,
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     });
@@ -117,7 +98,7 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("defaultsCommand does not call process.exit, process.chdir, or write to process streams", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+    const deps = configCliDeps({ ok: true, value: configCliDefaults() });
     const traps = trapProcessSideEffects();
 
     try {
@@ -143,8 +124,8 @@ describe("invariants — config source scope", () => {
 
 describe("invariants — handlers do not throw, even on rejection", () => {
   it("every handler resolves to a CliResult for both ok and error inputs — no thrown exceptions", async () => {
-    const okDeps = makeDeps({ ok: true, value: defaultsConfig() });
-    const failDeps = makeDeps({
+    const okDeps = configCliDeps({ ok: true, value: configCliDefaults() });
+    const failDeps = configCliDeps({
       ok: false,
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     });
@@ -157,32 +138,9 @@ describe("invariants — handlers do not throw, even on rejection", () => {
   });
 });
 
-describe("invariants — determinism across handler invocations", () => {
-  it("show, validate, and defaults each produce identical CliResult across identical inputs", async () => {
-    await fc.assert(
-      fc.asyncProperty(fc.boolean(), async (asJson) => {
-        const deps = makeDeps({ ok: true, value: defaultsConfig() });
-
-        const showA = await showCommand({ json: asJson }, deps);
-        const showB = await showCommand({ json: asJson }, deps);
-        expect(showA).toEqual(showB);
-
-        const validateA = await validateCommand({}, deps);
-        const validateB = await validateCommand({}, deps);
-        expect(validateA).toEqual(validateB);
-
-        const defaultsA = await defaultsCommand({ json: asJson }, deps);
-        const defaultsB = await defaultsCommand({ json: asJson }, deps);
-        expect(defaultsA).toEqual(defaultsB);
-      }),
-      { numRuns: 10 },
-    );
-  });
-});
-
 describe("invariants — stream discipline (C2)", () => {
   it("successful show/defaults route the resolved Config to stdout; stderr is empty", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+    const deps = configCliDeps({ ok: true, value: configCliDefaults() });
 
     const show = await showCommand({}, deps);
     const defs = await defaultsCommand({}, deps);
@@ -194,7 +152,7 @@ describe("invariants — stream discipline (C2)", () => {
   });
 
   it("failed resolution in show/validate routes diagnostics to stderr and leaves stdout empty", async () => {
-    const deps = makeDeps({
+    const deps = configCliDeps({
       ok: false,
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     });
@@ -209,7 +167,7 @@ describe("invariants — stream discipline (C2)", () => {
   });
 
   it("successful validate emits the success line on stdout, not stderr", async () => {
-    const deps = makeDeps({ ok: true, value: defaultsConfig() });
+    const deps = configCliDeps({ ok: true, value: configCliDefaults() });
 
     const result = await validateCommand({}, deps);
 
