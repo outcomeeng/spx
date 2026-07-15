@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import {
+  compareSpecContextOrdinal,
   decodeContextDocumentUtf8,
   extractDecisionCitations,
   formatInvalidContextDocumentError,
@@ -82,7 +83,7 @@ function refPath(ref: SpecTreeSourceRef | undefined): string | undefined {
 }
 
 function sortPaths(paths: readonly string[]): readonly string[] {
-  return [...paths].sort((left, right) => left.localeCompare(right));
+  return [...paths].sort(compareSpecContextOrdinal);
 }
 
 function fullSpecPath(path: string): string {
@@ -151,11 +152,11 @@ function lowerIndexSiblingsForContextNodes(
     }
   }
   lowerSiblings.sort((left, right) => {
-    const parentComparison = (left.parentId ?? "").localeCompare(right.parentId ?? "");
+    const parentComparison = compareSpecContextOrdinal(left.parentId ?? "", right.parentId ?? "");
     if (parentComparison !== 0) return parentComparison;
     const orderComparison = left.order - right.order;
     if (orderComparison !== 0) return orderComparison;
-    return left.id.localeCompare(right.id);
+    return compareSpecContextOrdinal(left.id, right.id);
   });
   return lowerSiblings;
 }
@@ -352,9 +353,7 @@ async function localOverlayPaths(
   trackedPaths: ReadonlySet<string> | undefined,
 ): Promise<readonly string[]> {
   if (trackedPaths !== undefined) {
-    return [...trackedPaths].filter((path) => isLocalOverlayPath(path)).sort((left, right) =>
-      left.localeCompare(right)
-    );
+    return [...trackedPaths].filter((path) => isLocalOverlayPath(path)).sort(compareSpecContextOrdinal);
   }
   let entries: readonly string[];
   try {
@@ -364,7 +363,7 @@ async function localOverlayPaths(
   }
   return entries
     .filter((name) => name.endsWith(SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION))
-    .sort((left, right) => left.localeCompare(right))
+    .sort(compareSpecContextOrdinal)
     .map((name) => childSpecPath(SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY, name));
 }
 
