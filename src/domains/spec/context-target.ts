@@ -1,4 +1,5 @@
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
+
 import {
   SPEC_TREE_ENTRY_TYPE,
   type SpecTreeNode,
@@ -6,6 +7,7 @@ import {
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { compareSpecContextOrdinal } from "./context-manifest";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS_SEGMENT: "ambiguous-segment",
@@ -181,7 +183,7 @@ export function resolveSpecContextTarget(
     if (candidates.length > 1) {
       return {
         failure: {
-          candidates: candidates.map(nodeSegment).sort((left, right) => left.localeCompare(right)),
+          candidates: candidates.map(nodeSegment).sort(compareSpecContextOrdinal),
           input,
           kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT,
           segment,

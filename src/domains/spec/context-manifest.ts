@@ -139,6 +139,15 @@ export function specContextBootstrap(nodeCount: number): boolean {
   return nodeCount === 0;
 }
 
+/**
+ * Ordinal code-unit comparison for every intra-group ordering rule in the
+ * manifest. A locale-aware comparator would vary with the host locale and ICU
+ * build, breaking the schema decision's byte-identical projection invariant.
+ */
+export function compareSpecContextOrdinal(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 /** Hash algorithm that names every content digest. */
 export const SPEC_CONTEXT_DIGEST_ALGORITHM = "sha256";
 
