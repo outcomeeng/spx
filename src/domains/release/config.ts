@@ -53,10 +53,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isNonEmptyUniqueStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value)
-    && value.length > 0
-    && value.every((path) => typeof path === "string" && path.trim().length > 0)
-    && new Set(value.map(normalizeDocumentationPathIdentity)).size === value.length;
+  if (!Array.isArray(value) || value.length === 0) return false;
+  const pathValues: unknown[] = [...value];
+  const paths = pathValues.filter(isNonEmptyString);
+  return paths.length === pathValues.length
+    && new Set(paths.map(normalizeDocumentationPathIdentity)).size === paths.length;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function normalizeDocumentationPathIdentity(path: string): string {
