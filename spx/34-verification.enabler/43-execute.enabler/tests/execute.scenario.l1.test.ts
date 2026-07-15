@@ -3,6 +3,7 @@ import { describe, it } from "vitest";
 import {
   assertExecutorDrivesRunnerAndReportsLocator,
   assertExecutorGatesUnsupportedTypeWithoutRecording,
+  assertExecutorMapsInterruptedRunnerReport,
   assertExecutorRecordsFindingWithoutErrorMessages,
   assertExecutorRecordsScopeFindingAndTerminal,
   assertExecutorSealsGatedOutRunAsInterrupted,
@@ -27,5 +28,9 @@ describe("spx-driven verification executor scenarios", () => {
 
   it("finishes a gated-out run as interrupted, recording no scope or finding", async () => {
     await assertExecutorSealsGatedOutRunAsInterrupted();
+  });
+
+  it("maps an invoked runner's interrupted report to the interrupted recorder status", async () => {
+    await assertExecutorMapsInterruptedRunnerReport();
   });
 });

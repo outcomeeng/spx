@@ -40,6 +40,7 @@ import {
   JOURNAL_RUN_TERMINAL_STATUS,
   type JournalRunInvocation,
   type JournalRunRequest,
+  type JournalRunTerminalStatus,
   type JournalStreamRunDependencies,
   type TestFinding,
   type TestingLanguageDescriptor,
@@ -197,6 +198,15 @@ function failingMixedOutcome(): ControlledRunOutcome {
 /** A gated-out outcome: detection gated the runner out, so it streams no scope or finding and reports no terminal status. */
 function gatedOutOutcome(): ControlledRunOutcome {
   return { scopeUnits: [], findings: [], invocation: { invoked: false } };
+}
+
+/** An outcome whose runner reports an interrupted terminal status after streaming one inspected unit. */
+function interruptedRunnerOutcome(): ControlledRunOutcome {
+  return {
+    scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
+    findings: [],
+    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED },
+  };
 }
 
 /**
@@ -386,6 +396,29 @@ function arbitraryDomainLiteralValue(): string {
   return sampleJournalReporterValue(arbitraryDomainLiteral());
 }
 
+/** A streaming descriptor that yields a fixed terminal status without streaming evidence, for fold coverage. */
+function streamingDescriptorYielding(status: JournalRunTerminalStatus): TestingLanguageDescriptor {
+  return createControlledLanguageDescriptor(async () => ({ invoked: true, terminalStatus: status }));
+}
+
+/** A descriptor whose detection gates its streaming run out, contributing no terminal status to the fold. */
+function gatedOutDescriptor(): TestingLanguageDescriptor {
+  return createControlledLanguageDescriptor(async () => ({ invoked: false }));
+}
+
+/** A descriptor that exposes no journal-streaming run at all, so the resolver skips it. */
+function nonStreamingDescriptor(): TestingLanguageDescriptor {
+  return createControlledLanguageDescriptor(undefined);
+}
+
+/** Drive the test runner over a controlled registry and return the folded invocation. */
+async function foldRegistryInvocation(registry: TestingRegistry): Promise<JournalRunInvocation> {
+  return resolveTestRunner(registry).runTestsStreaming(
+    sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
+    { sink: { appendScope: () => undefined, appendFinding: () => undefined } },
+  );
+}
+
 /**
  * Compliance C3: the executor reaches the `test` type's runner through the testing registry and
  * names no language — the resolver drives whatever descriptors the registry enumerates — while an
@@ -492,4 +525,73 @@ export async function assertRecorderRaisesWhenLifecycleCommandFails(): Promise<v
   await expect(
     harness.recorder.finish(missingRun, JOURNAL_RUN_STATE_STATUS.INTERRUPTED),
   ).rejects.toThrow(RECORDER_OPERATION_ERROR.FINISH_FAILED);
+}
+
+/**
+ * Scenario: a runner that reports an interrupted terminal status finishes the run with the interrupted
+ * recorder status the terminal-status map derives — the invoked-runner mapping, distinct from the
+ * gated-out path — after recording the unit it streamed before interruption.
+ */
+export async function assertExecutorMapsInterruptedRunnerReport(): Promise<void> {
+  const harness = createExecutorHarness();
+  const controlled = createControlledRunner(interruptedRunnerOutcome());
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => controlled.runner,
+    recorder: harness.recorder,
+  });
+
+  expect(result.executed).toBe(true);
+  if (!result.executed) return;
+  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+
+  const report = parseRenderReport(
+    (await verifyRenderCommand(
+      verifyRenderOptions(harness.scenario, result.run.runToken),
+      verifyDeps(harness.scenario, harness.fs),
+    )).output,
+  );
+  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
+  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+  expect(report.sealed).toBe(true);
+}
+
+/**
+ * Compliance: a failing language folds the run's terminal status to failed, taking precedence over
+ * passing and interrupted languages that ran alongside it.
+ */
+export async function assertTestRunnerFoldsFailedTerminalStatus(): Promise<void> {
+  const invocation = await foldRegistryInvocation({
+    languages: [
+      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
+      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
+      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.FAILED),
+    ],
+  });
+  expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
+}
+
+/**
+ * Compliance: an interrupted language folds the run's terminal status to interrupted when no language
+ * failed, taking precedence over passing languages that ran alongside it.
+ */
+export async function assertTestRunnerFoldsInterruptedTerminalStatus(): Promise<void> {
+  const invocation = await foldRegistryInvocation({
+    languages: [
+      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
+      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
+    ],
+  });
+  expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
+}
+
+/**
+ * Compliance: a registry whose languages are all non-streaming or gated out contributes no terminal
+ * status, so the test runner gates the run out rather than reporting a passing empty fold.
+ */
+export async function assertTestRunnerGatesOutWhenNoLanguageStreams(): Promise<void> {
+  const invocation = await foldRegistryInvocation({
+    languages: [nonStreamingDescriptor(), gatedOutDescriptor()],
+  });
+  expect(invocation).toEqual({ invoked: false });
 }

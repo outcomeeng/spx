@@ -5,6 +5,9 @@ import {
   assertExecutorReachesRunnerThroughRegistry,
   assertExecutorRecordsOnlyThroughRecorderOperations,
   assertRecorderRaisesWhenLifecycleCommandFails,
+  assertTestRunnerFoldsFailedTerminalStatus,
+  assertTestRunnerFoldsInterruptedTerminalStatus,
+  assertTestRunnerGatesOutWhenNoLanguageStreams,
 } from "@testing/harnesses/verification-exec/harness";
 
 describe("spx-driven verification executor compliance", () => {
@@ -22,5 +25,17 @@ describe("spx-driven verification executor compliance", () => {
 
   it("raises rather than swallows a non-OK recorder command for open, scope, finding, and finish", async () => {
     await assertRecorderRaisesWhenLifecycleCommandFails();
+  });
+
+  it("folds a failing language to a failed run terminal status over passing and interrupted languages", async () => {
+    await assertTestRunnerFoldsFailedTerminalStatus();
+  });
+
+  it("folds an interrupted language to an interrupted run terminal status when no language failed", async () => {
+    await assertTestRunnerFoldsInterruptedTerminalStatus();
+  });
+
+  it("gates the run out when every registry language is non-streaming or gated out", async () => {
+    await assertTestRunnerGatesOutWhenNoLanguageStreams();
   });
 });
