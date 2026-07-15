@@ -72,10 +72,6 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
     kind: JOURNAL_BACKEND_KIND.APPENDABLE,
 
     async append(record: JournalEvent): Promise<void> {
-      const history = await readAll();
-      if (history.some((event) => event.seq === record.seq)) {
-        throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
-      }
       const sequenceClaimPath = await claimSequence(fs, runFilePath, record.seq);
       const result = await appendJsonlRecord(runFilePath, toJsonRecord(record), { fs });
       if (!result.ok) {
