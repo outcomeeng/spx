@@ -7,6 +7,7 @@ import {
   assertExecutorRecordsOnlyThroughRecorderOperations,
   assertExecutorRecordsSeparatorStraddlingFindingsDistinctly,
   assertExecutorSealsRunWhenRunnerFails,
+  assertExecutorSurfacesRunnerFailureWhenSealAlsoFails,
   assertRecorderRaisesWhenLifecycleCommandFails,
   assertTestRunnerFoldsFailedTerminalStatus,
   assertTestRunnerFoldsInterruptedTerminalStatus,
@@ -52,5 +53,9 @@ describe("spx-driven verification executor compliance", () => {
 
   it("finishes the opened run interrupted when the runner fails, before surfacing the failure", async () => {
     await assertExecutorSealsRunWhenRunnerFails();
+  });
+
+  it("surfaces the runner failure rather than the finish failure when the best-effort seal also fails", async () => {
+    await assertExecutorSurfacesRunnerFailureWhenSealAlsoFails();
   });
 });

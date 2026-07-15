@@ -664,3 +664,27 @@ export async function assertExecutorSealsRunWhenRunnerFails(): Promise<void> {
   expect(report.sealed).toBe(true);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
 }
+
+/**
+ * Compliance: the interrupted seal is best-effort — when the runner fails after the run opens and the
+ * recorder's finish also fails, the original runner failure surfaces rather than the finish failure,
+ * so a degraded recorder never masks the runner error the caller needs.
+ */
+export async function assertExecutorSurfacesRunnerFailureWhenSealAlsoFails(): Promise<void> {
+  const harness = createExecutorHarness();
+  const runnerFailure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
+  const finishFailure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
+  const runner: JournalStreamingRunner = {
+    runTestsStreaming: () => Promise.reject(runnerFailure),
+  };
+  const recorder: ExecutorRecorderOperations = {
+    open: (request) => harness.recorder.open(request),
+    appendScope: (run, unit) => harness.recorder.appendScope(run, unit),
+    appendFinding: (run, finding) => harness.recorder.appendFinding(run, finding),
+    finish: () => Promise.reject(finishFailure),
+  };
+
+  await expect(
+    executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder }),
+  ).rejects.toBe(runnerFailure);
+}
