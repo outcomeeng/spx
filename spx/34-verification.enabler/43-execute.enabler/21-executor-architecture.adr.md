@@ -29,6 +29,7 @@ The runner reports `passed`, `failed`, or `interrupted`; the recorder terminal-s
 - ALWAYS: an unsupported verification type opens no run ([compliance](tests/execute.compliance.l1.test.ts))
 - ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([mapping](tests/execute.mapping.l1.test.ts))
 - ALWAYS: a runner failure after the run opens finishes the run with an `interrupted` terminal status before the failure surfaces, so the executor leaves no opened run unsealed ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the interrupted seal on runner failure is best-effort — a finish failure during cleanup does not mask the runner failure, which surfaces instead ([compliance](tests/execute.compliance.l1.test.ts))
 
 ### Audit
 
