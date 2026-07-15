@@ -15,6 +15,7 @@ import {
   REVIEW_FINDING_DISPOSITION,
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
+  REVIEW_TERMINAL_STATUSES,
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
@@ -35,11 +36,6 @@ const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status
 );
 const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
-/** The journal terminal statuses a review run seals with; a review finish never uses a foreign runner status. */
-const REVIEW_TERMINAL_STATUSES: readonly string[] = [
-  JOURNAL_RUN_STATE_STATUS.APPROVED,
-  JOURNAL_RUN_STATE_STATUS.REJECTED,
-];
 const EMPTY_SUMMARY = "";
 const EMPTY_REVIEW_BODY = "";
 

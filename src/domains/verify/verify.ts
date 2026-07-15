@@ -142,7 +142,7 @@ export const REVIEW_TERMINAL_STATE = {
 export type ReviewTerminalState = (typeof REVIEW_TERMINAL_STATE)[keyof typeof REVIEW_TERMINAL_STATE];
 
 /** The journal terminal statuses a review run seals with; a foreign runner status never seals a review. */
-const REVIEW_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+export const REVIEW_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
   JOURNAL_RUN_STATE_STATUS.APPROVED,
   JOURNAL_RUN_STATE_STATUS.REJECTED,
 ]);
