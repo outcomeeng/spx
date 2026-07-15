@@ -286,10 +286,17 @@ async function citedDecisionDocuments(
   includePath: PathInclusion,
   contentRequested: boolean,
 ): Promise<readonly SpecContextReadDocument[]> {
-  const scanText = async (path: string): Promise<string> => {
-    const rawBytes = await readContextDocumentBytes(productDir, path);
-    // Content mode promises atomic exact-path failure on the first invalid
-    // document; without it the scan tolerates lossy decoding.
+  // Content mode promises atomic exact-path failure on the first unreadable
+  // or invalid document; the path-only projection carries no such contract,
+  // so there an unscannable document simply contributes no citations.
+  const scanText = async (path: string): Promise<string | undefined> => {
+    let rawBytes: Buffer;
+    try {
+      rawBytes = await readContextDocumentBytes(productDir, path);
+    } catch (error) {
+      if (contentRequested) throw error;
+      return undefined;
+    }
     return contentRequested ? decodeContextDocumentOrThrow(path, rawBytes) : rawBytes.toString("utf8");
   };
   const citersByPath = new Map<string, string[]>();
@@ -307,7 +314,8 @@ async function citedDecisionDocuments(
     }
   };
   for (const source of sources) {
-    collectCitations(source.path, await scanText(source.path));
+    const text = await scanText(source.path);
+    if (text !== undefined) collectCitations(source.path, text);
   }
   const resolutionOrder: string[] = [];
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
@@ -315,7 +323,8 @@ async function citedDecisionDocuments(
     if (await optionalSpecTreeFile(productDir, next, includePath) === undefined) {
       throw new Error(formatMissingCitedDecisionError(next, citers[0]));
     }
-    collectCitations(next, await scanText(next));
+    const text = await scanText(next);
+    if (text !== undefined) collectCitations(next, text);
     resolutionOrder.push(next);
   }
   return resolutionOrder.map((path) => ({
