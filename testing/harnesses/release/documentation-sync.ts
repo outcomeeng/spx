@@ -530,6 +530,7 @@ function parseDocumentationSyncPromptInput(prompt: string): {
     !prompt.startsWith(DOCUMENTATION_SYNC_PROMPT_INSTRUCTION)
     || blockStart < 0
     || blockEnd <= blockStart
+    || blockEnd + DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE.length !== prompt.length
   ) {
     throw new Error("Documentation sync prompt does not match its source-owned envelope");
   }
