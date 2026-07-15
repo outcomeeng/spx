@@ -11,7 +11,12 @@ import { expect, vi } from "vitest";
 import { diagnoseCommand, type ManifestFileSystem } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
-import { MARKETPLACE_INSTALL_VERDICT, marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
+import { HARNESS_ENVIRONMENT_SECTION, type HarnessEnvironmentConfig } from "@/domains/agent-environment/config";
+import {
+  classifyMarketplaceInstall,
+  MARKETPLACE_INSTALL_VERDICT,
+  marketplaceInstallRunner,
+} from "@/domains/diagnose/checks/marketplace-install";
 import { METHODOLOGY_CONTEXT_VERDICT, methodologyContextRunner } from "@/domains/diagnose/checks/methodology-context";
 import { SESSION_ENVIRONMENT_VERDICT, sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { SESSION_STORE_VERDICT, sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
@@ -21,6 +26,7 @@ import {
   spxReachabilityRunner,
 } from "@/domains/diagnose/checks/spx-reachability";
 import { WORKTREE_POOL_VERDICT, worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
+import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { foldOverallVerdict, overallExitCode, VERDICT_EXIT_CODE } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
@@ -56,7 +62,13 @@ import {
   malformedDiagnoseConfigYaml,
   spxReachabilityManifestScenario,
 } from "@testing/generators/diagnose/cli";
-import { arbitraryNameToken, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
+import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
+import {
+  arbitraryManifestFacts,
+  arbitraryNameToken,
+  manifestJson,
+  sampleDiagnoseTestValue,
+} from "@testing/generators/diagnose/manifest";
 import {
   allProviderRecords,
   allProviderRecordScenario,
@@ -558,6 +570,42 @@ export async function assertManifestPrecedesMalformedConfig(): Promise<void> {
     expectSchemaValidReport(report);
     expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
   });
+}
+
+export async function assertManifestResolvesProductPluginIntent(): Promise<void> {
+  const scenario = pluginBootstrapMappingCases()[1];
+  let observed: HarnessEnvironmentConfig | undefined;
+  await withTestEnv({
+    [DIAGNOSE_SECTION]: { [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [42] },
+    [HARNESS_ENVIRONMENT_SECTION]: scenario.config,
+  }, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      manifestPath: DEFAULT_CONFIG_FILENAME,
+      productDir,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
+      color: false,
+      registry: {
+        [CHECK_NAME.MARKETPLACE_INSTALL]: async (facts) => {
+          observed = facts.harnessEnvironment;
+          return classifyMarketplaceInstall({
+            configured: true,
+            errored: false,
+            surfacePresent: true,
+            unregistered: false,
+            drifted: false,
+          });
+        },
+      },
+      fs: {
+        readFile: () => Promise.resolve(manifestJson({
+          ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
+          checks: [CHECK_NAME.MARKETPLACE_INSTALL],
+        })),
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+  expect(observed).toStrictEqual(scenario.config);
 }
 
 export async function assertDiagnoseColorSelection(): Promise<void> {

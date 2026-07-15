@@ -63,7 +63,7 @@ export function registerMarketplaceInstallMappings(): void {
       async (testCase) => {
         const record = await marketplaceInstallRunner(
           createMarketplaceInstallProbe(marketplaceProbeDependencies(testCase)),
-        )(testCase.manifest);
+        )(testCase.facts);
 
         expect(record.verdict).toBe(testCase.verdict);
         expect(record.bucket).toBe(testCase.bucket);

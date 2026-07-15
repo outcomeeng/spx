@@ -3,16 +3,17 @@
 import { expect } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
-import { MARKETPLACE_IDENTITY_FIELDS } from "@/domains/diagnose/facts";
 import { CHECK_NAME, type CheckName, parseManifest } from "@/domains/diagnose/manifest";
 import {
   arbitraryManifestFacts,
   arbitraryManifestWithUnknownCheck,
+  arbitraryManifestWithUnknownField,
   arbitraryManifestWithUnselectedInvalidMethodology,
   arbitraryUnavailableManifestCheck,
   invalidManifestRootClasses,
   invalidRequiredManifestClasses,
   manifestJson,
+  retiredMarketplaceManifestFields,
 } from "@testing/generators/diagnose/manifest";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
@@ -30,17 +31,6 @@ export function assertCompleteManifestRoundTrips(): void {
       expect(result.value.checks).toEqual(facts.checks);
       expect(result.value.spxFloor).toBe(
         facts.checks.includes(CHECK_NAME.SPX_REACHABILITY) ? facts.spxFloor : undefined,
-      );
-      expect(result.value.marketplace).toEqual(
-        facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL)
-          ? {
-            [MARKETPLACE_IDENTITY_FIELDS.NAME]: facts.marketplaceName,
-            [MARKETPLACE_IDENTITY_FIELDS.SOURCE]: facts.marketplaceSource,
-          }
-          : undefined,
-      );
-      expect(result.value.expectedPlugins).toEqual(
-        facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL) ? facts.expectedPlugins : undefined,
       );
       expect(result.value.methodology).toEqual(
         facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)
@@ -85,6 +75,19 @@ export function assertUnknownManifestCheckRejected(): void {
     },
     manifestClassification,
   );
+}
+
+export function assertUnknownManifestFieldsRejected(): void {
+  assertProperty(
+    arbitraryManifestWithUnknownField(),
+    (rawJson) => {
+      expect(parseAgainstAllChecks(rawJson).ok).toBe(false);
+    },
+    manifestClassification,
+  );
+  for (const rawJson of retiredMarketplaceManifestFields()) {
+    expect(parseAgainstAllChecks(rawJson).ok).toBe(false);
+  }
 }
 
 export function assertUnavailableManifestCheckRejected(): void {

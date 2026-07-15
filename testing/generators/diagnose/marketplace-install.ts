@@ -1,13 +1,25 @@
 import fc from "fast-check";
 
-import { type CommandCapture, MARKETPLACE_PLUGIN_SURFACE } from "@/commands/diagnose/probes";
+import {
+  type CommandCapture,
+  MARKETPLACE_PLUGIN_SURFACE,
+} from "@/commands/diagnose/probes";
+import {
+  AGENT,
+  DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
+  type Agent,
+  type AgentMarketplaceConfig,
+  type AgentPluginConfig,
+  type HarnessEnvironmentConfig,
+} from "@/domains/agent-environment/config";
+import { REQUIRED_PLUGIN_BOOTSTRAP } from "@/domains/agent-environment/plugin-bootstrap-status";
 import {
   MARKETPLACE_INSTALL_VERDICT,
   type MarketplaceInstallReading,
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
-import type { MarketplaceIdentity } from "@/domains/diagnose/facts";
-import { CHECK_NAME, type DiagnoseManifest } from "@/domains/diagnose/manifest";
+import type { DiagnoseFacts } from "@/domains/diagnose/facts";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
 import {
   arbitraryMarketplaceSource,
@@ -25,7 +37,7 @@ export interface MarketplaceInstallClassificationCase {
 
 export interface MarketplaceRegistrationMappingCase {
   readonly bucket: VerdictBucket;
-  readonly manifest: DiagnoseManifest;
+  readonly facts: DiagnoseFacts;
   readonly surfaceCaptures: readonly MarketplaceSurfaceCapture[];
   readonly title: string;
   readonly verdict: MarketplaceInstallVerdict;
@@ -38,11 +50,13 @@ export interface MarketplaceSurfaceCapture {
 }
 
 interface MarketplaceRegistrationScenario {
-  readonly alternateName: string;
+  readonly alternateMarketplace: string;
   readonly alternateSource: string;
-  readonly expectedPlugins: readonly string[];
-  readonly marketplace: MarketplaceIdentity;
-  readonly surface: MarketplacePluginSurface;
+  readonly catalogOnlyPlugin: string;
+  readonly claudePlugin: string;
+  readonly codexPlugin: string;
+  readonly invalidJson: string;
+  readonly marketplaceSource: string;
 }
 
 function marketplaceInstallReading(
@@ -98,341 +112,312 @@ export function marketplaceInstallClassificationCases(): readonly MarketplaceIns
   ];
 }
 
-function arbitraryMarketplaceRegistrationScenario(
-  surface: MarketplacePluginSurface,
-): fc.Arbitrary<MarketplaceRegistrationScenario> {
-  return fc
-    .tuple(
-      arbitraryNameToken(),
-      arbitraryNameToken(),
-      arbitraryMarketplaceSource(),
-      arbitraryMarketplaceSource(),
-      arbitraryNameToken(),
-    )
-    .filter(([name, alternateName, source, alternateSource]) => name !== alternateName && source !== alternateSource)
-    .map(([name, alternateName, source, alternateSource, plugin]) => ({
-      alternateName,
-      alternateSource,
-      expectedPlugins: [plugin],
-      marketplace: { name, source },
-      surface,
-    }));
+function generatedScenario(): MarketplaceRegistrationScenario {
+  return sampleDiagnoseTestValue(
+    fc.record({
+      alternateMarketplace: arbitraryNameToken(),
+      alternateSource: arbitraryMarketplaceSource(),
+      catalogOnlyPlugin: arbitraryNameToken(),
+      claudePlugin: arbitraryNameToken(),
+      codexPlugin: arbitraryNameToken(),
+      invalidJson: arbitraryNameToken().map((token) => `{${token}`),
+      marketplaceSource: arbitraryMarketplaceSource(),
+    }).filter((scenario) =>
+      scenario.alternateMarketplace !== REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE
+      && scenario.alternateSource !== scenario.marketplaceSource
+      && new Set([
+        scenario.catalogOnlyPlugin,
+        scenario.claudePlugin,
+        scenario.codexPlugin,
+        REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN,
+      ]).size === 4
+    ),
+  );
+}
+
+function marketplace(agent: Agent, source: string): AgentMarketplaceConfig {
+  return { agent, name: REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE, source };
+}
+
+function plugin(agent: Agent, name: string): AgentPluginConfig {
+  return { agent, name, marketplace: REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE };
+}
+
+function harnessConfig(
+  scenario: MarketplaceRegistrationScenario,
+  pluginsByAgent: Readonly<Partial<Record<Agent, readonly string[]>>>,
+): HarnessEnvironmentConfig {
+  const enabledAgents = Object.values(AGENT).filter((agent) => pluginsByAgent[agent] !== undefined);
+  return {
+    ...DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
+    agents: {
+      [AGENT.CLAUDE_CODE]: {
+        ...DEFAULT_HARNESS_ENVIRONMENT_CONFIG.agents[AGENT.CLAUDE_CODE],
+        enabled: enabledAgents.includes(AGENT.CLAUDE_CODE),
+      },
+      [AGENT.CODEX]: {
+        ...DEFAULT_HARNESS_ENVIRONMENT_CONFIG.agents[AGENT.CODEX],
+        enabled: enabledAgents.includes(AGENT.CODEX),
+      },
+    },
+    pluginBootstrap: {
+      marketplaces: enabledAgents.map((agent) => marketplace(agent, scenario.marketplaceSource)),
+      plugins: enabledAgents.flatMap((agent) =>
+        (pluginsByAgent[agent] ?? []).map((name) => plugin(agent, name))
+      ),
+      skills: [],
+    },
+  };
+}
+
+function facts(
+  scenario: MarketplaceRegistrationScenario,
+  pluginsByAgent: Readonly<Partial<Record<Agent, readonly string[]>>>,
+): DiagnoseFacts {
+  return {
+    checks: [CHECK_NAME.MARKETPLACE_INSTALL],
+    harnessEnvironment: harnessConfig(scenario, pluginsByAgent),
+  };
+}
+
+function surfaceAgent(surface: MarketplacePluginSurface): Agent {
+  return surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE ? AGENT.CLAUDE_CODE : AGENT.CODEX;
 }
 
 function registeredMarketplaceStdout(
   surface: MarketplacePluginSurface,
-  marketplace: MarketplaceIdentity,
+  source: string,
+  name = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
 ): string {
   if (surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE) {
-    return JSON.stringify([{ name: marketplace.name, repo: marketplace.source }]);
+    return JSON.stringify([{ name, repo: source }]);
   }
   return JSON.stringify({
-    marketplaces: [
-      {
-        name: marketplace.name,
-        marketplaceSource: { source: marketplace.source },
-      },
-    ],
+    marketplaces: [{ name, marketplaceSource: { source } }],
   });
 }
 
 function installedPluginsStdout(
   surface: MarketplacePluginSurface,
-  marketplace: MarketplaceIdentity,
-  expectedPlugins: readonly string[],
+  plugins: readonly string[],
+  marketplaceName = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
   enabled = true,
 ): string {
   if (surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE) {
-    return JSON.stringify(
-      expectedPlugins.map((name) => ({
-        id: `${name}@${marketplace.name}`,
-        enabled,
-      })),
-    );
+    return JSON.stringify(plugins.map((name) => ({ id: `${name}@${marketplaceName}`, enabled })));
   }
   return JSON.stringify({
-    installed: expectedPlugins.map((name) => ({ name, enabled })),
+    installed: plugins.map((name) => ({
+      pluginId: `${name}@${marketplaceName}`,
+      name,
+      marketplaceName,
+      enabled,
+    })),
   });
 }
 
-function emptyInstalledPluginsStdout(surface: MarketplacePluginSurface): string {
-  if (surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE) return JSON.stringify([]);
-  return JSON.stringify({ installed: [] });
-}
-
-function surfaceCapture(
+function capture(
   scenario: MarketplaceRegistrationScenario,
-  marketplace: MarketplaceIdentity,
-  pluginCapture: CommandCapture,
-  surface = scenario.surface,
+  surface: MarketplacePluginSurface,
+  plugins: readonly string[],
+  options: {
+    readonly enabled?: boolean;
+    readonly marketplaceName?: string;
+    readonly marketplaceSource?: string;
+    readonly pluginMarketplaceName?: string;
+  } = {},
 ): MarketplaceSurfaceCapture {
   return {
     surface,
     marketplaceCapture: {
       ok: true,
-      stdout: registeredMarketplaceStdout(surface, marketplace),
+      stdout: registeredMarketplaceStdout(
+        surface,
+        options.marketplaceSource ?? scenario.marketplaceSource,
+        options.marketplaceName,
+      ),
     },
-    pluginCapture,
+    pluginCapture: {
+      ok: true,
+      stdout: installedPluginsStdout(
+        surface,
+        plugins,
+        options.pluginMarketplaceName,
+        options.enabled,
+      ),
+    },
   };
 }
 
-function enabledPluginCapture(
+function oneAgentFacts(
   scenario: MarketplaceRegistrationScenario,
-  surface = scenario.surface,
-): CommandCapture {
-  return {
-    ok: true,
-    stdout: installedPluginsStdout(
-      surface,
-      scenario.marketplace,
-      scenario.expectedPlugins,
-    ),
-  };
+  surface: MarketplacePluginSurface,
+  pluginName: string,
+): DiagnoseFacts {
+  return facts(scenario, {
+    [surfaceAgent(surface)]: [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, pluginName],
+  });
 }
 
-function manifestFor(scenario: MarketplaceRegistrationScenario): DiagnoseManifest {
-  return {
-    checks: [CHECK_NAME.MARKETPLACE_INSTALL],
-    marketplace: scenario.marketplace,
-    expectedPlugins: scenario.expectedPlugins,
-  };
-}
-
-function mappingCasesFor(
+function oneAgentCases(
   scenario: MarketplaceRegistrationScenario,
+  surface: MarketplacePluginSurface,
+  pluginName: string,
 ): readonly MarketplaceRegistrationMappingCase[] {
+  const expectedPlugins = [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, pluginName];
+  const configuredFacts = oneAgentFacts(scenario, surface, pluginName);
   return [
     {
-      title: `${scenario.surface}: exact name and source`,
-      manifest: manifestFor(scenario),
+      title: `${surface}: exact marketplace and configured subset are installed`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, expectedPlugins)],
+      verdict: MARKETPLACE_INSTALL_VERDICT.INSTALLED,
+      bucket: VERDICT_BUCKET.HEALTHY,
+    },
+    {
+      title: `${surface}: unrelated installed offerings do not change health`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, [...expectedPlugins, scenario.catalogOnlyPlugin])],
+      verdict: MARKETPLACE_INSTALL_VERDICT.INSTALLED,
+      bucket: VERDICT_BUCKET.HEALTHY,
+    },
+    {
+      title: `${surface}: matching marketplace name with another source is unregistered`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, expectedPlugins, {
+        marketplaceSource: scenario.alternateSource,
+      })],
+      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
+    {
+      title: `${surface}: another marketplace name with matching source is unregistered`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, expectedPlugins, {
+        marketplaceName: scenario.alternateMarketplace,
+      })],
+      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
+      bucket: VERDICT_BUCKET.BROKEN,
+    },
+    {
+      title: `${surface}: configured plugin installed under another marketplace is drifted`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, expectedPlugins, {
+        pluginMarketplaceName: scenario.alternateMarketplace,
+      })],
+      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
+      bucket: VERDICT_BUCKET.DEGRADED,
+    },
+    {
+      title: `${surface}: configured plugin is disabled`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, expectedPlugins, { enabled: false })],
+      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
+      bucket: VERDICT_BUCKET.DEGRADED,
+    },
+    {
+      title: `${surface}: configured plugin is missing`,
+      facts: configuredFacts,
+      surfaceCaptures: [capture(scenario, surface, [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN])],
+      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
+      bucket: VERDICT_BUCKET.DEGRADED,
+    },
+  ];
+}
+
+function aggregateCases(
+  scenario: MarketplaceRegistrationScenario,
+): readonly MarketplaceRegistrationMappingCase[] {
+  const bothFacts = facts(scenario, {
+    [AGENT.CLAUDE_CODE]: [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, scenario.claudePlugin],
+    [AGENT.CODEX]: [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, scenario.codexPlugin],
+  });
+  const claudeExpected = [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, scenario.claudePlugin];
+  const codexExpected = [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN, scenario.codexPlugin];
+  return [
+    {
+      title: "Claude and Codex evaluate their own configured subsets",
+      facts: bothFacts,
       surfaceCaptures: [
-        surfaceCapture(scenario, scenario.marketplace, enabledPluginCapture(scenario)),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE, claudeExpected),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX, codexExpected),
       ],
       verdict: MARKETPLACE_INSTALL_VERDICT.INSTALLED,
       bucket: VERDICT_BUCKET.HEALTHY,
     },
     {
-      title: `${scenario.surface}: matching name with another source`,
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          {
-            name: scenario.marketplace.name,
-            source: scenario.alternateSource,
-          },
-          enabledPluginCapture(scenario),
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
-      bucket: VERDICT_BUCKET.BROKEN,
+      title: "an absent enabled-agent CLI contributes no surface verdict",
+      facts: bothFacts,
+      surfaceCaptures: [capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE, claudeExpected)],
+      verdict: MARKETPLACE_INSTALL_VERDICT.INSTALLED,
+      bucket: VERDICT_BUCKET.HEALTHY,
     },
     {
-      title: `${scenario.surface}: another name with matching source`,
-      manifest: manifestFor(scenario),
+      title: "drifted aggregates ahead of installed",
+      facts: bothFacts,
       surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          {
-            name: scenario.alternateName,
-            source: scenario.marketplace.source,
-          },
-          enabledPluginCapture(scenario),
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
-      bucket: VERDICT_BUCKET.BROKEN,
-    },
-  ];
-}
-
-function remainingProbeMappingCases(
-  scenario: MarketplaceRegistrationScenario,
-): readonly MarketplaceRegistrationMappingCase[] {
-  return [
-    {
-      title: `${scenario.surface}: expected plugin is disabled`,
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(scenario, scenario.marketplace, {
-          ok: true,
-          stdout: installedPluginsStdout(
-            scenario.surface,
-            scenario.marketplace,
-            scenario.expectedPlugins,
-            false,
-          ),
-        }),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE, claudeExpected),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX, [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN]),
       ],
       verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
       bucket: VERDICT_BUCKET.DEGRADED,
     },
     {
-      title: `${scenario.surface}: expected plugin is missing`,
-      manifest: manifestFor(scenario),
+      title: "unregistered aggregates ahead of drifted",
+      facts: bothFacts,
       surfaceCaptures: [
-        surfaceCapture(scenario, scenario.marketplace, {
-          ok: true,
-          stdout: emptyInstalledPluginsStdout(scenario.surface),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE, [REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN]),
+        capture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX, codexExpected, {
+          marketplaceSource: scenario.alternateSource,
         }),
       ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
-      bucket: VERDICT_BUCKET.DEGRADED,
+      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
+      bucket: VERDICT_BUCKET.BROKEN,
     },
     {
-      title: "no plugin CLI is available",
-      manifest: manifestFor(scenario),
+      title: "no enabled-agent plugin CLI is available",
+      facts: bothFacts,
       surfaceCaptures: [],
       verdict: MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE,
       bucket: VERDICT_BUCKET.DEGRADED,
     },
     {
-      title: "marketplace facts are absent",
-      manifest: { checks: [CHECK_NAME.MARKETPLACE_INSTALL] },
-      surfaceCaptures: [],
-      verdict: MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE,
-      bucket: VERDICT_BUCKET.NOT_APPLICABLE,
-    },
-    {
-      title: `${scenario.surface}: marketplace command errors`,
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        {
-          surface: scenario.surface,
-          marketplaceCapture: { ok: false, stdout: "" },
-          pluginCapture: { ok: false, stdout: "" },
-        },
-      ],
+      title: "marketplace command failure is unknown",
+      facts: bothFacts,
+      surfaceCaptures: [{
+        surface: MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
+        marketplaceCapture: { ok: false, stdout: "" },
+        pluginCapture: { ok: false, stdout: "" },
+      }],
       verdict: MARKETPLACE_INSTALL_VERDICT.UNKNOWN,
       bucket: VERDICT_BUCKET.UNKNOWN,
     },
     {
-      title: "Claude and Codex installed aggregate to installed",
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE),
-          MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
-        ),
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX),
-          MARKETPLACE_PLUGIN_SURFACE.CODEX,
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.INSTALLED,
-      bucket: VERDICT_BUCKET.HEALTHY,
+      title: "marketplace output parse failure is unknown",
+      facts: bothFacts,
+      surfaceCaptures: [{
+        surface: MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
+        marketplaceCapture: { ok: true, stdout: scenario.invalidJson },
+        pluginCapture: { ok: true, stdout: JSON.stringify([]) },
+      }],
+      verdict: MARKETPLACE_INSTALL_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
     },
     {
-      title: "Claude drifted plus Codex installed aggregates to drifted",
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          {
-            ok: true,
-            stdout: emptyInstalledPluginsStdout(MARKETPLACE_PLUGIN_SURFACE.CLAUDE),
-          },
-          MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
-        ),
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX),
-          MARKETPLACE_PLUGIN_SURFACE.CODEX,
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
-      bucket: VERDICT_BUCKET.DEGRADED,
-    },
-    {
-      title: "Claude unregistered plus Codex installed aggregates to unregistered",
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          {
-            name: scenario.alternateName,
-            source: scenario.marketplace.source,
-          },
-          { ok: false, stdout: "" },
-          MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
-        ),
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX),
-          MARKETPLACE_PLUGIN_SURFACE.CODEX,
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
-      bucket: VERDICT_BUCKET.BROKEN,
-    },
-    {
-      title: "Claude installed plus Codex drifted aggregates to drifted",
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE),
-          MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
-        ),
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          {
-            ok: true,
-            stdout: emptyInstalledPluginsStdout(MARKETPLACE_PLUGIN_SURFACE.CODEX),
-          },
-          MARKETPLACE_PLUGIN_SURFACE.CODEX,
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.DRIFTED,
-      bucket: VERDICT_BUCKET.DEGRADED,
-    },
-    {
-      title: "Claude installed plus Codex unregistered aggregates to unregistered",
-      manifest: manifestFor(scenario),
-      surfaceCaptures: [
-        surfaceCapture(
-          scenario,
-          scenario.marketplace,
-          enabledPluginCapture(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE),
-          MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
-        ),
-        surfaceCapture(
-          scenario,
-          {
-            name: scenario.alternateName,
-            source: scenario.marketplace.source,
-          },
-          { ok: false, stdout: "" },
-          MARKETPLACE_PLUGIN_SURFACE.CODEX,
-        ),
-      ],
-      verdict: MARKETPLACE_INSTALL_VERDICT.UNREGISTERED,
-      bucket: VERDICT_BUCKET.BROKEN,
+      title: "no configured enabled agent is not applicable",
+      facts: facts(scenario, {}),
+      surfaceCaptures: [],
+      verdict: MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE,
+      bucket: VERDICT_BUCKET.NOT_APPLICABLE,
     },
   ];
 }
 
 export function marketplaceRegistrationMappingCases(): readonly MarketplaceRegistrationMappingCase[] {
-  const registrationCases = Object.values(MARKETPLACE_PLUGIN_SURFACE).flatMap((surface) =>
-    mappingCasesFor(
-      sampleDiagnoseTestValue(arbitraryMarketplaceRegistrationScenario(surface)),
-    )
-  );
+  const scenario = generatedScenario();
   return [
-    ...registrationCases,
-    ...remainingProbeMappingCases(
-      sampleDiagnoseTestValue(
-        arbitraryMarketplaceRegistrationScenario(MARKETPLACE_PLUGIN_SURFACE.CLAUDE),
-      ),
-    ),
+    ...oneAgentCases(scenario, MARKETPLACE_PLUGIN_SURFACE.CLAUDE, scenario.claudePlugin),
+    ...oneAgentCases(scenario, MARKETPLACE_PLUGIN_SURFACE.CODEX, scenario.codexPlugin),
+    ...aggregateCases(scenario),
   ];
 }
