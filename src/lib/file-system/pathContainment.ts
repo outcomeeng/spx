@@ -72,7 +72,7 @@ function usesWindowsPathSemantics(root: string): boolean {
     || WINDOWS_EXTENDED_LENGTH_ROOT_PATTERN.test(root);
 }
 
-function isResolvedPathContained(
+export function isResolvedPathContained(
   relativeToRoot: string,
   pathSeparator: string,
   isAbsolutePath: (path: string) => boolean,

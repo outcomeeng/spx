@@ -13,7 +13,11 @@ import type {
   StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { type AtomicWriteFileSystem, writeFileAtomic } from "@/lib/atomic-file-write";
-import { isPathContained } from "@/lib/file-system/pathContainment";
+import {
+  isPathContained,
+  isResolvedPathContained,
+  PATH_CONTAINMENT_ROOT_CANDIDATE,
+} from "@/lib/file-system/pathContainment";
 
 const DOCUMENTATION_TEXT_ENCODING = "utf8";
 const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW;
@@ -315,7 +319,10 @@ export function resolveCanonicalDocumentationTarget(
   if (pathOperations.isAbsolute(configuredPath)) return undefined;
   const targetPath = pathOperations.resolve(canonicalProductDir, configuredPath);
   const pathFromRoot = pathOperations.relative(canonicalProductDir, targetPath);
-  return isContainedPath(pathFromRoot, pathOperations) ? targetPath : undefined;
+  return pathFromRoot !== PATH_CONTAINMENT_ROOT_CANDIDATE
+      && isResolvedPathContained(pathFromRoot, pathOperations.sep, pathOperations.isAbsolute)
+    ? targetPath
+    : undefined;
 }
 
 async function replaceDocumentation(
@@ -468,14 +475,4 @@ function assertDocumentationContent(
   if (currentContent !== expectedContent) {
     throw new Error(`Documentation changed after staging and cannot be promoted: ${path}`);
   }
-}
-
-function isContainedPath(
-  pathFromRoot: string,
-  pathOperations: DocumentationPathOperations,
-): boolean {
-  return pathFromRoot.length > 0
-    && pathFromRoot !== ".."
-    && !pathFromRoot.startsWith(`..${pathOperations.sep}`)
-    && !pathOperations.isAbsolute(pathFromRoot);
 }
