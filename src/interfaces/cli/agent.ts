@@ -204,7 +204,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
       const agentCmd = program.command(AGENT_CLI.commandName).description("Find and resume coding-agent sessions");
       agentCmd
         .command(AGENT_CLI.resumeCommandName)
-        .description("Resume a Codex or Claude Code agent session for this worktree")
+        .description(AGENT_RESUME_TEXT.DESCRIPTION)
         .option(AGENT_CLI.flags.latest, "Launch the newest matching session")
         .option(AGENT_CLI.flags.list, "List matching sessions")
         .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
