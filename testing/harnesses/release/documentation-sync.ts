@@ -69,6 +69,7 @@ import {
   arbitrarySingleDocumentSyncScenario,
   arbitrarySparseDocumentationPathSet,
   arbitraryUnrelatedVersionRewriteScenario,
+  arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationAgentFileToolBoundaryScenario,
   type DocumentationPathAliasCase,
@@ -533,6 +534,14 @@ function parseDocumentationSyncPromptInput(prompt: string): {
     readonly releaseData: DocumentationSyncScenario["releaseData"];
     readonly documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[];
   };
+}
+
+function documentationSyncPromptInstruction(prompt: string): string {
+  const blockStart = prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN);
+  if (blockStart < 0) {
+    throw new Error("Documentation sync prompt has no data block");
+  }
+  return prompt.slice(0, blockStart);
 }
 
 async function writeGeneratedDocumentation(
@@ -1140,6 +1149,17 @@ function registerScenarioTests(): void {
       const scenario = sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario());
       await withDocumentationScenario(scenario, async (options, readProductDocument) => {
         await runDocumentationSyncCli(options);
+        for (const path of scenario.paths) {
+          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+        }
+      });
+    });
+
+    it("adds the released version when subsequent-release documentation has no previous version reference", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
+      await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+        await runDocumentationSyncCli(options);
+        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).toContain(scenario.releaseData.version);
         for (const path of scenario.paths) {
           await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
         }

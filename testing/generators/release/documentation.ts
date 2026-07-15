@@ -166,6 +166,18 @@ export function arbitraryFirstReleaseDocumentationSyncScenario(): fc.Arbitrary<D
     );
 }
 
+export function arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario(): fc.Arbitrary<
+  DocumentationSyncScenario
+> {
+  return arbitraryConfiguredDocumentationSyncScenario().chain((scenario) =>
+    arbitraryPathSegment().map((content) => ({
+      ...scenario,
+      original: documentationForPaths(scenario.paths, [content]),
+      updated: documentationForPaths(scenario.paths, [scenario.releaseData.version, content]),
+    }))
+  );
+}
+
 export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitrary<
   DocumentationVersionPreservationScenarios
 > {
@@ -223,7 +235,7 @@ export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitr
       arbitraryPathSegment(),
       arbitraryPathSegment(),
       arbitraryPathSegment(),
-      fc.constantFrom(AGENT_RUN_TOOLS.WRITE, AGENT_RUN_TOOLS.EDIT),
+      fc.constantFrom(AGENT_RUN_TOOLS.READ, AGENT_RUN_TOOLS.WRITE, AGENT_RUN_TOOLS.EDIT),
     )
     .map(([rootSegment, containedSegment, escapedSegment, tool]) => {
       const workingDirectory = posix.resolve(posix.sep, rootSegment);
