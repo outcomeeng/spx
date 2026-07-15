@@ -110,10 +110,18 @@ export async function executeVerificationRun(
     appendScope: (unit) => deps.recorder.appendScope(run, unit),
     appendFinding: (finding) => deps.recorder.appendFinding(run, finding),
   };
-  const invocation = await runner.runTestsStreaming(
-    { productDir: request.productDir, testPaths: request.testPaths },
-    { sink },
-  );
+  let invocation: JournalRunInvocation;
+  try {
+    invocation = await runner.runTestsStreaming(
+      { productDir: request.productDir, testPaths: request.testPaths },
+      { sink },
+    );
+  } catch (failure) {
+    // The executor owns the open-stream-seal lifecycle, so a runner failure finishes the opened run
+    // interrupted before the failure surfaces rather than leaving an unsealed run behind.
+    await deps.recorder.finish(run, GATED_OUT_TERMINAL_STATUS);
+    throw failure;
+  }
   const terminalStatus = invocation.invoked
     ? recorderTerminalStatusFor(invocation.terminalStatus)
     : GATED_OUT_TERMINAL_STATUS;
