@@ -574,9 +574,54 @@ export async function assertManifestPrecedesMalformedConfig(): Promise<void> {
   });
 }
 
+function pluginIntentRegistry(observed: HarnessEnvironmentConfig[]): CheckRegistry {
+  return {
+    [CHECK_NAME.PLUGIN_BOOTSTRAP]: async (facts) => {
+      observed.push(facts.harnessEnvironment);
+      return classifyPluginBootstrap(facts.harnessEnvironment);
+    },
+    [CHECK_NAME.MARKETPLACE_INSTALL]: async (facts) => {
+      observed.push(facts.harnessEnvironment);
+      return classifyMarketplaceInstall({
+        configured: true,
+        errored: false,
+        surfacePresent: true,
+        unregistered: false,
+        drifted: false,
+      });
+    },
+  };
+}
+
+export async function assertConfigResolvesProductPluginIntent(): Promise<void> {
+  const scenario = pluginBootstrapMappingCases()[1];
+  const observed: HarnessEnvironmentConfig[] = [];
+  const manifestFs = new RecordingManifestFileSystem();
+  await withTestEnv({
+    [DIAGNOSE_SECTION]: {
+      [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [
+        CHECK_NAME.PLUGIN_BOOTSTRAP,
+        CHECK_NAME.MARKETPLACE_INSTALL,
+      ],
+    },
+    [HARNESS_ENVIRONMENT_SECTION]: scenario.config,
+  }, async ({ productDir }) => {
+    const result = await diagnoseCommand({
+      productDir,
+      outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
+      color: false,
+      registry: pluginIntentRegistry(observed),
+      fs: manifestFs,
+    });
+    expect(result.ok).toBe(true);
+  });
+  expect(manifestFs.reads).toBe(0);
+  expect(observed).toStrictEqual([scenario.config, scenario.config]);
+}
+
 export async function assertManifestResolvesProductPluginIntent(): Promise<void> {
   const scenario = pluginBootstrapMappingCases()[1];
-  let observed: HarnessEnvironmentConfig | undefined;
+  const observed: HarnessEnvironmentConfig[] = [];
   await withTestEnv({
     [DIAGNOSE_SECTION]: { [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [42] },
     [HARNESS_ENVIRONMENT_SECTION]: scenario.config,
@@ -586,29 +631,18 @@ export async function assertManifestResolvesProductPluginIntent(): Promise<void>
       productDir,
       outputMode: DIAGNOSE_OUTPUT_MODE.JSON,
       color: false,
-      registry: {
-        [CHECK_NAME.MARKETPLACE_INSTALL]: async (facts) => {
-          observed = facts.harnessEnvironment;
-          return classifyMarketplaceInstall({
-            configured: true,
-            errored: false,
-            surfacePresent: true,
-            unregistered: false,
-            drifted: false,
-          });
-        },
-      },
+      registry: pluginIntentRegistry(observed),
       fs: {
         readFile: () =>
           Promise.resolve(manifestJson({
             ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
-            checks: [CHECK_NAME.MARKETPLACE_INSTALL],
+            checks: [CHECK_NAME.PLUGIN_BOOTSTRAP, CHECK_NAME.MARKETPLACE_INSTALL],
           })),
       },
     });
     expect(result.ok).toBe(true);
   });
-  expect(observed).toStrictEqual(scenario.config);
+  expect(observed).toStrictEqual([scenario.config, scenario.config]);
 }
 
 export async function assertDiagnoseColorSelection(): Promise<void> {
