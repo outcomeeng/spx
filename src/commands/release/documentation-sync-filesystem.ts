@@ -267,10 +267,7 @@ export function resolveCanonicalDocumentationTarget(
   if (pathOperations.isAbsolute(configuredPath)) return undefined;
   const targetPath = pathOperations.resolve(canonicalProductDir, configuredPath);
   const pathFromRoot = pathOperations.relative(canonicalProductDir, targetPath);
-  return isContainedPath(pathFromRoot, pathOperations)
-      && pathFromRoot === configuredPath
-    ? targetPath
-    : undefined;
+  return isContainedPath(pathFromRoot, pathOperations) ? targetPath : undefined;
 }
 
 async function replaceDocumentation(

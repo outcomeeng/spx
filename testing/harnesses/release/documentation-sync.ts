@@ -44,7 +44,7 @@ import { isPathContained } from "@/lib/file-system/pathContainment";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
-  arbitraryDocumentationPathAliasCase,
+  arbitraryDocumentationPathAliasCases,
   arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
   arbitraryFirstReleaseDocumentationSyncScenario,
@@ -938,10 +938,9 @@ function registerMappingTests(): void {
       },
     );
 
-    it("resolves a backslash-separated configured path to its canonical staged document", async () => {
-      await assertDocumentationPathAliasResolves(
-        sampleReleaseTestValue(arbitraryDocumentationPathAliasCase()),
-      );
+    it("resolves configured path aliases to their canonical staged documents", async () => {
+      const aliasCases = sampleReleaseTestValue(arbitraryDocumentationPathAliasCases());
+      for (const aliasCase of aliasCases) await assertDocumentationPathAliasResolves(aliasCase);
     });
   });
 }
