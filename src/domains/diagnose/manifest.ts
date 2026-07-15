@@ -2,8 +2,8 @@
  * Diagnose manifest contract — parses and validates the consumer-supplied
  * declarative manifest into the typed contract the pipeline judges against. The
  * manifest carries the consumer-varying facts the `spx` CLI must not hard-code:
- * the spx-version floor, marketplace identity, expected plugin set, methodology
- * selection, and check set. Validation is conditional: a fact is required
+ * the spx-version floor, methodology selection, and check set. Validation is
+ * conditional: a fact is required
  * exactly when a check that reads it is selected. Pure over the raw JSON text;
  * no I/O.
  *
@@ -12,13 +12,7 @@
 
 import { METHODOLOGY_CONFIG_FIELDS, type MethodologyConfig, validateMethodologyConfig } from "@/config/methodology";
 import type { Result } from "@/config/types";
-import {
-  isNonEmptyString,
-  isNonEmptyStringArray,
-  isRecord,
-  type MarketplaceIdentity,
-  validateMarketplaceIdentity,
-} from "@/domains/diagnose/facts";
+import { isNonEmptyString, isRecord } from "@/domains/diagnose/facts";
 
 /** The diagnose checks the pipeline knows how to run, named in the manifest's check set. */
 export const CHECK_NAME = {
@@ -35,26 +29,25 @@ export type CheckName = (typeof CHECK_NAME)[keyof typeof CHECK_NAME];
 export const DIAGNOSE_MANIFEST_FIELDS = {
   CHECKS: "checks",
   SPX_FLOOR: "spx_floor",
+  METHODOLOGY: "methodology",
+} as const;
+
+export const RETIRED_DIAGNOSE_MANIFEST_FIELDS = {
   MARKETPLACE: "marketplace",
   EXPECTED_PLUGINS: "expected_plugins",
-  METHODOLOGY: "methodology",
 } as const;
 
 /** The typed, validated manifest contract. */
 export interface DiagnoseManifest {
   /** The spx-version floor; present when `spx-reachability` is selected. */
   readonly spxFloor?: string;
-  /** The marketplace identity; present when `marketplace-install` is selected. */
-  readonly marketplace?: MarketplaceIdentity;
-  /** The expected plugin set; present when `marketplace-install` is selected. */
-  readonly expectedPlugins?: readonly string[];
   /** The check set the pipeline runs, in order. */
   readonly checks: readonly CheckName[];
   /** The configured methodology source/version; present when methodology-context is selected. */
   readonly methodology?: MethodologyConfig;
-  /** A config-derived methodology resolution error; present only when methodology-context should own the failure. */
-  readonly methodologyError?: string;
 }
+
+const DIAGNOSE_MANIFEST_FIELD_SET: ReadonlySet<string> = new Set(Object.values(DIAGNOSE_MANIFEST_FIELDS));
 
 function validateChecks(raw: unknown, available: ReadonlySet<string>): Result<readonly CheckName[]> {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -121,9 +114,9 @@ function validateManifestMethodology(
  * Parses the raw manifest JSON and validates it into the typed contract against
  * the checks available in this build. A manifest naming a check absent from
  * `availableChecks` is rejected, as is one that selects a check without that
- * check's required consumer facts: `spx-reachability` requires `spx_floor`,
- * `marketplace-install` requires `marketplace` and `expected_plugins`, and
- * `methodology-context` requires `methodology`.
+ * check's required consumer facts: `spx-reachability` requires `spx_floor` and
+ * `methodology-context` requires `methodology`. Fields outside the caller-fact
+ * contract are rejected.
  */
 export function parseManifest(rawJson: string, availableChecks: readonly CheckName[]): Result<DiagnoseManifest> {
   let parsed: unknown;
@@ -135,14 +128,16 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
   if (!isRecord(parsed)) {
     return { ok: false, error: "manifest must be a JSON object" };
   }
+  const unknownFields = Object.keys(parsed).filter((field) => !DIAGNOSE_MANIFEST_FIELD_SET.has(field));
+  if (unknownFields.length > 0) {
+    return { ok: false, error: `manifest has unrecognized fields: ${unknownFields.join(", ")}` };
+  }
 
   const checks = validateChecks(parsed[DIAGNOSE_MANIFEST_FIELDS.CHECKS], new Set(availableChecks));
   if (!checks.ok) return checks;
 
   const manifest: {
     spxFloor?: string;
-    marketplace?: MarketplaceIdentity;
-    expectedPlugins?: readonly string[];
     checks: readonly CheckName[];
     methodology?: MethodologyConfig;
   } = { checks: checks.value };
@@ -161,24 +156,6 @@ export function parseManifest(rawJson: string, availableChecks: readonly CheckNa
       };
     }
     manifest.spxFloor = spxFloor;
-  }
-
-  if (checks.value.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-    const marketplace = validateMarketplaceIdentity(
-      parsed[DIAGNOSE_MANIFEST_FIELDS.MARKETPLACE],
-      `manifest '${DIAGNOSE_MANIFEST_FIELDS.MARKETPLACE}'`,
-    );
-    if (!marketplace.ok) return marketplace;
-    const expectedPlugins = parsed[DIAGNOSE_MANIFEST_FIELDS.EXPECTED_PLUGINS];
-    if (!isNonEmptyStringArray(expectedPlugins)) {
-      return {
-        ok: false,
-        error:
-          `manifest selects '${CHECK_NAME.MARKETPLACE_INSTALL}' but carries no '${DIAGNOSE_MANIFEST_FIELDS.EXPECTED_PLUGINS}'`,
-      };
-    }
-    manifest.marketplace = marketplace.value;
-    manifest.expectedPlugins = expectedPlugins;
   }
 
   return { ok: true, value: manifest };

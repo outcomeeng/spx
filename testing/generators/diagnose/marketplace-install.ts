@@ -18,7 +18,7 @@ import {
   type MarketplaceInstallReading,
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
-import type { DiagnoseFacts } from "@/domains/diagnose/facts";
+import type { DiagnoseFacts } from "@/domains/diagnose/effective-facts";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
 import {
