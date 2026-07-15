@@ -18,6 +18,7 @@ CAN reflect the released version's behavior and product release-version referenc
 
 - Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
 - Structural version validation preserves every generated semantic version other than the exact standalone previous product release-version token identified by the release data, including exact release values embedded in larger non-whitespace tokens and first releases whose release data identifies no previous version ([test](tests/documentation-sync.property.l1.test.ts))
+- Agent file-tool authorization permits every generated staged write or edit target and rejects every generated absolute or parent-relative target outside the isolated staging workspace ([test](tests/documentation-sync.property.l1.test.ts))
 
 ### Compliance
 
