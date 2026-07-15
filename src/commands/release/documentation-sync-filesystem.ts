@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { normalizeDocumentationPathSeparators, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
 import type {
+  DocumentationFileIdentity,
   DocumentationPromoter,
   DocumentationPromotion,
   DocumentationStager,
@@ -40,7 +41,7 @@ export type DocumentationAtomicWriter = (
   path: string,
   content: string,
   guard: DocumentationReplacementGuard,
-) => Promise<void>;
+) => Promise<DocumentationFileIdentity>;
 
 export interface DocumentationFileHandle {
   readonly stat: () => Promise<Stats>;
@@ -60,7 +61,13 @@ export interface DocumentationSyncFilesystemDependencies {
 interface VerifiedDocumentationPath {
   readonly sourcePath: string;
   readonly targetPath: string;
+  readonly originalIdentity: DocumentationFileIdentity;
   readonly originalContent: string;
+}
+
+interface PromotedDocumentation {
+  readonly document: DocumentationPromotion;
+  readonly promotedIdentity: DocumentationFileIdentity;
 }
 
 interface BoundDocumentationSnapshot {
@@ -99,16 +106,22 @@ export function createDocumentationAtomicWriter(
   fileSystem: AtomicWriteFileSystem = ATOMIC_WRITE_FILE_SYSTEM,
 ): DocumentationAtomicWriter {
   return async (path, content, guard) => {
+    let promotedIdentity: DocumentationFileIdentity | undefined;
     await writeFileAtomic(path, content, {
       fs: {
         ...fileSystem,
         rename: async (from, to) => {
           await guard();
           await fileSystem.rename(from, to);
+          promotedIdentity = toDocumentationFileIdentity(await lstat(to));
         },
       },
       randomBytes,
     });
+    if (promotedIdentity === undefined) {
+      throw new Error(`Atomic documentation replacement did not capture file identity: ${path}`);
+    }
+    return promotedIdentity;
   };
 }
 
@@ -149,11 +162,16 @@ async function stageDocumentationSet(
   );
   const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
   try {
-    const documents = await Promise.all(verified.map(async ({ sourcePath, targetPath, originalContent }) => {
+    const documents = await Promise.all(verified.map(async ({
+      sourcePath,
+      targetPath,
+      originalIdentity,
+      originalContent,
+    }) => {
       const stagedPath = join(workingDirectory, normalizeDocumentationPathSeparators(sourcePath));
       await mkdir(dirname(stagedPath), { recursive: true });
       await writeFile(stagedPath, originalContent, DOCUMENTATION_TEXT_ENCODING);
-      return { sourcePath, stagedPath, targetPath, originalContent };
+      return { sourcePath, stagedPath, targetPath, originalIdentity, originalContent };
     }));
     return {
       workingDirectory,
@@ -171,16 +189,17 @@ async function promoteDocumentationSet(
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
   await assertDocumentationSetUnchanged(documents, dependencies);
-  const promoted: DocumentationPromotion[] = [];
+  const promoted: PromotedDocumentation[] = [];
   try {
     for (const document of documents) {
-      await replaceDocumentation(
+      const promotedIdentity = await replaceDocumentation(
         document.path,
+        document.originalIdentity,
         document.originalContent,
         document.content,
         dependencies,
       );
-      promoted.push(document);
+      promoted.push({ document, promotedIdentity });
     }
   } catch (promotionError) {
     const rollbackErrors = await restorePromotedDocumentation(promoted, dependencies);
@@ -204,27 +223,34 @@ async function assertDocumentationSetUnchanged(
 }
 
 async function assertDocumentationUnchanged(
-  { path, originalContent }: DocumentationPromotion,
+  { path, originalIdentity, originalContent }: DocumentationPromotion,
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  const currentContent = (await readBoundDocumentationSnapshot(
+  const currentSnapshot = await readBoundDocumentationSnapshot(
     path,
     undefined,
     true,
     dependencies.openDocumentationFile,
     dependencies.resolveCanonicalDocumentationPath,
-  )).content;
-  assertDocumentationContent(path, currentContent, originalContent);
+  );
+  assertDocumentationIdentity(path, originalIdentity, currentSnapshot.stats);
+  assertDocumentationContent(path, currentSnapshot.content, originalContent);
 }
 
 async function restorePromotedDocumentation(
-  promoted: readonly DocumentationPromotion[],
+  promoted: readonly PromotedDocumentation[],
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<readonly unknown[]> {
   const rollbackErrors: unknown[] = [];
-  for (const { path, originalContent, content } of [...promoted].reverse()) {
+  for (const { document, promotedIdentity } of [...promoted].reverse()) {
     try {
-      await replaceDocumentation(path, content, originalContent, dependencies);
+      await replaceDocumentation(
+        document.path,
+        promotedIdentity,
+        document.content,
+        document.originalContent,
+        dependencies,
+      );
     } catch (error) {
       rollbackErrors.push(error);
     }
@@ -244,14 +270,19 @@ async function verifyDocumentationPath(
   if (targetPath === undefined) {
     throw new Error(`Documentation path escapes or is not canonical within the product: ${sourcePath}`);
   }
-  const originalContent = (await readBoundDocumentationSnapshot(
+  const originalSnapshot = await readBoundDocumentationSnapshot(
     targetPath,
     canonicalProductDir,
     true,
     dependencies.openDocumentationFile,
     dependencies.resolveCanonicalDocumentationPath,
-  )).content;
-  return { sourcePath, targetPath, originalContent };
+  );
+  return {
+    sourcePath,
+    targetPath,
+    originalIdentity: toDocumentationFileIdentity(originalSnapshot.stats),
+    originalContent: originalSnapshot.content,
+  };
 }
 
 export function resolveCanonicalDocumentationTarget(
@@ -272,10 +303,11 @@ export function resolveCanonicalDocumentationTarget(
 
 async function replaceDocumentation(
   path: string,
+  expectedIdentity: DocumentationFileIdentity,
   expectedContent: string,
   replacementContent: string,
   dependencies: DocumentationSyncFilesystemDependencies,
-): Promise<void> {
+): Promise<DocumentationFileIdentity> {
   const initialSnapshot = await readBoundDocumentationSnapshot(
     path,
     undefined,
@@ -283,6 +315,7 @@ async function replaceDocumentation(
     dependencies.openDocumentationFile,
     dependencies.resolveCanonicalDocumentationPath,
   );
+  assertDocumentationIdentity(path, expectedIdentity, initialSnapshot.stats);
   assertDocumentationContent(path, initialSnapshot.content, expectedContent);
   const guard: DocumentationReplacementGuard = async () => {
     const replacementSnapshot = await readBoundDocumentationSnapshot(
@@ -297,7 +330,7 @@ async function replaceDocumentation(
     }
     assertDocumentationContent(path, replacementSnapshot.content, expectedContent);
   };
-  await dependencies.writeDocumentAtomic(path, replacementContent, guard);
+  return await dependencies.writeDocumentAtomic(path, replacementContent, guard);
 }
 
 async function readBoundDocumentationSnapshot(
@@ -387,6 +420,20 @@ async function assertDocumentationPathBound(
 
 function isSameFileIdentity(left: Stats, right: Stats): boolean {
   return left.dev === right.dev && left.ino === right.ino;
+}
+
+function toDocumentationFileIdentity(stats: Stats): DocumentationFileIdentity {
+  return { device: stats.dev, inode: stats.ino };
+}
+
+function assertDocumentationIdentity(
+  path: string,
+  expectedIdentity: DocumentationFileIdentity,
+  actualStats: Stats,
+): void {
+  if (expectedIdentity.device !== actualStats.dev || expectedIdentity.inode !== actualStats.ino) {
+    throw new Error(`Documentation file identity changed after staging: ${path}`);
+  }
 }
 
 function assertDocumentationContent(

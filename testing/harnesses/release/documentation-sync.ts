@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix, win32 } from "node:path";
 
 import { Command } from "commander";
@@ -18,6 +18,7 @@ import {
   resolveCanonicalDocumentationTarget,
 } from "@/commands/release/documentation-sync-filesystem";
 import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
+import { DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import {
   DEFAULT_RELEASE_DOCUMENTATION_PATHS,
   RELEASE_CONFIG_FIELDS,
@@ -33,6 +34,7 @@ import {
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
+  type DocumentationFileIdentity,
   type DocumentationPromoter,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
@@ -41,6 +43,7 @@ import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/relea
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
@@ -188,8 +191,9 @@ class FailingSecondDocumentationAtomicWriter {
       this.failures += 1;
       throw new Error("Second documentation promotion failed");
     }
-    await writeDocumentationAfterGuard(path, content, guard);
+    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
     this.successfulWrites += 1;
+    return promotedIdentity;
   };
 }
 
@@ -197,8 +201,9 @@ class RecordingDocumentationAtomicWriter {
   writes = 0;
 
   readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
-    await writeDocumentationAfterGuard(path, content, guard);
+    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
     this.writes += 1;
+    return promotedIdentity;
   };
 }
 
@@ -215,7 +220,7 @@ class InterveningDuringPromotionAtomicWriter {
       this.hasInjectedEdit = true;
       await writeFile(this.interveningPath, this.interveningContent);
     }
-    await writeDocumentationAfterGuard(path, content, guard);
+    return await writeDocumentationAfterGuard(path, content, guard);
   };
 }
 
@@ -307,8 +312,9 @@ class IdentityReplacingDocumentationAtomicWriter {
         this.replacementContent,
       );
     }
-    await writeDocumentationAfterGuard(path, content, guard);
+    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
     this.writes += 1;
+    return promotedIdentity;
   };
 }
 
@@ -328,8 +334,35 @@ class PostPromotionEditFailingAtomicWriter {
       this.failures += 1;
       throw new Error("Documentation promotion failed after an intervening edit");
     }
-    await writeDocumentationAfterGuard(path, content, guard);
+    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
     this.successfulWrites += 1;
+    return promotedIdentity;
+  };
+}
+
+class PostPromotionIdentityReplacingFailingAtomicWriter {
+  successfulWrites = 0;
+  failures = 0;
+
+  constructor(
+    private readonly promotedPath: string,
+    private readonly replacementPath: string,
+    private readonly promotedContent: string,
+  ) {}
+
+  readonly write: DocumentationAtomicWriter = async (path, content, guard) => {
+    if (this.successfulWrites === 1 && this.failures === 0) {
+      await replaceDocumentationPathIdentity(
+        this.promotedPath,
+        this.replacementPath,
+        this.promotedContent,
+      );
+      this.failures += 1;
+      throw new Error("Documentation promotion failed after an identity replacement");
+    }
+    const promotedIdentity = await writeDocumentationAfterGuard(path, content, guard);
+    this.successfulWrites += 1;
+    return promotedIdentity;
   };
 }
 
@@ -337,9 +370,11 @@ async function writeDocumentationAfterGuard(
   path: string,
   content: string,
   guard: DocumentationReplacementGuard,
-): Promise<void> {
+): Promise<DocumentationFileIdentity> {
   await guard();
   await writeFile(path, content);
+  const stats = await lstat(path);
+  return { device: stats.dev, inode: stats.ino };
 }
 
 class InterveningDocumentationEditPromoter {
@@ -352,6 +387,20 @@ class InterveningDocumentationEditPromoter {
 
   readonly promote: DocumentationPromoter = async (documents) => {
     await writeFile(join(this.productDir, this.sourcePath), this.content);
+    await this.delegate(documents);
+  };
+}
+
+class InterveningDocumentationIdentityPromoter {
+  constructor(
+    private readonly targetPath: string,
+    private readonly replacementPath: string,
+    private readonly content: string,
+    private readonly delegate: DocumentationPromoter,
+  ) {}
+
+  readonly promote: DocumentationPromoter = async (documents) => {
+    await replaceDocumentationPathIdentity(this.targetPath, this.replacementPath, this.content);
     await this.delegate(documents);
   };
 }
@@ -666,6 +715,30 @@ async function assertPromotionIdentityChangeRejected(
   });
 }
 
+async function assertStagedIdentityReplacementRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+      const writer = new RecordingDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      const promoter = new InterveningDocumentationIdentityPromoter(
+        join(options.productDir, primary.path),
+        join(externalDir, primary.path),
+        primary.originalContent,
+        filesystem.promoteDocumentation,
+      );
+      await expect(composeDocumentationSync({
+        ...options,
+        promoteDocumentation: promoter.promote,
+      })).rejects.toThrow();
+      expect(writer.writes).toBe(0);
+      await expectProductDocumentationUnchanged(scenario, readProductDocument);
+    });
+  });
+}
+
 async function assertAtomicPromotionClosesDocumentationHandles(
   scenario: DocumentationSyncScenario,
 ): Promise<void> {
@@ -718,6 +791,29 @@ async function assertRollbackPreservesPostPromotionEdit(
     await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
     expect(writer.failures).toBe(1);
     await expectOnlyInterveningDocumentationEdit(scenario, primary.path, readProductDocument);
+  });
+}
+
+async function assertRollbackPreservesPostPromotionIdentityReplacement(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+      const writer = new PostPromotionIdentityReplacingFailingAtomicWriter(
+        join(options.productDir, primary.path),
+        join(externalDir, primary.path),
+        primary.updatedContent,
+      );
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
+      expect(writer.failures).toBe(1);
+      for (const path of scenario.paths) {
+        await expect(readProductDocument(path)).resolves.toBe(
+          path === primary.path ? primary.updatedContent : scenario.original[path],
+        );
+      }
+    });
   });
 }
 
@@ -942,6 +1038,26 @@ function registerMappingTests(): void {
       const aliasCases = sampleReleaseTestValue(arbitraryDocumentationPathAliasCases());
       for (const aliasCase of aliasCases) await assertDocumentationPathAliasResolves(aliasCase);
     });
+
+    it("resolves release documentation config independently of unrelated sections", async () => {
+      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+      await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
+        await writeFile(
+          join(productDir, DEFAULT_CONFIG_FILENAME),
+          serializeConfigFileSections(CONFIG_FILE_FORMAT.YAML, {
+            [RELEASE_SECTION]: {
+              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+                [RELEASE_CONFIG_FIELDS.PATHS]: scenario.paths,
+              },
+            },
+            [DIAGNOSE_SECTION]: sampleReleaseTestValue(arbitraryDomainLiteral()),
+          }).value,
+        );
+        await expect(
+          DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES.resolveDocumentationConfig(productDir),
+        ).resolves.toEqual(scenario.config);
+      });
+    });
   });
 }
 
@@ -1125,6 +1241,12 @@ function registerComplianceTests(): void {
       });
     });
 
+    it("rejects a same-content identity replacement after staging", async () => {
+      await assertStagedIdentityReplacementRejected(
+        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+      );
+    });
+
     it("rolls back earlier writes when a later document changes during promotion", async () => {
       const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
       const interveningPath = scenario.paths[1];
@@ -1158,6 +1280,12 @@ function registerComplianceTests(): void {
 
     it("preserves a post-promotion edit when rollback follows a later failure", async () => {
       await assertRollbackPreservesPostPromotionEdit(
+        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+      );
+    });
+
+    it("preserves a same-content identity replacement when rollback follows a later failure", async () => {
+      await assertRollbackPreservesPostPromotionIdentityReplacement(
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
       );
     });
