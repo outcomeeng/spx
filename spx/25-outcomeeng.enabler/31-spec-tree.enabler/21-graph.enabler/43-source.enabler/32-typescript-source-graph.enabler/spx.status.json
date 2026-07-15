@@ -1,4 +1,10 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/32-typescript-source-graph.enabler/tests/typescript-source-graph.compliance.l1.test.ts": "passed",
+      "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/32-typescript-source-graph.enabler/tests/typescript-source-graph.mapping.l1.test.ts": "passed"
+    }
+  }
 }
