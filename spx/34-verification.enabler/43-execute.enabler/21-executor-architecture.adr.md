@@ -20,15 +20,19 @@ The runner reports `passed`, `failed`, or `interrupted`; the recorder terminal-s
 
 ## Verification
 
+### Testing
+
+- ALWAYS: the executor records a run's scope, finding, and terminal evidence through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler` ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts`, and an unsupported verification type opens no run ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([scenario](tests/execute.scenario.l1.test.ts))
+
 ### Audit
 
-- ALWAYS: the executor resolves a verification type's deterministic runner through that type's registry module — `src/test/registry.ts` for `test` — and no module under `src/commands/verification-exec/` names a language, so a language's runner and reporter reach the executor only through the registry and injected dependencies ([audit])
-- ALWAYS: the executor records a run's scope, finding, and terminal evidence only through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`, constructing no journal event directly ([audit])
-- ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([audit])
-- ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([audit])
-- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([audit])
+- ALWAYS: no module under `src/commands/verification-exec/` names a language, so a language's runner and reporter reach the executor only through the registry and injected dependencies ([audit])
+- ALWAYS: the executor constructs no journal event and reads or writes no journal storage directly — it composes the recorder's injected lifecycle operations, which own event construction and backend binding ([audit])
 - ALWAYS: the executor accepts its runner, evidence sink, recorder lifecycle operations, and clock through injected parameters, so its behavior verifies against controlled implementations without process, filesystem, or journal I/O of its own ([audit])
 - NEVER: the executor spawns, configures, or selects a verification agent — spx drives a deterministic runner, and an agentic verification is judged by an agent the agent harness launches, per `spx/12-agent-harness.pdr.md` ([audit])
 - NEVER: a module under `src/commands/verification-exec/` imports Commander or writes to the process boundary — `process.exit`, `process.stdout`, `process.stderr`, `process.stdin` — the `spx verification <type> run` command path is a separate descriptor concern under `spx/60-surfaces.enabler/21-cli-surface.enabler` ([audit])
-- NEVER: a module under `src/commands/verification-exec/` constructs a backend transport or reads journal storage directly — it composes the recorder's injected lifecycle operations, which own backend binding ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or module replacement substitutes for the executor's injected runner, sink, or recorder operations — tests inject controlled implementations through the public parameters ([audit])
