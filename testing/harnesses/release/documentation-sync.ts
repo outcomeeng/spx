@@ -1232,7 +1232,9 @@ function registerScenarioTests(): void {
           ...options,
           faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
         });
-        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).toContain(scenario.releaseData.version);
+        const promptInstruction = documentationSyncPromptInstruction(agent.requests[0].prompt);
+        expect(promptInstruction).toContain(scenario.releaseData.version);
+        expect(promptInstruction).not.toContain(JSON.stringify(scenario.releaseData.version));
         expect(agent.requests[0].permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
         expect(auditor.requests).toHaveLength(1);
         expect(documentationSyncPromptInstruction(auditor.requests[0].prompt)).toContain(
