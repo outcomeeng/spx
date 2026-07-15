@@ -162,17 +162,23 @@ function createExecutorHarness(): ExecutorHarness {
   return { scenario, fs, recorder, request };
 }
 
-async function renderRunEvents(
+async function renderRunReport(
   harness: ExecutorHarness,
   runToken: string,
-): Promise<readonly JournalEvent[]> {
-  const report = parseRenderReport(
+): Promise<ReturnType<typeof parseRenderReport>> {
+  return parseRenderReport(
     (await verifyRenderCommand(
       verifyRenderOptions(harness.scenario, runToken),
       verifyDeps(harness.scenario, harness.fs),
     )).output,
   );
-  return report.events;
+}
+
+async function renderRunEvents(
+  harness: ExecutorHarness,
+  runToken: string,
+): Promise<readonly JournalEvent[]> {
+  return (await renderRunReport(harness, runToken)).events;
 }
 
 function eventsOfType(events: readonly JournalEvent[], type: string): readonly JournalEvent[] {
@@ -254,12 +260,7 @@ export async function assertExecutorRecordsScopeFindingAndTerminal(): Promise<vo
   if (!result.executed) return;
   expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
 
-  const report = parseRenderReport(
-    (await verifyRenderCommand(
-      verifyRenderOptions(harness.scenario, result.run.runToken),
-      verifyDeps(harness.scenario, harness.fs),
-    )).output,
-  );
+  const report = await renderRunReport(harness, result.run.runToken);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(1);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
@@ -287,12 +288,7 @@ export async function assertExecutorRecordsFindingWithoutErrorMessages(): Promis
 
   expect(result.executed).toBe(true);
   if (!result.executed) return;
-  const report = parseRenderReport(
-    (await verifyRenderCommand(
-      verifyRenderOptions(harness.scenario, result.run.runToken),
-      verifyDeps(harness.scenario, harness.fs),
-    )).output,
-  );
+  const report = await renderRunReport(harness, result.run.runToken);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(1);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
 }
@@ -485,12 +481,7 @@ export async function assertExecutorSealsGatedOutRunAsInterrupted(): Promise<voi
   if (!result.executed) return;
   expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
 
-  const report = parseRenderReport(
-    (await verifyRenderCommand(
-      verifyRenderOptions(harness.scenario, result.run.runToken),
-      verifyDeps(harness.scenario, harness.fs),
-    )).output,
-  );
+  const report = await renderRunReport(harness, result.run.runToken);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(0);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
@@ -546,12 +537,7 @@ export async function assertExecutorMapsInterruptedRunnerReport(): Promise<void>
   if (!result.executed) return;
   expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
 
-  const report = parseRenderReport(
-    (await verifyRenderCommand(
-      verifyRenderOptions(harness.scenario, result.run.runToken),
-      verifyDeps(harness.scenario, harness.fs),
-    )).output,
-  );
+  const report = await renderRunReport(harness, result.run.runToken);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
   expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
   expect(report.sealed).toBe(true);
@@ -620,11 +606,38 @@ export async function assertExecutorRecordsSeparatorStraddlingFindingsDistinctly
 
   expect(result.executed).toBe(true);
   if (!result.executed) return;
-  const report = parseRenderReport(
-    (await verifyRenderCommand(
-      verifyRenderOptions(harness.scenario, result.run.runToken),
-      verifyDeps(harness.scenario, harness.fs),
-    )).output,
-  );
+  const report = await renderRunReport(harness, result.run.runToken);
   expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(2);
+}
+
+/**
+ * Compliance: when the runner fails after the run opens, the executor finishes the opened run with an
+ * interrupted terminal status before the failure surfaces, so it leaves no spx-driven run unsealed.
+ */
+export async function assertExecutorSealsRunWhenRunnerFails(): Promise<void> {
+  const harness = createExecutorHarness();
+  const failure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
+  const runner: JournalStreamingRunner = {
+    runTestsStreaming: () => Promise.reject(failure),
+  };
+  let opened: RunLocator | undefined;
+  const recorder: ExecutorRecorderOperations = {
+    open: async (request) => {
+      opened = await harness.recorder.open(request);
+      return opened;
+    },
+    appendScope: (run, unit) => harness.recorder.appendScope(run, unit),
+    appendFinding: (run, finding) => harness.recorder.appendFinding(run, finding),
+    finish: (run, status) => harness.recorder.finish(run, status),
+  };
+
+  await expect(
+    executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder }),
+  ).rejects.toBe(failure);
+
+  expect(opened).toBeDefined();
+  if (opened === undefined) return;
+  const report = await renderRunReport(harness, opened.runToken);
+  expect(report.sealed).toBe(true);
+  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
 }

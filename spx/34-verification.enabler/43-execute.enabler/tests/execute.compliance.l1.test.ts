@@ -5,6 +5,7 @@ import {
   assertExecutorReachesRunnerThroughRegistry,
   assertExecutorRecordsOnlyThroughRecorderOperations,
   assertExecutorRecordsSeparatorStraddlingFindingsDistinctly,
+  assertExecutorSealsRunWhenRunnerFails,
   assertRecorderRaisesWhenLifecycleCommandFails,
   assertTestRunnerFoldsFailedTerminalStatus,
   assertTestRunnerFoldsInterruptedTerminalStatus,
@@ -42,5 +43,9 @@ describe("spx-driven verification executor compliance", () => {
 
   it("records two separator-straddling findings distinctly rather than collapsing them onto one key", async () => {
     await assertExecutorRecordsSeparatorStraddlingFindingsDistinctly();
+  });
+
+  it("finishes the opened run interrupted when the runner fails, before surfacing the failure", async () => {
+    await assertExecutorSealsRunWhenRunnerFails();
   });
 });
