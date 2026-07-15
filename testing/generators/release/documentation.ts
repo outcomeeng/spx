@@ -181,18 +181,23 @@ export function arbitraryReleaseVersionVariantOnlyScenario(): fc.Arbitrary<Docum
 
 export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
   return fc
-    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), fc.boolean())
-    .map(([directory, filename, usePlatformAlias]) => {
+    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), arbitraryPathSegment())
+    .chain(([directory, filename, aliasDirectory]) => {
       const path = `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`;
-      return usePlatformAlias
-        ? [
+      return fc.oneof(
+        fc.constant([path, path]),
+        fc.constant([
           path,
           path.replaceAll(
             RELEASE_DOCUMENTATION_PATH_SEPARATOR,
             RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
           ),
-        ]
-        : [path, path];
+        ]),
+        fc.constant([
+          path,
+          `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${aliasDirectory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${PATH_CONTAINMENT_PARENT_DIRECTORY}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`,
+        ]),
+      );
     });
 }
 
