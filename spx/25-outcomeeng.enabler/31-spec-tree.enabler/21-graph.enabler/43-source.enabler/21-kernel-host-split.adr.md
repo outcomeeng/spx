@@ -18,9 +18,8 @@ The source graph is a methodology capability consumed by ownership, garbage-coll
 ### Audit
 
 - ALWAYS: source graph modules live under `src/outcomeeng/spec-tree/graph/source/` in the `kernel/`, `providers/`, `normalize/`, `gc/` split, and no module under that path imports Commander, `src/commands/`, `src/interfaces/`, process APIs, `node:fs`, `node:child_process`, or git plumbing ([audit])
-- ALWAYS: kernel, normalization, and gc functions receive spec/test graph facts and provider facts as typed parameters — injected data, never file reads or tool invocations ([audit])
+- ALWAYS: kernel, normalization, and gc modules are structured so every fact enters as a typed parameter — no import of a filesystem, process, or tool-invocation API appears under the path; the runtime rejection of unattributable facts is the tested rule of [`spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/11-source-provider-boundary.adr.md`](11-source-provider-boundary.adr.md), which also owns the no-implementation-parsing boundary ([audit])
 - ALWAYS: provider participation is declared through a typed descriptor exported from one module per provider, and the registry reaches every descriptor through an explicit import statement ([audit])
 - ALWAYS: classification vocabulary, evidence categories, language identifiers, and provider identifiers are source-owned declarations that tests and generators import from the owning module ([audit])
 - ALWAYS: reusable variable test inputs for the source graph are produced by a pure, side-effect-free generator under `testing/generators/outcomeeng/`, governed by this node per [`spx/12-test-infrastructure.adr.md`](../../../../12-test-infrastructure.adr.md) ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or module interception in any source-graph test — controlled facts enter through the public parameter surface ([audit])
-- NEVER: a module under `src/outcomeeng/spec-tree/graph/source/` parses TypeScript, Python, Rust, or other implementation source text to construct facts or edges ([audit])
