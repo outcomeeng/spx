@@ -11,6 +11,7 @@ import {
   resolveAgentHomeDirs,
 } from "@/domains/agent/home";
 import {
+  AGENT_RESUME_COMMAND,
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_MODE,
   AGENT_RESUME_RECENT_WINDOW_MS,
@@ -30,6 +31,7 @@ import {
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
   codexSessionStoreDir,
+  buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
   piSessionStoreDir,
   isPathInsideOrEqual,
@@ -955,8 +957,9 @@ export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void
   const validId = sampleAgentResumeValue(arbitraryAgentSessionId(), 170);
   const invalidTypeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 171);
   const unversionedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 172);
+  const sourcePath = piTranscriptPath(homeDir, agentSessionJsonlName(validId));
   fs.writeFile(
-    piTranscriptPath(homeDir, agentSessionJsonlName(validId)),
+    sourcePath,
     piTranscript({ sessionId: validId, cwd, timestamp }),
     nowMs,
   );
@@ -992,6 +995,11 @@ export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void
   });
 
   expect(candidates.map((candidate) => candidate.sessionId)).toEqual([validId]);
+  expect(buildAgentResumeLaunchCommand(candidates[0])).toEqual({
+    command: AGENT_RESUME_COMMAND.PI_BINARY,
+    args: [AGENT_RESUME_COMMAND.PI_SESSION, sourcePath],
+    cwd,
+  });
 }
 
 export async function assertIncludesCodexVsCodeTranscripts(): Promise<void> {
@@ -1487,6 +1495,63 @@ export function assertAgentHomeResolutionUsesDefaultHomes(): void {
   const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
 
   expect(resolveAgentHomeDirs({}, { homeDir: () => defaultHome })).toEqual(agentHomeDirsFromHomeDir(defaultHome));
+}
+
+export function assertAgentHomeResolutionUsesPiAgentDirectory(): void {
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 420);
+  const piAgentHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 421);
+
+  expect(
+    resolveAgentHomeDirs(
+      { [AGENT_HOME_ENV.PI_AGENT]: piAgentHome },
+      { homeDir: () => defaultHome },
+    ),
+  ).toEqual({
+    ...agentHomeDirsFromHomeDir(defaultHome),
+    piAgent: piAgentHome,
+    piSessions: join(piAgentHome, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
+  });
+}
+
+export async function assertAgentResumeUsesPiAgentDirectory(): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 422);
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 423);
+  const piAgentHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 424);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 425);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 426);
+  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 427);
+  const defaultPiSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 428);
+  const timestamp = new Date(nowMs).toISOString();
+  const agentHomeDirs = resolveAgentHomeDirs(
+    { [AGENT_HOME_ENV.PI_AGENT]: piAgentHome },
+    { homeDir: () => defaultHome },
+  );
+  fs.writeFile(
+    piTranscriptPathFromSessionDir(agentHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
+    piTranscript({ sessionId: piSessionId, cwd, timestamp }),
+    nowMs,
+  );
+  fs.writeFile(
+    piTranscriptPath(defaultHome, agentSessionJsonlName(defaultPiSessionId)),
+    piTranscript({ sessionId: defaultPiSessionId, cwd, timestamp }),
+    nowMs,
+  );
+
+  const output = await listAgentResumeSessions({
+    cwd,
+    fallbackWorktreeRoot: worktreeRoot,
+    scope: worktreeResumeScope(),
+    deps: {
+      fs,
+      agentHomeDirs: () => agentHomeDirs,
+      nowMs: () => nowMs,
+      resolveWorktreeRoot: async () => worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(piSessionId);
+  expect(output).not.toContain(defaultPiSessionId);
 }
 
 export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
