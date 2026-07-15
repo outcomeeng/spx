@@ -376,5 +376,68 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
         },
       );
     });
+
+    it("carries the detail and one terminal verdict when a passing Knip run streams", async () => {
+      await withLiteralFixtureEnv(
+        validationConfigSection(VALIDATION_KNIP_SUBSECTION, true),
+        async (env) => {
+          const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+          const successDetail = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
+          const validationCalls: KnipValidationCall[] = [];
+          const streamedStdout: string[] = [];
+          const streamedStderr: string[] = [];
+          const stageCompletions: ValidationStageCompletion[] = [];
+          const runner = new OutputRecordingSpawnOptionsRunner(
+            successDetail,
+            VALIDATION_EXIT_CODES.SUCCESS,
+          );
+          await env.writeTsConfigMarker();
+          await env.writeSourceFile(
+            sourceFilePath,
+            sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral()),
+          );
+
+          const knipDeps = createRecordingKnipCommandDeps(
+            env.productDir,
+            validationCalls,
+            runner,
+          );
+          const fullPipelineStages = validationPipelineStages.map((stage) =>
+            stage.name === VALIDATION_STAGE_DISPLAY_NAMES.KNIP
+              ? {
+                ...stage,
+                run: (context: ValidationStageContext) =>
+                  runKnipStage(context, {
+                    knipCommand: (options) => knipCommand(options, knipDeps),
+                  }),
+              }
+              : stage
+          );
+          const result = await allCommand(
+            {
+              cwd: env.productDir,
+              files: [sourceFilePath],
+              validationStages: fullPipelineStages,
+              onStageComplete: (completion) => stageCompletions.push(completion),
+              outputStreams: recordingOutputStreams(streamedStdout, streamedStderr),
+            },
+          );
+
+          expect(streamedStdout).toEqual([successDetail]);
+          expect(streamedStderr).toHaveLength(0);
+          const knipCompletions = stageCompletions.filter(
+            (completion) => completion.stageName === VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
+          );
+          expect(knipCompletions).toHaveLength(1);
+          expect(knipCompletions[0]?.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+          expect(knipCompletions[0]?.result.output).toContain(successDetail);
+          expect(knipCompletions[0]?.result.terminalOutput).toBe(
+            VALIDATION_STREAMED_TERMINAL_OUTPUT,
+          );
+          expect(knipCompletions[0]?.output).toContain(VALIDATION_STREAMED_STAGE_RESULT);
+          expect(result.output.split(VALIDATION_STREAMED_STAGE_RESULT)).toHaveLength(2);
+        },
+      );
+    });
   });
 });
