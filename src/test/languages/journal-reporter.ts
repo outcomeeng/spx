@@ -9,44 +9,12 @@
  */
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
-/** A unit of test coverage a journal-streaming run reports: one test module. */
-export interface TestScopeUnit {
-  /** The Vitest module identity (its resolved file path). */
-  readonly moduleId: string;
-}
-
-/** A validated problem a journal-streaming run reports: one failing test case. */
-export interface TestFinding {
-  /** The module the failing case belongs to. */
-  readonly moduleId: string;
-  /** The failing case's full name within its module. */
-  readonly testName: string;
-  /** The error messages the case failed with. */
-  readonly errors: readonly string[];
-}
-
-/**
- * The evidence-append port the reporter forwards scope and finding events to. Each
- * append is awaitable so a sink backed by asynchronous journal writes completes its
- * write before the reporter hook returns; a synchronous sink returns `void` and is
- * awaited to no effect.
- */
-export interface TestRunEvidenceSink {
-  /** Records that a test module was covered by the run. */
-  appendScope(unit: TestScopeUnit): void | Promise<void>;
-  /** Records that a test case failed. */
-  appendFinding(finding: TestFinding): void | Promise<void>;
-}
-
-/** Terminal statuses a journal-streaming run yields for the executor to seal with. */
-export const JOURNAL_RUN_TERMINAL_STATUS = {
-  PASSED: "passed",
-  FAILED: "failed",
-  INTERRUPTED: "interrupted",
-} as const;
-
-/** Terminal status a journal-streaming run yields for the executor to seal with. */
-export type JournalRunTerminalStatus = (typeof JOURNAL_RUN_TERMINAL_STATUS)[keyof typeof JOURNAL_RUN_TERMINAL_STATUS];
+import {
+  JOURNAL_RUN_TERMINAL_STATUS,
+  type JournalRunRequest,
+  type JournalRunTerminalStatus,
+  type TestRunEvidenceSink,
+} from "@/test/languages/types";
 
 /** How a journal-streaming run starts Vitest: the scope to run and the reporters registered on it. */
 export interface VitestRunStartOptions {
@@ -120,13 +88,7 @@ export function createJournalReporter(sink: TestRunEvidenceSink): JournalReporte
   };
 }
 
-/** The scope a journal-streaming run covers. */
-export interface JournalRunRequest {
-  readonly projectRoot: string;
-  readonly testPaths: readonly string[];
-}
-
-/** Dependencies a journal-streaming run is driven with: the evidence sink and the Vitest run-starter. */
+/** Dependencies a journal-streaming Vitest run is driven with: the evidence sink and the Vitest run-starter. */
 export interface JournalRunDependencies {
   readonly sink: TestRunEvidenceSink;
   readonly starter: VitestRunStarter;

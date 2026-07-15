@@ -12,7 +12,15 @@ import ts from "typescript";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  createVitestRunStarter,
+  runTestsStreaming as reporterRunTestsStreaming,
+  type VitestRunStarter,
+} from "@/test/languages/journal-reporter";
 import type {
+  JournalRunRequest,
+  JournalRunTerminalStatus,
+  JournalStreamRunDependencies,
   RelatedTestDependencies,
   RelatedTestRequest,
   RelatedTestResolution,
@@ -396,6 +404,25 @@ async function relatedTestPaths(
   return { testPaths, resolvedSourcePaths: [...resolvedSourcePaths] };
 }
 
+/**
+ * Drives the TypeScript journal-streaming run: delegates the programmatic Vitest run
+ * and its reporter to `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`,
+ * streaming per-module scope and per-failing-case findings into the injected sink and yielding
+ * the run's terminal status. The production Vitest run-starter is the default; an injected
+ * starter lets `l1` tests drive synthetic lifecycle events without a real Vitest run. Widening
+ * the descriptor's `{ sink }` dependency to `{ sink, starter? }` conforms to the neutral
+ * `TestingLanguageDescriptor` contract while exposing the starter seam TypeScript verification needs.
+ */
+export async function runTestsStreaming(
+  request: JournalRunRequest,
+  deps: JournalStreamRunDependencies & { readonly starter?: VitestRunStarter },
+): Promise<JournalRunTerminalStatus> {
+  return reporterRunTestsStreaming(request, {
+    sink: deps.sink,
+    starter: deps.starter ?? createVitestRunStarter(),
+  });
+}
+
 export const typescriptTestingLanguage: TestingLanguageDescriptor = {
   name: TYPESCRIPT_TESTING_LANGUAGE_NAME,
   testFilePatterns: TYPESCRIPT_TEST_FILE_PATTERNS,
@@ -405,4 +432,5 @@ export const typescriptTestingLanguage: TestingLanguageDescriptor = {
   detect,
   runTests,
   relatedTestPaths,
+  runTestsStreaming,
 };
