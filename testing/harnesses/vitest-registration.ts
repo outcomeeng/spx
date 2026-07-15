@@ -3,6 +3,7 @@ export { expect } from "vitest";
 
 const SUITE_TITLE_SEPARATOR = " / ";
 const CASE_VALUE_PLACEHOLDER = "%s";
+export const HARNESS_TEST_CASE_TITLE_PATTERN = "$title";
 
 export interface HarnessTestCase {
   readonly title: string;
@@ -121,4 +122,8 @@ export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]):
   for (const testCase of testCases) {
     registerHarnessTestCase(testCase.title, testCase.run, testCase.timeout);
   }
+}
+
+export function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
+  return Promise.resolve(testCase.run());
 }
