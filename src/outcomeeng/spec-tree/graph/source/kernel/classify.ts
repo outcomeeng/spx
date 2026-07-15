@@ -108,8 +108,10 @@ export function classifySourceOwnership(input: SourceOwnershipInput): readonly S
       facts.push(fact);
     }
   }
+  // Ordinal code-unit comparison keeps the record order a pure function of the
+  // input strings; a locale-aware comparator would vary with the host ICU build.
   const sourcePaths = [...new Set([...input.sourceArtifacts, ...factsBySource.keys()])]
-    .sort((left, right) => left.localeCompare(right));
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
   return sourcePaths.map((sourcePath) =>
     classifyArtifact(sourcePath, factsBySource.get(sourcePath) ?? [], linkedTests)
   );
