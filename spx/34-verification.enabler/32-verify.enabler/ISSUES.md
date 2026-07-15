@@ -99,26 +99,6 @@ auditing the drive-mode-assertion retag.
 `.../43-terminal-projection.enabler/tests/`; the assertion-type routing in
 `/understand` `references/assertion-types.md`.
 
-## An spx-driven run advertises no caller evidence-append action but the append verbs still accept one
-
-`projectVerifyRun` (`src/domains/verify/verify.ts`) filters `scope add` / `finding add` out of an
-unsealed spx-driven run's next actions, but `prepareAppend` / `verifyAppend`
-(`src/commands/verify/cli.ts`) accept those commands for any started run — they consult terminal
-state and the recorded input sidecar, never the folded drive mode. A caller holding an spx-driven
-run's token could therefore append scope or finding evidence to a run spx is meant to drive
-exclusively, contradicting the advertised next actions.
-
-**Not reachable yet.** No spx-driven run exists until `spx/34-verification.enabler/43-execute.enabler`
-opens one; the recorder always records caller-driven for the `spx verification run start` path, so the
-projection filter and this append path are both dormant infrastructure until the executor slice.
-Enforcing append rejection is undeclared behavior — `verify.md` declares only the next-action
-projection filter — so closing it needs a new compliance assertion (spx-driven runs reject caller
-evidence-append operations) plus its implementation, authored alongside the executor.
-
-**Resolution:** in the executor slice, author the append-rejection assertion and enforce it in
-`prepareAppend` by folding the run's drive mode, so an spx-driven run rejects caller `scope add` /
-`finding add`. Surfaced by the PR-410 changeset review (Codex, `src/domains/verify/verify.ts:1307`).
-
 ## The verify node carries more than seven assertions
 
 `spx/34-verification.enabler/32-verify.enabler/verify.md` carries ten assertions (one Mapping, nine
