@@ -1,7 +1,12 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
-import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentRunRequest, type AgentRunTool } from "@/agent/agent-runner";
+import {
+  AGENT_FILE_TOOLS,
+  AGENT_PERMISSION_MODES,
+  type AgentRunRequest,
+  type AgentRunTool,
+} from "@/agent/agent-runner";
 import { SOURCE_DOMAIN_ROOT_PREFIX } from "@/config/source-roots";
 import {
   DEFAULT_RELEASE_DOCUMENTATION_PATHS,
@@ -235,7 +240,7 @@ export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitr
       arbitraryPathSegment(),
       arbitraryPathSegment(),
       arbitraryPathSegment(),
-      fc.constantFrom(AGENT_RUN_TOOLS.READ, AGENT_RUN_TOOLS.WRITE, AGENT_RUN_TOOLS.EDIT),
+      fc.constantFrom(...AGENT_FILE_TOOLS),
     )
     .map(([rootSegment, containedSegment, escapedSegment, tool]) => {
       const workingDirectory = posix.resolve(posix.sep, rootSegment);
