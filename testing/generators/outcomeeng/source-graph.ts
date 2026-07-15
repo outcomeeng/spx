@@ -306,6 +306,8 @@ export const UNRESOLVABLE_PATH_VARIANT = {
   FOREIGN_ABSOLUTE: "foreign-absolute",
   WINDOWS_DRIVE_ABSOLUTE: "windows-drive-absolute",
   WINDOWS_UNC_ABSOLUTE: "windows-unc-absolute",
+  ROOT_PARENT_CANCEL: "root-parent-cancel",
+  ROOT_CURRENT_DIRECTORY: "root-current-directory",
   EMPTY: "empty",
 } as const;
 
@@ -343,6 +345,12 @@ function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: st
       const [head, ...rest] = canonicalPath.split(posix.sep);
       return `${win32.sep}${win32.sep}${head}${win32.sep}${rest.join(win32.sep)}`;
     }
+    case UNRESOLVABLE_PATH_VARIANT.ROOT_PARENT_CANCEL: {
+      const [head] = canonicalPath.split(posix.sep);
+      return [head, PATH_CONTAINMENT_PARENT_DIRECTORY].join(posix.sep);
+    }
+    case UNRESOLVABLE_PATH_VARIANT.ROOT_CURRENT_DIRECTORY:
+      return CURRENT_DIRECTORY_SEGMENT;
     case UNRESOLVABLE_PATH_VARIANT.EMPTY:
       return "";
   }
