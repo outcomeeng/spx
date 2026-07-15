@@ -14,7 +14,7 @@ CAN close a scoped verification run with a terminal status and optional terminal
 ### Compliance
 
 - ALWAYS: `finish` requires a terminal status in the journal terminal-status vocabulary before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
-- ALWAYS: when a verification type registers terminal validation, `finish` rejects a supplied terminal status or terminal metadata that conflicts with the run evidence before recording terminal completion or sealing the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
+- ALWAYS: when a verification type registers terminal validation, `finish` rejects a supplied terminal status outside the type's terminal vocabulary, or a terminal status or terminal metadata that conflicts with the run evidence, before recording terminal completion or sealing the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
 - ALWAYS: `finish` rejects an unsupported scope type or a malformed changeset scope before it records terminal completion or seals the journal ([test](tests/verify-lifecycle.compliance.l1.test.ts))
 - ALWAYS: a repeated `finish` returns the existing terminal projection and appends no second terminal completion event ([test](tests/verify-lifecycle.compliance.l1.test.ts))
 - ALWAYS: a repeated `finish`, `status`, or `render` rejects a selector that conflicts with a present recorded-input sidecar before it projects a terminal run from journal history ([test](tests/verify-lifecycle.compliance.l1.test.ts), [test](tests/verify-status.compliance.l1.test.ts))
