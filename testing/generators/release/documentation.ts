@@ -50,6 +50,16 @@ export interface DocumentationVersionPreservationScenarios {
   readonly withoutPreviousTag: DocumentationSyncScenario;
 }
 
+export interface DocumentationUnrelatedVersionRewriteScenario {
+  readonly scenario: DocumentationSyncScenario;
+  readonly rewritten: Readonly<Partial<Record<string, string>>>;
+}
+
+interface DocumentationSyncScenarioWithUnrelatedVersion {
+  readonly scenario: DocumentationSyncScenario;
+  readonly unrelatedVersion: string;
+}
+
 interface DocumentationVersionReferences {
   readonly original: readonly string[];
   readonly updated: readonly string[];
@@ -164,6 +174,36 @@ export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitra
       arbitraryScenarioWithPreservedVersionVariant(scenario, scenario.releaseData.version)
     ),
   });
+}
+
+export function arbitraryUnrelatedVersionRewriteScenario(): fc.Arbitrary<
+  DocumentationUnrelatedVersionRewriteScenario
+> {
+  return fc
+    .uniqueArray(arbitraryDocumentationPath(), {
+      minLength: DOCUMENT_COUNT_MIN,
+      maxLength: DOCUMENT_COUNT_MAX,
+    })
+    .chain((paths) => arbitraryDocumentationSyncScenarioWithUnrelatedVersion(fc.constant(paths), { paths }))
+    .chain(({ scenario, unrelatedVersion }) => {
+      const previousVersion = scenario.releaseData.previousTag === null
+        ? null
+        : releaseVersionFromTag(scenario.releaseData.previousTag);
+      return RELEASE_TEST_GENERATOR.semver()
+        .filter((version) =>
+          version !== scenario.releaseData.version
+          && version !== previousVersion
+          && version !== unrelatedVersion
+        )
+        .map((rewrittenVersion) => ({
+          scenario,
+          rewritten: rewriteDocumentationVersion(
+            scenario.updated,
+            unrelatedVersion,
+            rewrittenVersion,
+          ),
+        }));
+    });
 }
 
 export function arbitraryReleaseVersionVariantOnlyScenario(): fc.Arbitrary<DocumentationSyncScenario> {
@@ -381,6 +421,18 @@ function arbitraryDocumentationSyncScenario(
   config: DocumentationSyncConfig,
   releaseDataArbitrary: fc.Arbitrary<ReleaseData> = RELEASE_TEST_GENERATOR.releaseData(),
 ): fc.Arbitrary<DocumentationSyncScenario> {
+  return arbitraryDocumentationSyncScenarioWithUnrelatedVersion(
+    pathsArbitrary,
+    config,
+    releaseDataArbitrary,
+  ).map(({ scenario }) => scenario);
+}
+
+function arbitraryDocumentationSyncScenarioWithUnrelatedVersion(
+  pathsArbitrary: fc.Arbitrary<readonly string[]>,
+  config: DocumentationSyncConfig,
+  releaseDataArbitrary: fc.Arbitrary<ReleaseData> = RELEASE_TEST_GENERATOR.releaseData(),
+): fc.Arbitrary<DocumentationSyncScenarioWithUnrelatedVersion> {
   return releaseDataArbitrary.chain((releaseData) => {
     const previousVersion = releaseData.previousTag === null ? null : releaseVersionFromTag(releaseData.previousTag);
     const unrelatedVersionArbitrary = RELEASE_TEST_GENERATOR.semver().filter(
@@ -407,26 +459,29 @@ function arbitraryDocumentationSyncScenario(
       ]) => {
         const versionReferences = createDocumentationVersionReferences(scenarioReleaseData, unrelatedVersion);
         return {
-          releaseData: scenarioReleaseData,
-          config,
-          paths,
-          original: documentationForPaths(paths, versionReferences.original),
-          updated: documentationForPaths(paths, versionReferences.updated),
-          intervening: documentationForPaths(paths, [interveningContent]),
-          ambientState: [
-            {
-              path: posix.join(
-                SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-                `${specState}${KIND_REGISTRY.enabler.suffix}`,
-                `${specState}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
-              ),
-              content: `${ambientContent}-${specState}`,
-            },
-            {
-              path: `${SOURCE_DOMAIN_ROOT_PREFIX}${domainState}`,
-              content: `${ambientContent}-${domainState}`,
-            },
-          ],
+          unrelatedVersion,
+          scenario: {
+            releaseData: scenarioReleaseData,
+            config,
+            paths,
+            original: documentationForPaths(paths, versionReferences.original),
+            updated: documentationForPaths(paths, versionReferences.updated),
+            intervening: documentationForPaths(paths, [interveningContent]),
+            ambientState: [
+              {
+                path: posix.join(
+                  SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+                  `${specState}${KIND_REGISTRY.enabler.suffix}`,
+                  `${specState}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+                ),
+                content: `${ambientContent}-${specState}`,
+              },
+              {
+                path: `${SOURCE_DOMAIN_ROOT_PREFIX}${domainState}`,
+                content: `${ambientContent}-${domainState}`,
+              },
+            ],
+          },
         };
       });
   });
@@ -479,6 +534,19 @@ function appendDocumentationVersions(
     Object.entries(documents).map(([path, content]) => {
       if (content === undefined) throw new Error(`Generated documentation has no content for ${path}`);
       return [path, `${content.trimEnd()}${VERSION_SEPARATOR}${versions.join(VERSION_SEPARATOR)}\n`];
+    }),
+  );
+}
+
+function rewriteDocumentationVersion(
+  documents: Readonly<Partial<Record<string, string>>>,
+  originalVersion: string,
+  rewrittenVersion: string,
+): Readonly<Partial<Record<string, string>>> {
+  return Object.fromEntries(
+    Object.entries(documents).map(([path, content]) => {
+      if (content === undefined) throw new Error(`Generated documentation has no content for ${path}`);
+      return [path, content.replaceAll(originalVersion, rewrittenVersion)];
     }),
   );
 }
