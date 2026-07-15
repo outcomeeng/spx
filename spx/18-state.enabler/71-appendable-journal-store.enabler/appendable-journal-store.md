@@ -9,6 +9,7 @@ CAN store and replay each run's event history through the journal interface with
 ### Properties
 
 - A journal bound to this backend assigns strictly increasing, contiguous sequence numbers and replays them identically when a fresh backend reopens the same run history ([test](tests/appendable-journal-store.property.l1.test.ts))
+- Across overlapping appends through independent backend instances sharing one run history, every persisted event carries a unique contiguous sequence number, and exactly one append targeting a conflicting sequence rejects with `JOURNAL_ERROR.SEQ_CONSUMED` ([test](tests/appendable-journal-store-concurrency.property.l1.test.ts))
 
 ### Compliance
 
