@@ -5,11 +5,22 @@ import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
 import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { pythonTestingLanguage } from "@/test/languages/python";
+import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import type { TestRunnerDependencies } from "@/test/languages/types";
-import { TYPESCRIPT_TEST_FILE_PATTERNS, typescriptTestingLanguage } from "@/test/languages/typescript";
+import {
+  runTestsStreaming,
+  TYPESCRIPT_TEST_FILE_PATTERNS,
+  typescriptTestingLanguage,
+} from "@/test/languages/typescript";
+import { testingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import {
+  JOURNAL_REPORTER_TEST_GENERATOR,
+  sampleJournalReporterValue,
+} from "@testing/generators/testing/journal-reporter";
 import {
   sampleTypescriptRunnerValue,
   TYPESCRIPT_RUNNER_TEST_GENERATOR,
@@ -21,6 +32,12 @@ import {
   writeTestFileFixture,
   writeTestingConfig,
 } from "@testing/harnesses/testing/harness";
+import {
+  createRecordingEvidenceSink,
+  createScenarioDrivingVitestRunStarter,
+  expectedFindingsForScenario,
+  withMixedVitestProject,
+} from "@testing/harnesses/testing/journal-reporter";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -406,6 +423,79 @@ export function registerTypescriptRunnerComplianceTests(): void {
       });
     });
   });
+
+  describe("typescript descriptor journal-streaming run", () => {
+    it("exposes a journal-streaming run alongside its CLI-flag run, enumerated through the testing registry", () => {
+      // A language-neutral consumer finds the streaming-capable descriptor by iterating the
+      // registry and selecting on the optional runTestsStreaming capability, never importing
+      // the descriptor module. The TypeScript descriptor exposes the streaming run beside its
+      // CLI-flag runTests.
+      const streamingDescriptors = testingRegistry.languages.filter(
+        (language) => language.runTestsStreaming !== undefined,
+      );
+      expect(streamingDescriptors).toContain(typescriptTestingLanguage);
+      // A registered descriptor that exposes no streaming run — the Python descriptor —
+      // is excluded from the streaming-capable set, so the capability filter never widens
+      // to a non-streaming language.
+      expect(streamingDescriptors).not.toContain(pythonTestingLanguage);
+      expect(typescriptTestingLanguage.runTests).toBeDefined();
+      expect(typescriptTestingLanguage.runTestsStreaming).toBe(runTestsStreaming);
+    });
+
+    it("streams per-module scope and per-failing-case findings into the injected sink through the reporter", async () => {
+      const scenario = sampleJournalReporterValue(
+        JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
+      );
+      const request = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
+      const reason = JOURNAL_RUN_TERMINAL_STATUS.FAILED;
+      const sink = createRecordingEvidenceSink();
+      const starter = createScenarioDrivingVitestRunStarter(scenario, reason);
+
+      // The descriptor's streaming run is reached as the registry enumerates it; the injected
+      // starter drives the reporter the run registers, so this l1 run streams evidence without
+      // spawning Vitest.
+      const descriptor = testingRegistry.languages.find(
+        (language) => language.runTestsStreaming !== undefined,
+      );
+      expect(descriptor).toBe(typescriptTestingLanguage);
+
+      const terminalStatus = await runTestsStreaming(request, { sink, starter });
+
+      expect(starter.startedRuns).toHaveLength(1);
+      expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
+      expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+      expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
+      expect(terminalStatus).toBe(reason);
+    });
+  });
+}
+
+export function registerTypescriptRunnerStreamingL2Tests(): void {
+  describe("typescript descriptor journal-streaming run drives real vitest", () => {
+    it("resolves the default vitest starter and streams evidence when driven with only a sink", async () => {
+      await withMixedVitestProject(async (projectRoot, testFileName) => {
+        const exitCodeBeforeRun = process.exitCode;
+        const sink = createRecordingEvidenceSink();
+
+        // A language-neutral consumer supplies only the sink — the neutral
+        // JournalStreamRunDependencies contract — so the descriptor resolves its
+        // default production Vitest starter and streams over a real programmatic run.
+        const streamingRun = typescriptTestingLanguage.runTestsStreaming;
+        expect(streamingRun).toBeDefined();
+        if (streamingRun === undefined) return;
+        const terminalStatus = await streamingRun(
+          { projectRoot, testPaths: [testFileName] },
+          { sink },
+        );
+
+        expect(sink.scopes).toHaveLength(1);
+        expect(sink.findings).toHaveLength(1);
+        expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
+        expect(terminalStatus).toBe(JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+        expect(process.exitCode).toBe(exitCodeBeforeRun);
+      });
+    });
+  });
 }
 
 export const typescriptRunnerScenarioL1Cases = collectHarnessTestCases(
@@ -419,4 +509,7 @@ export const typescriptRunnerMappingCases = collectHarnessTestCases(
 );
 export const typescriptRunnerComplianceCases = collectHarnessTestCases(
   registerTypescriptRunnerComplianceTests,
+);
+export const typescriptRunnerStreamingL2Cases = collectHarnessTestCases(
+  registerTypescriptRunnerStreamingL2Tests,
 );

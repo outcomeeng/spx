@@ -1,7 +1,11 @@
 import * as fc from "fast-check";
 
-import type { JournalRunTerminalStatus, TestFinding, TestScopeUnit } from "@/test/languages/journal-reporter";
-import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/journal-reporter";
+import {
+  JOURNAL_RUN_TERMINAL_STATUS,
+  type JournalRunTerminalStatus,
+  type TestFinding,
+  type TestScopeUnit,
+} from "@/test/languages/types";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import {
   arbitraryDomainLiteral,
