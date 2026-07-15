@@ -2,9 +2,11 @@ import { isAbsolute, resolve, sep } from "node:path";
 
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS } from "@/agent/agent-runner";
 import type { AgentAuditor, AgentPermissionMode, AgentRunner, AgentRunTool } from "@/agent/agent-runner";
-import { encodeReleasePromptData, RELEASE_PROMPT_JSON_INDENT } from "@/domains/release/prompt-data";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
+
+export { RELEASE_PROMPT_JSON_INDENT as COMMIT_SUBJECTS_JSON_INDENT } from "@/domains/release/prompt-data";
 
 /**
  * The injected read-back dependency. After the agent writes the staged artifact,
@@ -118,7 +120,6 @@ export const CHANGELOG_PATH_DATA_BLOCK_OPEN = "<changelog-path>";
 export const CHANGELOG_PATH_DATA_BLOCK_CLOSE = "</changelog-path>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN = "<release-notes-section>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE = "</release-notes-section>";
-export const COMMIT_SUBJECTS_JSON_INDENT = RELEASE_PROMPT_JSON_INDENT;
 export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
