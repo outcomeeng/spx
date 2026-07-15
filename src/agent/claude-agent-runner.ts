@@ -1,8 +1,27 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { Options, SDKMessage, SDKResultMessage, SDKResultSuccess } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  CanUseTool,
+  Options,
+  PermissionResult,
+  SDKMessage,
+  SDKResultMessage,
+  SDKResultSuccess,
+} from "@anthropic-ai/claude-agent-sdk";
 
-import { AGENT_PERMISSION_MODES } from "./agent-runner";
-import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "./agent-runner";
+import {
+  AGENT_PERMISSION_MODES,
+  AGENT_RUN_TOOLS,
+  AGENT_TOOL_PERMISSION_BEHAVIOR,
+  type AgentAuditor,
+  type AgentAuditRequest,
+  type AgentRunner,
+  type AgentRunRequest,
+  type AgentRunTool,
+  authorizeAgentFileToolPath,
+} from "./agent-runner";
+
+const AGENT_FILE_TOOL_PATH_INPUT_FIELD = "file_path";
+const AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE = "Agent file tool target is outside its working directory";
 
 export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
   async run(request: AgentRunRequest): Promise<void> {
@@ -12,7 +31,8 @@ export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
         cwd: request.workingDirectory,
         settingSources: [],
         tools: [...request.tools],
-        allowedTools: [...request.allowedTools],
+        allowedTools: autoAllowedAgentTools(request.allowedTools),
+        canUseTool: createAgentToolPermission(request),
         permissionMode: request.permissionMode,
         maxTurns: request.maxTurns,
       },
@@ -33,6 +53,45 @@ export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
     );
     return result.result;
   }
+}
+
+function autoAllowedAgentTools(allowedTools: readonly AgentRunTool[]): AgentRunTool[] {
+  return allowedTools.filter((tool) => !isAgentFileMutationTool(tool));
+}
+
+function createAgentToolPermission(request: AgentRunRequest): CanUseTool {
+  return async (toolName, input) => {
+    if (!isAgentRunTool(toolName) || !request.allowedTools.includes(toolName)) {
+      return deniedAgentToolPermission();
+    }
+    if (!isAgentFileMutationTool(toolName)) {
+      return { behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW, updatedInput: input };
+    }
+    const filePath = input[AGENT_FILE_TOOL_PATH_INPUT_FIELD];
+    if (
+      typeof filePath !== "string"
+      || authorizeAgentFileToolPath(request.workingDirectory, toolName, filePath)
+        === AGENT_TOOL_PERMISSION_BEHAVIOR.DENY
+    ) {
+      return deniedAgentToolPermission();
+    }
+    return { behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW, updatedInput: input };
+  };
+}
+
+function deniedAgentToolPermission(): PermissionResult {
+  return {
+    behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY,
+    message: AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE,
+  };
+}
+
+function isAgentRunTool(toolName: string): toolName is AgentRunTool {
+  return Object.values(AGENT_RUN_TOOLS).some((tool) => tool === toolName);
+}
+
+function isAgentFileMutationTool(tool: AgentRunTool): boolean {
+  return tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT;
 }
 
 async function runClaudeQuery(prompt: string, options: Options): Promise<SDKResultSuccess> {
