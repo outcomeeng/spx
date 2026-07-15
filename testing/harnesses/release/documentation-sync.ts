@@ -8,13 +8,18 @@ import { execa } from "execa";
 import { expect } from "vitest";
 
 import {
+  AGENT_PERMISSION_MODES,
   AGENT_TOOL_PERMISSION_BEHAVIOR,
   type AgentAuditor,
   type AgentAuditRequest,
   type AgentRunner,
   type AgentRunRequest,
 } from "@/agent/agent-runner";
-import { AGENT_FILE_TOOL_PATH_INPUT_FIELD, createAgentRunOptions } from "@/agent/claude-agent-runner";
+import {
+  AGENT_FILE_TOOL_PATH_INPUT_FIELD,
+  AGENT_PRE_TOOL_USE_HOOK_EVENT,
+  createAgentRunOptions,
+} from "@/agent/claude-agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
   createDocumentationAtomicWriter,
@@ -39,6 +44,7 @@ import {
   type ComposeDocumentationSyncOptions,
   createDocumentationFaithfulnessAuditor,
   DOCUMENTATION_SYNC_AUDIT_APPROVED,
+  DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -128,6 +134,22 @@ class DocumentationWritingAgent implements AgentRunner {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
     await writeGeneratedDocumentation(this.updated, input.documents);
+  }
+}
+
+class FileToolBoundaryDocumentationAgent implements AgentRunner {
+  private readonly writer: DocumentationWritingAgent;
+
+  constructor(
+    updated: DocumentationSyncScenario["updated"],
+    private readonly scenario: DocumentationAgentFileToolBoundaryScenario,
+  ) {
+    this.writer = new DocumentationWritingAgent(updated);
+  }
+
+  async run(request: AgentRunRequest): Promise<void> {
+    await assertAgentRunRequestFileToolBoundary(request, this.scenario);
+    await this.writer.run(request);
   }
 }
 
@@ -699,31 +721,74 @@ async function assertUnrelatedVersionRewriteRejected(
 async function assertDocumentationAgentFileToolBoundary(
   scenario: DocumentationAgentFileToolBoundaryScenario,
 ): Promise<void> {
-  const options = createAgentRunOptions(scenario.request);
-  expect(options.allowedTools).not.toContain(scenario.tool);
-  if (options.canUseTool === undefined) {
-    throw new Error("Agent run options do not enforce tool permissions");
+  const documentationScenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  await withDocumentationScenario(documentationScenario, async (options) => {
+    await composeDocumentationSync({
+      ...options,
+      agentRunner: new FileToolBoundaryDocumentationAgent(documentationScenario.updated, scenario),
+    });
+  });
+}
+
+async function assertAgentRunRequestFileToolBoundary(
+  request: AgentRunRequest,
+  scenario: DocumentationAgentFileToolBoundaryScenario,
+): Promise<void> {
+  const promptInput = parseDocumentationSyncPromptInput(request.prompt);
+  expect(promptInput.documents.every(({ stagedPath }) => isPathContained(request.workingDirectory, stagedPath)))
+    .toBe(true);
+  expect(request.tools).toContain(scenario.tool);
+  expect(request.allowedTools).toContain(scenario.tool);
+  const options = createAgentRunOptions(request);
+  expect(options.permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
+  expect(options.allowedTools).toContain(scenario.tool);
+  const preToolUseHook = options.hooks?.PreToolUse?.at(0)?.hooks.at(0);
+  if (preToolUseHook === undefined) {
+    throw new Error("Agent run options do not enforce pre-tool-use containment");
   }
-  const permissionContext = {
+  const hookOptions = {
     signal: new AbortController().signal,
-    toolUseID: scenario.containedPath,
-    requestId: scenario.request.prompt,
   };
+  const containedPath = join(request.workingDirectory, posix.basename(scenario.containedPath));
+  const escapedPaths = [
+    scenario.escapedPaths[0],
+    join(dirname(request.workingDirectory), posix.basename(scenario.escapedPaths[1])),
+  ];
   await expect(
-    options.canUseTool(
-      scenario.tool,
-      { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: scenario.containedPath },
-      permissionContext,
+    preToolUseHook(
+      {
+        hook_event_name: AGENT_PRE_TOOL_USE_HOOK_EVENT,
+        session_id: request.prompt,
+        transcript_path: containedPath,
+        cwd: request.workingDirectory,
+        tool_name: scenario.tool,
+        tool_input: { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: containedPath },
+        tool_use_id: containedPath,
+      },
+      containedPath,
+      hookOptions,
     ),
-  ).resolves.toMatchObject({ behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW });
-  for (const escapedPath of scenario.escapedPaths) {
+  ).resolves.toMatchObject({
+    hookSpecificOutput: { permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW },
+  });
+  for (const escapedPath of escapedPaths) {
     await expect(
-      options.canUseTool(
-        scenario.tool,
-        { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: escapedPath },
-        permissionContext,
+      preToolUseHook(
+        {
+          hook_event_name: AGENT_PRE_TOOL_USE_HOOK_EVENT,
+          session_id: request.prompt,
+          transcript_path: escapedPath,
+          cwd: request.workingDirectory,
+          tool_name: scenario.tool,
+          tool_input: { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: escapedPath },
+          tool_use_id: escapedPath,
+        },
+        escapedPath,
+        hookOptions,
       ),
-    ).resolves.toMatchObject({ behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY });
+    ).resolves.toMatchObject({
+      hookSpecificOutput: { permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY },
+    });
   }
 }
 
@@ -1161,9 +1226,18 @@ function registerScenarioTests(): void {
 
     it("adds the released version when subsequent-release documentation has no previous version reference", async () => {
       const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
+      const auditor = new RecordingDocumentationAuditor();
       await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-        await runDocumentationSyncCli(options);
+        await runDocumentationSyncCli({
+          ...options,
+          faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+        });
         expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).toContain(scenario.releaseData.version);
+        expect(agent.requests[0].permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
+        expect(auditor.requests).toHaveLength(1);
+        expect(documentationSyncPromptInstruction(auditor.requests[0].prompt)).toContain(
+          DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
+        );
         for (const path of scenario.paths) {
           await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
         }
@@ -1297,7 +1371,7 @@ function registerPropertyTests(): void {
       );
     });
 
-    it("confines every generated agent file mutation to the staging workspace", async () => {
+    it("confines every generated agent file read, write, and edit to the staging workspace", async () => {
       await assertProperty(
         arbitraryDocumentationAgentFileToolBoundaryScenario(),
         assertDocumentationAgentFileToolBoundary,

@@ -1,8 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type {
-  CanUseTool,
+  HookCallback,
   Options,
-  PermissionResult,
   SDKMessage,
   SDKResultMessage,
   SDKResultSuccess,
@@ -22,6 +21,7 @@ import {
 } from "./agent-runner";
 
 export const AGENT_FILE_TOOL_PATH_INPUT_FIELD = "file_path";
+export const AGENT_PRE_TOOL_USE_HOOK_EVENT = "PreToolUse";
 const AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE = "Agent file tool target is outside its working directory";
 
 export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
@@ -53,42 +53,61 @@ export function createAgentRunOptions(request: AgentRunRequest): Options {
     cwd: request.workingDirectory,
     settingSources: [],
     tools: [...request.tools],
-    allowedTools: autoAllowedAgentTools(request.allowedTools),
-    canUseTool: createAgentToolPermission(request),
+    allowedTools: [...request.allowedTools],
+    hooks: {
+      PreToolUse: [{ hooks: [createAgentFileToolPermissionHook(request)] }],
+    },
     permissionMode: request.permissionMode,
     maxTurns: request.maxTurns,
   };
 }
 
-function autoAllowedAgentTools(allowedTools: readonly AgentRunTool[]): AgentRunTool[] {
-  return allowedTools.filter((tool) => !isAgentFileTool(tool));
-}
-
-function createAgentToolPermission(request: AgentRunRequest): CanUseTool {
-  return async (toolName, input) => {
-    if (!isAgentRunTool(toolName) || !request.allowedTools.includes(toolName)) {
-      return deniedAgentToolPermission();
+function createAgentFileToolPermissionHook(request: AgentRunRequest): HookCallback {
+  return async (input) => {
+    if (
+      input.hook_event_name !== AGENT_PRE_TOOL_USE_HOOK_EVENT
+      || !isAgentRunTool(input.tool_name)
+      || !request.allowedTools.includes(input.tool_name)
+      || !isRecord(input.tool_input)
+    ) {
+      return deniedAgentFileToolPermission();
     }
-    if (!isAgentFileTool(toolName)) {
-      return { behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW, updatedInput: input };
+    if (!isAgentFileTool(input.tool_name)) {
+      return allowedAgentFileToolPermission();
     }
-    const filePath = input[AGENT_FILE_TOOL_PATH_INPUT_FIELD];
+    const filePath = input.tool_input[AGENT_FILE_TOOL_PATH_INPUT_FIELD];
     if (
       typeof filePath !== "string"
-      || authorizeAgentFileToolPath(request.workingDirectory, toolName, filePath)
+      || authorizeAgentFileToolPath(request.workingDirectory, input.tool_name, filePath)
         === AGENT_TOOL_PERMISSION_BEHAVIOR.DENY
     ) {
-      return deniedAgentToolPermission();
+      return deniedAgentFileToolPermission();
     }
-    return { behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW, updatedInput: input };
+    return allowedAgentFileToolPermission();
   };
 }
 
-function deniedAgentToolPermission(): PermissionResult {
+function allowedAgentFileToolPermission() {
   return {
-    behavior: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY,
-    message: AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE,
-  };
+    hookSpecificOutput: {
+      hookEventName: AGENT_PRE_TOOL_USE_HOOK_EVENT,
+      permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW,
+    },
+  } as const;
+}
+
+function deniedAgentFileToolPermission() {
+  return {
+    hookSpecificOutput: {
+      hookEventName: AGENT_PRE_TOOL_USE_HOOK_EVENT,
+      permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY,
+      permissionDecisionReason: AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE,
+    },
+  } as const;
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null;
 }
 
 function isAgentRunTool(toolName: string): toolName is AgentRunTool {
