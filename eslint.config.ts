@@ -250,16 +250,18 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         ],
       },
     },
-    {
-      files: testLintDebtNodeTestGlobs,
-      rules: {
-        "no-restricted-syntax": [
-          "error",
-          ...tsRestrictedSyntax,
-          ...testLintDebtRestrictedSyntax,
-        ],
-      },
-    },
+    ...(testLintDebtNodeTestGlobs.length === 0
+      ? []
+      : [{
+        files: testLintDebtNodeTestGlobs,
+        rules: {
+          "no-restricted-syntax": [
+            "error",
+            ...tsRestrictedSyntax,
+            ...testLintDebtRestrictedSyntax,
+          ],
+        },
+      }]),
 
     // Custom rules — all TypeScript files
     {
@@ -334,22 +336,26 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "error",
       },
     },
-    {
-      files: testLintDebtNodeTestGlobs,
-      rules: {
-        "@typescript-eslint/no-explicit-any": "off",
-        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "warn",
-        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "warn",
-      },
-    },
-    {
-      files: testOwnedConstantDebtNodeTestGlobs,
-      rules: {
-        [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
-        [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
-        [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
-      },
-    },
+    ...(testLintDebtNodeTestGlobs.length === 0
+      ? []
+      : [{
+        files: testLintDebtNodeTestGlobs,
+        rules: {
+          "@typescript-eslint/no-explicit-any": "off",
+          [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "warn",
+          [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "warn",
+        },
+      }]),
+    ...(testOwnedConstantDebtNodeTestGlobs.length === 0
+      ? []
+      : [{
+        files: testOwnedConstantDebtNodeTestGlobs,
+        rules: {
+          [NO_HARDCODED_SPEC_TREE_NODE_KINDS_RULE_ID]: "error",
+          [NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_ID]: "error",
+          [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID]: "warn",
+        },
+      }]),
   ];
 }
 

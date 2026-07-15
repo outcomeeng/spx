@@ -227,27 +227,26 @@ export const VALIDATION_ESLINT_EXPECTED = {
 // the process working directory rather than relying on the runner starting at root.
 const REPO_ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 
-// Derives a fixture path under the first node a lint-debt manifest lists, so the
-// manifest-coverage scenarios track the manifest rather than a hardcoded node a
-// pruning pass can remove. Reads the manifest at module load: a manifest pruned to
-// zero entries fails this module's import loudly with the message below rather than
-// yielding an undefined path. Both lint-debt manifests retain at least one
-// out-of-scope node, so the non-empty invariant holds; the throw guards the future
-// that empties one.
+// Derives a fixture path under the first node a lint-debt manifest lists. An empty
+// shrink-only manifest has reached its terminal state, so covered-node scenarios
+// are absent until a manifest contains a node.
 function firstManifestedNodePath(
   manifest: (typeof LINT_POLICY_MANIFESTS)[keyof typeof LINT_POLICY_MANIFESTS],
-): string {
+): string | undefined {
   const entries = parseLintPolicyManifest(
     readFileSync(join(REPO_ROOT, manifest.file), "utf-8"),
     manifest.file,
     manifest.key,
   );
-  const first = entries.at(0);
-  if (first === undefined) {
-    throw new Error(`${manifest.file} lists no nodes; cannot derive a manifest-covered fixture path`);
-  }
-  return first;
+  return entries.at(0);
 }
+
+const testOwnedConstantDebtNodePath = firstManifestedNodePath(
+  LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES,
+);
+const testLintDebtNodePath = firstManifestedNodePath(
+  LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES,
+);
 
 export const VALIDATION_ESLINT_FILES = {
   genericTest: "test.test.ts",
@@ -273,12 +272,12 @@ export const VALIDATION_ESLINT_FILES = {
   sessionSpecTest: "spx/36-session.enabler/tests/session.scenario.l1.test.ts",
   eslintStep: "src/validation/steps/eslint.ts",
   unmanifestedSpecTest: "spx/31-spec-domain.enabler/tests/new.mapping.l1.test.ts",
-  manifestCoveredSpecTest: `${
-    firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES)
-  }/tests/manifest-covered.scenario.l1.test.ts`,
-  lintDebtCoveredSpecTest: `${
-    firstManifestedNodePath(LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES)
-  }/tests/lint-debt.mapping.l1.test.ts`,
+  manifestCoveredSpecTest: testOwnedConstantDebtNodePath === undefined
+    ? undefined
+    : `${testOwnedConstantDebtNodePath}/tests/manifest-covered.scenario.l1.test.ts`,
+  lintDebtCoveredSpecTest: testLintDebtNodePath === undefined
+    ? undefined
+    : `${testLintDebtNodePath}/tests/lint-debt.mapping.l1.test.ts`,
   registrySpecTest: "spx/sample.enabler/tests/registry.mapping.l1.test.ts",
   sourceOwnedSpecTest: "spx/sample.enabler/tests/source-owned.mapping.l1.test.ts",
   supportFile: "spx/sample.enabler/tests/support.ts",
@@ -1228,8 +1227,9 @@ export function validationRuleRegistrationCases(): ValidationGeneratedRuleRegist
 }
 
 export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSeverityScenario[] {
-  return [
-    {
+  const scenarios: ValidationGeneratedConfigSeverityScenario[] = [];
+  if (VALIDATION_ESLINT_FILES.manifestCoveredSpecTest !== undefined) {
+    scenarios.push({
       title: "test-owned constant debt manifest downgrades the test-owned constant rule",
       filePath: VALIDATION_ESLINT_FILES.manifestCoveredSpecTest,
       expectations: [
@@ -1246,8 +1246,10 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
           severity: VALIDATION_ESLINT_EXPECTED.errorSeverity,
         },
       ],
-    },
-    {
+    });
+  }
+  if (VALIDATION_ESLINT_FILES.lintDebtCoveredSpecTest !== undefined) {
+    scenarios.push({
       title: "lint debt manifest downgrades spec-tree node registry rules",
       filePath: VALIDATION_ESLINT_FILES.lintDebtCoveredSpecTest,
       expectations: [
@@ -1260,8 +1262,9 @@ export function validationConfigSeverityScenarios(): ValidationGeneratedConfigSe
           severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
         },
       ],
-    },
-  ];
+    });
+  }
+  return scenarios;
 }
 
 export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
@@ -1380,18 +1383,20 @@ export function validationLintScenarios(): ValidationGeneratedLintScenario[] {
         },
       ],
     },
-    {
-      title: "manifested test-owned domain constant is reported as a warning",
-      code: VALIDATION_ESLINT_SNIPPETS.testOwnedConstantDeclaration,
-      filePath: VALIDATION_ESLINT_FILES.manifestCoveredSpecTest,
-      expectations: [
-        {
-          ruleId: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
-          count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
-          severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
-        },
-      ],
-    },
+    ...(VALIDATION_ESLINT_FILES.manifestCoveredSpecTest === undefined
+      ? []
+      : [{
+        title: "manifested test-owned domain constant is reported as a warning",
+        code: VALIDATION_ESLINT_SNIPPETS.testOwnedConstantDeclaration,
+        filePath: VALIDATION_ESLINT_FILES.manifestCoveredSpecTest,
+        expectations: [
+          {
+            ruleId: NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID,
+            count: VALIDATION_ESLINT_EXPECTED.singleDiagnostic,
+            severity: VALIDATION_ESLINT_EXPECTED.warningSeverity,
+          },
+        ],
+      }]),
     {
       title: "registry position access is reported",
       code: VALIDATION_ESLINT_SNIPPETS.decisionKindsPosition,

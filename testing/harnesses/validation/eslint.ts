@@ -146,16 +146,19 @@ export function registerValidationEslintIntegrationTests(): void {
       }
     });
 
-    describe("configured severity", () => {
-      for (const testCase of validationConfigSeverityScenarios()) {
-        it(testCase.title, async () => {
-          const config = await eslint.calculateConfigForFile(testCase.filePath);
-          for (const expectation of testCase.expectations) {
-            expect(severityOf(config.rules[expectation.ruleId])).toBe(expectation.severity);
-          }
-        });
-      }
-    });
+    const configSeverityScenarios = validationConfigSeverityScenarios();
+    if (configSeverityScenarios.length > 0) {
+      describe("configured severity", () => {
+        for (const testCase of configSeverityScenarios) {
+          it(testCase.title, async () => {
+            const config = await eslint.calculateConfigForFile(testCase.filePath);
+            for (const expectation of testCase.expectations) {
+              expect(severityOf(config.rules[expectation.ruleId])).toBe(expectation.severity);
+            }
+          });
+        }
+      });
+    }
 
     describe("production lint behavior", () => {
       for (const testCase of validationLintScenarios()) {
