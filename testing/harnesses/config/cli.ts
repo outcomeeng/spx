@@ -10,8 +10,13 @@ import type { CliDeps } from "@/commands/config/types";
 import { VALIDATE_SUCCESS_TOKENS, validateCommand } from "@/commands/config/validate";
 import {
   absentConfigFileReadResult,
+  CONFIG_FILE_FORMAT,
+  CONFIG_FILENAMES,
+  configFileForFormat,
+  type ConfigFileFormat,
   type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
+  parseConfigFileSections,
   resolveConfigFromReadResult,
   serializeConfigFileSections,
 } from "@/config/index";
@@ -19,6 +24,7 @@ import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
 import {
   CONFIG_TEST_GENERATOR,
   type GeneratedConfigCliDeterminismCase,
@@ -245,4 +251,175 @@ export async function assertSuccessfulValidateUsesStdout(): Promise<void> {
       + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`,
   );
   expect(result.stderr).toHaveLength(0);
+}
+
+function parseConfigOutput(format: ConfigFileFormat, raw: string): Config {
+  const parsed = parseConfigFileSections(
+    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()), format, raw),
+  );
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) throw new Error(parsed.error);
+  return parsed.value;
+}
+
+function configSubset(): Config {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+}
+
+export async function assertShowEmitsDefaultConfig(): Promise<void> {
+  const config = configCliDefaults();
+  const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
+  expect(result.exitCode).toBe(0);
+  expect(result.stderr).toHaveLength(0);
+  expect(parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout)).toEqual(config);
+}
+
+export async function assertShowReflectsConfigOverrides(): Promise<void> {
+  const config = configSubset();
+  const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
+  const parsed = parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
+  const specTree = parsed[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
+  const expected = config[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
+  expect(result.exitCode).toBe(0);
+  expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
+    Object.keys(expected.kinds).sort(compareAsciiStrings),
+  );
+}
+
+export async function assertShowEmitsJsonConfig(): Promise<void> {
+  const config = configCliDefaults();
+  const result = await showCommand({ json: true }, configCliDeps({ ok: true, value: config }));
+  expect(result.exitCode).toBe(0);
+  expect(parseConfigOutput(CONFIG_FILE_FORMAT.JSON, result.stdout)).toEqual(config);
+}
+
+export async function assertShowDefaultAndJsonFormatsAreEquivalent(): Promise<void> {
+  const deps = configCliDeps({ ok: true, value: configSubset() });
+  const defaultResult = await showCommand({}, deps);
+  const jsonResult = await showCommand({ json: true }, deps);
+  expect(parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, defaultResult.stdout)).toEqual(
+    parseConfigOutput(CONFIG_FILE_FORMAT.JSON, jsonResult.stdout),
+  );
+}
+
+export async function assertShowSurfacesResolutionFailure(): Promise<void> {
+  const result = await showCommand(
+    {},
+    configCliDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    }),
+  );
+  expect(result.exitCode).not.toBe(0);
+  expect(result.stdout).toHaveLength(0);
+  expect(result.stderr).toContain(specTreeConfigDescriptor.section);
+}
+
+export async function assertValidateDefaultsSuccessLine(): Promise<void> {
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  const result = await validateCommand(
+    {},
+    configCliDeps({ ok: true, value: configCliDefaults() }, { productDir }),
+  );
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toBe(
+    `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${productDir}; `
+      + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`,
+  );
+  expect(result.stderr).toHaveLength(0);
+  for (const filename of Object.values(CONFIG_FILENAMES)) expect(result.stdout).not.toContain(filename);
+}
+
+export async function assertValidatePresentConfigSuccessLine(): Promise<void> {
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  const fileResult: Result<ConfigFileReadResult> = {
+    ok: true,
+    value: {
+      kind: "ok",
+      file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.TOML),
+    },
+  };
+  const result = await validateCommand(
+    {},
+    configCliDeps({ ok: true, value: configCliDefaults() }, { productDir, readResult: fileResult }),
+  );
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain(CONFIG_FILENAMES.toml);
+  expect(result.stderr).toHaveLength(0);
+}
+
+export async function assertValidateRejectsResolutionError(): Promise<void> {
+  const result = await validateCommand(
+    {},
+    configCliDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    }),
+  );
+  expect(result.exitCode).not.toBe(0);
+}
+
+export async function assertValidateReportsDescriptorError(): Promise<void> {
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
+  const result = await validateCommand({}, configCliDeps({ ok: false, error: generated.error }));
+  expect(result.stderr).toContain(specTreeConfigDescriptor.section);
+  expect(result.stderr).toContain(generated.offendingKind);
+  expect(result.stdout).toHaveLength(0);
+}
+
+export async function assertValidateExactRejectionExitCode(): Promise<void> {
+  const result = await validateCommand(
+    {},
+    configCliDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    }),
+  );
+  expect(result.exitCode).toBe(1);
+}
+
+export async function assertValidateReadsResolvedProductDirectory(): Promise<void> {
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  let observedProductDir: string | undefined;
+  const deps: CliDeps = {
+    resolveConfig: async () => {
+      throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
+    },
+    readProductConfigFile: async (resolvedProductDir) => {
+      observedProductDir = resolvedProductDir;
+      return absentConfigFileReadResult();
+    },
+    resolveConfigFromReadResult: () => ({ ok: true, value: configCliDefaults() }),
+    resolveProductDir: () => productDir,
+    descriptors: [specTreeConfigDescriptor],
+  };
+  await validateCommand({}, deps);
+  expect(observedProductDir).toBe(productDir);
+}
+
+export async function assertValidateUsesReadResultForResolution(): Promise<void> {
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  const fileResult: Result<ConfigFileReadResult> = {
+    ok: true,
+    value: {
+      kind: "ok",
+      file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.JSON),
+    },
+  };
+  let observedReadResult: ConfigFileReadResult | undefined;
+  const deps: CliDeps = {
+    resolveConfig: async () => {
+      throw new Error(sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar()));
+    },
+    readProductConfigFile: async () => fileResult,
+    resolveConfigFromReadResult: (readResult, descriptors) => {
+      observedReadResult = readResult;
+      return resolveConfigFromReadResult(readResult, descriptors);
+    },
+    resolveProductDir: () => productDir,
+    descriptors: [specTreeConfigDescriptor],
+  };
+  const result = await validateCommand({}, deps);
+  expect(observedReadResult).toBe(fileResult.value);
+  expect(result.stdout).toContain(CONFIG_FILENAMES.json);
 }

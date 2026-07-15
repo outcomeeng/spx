@@ -1,6 +1,5 @@
 import * as fc from "fast-check";
 
-import { absentConfigFileReadResult, type ConfigFileReadResult, resolveConfigFromReadResult } from "@/config/index";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -14,13 +13,7 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import {
-  KIND_REGISTRY,
-  SPEC_TREE_CONFIG_FIELDS,
-  SPEC_TREE_SECTION,
-  specTreeConfigDescriptor,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {
@@ -108,7 +101,6 @@ export type GeneratedHarnessEnvironmentConfig = {
 };
 
 export const CONFIG_TEST_GENERATOR = {
-  absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
   configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
@@ -118,7 +110,6 @@ export const CONFIG_TEST_GENERATOR = {
   scalar: arbitraryConfigScalar,
   specTreeKindField: arbitrarySpecTreeKindField,
   specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
-  specTreeDefaultsConfig: arbitrarySpecTreeDefaultsConfig,
   specTreeSubsetConfig: arbitrarySpecTreeSubsetConfig,
   specTreeArrayKindsConfig: arbitrarySpecTreeArrayKindsConfig,
   tempPrefix: arbitraryTempPrefix,
@@ -439,18 +430,6 @@ function arbitraryEnvironmentSentinel(): fc.Arbitrary<GeneratedEnvironmentSentin
       value: arbitraryConfigScalar(),
     })
     .map(({ key, value }) => ({ key: `${ENVIRONMENT_SENTINEL_PREFIX}${key.toUpperCase()}`, value }));
-}
-
-function arbitraryAbsentConfigFileReadResult(): fc.Arbitrary<Result<ConfigFileReadResult>> {
-  return fc.constant(absentConfigFileReadResult());
-}
-
-function arbitrarySpecTreeDefaultsConfig(): fc.Arbitrary<Record<string, unknown>> {
-  const resolved = resolveConfigFromReadResult(absentConfigFileReadResult().value, [specTreeConfigDescriptor]);
-  if (!resolved.ok) {
-    throw new Error(resolved.error);
-  }
-  return fc.constant(resolved.value);
 }
 
 function arbitraryConfigCliDeterminismCase(): fc.Arbitrary<GeneratedConfigCliDeterminismCase> {

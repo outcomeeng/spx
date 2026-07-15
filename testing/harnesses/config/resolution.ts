@@ -87,6 +87,21 @@ export async function assertResolutionUsesOnlyCanonicalProductConfig(): Promise<
 
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
     await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
+      await writeRaw(join(scope.productDirectory, nestedOnly.kind), serializeConfig(format, nestedConfig));
+      await writeRaw(
+        writeConfigPath(join(scope.productDirectory, scope.nestedDirectory), format),
+        serializeConfig(format, nestedConfig),
+      );
+
+      const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(readResolvedSpecTree(result.value)).toEqual(specTreeConfigDescriptor.defaults);
+      }
+    });
+
+    await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
       await writeRaw(writeConfigPath(scope.productDirectory, format), serializeConfig(format, rootConfig));
       await writeRaw(join(scope.productDirectory, nestedOnly.kind), serializeConfig(format, nestedConfig));
       await writeRaw(
