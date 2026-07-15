@@ -1101,13 +1101,14 @@ export async function assertSpecContextIgnoresTraversalCitationShapes(): Promise
     const target = snapshot.allNodes[0];
     const targetSpecPath = target.ref?.path;
     expect(targetSpecPath).toBeDefined();
-    // The suffix-extended shapes would bind their truncated `.adr.md` prefix —
-    // a decision no tracked file satisfies, failing the command — if the
-    // citation pattern matched past the decision suffix.
+    // The suffix-extended shapes would bind their truncated `.adr.md` prefix,
+    // and the embedded shape would bind its `spx/`-rooted tail — decisions no
+    // tracked file satisfies, failing the command — if the citation pattern
+    // matched past the decision suffix or inside a longer path.
     await env.writeRaw(
       targetSpecPath as string,
-      `# ${target.slug}\n\nMentions spx/../../outside-product.adr.md, spx/99-shape.adr.mdx, and`
-        + ` spx/99-shape.adr.md.bak without binding any of them.\n`,
+      `# ${target.slug}\n\nMentions spx/../../outside-product.adr.md, spx/99-shape.adr.mdx,`
+        + ` spx/99-shape.adr.md.bak, and dist/spx/99-shape.adr.md without binding any of them.\n`,
     );
 
     const manifest = parseContextManifest(
