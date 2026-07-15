@@ -55,17 +55,20 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
   const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
 
   async function readAll(): Promise<readonly JournalEvent[]> {
+    const sequenceRecords = await listSequenceRecords(fs, runFilePath);
     const eventsBySequence = new Map<number, JournalEvent>();
-    const aggregate = await readFileOrUndefined(fs, runFilePath);
-    for (const event of parseJournalEvents(aggregate)) {
-      eventsBySequence.set(event.seq, event);
-    }
-    for (const sequenceRecord of await listSequenceRecords(fs, runFilePath)) {
+    for (const sequenceRecord of sequenceRecords) {
       const content = await readFileOrUndefined(fs, sequenceRecord.path);
       for (const event of parseJournalEvents(content)) {
         if (event.seq === sequenceRecord.sequence) {
           eventsBySequence.set(event.seq, event);
         }
+      }
+    }
+    if (sequenceRecords.length === 0 && (await readFileOrUndefined(fs, sealMarkerPath)) !== undefined) {
+      const aggregate = await readFileOrUndefined(fs, runFilePath);
+      for (const event of parseJournalEvents(aggregate)) {
+        eventsBySequence.set(event.seq, event);
       }
     }
     return [...eventsBySequence.values()].sort((left, right) => left.seq - right.seq);

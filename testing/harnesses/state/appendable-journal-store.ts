@@ -12,7 +12,12 @@ import {
   type JournalEventInput,
   type JournalIdentity,
 } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import {
+  APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+  appendableJournalSealMarkerPath,
+  createAppendableJournalStore,
+} from "@/lib/appendable-journal-store";
+import { serializeJsonlRecord, type StateStoreFileSystem } from "@/lib/state-store";
 import {
   arbitraryJournalEventInput,
   arbitraryJournalIdentity,
@@ -35,6 +40,9 @@ const INTERRUPTION_INPUT_ENV = "SPX_JOURNAL_INTERRUPTION_INPUT";
 const INTERRUPTION_RUN_FILE_ENV = "SPX_JOURNAL_INTERRUPTION_RUN_FILE";
 const PRE_PUBLICATION_MODE = "pre-publication";
 const POST_PUBLICATION_MODE = "post-publication";
+const PARTIAL_WRITE_DIVISOR = 2;
+const MINIMUM_PARTIAL_WRITE_LENGTH = 1;
+const INJECTED_SEAL_INTERRUPTION = "injected seal interruption";
 
 /** Prove sequence exclusivity when independent stores append to one run history concurrently. */
 export async function assertOverlappingAppendSequenceProperty(): Promise<void> {
@@ -112,6 +120,41 @@ export async function assertAppendableJournalInterruptionCompliance(): Promise<v
     expect(replay[0]?.data).toEqual(firstInput.data);
     await expect(reopened.append(nextInput)).resolves.toMatchObject({ seq: JOURNAL_SEQ_BASE + 1 });
   });
+
+  await assertInterruptedSealRecovery(identity, firstInput, nextInput);
+}
+
+async function assertInterruptedSealRecovery(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+  nextInput: JournalEventInput,
+): Promise<void> {
+  const base = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const interrupted = createInterruptedSealFileSystem(runFilePath, base);
+  const journal = createJournal(createAppendableJournalStore({ runFilePath, fs: interrupted }), identity);
+  const appended = [await journal.append(firstInput), await journal.append(nextInput)];
+
+  await expect(journal.seal()).rejects.toThrow(INJECTED_SEAL_INTERRUPTION);
+  const reopenedStore = createAppendableJournalStore({ runFilePath, fs: base });
+  await expect(reopenedStore.isSealed()).resolves.toBe(false);
+  await expect(reopenedStore.readAll()).resolves.toEqual(appended);
+
+  await createJournal(reopenedStore, identity).seal();
+  const aggregate = await base.readFile(runFilePath, "utf8");
+  const hydrated = createInMemoryStateStoreFileSystem();
+  await hydrated.mkdir(join(runFilePath, ".."), { recursive: true });
+  await hydrated.writeFile(runFilePath, aggregate);
+  await hydrated.writeFile(
+    appendableJournalSealMarkerPath(runFilePath),
+    APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+  );
+  await expect(createAppendableJournalStore({ runFilePath, fs: hydrated }).readAll()).resolves.toEqual(appended);
+
+  const unsealedAggregate = createInMemoryStateStoreFileSystem();
+  await unsealedAggregate.mkdir(join(runFilePath, ".."), { recursive: true });
+  await unsealedAggregate.writeFile(runFilePath, serializeJsonlRecord({ ...appended[0] }));
+  await expect(createAppendableJournalStore({ runFilePath, fs: unsealedAggregate }).readAll()).resolves.toEqual([]);
 }
 
 function isFulfilled<T>(outcome: PromiseSettledResult<T>): outcome is PromiseFulfilledResult<T> {
@@ -177,4 +220,33 @@ function interruptedAppendScript(): string {
     };
     await createJournal(createAppendableJournalStore({ runFilePath, fs }), identity).append(input);
   `;
+}
+
+function createInterruptedSealFileSystem(
+  runFilePath: string,
+  delegate: StateStoreFileSystem,
+): StateStoreFileSystem {
+  let interruptAggregateWrite = true;
+  return {
+    mkdir: (path, options) => delegate.mkdir(path, options),
+    writeFile: async (path, data, options) => {
+      if (path === runFilePath && interruptAggregateWrite) {
+        interruptAggregateWrite = false;
+        const partialLength = Math.max(
+          MINIMUM_PARTIAL_WRITE_LENGTH,
+          Math.floor(data.length / PARTIAL_WRITE_DIVISOR),
+        );
+        await delegate.writeFile(path, data.slice(0, partialLength), options);
+        throw new Error(INJECTED_SEAL_INTERRUPTION);
+      }
+      await delegate.writeFile(path, data, options);
+    },
+    appendFile: (path, data) => delegate.appendFile(path, data),
+    readFile: (path, encoding) => delegate.readFile(path, encoding),
+    readdir: (path, options) => delegate.readdir(path, options),
+    lstat: (path) => delegate.lstat(path),
+    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
+    rename: (from, to) => delegate.rename(from, to),
+    rm: (path, options) => delegate.rm(path, options),
+  };
 }
