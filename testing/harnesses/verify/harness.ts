@@ -370,7 +370,7 @@ export async function assertVerificationRunOptionsReachHandlers(): Promise<void>
   const inputSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const scopePayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const findingPayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const terminalMetadataSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
@@ -2199,6 +2199,29 @@ export async function assertReviewFindingScopeRejectsApprovedTerminalStatus(): P
   await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
 }
 
+export async function assertCleanReviewRunRejectsForeignTerminalStatus(): Promise<void> {
+  const { scenario, fs, deps } = createVerifyAppendScenario(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
+  );
+  const runToken = await startedRunToken(scenario, deps);
+  const eventsBeforeFinish = await readVerifyRunEvents(scenario, runToken, fs);
+
+  const rejected = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.FAILED }),
+    deps,
+  );
+  expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeFinish);
+
+  const accepted = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED }),
+    deps,
+  );
+  expect(accepted.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseFinishReport(accepted.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.APPROVED);
+}
+
 export async function assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus(): Promise<void> {
   for (const terminalStatus of [JOURNAL_RUN_STATE_STATUS.APPROVED, JOURNAL_RUN_STATE_STATUS.REJECTED]) {
     const { scenario, deps } = createVerifyAppendScenario(
@@ -2364,7 +2387,7 @@ export async function assertInvalidReviewTerminalMetadataRejectedWithoutCompleti
   }
   const startReport = parseStartReport(started.output);
   const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
 
   await assertVerifyProperty(VERIFY_TEST_GENERATOR.invalidReviewTerminalMetadata(), async (terminalMetadata) => {
     const finished = await verifyFinishCommand(
@@ -3208,7 +3231,7 @@ export async function assertAppendOnTerminalRunDoesNotRequireRecordedInputSideca
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
   const runToken = await startedRunToken(scenario, deps);
-  await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus()));
+  await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus()));
   await fs.rm(verifyInputRecordFilePath(scenario, runToken), { force: true });
 
   for (const append of APPEND_COMMANDS) {
@@ -3230,7 +3253,7 @@ export async function assertAppendOnTerminalRunDoesNotMatchRecordedInputSelector
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
   const runToken = await startedRunToken(scenario, deps);
-  await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus()));
+  await finishRun(scenario, deps, runToken, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus()));
   await fs.writeFile(
     verifyInputRecordFilePath(scenario, runToken),
     JSON.stringify({
@@ -3388,7 +3411,7 @@ export async function assertStatusFinishedRunProjection(): Promise<void> {
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
   const runToken = await startedRunToken(scenario, deps);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   await finishRun(scenario, deps, runToken, terminalStatus);
   const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
   expect(status.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
@@ -3503,7 +3526,7 @@ export async function assertStatusAndRenderRejectMismatchedTerminalRecordedInput
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
   const runToken = await startedRunToken(scenario, deps);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   await finishRun(scenario, deps, runToken, terminalStatus);
   await fs.writeFile(
     verifyInputRecordFilePath(scenario, runToken),
@@ -3591,7 +3614,7 @@ export async function assertStatusAndRenderRejectRequestedScopeMismatch(): Promi
 export async function assertRepeatedFinishReturnsExistingProjection(): Promise<void> {
   const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const first = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
   expect(first.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const repeat = await verifyFinishCommand(verifyFinishOptions(scenario, { run: runToken, terminalStatus }), deps);
@@ -3608,7 +3631,7 @@ export async function assertRepeatedFinishRetriesPhysicalSeal(): Promise<void> {
   const started = await verifyStartCommand(verifyStartOptions(scenario), retryDeps);
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
   fs.failFirstSealWriteAt(sealMarkerPath);
   const first = await verifyFinishCommand(
@@ -3638,7 +3661,7 @@ export async function assertRepeatedFinishProjectsWhenSealMarkerUnreadable(): Pr
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   await finishRun(scenario, deps, startReport.runToken, terminalStatus);
   fs.failSealMarkerReadsAt(appendableJournalSealMarkerPath(startReport.locator.runTarget));
   const repeat = await verifyFinishCommand(
@@ -3660,7 +3683,7 @@ export async function assertFinishRejectsRawUnterminalRun(): Promise<void> {
   const scenario = createVerifyRunContextScenario();
   const { fs, deps } = createVerifyAppendScenario(scenario);
   const rawRun = await openRawJournalRun(scenario, deps);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const finished = await verifyFinishCommand(
     verifyFinishOptions(scenario, { run: rawRun.runToken, terminalStatus }),
     deps,
@@ -3674,7 +3697,7 @@ export async function assertFinishRejectsRawUnterminalRun(): Promise<void> {
 export async function assertSecondFinishKeepsFirstProjection(): Promise<void> {
   const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
-  const statuses = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.distinctTerminalStatuses());
+  const statuses = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.distinctReviewTerminalStatuses());
   await finishRun(scenario, deps, runToken, statuses.first);
   const second = await finishRun(scenario, deps, runToken, statuses.second);
   expect(second.terminalStatus).toBe(statuses.first);
@@ -3687,7 +3710,7 @@ export async function assertSecondFinishKeepsFirstProjection(): Promise<void> {
 export async function assertFinishProjectionWorksWithoutJournalBinding(): Promise<void> {
   const { scenario, fs, deps } = createVerifyAppendScenario(createReviewVerifyRunContextScenario());
   const runToken = await startedRunToken(scenario, deps);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   await finishRun(scenario, deps, runToken, terminalStatus);
   await fs.writeFile(
     verifyInputRecordFilePath(scenario, runToken),
@@ -3708,7 +3731,7 @@ export async function assertRepeatedFinishRejectsRecordedInputSelectorMismatch()
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
   const runToken = startReport.runToken;
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   await finishRun(scenario, deps, runToken, terminalStatus);
   await fs.writeFile(
     verifyInputRecordFilePath(scenario, runToken),
@@ -3733,7 +3756,7 @@ export async function assertFinishRejectsUnsupportedScopeAndMalformedScope(): Pr
   const startReport = parseStartReport(started.output);
   const runToken = startReport.runToken;
   const sealMarkerPath = appendableJournalSealMarkerPath(startReport.locator.runTarget);
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const unsupportedType = await verifyFinishCommand(
     {
       ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
@@ -3764,7 +3787,7 @@ export async function assertFinishRejectsUnsupportedVerificationTypeBeforeLookup
   const deps = { ...verifyDeps(scenario, fs), git: recorder.git };
   const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const finished = await verifyFinishCommand(
     { ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }), verificationType: unsupportedType },
     deps,
@@ -3799,7 +3822,7 @@ export async function finishRecoversUnsealedRun(
   deps: VerifyCliDeps,
   runToken: string,
 ): Promise<VerifyFinishReport> {
-  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.terminalStatus());
+  const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const report = await finishRun(scenario, deps, runToken, terminalStatus);
   if (report.terminalStatus !== terminalStatus) {
     throw new Error(

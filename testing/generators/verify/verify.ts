@@ -35,6 +35,11 @@ const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status
 );
 const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
+/** The journal terminal statuses a review run seals with; a review finish never uses a foreign runner status. */
+const REVIEW_TERMINAL_STATUSES: readonly string[] = [
+  JOURNAL_RUN_STATE_STATUS.APPROVED,
+  JOURNAL_RUN_STATE_STATUS.REJECTED,
+];
 const EMPTY_SUMMARY = "";
 const EMPTY_REVIEW_BODY = "";
 
@@ -362,10 +367,10 @@ export const VERIFY_TEST_GENERATOR = {
   blankIdempotencyKey: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankPayloadSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryReviewFinding(),
-  terminalStatus: (): fc.Arbitrary<string> => fc.constantFrom(...TERMINAL_STATUSES),
-  distinctTerminalStatuses: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
+  reviewTerminalStatus: (): fc.Arbitrary<string> => fc.constantFrom(...REVIEW_TERMINAL_STATUSES),
+  distinctReviewTerminalStatuses: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
     fc
-      .tuple(fc.constantFrom(...TERMINAL_STATUSES), fc.constantFrom(...TERMINAL_STATUSES))
+      .tuple(fc.constantFrom(...REVIEW_TERMINAL_STATUSES), fc.constantFrom(...REVIEW_TERMINAL_STATUSES))
       .filter(([first, second]) => first !== second)
       .map(([first, second]) => ({ first, second })),
   invalidTerminalStatus: (): fc.Arbitrary<string> =>

@@ -141,6 +141,12 @@ export const REVIEW_TERMINAL_STATE = {
 
 export type ReviewTerminalState = (typeof REVIEW_TERMINAL_STATE)[keyof typeof REVIEW_TERMINAL_STATE];
 
+/** The journal terminal statuses a review run seals with; a foreign runner status never seals a review. */
+const REVIEW_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  JOURNAL_RUN_STATE_STATUS.APPROVED,
+  JOURNAL_RUN_STATE_STATUS.REJECTED,
+]);
+
 export interface ReviewScopeUnit {
   readonly path: string;
   readonly side: ReviewAnchorSide;
@@ -805,6 +811,12 @@ export function validateReviewTerminal(input: TerminalValidationInput): Terminal
   const validated = input.metadata === undefined ? undefined : validateReviewTerminalMetadata(input.metadata);
   if (input.metadata !== undefined && validated === undefined) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+  }
+  // A review run seals only with a status in the review vocabulary; a status foreign to review — a
+  // sibling type's terminal value such as `failed`, `interrupted`, or `passed` — never seals a review,
+  // even on a clean run whose evidence and metadata compute no concrete expected status.
+  if (!REVIEW_TERMINAL_STATUSES.has(input.terminalStatus)) {
+    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
   }
   const evidenceStatus = expectedReviewEvidenceTerminalStatus(input.events);
   const metadataStatus = expectedReviewMetadataTerminalStatus(validated);

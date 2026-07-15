@@ -2,6 +2,7 @@ import { describe, it } from "vitest";
 
 import {
   assertBlankTerminalStatusRejectedWithoutCompletion,
+  assertCleanReviewRunRejectsForeignTerminalStatus,
   assertFinishProjectionWorksWithoutJournalBinding,
   assertFinishRejectsRawUnterminalRun,
   assertFinishRejectsUnsupportedScopeAndMalformedScope,
@@ -26,6 +27,10 @@ describe("verify finish compliance", () => {
 
   it("rejects a terminal status outside the journal terminal-status vocabulary", async () => {
     await assertInvalidTerminalStatusRejectedWithoutCompletion();
+  });
+
+  it("rejects a review run sealing with a terminal status foreign to the review vocabulary", async () => {
+    await assertCleanReviewRunRejectsForeignTerminalStatus();
   });
 
   it("rejects invalid verification-type terminal metadata without recording completion or sealing", async () => {
