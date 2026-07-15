@@ -2,6 +2,8 @@
 
 Developer CLI for code validation and session management.
 
+Current release: 0.6.20
+
 ## What is spx?
 
 `spx` is a command-line interface (CLI) tool that provides code validation and session management for projects that implement the spec-as-source methodology named [Outcome Engineering](https://outcome.engineering). The `spx` CLI works hand-in-hand with the **Claude Code** and **Codex** [plugin marketplace for Outcome Engineering](https://github.com/outcomeeng/plugins).
@@ -102,6 +104,18 @@ Sessions are stored in `.spx/sessions/` with priority-based ordering (high > med
 ### Spec Management
 
 The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+
+### Release Preparation
+
+Prepare release artifacts after updating the package version:
+
+```bash
+# Generate release notes from product history
+spx release notes
+
+# Update configured release documentation for the current package version
+spx release docs sync
+```
 
 ## Development
 
