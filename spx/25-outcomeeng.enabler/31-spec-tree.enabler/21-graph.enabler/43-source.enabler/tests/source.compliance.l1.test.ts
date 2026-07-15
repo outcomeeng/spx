@@ -7,6 +7,7 @@ import {
   assertGcCandidatesDeriveFromClassification,
   assertProvenanceRetainedThroughNormalization,
   assertSharedVocabularyAcrossLanguages,
+  assertUnresolvableProviderFactPathRejected,
 } from "@testing/harnesses/outcomeeng/source-graph";
 
 describe("source graph compliance", () => {
@@ -32,5 +33,9 @@ describe("source graph compliance", () => {
 
   it("rejects facts shaped like a direct implementation-source parse", () => {
     assertDirectParseProviderFactRejected();
+  });
+
+  it("rejects fact paths that escape or never enter the product directory", () => {
+    assertUnresolvableProviderFactPathRejected();
   });
 });
