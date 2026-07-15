@@ -54,16 +54,26 @@ function arbitraryScopeUnit(): fc.Arbitrary<TestScopeUnit> {
   return fc.record({ moduleId: arbitraryTestFilePath() });
 }
 
+/** The message the reporter records for a Vitest error carrying no message: the `error.message ?? ""` fallback. */
+const ABSENT_ERROR_MESSAGE = "";
+
+/** A message the reporter records for a failing case, spanning ordinary text and the message-absent empty-string fallback. */
+function arbitraryFindingErrorMessage(): fc.Arbitrary<string> {
+  return fc.oneof(fc.constant(ABSENT_ERROR_MESSAGE), arbitraryDomainLiteral());
+}
+
+/**
+ * A finding spanning the test finding schema's full valid domain: the errors array may be empty when
+ * a failing case carries no message, and each message may be the empty-string fallback, so a
+ * conformance check exercises the may-be-empty boundary the schema declares.
+ */
 function arbitraryFinding(): fc.Arbitrary<TestFinding> {
   return fc.record({
     moduleId: arbitraryTestFilePath(),
     testName: arbitraryDomainLiteral(),
-    errors: fc.array(arbitraryDomainLiteral(), { minLength: MIN_ERRORS, maxLength: MAX_ERRORS }),
+    errors: fc.array(arbitraryFindingErrorMessage(), { maxLength: MAX_ERRORS }),
   });
 }
-
-/** The message the reporter records for a Vitest error carrying no message: the `error.message ?? ""` fallback. */
-const ABSENT_ERROR_MESSAGE = "";
 
 /**
  * A finding whose error messages are the reporter's message-absent fallback. A failing case whose
