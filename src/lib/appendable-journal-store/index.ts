@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import {
   type AppendableBackend,
@@ -8,37 +8,44 @@ import {
   type JournalEvent,
 } from "@/lib/agent-run-journal";
 import {
-  appendJsonlRecord,
   defaultStateStoreFileSystem,
-  ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
-  EXCLUSIVE_CREATE_FLAG,
   hasErrorCode,
   type JsonRecord,
+  publishJsonlRecordAtomically,
+  serializeJsonlRecord,
+  STATE_STORE_ERROR,
   STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
-const SEQUENCE_CLAIM_MARKER_PREFIX = ".seq-";
-const SEQUENCE_CLAIM_MARKER_SUFFIX = ".claimed";
+const SEQUENCE_RECORD_MARKER = ".seq-";
+const SEQUENCE_RECORD_SUFFIX = ".jsonl";
+const SEQUENCE_TOKEN_PATTERN = /^[1-9]\d*$/;
 export const APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT = "";
-export const APPENDABLE_JOURNAL_SEQUENCE_CLAIM_MARKER_CONTENT = "";
 const LINE_SEPARATOR = "\n";
+
+interface SequenceRecordAddress {
+  readonly path: string;
+  readonly sequence: number;
+}
 
 export interface AppendableJournalStoreOptions {
   /** The resolved `.spx/` run file path that holds this stream's JSONL history. */
   readonly runFilePath: string;
   /** Injected filesystem; defaults to the real state-store filesystem. */
   readonly fs?: StateStoreFileSystem;
+  /** Injected temporary-name entropy for atomic sequence-record publication. */
+  readonly randomBytes?: (size: number) => Buffer;
 }
 
 export function appendableJournalSealMarkerPath(runFilePath: string): string {
   return `${runFilePath}${SEAL_MARKER_SUFFIX}`;
 }
 
-export function appendableJournalSequenceClaimPath(runFilePath: string, sequence: number): string {
-  return `${runFilePath}${SEQUENCE_CLAIM_MARKER_PREFIX}${sequence}${SEQUENCE_CLAIM_MARKER_SUFFIX}`;
+export function appendableJournalSequenceRecordPath(runFilePath: string, sequence: number): string {
+  return `${runFilePath}${SEQUENCE_RECORD_MARKER}${sequence}${SEQUENCE_RECORD_SUFFIX}`;
 }
 
 /** Bind the agent-run-journal `AppendableBackend` port to a JSONL run file on an injected filesystem. */
@@ -48,34 +55,35 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
   const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
 
   async function readAll(): Promise<readonly JournalEvent[]> {
-    const content = await readFileOrUndefined(fs, runFilePath);
-    if (content === undefined) return [];
-    const events: JournalEvent[] = [];
-    for (const line of content.split(LINE_SEPARATOR)) {
-      const trimmed = line.trim();
-      if (trimmed.length === 0) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(trimmed);
-      } catch {
-        continue;
-      }
-      // a syntactically valid line that is not a conformant event is the same
-      // class of defect as a parse failure — skip it rather than emit a counterfeit
-      if (!checkJournalEventConformance(parsed).ok) continue;
-      events.push(parsed as JournalEvent);
+    const eventsBySequence = new Map<number, JournalEvent>();
+    const aggregate = await readFileOrUndefined(fs, runFilePath);
+    for (const event of parseJournalEvents(aggregate)) {
+      eventsBySequence.set(event.seq, event);
     }
-    return [...events].sort((left, right) => left.seq - right.seq);
+    for (const sequenceRecord of await listSequenceRecords(fs, runFilePath)) {
+      const content = await readFileOrUndefined(fs, sequenceRecord.path);
+      for (const event of parseJournalEvents(content)) {
+        if (event.seq === sequenceRecord.sequence) {
+          eventsBySequence.set(event.seq, event);
+        }
+      }
+    }
+    return [...eventsBySequence.values()].sort((left, right) => left.seq - right.seq);
   }
 
   return {
     kind: JOURNAL_BACKEND_KIND.APPENDABLE,
 
     async append(record: JournalEvent): Promise<void> {
-      const sequenceClaimPath = await claimSequence(fs, runFilePath, record.seq);
-      const result = await appendJsonlRecord(runFilePath, toJsonRecord(record), { fs });
+      const result = await publishJsonlRecordAtomically(
+        appendableJournalSequenceRecordPath(runFilePath, record.seq),
+        toJsonRecord(record),
+        { fs, randomBytes: options.randomBytes },
+      );
       if (!result.ok) {
-        await fs.rm(sequenceClaimPath, { force: true });
+        if (result.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS) {
+          throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+        }
         throw new Error(result.error);
       }
     },
@@ -83,7 +91,12 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
     readAll,
 
     async seal(): Promise<void> {
+      const events = await readAll();
       await fs.mkdir(dirname(sealMarkerPath), { recursive: true });
+      await fs.writeFile(
+        runFilePath,
+        events.map((event) => serializeJsonlRecord(toJsonRecord(event))).join(""),
+      );
       await fs.writeFile(sealMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
     },
 
@@ -93,24 +106,51 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
   };
 }
 
-async function claimSequence(
+function parseJournalEvents(content: string | undefined): readonly JournalEvent[] {
+  if (content === undefined) return [];
+  const events: JournalEvent[] = [];
+  for (const line of content.split(LINE_SEPARATOR)) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!checkJournalEventConformance(parsed).ok) continue;
+    events.push(parsed as JournalEvent);
+  }
+  return events;
+}
+
+async function listSequenceRecords(
   fs: StateStoreFileSystem,
   runFilePath: string,
-  sequence: number,
-): Promise<string> {
-  const sequenceClaimPath = appendableJournalSequenceClaimPath(runFilePath, sequence);
-  await fs.mkdir(dirname(sequenceClaimPath), { recursive: true });
+): Promise<readonly SequenceRecordAddress[]> {
+  const directory = dirname(runFilePath);
+  const prefix = `${basename(runFilePath)}${SEQUENCE_RECORD_MARKER}`;
+  let entries;
   try {
-    await fs.writeFile(sequenceClaimPath, APPENDABLE_JOURNAL_SEQUENCE_CLAIM_MARKER_CONTENT, {
-      flag: EXCLUSIVE_CREATE_FLAG,
-    });
-    return sequenceClaimPath;
+    entries = await fs.readdir(directory, { withFileTypes: true });
   } catch (error) {
-    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) {
-      throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
-    }
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return [];
     throw error;
   }
+  const records: SequenceRecordAddress[] = [];
+  for (const entry of entries) {
+    const sequence = entry.isFile() ? sequenceFromRecordName(entry.name, prefix) : undefined;
+    if (sequence !== undefined) {
+      records.push({ path: join(directory, entry.name), sequence });
+    }
+  }
+  return records;
+}
+
+function sequenceFromRecordName(name: string, prefix: string): number | undefined {
+  if (!name.startsWith(prefix) || !name.endsWith(SEQUENCE_RECORD_SUFFIX)) return undefined;
+  const token = name.slice(prefix.length, -SEQUENCE_RECORD_SUFFIX.length);
+  return SEQUENCE_TOKEN_PATTERN.test(token) ? Number(token) : undefined;
 }
 
 function toJsonRecord(event: JournalEvent): JsonRecord {

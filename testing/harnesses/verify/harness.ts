@@ -670,6 +670,7 @@ export function createSealRetryFileSystem(): SealRetryFileSystem {
     failSealMarkerReadsAt: (path: string) => {
       rejectedSealMarkerReadPath = path;
     },
+    link: (existingPath, newPath) => fs.link(existingPath, newPath),
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
     readFile: (path, encoding) => {
@@ -1204,6 +1205,7 @@ function createInputPersistFailureFileSystem(
 ): StateStoreFileSystem {
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
+    link: (existingPath, newPath) => fs.link(existingPath, newPath),
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
     readFile: (path, encoding) => fs.readFile(path, encoding),
@@ -1225,6 +1227,7 @@ function createJournalOpenFailureFileSystem(
 ): StateStoreFileSystem {
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
+    link: (existingPath, newPath) => fs.link(existingPath, newPath),
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
     readFile: (path, encoding) => fs.readFile(path, encoding),
@@ -1263,6 +1266,7 @@ function createRunContextAppendFailureFileSystem(
       if (isRunJournalFile(path)) throw new Error("verify harness: run-context event append rejected");
       await fs.appendFile(path, data);
     },
+    link: (existingPath, newPath) => fs.link(existingPath, newPath),
     lstat: (path) => fs.lstat(path),
     mkdir: (path, options) => fs.mkdir(path, options),
     readFile: (path, encoding) => fs.readFile(path, encoding),

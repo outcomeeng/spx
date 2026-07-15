@@ -18,8 +18,8 @@ import {
   journalRunFilePath,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 

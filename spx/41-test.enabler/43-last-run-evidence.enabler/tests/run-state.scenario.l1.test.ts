@@ -42,6 +42,7 @@ function createReadFailingFileSystem(
         isFile: () => path.endsWith(runFileName),
         isSymbolicLink: () => false,
       }),
+    link: () => Promise.resolve(),
     rename: () => Promise.resolve(),
     rm: () => Promise.resolve(),
   };
