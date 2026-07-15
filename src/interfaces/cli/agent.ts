@@ -17,7 +17,7 @@ import {
   AGENT_RESUME_MODE,
   AGENT_RESUME_TEXT,
   AGENT_SEARCH_DEFAULT_LIMIT,
-  AGENT_SESSION_KIND,
+  AGENT_SEARCH_SESSION_KIND_DESCRIPTION,
   type AgentResumeCandidate,
   type AgentResumeMode,
   type AgentResumeScope,
@@ -26,6 +26,7 @@ import {
   type AgentSearchSessionKind,
   branchResumeScope,
   buildAgentResumeLaunchCommand,
+  isAgentSearchSessionKind,
   resolveAgentResumeMode,
   worktreeResumeScope,
 } from "@/domains/agent";
@@ -153,10 +154,12 @@ function parseResumeSince(value: string): number {
 }
 
 function parseSearchAgentKind(value: string): AgentSearchSessionKind {
-  if (value === AGENT_SESSION_KIND.CODEX || value === AGENT_SESSION_KIND.CLAUDE_CODE) {
+  if (isAgentSearchSessionKind(value)) {
     return value;
   }
-  throw new Error(`agent search kind must be codex or claude-code: ${sanitizeCliArgument(value)}`);
+  throw new Error(
+    `agent search kind must be ${AGENT_SEARCH_SESSION_KIND_DESCRIPTION}: ${sanitizeCliArgument(value)}`,
+  );
 }
 
 function searchQueryFromOptions(options: AgentSearchCliOptions): AgentSearchQueryOptions {
