@@ -1182,23 +1182,35 @@ export async function assertSpecContextClassifiesOverlays(): Promise<void> {
 }
 
 /**
- * Listed overlays follow code-unit order, proven on a pair whose order under
- * locale collation is the opposite: an uppercase name sorts before its
- * lowercase counterpart by code units, after it under locale-aware collation,
- * so a locale-dependent comparator at any manifest ordering site fails here
- * instead of only varying output across hosts.
+ * A name pair whose code-unit order is the opposite of its locale order,
+ * proven by an in-process divergence check: distinct leading letters — never
+ * a case-only difference, which collides on case-insensitive filesystems —
+ * where "Z" precedes "a" by code units while locale collation orders "a"
+ * before "Z". Shared by every ordering assertion so a locale-aware comparator
+ * at any manifest ordering site fails a test instead of varying by host.
+ */
+function divergentOrderSlugPair(): { readonly codeUnitFirst: string; readonly localeFirst: string } {
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const codeUnitFirst = `Z${slug}`;
+  const localeFirst = `a${slug}`;
+  expect(codeUnitFirst < localeFirst).toBe(true);
+  expect(codeUnitFirst.localeCompare(localeFirst)).toBeGreaterThan(0);
+  return { codeUnitFirst, localeFirst };
+}
+
+/**
+ * Listed overlays follow code-unit order on a divergent pair, through both
+ * overlay-listing branches: the readdir fallback outside a git repository and
+ * the tracked-paths branch a real git worktree takes.
  */
 export async function assertSpecContextOrdersListedOverlaysByCodeUnits(): Promise<void> {
   await withRichContextEnv(async (env, paths) => {
     const overlayDirectory = `spx/${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}`;
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    // Distinct leading letters (never a case-only difference, which collides
-    // on case-insensitive filesystems): "Z" precedes "a" by code units while
-    // locale collation orders "a" before "Z".
-    const codeUnitFirstOverlayPath = `${overlayDirectory}/Z${slug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
-    const localeFirstOverlayPath = `${overlayDirectory}/a${slug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
-    expect(codeUnitFirstOverlayPath < localeFirstOverlayPath).toBe(true);
-    expect(codeUnitFirstOverlayPath.localeCompare(localeFirstOverlayPath)).toBeGreaterThan(0);
+    const pair = divergentOrderSlugPair();
+    const codeUnitFirstOverlayPath =
+      `${overlayDirectory}/${pair.codeUnitFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
+    const localeFirstOverlayPath =
+      `${overlayDirectory}/${pair.localeFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
     await env.writeRaw(codeUnitFirstOverlayPath, "# Code-unit-first overlay\n");
     await env.writeRaw(localeFirstOverlayPath, "# Locale-first overlay\n");
 
@@ -1247,10 +1259,7 @@ export async function assertSpecContextOrdersSiblingGroupsByCodeUnits(): Promise
     const fixture = env.fixture;
     const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const codeUnitFirstSlug = `Z${slug}`;
-    const localeFirstSlug = `a${slug}`;
-    expect(codeUnitFirstSlug < localeFirstSlug).toBe(true);
-    expect(codeUnitFirstSlug.localeCompare(localeFirstSlug)).toBeGreaterThan(0);
+    const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
 
     const lowerOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
     const targetOrder = lowerOrder + 1;
@@ -1304,14 +1313,12 @@ export async function assertSpecContextOrdersAmbiguousCandidatesByCodeUnits(): P
     await env.materialize();
     const fixture = env.fixture;
     const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const pair = divergentOrderSlugPair();
     const ambiguousOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
-    const codeUnitFirstDirectory = `${ambiguousOrder}-Z${slug}${nodeSuffix}`;
-    const localeFirstDirectory = `${ambiguousOrder}-a${slug}${nodeSuffix}`;
-    expect(codeUnitFirstDirectory < localeFirstDirectory).toBe(true);
-    expect(codeUnitFirstDirectory.localeCompare(localeFirstDirectory)).toBeGreaterThan(0);
-    await env.writeRaw(`spx/${codeUnitFirstDirectory}/Z${slug}.md`, "# Ambiguous pair\n");
-    await env.writeRaw(`spx/${localeFirstDirectory}/a${slug}.md`, "# Ambiguous pair\n");
+    const codeUnitFirstDirectory = `${ambiguousOrder}-${pair.codeUnitFirst}${nodeSuffix}`;
+    const localeFirstDirectory = `${ambiguousOrder}-${pair.localeFirst}${nodeSuffix}`;
+    await env.writeRaw(`spx/${codeUnitFirstDirectory}/${pair.codeUnitFirst}.md`, "# Ambiguous pair\n");
+    await env.writeRaw(`spx/${localeFirstDirectory}/${pair.localeFirst}.md`, "# Ambiguous pair\n");
 
     const snapshot = await env.readFilesystemSnapshot();
     const resolution = resolveSpecContextTarget(snapshot, `${ambiguousOrder}`);
