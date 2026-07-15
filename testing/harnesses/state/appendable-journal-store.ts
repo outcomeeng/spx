@@ -5,6 +5,7 @@ import fc from "fast-check";
 import { expect } from "vitest";
 
 import {
+  CLOUDEVENTS_SPECVERSION,
   createJournal,
   JOURNAL_ERROR,
   JOURNAL_SEQ_BASE,
@@ -97,7 +98,18 @@ export async function assertAppendableJournalInterruptionCompliance(): Promise<v
     const reopened = createJournal(reopenedStore, identity);
     const replay = await reopenedStore.readAll();
     expect(replay).toHaveLength(1);
-    expect(replay[0]?.seq).toBe(JOURNAL_SEQ_BASE);
+    expect(replay[0]).toMatchObject({
+      id: firstInput.id,
+      source: firstInput.source,
+      type: firstInput.type,
+      specversion: CLOUDEVENTS_SPECVERSION,
+      time: firstInput.time,
+      streamid: identity.streamid,
+      seq: JOURNAL_SEQ_BASE,
+      runid: identity.runid,
+      attempt: firstInput.attempt,
+    });
+    expect(replay[0]?.data).toEqual(firstInput.data);
     await expect(reopened.append(nextInput)).resolves.toMatchObject({ seq: JOURNAL_SEQ_BASE + 1 });
   });
 }
