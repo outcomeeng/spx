@@ -9,6 +9,7 @@ CAN reflect the released version's behavior and product release-version referenc
 ### Scenarios
 
 - Given computed release data, when `spx release docs sync` runs, then references to the previous product release version in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
+- Given a configured document with no previous product release-version reference, when `spx release docs sync` runs, then the agent instruction names the exact released version and the document gains that released-version reference ([test](tests/documentation-sync.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -18,7 +19,7 @@ CAN reflect the released version's behavior and product release-version referenc
 
 - Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
 - Structural version validation preserves every generated semantic version other than the exact standalone previous product release-version token identified by the release data, including exact release values embedded in larger non-whitespace tokens and first releases whose release data identifies no previous version ([test](tests/documentation-sync.property.l1.test.ts))
-- Agent file-tool authorization permits every generated staged write or edit target and rejects every generated absolute or parent-relative target outside the isolated staging workspace ([test](tests/documentation-sync.property.l1.test.ts))
+- Agent file-tool authorization permits every generated staged read, write, or edit target and rejects every generated absolute or parent-relative target outside the isolated staging workspace ([test](tests/documentation-sync.property.l1.test.ts))
 
 ### Compliance
 
