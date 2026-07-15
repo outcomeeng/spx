@@ -61,6 +61,14 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
+export const MARKETPLACE_PLUGIN_SURFACE = {
+  CLAUDE: "claude",
+  CODEX: "codex",
+} as const;
+export const MARKETPLACE_PLUGIN_COMMAND = {
+  LIST_MARKETPLACES: ["plugin", "marketplace", "list", "--json"],
+  LIST_PLUGINS: ["plugin", "list", "--json"],
+} as const;
 
 export const METHODOLOGY_PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 export const METHODOLOGY_CACHE_HOME_KEYS = ["codex", "claudeCode"] as const satisfies readonly (keyof ReturnType<
@@ -161,12 +169,12 @@ interface ExportedClaimDependencies {
   readonly processTable: ProcessTable;
 }
 
-interface Capture {
+export interface CommandCapture {
   readonly ok: boolean;
   readonly stdout: string;
 }
 
-async function runCapture(file: string, args: readonly string[]): Promise<Capture> {
+async function runCapture(file: string, args: readonly string[]): Promise<CommandCapture> {
   try {
     const result = await execa(file, args, { reject: false });
     return { ok: result.exitCode === 0, stdout: result.stdout };
@@ -429,6 +437,16 @@ function pluginSurfacePresent(cli: string): boolean {
   return findExecutableOnPath(cli) !== null;
 }
 
+export interface MarketplaceInstallProbeDependencies {
+  readonly surfacePresent: (cli: string) => boolean;
+  readonly capture: (file: string, args: readonly string[]) => Promise<CommandCapture>;
+}
+
+const defaultMarketplaceInstallProbeDependencies: MarketplaceInstallProbeDependencies = {
+  surfacePresent: pluginSurfacePresent,
+  capture: runCapture,
+};
+
 interface InstalledPlugin {
   readonly name: string;
   readonly enabled: boolean;
@@ -497,17 +515,18 @@ async function surfaceState(
   cli: string,
   marketplace: MarketplaceIdentity,
   expectedPlugins: readonly string[],
+  deps: MarketplaceInstallProbeDependencies,
 ): Promise<{ ok: boolean; unregistered: boolean; drifted: boolean }> {
-  const marketplaces = await runCapture(cli, ["plugin", "marketplace", "list", "--json"]);
+  const marketplaces = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_MARKETPLACES);
   if (!marketplaces.ok) return { ok: false, unregistered: false, drifted: false };
   const registry = parseRegisteredMarketplaces(marketplaces.stdout);
   if (registry === null) return { ok: false, unregistered: false, drifted: false };
   // Match the marketplace identity on exact structured fields rather than a
   // substring of the rendered list, consistent with the plugin-list parse below.
-  const registered = registry.some((entry) => entry.name === marketplace.name || entry.source === marketplace.source);
+  const registered = registry.some((entry) => entry.name === marketplace.name && entry.source === marketplace.source);
   if (!registered) return { ok: true, unregistered: true, drifted: false };
 
-  const plugins = await runCapture(cli, ["plugin", "list", "--json"]);
+  const plugins = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_PLUGINS);
   if (!plugins.ok) return { ok: false, unregistered: false, drifted: false };
   const installed = parseInstalledPlugins(plugins.stdout);
   if (installed === null) return { ok: false, unregistered: false, drifted: false };
@@ -521,34 +540,40 @@ async function surfaceState(
 }
 
 /** Resolves the marketplace-install reading across the present Claude and Codex plugin CLI surfaces. */
-export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
-  async probe(
-    marketplace: MarketplaceIdentity,
-    expectedPlugins: readonly string[],
-  ): Promise<MarketplaceInstallProbeReading> {
-    const clean: MarketplaceInstallProbeReading = {
-      errored: false,
-      surfacePresent: false,
-      unregistered: false,
-      drifted: false,
-    };
-    let reading = clean;
-    for (const cli of ["claude", "codex"]) {
-      if (!pluginSurfacePresent(cli)) continue;
-      const state = await surfaceState(cli, marketplace, expectedPlugins);
-      if (!state.ok) {
-        return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
-      }
-      reading = {
+export function createMarketplaceInstallProbe(
+  deps: MarketplaceInstallProbeDependencies = defaultMarketplaceInstallProbeDependencies,
+): MarketplaceInstallProbe {
+  return {
+    async probe(
+      marketplace: MarketplaceIdentity,
+      expectedPlugins: readonly string[],
+    ): Promise<MarketplaceInstallProbeReading> {
+      const clean: MarketplaceInstallProbeReading = {
         errored: false,
-        surfacePresent: true,
-        unregistered: reading.unregistered || state.unregistered,
-        drifted: reading.drifted || state.drifted,
+        surfacePresent: false,
+        unregistered: false,
+        drifted: false,
       };
-    }
-    return reading;
-  },
-};
+      let reading = clean;
+      for (const cli of Object.values(MARKETPLACE_PLUGIN_SURFACE)) {
+        if (!deps.surfacePresent(cli)) continue;
+        const state = await surfaceState(cli, marketplace, expectedPlugins, deps);
+        if (!state.ok) {
+          return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
+        }
+        reading = {
+          errored: false,
+          surfacePresent: true,
+          unregistered: reading.unregistered || state.unregistered,
+          drifted: reading.drifted || state.drifted,
+        };
+      }
+      return reading;
+    },
+  };
+}
+
+export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = createMarketplaceInstallProbe();
 
 interface LatestDirectoryReading {
   readonly errored: boolean;
