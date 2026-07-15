@@ -1,9 +1,11 @@
 /**
  * Pure variable input domains for the TypeScript source-graph provider:
  * test-attributed coverage payloads and module-graph payloads whose expected
- * fact pairs are known by construction — reachable components are built as
- * trees from each test entry, redundant edges never change the reachable set,
- * and noise subgraphs never become reachable from an entry.
+ * facts are known by construction — reachable components are built as trees
+ * from each test entry, redundant edges never change the reachable set, and
+ * noise subgraphs never become reachable from an entry. Expected facts derive
+ * from the seed values and source-owned vocabulary, never from a stored
+ * expected output.
  *
  * @module testing/generators/outcomeeng/typescript-source-graph
  */
@@ -12,10 +14,17 @@ import { posix } from "node:path";
 
 import * as fc from "fast-check";
 
-import type {
-  TypescriptCoverageInput,
-  TypescriptModuleEdge,
-  TypescriptModuleGraphInput,
+import {
+  compareCodeUnits,
+  PROVIDER_FACT_KIND,
+  type ProviderFactKind,
+  type RawProviderFact,
+  SOURCE_GRAPH_LANGUAGE,
+  TYPESCRIPT_COVERAGE_PROVIDER_ID,
+  TYPESCRIPT_MODULE_GRAPH_PROVIDER_ID,
+  type TypescriptCoverageInput,
+  type TypescriptModuleEdge,
+  type TypescriptModuleGraphInput,
 } from "@/outcomeeng/spec-tree/graph/source";
 import { arbitraryArtifactPath } from "@testing/generators/outcomeeng/source-graph";
 
@@ -25,12 +34,31 @@ const MODULE_GRAPH_COMPONENT_NAMESPACE = "entry";
 const MODULE_GRAPH_NOISE_NAMESPACE = "noise";
 
 /** One (testPath, sourcePath) relation a provider payload must map to exactly one fact. */
-export type ProviderFactPair = readonly [testPath: string, sourcePath: string];
+type ProviderFactPair = readonly [testPath: string, sourcePath: string];
 
-/** A coverage payload plus the unique fact pairs it must map to. */
+/** Unique-by-construction pairs as the facts the provider must emit, in the contract's code-unit order. */
+function expectedFactsFromPairs(
+  kind: ProviderFactKind,
+  provider: string,
+  pairs: readonly ProviderFactPair[],
+): readonly RawProviderFact[] {
+  return [...pairs]
+    .sort(
+      ([leftTest, leftSource], [rightTest, rightSource]) =>
+        compareCodeUnits(leftTest, rightTest) || compareCodeUnits(leftSource, rightSource),
+    )
+    .map(([testPath, sourcePath]) => ({
+      kind,
+      testPath,
+      sourcePath,
+      provenance: { language: SOURCE_GRAPH_LANGUAGE.TYPESCRIPT, provider },
+    }));
+}
+
+/** A coverage payload plus the facts it must map to. */
 export interface TypescriptCoverageScenario {
   readonly input: TypescriptCoverageInput;
-  readonly expectedPairs: readonly ProviderFactPair[];
+  readonly expectedFacts: readonly RawProviderFact[];
 }
 
 interface CoverageEntrySeed {
@@ -71,14 +99,21 @@ export function arbitraryTypescriptCoverageScenario(): fc.Arbitrary<TypescriptCo
           sourcePath,
         ])
       );
-      return { input: { entries }, expectedPairs };
+      return {
+        input: { entries },
+        expectedFacts: expectedFactsFromPairs(
+          PROVIDER_FACT_KIND.COVERAGE,
+          TYPESCRIPT_COVERAGE_PROVIDER_ID,
+          expectedPairs,
+        ),
+      };
     });
 }
 
-/** A module-graph payload plus the (entry, reachable source) pairs it must map to. */
+/** A module-graph payload plus the facts it must map to. */
 export interface TypescriptModuleGraphScenario {
   readonly input: TypescriptModuleGraphInput;
-  readonly expectedPairs: readonly ProviderFactPair[];
+  readonly expectedFacts: readonly RawProviderFact[];
 }
 
 interface ComponentSeed {
@@ -161,7 +196,14 @@ export function arbitraryTypescriptModuleGraphScenario(): fc.Arbitrary<Typescrip
       if (noise.linkNoiseToFirstEntry && noisePaths.length > 0) {
         edges.push({ importerPath: noisePaths[0], importedPath: entries[0] });
       }
-      return { input: { testEntryPaths: entries, edges }, expectedPairs };
+      return {
+        input: { testEntryPaths: entries, edges },
+        expectedFacts: expectedFactsFromPairs(
+          PROVIDER_FACT_KIND.REACHABILITY,
+          TYPESCRIPT_MODULE_GRAPH_PROVIDER_ID,
+          expectedPairs,
+        ),
+      };
     });
 }
 
