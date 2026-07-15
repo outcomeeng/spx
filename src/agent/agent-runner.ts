@@ -42,6 +42,23 @@ export const AGENT_RUN_TOOLS = {
   EDIT: "Edit",
 } as const;
 export type AgentRunTool = (typeof AGENT_RUN_TOOLS)[keyof typeof AGENT_RUN_TOOLS];
+export const AGENT_TOOL_PERMISSION_BEHAVIOR = {
+  ALLOW: "allow",
+  DENY: "deny",
+} as const;
+export type AgentToolPermissionBehavior =
+  (typeof AGENT_TOOL_PERMISSION_BEHAVIOR)[keyof typeof AGENT_TOOL_PERMISSION_BEHAVIOR];
+
+export function authorizeAgentFileToolPath(
+  _workingDirectory: string,
+  tool: AgentRunTool,
+  _filePath: string,
+): AgentToolPermissionBehavior {
+  return tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT
+    ? AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW
+    : AGENT_TOOL_PERMISSION_BEHAVIOR.DENY;
+}
+
 export const AGENT_PERMISSION_MODES = {
   DONT_ASK: "dontAsk",
 } as const;

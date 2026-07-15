@@ -7,7 +7,14 @@ import { Command } from "commander";
 import { execa } from "execa";
 import { expect } from "vitest";
 
-import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import {
+  AGENT_TOOL_PERMISSION_BEHAVIOR,
+  type AgentAuditor,
+  type AgentAuditRequest,
+  type AgentRunner,
+  type AgentRunRequest,
+  authorizeAgentFileToolPath,
+} from "@/agent/agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
   createDocumentationAtomicWriter,
@@ -50,6 +57,7 @@ import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryDocumentationAgentFileToolBoundaryScenario,
   arbitraryDocumentationPathAliasCases,
   arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
@@ -62,6 +70,7 @@ import {
   arbitrarySparseDocumentationPathSet,
   arbitraryUnrelatedVersionRewriteScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
+  type DocumentationAgentFileToolBoundaryScenario,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
   documentationPathFailureCases,
@@ -674,6 +683,27 @@ async function assertUnrelatedVersionRewriteRejected(
   });
 }
 
+function assertDocumentationAgentFileToolBoundary(
+  scenario: DocumentationAgentFileToolBoundaryScenario,
+): void {
+  expect(
+    authorizeAgentFileToolPath(
+      scenario.workingDirectory,
+      scenario.tool,
+      scenario.containedPath,
+    ),
+  ).toBe(AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW);
+  for (const escapedPath of scenario.escapedPaths) {
+    expect(
+      authorizeAgentFileToolPath(
+        scenario.workingDirectory,
+        scenario.tool,
+        escapedPath,
+      ),
+    ).toBe(AGENT_TOOL_PERMISSION_BEHAVIOR.DENY);
+  }
+}
+
 async function assertVersionValidationPrecedesFaithfulnessAudit(
   scenario: DocumentationSyncScenario,
   agentRunner: AgentRunner,
@@ -1229,6 +1259,14 @@ function registerPropertyTests(): void {
       await assertProperty(
         arbitraryUnrelatedVersionRewriteScenario(),
         assertUnrelatedVersionRewriteRejected,
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
+
+    it("confines every generated agent file mutation to the staging workspace", () => {
+      assertProperty(
+        arbitraryDocumentationAgentFileToolBoundaryScenario(),
+        assertDocumentationAgentFileToolBoundary,
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
     });

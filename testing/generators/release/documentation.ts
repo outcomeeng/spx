@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
+import { AGENT_RUN_TOOLS, type AgentRunTool } from "@/agent/agent-runner";
 import { SOURCE_DOMAIN_ROOT_PREFIX } from "@/config/source-roots";
 import {
   DEFAULT_RELEASE_DOCUMENTATION_PATHS,
@@ -53,6 +54,13 @@ export interface DocumentationVersionPreservationScenarios {
 export interface DocumentationUnrelatedVersionRewriteScenario {
   readonly scenario: DocumentationSyncScenario;
   readonly rewritten: Readonly<Partial<Record<string, string>>>;
+}
+
+export interface DocumentationAgentFileToolBoundaryScenario {
+  readonly workingDirectory: string;
+  readonly tool: AgentRunTool;
+  readonly containedPath: string;
+  readonly escapedPaths: readonly string[];
 }
 
 interface DocumentationSyncScenarioWithUnrelatedVersion {
@@ -203,6 +211,30 @@ export function arbitraryUnrelatedVersionRewriteScenario(): fc.Arbitrary<
             rewrittenVersion,
           ),
         }));
+    });
+}
+
+export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitrary<
+  DocumentationAgentFileToolBoundaryScenario
+> {
+  return fc
+    .tuple(
+      arbitraryPathSegment(),
+      arbitraryPathSegment(),
+      arbitraryPathSegment(),
+      fc.constantFrom(AGENT_RUN_TOOLS.WRITE, AGENT_RUN_TOOLS.EDIT),
+    )
+    .map(([rootSegment, containedSegment, escapedSegment, tool]) => {
+      const workingDirectory = posix.resolve(posix.sep, rootSegment);
+      return {
+        workingDirectory,
+        tool,
+        containedPath: posix.join(workingDirectory, containedSegment),
+        escapedPaths: [
+          posix.join(PATH_CONTAINMENT_PARENT_DIRECTORY, escapedSegment),
+          posix.resolve(posix.dirname(workingDirectory), escapedSegment),
+        ],
+      };
     });
 }
 
