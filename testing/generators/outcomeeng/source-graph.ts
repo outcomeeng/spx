@@ -287,6 +287,7 @@ export function arbitraryNormalizationScenario(): fc.Arbitrary<NormalizationScen
 export const UNRESOLVABLE_PATH_VARIANT = {
   PARENT_ESCAPE: "parent-escape",
   NESTED_ESCAPE: "nested-escape",
+  BARE_PARENT: "bare-parent",
   FOREIGN_ABSOLUTE: "foreign-absolute",
   EMPTY: "empty",
 } as const;
@@ -308,6 +309,10 @@ function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: st
     case UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE: {
       const [head, ...rest] = canonicalPath.split("/");
       return [head, "..", "..", ...rest].join("/");
+    }
+    case UNRESOLVABLE_PATH_VARIANT.BARE_PARENT: {
+      const [head] = canonicalPath.split("/");
+      return `${head}/../..`;
     }
     case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
       return `${productDir}-foreign/${canonicalPath}`;
