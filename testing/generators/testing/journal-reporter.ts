@@ -78,6 +78,30 @@ function arbitraryFindingWithoutErrorMessages(): fc.Arbitrary<TestFinding> {
   });
 }
 
+/** Test scope payloads the recorder must reject: non-records and a scope missing its module id. */
+function arbitraryInvalidScopeUnit(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.constant(null),
+    fc.integer(),
+    fc.array(arbitraryTestFilePath()),
+    arbitraryScopeUnit().map(({ moduleId: _moduleId, ...rest }) => rest),
+  );
+}
+
+/** Test finding payloads the recorder must reject: non-records, missing identity, and non-string-array errors. */
+function arbitraryInvalidFinding(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.constant(null),
+    fc.integer(),
+    arbitraryFinding().map(({ moduleId: _moduleId, ...rest }) => rest),
+    arbitraryFinding().map(({ testName: _testName, ...rest }) => rest),
+    arbitraryFinding().map((finding) => ({ ...finding, errors: undefined })),
+    arbitraryFinding().chain((finding) =>
+      fc.array(fc.integer(), { minLength: MIN_ERRORS }).map((errors) => ({ ...finding, errors }))
+    ),
+  );
+}
+
 function arbitraryScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
   return fc.array(arbitraryScopeUnit(), { maxLength: MAX_SCOPE_UNITS });
 }
@@ -147,8 +171,10 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   failingCase: arbitraryFailingCase,
   scopeUnit: arbitraryScopeUnit,
   scopeUnits: arbitraryScopeUnits,
+  invalidScopeUnit: arbitraryInvalidScopeUnit,
   finding: arbitraryFinding,
   findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,
+  invalidFinding: arbitraryInvalidFinding,
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,
   runRequest: arbitraryRunRequest,
