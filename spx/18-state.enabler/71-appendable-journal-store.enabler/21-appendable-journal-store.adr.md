@@ -1,35 +1,38 @@
 # Appendable Journal Store Binding
 
-The agent-run-journal's `AppendableBackend` port is implemented under `src/lib/` as a module that persists one journal stream as a JSONL run history over an injected `StateStoreFileSystem`: each `append` atomically claims its incoming sequence through an exclusive-create sidecar derived from the run path and sequence before writing one line through the record-store's JSONL serialization, `readAll` parses the run file's lines back into `JournalEvent`s in ascending `seq` order, and `seal` / `isSealed` write and probe a seal-marker file derived from the run path. A claim collision rejects with `JOURNAL_ERROR.SEQ_CONSUMED`, and a failed JSONL write removes the claim created by that append so the sequence remains retryable. The caller resolves the run file path from the journal `streamid` within a `.spx/` scope through `spx/18-state.enabler`; the store re-derives no git topology or `.spx/` layout.
+The agent-run-journal's `AppendableBackend` port is implemented under `src/lib/` as a module that persists each event to a deterministic per-sequence JSONL record through the atomic publication contract of `spx/18-state.enabler/43-record-store.enabler/21-atomic-jsonl-publication.adr.md`. The sequence record path is a pure function of the caller-resolved run file path and event sequence. Each `append` serializes the complete event to a unique temporary sibling and atomically hard-links it to that sequence path; a destination collision rejects with `JOURNAL_ERROR.SEQ_CONSUMED`. `readAll` combines conformant per-sequence records with a conformant aggregate run file when one exists, deduplicates by sequence with the atomic sequence record authoritative, and returns events in ascending sequence order.
+
+The caller-resolved run file remains the retained single-artifact representation. `seal` materializes the ordered sequence records into that aggregate JSONL file before writing the seal marker, so artifact retention and hydration continue to carry one run file plus its marker. An interrupted active run reopens from its sequence records; a hydrated sealed run with no local sequence records reopens from the aggregate. Every filesystem operation flows through the injected `StateStoreFileSystem`; temporary-name generation is injected with a production default.
 
 ## Rationale
 
-The journal contract names no backend, so the local store is one adapter binding the `AppendableBackend` port of `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md`. Reusing the record-store's JSONL serialization keeps one append-per-line format across `.spx/` local execution state; parsing that same format back is the store's only read concern. Taking a resolved run file path and an injected filesystem keeps scope resolution in the consumer and git/`.spx/` derivation in the state module per `spx/17-state.adr.md`, so the store verifies over a controlled filesystem and run path without a real repository.
+The journal contract names no backend, so the local store binds its port without changing `append`, `readAll`, `seal`, or `isSealed`. A complete per-sequence record published by hard link makes sequence allocation and event persistence one atomic visibility boundary: before publication the deterministic sequence path is absent and retryable; after publication it names the complete event and a fresh process replays it. An empty claim followed by a separate aggregate append is rejected because termination between those operations leaves a permanent claim with no event. Read-then-clear recovery is also rejected because a second process can mistake a live writer's claim for a stale one and publish the same sequence.
 
-Deriving seal state from a marker file rather than a sentinel event keeps the persisted history pure CloudEvents — `readAll` parses only events, and seal is a separate fact a fresh store reads back. A deterministic sequence-claim sidecar turns sequence exclusivity into one filesystem operation whose `EEXIST` outcome is atomic across backend instances and processes; a read-then-append duplicate check has a time-of-check/time-of-use window in which two writers can persist the same sequence. Rejecting a claim collision with the journal's own `JOURNAL_ERROR.SEQ_CONSUMED` constant makes the store honor the error contract the journal's compliance test asserts, so every consumer reads one error vocabulary across backends. Removing a claim after a failed event write prevents a recoverable persistence failure from reserving an event sequence that never entered the journal.
+Per-sequence JSONL records keep active-run appends independent and no-overwrite while preserving the record store's serialization. Materializing the aggregate only at seal avoids concurrent append races in the retained file. Reading the aggregate as a fallback preserves hydrated sealed runs produced by artifact storage, while sequence-record precedence prevents a stale aggregate line from overriding the atomic record for its sequence.
 
-Rejected: generating a random run token per stream (the record-store's `createJsonlRunFile`) — a stream's file must be deterministic from its `streamid` so a restart or re-read reopens the same history; and resolving the `.spx/` scope inside the store — that duplicates the git and `.spx/` derivation the state module owns.
+Deriving seal state from a marker file rather than a sentinel event keeps every persisted journal record a CloudEvent. Taking a resolved run file path keeps git topology and `.spx/` scope derivation in the state module per `spx/17-state.adr.md`.
 
 ## Invariants
 
-- The run file path and seal-marker path are pure functions of their inputs; the same `streamid` and resolved scope yield the same paths.
-- `readAll` returns every persisted event exactly once, ordered by ascending `seq`, parsing only well-formed lines.
-- Each sequence has at most one claim sidecar and at most one persisted event in a run history.
-- An `append` whose `seq` is claimed or already appears in the history leaves the file unchanged and rejects.
-- A failed event write removes only the sequence claim created by that append.
+- The run file, sequence-record, temporary-record, and seal-marker paths are pure functions of their declared inputs.
+- A deterministic sequence path is absent before publication and contains one complete conformant event after publication.
+- Each sequence has at most one authoritative event, and a collision leaves that event unchanged.
+- `readAll` returns every authoritative event exactly once in ascending sequence order across active, restarted, sealed, and hydrated histories.
+- The seal marker is written only after the aggregate run file contains the ordered replay of every authoritative sequence record.
 
 ## Verification
 
 ### Testing
 
-- ALWAYS: overlapping appends through backend instances sharing one run path accept an incoming sequence at most once, preserve a replay with unique contiguous sequences, and reject every conflicting append with `JOURNAL_ERROR.SEQ_CONSUMED` ([property])
-- ALWAYS: when JSONL persistence fails after an append claims its sequence, the claim is removed and a later append can claim that sequence ([compliance])
+- ALWAYS: overlapping appends through backend instances sharing one run path publish an incoming sequence at most once, preserve a replay with unique contiguous sequences, and reject every conflict with `JOURNAL_ERROR.SEQ_CONSUMED` ([property])
+- ALWAYS: interruption before atomic sequence-record publication leaves the sequence reusable through a fresh backend, while interruption after publication leaves the complete event replayable and advances the next append by exactly one ([compliance])
+- ALWAYS: sealing materializes the complete ordered replay into the aggregate run file, and a hydrated backend with only that aggregate and its seal marker replays the same history ([compliance])
 
 ### Audit
 
-- ALWAYS: the store implements `AppendableBackend` with `kind` Appendable and never widens or alters the `append` / `readAll` / `seal` / `isSealed` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
-- ALWAYS: every filesystem read and write flows through an injected `StateStoreFileSystem`; the store imports no `node:fs`, process globals, or network client and re-derives no git topology or `.spx/` layout, per `spx/17-state.adr.md` ([audit])
-- ALWAYS: writes serialize through the record-store's JSONL serialization so the local store shares one line format with other `.spx/` run histories ([audit])
-- ALWAYS: sequence claims use the injected filesystem's exclusive-create operation, and claim collisions map to `JOURNAL_ERROR.SEQ_CONSUMED` rather than a store-local error ([audit])
+- ALWAYS: the store implements `AppendableBackend` with kind Appendable and never widens the `append` / `readAll` / `seal` / `isSealed` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
+- ALWAYS: every filesystem read and write flows through an injected `StateStoreFileSystem`; the store imports no direct filesystem API and re-derives no git topology or `.spx/` layout, per `spx/17-state.adr.md` ([audit])
+- ALWAYS: active events publish through the record store's atomic JSONL publication contract, and seal materialization uses the record store's JSONL serialization ([audit])
+- ALWAYS: deterministic sequence-path collisions map to `JOURNAL_ERROR.SEQ_CONSUMED` rather than a store-local error ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or module interception substitutes for the filesystem — tests inject a controlled `StateStoreFileSystem` and exercise the real store code paths, per `spx/17-state.adr.md` ([audit])
-- NEVER: the store reads authoritative seal state from anywhere but the seal marker, or treats a parse-failed line as an event ([audit])
+- NEVER: the store treats an absent aggregate line as evidence that an existing sequence path is stale or safe to remove ([audit])
