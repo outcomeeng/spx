@@ -527,6 +527,14 @@ export async function appendJsonlRecord(
   }
 }
 
+export async function publishJsonlRecordAtomically(
+  _filePath: string,
+  _record: JsonRecord,
+  _options: JsonlWriteOptions = {},
+): Promise<Result<string>> {
+  return { ok: false, error: STATE_STORE_ERROR.RECORD_WRITE_FAILED };
+}
+
 export async function readLatestJsonlRecord(
   filePath: string,
   options: JsonlReadOptions = {},
