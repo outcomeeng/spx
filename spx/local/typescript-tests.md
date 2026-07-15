@@ -4,6 +4,16 @@ This file is the repo-local overlay for `standardizing-typescript-tests`. Rules 
 
 ---
 
+## Executed test files own their assertion flow
+
+The executed test file owns the predicate and every `expect`. A property test passes its arbitrary, its **inline predicate lambda**, and its level classification (built from `PROPERTY_LEVEL`/`PROPERTY_SIZE`) directly to `assertProperty` — the property harness's caller contract names exactly those three as the test-file surface, and the harness owns run counts, timeouts, seeds, and replay diagnostics.
+
+The shared skill's rule that executed test files declare no "property-generated parameters" bans framework-injected test-function parameters (`test.prop`-style signatures) and test-scope value bindings — it does **not** ban an inline predicate lambda passed to `assertProperty`, and locals inside a predicate body that derive from the generated value are ordinary code.
+
+**NEVER declare a `testing/harnesses/*` function whose body is assertions over a call to the code under test.** That is a test relocated out of its file, and it is rejected. Harnesses own resources, doubles, lifecycle, and execution policy; generators own input domains and construction-derived expected values; assertion flow stays in the executed file. A reviewer or auditor finding that cites the no-bindings sentence against an inline `assertProperty` predicate is invalid in this repository.
+
+---
+
 ## Generators are the only source of test input data
 
 Every string and number in a test file that represents domain input — a file path, a node name, a literal value, a command argument — must come from a generator in `testing/generators/`. No exceptions.
