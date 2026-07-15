@@ -1713,6 +1713,36 @@ export async function assertTestTerminalRejectsSuppliedMetadata(): Promise<void>
   expect(parseFinishReport(accepted.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
 }
 
+export async function assertTestTerminalRejectsPassedWithFindings(): Promise<void> {
+  const { scenario, fs, deps, runToken } = await testAppendScenario();
+  const finding = sampleVerifyTestValue(JOURNAL_REPORTER_TEST_GENERATOR.finding());
+  const appended = await verifyAppendFindingCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(finding),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  const eventsBeforeRejectedFinish = await readVerifyRunEvents(scenario, runToken, fs);
+
+  const rejected = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED }),
+    deps,
+  );
+  expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
+
+  const accepted = await verifyFinishCommand(
+    verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.FAILED }),
+    deps,
+  );
+  expect(accepted.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+  expect(parseFinishReport(accepted.output).terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
+}
+
 async function appendAuditScope(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,
