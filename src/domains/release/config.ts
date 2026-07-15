@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 import type { ConfigDescriptor, Result } from "@/config/types";
 
 export const RELEASE_SECTION = "release";
@@ -54,7 +56,11 @@ function isNonEmptyUniqueStringArray(value: unknown): value is readonly string[]
   return Array.isArray(value)
     && value.length > 0
     && value.every((path) => typeof path === "string" && path.trim().length > 0)
-    && new Set(value.map(normalizeDocumentationPathSeparators)).size === value.length;
+    && new Set(value.map(normalizeDocumentationPathIdentity)).size === value.length;
+}
+
+function normalizeDocumentationPathIdentity(path: string): string {
+  return posix.normalize(normalizeDocumentationPathSeparators(path));
 }
 
 export function normalizeDocumentationPathSeparators(path: string): string {
