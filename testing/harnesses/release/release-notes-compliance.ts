@@ -5,13 +5,13 @@ import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesse
 import * as fc from "fast-check";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { RELEASE_PROMPT_JSON_INDENT } from "@/domains/release/prompt-data";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   changelogVersionHeading,
   COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-  COMMIT_SUBJECTS_JSON_INDENT,
   composeReleaseNotes,
   createReleaseNotesFaithfulnessAuditor,
   DEFAULT_CHANGELOG_PATH,
@@ -88,7 +88,7 @@ function parsedPromptJsonBlock(prompt: string, openMarker: string, closeMarker: 
   return JSON.stringify(
     JSON.parse(promptDataBlock(prompt, openMarker, closeMarker)) as string | readonly string[],
     null,
-    COMMIT_SUBJECTS_JSON_INDENT,
+    RELEASE_PROMPT_JSON_INDENT,
   );
 }
 
@@ -325,7 +325,7 @@ export function registerReleaseNotesComplianceTests(): void {
             RELEASE_VERSION_DATA_BLOCK_CLOSE,
           );
           expect(parsedVersionBlock).toBe(
-            JSON.stringify(releaseData.version, null, COMMIT_SUBJECTS_JSON_INDENT),
+            JSON.stringify(releaseData.version, null, RELEASE_PROMPT_JSON_INDENT),
           );
           const parsedSubjectBlock = parsedPromptJsonBlock(
             prompt,
@@ -333,7 +333,7 @@ export function registerReleaseNotesComplianceTests(): void {
             COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
           );
           expect(parsedSubjectBlock).toBe(
-            JSON.stringify(subjects, null, COMMIT_SUBJECTS_JSON_INDENT),
+            JSON.stringify(subjects, null, RELEASE_PROMPT_JSON_INDENT),
           );
           const stagedPromptPath = promptPathData(prompt);
           expect(stagedPromptPath).not.toBe(expectedCanonicalPath);
@@ -506,7 +506,7 @@ export function registerReleaseNotesComplianceTests(): void {
             RELEASE_VERSION_DATA_BLOCK_OPEN,
             RELEASE_VERSION_DATA_BLOCK_CLOSE,
           )).toBe(
-            JSON.stringify(releaseData.version, null, COMMIT_SUBJECTS_JSON_INDENT),
+            JSON.stringify(releaseData.version, null, RELEASE_PROMPT_JSON_INDENT),
           );
           expect(prompt).not.toContain(`version ${releaseData.version}`);
         },
@@ -551,7 +551,7 @@ export function registerReleaseNotesComplianceTests(): void {
             COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
             COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
           )).toBe(
-            JSON.stringify(subjects, null, COMMIT_SUBJECTS_JSON_INDENT),
+            JSON.stringify(subjects, null, RELEASE_PROMPT_JSON_INDENT),
           );
         },
       );

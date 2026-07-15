@@ -6,8 +6,6 @@ import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 
-export { RELEASE_PROMPT_JSON_INDENT as COMMIT_SUBJECTS_JSON_INDENT } from "@/domains/release/prompt-data";
-
 /**
  * The injected read-back dependency. After the agent writes the staged artifact,
  * and after validated notes are promoted, the composition reads through this
