@@ -53,6 +53,7 @@ import {
   arbitraryPromptBoundaryDocumentationSyncScenario,
   arbitraryReleaseVersionVariantOnlyScenario,
   arbitrarySingleDocumentSyncScenario,
+  arbitrarySparseDocumentationPathSet,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
@@ -965,6 +966,22 @@ function registerPropertyTests(): void {
     it("rejects every generated duplicate-bearing configured documentation path set", async () => {
       await assertProperty(
         arbitraryDuplicateDocumentationPathSet(),
+        (paths) => {
+          expect(
+            releaseConfigDescriptor.validate({
+              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+                [RELEASE_CONFIG_FIELDS.PATHS]: paths,
+              },
+            }).ok,
+          ).toBe(false);
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
+
+    it("rejects every generated sparse configured documentation path set", async () => {
+      await assertProperty(
+        arbitrarySparseDocumentationPathSet(),
         (paths) => {
           expect(
             releaseConfigDescriptor.validate({

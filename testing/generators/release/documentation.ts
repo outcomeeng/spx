@@ -201,6 +201,14 @@ export function arbitraryDuplicateDocumentationPathSet(): fc.Arbitrary<readonly 
     });
 }
 
+export function arbitrarySparseDocumentationPathSet(): fc.Arbitrary<readonly string[]> {
+  return arbitraryDocumentationPath().map((path) => {
+    const paths = [path];
+    paths.length = MULTI_DOCUMENT_COUNT_MIN;
+    return paths;
+  });
+}
+
 export function documentationPathFailureCases(): readonly DocumentationPathFailureCase[] {
   const [
     traversalFile,
