@@ -118,8 +118,14 @@ export async function executeVerificationRun(
     );
   } catch (failure) {
     // The executor owns the open-stream-seal lifecycle, so a runner failure finishes the opened run
-    // interrupted before the failure surfaces rather than leaving an unsealed run behind.
-    await deps.recorder.finish(run, GATED_OUT_TERMINAL_STATUS);
+    // interrupted before the failure surfaces rather than leaving an unsealed run behind. The seal is
+    // best-effort: a finish failure during cleanup (a degraded recorder) must not mask the runner
+    // failure the caller needs, so it is contained here and the original failure is what surfaces.
+    try {
+      await deps.recorder.finish(run, GATED_OUT_TERMINAL_STATUS);
+    } catch {
+      // A degraded recorder cannot seal the run; the runner failure remains the surfaced error.
+    }
     throw failure;
   }
   const terminalStatus = invocation.invoked
