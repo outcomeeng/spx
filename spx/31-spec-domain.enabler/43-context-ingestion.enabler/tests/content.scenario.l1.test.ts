@@ -4,6 +4,7 @@ import {
   assertSpecContextContentModeCarriesExactBytes,
   assertSpecContextContentModeRejectsInvalidUtf8,
   assertSpecContextContentModeRejectsUnreadableDocument,
+  assertSpecContextPathOnlyToleratesUnreadableScanSource,
   assertSpecContextWithoutContentModeOmitsContentFields,
 } from "@testing/harnesses/spec/context";
 
@@ -18,6 +19,10 @@ describe("spec context document content", () => {
 
   it("fails naming the exact path when a read document cannot be read", async () => {
     await assertSpecContextContentModeRejectsUnreadableDocument();
+  });
+
+  it("keeps an unreadable citation-scanned document as a read entry when content is not requested", async () => {
+    await assertSpecContextPathOnlyToleratesUnreadableScanSource();
   });
 
   it("omits content fields from every entry when content is not requested", async () => {

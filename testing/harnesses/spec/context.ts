@@ -1282,10 +1282,12 @@ export async function assertSpecContextContentModeRejectsUnreadableDocument(): P
       await chmod(join(env.productDir, paths.ancestorPlanPath), 0o644);
     }
   });
-  // The exact-path failure is exclusive to content mode: the path-only
-  // projection tolerates an unreadable citation-scanned structural document
-  // and still lists it as a read entry.
+}
+
+export async function assertSpecContextPathOnlyToleratesUnreadableScanSource(): Promise<void> {
   await withRichContextEnv(async (env, paths) => {
+    // Removing every permission bit makes the read fail on POSIX non-root
+    // runners; restored afterwards so temp-directory cleanup stays quiet.
     await chmod(join(env.productDir, paths.targetSpecPath), 0o000);
     try {
       const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
