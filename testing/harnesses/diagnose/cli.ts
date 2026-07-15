@@ -67,6 +67,7 @@ import {
 import {
   arbitraryManifestFacts,
   arbitraryNameToken,
+  arbitrarySpxFloor,
   manifestJson,
   sampleDiagnoseTestValue,
 } from "@testing/generators/diagnose/manifest";
@@ -123,10 +124,13 @@ export async function writeSpxReachabilityManifestFixture(): Promise<SpxReachabi
   const [floor] = fc.sample(arbitrarySpxFloor(), { numRuns: 1, seed: 7 });
   const dir = await diagnoseTempDir();
   const manifestPath = join(dir, "diagnose.json");
-  await writeFile(manifestPath, JSON.stringify({
-    checks: [CHECK_NAME.SPX_REACHABILITY],
-    spx_floor: floor,
-  }));
+  await writeFile(
+    manifestPath,
+    JSON.stringify({
+      checks: [CHECK_NAME.SPX_REACHABILITY],
+      spx_floor: floor,
+    }),
+  );
   return { manifestPath, spxFloor: floor };
 }
 
@@ -139,12 +143,15 @@ export async function writeAllChecksManifest(): Promise<string> {
   const [facts] = fc.sample(arbitraryManifestFacts(), { numRuns: 1, seed: 7 });
   const dir = await diagnoseTempDir();
   const manifestPath = join(dir, "diagnose.json");
-  await writeFile(manifestPath, manifestJson({
-    ...facts,
-    checks: Object.values(CHECK_NAME),
-    methodologySource: DEFAULT_METHODOLOGY_SOURCE,
-    methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
-  }));
+  await writeFile(
+    manifestPath,
+    manifestJson({
+      ...facts,
+      checks: Object.values(CHECK_NAME),
+      methodologySource: DEFAULT_METHODOLOGY_SOURCE,
+      methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
+    }),
+  );
   return manifestPath;
 }
 
