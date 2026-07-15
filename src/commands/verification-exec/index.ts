@@ -28,7 +28,6 @@ export {
 } from "@/commands/verification-exec/executor";
 export {
   createRecorderOperations,
-  FINDING_KEY_SEPARATOR,
   RECORDER_OPERATION_ERROR,
   type RecorderOperationsConfig,
 } from "@/commands/verification-exec/recorder-operations";

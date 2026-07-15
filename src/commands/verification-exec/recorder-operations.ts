@@ -26,9 +26,6 @@ import type { TestFinding, TestScopeUnit } from "@/test/languages/types";
 
 import type { ExecutorRecorderOperations, ExecutorRunRequest } from "@/commands/verification-exec/executor";
 
-/** The separator joining a finding's module and case name into its idempotency key. */
-export const FINDING_KEY_SEPARATOR = "::";
-
 /** The failure prefixes the recorder operations raise when a recorder command reports a non-OK exit. */
 export const RECORDER_OPERATION_ERROR = {
   OPEN_FAILED: "verify recorder open failed",
@@ -50,9 +47,13 @@ function scopeIdempotencyKey(unit: TestScopeUnit): string {
   return unit.moduleId;
 }
 
-/** The idempotency key for one failing case: the module and case name record at most once. */
+/**
+ * The idempotency key for one failing case: the module and case name record at most once. The key is
+ * the JSON encoding of the `[moduleId, testName]` tuple so a `::`-bearing test name — Vitest places no
+ * character restriction on case names — cannot collide two distinct cases onto one key.
+ */
 function findingIdempotencyKey(finding: TestFinding): string {
-  return `${finding.moduleId}${FINDING_KEY_SEPARATOR}${finding.testName}`;
+  return JSON.stringify([finding.moduleId, finding.testName]);
 }
 
 function appendOptions(
