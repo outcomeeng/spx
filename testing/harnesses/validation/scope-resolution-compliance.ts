@@ -1268,7 +1268,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         deps,
       );
 
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({ success: true, output: "" });
       expect(runner.commands).toEqual([KNIP_COMMAND_TOKENS.NPX_COMMAND]);
       expect(runner.args).toEqual([
         [
@@ -1315,7 +1315,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         deps,
       );
 
-      expect(result).toEqual({ success: true });
+      expect(result).toEqual({ success: true, output: "" });
       expectTemporaryConfigPathInsideNodeModules(
         env.productDir,
         writtenConfigPaths[0],
