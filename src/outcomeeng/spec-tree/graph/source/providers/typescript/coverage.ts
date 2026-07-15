@@ -13,6 +13,7 @@ import {
   SOURCE_GRAPH_LANGUAGE,
   type SourceGraphProviderDescriptor,
 } from "../descriptor";
+import { emitTypescriptFacts, type TypescriptFactPair } from "./emit";
 
 /** Provider identity for test-attributed Vitest coverage output. */
 export const TYPESCRIPT_COVERAGE_PROVIDER_ID = "vitest-coverage";
@@ -29,9 +30,13 @@ export interface TypescriptCoverageInput {
 }
 
 function collectTypescriptCoverageFacts(input: TypescriptCoverageInput): readonly RawProviderFact[] {
-  void input;
-  void PROVIDER_FACT_KIND;
-  throw new Error("typescript coverage fact collection is not implemented");
+  return emitTypescriptFacts(
+    PROVIDER_FACT_KIND.COVERAGE,
+    TYPESCRIPT_COVERAGE_PROVIDER_ID,
+    input.entries.flatMap((entry) =>
+      entry.coveredSourcePaths.map((sourcePath): TypescriptFactPair => [entry.testPath, sourcePath])
+    ),
+  );
 }
 
 /** The Vitest coverage descriptor the provider registry reaches through an explicit import. */

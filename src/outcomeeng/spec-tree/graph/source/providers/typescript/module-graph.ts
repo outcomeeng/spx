@@ -13,6 +13,7 @@ import {
   SOURCE_GRAPH_LANGUAGE,
   type SourceGraphProviderDescriptor,
 } from "../descriptor";
+import { emitTypescriptFacts, type TypescriptFactPair } from "./emit";
 
 /** Provider identity for TypeScript module-graph output. */
 export const TYPESCRIPT_MODULE_GRAPH_PROVIDER_ID = "typescript-module-graph";
@@ -29,10 +30,37 @@ export interface TypescriptModuleGraphInput {
   readonly edges: readonly TypescriptModuleEdge[];
 }
 
+function reachableFrom(entryPath: string, importsByImporter: ReadonlyMap<string, readonly string[]>): Set<string> {
+  const visited = new Set<string>([entryPath]);
+  const queue = [entryPath];
+  for (let index = 0; index < queue.length; index += 1) {
+    for (const imported of importsByImporter.get(queue[index]) ?? []) {
+      if (visited.has(imported)) continue;
+      visited.add(imported);
+      queue.push(imported);
+    }
+  }
+  visited.delete(entryPath);
+  return visited;
+}
+
 function collectTypescriptModuleGraphFacts(input: TypescriptModuleGraphInput): readonly RawProviderFact[] {
-  void input;
-  void PROVIDER_FACT_KIND;
-  throw new Error("typescript module-graph fact collection is not implemented");
+  const importsByImporter = new Map<string, string[]>();
+  for (const edge of input.edges) {
+    const imported = importsByImporter.get(edge.importerPath);
+    if (imported === undefined) {
+      importsByImporter.set(edge.importerPath, [edge.importedPath]);
+    } else {
+      imported.push(edge.importedPath);
+    }
+  }
+  return emitTypescriptFacts(
+    PROVIDER_FACT_KIND.REACHABILITY,
+    TYPESCRIPT_MODULE_GRAPH_PROVIDER_ID,
+    input.testEntryPaths.flatMap((entryPath) =>
+      [...reachableFrom(entryPath, importsByImporter)].map((sourcePath): TypescriptFactPair => [entryPath, sourcePath])
+    ),
+  );
 }
 
 /** The module-graph descriptor the provider registry reaches through an explicit import. */
