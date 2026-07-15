@@ -6,10 +6,10 @@
 .codex/*
 !.codex/config.toml
 
-# Pi Claude Marketplace generated state
-.pi/claude-plugins.local.json
-.pi/agents/pi-claude-marketplace-*
-.pi/pi-claude-marketplace/
+# Pi project plugin runtime
+.pi/*
+!.pi/claude-plugins.json
+.pi-subagents/
 
 # Dependencies
 node_modules/
