@@ -120,6 +120,7 @@ interface ComponentSeed {
   readonly reachablePaths: readonly string[];
   readonly parentPicks: readonly number[];
   readonly withRedundantEdge: boolean;
+  readonly withCycleEdge: boolean;
 }
 
 function prefixPath(prefix: string, path: string): string {
@@ -144,6 +145,7 @@ function arbitraryComponentSeed(): fc.Arbitrary<ComponentSeed> {
     reachablePaths: fc.uniqueArray(arbitraryArtifactPath(), { minLength: 1, maxLength: 4 }),
     parentPicks: fc.array(fc.nat({ max: 4 }), { minLength: 4, maxLength: 4 }),
     withRedundantEdge: fc.boolean(),
+    withCycleEdge: fc.boolean(),
   });
 }
 
@@ -162,8 +164,9 @@ function arbitraryNoiseSeed(): fc.Arbitrary<NoiseSeed> {
 /**
  * A module-graph scenario built from disjoint per-entry tree components, an
  * optional redundant in-component edge that never changes the reachable set,
- * and a noise subgraph whose edges point only among noise nodes or into a
- * component — never from a component into noise.
+ * an optional back-edge closing a cycle through the entry — an entry is never
+ * its own reachable source — and a noise subgraph whose edges point only
+ * among noise nodes or into a component, never from a component into noise.
  */
 export function arbitraryTypescriptModuleGraphScenario(): fc.Arbitrary<TypescriptModuleGraphScenario> {
   return fc
@@ -186,6 +189,11 @@ export function arbitraryTypescriptModuleGraphScenario(): fc.Arbitrary<Typescrip
         edges.push(...componentEdges(entryPath, reachable, seed.parentPicks));
         if (seed.withRedundantEdge) {
           edges.push({ importerPath: entryPath, importedPath: reachable[reachable.length - 1] });
+        }
+        if (seed.withCycleEdge) {
+          // A back-edge into the entry closes a cycle; the entry never becomes
+          // its own reachable source, so the expected pairs are unchanged.
+          edges.push({ importerPath: reachable[reachable.length - 1], importedPath: entryPath });
         }
         expectedPairs.push(...reachable.map((sourcePath): ProviderFactPair => [entryPath, sourcePath]));
       });
