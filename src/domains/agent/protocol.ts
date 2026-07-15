@@ -77,7 +77,8 @@ export const AGENT_RESUME_MODE = {
 export type AgentResumeMode = (typeof AGENT_RESUME_MODE)[keyof typeof AGENT_RESUME_MODE];
 
 export const AGENT_RESUME_TEXT = {
-  DESCRIPTION: "Resume a Codex, Claude Code, or Pi agent session for this worktree or a named branch",
+  DESCRIPTION:
+    "Resume Codex, Claude Code, or Pi sessions by worktree, or sessions with recorded branch metadata by branch",
   NO_MATCHES: "No matching agent sessions found.",
   INTERACTIVE_REQUIRED: "agent resume requires an interactive terminal.",
   MODE_CONFLICT: "Choose only one resume mode",
