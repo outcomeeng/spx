@@ -373,7 +373,6 @@ These recur on feature worktrees and have cost real debugging time and machine s
 ```
 src/
 ├── commands/      # CLI command implementations
-│   ├── claude/      # spx claude subcommands (deprecated)
 │   ├── session/     # spx session subcommands
 │   ├── spec/        # spx spec subcommands
 │   └── validation/  # spx validation subcommands

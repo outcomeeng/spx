@@ -1,7 +1,6 @@
 import type { Domain } from "@/domains/types";
 
 import { agentDomain } from "./agent";
-import { claudeDomain } from "./claude";
 import { compactDomain } from "./compact";
 import { configDomain } from "./config";
 import { diagnoseDomain } from "./diagnose";
@@ -18,7 +17,6 @@ import { worktreeDomain } from "./worktree";
 
 export const CLI_DOMAINS: readonly Domain[] = [
   agentDomain,
-  claudeDomain,
   compactDomain,
   configDomain,
   diagnoseDomain,
