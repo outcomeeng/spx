@@ -5,6 +5,7 @@ import {
   assertSpecContextExcludesSymlinkEscapes,
   assertSpecContextIncludesCoordinationAtAllLevels,
   assertSpecContextIncludesGuidesAlongPath,
+  assertSpecContextOrdersListedOverlaysByCodeUnits,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context read set", () => {
@@ -18,6 +19,10 @@ describe("spec context read set", () => {
 
   it("reads the lifecycle overlay and lists every other overlay", async () => {
     await assertSpecContextClassifiesOverlays();
+  });
+
+  it("orders listed overlays by code units where locale collation disagrees", async () => {
+    await assertSpecContextOrdersListedOverlaysByCodeUnits();
   });
 
   it("binds no entry for a symbolic link whose canonical target escapes the product directory", async () => {

@@ -1177,6 +1177,36 @@ export async function assertSpecContextClassifiesOverlays(): Promise<void> {
   });
 }
 
+/**
+ * Listed overlays follow code-unit order, proven on a pair whose order under
+ * locale collation is the opposite: an uppercase name sorts before its
+ * lowercase counterpart by code units, after it under locale-aware collation,
+ * so a locale-dependent comparator at any manifest ordering site fails here
+ * instead of only varying output across hosts.
+ */
+export async function assertSpecContextOrdersListedOverlaysByCodeUnits(): Promise<void> {
+  await withRichContextEnv(async (env, paths) => {
+    const overlayDirectory = `spx/${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}`;
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    // Distinct leading letters (never a case-only difference, which collides
+    // on case-insensitive filesystems): "Z" precedes "a" by code units while
+    // locale collation orders "a" before "Z".
+    const codeUnitFirstOverlayPath = `${overlayDirectory}/Z${slug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
+    const localeFirstOverlayPath = `${overlayDirectory}/a${slug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
+    expect(codeUnitFirstOverlayPath < localeFirstOverlayPath).toBe(true);
+    expect(codeUnitFirstOverlayPath.localeCompare(localeFirstOverlayPath)).toBeGreaterThan(0);
+    await env.writeRaw(codeUnitFirstOverlayPath, "# Code-unit-first overlay\n");
+    await env.writeRaw(localeFirstOverlayPath, "# Locale-first overlay\n");
+
+    const manifest = parseContextManifest(await contextCommand({ target: paths.targetId, cwd: env.productDir }));
+    const divergentPair = manifest.listed
+      .filter((entry) => entry.role === SPEC_CONTEXT_LISTED_ROLE.OVERLAY)
+      .map((entry) => entry.path)
+      .filter((path) => path === codeUnitFirstOverlayPath || path === localeFirstOverlayPath);
+    expect(divergentPair).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
+  });
+}
+
 export async function assertSpecContextExcludesSymlinkEscapes(): Promise<void> {
   await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
     await env.materialize();
