@@ -1,6 +1,5 @@
 import { join } from "node:path";
 
-import * as fc from "fast-check";
 import { expect } from "vitest";
 
 import {
@@ -57,19 +56,16 @@ export function assertUnescapedTranscriptUsesLatestNode(): void {
 }
 
 export function assertNestedTranscriptUsesLatestNode(): void {
-  fc.assert(
-    fc.property(COMPACT_TEST_GENERATOR.distinctNodePaths(), ([firstNode, latestNode]) => {
-      const transcript = [
-        jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
-        jsonlNestedStringRecord(unescapedMarker(firstNode)),
-        jsonlNestedStringRecord(unescapedMarker(latestNode)),
-      ].join("\n");
-      expect(extractCompactRecord(transcript)).toEqual({
-        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
-      });
-    }),
-  );
+  const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
+  const transcript = [
+    jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
+    jsonlNestedStringRecord(unescapedMarker(firstNode)),
+    jsonlNestedStringRecord(unescapedMarker(latestNode)),
+  ].join("\n");
+  expect(extractCompactRecord(transcript)).toEqual({
+    [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+    [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+  });
 }
 
 export function assertMarkerTextOutsideStringValuesIsIgnored(): void {

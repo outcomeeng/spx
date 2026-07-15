@@ -1,11 +1,11 @@
 import { execa } from "execa";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { expect } from "vitest";
 
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
-import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
+import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -121,6 +121,136 @@ async function runCompactCli(args: readonly string[], productDir: string, sessio
   return { deferredExitCodes, immediateExitCodes, stdout: stdout.join("") };
 }
 
+export async function assertAgentSessionEnvironmentRetrievesLatestRecord(): Promise<void> {
+  const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
+  const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
+  const fixtureCommitMessage = sampleCompactTestValue(COMPACT_TEST_GENERATOR.commitMessage());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    await gitEnv.runGit([
+      GIT_TEST_SUBCOMMANDS.COMMIT,
+      GIT_TEST_FLAGS.ALLOW_EMPTY,
+      GIT_TEST_FLAGS.COMMIT_MESSAGE,
+      fixtureCommitMessage,
+    ]);
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(firstNode)]));
+
+    const firstStored = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    expect(firstStored.exitCode).toBe(0);
+    expect(firstStored.stdout).toHaveLength(0);
+    expect(firstStored.stderr).toHaveLength(0);
+
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(latestNode)]));
+    const latestStored = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    expect(latestStored.exitCode).toBe(0);
+    expect(latestStored.stdout).toHaveLength(0);
+    expect(latestStored.stderr).toHaveLength(0);
+
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    expect(retrieved.exitCode).toBe(0);
+    expect(retrieved.stderr).toHaveLength(0);
+    expect(JSON.parse(retrieved.stdout)).toEqual({
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    });
+    expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim().split(/\r?\n/u))
+      .toHaveLength(2);
+  });
+}
+
+export async function assertTranscriptWithoutFoundationStoresNothing(): Promise<void> {
+  const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([unescapedMarker(node)]));
+
+    const stored = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    expect(stored.exitCode).toBe(0);
+    expect(stored.stdout).toHaveLength(0);
+    expect(stored.stderr).toHaveLength(0);
+
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    expect(retrieved.exitCode).toBe(1);
+    expect(retrieved.stdout).toHaveLength(0);
+    expect(retrieved.stderr).toHaveLength(0);
+  });
+}
+
+export async function assertCodexUnsafeSessionIdentityStoresRecord(): Promise<void> {
+  const unsafeSessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+  const env = codexAgentSessionEnv(unsafeSessionToken);
+  const resolvedSessionToken = resolveAgentSessionId(env);
+  if (resolvedSessionToken === undefined) throw new Error("unsafe Codex session token did not resolve");
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(node)]));
+
+    const stored = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
+      gitEnv.productDir,
+      env,
+    );
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      env,
+    );
+
+    expect(stored.exitCode).toBe(0);
+    expect(stored.stdout).toHaveLength(0);
+    expect(retrieved.exitCode).toBe(0);
+    expect(JSON.parse(retrieved.stdout)).toEqual({
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    });
+    expect((await readFile(compactStashPath(gitEnv.productDir, resolvedSessionToken))).toString()).toContain(node);
+  });
+}
+
+export async function assertMissingCompactRecordReturnsNoOutput(): Promise<void> {
+  const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+
+    expect(retrieved.exitCode).toBe(1);
+    expect(retrieved.stdout).toHaveLength(0);
+    expect(retrieved.stderr).toHaveLength(0);
+  });
+}
+
 export async function assertExplicitSessionIdRetrievesLatestRecord(): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
@@ -177,6 +307,150 @@ export async function assertExplicitSessionIdRetrievesLatestRecord(): Promise<vo
     });
     expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim().split(/\r?\n/u))
       .toHaveLength(2);
+  });
+}
+
+export async function assertUnsafeExplicitSessionIdStoresRecord(): Promise<void> {
+  const unsafeSessionId = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(node)]));
+
+    const stored = await runSpx(
+      [
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.sessionIdFlag,
+        unsafeSessionId,
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName, COMPACT_CLI.sessionIdFlag, unsafeSessionId],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
+
+    expect(stored.exitCode).toBe(0);
+    expect(retrieved.exitCode).toBe(0);
+    expect(JSON.parse(retrieved.stdout)).toEqual({
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    });
+  });
+}
+
+export async function assertEmptySessionIdUsesAgentSessionEnvironment(): Promise<void> {
+  const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(node)]));
+
+    const stored = await runSpx(
+      [
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.sessionIdFlag,
+        "",
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      agentSessionEnv(sessionToken),
+    );
+
+    expect(stored.exitCode).toBe(0);
+    expect(retrieved.exitCode).toBe(0);
+    expect(JSON.parse(retrieved.stdout)).toEqual({
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    });
+    expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString()).toContain(node);
+  });
+}
+
+export async function assertExplicitSessionIdOverridesAgentSessionEnvironment(): Promise<void> {
+  const [flagToken, envToken] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctSessionTokens());
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(node)]));
+
+    const stored = await runSpx(
+      [
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.sessionIdFlag,
+        flagToken,
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ],
+      gitEnv.productDir,
+      agentSessionEnv(envToken),
+    );
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName, COMPACT_CLI.sessionIdFlag, flagToken],
+      gitEnv.productDir,
+      agentSessionEnv(envToken),
+    );
+
+    expect(stored.exitCode).toBe(0);
+    expect(retrieved.exitCode).toBe(0);
+    expect(JSON.parse(retrieved.stdout)).toEqual({
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    });
+    expect((await readFile(compactStashPath(gitEnv.productDir, flagToken))).toString()).toContain(node);
+    await expect(readFile(compactStashPath(gitEnv.productDir, envToken))).rejects.toThrow();
+  });
+}
+
+export async function assertMissingSessionIdentityFailsWithoutWriting(): Promise<void> {
+  const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
+  const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
+
+  await withGitWorktreeEnv(async (gitEnv) => {
+    const transcriptPath = join(gitEnv.productDir, transcriptFileName);
+    await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(node)]));
+
+    const stored = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
+    const retrieved = await runSpx(
+      [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
+
+    expect(stored.exitCode).toBe(1);
+    expect(stored.stdout).toHaveLength(0);
+    expect(stored.stderr).toHaveLength(0);
+    expect(retrieved.exitCode).toBe(1);
+    expect(retrieved.stdout).toHaveLength(0);
+    expect(retrieved.stderr).toHaveLength(0);
+    await expect(readdir(join(
+      gitEnv.productDir,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+    ))).rejects.toThrow();
   });
 }
 
