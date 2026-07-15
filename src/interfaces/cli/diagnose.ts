@@ -20,6 +20,7 @@ import {
 import { defaultSpxReachabilityProbe } from "@/commands/diagnose/spx-reachability-probe";
 import { marketplaceInstallRunner } from "@/domains/diagnose/checks/marketplace-install";
 import { methodologyContextRunner } from "@/domains/diagnose/checks/methodology-context";
+import { pluginBootstrapRunner } from "@/domains/diagnose/checks/plugin-bootstrap";
 import { sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachability";
@@ -60,6 +61,7 @@ function defaultRegistry(): CheckRegistry {
     ),
     [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(worktreePoolProbeFromSnapshotProvider(worktreePoolSnapshot)),
     [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(sessionStoreProbeFromSnapshotProvider(worktreePoolSnapshot)),
+    [CHECK_NAME.PLUGIN_BOOTSTRAP]: pluginBootstrapRunner(),
     [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
     [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner(defaultMethodologyContextProbe),
   };

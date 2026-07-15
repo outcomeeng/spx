@@ -1,15 +1,12 @@
 import fc from "fast-check";
 
-import {
-  type CommandCapture,
-  MARKETPLACE_PLUGIN_SURFACE,
-} from "@/commands/diagnose/probes";
+import { type CommandCapture, MARKETPLACE_PLUGIN_SURFACE } from "@/commands/diagnose/probes";
 import {
   AGENT,
-  DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   type Agent,
   type AgentMarketplaceConfig,
   type AgentPluginConfig,
+  DEFAULT_HARNESS_ENVIRONMENT_CONFIG,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
 import { REQUIRED_PLUGIN_BOOTSTRAP } from "@/domains/agent-environment/plugin-bootstrap-status";
@@ -126,11 +123,11 @@ function generatedScenario(): MarketplaceRegistrationScenario {
       scenario.alternateMarketplace !== REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE
       && scenario.alternateSource !== scenario.marketplaceSource
       && new Set([
-        scenario.catalogOnlyPlugin,
-        scenario.claudePlugin,
-        scenario.codexPlugin,
-        REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN,
-      ]).size === 4
+          scenario.catalogOnlyPlugin,
+          scenario.claudePlugin,
+          scenario.codexPlugin,
+          REQUIRED_PLUGIN_BOOTSTRAP.PLUGIN,
+        ]).size === 4
     ),
   );
 }
@@ -162,9 +159,7 @@ function harnessConfig(
     },
     pluginBootstrap: {
       marketplaces: enabledAgents.map((agent) => marketplace(agent, scenario.marketplaceSource)),
-      plugins: enabledAgents.flatMap((agent) =>
-        (pluginsByAgent[agent] ?? []).map((name) => plugin(agent, name))
-      ),
+      plugins: enabledAgents.flatMap((agent) => (pluginsByAgent[agent] ?? []).map((name) => plugin(agent, name))),
       skills: [],
     },
   };
@@ -187,7 +182,7 @@ function surfaceAgent(surface: MarketplacePluginSurface): Agent {
 function registeredMarketplaceStdout(
   surface: MarketplacePluginSurface,
   source: string,
-  name = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
+  name: string = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
 ): string {
   if (surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE) {
     return JSON.stringify([{ name, repo: source }]);
@@ -200,7 +195,7 @@ function registeredMarketplaceStdout(
 function installedPluginsStdout(
   surface: MarketplacePluginSurface,
   plugins: readonly string[],
-  marketplaceName = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
+  marketplaceName: string = REQUIRED_PLUGIN_BOOTSTRAP.MARKETPLACE,
   enabled = true,
 ): string {
   if (surface === MARKETPLACE_PLUGIN_SURFACE.CLAUDE) {

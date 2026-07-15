@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
 import { classifyMethodologyContext } from "@/domains/diagnose/checks/methodology-context";
+import { classifyPluginBootstrap } from "@/domains/diagnose/checks/plugin-bootstrap";
 import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
 import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
@@ -24,6 +25,7 @@ function registryFromReadings(scenario: CompleteDiagnoseRunScenario): CheckRegis
     [CHECK_NAME.SESSION_ENVIRONMENT]: async () => classifySessionEnvironment(scenario.sessionEnvironment),
     [CHECK_NAME.WORKTREE_POOL]: async () => classifyWorktreePool(scenario.worktreePool),
     [CHECK_NAME.SESSION_STORE]: async () => classifySessionStore(scenario.sessionStore),
+    [CHECK_NAME.PLUGIN_BOOTSTRAP]: async (facts) => classifyPluginBootstrap(facts.harnessEnvironment),
     [CHECK_NAME.MARKETPLACE_INSTALL]: async () => classifyMarketplaceInstall(scenario.marketplaceInstall),
     [CHECK_NAME.METHODOLOGY_CONTEXT]: async () => classifyMethodologyContext(scenario.methodologyContext),
   };

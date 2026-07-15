@@ -8,8 +8,11 @@
  * @module domains/diagnose/checks/marketplace-install
  */
 
+import {
+  type AgentPluginExpectation,
+  classifyPluginBootstrapDeclarations,
+} from "@/domains/agent-environment/plugin-bootstrap-status";
 import { type CheckRunner } from "@/domains/diagnose/engine";
-import { type MarketplaceIdentity } from "@/domains/diagnose/facts";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 
@@ -27,7 +30,7 @@ export type MarketplaceInstallVerdict = (typeof MARKETPLACE_INSTALL_VERDICT)[key
 
 /** The reading the probe gathers about the marketplace install state. */
 export interface MarketplaceInstallReading {
-  /** True when marketplace facts were resolved from manifest or config. */
+  /** True when at least one enabled agent has configured marketplace intent. */
   readonly configured: boolean;
   /** True when a plugin CLI command errored. */
   readonly errored: boolean;
@@ -42,18 +45,18 @@ export interface MarketplaceInstallReading {
 /** The CLI-probe reading before the runner adds configuration context. */
 export type MarketplaceInstallProbeReading = Omit<MarketplaceInstallReading, "configured">;
 
-/** The injected boundary that gathers the marketplace-install reading against the manifest's consumer facts. */
+/** The injected boundary that gathers live state against product-configured agent expectations. */
 export interface MarketplaceInstallProbe {
-  probe(marketplace: MarketplaceIdentity, expectedPlugins: readonly string[]): Promise<MarketplaceInstallProbeReading>;
+  probe(expectations: readonly AgentPluginExpectation[]): Promise<MarketplaceInstallProbeReading>;
 }
 
 export const MARKETPLACE_INSTALL_REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {
   [MARKETPLACE_INSTALL_VERDICT.INSTALLED]:
-    "Marketplace and expected plugins are installed and enabled; no action needed.",
+    "Configured marketplaces and expected plugins are installed and enabled; no action needed.",
   [MARKETPLACE_INSTALL_VERDICT.DRIFTED]: "Install or enable the expected plugins on the drifted surface.",
   [MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE]:
     "Install or enable the Claude or Codex plugin CLI, then re-run diagnose.",
-  [MARKETPLACE_INSTALL_VERDICT.UNREGISTERED]: "Register the methodology marketplace on the present plugin surface.",
+  [MARKETPLACE_INSTALL_VERDICT.UNREGISTERED]: "Register the configured marketplace on the affected plugin surface.",
   [MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE]: "Marketplace install check is not configured; no action needed.",
   [MARKETPLACE_INSTALL_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect the claude/codex plugin CLI output.",
 };
@@ -97,13 +100,11 @@ export function classifyMarketplaceInstall(reading: MarketplaceInstallReading): 
   return record(MARKETPLACE_INSTALL_VERDICT.INSTALLED, VERDICT_BUCKET.HEALTHY, reading);
 }
 
-/** Builds the marketplace-install check runner over an injected probe, passing the manifest's consumer facts. */
+/** Builds the marketplace-install check runner over an injected probe and product-owned harness facts. */
 export function marketplaceInstallRunner(probe: MarketplaceInstallProbe): CheckRunner {
-  return async (manifest) => {
-    if (manifest.marketplace === undefined || manifest.expectedPlugins === undefined) {
-      // Safe default: with no marketplace facts resolved from manifest or config, there is nothing to
-      // probe against, so not-applicable is the honest reading rather than an error. An explicit
-      // manifest still supplies these facts (parseManifest rejects a marketplace-install manifest without them).
+  return async (facts) => {
+    const expectations = classifyPluginBootstrapDeclarations(facts.harnessEnvironment).expectations;
+    if (expectations.length === 0) {
       return classifyMarketplaceInstall({
         configured: false,
         errored: false,
@@ -113,7 +114,7 @@ export function marketplaceInstallRunner(probe: MarketplaceInstallProbe): CheckR
       });
     }
     return classifyMarketplaceInstall({
-      ...(await probe.probe(manifest.marketplace, manifest.expectedPlugins)),
+      ...(await probe.probe(expectations)),
       configured: true,
     });
   };

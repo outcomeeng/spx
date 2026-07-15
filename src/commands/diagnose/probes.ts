@@ -16,6 +16,8 @@ import { execa } from "execa";
 
 import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
 import { resolveAgentHomeDirs } from "@/domains/agent";
+import { AGENT } from "@/domains/agent-environment/config";
+import type { AgentPluginExpectation } from "@/domains/agent-environment/plugin-bootstrap-status";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -31,7 +33,6 @@ import {
   type SessionStoreReading,
 } from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
-import type { MarketplaceIdentity } from "@/domains/diagnose/facts";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";
@@ -68,6 +69,10 @@ export const MARKETPLACE_PLUGIN_SURFACE = {
 export const MARKETPLACE_PLUGIN_COMMAND = {
   LIST_MARKETPLACES: ["plugin", "marketplace", "list", "--json"],
   LIST_PLUGINS: ["plugin", "list", "--json"],
+} as const;
+export const MARKETPLACE_PLUGIN_SURFACE_BY_AGENT = {
+  [AGENT.CLAUDE_CODE]: MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
+  [AGENT.CODEX]: MARKETPLACE_PLUGIN_SURFACE.CODEX,
 } as const;
 
 export const METHODOLOGY_PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
@@ -449,7 +454,15 @@ const defaultMarketplaceInstallProbeDependencies: MarketplaceInstallProbeDepende
 
 interface InstalledPlugin {
   readonly name: string;
+  readonly marketplace: string;
   readonly enabled: boolean;
+}
+
+function splitPluginId(pluginId: string): { readonly name: string; readonly marketplace: string } {
+  const separator = pluginId.lastIndexOf("@");
+  return separator < 0
+    ? { name: pluginId, marketplace: "" }
+    : { name: pluginId.slice(0, separator), marketplace: pluginId.slice(separator + 1) };
 }
 
 /**
@@ -463,14 +476,19 @@ function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | nul
     if (Array.isArray(parsed)) {
       return parsed.map((entry) => {
         const record = entry as { id?: string; enabled?: boolean };
-        return { name: String(record.id ?? "").split("@")[0], enabled: record.enabled === true };
+        return { ...splitPluginId(String(record.id ?? "")), enabled: record.enabled === true };
       });
     }
     const installed = (parsed as { installed?: unknown }).installed;
     if (Array.isArray(installed)) {
       return installed.map((entry) => {
-        const record = entry as { name?: string; enabled?: boolean };
-        return { name: String(record.name ?? ""), enabled: record.enabled === true };
+        const record = entry as { pluginId?: string; name?: string; marketplaceName?: string; enabled?: boolean };
+        const pluginId = splitPluginId(String(record.pluginId ?? ""));
+        return {
+          name: String(record.name ?? pluginId.name),
+          marketplace: String(record.marketplaceName ?? pluginId.marketplace),
+          enabled: record.enabled === true,
+        };
       });
     }
     return null;
@@ -513,8 +531,7 @@ function parseRegisteredMarketplaces(stdout: string): readonly RegisteredMarketp
 
 async function surfaceState(
   cli: string,
-  marketplace: MarketplaceIdentity,
-  expectedPlugins: readonly string[],
+  expectation: AgentPluginExpectation,
   deps: MarketplaceInstallProbeDependencies,
 ): Promise<{ ok: boolean; unregistered: boolean; drifted: boolean }> {
   const marketplaces = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_MARKETPLACES);
@@ -523,7 +540,9 @@ async function surfaceState(
   if (registry === null) return { ok: false, unregistered: false, drifted: false };
   // Match the marketplace identity on exact structured fields rather than a
   // substring of the rendered list, consistent with the plugin-list parse below.
-  const registered = registry.some((entry) => entry.name === marketplace.name && entry.source === marketplace.source);
+  const registered = registry.some((entry) =>
+    entry.name === expectation.marketplace.name && entry.source === expectation.marketplace.source
+  );
   if (!registered) return { ok: true, unregistered: true, drifted: false };
 
   const plugins = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_PLUGINS);
@@ -532,8 +551,10 @@ async function surfaceState(
   if (installed === null) return { ok: false, unregistered: false, drifted: false };
   // A surface drifts when an expected plugin is absent or installed but disabled,
   // read from the structured enabled flag rather than a name substring match.
-  const drifted = expectedPlugins.some((expected) => {
-    const found = installed.find((plugin) => plugin.name === expected);
+  const drifted = expectation.plugins.some((expected) => {
+    const found = installed.find((plugin) =>
+      plugin.name === expected && plugin.marketplace === expectation.marketplace.name
+    );
     return !found?.enabled;
   });
   return { ok: true, unregistered: false, drifted };
@@ -545,8 +566,7 @@ export function createMarketplaceInstallProbe(
 ): MarketplaceInstallProbe {
   return {
     async probe(
-      marketplace: MarketplaceIdentity,
-      expectedPlugins: readonly string[],
+      expectations: readonly AgentPluginExpectation[],
     ): Promise<MarketplaceInstallProbeReading> {
       const clean: MarketplaceInstallProbeReading = {
         errored: false,
@@ -555,9 +575,10 @@ export function createMarketplaceInstallProbe(
         drifted: false,
       };
       let reading = clean;
-      for (const cli of Object.values(MARKETPLACE_PLUGIN_SURFACE)) {
+      for (const expectation of expectations) {
+        const cli = MARKETPLACE_PLUGIN_SURFACE_BY_AGENT[expectation.agent];
         if (!deps.surfacePresent(cli)) continue;
-        const state = await surfaceState(cli, marketplace, expectedPlugins, deps);
+        const state = await surfaceState(cli, expectation, deps);
         if (!state.ok) {
           return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
         }

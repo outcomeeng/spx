@@ -3,12 +3,14 @@
 import fc from "fast-check";
 
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
+import { PLUGIN_BOOTSTRAP_DECLARATION_VERDICT } from "@/domains/agent-environment/plugin-bootstrap-status";
 import {
   classifyMarketplaceInstall,
   MARKETPLACE_INSTALL_VERDICT,
   type MarketplaceInstallReading,
 } from "@/domains/diagnose/checks/marketplace-install";
 import { classifyMethodologyContext, METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
+import { classifyPluginBootstrap } from "@/domains/diagnose/checks/plugin-bootstrap";
 import {
   classifySessionEnvironment,
   SESSION_ENVIRONMENT_VERDICT,
@@ -42,6 +44,7 @@ import {
 import { CONTROL_CHAR_UPPER_BOUND, ESCAPE_CONTROL_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
 import { SPX_VERSION } from "@/version";
+import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
 import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -183,6 +186,7 @@ export function sampleDiagnoseReport(): DiagnoseReport {
     }),
     classifyWorktreePool(compliantWorktreePoolReading()),
     classifySessionStore({ errored: false, orphanedClaims: sampleDiagnoseTestValue(fc.integer({ min: 1 })) }),
+    classifyPluginBootstrap(pluginBootstrapMappingCases()[0].config),
     classifyMarketplaceInstall({
       configured: false,
       errored: false,
@@ -235,6 +239,7 @@ export function allProviderRecordScenario(): AllProviderRecordScenario {
         fc.integer({ min: Math.floor(Number.MAX_SAFE_INTEGER / 2), max: Number.MAX_SAFE_INTEGER }),
       ),
     }),
+    classifyPluginBootstrap(pluginBootstrapMappingCases()[0].config),
     classifyMarketplaceInstall({
       configured: false,
       errored: false,
@@ -319,6 +324,7 @@ export function supportedTranslationBranches(): readonly TranslationBranchCase[]
   const spxReading = { ...reusableSpxReading(), version: versions.installed };
   const sessionReading = workingSessionReading();
   const marketplaceReading = configuredMarketplaceReading();
+  const pluginBootstrapCases = pluginBootstrapMappingCases();
   return [
     { check: classifySpxReachability(spxReading, versions.lower), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
     { check: classifySpxReachability(spxReading, undefined), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
@@ -385,6 +391,14 @@ export function supportedTranslationBranches(): readonly TranslationBranchCase[]
       check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
       header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
     },
+    {
+      check: classifyPluginBootstrap(pluginBootstrapCases[0].config),
+      header: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_CONFIGURED,
+    },
+    {
+      check: classifyPluginBootstrap(pluginBootstrapCases[2].config),
+      header: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_MISSING,
+    },
     { check: classifyMarketplaceInstall(marketplaceReading), header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED },
     {
       check: classifyMarketplaceInstall({ ...marketplaceReading, drifted: true }),
@@ -437,6 +451,10 @@ const HUMAN_HEADER_BY_VERDICT: Readonly<Partial<Record<string, Readonly<Partial<
   [CHECK_NAME.SESSION_STORE]: {
     [SESSION_STORE_VERDICT.CONSISTENT]: DIAGNOSE_TEXT_HEADER.SESSION_STORE_READABLE,
     [SESSION_STORE_VERDICT.UNKNOWN]: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
+  },
+  [CHECK_NAME.PLUGIN_BOOTSTRAP]: {
+    [PLUGIN_BOOTSTRAP_DECLARATION_VERDICT.HEALTHY]: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_CONFIGURED,
+    [PLUGIN_BOOTSTRAP_DECLARATION_VERDICT.BASELINE_MISSING]: DIAGNOSE_TEXT_HEADER.PLUGIN_BOOTSTRAP_MISSING,
   },
   [CHECK_NAME.MARKETPLACE_INSTALL]: {
     [MARKETPLACE_INSTALL_VERDICT.INSTALLED]: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED,

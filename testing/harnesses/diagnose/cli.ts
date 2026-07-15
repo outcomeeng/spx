@@ -18,6 +18,7 @@ import {
   marketplaceInstallRunner,
 } from "@/domains/diagnose/checks/marketplace-install";
 import { METHODOLOGY_CONTEXT_VERDICT, methodologyContextRunner } from "@/domains/diagnose/checks/methodology-context";
+import { classifyPluginBootstrap } from "@/domains/diagnose/checks/plugin-bootstrap";
 import { SESSION_ENVIRONMENT_VERDICT, sessionEnvironmentRunner } from "@/domains/diagnose/checks/session-environment";
 import { SESSION_STORE_VERDICT, sessionStoreRunner } from "@/domains/diagnose/checks/session-store";
 import {
@@ -52,6 +53,7 @@ import { createDiagnoseDomain, DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
+import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
 import {
   allChecksManifestJson,
   DIAGNOSE_OUTPUT_SELECTOR_CASES,
@@ -62,7 +64,6 @@ import {
   malformedDiagnoseConfigYaml,
   spxReachabilityManifestScenario,
 } from "@testing/generators/diagnose/cli";
-import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
 import {
   arbitraryManifestFacts,
   arbitraryNameToken,
@@ -281,6 +282,7 @@ function controlledDefaultRegistry(scenario: DefaultDiagnoseScenario): CheckRegi
     [CHECK_NAME.SESSION_STORE]: sessionStoreRunner({
       probe: () => Promise.resolve(scenario.sessionStore),
     }),
+    [CHECK_NAME.PLUGIN_BOOTSTRAP]: async (facts) => classifyPluginBootstrap(facts.harnessEnvironment),
     [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner({
       probe: () => {
         throw new Error("default marketplace facts must not invoke the marketplace probe");
@@ -597,10 +599,11 @@ export async function assertManifestResolvesProductPluginIntent(): Promise<void>
         },
       },
       fs: {
-        readFile: () => Promise.resolve(manifestJson({
-          ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
-          checks: [CHECK_NAME.MARKETPLACE_INSTALL],
-        })),
+        readFile: () =>
+          Promise.resolve(manifestJson({
+            ...sampleDiagnoseTestValue(arbitraryManifestFacts()),
+            checks: [CHECK_NAME.MARKETPLACE_INSTALL],
+          })),
       },
     });
     expect(result.ok).toBe(true);
