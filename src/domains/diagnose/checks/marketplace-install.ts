@@ -47,7 +47,7 @@ export interface MarketplaceInstallProbe {
   probe(marketplace: MarketplaceIdentity, expectedPlugins: readonly string[]): Promise<MarketplaceInstallProbeReading>;
 }
 
-const REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {
+export const MARKETPLACE_INSTALL_REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {
   [MARKETPLACE_INSTALL_VERDICT.INSTALLED]:
     "Marketplace and expected plugins are installed and enabled; no action needed.",
   [MARKETPLACE_INSTALL_VERDICT.DRIFTED]: "Install or enable the expected plugins on the drifted surface.",
@@ -73,7 +73,7 @@ function record(
       unregistered: String(reading.unregistered),
       drifted: String(reading.drifted),
     },
-    remediation: REMEDIATION[verdict],
+    remediation: MARKETPLACE_INSTALL_REMEDIATION[verdict],
   };
 }
 
