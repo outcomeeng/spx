@@ -160,6 +160,7 @@ async function stageDocumentationSet(
   const verified = await Promise.all(
     paths.map(async (sourcePath) => await verifyDocumentationPath(canonicalProductDir, sourcePath, dependencies)),
   );
+  assertUniqueDocumentationTargets(verified);
   const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
   try {
     const documents = await Promise.all(verified.map(async ({
@@ -181,6 +182,22 @@ async function stageDocumentationSet(
   } catch (error) {
     await rm(workingDirectory, { recursive: true, force: true });
     throw error;
+  }
+}
+
+function assertUniqueDocumentationTargets(
+  documents: readonly VerifiedDocumentationPath[],
+): void {
+  for (const [index, document] of documents.entries()) {
+    const duplicate = documents.slice(0, index).find((candidate) =>
+      candidate.targetPath === document.targetPath
+      || isSameDocumentationIdentity(candidate.originalIdentity, document.originalIdentity)
+    );
+    if (duplicate !== undefined) {
+      throw new Error(
+        `Documentation paths resolve to the same file: ${duplicate.sourcePath}, ${document.sourcePath}`,
+      );
+    }
   }
 }
 
@@ -426,12 +443,19 @@ function toDocumentationFileIdentity(stats: Stats): DocumentationFileIdentity {
   return { device: stats.dev, inode: stats.ino };
 }
 
+function isSameDocumentationIdentity(
+  left: DocumentationFileIdentity,
+  right: DocumentationFileIdentity,
+): boolean {
+  return left.device === right.device && left.inode === right.inode;
+}
+
 function assertDocumentationIdentity(
   path: string,
   expectedIdentity: DocumentationFileIdentity,
   actualStats: Stats,
 ): void {
-  if (expectedIdentity.device !== actualStats.dev || expectedIdentity.inode !== actualStats.ino) {
+  if (!isSameDocumentationIdentity(expectedIdentity, toDocumentationFileIdentity(actualStats))) {
     throw new Error(`Documentation file identity changed after staging: ${path}`);
   }
 }
