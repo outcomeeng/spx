@@ -33,6 +33,8 @@ import {
   claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
+  piTranscript,
+  piTranscriptPath,
   createInteractiveResumeProgram,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
@@ -50,10 +52,12 @@ describe("agent resume discovery scenarios", () => {
     const invocationDir = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
     const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 4);
     const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 5);
-    const siblingSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 6);
-    const codexCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 7);
-    const claudeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 8);
-    const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 9);
+    const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 6);
+    const siblingSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 7);
+    const codexCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 8);
+    const claudeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 9);
+    const piCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 10);
+    const siblingCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 11);
 
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(codexSessionId)),
@@ -64,6 +68,11 @@ describe("agent resume discovery scenarios", () => {
       claudeProjectTranscriptPath(homeDir, claudeCwd, agentSessionJsonlName(claudeSessionId)),
       claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp: sessionTimestamp }),
       nowMs - 1,
+    );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piSessionId)),
+      piTranscript({ sessionId: piSessionId, cwd: piCwd, timestamp: sessionTimestamp }),
+      nowMs - 2,
     );
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(siblingSessionId)),
@@ -83,6 +92,7 @@ describe("agent resume discovery scenarios", () => {
     expect(candidates.map((candidate) => [candidate.agent, candidate.sessionId])).toEqual([
       [AGENT_SESSION_KIND.CODEX, codexSessionId],
       [AGENT_SESSION_KIND.CLAUDE_CODE, claudeSessionId],
+      [AGENT_SESSION_KIND.PI, piSessionId],
     ]);
   });
 

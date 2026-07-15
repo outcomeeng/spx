@@ -19,6 +19,7 @@ import {
   assertInvocationWorktreeRootResolvedOnce,
   assertNewestSessionsPerAgentWithinScope,
   assertPartialTailSessionSortsAfterTimestamped,
+  assertPiRequiresVersionedOpeningSessionRow,
   assertResumeListOrdersByTranscriptActivityAcrossAgents,
   assertResumeSinceRejectsInvalidDurations,
   assertSkipsClaudeSiblingProjectPrefix,
@@ -28,7 +29,7 @@ import {
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume per-agent display cap compliance", () => {
-  it("orders and renders list candidates by transcript activity across Codex and Claude Code", async () => {
+  it("orders and renders list candidates by transcript activity across supported agents", async () => {
     await assertResumeListOrdersByTranscriptActivityAcrossAgents();
   });
 
@@ -135,12 +136,18 @@ describe("agent resume Claude project encoding compliance", () => {
   });
 });
 
+describe("agent resume Pi session-header compliance", () => {
+  it("accepts only Pi transcripts with a versioned opening session row", async () => {
+    await assertPiRequiresVersionedOpeningSessionRow();
+  });
+});
+
 describe("agent resume store path compliance", () => {
-  it("reads Codex and Claude Code candidates from their default agent session stores", () => {
+  it("reads Codex, Claude Code, and Pi candidates from their default agent session stores", () => {
     assertDefaultAgentSessionStoreDirs();
   });
 
-  it("reads Codex and Claude Code candidates from configured agent session stores", async () => {
+  it("reads Codex, Claude Code, and Pi candidates from configured agent session stores", async () => {
     await assertAgentResumeUsesConfiguredAgentHomes();
   });
 });
