@@ -1,66 +1,25 @@
-import { execa } from "execa";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
-import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { COMPACT_MARKER, COMPACT_RECORD_FIELDS } from "@/domains/compact";
+import { resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI } from "@/interfaces/cli/compact";
-import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import {
+  agentSessionEnv,
+  assertExplicitSessionIdRetrievesLatestRecord,
+  codexAgentSessionEnv,
+  compactStashPath,
+  emptyAgentSessionEnv,
+  escapedMarker,
+  runSpx,
+  transcriptJsonl,
+  unescapedMarker,
+} from "@testing/harnesses/compact/cli";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-
-async function runSpx(
-  args: readonly string[],
-  cwd: string,
-  env: Readonly<Record<string, string>> = {},
-): Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }> {
-  const result = await execa(NODE_EXECUTABLE, [CLI_PATH, ...args], { cwd, env, reject: false });
-  return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
-}
-
-function agentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return { [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: sessionToken };
-}
-
-function codexAgentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
-    [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sessionToken,
-  };
-}
-
-function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
-  return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
-    [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
-  };
-}
-
-function compactStashPath(productDir: string, sessionToken: string): string {
-  return join(
-    productDir,
-    STATE_STORE_SCOPE_PATH.SPX_DIR,
-    STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
-    sessionToken,
-    STATE_STORE_DOMAIN.COMPACT,
-    COMPACT_STORE_PATH.STASH_FILE,
-  );
-}
-
-function escapedMarker(nodePath: string): string {
-  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}${nodePath}${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}`;
-}
-
-function unescapedMarker(nodePath: string): string {
-  return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}${nodePath}${COMPACT_MARKER.UNESCAPED_TARGET_QUOTE}`;
-}
-
-function transcriptJsonl(lines: readonly string[]): string {
-  return lines.map((content) => JSON.stringify({ content })).join("\n");
-}
 
 describe("compact CLI", () => {
   it("stores and retrieves the latest record from the agent-session environment without --session-id", async () => {
@@ -246,60 +205,7 @@ describe("compact CLI", () => {
   });
 
   it("stores and retrieves the latest record under the --session-id token without an agent-session environment", async () => {
-    const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
-    const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
-    const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
-
-    await withGitWorktreeEnv(async (gitEnv) => {
-      const transcriptPath = join(gitEnv.productDir, transcriptFileName);
-      await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(firstNode)]));
-      const firstStored = await runSpx(
-        [
-          COMPACT_CLI.commandName,
-          COMPACT_CLI.storeCommandName,
-          COMPACT_CLI.sessionIdFlag,
-          sessionToken,
-          COMPACT_CLI.transcriptFlag,
-          transcriptPath,
-        ],
-        gitEnv.productDir,
-        emptyAgentSessionEnv(),
-      );
-      expect(firstStored.exitCode).toBe(0);
-      await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(latestNode)]));
-      const latestStored = await runSpx(
-        [
-          COMPACT_CLI.commandName,
-          COMPACT_CLI.storeCommandName,
-          COMPACT_CLI.sessionIdFlag,
-          sessionToken,
-          COMPACT_CLI.transcriptFlag,
-          transcriptPath,
-        ],
-        gitEnv.productDir,
-        emptyAgentSessionEnv(),
-      );
-      expect(latestStored.exitCode).toBe(0);
-
-      const retrieved = await runSpx(
-        [
-          COMPACT_CLI.commandName,
-          COMPACT_CLI.retrieveCommandName,
-          COMPACT_CLI.sessionIdFlag,
-          sessionToken,
-        ],
-        gitEnv.productDir,
-        emptyAgentSessionEnv(),
-      );
-
-      expect(retrieved.exitCode).toBe(0);
-      expect(JSON.parse(retrieved.stdout)).toEqual({
-        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
-      });
-      const stash = await readFile(compactStashPath(gitEnv.productDir, sessionToken));
-      expect(stash.toString().trim().split(/\r?\n/u)).toHaveLength(2);
-    });
+    await assertExplicitSessionIdRetrievesLatestRecord();
   });
 
   it("stores and retrieves under an unsafe --session-id value", async () => {
