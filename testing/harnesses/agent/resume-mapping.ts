@@ -46,6 +46,8 @@ import {
   createResumeFixture,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
+  piTranscript,
+  piTranscriptPath,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume mode behavior mappings", () => {
@@ -312,6 +314,7 @@ describe("agent resume scope mappings", () => {
     const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 68);
     const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 69);
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 70);
+    const piWithoutBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 71);
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(siblingOnTarget)),
       codexTranscript({ sessionId: siblingOnTarget, cwd: siblingCwd, timestamp, branch: targetBranch }),
@@ -321,6 +324,11 @@ describe("agent resume scope mappings", () => {
       codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
       codexTranscript({ sessionId: worktreeOnOther, cwd: invocationCwd, timestamp, branch: otherBranch }),
       nowMs - 1,
+    );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piWithoutBranch)),
+      piTranscript({ sessionId: piWithoutBranch, cwd: invocationCwd, timestamp }),
+      nowMs - 2,
     );
     const stdout: string[] = [];
     const program = createInteractiveResumeProgram({
@@ -343,6 +351,7 @@ describe("agent resume scope mappings", () => {
     const rendered = stdout.join("");
     expect(rendered).toContain(siblingOnTarget);
     expect(rendered).not.toContain(worktreeOnOther);
+    expect(rendered).not.toContain(piWithoutBranch);
   });
 });
 
