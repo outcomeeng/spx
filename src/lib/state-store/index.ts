@@ -1,6 +1,7 @@
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import {
+  link as nodeLink,
   lstat as nodeLstat,
   mkdir as nodeMkdir,
   open as nodeOpen,
@@ -89,6 +90,7 @@ export interface StateStoreFileSystem {
   readFile(path: string, encoding: "utf8"): Promise<string>;
   readdir(path: string, options: { readonly withFileTypes: true }): Promise<readonly StateStoreFileEntry[]>;
   lstat(path: string): Promise<StateStorePathStats>;
+  link(existingPath: string, newPath: string): Promise<void>;
   rename(from: string, to: string): Promise<void>;
   rm(path: string, options?: { readonly force?: boolean }): Promise<void>;
 }
@@ -107,6 +109,11 @@ export interface CreateRunFileOptions {
 
 export interface JsonlWriteOptions {
   readonly fs?: StateStoreFileSystem;
+}
+
+export interface AtomicJsonlWriteOptions extends JsonlWriteOptions {
+  readonly randomBytes?: (size: number) => Buffer;
+  readonly maxAttempts?: number;
 }
 
 export interface JsonlReadOptions {
@@ -152,6 +159,11 @@ const SHA256_ALGORITHM = "sha256";
 const HEX_ENCODING = "hex";
 export const STATE_STORE_TEXT_ENCODING = "utf8";
 const RUN_FILE_CREATE_ATTEMPTS = 10;
+const ATOMIC_RECORD_TEMP_CREATE_ATTEMPTS = 10;
+const ATOMIC_RECORD_TEMP_ID_BYTES = 6;
+const ATOMIC_RECORD_TEMP_SEPARATOR = ".";
+const ATOMIC_RECORD_TEMP_SUFFIX = ".tmp";
+const ATOMIC_RECORD_TEMP_COLLISION_DETAIL = "temporary file collision limit exhausted";
 const RUN_TIMESTAMP_SEPARATOR = "_";
 const SLUG_SEPARATOR = "-";
 const EMPTY_STRING = "";
@@ -202,6 +214,9 @@ const defaultFileSystem: StateStoreFileSystem = {
   },
   readdir: nodeReaddir,
   lstat: nodeLstat,
+  link: async (existingPath, newPath) => {
+    await nodeLink(existingPath, newPath);
+  },
   rename: async (from, to) => {
     await nodeRename(from, to);
   },
@@ -528,11 +543,82 @@ export async function appendJsonlRecord(
 }
 
 export async function publishJsonlRecordAtomically(
-  _filePath: string,
-  _record: JsonRecord,
-  _options: JsonlWriteOptions = {},
+  filePath: string,
+  record: JsonRecord,
+  options: AtomicJsonlWriteOptions = {},
 ): Promise<Result<string>> {
-  return { ok: false, error: STATE_STORE_ERROR.RECORD_WRITE_FAILED };
+  const fs = options.fs ?? defaultFileSystem;
+  const randomBytes = options.randomBytes ?? nodeRandomBytes;
+  const maxAttempts = options.maxAttempts ?? ATOMIC_RECORD_TEMP_CREATE_ATTEMPTS;
+
+  try {
+    await fs.mkdir(dirname(filePath), { recursive: true });
+  } catch (error) {
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
+  }
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const temporaryPath = atomicJsonlTemporaryPath(filePath, randomBytes);
+    try {
+      await fs.writeFile(temporaryPath, serializeJsonlRecord(record), { flag: EXCLUSIVE_CREATE_FLAG });
+    } catch (error) {
+      if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
+      return {
+        ok: false,
+        error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+      };
+    }
+
+    const published = await publishAtomicJsonlTemporaryFile(fs, temporaryPath, filePath);
+    await removeTemporaryFileBestEffort(fs, temporaryPath);
+    return published;
+  }
+
+  return {
+    ok: false,
+    error: formatStateStoreError(
+      STATE_STORE_ERROR.RECORD_WRITE_FAILED,
+      ATOMIC_RECORD_TEMP_COLLISION_DETAIL,
+    ),
+  };
+}
+
+function atomicJsonlTemporaryPath(
+  filePath: string,
+  randomBytes: (size: number) => Buffer,
+): string {
+  const token = randomBytes(ATOMIC_RECORD_TEMP_ID_BYTES).toString(HEX_ENCODING);
+  return `${filePath}${ATOMIC_RECORD_TEMP_SEPARATOR}${token}${ATOMIC_RECORD_TEMP_SUFFIX}`;
+}
+
+async function publishAtomicJsonlTemporaryFile(
+  fs: StateStoreFileSystem,
+  temporaryPath: string,
+  filePath: string,
+): Promise<Result<string>> {
+  try {
+    await fs.link(temporaryPath, filePath);
+    return { ok: true, value: filePath };
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) {
+      return { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS };
+    }
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
+  }
+}
+
+async function removeTemporaryFileBestEffort(fs: StateStoreFileSystem, temporaryPath: string): Promise<void> {
+  try {
+    await fs.rm(temporaryPath, { force: true });
+  } catch {
+    // The destination link is committed; temporary-name cleanup cannot change its result.
+  }
 }
 
 export async function readLatestJsonlRecord(

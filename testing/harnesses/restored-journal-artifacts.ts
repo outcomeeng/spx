@@ -25,6 +25,7 @@ export function stagingReadFailingFileSystem(base: StateStoreFileSystem): StateS
     readFile: (path, encoding) => base.readFile(path, encoding),
     readdir: () => Promise.reject(new Error(STAGING_READ_FAILURE_MESSAGE)),
     lstat: (path) => base.lstat(path),
+    link: (existingPath, newPath) => base.link(existingPath, newPath),
     rename: (from, to) => base.rename(from, to),
     rm: (path, options) => base.rm(path, options),
   };

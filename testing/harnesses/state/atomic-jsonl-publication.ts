@@ -2,7 +2,6 @@ import { expect } from "vitest";
 
 import {
   ERROR_CODE_NOT_FOUND,
-  EXCLUSIVE_CREATE_FLAG,
   parseStateStoreError,
   publishJsonlRecordAtomically,
   readLatestJsonlRecord,
@@ -34,7 +33,8 @@ export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
   expect(second).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS });
   await expect(fs.readFile(ATOMIC_RECORD_PATH, "utf8")).resolves.toBe(`${JSON.stringify(firstRecord)}\n`);
 
-  const interruptedBefore = createLinkCapableFileSystem("before-link");
+  const beforeDelegate = createInMemoryStateStoreFileSystem();
+  const interruptedBefore = createLinkCapableFileSystem("before-link", beforeDelegate);
   const beforeResult = await publishJsonlRecordAtomically(PRE_PUBLICATION_RECORD_PATH, firstRecord, {
     fs: interruptedBefore,
   });
@@ -47,7 +47,7 @@ export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
   });
   await expect(
     publishJsonlRecordAtomically(PRE_PUBLICATION_RECORD_PATH, firstRecord, {
-      fs: createLinkCapableFileSystem(undefined, interruptedBefore),
+      fs: createLinkCapableFileSystem(undefined, beforeDelegate),
     }),
   ).resolves.toEqual({ ok: true, value: PRE_PUBLICATION_RECORD_PATH });
 
@@ -77,8 +77,7 @@ function createLinkCapableFileSystem(
     rm: async (path, options) => delegate.rm(path, options),
     link: async (existingPath, newPath) => {
       if (interruption === "before-link") throw new Error(INJECTED_INTERRUPTION);
-      const body = await delegate.readFile(existingPath, "utf8");
-      await delegate.writeFile(newPath, body, { flag: EXCLUSIVE_CREATE_FLAG });
+      await delegate.link(existingPath, newPath);
       if (interruption === "after-link") throw new Error(INJECTED_INTERRUPTION);
     },
   };
