@@ -19,25 +19,6 @@ The `eslint-rules/no-spec-references.ts` regex `/\b[AP]DR(?:[-–— ]\d+|:\s)/`
 1. Broaden `no-spec-references` to flag bare `spx/<path>` references in comments, string literals, and template literals, alongside the existing `ADR-NN`/`PDR-NN` forms.
 2. Cover the bare-path case in the rule's mapping test.
 
-## Enforcement tooling ADR uses the legacy decision-record shape
-
-`spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/21-enforcement-tooling.adr.md`
-uses the retired ADR template with `## Purpose`, `## Context`, `## Decision`,
-`## Trade-offs accepted`, a `## Compliance` block, and blanket `[review]`
-verification tags.
-
-**Impact:** TypeScript AST-enforcement changes can copy a deprecated decision
-record structure if they treat this ADR as precedent.
-
-**Tracking classification:** Tracked deferral, chosen by the operator while
-finishing the discovery-parsing evidence changeset on July 14, 2026.
-
-**Revisit condition:** Migrate before editing the enforcement tooling ADR or
-before using it as a template for a new TypeScript validation decision record.
-
-**Skills:** `spec-tree:contextualize`, `spec-tree:author`,
-`spec-tree:audit-adr`, and `typescript:architect-typescript`.
-
 ## No enforcement rule keeps terminal text composed rather than concatenated
 
 [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) requires every externally-originated value to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` primitive. Nothing enforces it. A new command descriptor that interpolates a subprocess reading into a template literal and hands the result to `writeStdout` compiles, passes lint, and ships — which is how the current spread of unescaped sites accumulated across seventeen nodes.

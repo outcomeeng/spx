@@ -1,69 +1,34 @@
 # Enforcement Tooling
 
-## Purpose
-
-This decision governs how ADR compliance rules are encoded and enforced on TypeScript source code. It applies to every MUST/NEVER rule in every ADR that constrains TypeScript code structure.
-
-## Context
-
-**Business impact:** Automated enforcement catches ADR compliance drift at authoring time — a banned syntax pattern, a hardcoded value that should be derived from a constant. Violations surface as lint errors during development, not as user-facing bugs in production.
-
-**Technical constraints:** ESLint 9 flat config runs against every TypeScript project as part of the validation pipeline. TypeScript AST enforcement is scoped to projects where language detection reports TypeScript present.
-
-## Decision
-
-Two enforcement mechanisms are active:
-
-1. ESLint custom rules and `no-restricted-syntax` selectors enforce single-file AST patterns: import restrictions, banned syntax, value-level detection, and test-evidence constraints.
-2. Project-local Node detectors enforce cross-file data joins: literal values shared between source and tests, plus duplicated test literals that need source-owned semantics or generators.
-
-ESLint rules with node-scoped warning severity use shrink-only manifests. The manifest identifies the node directories where the rule reports warnings; config validation rejects entries absent from the committed baseline.
+TypeScript single-file structural compliance uses ESLint custom rules and `no-restricted-syntax` selectors over the TypeScript AST. Broad-rule warning severity is governed by shrink-only node manifests whose committed baseline cannot grow.
 
 ## Rationale
 
-ESLint runs on every `pnpm lint` invocation. Custom rules written against the ESTree AST handle the majority of enforcement needs: import restrictions, banned syntax patterns, code-level compliance checks. The flat config (`eslint.config.ts`) accepts inline rule definitions or plugin references without infrastructure changes.
+ESLint 9 flat configuration runs across every TypeScript product through the validation pipeline and provides editor-integrated enforcement for import restrictions, banned syntax, value-level patterns, and test-evidence constraints. `no-restricted-syntax` selectors are sufficient for direct AST-node patterns, while custom rules own patterns that require richer traversal or diagnostics.
 
-`no-restricted-syntax` with exported selector arrays provides a lightweight enforcement path for patterns that match a single AST node type. Exporting the selector arrays enables RuleTester-based unit tests that import the actual config arrays.
+String matching cannot distinguish executable structure from comments or account for aliased imports. TypeScript compiler plugins add version coupling without improving the validation surface, and Semgrep duplicates the TypeScript AST toolchain. Cross-file data joins belong to their owning validation concern because one ESLint invocation sees one file. Shrink-only manifests permit a broad rule to identify named warning scopes while preventing new debt from joining the baseline.
 
-Cross-file literal provenance requires a repository-level pass. Single-file ESLint rules see one source file at a time, while a data join compares values across `src/` and co-located tests. Project-local Node detectors parse candidates with the TypeScript parser and report provenance violations in `spx validation all`.
+## Invariants
 
-Alternatives considered:
+- Every structural constraint is owned by a governing decision and enforced through exactly one mechanism appropriate to its analysis scope.
+- Every pattern governed by this decision is enforced through the TypeScript AST rather than source-text matching.
+- A shrink-only warning manifest can retain or remove committed entries and cannot admit an entry absent from its committed baseline.
 
-- **String grep only** — cannot distinguish comments from code, breaks on aliased imports, produces false positives. Not a valid enforcement mechanism for structural rules.
-- **TypeScript compiler plugins** — powerful but fragile across TS versions, no IDE integration for diagnostics, steep authoring cost.
-- **Semgrep** — polyglot strength is wasted in a single-language scope. Editor integration lags ESLint on TypeScript. Custom rules use a different pattern language than the TypeScript AST developers already know. Semgrep is the right tool for Python AST enforcement, not TypeScript.
+## Verification
 
-## Trade-offs accepted
+### Testing
 
-| Trade-off                                     | Mitigation / reasoning                                                                                         |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Custom ESLint rules require authoring         | Rules are small AST visitors; each rule maps to one decision constraint                                        |
-| Separate Node detectors add another mechanism | ESLint covers single-file AST patterns; Node detectors cover cross-file data joins                             |
-| Warning severity can hide defects             | Shrink-only manifests reject added debt and keep the warning scope tied to explicit spec-tree nodes            |
-| Rules must be maintained as ADRs evolve       | Spec `[enforce]` links trace rules to decisions — when a decision changes, the linked rules surface for update |
+- ALWAYS: every custom ESLint rule is exercised against conforming and violating cases through ESLint's `RuleTester` ([compliance])
+- ALWAYS: every ESLint enforcement rule participates in `pnpm lint` ([compliance])
+- NEVER: a broad-rule warning scope accepts a node absent from its committed shrink-only manifest baseline ([compliance])
 
-## Compliance
+### Audit
 
-### Recognized by
-
-ESLint flat config references project-specific rules via the `spx` plugin namespace. Selector arrays are exported from `eslint-rules/restricted-syntax.ts` for test reuse via the `@eslint-rules` path alias. Cross-file detectors live under `src/validation/literal/` and participate in `spx validation all`.
-Shrink-only debt manifests live beside `eslint.config.ts`; each manifest lists spec-tree node directories and is validated while the flat config is calculated.
-
-### MUST
-
-- Encode each ADR MUST/NEVER rule as an ESLint rule when expressible as an AST pattern — covers import restrictions, banned syntax, structural constraints ([review])
-- Use a project-local Node detector for cross-file data-join patterns — covers source/test literal provenance and duplicated test literal provenance that one-file lint rules cannot see ([review])
-- Trace each enforcement rule to its governing decision via the spec's `[enforce]` evidence link — diagnostic messages do not cite decision numbers because `no-spec-references` prohibits ADR-NN/PDR-NN in code ([review])
-- Run all ESLint enforcement rules in `pnpm lint` and all Node detectors in `spx validation all` — no manual enforcement step ([review])
-- Gate broad-rule warning scopes with shrink-only manifests — warning scopes are explicit, node-owned, and unable to grow against the committed baseline ([review])
-- Test each custom rule with `RuleTester` exercising both positive cases (compliant code passes) and negative cases (violations produce the expected diagnostic) ([review])
-- Test each Node detector with in-memory fixture maps or equivalent pure inputs; filesystem walking stays a thin wrapper ([review])
-
-### NEVER
-
-- Enforce structural compliance by reading source files as text and matching regexes — string grep does not understand code semantics ([review])
-- Write enforcement rules without a corresponding ADR — rules must trace to decisions ([review])
-- Ship a custom rule without `RuleTester` coverage of both valid and invalid cases — untested rules produce false positives or miss violations silently ([review])
-- Run a detector in the validation pipeline without test coverage that pins its diagnostic surface ([review])
-- Downgrade a broad-rule diagnostic through ad hoc flat-config overrides — warning scopes must be tracked through a validated shrink-only manifest ([review])
-- Introduce Semgrep for TypeScript AST enforcement — one tool per language keeps the validation pipeline coherent ([review])
+- ALWAYS: use ESLint custom rules or `no-restricted-syntax` selectors for single-file TypeScript AST patterns ([audit])
+- ALWAYS: trace each enforcement rule to its governing decision through the spec's `[enforce]` link while diagnostics omit decision numbers and paths ([audit])
+- ALWAYS: tests exercise imported rule modules, the TypeScript parser, and validation registration through real or dependency-injected code paths ([audit])
+- NEVER: enforce TypeScript structural compliance by reading source files as text or matching regular expressions over source text ([audit])
+- NEVER: create an enforcement rule without a governing architecture or product decision ([audit])
+- NEVER: use `vi.mock()`, `jest.mock()`, or module interception to replace a rule, parser, detector, registry, or validation boundary under test ([audit])
+- NEVER: downgrade a broad-rule diagnostic through an ad hoc flat-config override; warning scope is owned by a validated shrink-only manifest ([audit])
+- NEVER: introduce Semgrep for TypeScript AST enforcement ([audit])
