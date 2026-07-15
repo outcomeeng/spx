@@ -10,7 +10,7 @@
 
 **Impact:** ordering can differ across hosts for names where locale collation disagrees with code-unit order (hyphen and dot weighting); committed projections and CI comparisons assume one order.
 
-**Resolution:** replace each site with an ordinal comparator (or an `Intl.Collator` pinned to a fixed locale) in the owning node's own changeset — the spec-tree library change alters observable projection order and needs its node's tests run and its spec audit — then remove this entry.
+**Resolution:** replace each site with an ordinal code-unit comparator in the owning node's own changeset — a pinned `Intl.Collator` locale is not sufficient, because the ICU collation tables still vary by Node build independent of the locale argument. The spec-tree library change alters observable projection order and needs its node's tests run and its spec audit; remove this entry when the last site is ordinal.
 
 ## Validation warning baseline remains noisy
 
