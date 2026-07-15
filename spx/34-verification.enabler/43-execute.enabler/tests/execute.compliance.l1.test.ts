@@ -4,6 +4,7 @@ import {
   assertExecutorOpensSpxDrivenRunWithoutEvidenceAppendActions,
   assertExecutorReachesRunnerThroughRegistry,
   assertExecutorRecordsOnlyThroughRecorderOperations,
+  assertExecutorRecordsSeparatorStraddlingFindingsDistinctly,
   assertRecorderRaisesWhenLifecycleCommandFails,
   assertTestRunnerFoldsFailedTerminalStatus,
   assertTestRunnerFoldsInterruptedTerminalStatus,
@@ -37,5 +38,9 @@ describe("spx-driven verification executor compliance", () => {
 
   it("gates the run out when every registry language is non-streaming or gated out", async () => {
     await assertTestRunnerGatesOutWhenNoLanguageStreams();
+  });
+
+  it("records two separator-straddling findings distinctly rather than collapsing them onto one key", async () => {
+    await assertExecutorRecordsSeparatorStraddlingFindingsDistinctly();
   });
 });

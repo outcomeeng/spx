@@ -200,6 +200,9 @@ function gatedOutOutcome(): ControlledRunOutcome {
   return { scopeUnits: [], findings: [], invocation: { invoked: false } };
 }
 
+/** A separator a naive `moduleId + separator + testName` key would join on, used to build a colliding finding pair. */
+const NAIVE_FINDING_KEY_SEPARATOR = "::";
+
 /** An outcome whose runner reports an interrupted terminal status after streaming one inspected unit. */
 function interruptedRunnerOutcome(): ControlledRunOutcome {
   return {
@@ -595,4 +598,46 @@ export async function assertTestRunnerGatesOutWhenNoLanguageStreams(): Promise<v
     languages: [nonStreamingDescriptor(), gatedOutDescriptor()],
   });
   expect(invocation).toEqual({ invoked: false });
+}
+
+/**
+ * Compliance: two distinct failing cases whose module id and test name straddle a separator
+ * differently — collapsing onto one key under a naive `moduleId + separator + testName` join — both
+ * record as findings, because the finding idempotency key encodes the pair without collision.
+ */
+export async function assertExecutorRecordsSeparatorStraddlingFindingsDistinctly(): Promise<void> {
+  const harness = createExecutorHarness();
+  const left = arbitraryDomainLiteralValue();
+  const middle = arbitraryDomainLiteralValue();
+  const right = arbitraryDomainLiteralValue();
+  const first: TestFinding = {
+    moduleId: `${left}${NAIVE_FINDING_KEY_SEPARATOR}${middle}`,
+    testName: right,
+    errors: [],
+  };
+  const second: TestFinding = {
+    moduleId: left,
+    testName: `${middle}${NAIVE_FINDING_KEY_SEPARATOR}${right}`,
+    errors: [],
+  };
+  const controlled = createControlledRunner({
+    scopeUnits: [],
+    findings: [first, second],
+    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
+  });
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => controlled.runner,
+    recorder: harness.recorder,
+  });
+
+  expect(result.executed).toBe(true);
+  if (!result.executed) return;
+  const report = parseRenderReport(
+    (await verifyRenderCommand(
+      verifyRenderOptions(harness.scenario, result.run.runToken),
+      verifyDeps(harness.scenario, harness.fs),
+    )).output,
+  );
+  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(2);
 }
