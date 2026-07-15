@@ -49,9 +49,11 @@ export interface DocumentationFileHandle {
 }
 
 export type DocumentationFileOpener = (path: string) => Promise<DocumentationFileHandle>;
+export type DocumentationCanonicalPathResolver = (path: string) => Promise<string>;
 
 export interface DocumentationSyncFilesystemDependencies {
   readonly openDocumentationFile: DocumentationFileOpener;
+  readonly resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver;
   readonly writeDocumentAtomic: DocumentationAtomicWriter;
 }
 
@@ -89,6 +91,7 @@ const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFiles
       close: async () => await handle.close(),
     };
   },
+  resolveCanonicalDocumentationPath: async (path) => await realpath(path),
   writeDocumentAtomic: createDocumentationAtomicWriter(),
 };
 
@@ -114,10 +117,8 @@ export function createDocumentationSyncFilesystem(
 ): DocumentationSyncFilesystem {
   const dependencies = { ...DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES, ...overrides };
   return {
-    stageDocumentation: async (productDir, paths) =>
-      await stageDocumentationSet(productDir, paths, dependencies.openDocumentationFile),
-    readDocument: async (workingDirectory, path) =>
-      await readStagedDocumentation(workingDirectory, path, dependencies.openDocumentationFile),
+    stageDocumentation: async (productDir, paths) => await stageDocumentationSet(productDir, paths, dependencies),
+    readDocument: async (workingDirectory, path) => await readStagedDocumentation(workingDirectory, path, dependencies),
     promoteDocumentation: async (documents) => await promoteDocumentationSet(documents, dependencies),
   };
 }
@@ -125,27 +126,26 @@ export function createDocumentationSyncFilesystem(
 async function readStagedDocumentation(
   workingDirectory: string,
   path: string,
-  openDocumentationFile: DocumentationFileOpener,
+  dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<string> {
-  const canonicalWorkingDirectory = await realpath(workingDirectory);
+  const canonicalWorkingDirectory = await dependencies.resolveCanonicalDocumentationPath(workingDirectory);
   return (await readBoundDocumentationSnapshot(
     path,
     canonicalWorkingDirectory,
     false,
-    openDocumentationFile,
+    dependencies.openDocumentationFile,
+    dependencies.resolveCanonicalDocumentationPath,
   )).content;
 }
 
 async function stageDocumentationSet(
   productDir: string,
   paths: readonly string[],
-  openDocumentationFile: DocumentationFileOpener,
+  dependencies: DocumentationSyncFilesystemDependencies,
 ) {
-  const canonicalProductDir = await realpath(productDir);
+  const canonicalProductDir = await dependencies.resolveCanonicalDocumentationPath(productDir);
   const verified = await Promise.all(
-    paths.map(async (sourcePath) =>
-      await verifyDocumentationPath(canonicalProductDir, sourcePath, openDocumentationFile)
-    ),
+    paths.map(async (sourcePath) => await verifyDocumentationPath(canonicalProductDir, sourcePath, dependencies)),
   );
   const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
   try {
@@ -170,7 +170,7 @@ async function promoteDocumentationSet(
   documents: readonly DocumentationPromotion[],
   dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
-  await assertDocumentationSetUnchanged(documents, dependencies.openDocumentationFile);
+  await assertDocumentationSetUnchanged(documents, dependencies);
   const promoted: DocumentationPromotion[] = [];
   try {
     for (const document of documents) {
@@ -196,22 +196,23 @@ async function promoteDocumentationSet(
 
 async function assertDocumentationSetUnchanged(
   documents: readonly DocumentationPromotion[],
-  openDocumentationFile: DocumentationFileOpener,
+  dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
   await Promise.all(
-    documents.map(async (document) => await assertDocumentationUnchanged(document, openDocumentationFile)),
+    documents.map(async (document) => await assertDocumentationUnchanged(document, dependencies)),
   );
 }
 
 async function assertDocumentationUnchanged(
   { path, originalContent }: DocumentationPromotion,
-  openDocumentationFile: DocumentationFileOpener,
+  dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<void> {
   const currentContent = (await readBoundDocumentationSnapshot(
     path,
     undefined,
     true,
-    openDocumentationFile,
+    dependencies.openDocumentationFile,
+    dependencies.resolveCanonicalDocumentationPath,
   )).content;
   assertDocumentationContent(path, currentContent, originalContent);
 }
@@ -234,7 +235,7 @@ async function restorePromotedDocumentation(
 async function verifyDocumentationPath(
   canonicalProductDir: string,
   sourcePath: string,
-  openDocumentationFile: DocumentationFileOpener,
+  dependencies: DocumentationSyncFilesystemDependencies,
 ): Promise<VerifiedDocumentationPath> {
   if (isAbsolute(sourcePath)) {
     throw new Error(`Documentation path must be relative to the product: ${sourcePath}`);
@@ -247,7 +248,8 @@ async function verifyDocumentationPath(
     targetPath,
     canonicalProductDir,
     true,
-    openDocumentationFile,
+    dependencies.openDocumentationFile,
+    dependencies.resolveCanonicalDocumentationPath,
   )).content;
   return { sourcePath, targetPath, originalContent };
 }
@@ -282,6 +284,7 @@ async function replaceDocumentation(
     undefined,
     true,
     dependencies.openDocumentationFile,
+    dependencies.resolveCanonicalDocumentationPath,
   );
   assertDocumentationContent(path, initialSnapshot.content, expectedContent);
   const guard: DocumentationReplacementGuard = async () => {
@@ -290,6 +293,7 @@ async function replaceDocumentation(
       undefined,
       true,
       dependencies.openDocumentationFile,
+      dependencies.resolveCanonicalDocumentationPath,
     );
     if (!isSameFileIdentity(initialSnapshot.stats, replacementSnapshot.stats)) {
       throw new Error(`Documentation file identity changed before replacement: ${path}`);
@@ -304,12 +308,14 @@ async function readBoundDocumentationSnapshot(
   canonicalRoot: string | undefined,
   requireCanonicalPath: boolean,
   openDocumentationFile: DocumentationFileOpener,
+  resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver,
 ): Promise<BoundDocumentationSnapshot> {
   return await withBoundDocumentationFile(
     path,
     canonicalRoot,
     requireCanonicalPath,
     openDocumentationFile,
+    resolveCanonicalDocumentationPath,
     async (handle, stats, assertPathStillBound) => {
       const content = await handle.readText();
       await assertPathStillBound();
@@ -323,6 +329,7 @@ async function withBoundDocumentationFile<T>(
   canonicalRoot: string | undefined,
   requireCanonicalPath: boolean,
   openDocumentationFile: DocumentationFileOpener,
+  resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver,
   use: (
     handle: DocumentationFileHandle,
     stats: Stats,
@@ -336,7 +343,13 @@ async function withBoundDocumentationFile<T>(
       throw new Error(`Documentation path is not a regular file: ${path}`);
     }
     const assertPathStillBound: DocumentationReplacementGuard = async () => {
-      await assertDocumentationPathBound(path, stats, canonicalRoot, requireCanonicalPath);
+      await assertDocumentationPathBound(
+        path,
+        stats,
+        canonicalRoot,
+        requireCanonicalPath,
+        resolveCanonicalDocumentationPath,
+      );
     };
     await assertPathStillBound();
     return await use(handle, stats, assertPathStillBound);
@@ -350,6 +363,7 @@ async function assertDocumentationPathBound(
   openStats: Stats,
   canonicalRoot: string | undefined,
   requireCanonicalPath: boolean,
+  resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver,
 ): Promise<void> {
   const pathStats = await lstat(path);
   if (pathStats.isSymbolicLink()) {
@@ -361,7 +375,11 @@ async function assertDocumentationPathBound(
   if (!isSameFileIdentity(openStats, pathStats)) {
     throw new Error(`Documentation file identity changed: ${path}`);
   }
-  const canonicalPath = await realpath(path);
+  const canonicalPath = await resolveCanonicalDocumentationPath(path);
+  const canonicalPathStats = await lstat(canonicalPath);
+  if (!isSameFileIdentity(openStats, canonicalPathStats)) {
+    throw new Error(`Documentation file identity changed during canonical resolution: ${path}`);
+  }
   if (canonicalRoot !== undefined && !isPathContained(canonicalRoot, canonicalPath)) {
     throw new Error(`Documentation path resolves outside its permitted root: ${path}`);
   }

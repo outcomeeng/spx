@@ -11,6 +11,7 @@ import {
   createDocumentationAtomicWriter,
   createDocumentationSyncFilesystem,
   type DocumentationAtomicWriter,
+  type DocumentationCanonicalPathResolver,
   type DocumentationFileOpener,
   type DocumentationReplacementGuard,
   type DocumentationSyncFilesystem,
@@ -243,6 +244,28 @@ class RetargetingDocumentationFileOpener {
       },
       close: async () => await handle.close(),
     };
+  };
+}
+
+class RetargetingDocumentationCanonicalPathResolver {
+  private hasRetargeted = false;
+
+  constructor(
+    private readonly targetPath: string,
+    private readonly replacementPath: string,
+    private readonly replacementContent: string,
+  ) {}
+
+  readonly resolve: DocumentationCanonicalPathResolver = async (path) => {
+    if (!this.hasRetargeted && path === this.targetPath) {
+      this.hasRetargeted = true;
+      await replaceDocumentationPathIdentity(
+        path,
+        this.replacementPath,
+        this.replacementContent,
+      );
+    }
+    return await realpath(path);
   };
 }
 
@@ -565,6 +588,31 @@ async function assertStagedReadbackIdentityChangeRejected(
     scenario,
     DOCUMENTATION_READ_RACE_TARGET.STAGED,
   );
+}
+
+async function assertCanonicalResolutionIdentityChangeRejected(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const primary = primaryDocumentation(scenario);
+  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+      const canonicalProductDir = await realpath(options.productDir);
+      const resolver = new RetargetingDocumentationCanonicalPathResolver(
+        join(canonicalProductDir, primary.path),
+        join(externalDir, primary.path),
+        primary.originalContent,
+      );
+      const writer = new RecordingDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({
+        resolveCanonicalDocumentationPath: resolver.resolve,
+        writeDocumentAtomic: writer.write,
+      });
+      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
+      expect(agent.requests).toHaveLength(0);
+      expect(writer.writes).toBe(0);
+      await expectProductDocumentationUnchanged(scenario, readProductDocument);
+    });
+  });
 }
 
 async function assertDocumentationReadIdentityChangeRejected(
@@ -978,6 +1026,12 @@ function registerComplianceTests(): void {
 
     it("rejects product documentation identity changes during staging reads", async () => {
       await assertProductStagingIdentityChangeRejected(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
+    it("rejects product documentation identity changes during canonical resolution", async () => {
+      await assertCanonicalResolutionIdentityChangeRejected(
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
       );
     });
