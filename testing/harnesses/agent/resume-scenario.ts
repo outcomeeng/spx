@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
-import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+import { AGENT_RESUME_COMMAND, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   branchResumeScope,
@@ -142,48 +142,59 @@ describe("agent resume discovery scenarios", () => {
     );
   });
 
-  it("lets the interactive picker choose a candidate and launches it through the agent command", async () => {
+  it("lets the interactive picker choose Pi from mixed agent candidates and launches its native command", async () => {
     const fs = new MemoryAgentSessionFileSystem();
-    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 10);
-    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 13);
-    const sourcePath = codexTranscriptPath(homeDir, agentSessionJsonlName(sessionId));
-    const chosen = agentResumeCandidate({
-      cwd: sampleAgentResumeValue(
-        arbitraryAgentSessionCwd(sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 11)),
-        12,
-      ),
-      sessionId,
-      sourcePath,
-    });
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 10);
+    const timestamp = new Date(nowMs).toISOString();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 11);
+    const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 12);
+    const invocationDir = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 13);
+    const codexCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 14);
+    const claudeCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 15);
+    const piCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 16);
+    const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 17);
+    const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 18);
+    const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 19);
+    const piSourcePath = piTranscriptPath(homeDir, agentSessionJsonlName(piSessionId));
     const launchExitCode = sampleAgentResumeValue(arbitraryAgentLaunchExitCode());
     const launched: AgentResumeCandidate[] = [];
     const exitCodes: number[] = [];
+    const runner = new RecordingLaunchRunner();
+    const suspender = new RecordingSuspender();
     fs.writeFile(
-      sourcePath,
-      codexTranscript({
-        sessionId: chosen.sessionId,
-        cwd: chosen.cwd,
-        timestamp: chosen.updatedAt ?? new Date(chosen.modifiedAtMs).toISOString(),
-      }),
-      chosen.modifiedAtMs,
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexSessionId)),
+      codexTranscript({ sessionId: codexSessionId, cwd: codexCwd, timestamp }),
+      nowMs,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, claudeCwd, agentSessionJsonlName(claudeSessionId)),
+      claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
+      nowMs - 1,
+    );
+    fs.writeFile(
+      piSourcePath,
+      piTranscript({ sessionId: piSessionId, cwd: piCwd, timestamp }),
+      nowMs - 2,
     );
 
     const program = createInteractiveResumeProgram({
       fs,
       homeDir,
-      cwd: chosen.cwd,
-      nowMs: chosen.modifiedAtMs,
-      resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(chosen.cwd),
+      cwd: invocationDir,
+      nowMs,
+      resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(worktreeRoot),
       pickCandidate: async (candidates) => {
-        const candidate = candidates.at(0);
+        const candidate = candidates.find((value) => value.agent === AGENT_SESSION_KIND.PI);
         if (candidate === undefined) {
-          throw new Error("expected matching agent resume candidate");
+          throw new Error("expected matching Pi resume candidate");
         }
         return selectedAgentResumeCandidate(candidate);
       },
       launchCandidate: async (candidate) => {
         launched.push(candidate);
-        return launchExitCode;
+        const pending = launchAgentResume(runner, suspender, buildAgentResumeLaunchCommand(candidate));
+        runner.children[0].emitExit(launchExitCode);
+        return pending;
       },
       setExitCode: (exitCode) => exitCodes.push(exitCode),
       exit: (exitCode) => {
@@ -197,7 +208,13 @@ describe("agent resume discovery scenarios", () => {
       program.parseAsync([AGENT_CLI.commandName, AGENT_CLI.resumeCommandName], { from: SPX_COMMANDER_PARSE_SOURCE }),
     ).rejects.toBeInstanceOf(ImmediateExit);
 
-    expect(launched).toEqual([chosen]);
+    expect(launched.map((candidate) => [candidate.agent, candidate.sessionId, candidate.sourcePath])).toEqual([
+      [AGENT_SESSION_KIND.PI, piSessionId, piSourcePath],
+    ]);
+    expect(runner.commands).toEqual([AGENT_RESUME_COMMAND.PI_BINARY]);
+    expect(runner.args).toEqual([[AGENT_RESUME_COMMAND.PI_SESSION, piSourcePath]]);
+    expect(runner.options[0]).toMatchObject({ cwd: piCwd, stdio: FOREGROUND_LAUNCH_STDIO });
+    expect(suspender.restoreCount).toBe(1);
     expect(exitCodes).toEqual([launchExitCode]);
   });
 
