@@ -102,9 +102,12 @@ export interface SpecContextManifest {
 /**
  * Full-path decision citations: a `spx/`-rooted path ending in `.adr.md` or
  * `.pdr.md`. The character class cannot cross whitespace, brackets,
- * parentheses, or backticks, so markdown link syntax never bleeds into a match.
+ * parentheses, or backticks, so markdown link syntax never bleeds into a
+ * match; the boundary assertions reject shapes that continue past the
+ * decision suffix (`….adr.mdx`, `….adr.md.bak`) or embed `spx/` inside a
+ * longer path, so only a complete tree-rooted decision path binds.
  */
-const DECISION_CITATION_PATTERN = /spx\/[A-Za-z0-9._/-]+\.(?:adr|pdr)\.md/g;
+const DECISION_CITATION_PATTERN = /(?<![A-Za-z0-9._/-])spx\/[A-Za-z0-9._/-]+\.(?:adr|pdr)\.md(?![A-Za-z0-9._/-])/g;
 
 /**
  * A citation binds only through a canonical tree path: every segment is a real
@@ -144,9 +147,13 @@ export function specContextDigest(rawBytes: Uint8Array): string {
   return `${SPEC_CONTEXT_DIGEST_ALGORITHM}:${createHash(SPEC_CONTEXT_DIGEST_ALGORITHM).update(rawBytes).digest("hex")}`;
 }
 
-/** Decodes raw document bytes as strict UTF-8; any invalid sequence throws. */
+/**
+ * Decodes raw document bytes as strict UTF-8; any invalid sequence throws.
+ * A leading byte-order mark stays in the decoded text so the content
+ * round-trips to the raw-byte digest and byte count.
+ */
 export function decodeContextDocumentUtf8(rawBytes: Uint8Array): string {
-  return new TextDecoder("utf-8", { fatal: true }).decode(rawBytes);
+  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(rawBytes);
 }
 
 /** Diagnostic for a read document whose bytes are not valid UTF-8; names the exact path. */

@@ -878,7 +878,11 @@ interface RichContextPaths {
   readonly rootIssuesPath: string;
   readonly ancestorPlanPath: string;
   readonly targetIssuesPath: string;
-  /** Exact text written to the target ISSUES note; carries multi-byte UTF-8 so a wrong-encoding decode is caught. */
+  /**
+   * Exact text written to the target ISSUES note; carries a leading byte-order
+   * mark and multi-byte UTF-8 so BOM stripping or a wrong-encoding decode is
+   * caught.
+   */
   readonly targetIssuesText: string;
   readonly rootGuidePaths: readonly string[];
   readonly ancestorGuidePath: string;
@@ -934,7 +938,7 @@ async function withRichContextEnv(
       rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
       ancestorPlanPath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
       targetIssuesPath: `spx/${targetId}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
-      targetIssuesText: "# Target issues — Prüfung ✓ 文脈\n",
+      targetIssuesText: "\uFEFF# Target issues — Prüfung ✓ 文脈\n",
       rootGuidePaths: SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => filename),
       ancestorGuidePath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.GUIDE_FILES[0]}`,
       lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -1097,9 +1101,13 @@ export async function assertSpecContextIgnoresTraversalCitationShapes(): Promise
     const target = snapshot.allNodes[0];
     const targetSpecPath = target.ref?.path;
     expect(targetSpecPath).toBeDefined();
+    // The suffix-extended shapes would bind their truncated `.adr.md` prefix —
+    // a decision no tracked file satisfies, failing the command — if the
+    // citation pattern matched past the decision suffix.
     await env.writeRaw(
       targetSpecPath as string,
-      `# ${target.slug}\n\nMentions spx/../../outside-product.adr.md without binding it.\n`,
+      `# ${target.slug}\n\nMentions spx/../../outside-product.adr.md, spx/99-shape.adr.mdx, and`
+        + ` spx/99-shape.adr.md.bak without binding any of them.\n`,
     );
 
     const manifest = parseContextManifest(
@@ -1107,6 +1115,7 @@ export async function assertSpecContextIgnoresTraversalCitationShapes(): Promise
     );
 
     expect(allManifestPaths(manifest).some((path) => path.includes(".."))).toBe(false);
+    expect(allManifestPaths(manifest)).not.toContain("spx/99-shape.adr.md");
   });
 }
 
@@ -1228,9 +1237,9 @@ export async function assertSpecContextContentModeCarriesExactBytes(): Promise<v
       await contextCommand({ target: paths.targetId, cwd: env.productDir, content: true }),
     );
     expect(manifest.read.length).toBeGreaterThan(0);
-    // The written multi-byte string is the encoding-independent oracle: a
-    // wrong-encoding decode reproduces ASCII documents byte-for-byte but not
-    // this one.
+    // The written string is the encoding-independent oracle: a wrong-encoding
+    // decode reproduces ASCII documents byte-for-byte but not the multi-byte
+    // characters, and a BOM-stripping decode drops the leading U+FEFF.
     expect(
       manifest.read.find((document) => document.path === paths.targetIssuesPath)?.content,
     ).toBe(paths.targetIssuesText);
