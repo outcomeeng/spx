@@ -8,6 +8,7 @@
  */
 
 import type { NormalizedProviderFact } from "../normalize/identity";
+import { compareCodeUnits } from "../order";
 import { PROVIDER_FACT_KIND, type ProviderFactProvenance } from "../providers/descriptor";
 import {
   CLASSIFICATION_EVIDENCE,
@@ -108,10 +109,7 @@ export function classifySourceOwnership(input: SourceOwnershipInput): readonly S
       facts.push(fact);
     }
   }
-  // Ordinal code-unit comparison keeps the record order a pure function of the
-  // input strings; a locale-aware comparator would vary with the host ICU build.
-  const sourcePaths = [...new Set([...input.sourceArtifacts, ...factsBySource.keys()])]
-    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+  const sourcePaths = [...new Set([...input.sourceArtifacts, ...factsBySource.keys()])].sort(compareCodeUnits);
   return sourcePaths.map((sourcePath) =>
     classifyArtifact(sourcePath, factsBySource.get(sourcePath) ?? [], linkedTests)
   );

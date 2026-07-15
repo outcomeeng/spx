@@ -48,9 +48,15 @@ export interface RawProviderFact {
   };
 }
 
-/** Typed descriptor a language provider exports; the registry reaches it through an explicit import statement. */
-export interface SourceGraphProviderDescriptor {
+/**
+ * Typed descriptor a language provider exports; the registry reaches it
+ * through an explicit import statement. Fact collection is a pure
+ * transformation of provider-typed established-tool output supplied as a
+ * parameter — tool invocation, artifact discovery, and file reading are host
+ * concerns outside the source-graph path.
+ */
+export interface SourceGraphProviderDescriptor<Input> {
   readonly language: SourceGraphLanguage;
   readonly provider: string;
-  readonly collectFacts: (productDir: string) => Promise<readonly RawProviderFact[]>;
+  readonly collectFacts: (input: Input) => readonly RawProviderFact[];
 }

@@ -26,6 +26,7 @@ export {
   type NormalizedProviderFact,
   normalizeProviderFact,
 } from "./normalize/identity";
+export { compareCodeUnits } from "./order";
 export {
   PROVIDER_FACT_KIND,
   type ProviderFactKind,
@@ -36,3 +37,15 @@ export {
   type SourceGraphProviderDescriptor,
 } from "./providers/descriptor";
 export { SOURCE_GRAPH_PROVIDER_REGISTRY } from "./providers/registry";
+export {
+  TYPESCRIPT_COVERAGE_PROVIDER,
+  TYPESCRIPT_COVERAGE_PROVIDER_ID,
+  type TypescriptCoverageEntry,
+  type TypescriptCoverageInput,
+} from "./providers/typescript/coverage";
+export {
+  TYPESCRIPT_MODULE_GRAPH_PROVIDER,
+  TYPESCRIPT_MODULE_GRAPH_PROVIDER_ID,
+  type TypescriptModuleEdge,
+  type TypescriptModuleGraphInput,
+} from "./providers/typescript/module-graph";
