@@ -14,6 +14,7 @@ export const JOURNAL_RUN_STATE_STATUS = {
   REJECTED: "rejected",
   FAILED: "failed",
   INTERRUPTED: "interrupted",
+  PASSED: "passed",
 } as const;
 
 /** The kinds of target a journal run is scoped to. */
