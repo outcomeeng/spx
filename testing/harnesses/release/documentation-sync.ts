@@ -8,6 +8,7 @@ import { expect } from "vitest";
 import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
+  createDocumentationAtomicWriter,
   createDocumentationSyncFilesystem,
   type DocumentationAtomicWriter,
   type DocumentationFileOpener,
@@ -241,6 +242,26 @@ class RetargetingDocumentationFileOpener {
         return (await handle.readFile()).toString();
       },
       close: async () => await handle.close(),
+    };
+  };
+}
+
+class TrackingDocumentationFileOpener {
+  openHandleCount = 0;
+
+  readonly open: DocumentationFileOpener = async (path) => {
+    const handle = await open(path, constants.O_RDONLY);
+    this.openHandleCount += 1;
+    let isClosed = false;
+    return {
+      stat: async () => await handle.stat(),
+      readText: async () => (await handle.readFile()).toString(),
+      close: async () => {
+        if (isClosed) return;
+        await handle.close();
+        isClosed = true;
+        this.openHandleCount -= 1;
+      },
     };
   };
 }
@@ -593,6 +614,35 @@ async function assertPromotionIdentityChangeRejected(
       expect(writer.writes).toBe(0);
       await expectProductDocumentationUnchanged(scenario, readProductDocument);
     });
+  });
+}
+
+async function assertAtomicPromotionClosesDocumentationHandles(
+  scenario: DocumentationSyncScenario,
+): Promise<void> {
+  const opener = new TrackingDocumentationFileOpener();
+  const writer = createDocumentationAtomicWriter({
+    writeFile: async (path, content) => await writeFile(path, content),
+    rename: async (from, to) => {
+      if (opener.openHandleCount > 0) {
+        throw new Error("Atomic rename attempted with an open documentation handle");
+      }
+      await rename(from, to);
+    },
+    rm: async (path, options) => await rm(path, options),
+  });
+  const filesystem = createDocumentationSyncFilesystem({
+    openDocumentationFile: opener.open,
+    writeDocumentAtomic: writer,
+  });
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    await expect(composeWithDocumentationFilesystem(options, filesystem)).resolves.toEqual({
+      paths: scenario.paths,
+    });
+    expect(opener.openHandleCount).toBe(0);
+    for (const path of scenario.paths) {
+      await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
+    }
   });
 }
 
@@ -1026,6 +1076,12 @@ function registerComplianceTests(): void {
 
     it("rejects a target identity change at the atomic replacement boundary", async () => {
       await assertPromotionIdentityChangeRejected(
+        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+      );
+    });
+
+    it("closes documentation handles before the production atomic replacement", async () => {
+      await assertAtomicPromotionClosesDocumentationHandles(
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
       );
     });
