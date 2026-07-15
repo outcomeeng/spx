@@ -35,9 +35,9 @@ import { validationPipelineStages, validationRegistry } from "@/validation/regis
 import {
   buildDprintCheckArgs,
   DPRINT_CHECK_SUBCOMMAND,
-  DPRINT_COMMAND,
   DPRINT_EXCLUDES_OPTION,
   type FormattingValidationContext,
+  resolveDprintCommand,
   validateFormatting,
 } from "@/validation/steps/formatting";
 import type { ValidationWritableStream } from "@/validation/steps/subprocess-output";
@@ -198,7 +198,7 @@ export function registerFormattingComplianceEvidence(): void {
       expect(result.output).toBe(`${stdoutChunk}${stderrChunk}`);
       expect(stdout.chunks).toEqual([stdoutChunk]);
       expect(stderr.chunks).toEqual([stderrChunk]);
-      expect(runner.commands).toEqual([DPRINT_COMMAND]);
+      expect(runner.commands).toEqual([resolveDprintCommand()]);
       expect(runner.args).toEqual([[DPRINT_CHECK_SUBCOMMAND]]);
       expect(runner.spawnOptions?.cwd).toBe(productDir);
     });
