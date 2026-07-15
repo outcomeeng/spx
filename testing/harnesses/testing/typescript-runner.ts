@@ -459,13 +459,39 @@ export function registerTypescriptRunnerComplianceTests(): void {
       );
       expect(descriptor).toBe(typescriptTestingLanguage);
 
-      const terminalStatus = await runTestsStreaming(request, { sink, starter });
+      const invocation = await runTestsStreaming(request, {
+        sink,
+        starter,
+        isLanguagePresent: () => true,
+      });
 
       expect(starter.startedRuns).toHaveLength(1);
       expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
       expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
       expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
-      expect(terminalStatus).toBe(reason);
+      expect(invocation).toEqual({ invoked: true, terminalStatus: reason });
+    });
+
+    it("gates the streaming run out without starting Vitest when TypeScript is absent", async () => {
+      const request = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
+      const scenario = sampleJournalReporterValue(
+        JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
+      );
+      const sink = createRecordingEvidenceSink();
+      const starter = createScenarioDrivingVitestRunStarter(scenario, JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+
+      // Detection reports TypeScript absent, so the streaming run short-circuits before the
+      // starter runs — no Vitest is invoked and no evidence streams — matching runTests's gate.
+      const invocation = await runTestsStreaming(request, {
+        sink,
+        starter,
+        isLanguagePresent: () => false,
+      });
+
+      expect(invocation).toEqual({ invoked: false });
+      expect(starter.startedRuns).toEqual([]);
+      expect(sink.scopes).toEqual([]);
+      expect(sink.findings).toEqual([]);
     });
   });
 }
@@ -477,21 +503,21 @@ export function registerTypescriptRunnerStreamingL2Tests(): void {
         const exitCodeBeforeRun = process.exitCode;
         const sink = createRecordingEvidenceSink();
 
-        // A language-neutral consumer supplies only the sink — the neutral
-        // JournalStreamRunDependencies contract — so the descriptor resolves its
-        // default production Vitest starter and streams over a real programmatic run.
+        // A language-neutral consumer supplies only the sink, so the descriptor resolves its
+        // default production Vitest starter and streams over a real programmatic run. Detection
+        // is forced present because the isolated temp project carries no TypeScript marker.
         const streamingRun = typescriptTestingLanguage.runTestsStreaming;
         expect(streamingRun).toBeDefined();
         if (streamingRun === undefined) return;
-        const terminalStatus = await streamingRun(
+        const invocation = await streamingRun(
           { projectRoot, testPaths: [testFileName] },
-          { sink },
+          { sink, isLanguagePresent: () => true },
         );
 
         expect(sink.scopes).toHaveLength(1);
         expect(sink.findings).toHaveLength(1);
         expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
-        expect(terminalStatus).toBe(JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+        expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
         expect(process.exitCode).toBe(exitCodeBeforeRun);
       });
     });
