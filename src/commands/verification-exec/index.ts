@@ -5,7 +5,17 @@
  */
 import type { JournalStreamingRunner } from "@/commands/verification-exec/executor";
 import { resolveTestRunner } from "@/commands/verification-exec/test-runner";
-import { VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_VERIFICATION_TYPE, type VerifyVerificationType } from "@/domains/verify/verify";
+
+/**
+ * The verification-type→streaming-runner-resolver registry. Dispatch is a registry lookup keyed by
+ * the verification type, never verification-type-name branching; a new deterministic verification
+ * type registers its runner resolver here, mirroring the `EVIDENCE_VALIDATORS` registry in
+ * `src/domains/verify/verify.ts`. Agentic types (`audit`, `review`) register no streaming runner.
+ */
+const VERIFICATION_RUNNER_RESOLVERS: Readonly<Partial<Record<VerifyVerificationType, () => JournalStreamingRunner>>> = {
+  [VERIFY_VERIFICATION_TYPE.TEST]: resolveTestRunner,
+};
 
 /**
  * Resolve a verification type's streaming runner through that type's own registry module. The `test`
@@ -13,8 +23,9 @@ import { VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
  * executor opens no run.
  */
 export function resolveVerificationRunner(verificationType: string): JournalStreamingRunner | undefined {
-  if (verificationType === VERIFY_VERIFICATION_TYPE.TEST) return resolveTestRunner();
-  return undefined;
+  return (
+    VERIFICATION_RUNNER_RESOLVERS as Readonly<Record<string, (() => JournalStreamingRunner) | undefined>>
+  )[verificationType]?.();
 }
 
 export {
