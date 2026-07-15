@@ -1,6 +1,12 @@
 import { it } from "vitest";
 
 import { documentationSyncMappingCases } from "@testing/harnesses/release/documentation-sync";
-import { HARNESS_TEST_CASE_TITLE_PATTERN, runHarnessTestCase } from "@testing/harnesses/vitest-registration";
+import {
+  groupHarnessTestCases,
+  HARNESS_TEST_CASE_TITLE_PATTERN,
+  runHarnessTestCase,
+} from "@testing/harnesses/vitest-registration";
 
-it.each([...documentationSyncMappingCases])(HARNESS_TEST_CASE_TITLE_PATTERN, runHarnessTestCase);
+for (const group of groupHarnessTestCases(documentationSyncMappingCases)) {
+  it.each([...group.testCases])(HARNESS_TEST_CASE_TITLE_PATTERN, runHarnessTestCase, group.timeout);
+}

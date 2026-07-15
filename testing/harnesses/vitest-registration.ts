@@ -11,6 +11,11 @@ export interface HarnessTestCase {
   readonly timeout?: number;
 }
 
+export interface HarnessTestCaseGroup {
+  readonly testCases: readonly HarnessTestCase[];
+  readonly timeout: number | undefined;
+}
+
 let activeCollector: HarnessTestCase[] | undefined;
 const suiteTitleStack: string[] = [];
 
@@ -116,12 +121,27 @@ export function collectHarnessTestCases(registerTests: () => void): readonly Har
 }
 
 export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]): void {
+  for (const group of groupHarnessTestCases(testCases)) {
+    for (const testCase of group.testCases) {
+      registerHarnessTestCase(testCase.title, testCase.run, group.timeout);
+    }
+  }
+}
+
+export function groupHarnessTestCases(testCases: readonly HarnessTestCase[]): readonly HarnessTestCaseGroup[] {
   if (testCases.length === 0) {
     throw new Error("harness test collection registered no cases");
   }
+  const casesByTimeout = new Map<number | undefined, HarnessTestCase[]>();
   for (const testCase of testCases) {
-    registerHarnessTestCase(testCase.title, testCase.run, testCase.timeout);
+    const groupedCases = casesByTimeout.get(testCase.timeout) ?? [];
+    groupedCases.push(testCase);
+    casesByTimeout.set(testCase.timeout, groupedCases);
   }
+  return [...casesByTimeout].map(([timeout, groupedCases]) => ({
+    testCases: groupedCases,
+    timeout,
+  }));
 }
 
 export function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
