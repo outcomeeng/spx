@@ -44,10 +44,8 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 - Given a `*.test.ts` file contains a hardcoded registry literal in an assertion-argument position, when real ESLint runs against that file, then the corresponding rule reports the violation with its rule name ([test](tests/eslint-rules.scenario.l2.test.ts))
 - Given a source file (non-`*.test.ts`) contains the same hardcoded registry literal, when real ESLint runs against that file, then the registry rules report no violation — the rules apply to test files only ([test](tests/eslint-rules.scenario.l2.test.ts))
 - Given a test file outside the test-owned-constant debt manifest declares a top-level uppercase test constant, when real ESLint runs against that file, then `spx/no-test-owned-domain-constants` reports an error ([test](tests/eslint-rules.scenario.l2.test.ts))
-- Given a test file inside the test-owned-constant debt manifest declares a top-level uppercase test constant, when real ESLint runs against that file, then `spx/no-test-owned-domain-constants` reports a warning while other test-only custom rules remain errors ([test](tests/eslint-rules.scenario.l2.test.ts))
 - Given a runtime test reads a registry by numeric position, when real ESLint runs against that file, then `spx/no-registry-position-access` reports the violation with its rule name ([test](tests/eslint-rules.scenario.l2.test.ts))
 - Given the validation configuration is loaded, when the registration cases inspect its custom rules, then the inspected project-specific rules are present and evaluable without configuration errors ([test](tests/eslint-rules.scenario.l2.test.ts))
-- Given a node is covered by the test-owned-constant debt manifest, when its rule severity is resolved, then only `spx/no-test-owned-domain-constants` is downgraded to a warning ([test](tests/eslint-rules.scenario.l2.test.ts))
 - Given a branch adds test-owned-constant debt absent from the committed baseline, when lint policy is validated, then validation fails and identifies the added entry ([test](tests/eslint-rules.scenario.l2.test.ts))
 
 ### Compliance
