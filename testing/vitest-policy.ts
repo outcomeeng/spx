@@ -1,0 +1,1 @@
+export const VITEST_TEST_TIMEOUT = 30_000;

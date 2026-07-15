@@ -1,6 +1,8 @@
 import { describe as vitestDescribe, it as vitestIt } from "vitest";
 export { expect } from "vitest";
 
+import { VITEST_TEST_TIMEOUT } from "@testing/vitest-policy";
+
 const SUITE_TITLE_SEPARATOR = " / ";
 const CASE_VALUE_PLACEHOLDER = "%s";
 export const HARNESS_TEST_CASE_TITLE_PATTERN = "$title";
@@ -9,11 +11,6 @@ export interface HarnessTestCase {
   readonly title: string;
   readonly run: () => Promise<void> | void;
   readonly timeout?: number;
-}
-
-export interface HarnessTestCaseGroup {
-  readonly testCases: readonly HarnessTestCase[];
-  readonly timeout: number | undefined;
 }
 
 let activeCollector: HarnessTestCase[] | undefined;
@@ -121,29 +118,49 @@ export function collectHarnessTestCases(registerTests: () => void): readonly Har
 }
 
 export function registerHarnessTestCases(testCases: readonly HarnessTestCase[]): void {
-  for (const group of groupHarnessTestCases(testCases)) {
-    for (const testCase of group.testCases) {
-      registerHarnessTestCase(testCase.title, testCase.run, group.timeout);
-    }
+  assertHarnessTestCasesPresent(testCases);
+  for (const testCase of testCases) {
+    registerHarnessTestCase(testCase.title, testCase.run, testCase.timeout);
   }
 }
 
-export function groupHarnessTestCases(testCases: readonly HarnessTestCase[]): readonly HarnessTestCaseGroup[] {
+function assertHarnessTestCasesPresent(testCases: readonly HarnessTestCase[]): void {
   if (testCases.length === 0) {
     throw new Error("harness test collection registered no cases");
   }
-  const casesByTimeout = new Map<number | undefined, HarnessTestCase[]>();
-  for (const testCase of testCases) {
-    const groupedCases = casesByTimeout.get(testCase.timeout) ?? [];
-    groupedCases.push(testCase);
-    casesByTimeout.set(testCase.timeout, groupedCases);
-  }
-  return [...casesByTimeout].map(([timeout, groupedCases]) => ({
-    testCases: groupedCases,
-    timeout,
-  }));
 }
 
-export function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
-  return Promise.resolve(testCase.run());
+function resolveHarnessTestCaseTimeout(testCase: HarnessTestCase): number {
+  return testCase.timeout ?? VITEST_TEST_TIMEOUT;
+}
+
+export function prepareHarnessTestCases(testCases: readonly HarnessTestCase[]): readonly HarnessTestCase[] {
+  assertHarnessTestCasesPresent(testCases);
+  return testCases;
+}
+
+export function harnessTestCaseArguments(
+  testCases: readonly HarnessTestCase[],
+): readonly [string, (testCase: HarnessTestCase) => Promise<void>, number] {
+  assertHarnessTestCasesPresent(testCases);
+  return [
+    HARNESS_TEST_CASE_TITLE_PATTERN,
+    runHarnessTestCase,
+    Math.max(...testCases.map(resolveHarnessTestCaseTimeout)),
+  ];
+}
+
+export async function runHarnessTestCase(testCase: HarnessTestCase): Promise<void> {
+  const timeout = resolveHarnessTestCaseTimeout(testCase);
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(testCase.run),
+      new Promise<never>((_resolve, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(`harness test case timed out after ${timeout}ms`)), timeout);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
 }
