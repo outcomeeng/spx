@@ -38,7 +38,6 @@ const PREFIX_ADJACENT_SUFFIX = "-adjacent";
 /** Namespace prefix isolating each merged per-artifact scenario's paths. */
 const GRAPH_ARTIFACT_NAMESPACE = "artifact";
 /** Drive letter used when a canonical path yields none. */
-const FALLBACK_DRIVE_LETTER = "c";
 /** Designator between a drive letter and its root separator in a Windows drive-rooted path. */
 const WINDOWS_DRIVE_DESIGNATOR = ":";
 /** Current-directory segment for redundant-segment encodings. */
@@ -336,7 +335,7 @@ function encodeUnresolvablePath(variant: UnresolvablePathVariant, productDir: st
     case UNRESOLVABLE_PATH_VARIANT.FOREIGN_ABSOLUTE:
       return `${productDir}${PREFIX_ADJACENT_SUFFIX}${posix.sep}${canonicalPath}`;
     case UNRESOLVABLE_PATH_VARIANT.WINDOWS_DRIVE_ABSOLUTE: {
-      const drive = canonicalPath.slice(0, 1) || FALLBACK_DRIVE_LETTER;
+      const drive = canonicalPath.slice(0, 1);
       return `${drive.toUpperCase()}${WINDOWS_DRIVE_DESIGNATOR}${win32.sep}${
         canonicalPath.split(posix.sep).join(win32.sep)
       }`;
