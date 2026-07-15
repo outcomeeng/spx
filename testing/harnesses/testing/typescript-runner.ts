@@ -530,7 +530,7 @@ export function registerTypescriptRunnerComplianceTests(): void {
 export function registerTypescriptRunnerStreamingL2Tests(): void {
   describe("typescript descriptor journal-streaming run drives real vitest", () => {
     it("resolves the default vitest starter and streams evidence when driven with only a sink", async () => {
-      await withMixedVitestProject(async (projectRoot, testFileName) => {
+      await withMixedVitestProject(async (productDir, testFileName) => {
         const exitCodeBeforeRun = process.exitCode;
         const sink = createRecordingEvidenceSink();
 
@@ -541,7 +541,7 @@ export function registerTypescriptRunnerStreamingL2Tests(): void {
         expect(streamingRun).toBeDefined();
         if (streamingRun === undefined) return;
         const invocation = await streamingRun(
-          { projectRoot, testPaths: [testFileName] },
+          { productDir, testPaths: [testFileName] },
           { sink, isLanguagePresent: () => true },
         );
 
