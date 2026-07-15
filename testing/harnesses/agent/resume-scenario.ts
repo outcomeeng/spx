@@ -33,11 +33,11 @@ import {
   claudeProjectTranscriptPath,
   codexTranscript,
   codexTranscriptPath,
-  piTranscript,
-  piTranscriptPath,
   createInteractiveResumeProgram,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
+  piTranscript,
+  piTranscriptPath,
 } from "@testing/harnesses/agent/resume";
 import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
 

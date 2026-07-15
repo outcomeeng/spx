@@ -2,7 +2,9 @@ import { resolve } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
 
-import type { AgentHomeDirs } from "./home";
+import { type AgentHomeDirs, piSessionStoreDir } from "./home";
+
+export { piSessionStoreDir } from "./home";
 import {
   AGENT_RESUME_COMMAND,
   AGENT_RESUME_LIMITS,
@@ -20,7 +22,7 @@ import {
   CODEX_SESSION_ORIGINATOR,
   CODEX_SESSION_THREAD_SOURCE,
 } from "./protocol";
-import { firstString, parseJsonObject } from "./transcript-json";
+import { firstString, parseJsonObject, valueAtPath } from "./transcript-json";
 
 export interface AgentSessionDirEntry {
   readonly name: string;
@@ -115,11 +117,6 @@ const FIRST_PICKER_INDEX = 0;
 const PICKER_MOVE_UP_DELTA = -1;
 const PICKER_MOVE_DOWN_DELTA = 1;
 const PICKER_QUIT_INPUT = "q";
-const AGENT_RESUME_TIE_ORDER: Readonly<Record<AgentSessionKind, number>> = {
-  [AGENT_SESSION_KIND.CODEX]: 0,
-  [AGENT_SESSION_KIND.CLAUDE_CODE]: 1,
-};
-
 export class AgentResumeModeError extends Error {
   constructor(readonly selectedModes: readonly AgentResumeMode[]) {
     super(`${AGENT_RESUME_TEXT.MODE_CONFLICT}: ${selectedModes.join(", ")}`);
@@ -193,6 +190,60 @@ export function claudeProjectDirName(cwd: string): string {
   return cwd.replace(CLAUDE_PROJECT_PATH_SEPARATORS, CLAUDE_PROJECT_ENCODED_SEPARATOR);
 }
 
+interface AgentResumeAdapter {
+  readonly agent: AgentSessionKind;
+  readonly collectFiles: (
+    options: DiscoverAgentResumeCandidatesOptions,
+    scope: AgentResumeScopeContext,
+  ) => Promise<readonly string[]>;
+  readonly parseHead: (head: string) => AgentSessionHead | null;
+  readonly launch: (candidate: AgentResumeCandidate) => AgentResumeLaunchCommand;
+}
+
+export const AGENT_RESUME_ADAPTER_REGISTRY: Readonly<Record<AgentSessionKind, AgentResumeAdapter>> = {
+  [AGENT_SESSION_KIND.CODEX]: {
+    agent: AGENT_SESSION_KIND.CODEX,
+    collectFiles: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
+    parseHead: parseCodexHead,
+    launch: (candidate) => ({
+      command: AGENT_RESUME_COMMAND.CODEX_BINARY,
+      args: [AGENT_RESUME_COMMAND.CODEX_RESUME, candidate.sessionId],
+      cwd: candidate.cwd,
+    }),
+  },
+  [AGENT_SESSION_KIND.CLAUDE_CODE]: {
+    agent: AGENT_SESSION_KIND.CLAUDE_CODE,
+    collectFiles: (options, scope) =>
+      claudeTranscriptFiles(
+        claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
+        options.fs,
+        scope.claudeDirAccepts,
+      ),
+    parseHead: parseClaudeHead,
+    launch: (candidate) => ({
+      command: AGENT_RESUME_COMMAND.CLAUDE_BINARY,
+      args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, candidate.sessionId],
+      cwd: candidate.cwd,
+    }),
+  },
+  [AGENT_SESSION_KIND.PI]: {
+    agent: AGENT_SESSION_KIND.PI,
+    collectFiles: (options) =>
+      collectJsonlFiles(
+        piSessionStoreDir(options.agentHomeDirs.piAgent, options.agentHomeDirs.piSessions),
+        options.fs,
+      ),
+    parseHead: parsePiHead,
+    launch: (candidate) => ({
+      command: AGENT_RESUME_COMMAND.PI_BINARY,
+      args: [AGENT_RESUME_COMMAND.PI_SESSION, candidate.sourcePath],
+      cwd: candidate.cwd,
+    }),
+  },
+};
+
+const AGENT_RESUME_ADAPTERS: readonly AgentResumeAdapter[] = Object.values(AGENT_RESUME_ADAPTER_REGISTRY);
+
 export async function discoverAgentResumeCandidates(
   options: DiscoverAgentResumeCandidatesOptions,
 ): Promise<AgentResumeCandidate[]> {
@@ -203,44 +254,27 @@ export async function discoverAgentResumeCandidates(
 
   const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
   const recentWindowMs = options.sinceMs ?? AGENT_RESUME_RECENT_WINDOW_MS;
-  const [codex, claude] = await Promise.all([
-    collectAgentCandidates(
-      AGENT_SESSION_KIND.CODEX,
-      await recentStoreFiles(
-        await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
-        options.fs,
-        options.nowMs,
-        recentWindowMs,
-      ),
-      options.fs,
-      cap,
-      scope.match,
-      parseCodexHead,
-      options.nowMs,
-      options.sinceMs,
-    ),
-    collectAgentCandidates(
-      AGENT_SESSION_KIND.CLAUDE_CODE,
-      await recentStoreFiles(
-        await claudeTranscriptFiles(
-          claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
+  const perAgent = await Promise.all(
+    AGENT_RESUME_ADAPTERS.map(async (adapter) =>
+      collectAgentCandidates(
+        adapter.agent,
+        await recentStoreFiles(
+          await adapter.collectFiles(options, scope),
           options.fs,
-          scope.claudeDirAccepts,
+          options.nowMs,
+          recentWindowMs,
         ),
         options.fs,
+        cap,
+        scope.match,
+        adapter.parseHead,
         options.nowMs,
-        recentWindowMs,
-      ),
-      options.fs,
-      cap,
-      scope.match,
-      parseClaudeHead,
-      options.nowMs,
-      options.sinceMs,
+        options.sinceMs,
+      )
     ),
-  ]);
+  );
 
-  return [...codex, ...claude].sort(compareCandidates);
+  return perAgent.flat().sort(compareCandidates);
 }
 
 interface AgentResumeScopeContext {
@@ -265,18 +299,7 @@ async function resolveAgentResumeScopeContext(
 }
 
 export function buildAgentResumeLaunchCommand(candidate: AgentResumeCandidate): AgentResumeLaunchCommand {
-  if (candidate.agent === AGENT_SESSION_KIND.CODEX) {
-    return {
-      command: AGENT_RESUME_COMMAND.CODEX_BINARY,
-      args: [AGENT_RESUME_COMMAND.CODEX_RESUME, candidate.sessionId],
-      cwd: candidate.cwd,
-    };
-  }
-  return {
-    command: AGENT_RESUME_COMMAND.CLAUDE_BINARY,
-    args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, candidate.sessionId],
-    cwd: candidate.cwd,
-  };
+  return AGENT_RESUME_ADAPTER_REGISTRY[candidate.agent].launch(candidate);
 }
 
 export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[]): string {
@@ -527,6 +550,27 @@ export function parseClaudeHead(head: string): AgentSessionHead | null {
   return { sessionId, cwd, branch, updatedAt, interactive: true, subagent: false };
 }
 
+export function parsePiHead(head: string): AgentSessionHead | null {
+  const row = parseJsonObject(head.split("\n", 1)[0] ?? "");
+  if (row === null || firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) !== AGENT_SESSION_ROW_TYPE.PI_SESSION) {
+    return null;
+  }
+  const version = valueAtPath(row, [AGENT_SESSION_JSON_FIELDS.VERSION]);
+  const sessionId = firstString(row, [[AGENT_SESSION_JSON_FIELDS.ID]]);
+  const cwd = firstString(row, [[AGENT_SESSION_JSON_FIELDS.CWD]]);
+  if (!Number.isSafeInteger(version) || Number(version) <= 0 || sessionId === null || cwd === null) {
+    return null;
+  }
+  return {
+    sessionId,
+    cwd,
+    branch: null,
+    updatedAt: firstString(row, [[AGENT_SESSION_JSON_FIELDS.TIMESTAMP]]),
+    interactive: true,
+    subagent: false,
+  };
+}
+
 function latestTranscriptTimestampMs(transcriptSlice: string): number | null {
   let latest: number | null = null;
   for (const line of transcriptSlice.split("\n")) {
@@ -561,11 +605,15 @@ function compareCandidates(left: AgentResumeCandidate, right: AgentResumeCandida
   } else if (right.lastActivityAtMs !== null) {
     return 1;
   }
-  const agentDiff = AGENT_RESUME_TIE_ORDER[left.agent] - AGENT_RESUME_TIE_ORDER[right.agent];
+  const agentDiff = agentResumeAdapterOrder(left.agent) - agentResumeAdapterOrder(right.agent);
   if (agentDiff !== 0) {
     return agentDiff;
   }
   return compareCodeUnits(`${left.sessionId}:${left.sourcePath}`, `${right.sessionId}:${right.sourcePath}`);
+}
+
+function agentResumeAdapterOrder(agent: AgentSessionKind): number {
+  return AGENT_RESUME_ADAPTERS.findIndex((adapter) => adapter.agent === agent);
 }
 
 function compareCodeUnits(left: string, right: string): number {

@@ -23,7 +23,7 @@ import {
   type AgentResumeScope,
   agentSearchQueryFromOptions,
   type AgentSearchQueryOptions,
-  type AgentSessionKind,
+  type AgentSearchSessionKind,
   branchResumeScope,
   buildAgentResumeLaunchCommand,
   resolveAgentResumeMode,
@@ -152,7 +152,7 @@ function parseResumeSince(value: string): number {
   return parsed;
 }
 
-function parseSearchAgentKind(value: string): AgentSessionKind {
+function parseSearchAgentKind(value: string): AgentSearchSessionKind {
   if (value === AGENT_SESSION_KIND.CODEX || value === AGENT_SESSION_KIND.CLAUDE_CODE) {
     return value;
   }

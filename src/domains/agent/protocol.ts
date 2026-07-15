@@ -1,13 +1,22 @@
 export const AGENT_SESSION_KIND = {
   CODEX: "codex",
   CLAUDE_CODE: "claude-code",
+  PI: "pi",
 } as const;
 
 export type AgentSessionKind = (typeof AGENT_SESSION_KIND)[keyof typeof AGENT_SESSION_KIND];
 
+export const AGENT_SEARCH_SESSION_KINDS = [
+  AGENT_SESSION_KIND.CODEX,
+  AGENT_SESSION_KIND.CLAUDE_CODE,
+] as const;
+
+export type AgentSearchSessionKind = (typeof AGENT_SEARCH_SESSION_KINDS)[number];
+
 export const AGENT_SESSION_LABEL: Readonly<Record<AgentSessionKind, string>> = {
   [AGENT_SESSION_KIND.CODEX]: "Codex",
   [AGENT_SESSION_KIND.CLAUDE_CODE]: "Claude Code",
+  [AGENT_SESSION_KIND.PI]: "Pi",
 };
 
 export const AGENT_RESUME_COMMAND = {
@@ -15,6 +24,8 @@ export const AGENT_RESUME_COMMAND = {
   CODEX_RESUME: "resume",
   CLAUDE_BINARY: "claude",
   CLAUDE_RESUME: "--resume",
+  PI_BINARY: "pi",
+  PI_SESSION: "--session",
 } as const;
 
 export const AGENT_SESSION_STORE = {
@@ -23,6 +34,10 @@ export const AGENT_SESSION_STORE = {
   CLAUDE_DIR: ".claude",
   CLAUDE_PROJECTS_DIR: "projects",
   CLAUDE_SUBAGENTS_DIR: "subagents",
+  PI_DIR: ".pi",
+  PI_AGENT_DIR: "agent",
+  PI_SESSIONS_DIR: "sessions",
+  PI_SESSION_VERSION: 3,
   JSONL_EXTENSION: ".jsonl",
   TEXT_ENCODING: "utf8",
 } as const;
@@ -100,6 +115,7 @@ export const AGENT_SESSION_JSON_FIELDS = {
   BRANCH: "branch",
   GIT_BRANCH: "gitBranch",
   THREAD_SOURCE: "thread_source",
+  VERSION: "version",
 } as const;
 
 export const AGENT_TRANSCRIPT_GIT_COMMAND = {
@@ -178,6 +194,7 @@ export const AGENT_SESSION_ROW_TYPE = {
   CODEX_RESPONSE_ITEM: "response_item",
   CLAUDE_ASSISTANT: "assistant",
   CLAUDE_USER: "user",
+  PI_SESSION: "session",
 } as const;
 
 export const AGENT_TRANSCRIPT_PAYLOAD_TYPE = {
