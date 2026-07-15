@@ -963,8 +963,8 @@ function registerPropertyTests(): void {
       );
     });
 
-    it("rejects every generated duplicate-bearing configured documentation path set", async () => {
-      await assertProperty(
+    it("rejects every generated duplicate-bearing configured documentation path set", () => {
+      assertProperty(
         arbitraryDuplicateDocumentationPathSet(),
         (paths) => {
           expect(
@@ -979,8 +979,8 @@ function registerPropertyTests(): void {
       );
     });
 
-    it("rejects every generated sparse configured documentation path set", async () => {
-      await assertProperty(
+    it("rejects every generated sparse configured documentation path set", () => {
+      assertProperty(
         arbitrarySparseDocumentationPathSet(),
         (paths) => {
           expect(

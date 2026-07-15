@@ -1,4 +1,6 @@
-import { documentationSyncScenarioCases } from "@testing/harnesses/release/documentation-sync";
-import { registerHarnessTestCases } from "@testing/harnesses/vitest-registration";
+import { it } from "vitest";
 
-registerHarnessTestCases(documentationSyncScenarioCases);
+import { documentationSyncScenarioCases } from "@testing/harnesses/release/documentation-sync";
+import { HARNESS_TEST_CASE_TITLE_PATTERN, runHarnessTestCase } from "@testing/harnesses/vitest-registration";
+
+it.each([...documentationSyncScenarioCases])(HARNESS_TEST_CASE_TITLE_PATTERN, runHarnessTestCase);
