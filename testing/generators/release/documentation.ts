@@ -21,6 +21,7 @@ import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generat
 const DOCUMENT_COUNT_MIN = 1;
 const MULTI_DOCUMENT_COUNT_MIN = 2;
 const DOCUMENT_COUNT_MAX = 3;
+const CURRENT_DIRECTORY_SEGMENT = ".";
 const DOCUMENT_PREFIX = "# ";
 const VERSION_SEPARATOR = "\n\n";
 const SEMANTIC_VERSION_PRERELEASE_SEPARATOR = "-";
@@ -283,19 +284,32 @@ export function arbitraryNestedDocumentationSyncScenario(): fc.Arbitrary<Documen
     .chain((paths) => arbitraryDocumentationSyncScenario(fc.constant(paths), { paths }));
 }
 
-export function arbitraryDocumentationPathAliasCase(): fc.Arbitrary<DocumentationPathAliasCase> {
+export function arbitraryDocumentationPathAliasCases(): fc.Arbitrary<readonly DocumentationPathAliasCase[]> {
   return fc
-    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), arbitraryPathSegment())
-    .map(([directory, filename, content]) => {
+    .tuple(arbitraryPathSegment(), arbitraryDocumentationPath(), arbitraryPathSegment(), arbitraryPathSegment())
+    .map(([directory, filename, aliasDirectory, content]) => {
       const canonicalPath = `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`;
-      return {
-        canonicalPath,
-        configuredPath: canonicalPath.replaceAll(
-          RELEASE_DOCUMENTATION_PATH_SEPARATOR,
-          RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
-        ),
-        content,
-      };
+      return [
+        {
+          canonicalPath,
+          configuredPath: canonicalPath.replaceAll(
+            RELEASE_DOCUMENTATION_PATH_SEPARATOR,
+            RELEASE_DOCUMENTATION_WINDOWS_PATH_SEPARATOR,
+          ),
+          content,
+        },
+        {
+          canonicalPath,
+          configuredPath: `${CURRENT_DIRECTORY_SEGMENT}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${canonicalPath}`,
+          content,
+        },
+        {
+          canonicalPath,
+          configuredPath:
+            `${directory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${aliasDirectory}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${PATH_CONTAINMENT_PARENT_DIRECTORY}${RELEASE_DOCUMENTATION_PATH_SEPARATOR}${filename}`,
+          content,
+        },
+      ];
     });
 }
 
