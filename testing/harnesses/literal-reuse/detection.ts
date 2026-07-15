@@ -158,20 +158,29 @@ function collectFixture(fixture: DetectionFixture, fileOrder: readonly FixtureFi
 function canonicalSort(result: DetectionResult): DetectionResult {
   const compareLocation = (first: { file: string; line: number }, second: { file: string; line: number }) =>
     first.file.localeCompare(second.file) || first.line - second.line;
+  // Findings cite a set of source (or sibling-test) locations; their array order
+  // reflects file traversal order and is not part of the order-independent
+  // finding identity, so normalize the inner arrays before comparing.
+  const sortLocations = <T extends { file: string; line: number }>(locations: readonly T[]): T[] =>
+    [...locations].sort(compareLocation);
 
   return {
-    srcReuse: [...result.srcReuse].sort(
-      (first, second) =>
-        first.kind.localeCompare(second.kind)
-        || first.value.localeCompare(second.value)
-        || compareLocation(first.test, second.test),
-    ),
-    testDupe: [...result.testDupe].sort(
-      (first, second) =>
-        first.kind.localeCompare(second.kind)
-        || first.value.localeCompare(second.value)
-        || compareLocation(first.test, second.test),
-    ),
+    srcReuse: [...result.srcReuse]
+      .map((finding) => ({ ...finding, src: sortLocations(finding.src) }))
+      .sort(
+        (first, second) =>
+          first.kind.localeCompare(second.kind)
+          || first.value.localeCompare(second.value)
+          || compareLocation(first.test, second.test),
+      ),
+    testDupe: [...result.testDupe]
+      .map((finding) => ({ ...finding, otherTests: sortLocations(finding.otherTests) }))
+      .sort(
+        (first, second) =>
+          first.kind.localeCompare(second.kind)
+          || first.value.localeCompare(second.value)
+          || compareLocation(first.test, second.test),
+      ),
   };
 }
 
