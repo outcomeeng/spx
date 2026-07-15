@@ -97,6 +97,18 @@ export const JOURNAL_RUN_TERMINAL_STATUS = {
 /** Terminal status a journal-streaming run yields for the consumer to seal with. */
 export type JournalRunTerminalStatus = (typeof JOURNAL_RUN_TERMINAL_STATUS)[keyof typeof JOURNAL_RUN_TERMINAL_STATUS];
 
+/** Outcome of a descriptor's journal-streaming run: gated out by detection, or invoked with its terminal status. */
+export type JournalRunInvocation =
+  | {
+    /** Detection gated the runner out before any run started. */
+    readonly invoked: false;
+  }
+  | {
+    /** The run started and yielded this terminal status. */
+    readonly invoked: true;
+    readonly terminalStatus: JournalRunTerminalStatus;
+  };
+
 /** The scope a journal-streaming run covers: the project root and the test paths to run. */
 export interface JournalRunRequest {
   /** Project root the run executes against. */
@@ -109,6 +121,8 @@ export interface JournalRunRequest {
 export interface JournalStreamRunDependencies {
   /** The evidence-append port the run streams per-module scope and per-failing-case findings into. */
   readonly sink: TestRunEvidenceSink;
+  /** Optional test override for descriptor-owned language presence detection. */
+  readonly isLanguagePresent?: (projectRoot: string) => boolean;
 }
 
 /** A request to run a language's tests over a set of discovered paths. */
@@ -158,12 +172,14 @@ export interface TestingLanguageDescriptor {
     deps: RelatedTestDependencies,
   ): Promise<RelatedTestResolution>;
   /**
-   * Drives a journal-streaming run over the request's scope, streaming per-module scope and
-   * per-failing-case findings into the injected sink and yielding the run's terminal status. A
-   * language-neutral consumer reaches this through the testing registry without naming the runner.
+   * Drives a journal-streaming run over the request's scope, gated on detection: when the
+   * language is absent the run is gated out with no runner invoked, otherwise it streams
+   * per-module scope and per-failing-case findings into the injected sink and yields the run's
+   * terminal status. A language-neutral consumer reaches this through the testing registry
+   * without naming the runner.
    */
   runTestsStreaming?(
     request: JournalRunRequest,
     deps: JournalStreamRunDependencies,
-  ): Promise<JournalRunTerminalStatus>;
+  ): Promise<JournalRunInvocation>;
 }

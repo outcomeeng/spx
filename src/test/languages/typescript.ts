@@ -18,8 +18,8 @@ import {
   type VitestRunStarter,
 } from "@/test/languages/journal-reporter";
 import type {
+  JournalRunInvocation,
   JournalRunRequest,
-  JournalRunTerminalStatus,
   JournalStreamRunDependencies,
   RelatedTestDependencies,
   RelatedTestRequest,
@@ -405,10 +405,11 @@ async function relatedTestPaths(
 }
 
 /**
- * Drives the TypeScript journal-streaming run: delegates the programmatic Vitest run
- * and its reporter to `runTestsStreaming` in `./journal-reporter`, streaming per-module
- * scope and per-failing-case findings into the injected sink and yielding the run's
- * terminal status. The production Vitest run-starter is the default; an injected
+ * Drives the TypeScript journal-streaming run, gated on detection like `runTests`: when
+ * TypeScript is absent the run is gated out with no Vitest invoked. Otherwise it delegates
+ * the programmatic Vitest run and its reporter to `runTestsStreaming` in `./journal-reporter`,
+ * streaming per-module scope and per-failing-case findings into the injected sink and yielding
+ * the run's terminal status. The production Vitest run-starter is the default; an injected
  * starter lets `l1` tests drive synthetic lifecycle events without a real Vitest run. Widening
  * the descriptor's `{ sink }` dependency to `{ sink, starter? }` conforms to the neutral
  * `TestingLanguageDescriptor` contract while exposing the starter seam TypeScript verification needs.
@@ -416,11 +417,15 @@ async function relatedTestPaths(
 export async function runTestsStreaming(
   request: JournalRunRequest,
   deps: JournalStreamRunDependencies & { readonly starter?: VitestRunStarter },
-): Promise<JournalRunTerminalStatus> {
-  return reporterRunTestsStreaming(request, {
+): Promise<JournalRunInvocation> {
+  if (!detect(request.projectRoot, deps)) {
+    return { invoked: false };
+  }
+  const terminalStatus = await reporterRunTestsStreaming(request, {
     sink: deps.sink,
     starter: deps.starter ?? createVitestRunStarter(),
   });
+  return { invoked: true, terminalStatus };
 }
 
 export const typescriptTestingLanguage: TestingLanguageDescriptor = {
