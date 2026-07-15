@@ -1,3 +1,5 @@
+import { isPathContained } from "@/lib/file-system/pathContainment";
+
 /**
  * The dependency-injected boundary for agent-authored artifacts. A release child
  * supplies a prompt and a working directory; the runner drives the model to write
@@ -50,11 +52,13 @@ export type AgentToolPermissionBehavior =
   (typeof AGENT_TOOL_PERMISSION_BEHAVIOR)[keyof typeof AGENT_TOOL_PERMISSION_BEHAVIOR];
 
 export function authorizeAgentFileToolPath(
-  _workingDirectory: string,
+  workingDirectory: string,
   tool: AgentRunTool,
-  _filePath: string,
+  filePath: string,
 ): AgentToolPermissionBehavior {
-  return tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT
+  return (tool === AGENT_RUN_TOOLS.WRITE || tool === AGENT_RUN_TOOLS.EDIT)
+      && filePath.length > 0
+      && isPathContained(workingDirectory, filePath)
     ? AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW
     : AGENT_TOOL_PERMISSION_BEHAVIOR.DENY;
 }
