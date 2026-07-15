@@ -224,6 +224,7 @@ export async function assertExecutorDrivesRunnerAndReportsLocator(): Promise<voi
 
   expect(result.executed).toBe(true);
   if (!result.executed) return;
+  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
   expect(result.run.runToken.length).toBeGreaterThan(0);
   expect(result.run.verificationType).toBe(VERIFY_VERIFICATION_TYPE.TEST);
   expect(result.run.scopeIdentity).toBe(harness.request.scope);
