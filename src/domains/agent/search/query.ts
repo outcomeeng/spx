@@ -3,7 +3,7 @@ import {
   AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
   type AgentSearchMatchReason,
-  type AgentSessionKind,
+  type AgentSearchSessionKind,
 } from "../protocol";
 
 export interface AgentSearchContentNeedle {
@@ -15,7 +15,7 @@ export interface AgentSearchQuery {
   readonly contentNeedles: readonly AgentSearchContentNeedle[];
   readonly sessionId: string | null;
   readonly branch: string | null;
-  readonly agent: AgentSessionKind | null;
+  readonly agent: AgentSearchSessionKind | null;
   readonly includeAll: boolean;
   readonly limit: number;
 }
@@ -25,7 +25,7 @@ export interface AgentSearchQueryOptions {
   readonly contains?: string;
   readonly sessionId?: string;
   readonly branch?: string;
-  readonly agent?: AgentSessionKind;
+  readonly agent?: AgentSearchSessionKind;
   readonly all?: boolean;
   readonly limit?: number;
 }

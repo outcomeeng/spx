@@ -4,7 +4,7 @@ import {
   AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_KIND,
   type AgentSearchMatchReason,
-  type AgentSessionKind,
+  type AgentSearchSessionKind,
 } from "../protocol";
 import {
   type AgentSessionFileStat,
@@ -51,7 +51,7 @@ export interface AgentSearchOptions {
 }
 
 export interface AgentSearchResult {
-  readonly agent: AgentSessionKind;
+  readonly agent: AgentSearchSessionKind;
   readonly sessionId: string;
   readonly cwd: string;
   readonly sourcePath: string;
@@ -75,7 +75,7 @@ export async function searchAgentSessions(options: AgentSearchOptions): Promise<
 }
 
 async function searchAgentStore(
-  agent: AgentSessionKind,
+  agent: AgentSearchSessionKind,
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
@@ -115,7 +115,7 @@ function claudeDirAcceptsProductScope(
 }
 
 async function collectMatchingSessions(
-  agent: AgentSessionKind,
+  agent: AgentSearchSessionKind,
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
   parseHead: AgentHeadParser,
@@ -196,7 +196,7 @@ function coreCanHaveScopedSearchResult(
 }
 
 async function matchReasons(
-  agent: AgentSessionKind,
+  agent: AgentSearchSessionKind,
   core: AgentSessionHead,
   path: string,
   options: AgentSearchOptions,
@@ -258,7 +258,7 @@ function cwdMatchesSearchInputScope(
 }
 
 function metadataMatchReasons(
-  agent: AgentSessionKind,
+  agent: AgentSearchSessionKind,
   core: AgentSessionHead,
   query: AgentSearchQuery,
 ): AgentSearchMatchReason[] | null {
