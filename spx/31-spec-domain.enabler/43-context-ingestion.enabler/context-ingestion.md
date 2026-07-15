@@ -23,6 +23,7 @@ CAN receive the complete read set for a node — methodology identity, product r
 - Given the machine output mode requests document content, when the manifest is built, then every read entry carries the document's exact UTF-8 content, its raw-byte digest naming the hash algorithm, and its byte count, and no listed entry carries content, digest, or byte count ([test](tests/content.scenario.l1.test.ts))
 - Given a read document whose bytes are not valid UTF-8, when document content is requested, then the command fails naming the exact document path ([test](tests/content.scenario.l1.test.ts))
 - Given a read document that cannot be read, when document content is requested, then the command fails naming the exact document path ([test](tests/content.scenario.l1.test.ts))
+- Given a citation-scanned structural document that cannot be read, when document content is not requested, then the document stays a read entry and the command succeeds ([test](tests/content.scenario.l1.test.ts))
 - Given the machine output mode does not request document content, when the manifest is built, then no entry carries content, digest, or byte count ([test](tests/content.scenario.l1.test.ts))
 
 ### Properties
