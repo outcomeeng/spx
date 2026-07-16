@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
-import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { arbitraryFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
@@ -39,15 +37,8 @@ describe("verify changeset scope properties", () => {
             scope.verificationType,
           ),
         );
-        expect(started.report.locator).toMatchObject({
-          runToken: started.report.runToken,
-          verificationType: scope.verificationType,
-          scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-          scopeIdentity: scope.scopeIdentity,
-          backendIdentity: JOURNAL_BACKEND.LOCAL,
-        });
-        expect(started.report.locator.runTarget).toContain(started.report.runToken);
-        expect(started.report.locator.runTarget).toContain(started.report.locator.storageNamespace);
+        expect(started.report.locator).toStrictEqual(started.expectedLocator);
+        expect(started.runTargetExists).toBe(true);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -58,15 +49,8 @@ describe("verify changeset scope properties", () => {
       arbitraryFileScopeIdentityScenario(),
       async (scope) => {
         const started = await startFileScopeRun(scope.input);
-        expect(started.report.locator).toMatchObject({
-          runToken: started.report.runToken,
-          verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
-          scopeType: VERIFY_SCOPE_TYPE.FILE,
-          scopeIdentity: scope.normalized,
-          backendIdentity: JOURNAL_BACKEND.LOCAL,
-        });
-        expect(started.report.locator.runTarget).toContain(started.report.runToken);
-        expect(started.report.locator.runTarget).toContain(started.report.locator.storageNamespace);
+        expect(started.report.locator).toStrictEqual(started.expectedLocator);
+        expect(started.runTargetExists).toBe(true);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

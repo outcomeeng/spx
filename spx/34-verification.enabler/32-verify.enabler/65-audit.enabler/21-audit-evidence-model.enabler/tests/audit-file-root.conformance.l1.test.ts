@@ -10,10 +10,17 @@ import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/veri
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("audit file-root conformance", () => {
-  it("accepts a matching required root and related child", () => {
+  it("requires a matching root before accepting a related child", () => {
     assertProperty(
       arbitraryFileAuditScopeScenario(),
       (scenario) => {
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.childPayload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.rootPayload,
