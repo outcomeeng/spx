@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { projectVerifyRun, VERIFY_APPEND_EVENT_TYPE } from "@/domains/verify/verify";
+import { projectVerifyRun } from "@/domains/verify/verify";
 import {
   arbitraryAuditChangesetProjectionScenario,
   arbitraryFileAuditScopeScenario,
@@ -24,16 +24,11 @@ describe("audit scope projection", () => {
   });
 
   it("represents clean audited coverage without adding a finding", () => {
-    expect(
-      projectVerifyRun([
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-      ]).findingCount,
-    ).toBe(0);
-    expect([
+    expect(projectVerifyRun([
       sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-    ].filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
-    expect([
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-    ].filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
+    ])).toMatchObject({
+      auditScopeUnits: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload],
+      findingCount: 0,
+    });
   });
 });
