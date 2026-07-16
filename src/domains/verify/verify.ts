@@ -1359,6 +1359,7 @@ export interface VerifyRunProjection {
   readonly findingCount: number;
   readonly lastSequence: number;
   readonly nextActions: readonly string[];
+  readonly auditScopeUnits: readonly AuditScopeUnit[];
 }
 
 /**
@@ -1438,5 +1439,6 @@ export function projectVerifyRun(
     findingCount: countVerifyFindings(events),
     lastSequence: lastSequenceOf(events),
     nextActions: sealed ? [] : unsealedNextActionsForDriveMode(driveMode),
+    auditScopeUnits: auditScopeUnitsFromEvents(events),
   };
 }

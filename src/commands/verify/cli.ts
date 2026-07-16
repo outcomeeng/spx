@@ -19,6 +19,7 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
 import {
+  type AuditScopeUnit,
   buildAppendEvent,
   buildRunContextEvent,
   buildRunLocator,
@@ -253,6 +254,7 @@ export interface VerifyRenderReport {
   readonly terminalMetadata?: JsonValue;
   readonly nextActions: readonly string[];
   readonly events: readonly JournalEvent[];
+  readonly auditScopeUnits: readonly AuditScopeUnit[];
 }
 
 interface VerifyResolvedScope {
@@ -1442,6 +1444,7 @@ export async function verifyRenderCommand(
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     nextActions: projection.nextActions,
     events: events.value,
+    auditScopeUnits: projection.auditScopeUnits,
   };
   return okResult(JSON.stringify(report));
 }
