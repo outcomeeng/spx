@@ -1,6 +1,9 @@
 import * as fc from "fast-check";
+import { join, win32 } from "node:path";
 
+import type { VerificationContextCreateCliOptions } from "@/commands/verification-context/cli";
 import {
+  VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
   VERIFICATION_CONTEXT_PERSISTENCE,
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
@@ -11,6 +14,27 @@ import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const SAMPLE_SEED = 0x565843;
+
+export interface VerificationContextFileScenario {
+  readonly request: VerificationContextCreateCliOptions & {
+    readonly subject: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.FILE;
+    readonly path: string;
+  };
+  readonly createdAt: Date;
+}
+
+export interface VerificationContextChangesetScenario {
+  readonly request: VerificationContextCreateCliOptions & {
+    readonly subject: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET;
+    readonly base: string;
+    readonly head: string;
+  };
+  readonly createdAt: Date;
+}
+
+export type VerificationContextCliScenario =
+  | VerificationContextFileScenario
+  | VerificationContextChangesetScenario;
 
 export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
   predicate: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
@@ -55,4 +79,62 @@ export function sampleVerificationContextTestValue<T>(arbitrary: fc.Arbitrary<T>
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
   if (value === undefined) throw new Error("Verification-context test generator returned no sample");
   return value;
+}
+
+export function createVerificationContextFileScenario(): VerificationContextFileScenario {
+  return {
+    request: {
+      subject: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+      path: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.filePath()),
+      predicate: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.predicate()),
+      workflow: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.workflow()),
+    },
+    createdAt: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt()),
+  };
+}
+
+export function createVerificationContextChangesetScenario(): VerificationContextChangesetScenario {
+  return {
+    request: {
+      subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+      base: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.changesetRef()),
+      head: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.changesetRef()),
+      predicate: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.predicate()),
+      workflow: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.workflow()),
+    },
+    createdAt: sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt()),
+  };
+}
+
+export function createWindowsVerificationContextFileScenario(): VerificationContextFileScenario {
+  const scenario = createVerificationContextFileScenario();
+  return {
+    ...scenario,
+    request: {
+      ...scenario.request,
+      path: scenario.request.path.replaceAll(
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      ),
+    },
+  };
+}
+
+export function unsafeVerificationContextFileSubjectPaths(
+  productDir: string,
+  path: string,
+): readonly string[] {
+  const parentSegments = Array.from(
+    { length: path.split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL).length + 1 },
+    () => VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT,
+  );
+  return [
+    productDir,
+    win32.resolve(productDir, path),
+    VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT,
+    join(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT, path),
+    win32.join(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT, path),
+    `C:${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
+    join(path, ...parentSegments, path),
+  ];
 }
