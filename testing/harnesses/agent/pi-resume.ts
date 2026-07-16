@@ -1,7 +1,7 @@
 import type { SpawnOptions } from "node:child_process";
 
 import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
-import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   branchResumeScope,
@@ -28,6 +28,7 @@ import {
   agentResumeMultiRootResolver,
   agentResumeWorktreeRootResolver,
   agentSessionJsonlName,
+  agentTranscriptActivityRow,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   codexTranscript,
@@ -39,6 +40,73 @@ import {
   piTranscriptPath,
 } from "@testing/harnesses/agent/resume";
 import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
+
+interface PiSinceEvidence {
+  readonly actualSessionIds: readonly string[];
+  readonly recentSessionId: string;
+  readonly staleSessionId: string;
+  readonly recentActivityAtMs: number;
+  readonly actualActivityAtMs: number | null;
+  readonly maxTailReadBytes: number;
+}
+
+const PI_SINCE_WINDOW_MS = 60_000;
+const PI_RECENT_ACTIVITY_AGE_MS = 30_000;
+const PI_STALE_ACTIVITY_AGE_MS = 120_000;
+
+export async function withPiSinceEvidence(
+  callback: (evidence: PiSinceEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 430);
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 431);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 432);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 433);
+  const recentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 434);
+  const staleSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 435);
+  const recentActivityAtMs = nowMs - PI_RECENT_ACTIVITY_AGE_MS;
+  const staleActivityAtMs = nowMs - PI_STALE_ACTIVITY_AGE_MS;
+  const filler = "x".repeat(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES * 2);
+  const transcriptPath = piTranscriptPath(homeDir, agentSessionJsonlName(recentSessionId));
+
+  fs.writeFile(
+    transcriptPath,
+    [
+      piTranscript({ sessionId: recentSessionId, cwd, timestamp: new Date(staleActivityAtMs).toISOString() }),
+      filler,
+      agentTranscriptActivityRow(new Date(recentActivityAtMs).toISOString()),
+    ].join("\n"),
+    nowMs,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(staleSessionId)),
+    [
+      piTranscript({ sessionId: staleSessionId, cwd, timestamp: new Date(staleActivityAtMs).toISOString() }),
+      filler,
+      agentTranscriptActivityRow(new Date(staleActivityAtMs).toISOString()),
+    ].join("\n"),
+    nowMs,
+  );
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    scope: worktreeResumeScope(),
+    sinceMs: PI_SINCE_WINDOW_MS,
+    fs,
+    resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(worktreeRoot),
+  });
+  callback({
+    actualSessionIds: candidates.map((candidate) => candidate.sessionId),
+    recentSessionId,
+    staleSessionId,
+    recentActivityAtMs,
+    actualActivityAtMs: candidates.find((candidate) => candidate.sessionId === recentSessionId)?.lastActivityAtMs
+      ?? null,
+    maxTailReadBytes: fs.maxTailReadBytes(transcriptPath),
+  });
+}
 
 interface PiWorktreeScopeEvidence {
   readonly actualCandidates: readonly (readonly [string, string])[];
