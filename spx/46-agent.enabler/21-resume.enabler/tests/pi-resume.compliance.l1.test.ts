@@ -8,8 +8,12 @@ import {
   withDefaultAgentSessionStoreEvidence,
   withPiAgentDirectoryEvidence,
 } from "@testing/harnesses/agent/home";
-import { withPiBranchScopeEvidence, withPiSinceEvidence } from "@testing/harnesses/agent/pi-resume";
-import { withPiPerAgentCapEvidence, withPiSessionHeaderEvidence } from "@testing/harnesses/agent/resume";
+import {
+  withPiBranchScopeEvidence,
+  withPiPerAgentCapEvidence,
+  withPiSessionHeaderEvidence,
+  withPiSinceEvidence,
+} from "@testing/harnesses/agent/pi-resume";
 
 describe("Pi resume compliance", () => {
   it("applies the per-agent cap and total candidate bound to Pi sessions", async () => {
