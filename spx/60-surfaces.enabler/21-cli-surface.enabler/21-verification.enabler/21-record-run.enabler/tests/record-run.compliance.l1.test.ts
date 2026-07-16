@@ -4,6 +4,7 @@ import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import {
   inspectVerificationEvidenceCommands,
+  inspectVerificationRunCommandNames,
   inspectVerificationRunNounGroup,
   recordVerificationRunHandlerOptions,
 } from "@testing/harnesses/verify/harness";
@@ -33,6 +34,12 @@ describe("record run compliance", () => {
     VERIFICATION_RUN_CLI_SURFACE.forbiddenRunHelpTerms.forEach((forbiddenHelpTerm) => {
       expect(inspectVerificationEvidenceCommands().scopePayloadDescription).not.toContain(forbiddenHelpTerm);
       expect(inspectVerificationEvidenceCommands().findingPayloadDescription).not.toContain(forbiddenHelpTerm);
+    });
+    expect(inspectVerificationRunCommandNames().rootCommandNames).not.toContain(
+      VERIFICATION_RUN_CLI_SURFACE.forbiddenRootCommandName,
+    );
+    VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames.forEach((forbiddenCommandName) => {
+      expect(inspectVerificationRunCommandNames().verificationCommandNames).not.toContain(forbiddenCommandName);
     });
   });
 

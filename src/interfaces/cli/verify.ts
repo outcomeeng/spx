@@ -20,7 +20,7 @@ import {
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
 import type { Domain } from "@/domains/types";
-import { VERIFY_INPUT_SOURCE, VERIFY_VERB } from "@/domains/verify/verify";
+import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB } from "@/domains/verify/verify";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
@@ -51,7 +51,9 @@ export const VERIFY_CLI = {
   renderCommandName: VERIFY_VERB.RENDER,
   verificationTypeOption: "--verification-type <type>",
   scopeTypeOption: "--scope-type <scope-type>",
-  scopeOption: "--scope <base>..<head>",
+  scopeOption: "--scope <scope>",
+  scopeTypeOptionDescription: `Scope type; ${VERIFY_SCOPE_TYPE.CHANGESET} or ${VERIFY_SCOPE_TYPE.FILE}`,
+  scopeOptionDescription: "Scope identity; <base>..<head> or a product-relative file path",
   inputOption: "--input <input-source>",
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
@@ -156,8 +158,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.startCommandName)
     .description("Start a changeset-scoped verification run and report its run locator")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
@@ -167,8 +169,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.inputCommandName)
     .description("Replay the verification input recorded at start")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .action(async (options: VerifyInputActionOptions) => {
       reportCliResult(await handlers.input(options, deps()), invocation.io);
@@ -182,8 +184,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.addCommandName)
     .description("Record the inspected scope for a started run")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .requiredOption(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
@@ -199,8 +201,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.addCommandName)
     .description("Record a validated verification finding for a started run")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .requiredOption(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
@@ -212,8 +214,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.finishCommandName)
     .description("Record terminal completion, seal the run journal, and report its terminal projection")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .requiredOption(VERIFY_CLI.terminalStatusOption, "Terminal status recorded before sealing")
     .option(VERIFY_CLI.terminalMetadataOption, "Verification-type terminal metadata source; stdin or a file path")
@@ -225,8 +227,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.statusCommandName)
     .description("Report the run's resumable status projected from its journal history")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .action(async (options: VerifyRunActionOptions) => {
       reportCliResult(await handlers.status(options, deps()), invocation.io);
@@ -236,8 +238,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.renderCommandName)
     .description("Render the run's journal projection with its authoritative finding count")
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
-    .requiredOption(VERIFY_CLI.scopeTypeOption, "Scope type; changeset")
-    .requiredOption(VERIFY_CLI.scopeOption, "Changeset scope as <base>..<head>")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .action(async (options: VerifyRunActionOptions) => {
       reportCliResult(await handlers.render(options, deps()), invocation.io);
