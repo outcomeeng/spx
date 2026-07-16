@@ -650,6 +650,11 @@ export interface StartedFileScopeRun {
   readonly nameStatusCalls: number;
 }
 
+export interface StartedChangesetScopeRun {
+  readonly report: VerifyStartReport;
+  readonly context: VerificationContextDocument;
+}
+
 async function startVerifyRun(scenario: VerifyRunContextScenario): Promise<StartedVerifyRun> {
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
@@ -661,6 +666,36 @@ async function startVerifyRun(scenario: VerifyRunContextScenario): Promise<Start
 
 export async function startReportFor(scenario: VerifyRunContextScenario): Promise<VerifyStartReport> {
   return (await startVerifyRun(scenario)).report;
+}
+
+async function readStartedVerificationContext(
+  scenario: VerifyRunContextScenario,
+  report: VerifyStartReport,
+  fs: VerifyStateStoreFileSystem,
+): Promise<VerificationContextDocument> {
+  const branchSlug = slugBranchIdentity(resolveBranchIdentity({
+    branchName: scenario.branchIdentity,
+    headSha: scenario.headSha,
+  }));
+  const contextPath = verificationContextFilePath({
+    productDir: scenario.productDir,
+    branchSlug,
+    digest: report.contextDigest,
+  });
+  if (!contextPath.ok) throw new Error(`verify harness: context path failed: ${contextPath.error}`);
+  return JSON.parse(
+    await fs.readFile(contextPath.value, STATE_STORE_TEXT_ENCODING),
+  ) as VerificationContextDocument;
+}
+
+export async function startChangesetScopeRun(
+  scenario: VerifyRunContextScenario,
+): Promise<StartedChangesetScopeRun> {
+  const started = await startVerifyRun(scenario);
+  return {
+    report: started.report,
+    context: await readStartedVerificationContext(scenario, started.report, started.fs),
+  };
 }
 
 export async function startFileScopeRun(path: string): Promise<StartedFileScopeRun> {
@@ -685,19 +720,7 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
     throw new Error(`verify file-scope start failed in harness: ${started.output}`);
   }
   const report = parseStartReport(started.output);
-  const branchSlug = slugBranchIdentity(resolveBranchIdentity({
-    branchName: scenario.branchIdentity,
-    headSha: scenario.headSha,
-  }));
-  const contextPath = verificationContextFilePath({
-    productDir: scenario.productDir,
-    branchSlug,
-    digest: report.contextDigest,
-  });
-  if (!contextPath.ok) throw new Error(`verify harness: context path failed: ${contextPath.error}`);
-  const context = JSON.parse(
-    await fs.readFile(contextPath.value, STATE_STORE_TEXT_ENCODING),
-  ) as VerificationContextDocument;
+  const context = await readStartedVerificationContext(scenario, report, fs);
   return { report, context, nameStatusCalls };
 }
 

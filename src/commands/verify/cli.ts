@@ -163,6 +163,14 @@ export interface VerifyInputCliOptions {
   readonly run: string;
 }
 
+export const VERIFY_START_REPORT_FIELD = {
+  RUN_TOKEN: "runToken",
+  CONTEXT_DIGEST: "contextDigest",
+  RESOLVED_SCOPE: "resolvedScope",
+  INPUT: "input",
+  LOCATOR: "locator",
+} as const;
+
 export interface VerifyStartReport {
   readonly runToken: string;
   readonly contextDigest: string;

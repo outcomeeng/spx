@@ -48,4 +48,27 @@ describe("audit file-root conformance", () => {
       { level: PROPERTY_LEVEL.L1 },
     );
   });
+
+  it("rejects a first unit with a parent or optional coverage", () => {
+    assertProperty(
+      arbitraryFileAuditScopeScenario(),
+      (scenario) => {
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.parentedRootPayload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.optionalRootPayload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
 });

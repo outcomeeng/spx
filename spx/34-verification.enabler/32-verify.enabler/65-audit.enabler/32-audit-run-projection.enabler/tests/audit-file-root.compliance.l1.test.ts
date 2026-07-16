@@ -18,6 +18,14 @@ describe("audit file-root terminal compliance", () => {
           ok: false,
           error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
         });
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+          events: [scenario.mismatchedRootEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({
+          ok: false,
+          error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+        });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
