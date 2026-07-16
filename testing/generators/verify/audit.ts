@@ -17,9 +17,14 @@ import {
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
 const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
+const AUDIT_COVERED_COVERAGE_STATUSES = [
+  AUDIT_COVERAGE_STATUS.AUDITED,
+  AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
+] as const;
 const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status) =>
   status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
 );
@@ -105,21 +110,23 @@ function arbitraryAuditScopeFields(): fc.Arbitrary<Omit<AuditScopeUnit, keyof Au
 }
 
 export function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
-  return fc.oneof(
-    arbitraryExecutedAuditScopeUnit(),
-    fc
-      .tuple(
-        fc.constantFrom(...Object.values(AUDIT_CLASS)),
-        arbitraryAuditScopeFields(),
-        fc.constantFrom(...AUDIT_UNCOVERED_COVERAGE_STATUSES),
-      )
-      .map(([auditClass, { producerProvenance: _producerProvenance, ...fields }, coverageStatus]) => ({
-        ...fields,
-        auditClass,
-        auditKind: AUDIT_KIND.COVERAGE_GAP,
-        coverageStatus,
-      })),
-  );
+  return fc
+    .oneof(
+      arbitraryExecutedAuditScopeUnit(),
+      fc
+        .tuple(
+          fc.constantFrom(...Object.values(AUDIT_CLASS)),
+          arbitraryAuditScopeFields(),
+          fc.constantFrom(...AUDIT_UNCOVERED_COVERAGE_STATUSES),
+        )
+        .map(([auditClass, { producerProvenance: _producerProvenance, ...fields }, coverageStatus]) => ({
+          ...fields,
+          auditClass,
+          auditKind: AUDIT_KIND.COVERAGE_GAP,
+          coverageStatus,
+        })),
+    )
+    .filter((unit) => unit.parentUnitId !== unit.unitId);
 }
 
 function arbitraryExecutedAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
@@ -200,7 +207,33 @@ function arbitraryInvalidAuditScopeUnit(): fc.Arbitrary<JsonValue> {
       auditKind: AUDIT_KIND.SKILL,
     })),
     arbitraryAuditScopeUnit().map((unit) => ({ ...unit, parentUnitId: unit.unitId })),
+    fc
+      .tuple(
+        arbitraryExecutedAuditScopeUnit(),
+        fc.constantFrom(...AUDIT_COVERED_COVERAGE_STATUSES),
+      )
+      .map(([unit, coverageStatus]) => {
+        const { producerProvenance: _producerProvenance, ...fields } = unit;
+        return auditScopePayload({
+          ...fields,
+          auditKind: AUDIT_KIND.COVERAGE_GAP,
+          coverageStatus,
+        });
+      }),
   ) as fc.Arbitrary<JsonValue>;
+}
+
+export function invalidCoveredCoverageGapAuditScopePayloads(): readonly JsonValue[] {
+  const { producerProvenance: _producerProvenance, ...fields } = sampleVerifyTestValue(
+    arbitraryExecutedAuditScopeUnit(),
+  );
+  return AUDIT_COVERED_COVERAGE_STATUSES.map((coverageStatus) =>
+    auditScopePayload({
+      ...fields,
+      auditKind: AUDIT_KIND.COVERAGE_GAP,
+      coverageStatus,
+    })
+  );
 }
 
 function arbitraryInvalidAuditFinding(): fc.Arbitrary<JsonValue> {

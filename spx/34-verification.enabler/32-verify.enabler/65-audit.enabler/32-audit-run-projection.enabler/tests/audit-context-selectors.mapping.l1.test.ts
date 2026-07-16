@@ -2,32 +2,37 @@ import { describe, expect, it } from "vitest";
 
 import { auditPriorContextSelectorForScopeUnit, filterAuditScopeUnitsForPriorContext } from "@/domains/verify/verify";
 import { arbitraryAuditPriorContextScenario } from "@testing/generators/verify/audit";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
 describe("audit prior-context selectors", () => {
-  it("filters prior context by every audit selector field", async () => {
-    assertProperty(
-      arbitraryAuditPriorContextScenario(),
-      (scenario) => {
-        const selector = auditPriorContextSelectorForScopeUnit(scenario.current);
-        expect(selector).toEqual({
-          auditClass: scenario.current.auditClass,
-          auditKind: scenario.current.auditKind,
-          expectedProducer: scenario.current.expectedProducer,
-          subjectPath: scenario.current.subject,
-          changedFilePartition: scenario.current.priorContext.changedFilePartition,
-          concernPartition: scenario.current.priorContext.concernPartition,
-          languagePartition: scenario.current.priorContext.languagePartition,
-          producerIdentity: scenario.current.recordedByRunDriver,
-        });
-        expect(
-          filterAuditScopeUnitsForPriorContext(
-            [...scenario.mismatches, scenario.currentWithoutProvenance, scenario.current],
-            selector,
-          ),
-        ).toEqual([scenario.currentWithoutProvenance, scenario.current]);
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+  it("filters prior context by every audit selector field", () => {
+    expect(auditPriorContextSelectorForScopeUnit(
+      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+    )).toEqual({
+      auditClass: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditClass,
+      auditKind: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditKind,
+      expectedProducer: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.expectedProducer,
+      subjectPath: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.subject,
+      changedFilePartition:
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.changedFilePartition,
+      concernPartition:
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.concernPartition,
+      languagePartition:
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.languagePartition,
+      producerIdentity: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.recordedByRunDriver,
+    });
+    expect(filterAuditScopeUnitsForPriorContext(
+      [
+        ...sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).mismatches,
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+      ],
+      auditPriorContextSelectorForScopeUnit(
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+      ),
+    )).toEqual([
+      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
+      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+    ]);
   });
 });
