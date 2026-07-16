@@ -243,6 +243,36 @@ export function withImmediateParentControllingProcessEvidence(
   callback({ result: resolveControllingProcess(selfPid, table, {}), processPid: parentPid, startedAt, host });
 }
 
+export function withIncidentalPiTextEvidence(callback: (evidence: ControllingProcessEvidence) => void): void {
+  const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+  const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+  const [selfPid, parentPid, ancestorPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const table = createProcessTable({
+    host,
+    processes: new Map<number, ProcessTableEntry>([
+      [selfPid, { ppid: parentPid }],
+      [
+        parentPid,
+        {
+          ppid: ancestorPid,
+          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.nonAgentCommand()),
+          startTime: startedAt,
+          alive: true,
+        },
+      ],
+      [
+        ancestorPid,
+        {
+          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.incidentalPiCommand()),
+          startTime: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime()),
+          alive: true,
+        },
+      ],
+    ]),
+  });
+  callback({ result: resolveControllingProcess(selfPid, table, {}), processPid: parentPid, startedAt, host });
+}
+
 export function withInvalidParentPidEvidence(callback: (evidence: InvalidControllingProcessEvidence) => void): void {
   const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
   const table = createProcessTable({

@@ -5,6 +5,7 @@ import {
   withAgentAncestorEvidence,
   withControllingPidOverrideEvidence,
   withImmediateParentControllingProcessEvidence,
+  withIncidentalPiTextEvidence,
   withInterpretedAgentAncestorEvidence,
   withInvalidParentPidEvidence,
   withPiControllingProcessEvidence,
@@ -74,6 +75,18 @@ describe("worktree controlling-process resolution", () => {
 
   it("falls back to the immediate parent when no ancestor names an agent runtime", () => {
     withImmediateParentControllingProcessEvidence((evidence) => {
+      expect(evidence.result.ok).toBe(true);
+      if (!evidence.result.ok) throw new Error(evidence.result.error);
+      expect(evidence.result.value).toEqual({
+        pid: evidence.processPid,
+        startedAt: evidence.startedAt,
+        host: evidence.host,
+      });
+    });
+  });
+
+  it("does not treat incidental Pi path or argument text as an agent command", () => {
+    withIncidentalPiTextEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.result.value).toEqual({
