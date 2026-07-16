@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_RESUME_COMMAND } from "@/domains/agent/protocol";
 import {
+  withAllAgentLaunchMappingEvidence,
   withPiBranchCliScopeEvidence,
-  withPiLaunchMappingEvidence,
   withPiScopeMappingEvidence,
 } from "@testing/harnesses/agent/pi-resume";
 
@@ -11,7 +11,7 @@ describe("Pi resume mappings", () => {
   it("maps worktree scope to Pi inclusion and branch scope to branchless Pi exclusion", async () => {
     await withPiScopeMappingEvidence((evidence) => {
       expect(evidence.actualRows).toEqual([
-        [evidence.worktreeOnTarget, evidence.worktreeOnOther, evidence.piInWorktree],
+        [evidence.worktreeOnTarget, evidence.worktreeOnOther, evidence.claudeInWorktree, evidence.piInWorktree],
         [evidence.worktreeOnTarget, evidence.siblingOnTarget],
       ]);
     });
@@ -24,12 +24,22 @@ describe("Pi resume mappings", () => {
     });
   });
 
-  it("maps a Pi candidate to the native exact-source launch command", () => {
-    withPiLaunchMappingEvidence((evidence) => {
-      expect(evidence.actual).toEqual({
+  it("maps every agent candidate to its native launch command and recorded working directory", () => {
+    withAllAgentLaunchMappingEvidence((evidence) => {
+      expect(evidence.codex.actual).toEqual({
+        command: AGENT_RESUME_COMMAND.CODEX_BINARY,
+        args: [AGENT_RESUME_COMMAND.CODEX_RESUME, evidence.codex.candidate.sessionId],
+        cwd: evidence.codex.candidate.cwd,
+      });
+      expect(evidence.claudeCode.actual).toEqual({
+        command: AGENT_RESUME_COMMAND.CLAUDE_BINARY,
+        args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, evidence.claudeCode.candidate.sessionId],
+        cwd: evidence.claudeCode.candidate.cwd,
+      });
+      expect(evidence.pi.actual).toEqual({
         command: AGENT_RESUME_COMMAND.PI_BINARY,
-        args: [AGENT_RESUME_COMMAND.PI_SESSION, evidence.candidate.sourcePath],
-        cwd: evidence.candidate.cwd,
+        args: [AGENT_RESUME_COMMAND.PI_SESSION, evidence.pi.candidate.sourcePath],
+        cwd: evidence.pi.candidate.cwd,
       });
     });
   });

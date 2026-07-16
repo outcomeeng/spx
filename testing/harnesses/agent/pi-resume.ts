@@ -74,6 +74,15 @@ export function piTranscript(input: TranscriptInput): string {
   });
 }
 
+function piTranscriptWithoutTimestamp(sessionId: string, cwd: string): string {
+  return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
+    [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+    [AGENT_SESSION_JSON_FIELDS.ID]: sessionId,
+    [AGENT_SESSION_JSON_FIELDS.CWD]: cwd,
+  });
+}
+
 export function piTranscriptPath(homeDir: string, fileName: string): string {
   return resolve(
     homeDir,
@@ -223,10 +232,51 @@ export async function withPiSessionHeaderEvidence(
   });
 }
 
+interface PiUnknownActivityEvidence {
+  readonly actualRows: readonly (readonly [string, number | null])[];
+  readonly timestampedSessionId: string;
+  readonly unknownSessionId: string;
+}
+
+export async function withPiUnknownActivityEvidence(
+  callback: (evidence: PiUnknownActivityEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 173);
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 174);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 175);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 176);
+  const timestampedSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 177);
+  const unknownSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 178);
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(timestampedSessionId)),
+    piTranscript({ sessionId: timestampedSessionId, cwd, timestamp: new Date(nowMs - 1).toISOString() }),
+    nowMs - 1,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(unknownSessionId)),
+    piTranscriptWithoutTimestamp(unknownSessionId, cwd),
+    nowMs,
+  );
+  callback({
+    actualRows: (await discoverAgentResumeCandidates({
+      invocationDir: cwd,
+      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+      nowMs,
+      scope: worktreeResumeScope(),
+      fs,
+      resolveWorktreeRoot: agentResumeFixedWorktreeRootResolver(worktreeRoot),
+    })).map((candidate) => [candidate.sessionId, candidate.lastActivityAtMs]),
+    timestampedSessionId,
+    unknownSessionId,
+  });
+}
+
 interface PiSinceEvidence {
   readonly actualSessionIds: readonly string[];
   readonly recentSessionId: string;
   readonly staleSessionId: string;
+  readonly unknownSessionId: string;
   readonly recentActivityAtMs: number;
   readonly actualActivityAtMs: number | null;
   readonly maxTailReadBytes: number;
@@ -246,6 +296,7 @@ export async function withPiSinceEvidence(
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 433);
   const recentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 434);
   const staleSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 435);
+  const unknownSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 436);
   const recentActivityAtMs = nowMs - PI_RECENT_ACTIVITY_AGE_MS;
   const staleActivityAtMs = nowMs - PI_STALE_ACTIVITY_AGE_MS;
   const filler = "x".repeat(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES * 2);
@@ -269,6 +320,11 @@ export async function withPiSinceEvidence(
     ].join("\n"),
     nowMs,
   );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(unknownSessionId)),
+    piTranscriptWithoutTimestamp(unknownSessionId, cwd),
+    nowMs,
+  );
 
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
@@ -283,6 +339,7 @@ export async function withPiSinceEvidence(
     actualSessionIds: candidates.map((candidate) => candidate.sessionId),
     recentSessionId,
     staleSessionId,
+    unknownSessionId,
     recentActivityAtMs,
     actualActivityAtMs: candidates.find((candidate) => candidate.sessionId === recentSessionId)?.lastActivityAtMs
       ?? null,
@@ -525,6 +582,7 @@ interface PiScopeMappingEvidence {
   readonly worktreeOnTarget: string;
   readonly worktreeOnOther: string;
   readonly piInWorktree: string;
+  readonly claudeInWorktree: string;
   readonly siblingOnTarget: string;
 }
 
@@ -545,6 +603,7 @@ export async function withPiScopeMappingEvidence(
   const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 79);
   const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 80);
   const piInWorktree = sampleAgentResumeValue(arbitraryAgentSessionId(), 81);
+  const claudeInWorktree = sampleAgentResumeValue(arbitraryAgentSessionId(), 82);
   const transcriptFiles = [
     {
       path: codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
@@ -562,9 +621,19 @@ export async function withPiScopeMappingEvidence(
       mtimeMs: nowMs - 2,
     },
     {
+      path: claudeProjectTranscriptPath(homeDir, cwdInWorktree, agentSessionJsonlName(claudeInWorktree)),
+      content: claudeCodeTranscript({
+        sessionId: claudeInWorktree,
+        cwd: cwdInWorktree,
+        timestamp,
+        branch: otherBranch,
+      }),
+      mtimeMs: nowMs - 3,
+    },
+    {
       path: piTranscriptPath(homeDir, agentSessionJsonlName(piInWorktree)),
       content: piTranscript({ sessionId: piInWorktree, cwd: cwdInWorktree, timestamp }),
-      mtimeMs: nowMs - 3,
+      mtimeMs: nowMs - 4,
     },
   ];
   for (const transcriptFile of transcriptFiles) {
@@ -593,6 +662,7 @@ export async function withPiScopeMappingEvidence(
     worktreeOnTarget,
     worktreeOnOther,
     piInWorktree,
+    claudeInWorktree,
     siblingOnTarget,
   });
 }
@@ -670,17 +740,26 @@ export async function withPiBranchCliScopeEvidence(
   });
 }
 
-interface PiLaunchMappingEvidence {
+interface AgentLaunchMappingObservation {
   readonly actual: ReturnType<typeof buildAgentResumeLaunchCommand>;
   readonly candidate: AgentResumeCandidate;
 }
 
-export function withPiLaunchMappingEvidence(
-  callback: (evidence: PiLaunchMappingEvidence) => void,
+interface AllAgentLaunchMappingEvidence {
+  readonly codex: AgentLaunchMappingObservation;
+  readonly claudeCode: AgentLaunchMappingObservation;
+  readonly pi: AgentLaunchMappingObservation;
+}
+
+export function withAllAgentLaunchMappingEvidence(
+  callback: (evidence: AllAgentLaunchMappingEvidence) => void,
 ): void {
-  const candidate = agentResumeCandidate({ agent: AGENT_SESSION_KIND.PI });
+  const codex = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CODEX });
+  const claudeCode = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CLAUDE_CODE });
+  const pi = agentResumeCandidate({ agent: AGENT_SESSION_KIND.PI });
   callback({
-    actual: buildAgentResumeLaunchCommand(candidate),
-    candidate,
+    codex: { actual: buildAgentResumeLaunchCommand(codex), candidate: codex },
+    claudeCode: { actual: buildAgentResumeLaunchCommand(claudeCode), candidate: claudeCode },
+    pi: { actual: buildAgentResumeLaunchCommand(pi), candidate: pi },
   });
 }
