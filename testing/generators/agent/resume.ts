@@ -28,10 +28,23 @@ const MAX_SINCE_HOURS = AGENT_RESUME_LIMITS.HOURS_PER_DAY;
 const ZERO_DURATION_HOURS = 0;
 const FRACTIONAL_MILLISECOND_DURATION = "0.5ms";
 const NON_FINITE_DURATION_ZERO_DIGITS = 300;
+const MIN_REJECTED_PI_SESSION_VERSION = -100;
+const MAX_REJECTED_PI_SESSION_VERSION = -1;
+const MIN_FRACTIONAL_PI_SESSION_VERSION_BASE = 0;
+const MAX_FRACTIONAL_PI_SESSION_VERSION_BASE = 100;
+const FRACTIONAL_PI_SESSION_VERSION_OFFSET = 0.5;
+const NON_NUMERIC_PI_SESSION_VERSION_PREFIX = "invalid-version";
 
 export interface GeneratedAgentResumeSinceDuration {
   readonly text: string;
   readonly durationMs: number;
+}
+
+export interface GeneratedRejectedPiSessionVersions {
+  readonly zero: number;
+  readonly negativeInteger: number;
+  readonly fractional: number;
+  readonly nonNumeric: string;
 }
 
 export function sampleAgentResumeValue<T>(arbitrary: fc.Arbitrary<T>, seedOffset = 0): T {
@@ -100,6 +113,21 @@ export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<reado
       FRACTIONAL_MILLISECOND_DURATION,
       `${unsafeMilliseconds}ms`,
     ]);
+}
+
+export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {
+  return fc
+    .tuple(
+      fc.integer({ min: MIN_REJECTED_PI_SESSION_VERSION, max: MAX_REJECTED_PI_SESSION_VERSION }),
+      fc.integer({ min: MIN_FRACTIONAL_PI_SESSION_VERSION_BASE, max: MAX_FRACTIONAL_PI_SESSION_VERSION_BASE }),
+      arbitraryDomainLiteral(),
+    )
+    .map(([negativeInteger, fractionalBase, literal]) => ({
+      zero: 0,
+      negativeInteger,
+      fractional: fractionalBase + FRACTIONAL_PI_SESSION_VERSION_OFFSET,
+      nonNumeric: `${NON_NUMERIC_PI_SESSION_VERSION_PREFIX}-${literal}`,
+    }));
 }
 
 export function arbitraryAgentLaunchExitCode(): fc.Arbitrary<number> {

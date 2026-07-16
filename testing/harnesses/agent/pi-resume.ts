@@ -31,6 +31,7 @@ import {
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
+  arbitraryRejectedPiSessionVersions,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 import {
@@ -64,14 +65,18 @@ class DirectoryReadRecordingFileSystem extends MemoryAgentSessionFileSystem {
   }
 }
 
-export function piTranscript(input: TranscriptInput): string {
+function piTranscriptWithVersion(input: TranscriptInput, version: unknown): string {
   return JSON.stringify({
     [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
-    [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+    [AGENT_SESSION_JSON_FIELDS.VERSION]: version,
     [AGENT_SESSION_JSON_FIELDS.ID]: input.sessionId,
     [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
     [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
   });
+}
+
+export function piTranscript(input: TranscriptInput): string {
+  return piTranscriptWithVersion(input, AGENT_SESSION_STORE.PI_SESSION_VERSION);
 }
 
 function piTranscriptWithoutTimestamp(sessionId: string, cwd: string): string {
@@ -175,6 +180,10 @@ export async function withPiPerAgentCapEvidence(
 interface PiSessionHeaderEvidence {
   readonly discoveredSessionIds: readonly string[];
   readonly validSessionId: string;
+  readonly zeroVersionSessionId: string;
+  readonly negativeVersionSessionId: string;
+  readonly fractionalVersionSessionId: string;
+  readonly nonNumericVersionSessionId: string;
   readonly launchCommand: AgentResumeLaunchCommand;
   readonly sourcePath: string;
   readonly cwd: string;
@@ -192,6 +201,11 @@ export async function withPiSessionHeaderEvidence(
   const validId = sampleAgentResumeValue(arbitraryAgentSessionId(), 170);
   const invalidTypeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 171);
   const unversionedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 172);
+  const zeroVersionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 800);
+  const negativeVersionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 801);
+  const fractionalVersionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 802);
+  const nonNumericVersionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 803);
+  const rejectedVersions = sampleAgentResumeValue(arbitraryRejectedPiSessionVersions(), 804);
   const sourcePath = piTranscriptPath(homeDir, agentSessionJsonlName(validId));
   fs.writeFile(sourcePath, piTranscript({ sessionId: validId, cwd, timestamp }), nowMs);
   fs.writeFile(
@@ -215,6 +229,26 @@ export async function withPiSessionHeaderEvidence(
     }),
     nowMs - 2,
   );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(zeroVersionId)),
+    piTranscriptWithVersion({ sessionId: zeroVersionId, cwd, timestamp }, rejectedVersions.zero),
+    nowMs - 3,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(negativeVersionId)),
+    piTranscriptWithVersion({ sessionId: negativeVersionId, cwd, timestamp }, rejectedVersions.negativeInteger),
+    nowMs - 4,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(fractionalVersionId)),
+    piTranscriptWithVersion({ sessionId: fractionalVersionId, cwd, timestamp }, rejectedVersions.fractional),
+    nowMs - 5,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(nonNumericVersionId)),
+    piTranscriptWithVersion({ sessionId: nonNumericVersionId, cwd, timestamp }, rejectedVersions.nonNumeric),
+    nowMs - 6,
+  );
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
     agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
@@ -226,6 +260,10 @@ export async function withPiSessionHeaderEvidence(
   callback({
     discoveredSessionIds: candidates.map((candidate) => candidate.sessionId),
     validSessionId: validId,
+    zeroVersionSessionId: zeroVersionId,
+    negativeVersionSessionId: negativeVersionId,
+    fractionalVersionSessionId: fractionalVersionId,
+    nonNumericVersionSessionId: nonNumericVersionId,
     launchCommand: buildAgentResumeLaunchCommand(candidates[0]),
     sourcePath,
     cwd,
