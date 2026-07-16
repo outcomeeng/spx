@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { basename, join } from "node:path";
 
-import type { Command } from "commander";
+import { type Command, CommanderError } from "commander";
 import * as fc from "fast-check";
 
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
@@ -125,6 +125,8 @@ import {
   formatNameStatusZ,
   sampleVerifyTestValue,
   VERIFY_TEST_GENERATOR,
+  type VerifyEvidenceRequiredOptionCase,
+  type VerifyNonNounLocalEvidenceCase,
   type VerifyScopeMappingCase,
 } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
@@ -178,6 +180,11 @@ function collectCommandTokens(command: Command): readonly string[] {
     ...commandTokens(command),
     ...command.commands.flatMap((childCommand) => collectCommandTokens(childCommand)),
   ];
+}
+
+function installCommanderExitOverride(command: Command): void {
+  command.exitOverride();
+  command.commands.forEach((childCommand) => installCommanderExitOverride(childCommand));
 }
 
 function requiredOptionFlags(command: Command | undefined): readonly string[] {
@@ -271,6 +278,57 @@ function requiredFlag(optionExpression: string): string {
 
 function requiredOptionDescription(command: Command | undefined, optionExpression: string): string | undefined {
   return command?.options.find((option) => option.flags === optionExpression)?.description;
+}
+
+function verifyHandlerInvocationCount(recording: VerifyCliRecording): number {
+  return recording.appendFindingOptions.length
+    + recording.appendScopeOptions.length
+    + recording.finishOptions.length
+    + recording.inputOptions.length
+    + recording.renderOptions.length
+    + recording.startOptions.length
+    + recording.statusOptions.length;
+}
+
+async function observeRejectedVerificationArgs(
+  args: readonly string[],
+  expectedDiagnosticToken: string,
+  productDir: string,
+): Promise<{
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly expectedDiagnosticToken: string;
+  readonly handlerInvocationCount: number;
+}> {
+  const recording = createRecordingVerifyHandlers();
+  const stderr: string[] = [];
+  const program = createRecordingVerifyProgram(recording, productDir);
+  installCommanderExitOverride(program);
+  program.configureOutput({
+    writeErr: (output) => stderr.push(output),
+    writeOut: () => undefined,
+  });
+
+  try {
+    await program.parseAsync([...args], { from: SPX_COMMANDER_PARSE_SOURCE });
+    return {
+      rejected: false,
+      exitCode: VERIFY_CLI_EXIT_CODE.OK,
+      stderr: stderr.join(""),
+      expectedDiagnosticToken,
+      handlerInvocationCount: verifyHandlerInvocationCount(recording),
+    };
+  } catch (error) {
+    if (!(error instanceof CommanderError)) throw error;
+    return {
+      rejected: true,
+      exitCode: error.exitCode,
+      stderr: stderr.join(""),
+      expectedDiagnosticToken,
+      handlerInvocationCount: verifyHandlerInvocationCount(recording),
+    };
+  }
 }
 
 export function inspectVerificationRunNounGroup(): {
@@ -512,30 +570,75 @@ export async function recordVerifyStartOptions(
   return recording.startOptions;
 }
 
-export async function observeFileScopeOptionMapping(): Promise<{
-  readonly path: string;
-  readonly recordedOptions: readonly VerifyStartCliOptions[];
-  readonly started: StartedFileScopeRun;
-}> {
-  const path = sampleLiteralTestValue(arbitrarySourceFilePath());
-  return {
-    path,
-    recordedOptions: await recordVerifyStartOptions(VERIFY_SCOPE_TYPE.FILE, path),
-    started: await startFileScopeRun(path),
-  };
-}
-
-export async function observeChangesetScopeOptionMapping(): Promise<{
-  readonly scenario: VerifyRunContextScenario;
-  readonly recordedOptions: readonly VerifyStartCliOptions[];
-  readonly started: StartedChangesetScopeRun;
+export async function observeVerificationLifecycleOutsideRunRejection(): Promise<{
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly expectedDiagnosticToken: string;
+  readonly handlerInvocationCount: number;
 }> {
   const scenario = createVerifyRunContextScenario();
-  return {
-    scenario,
-    recordedOptions: await recordVerifyStartOptions(VERIFY_SCOPE_TYPE.CHANGESET, scenario.scope),
-    started: await startChangesetScopeRun(scenario),
-  };
+  return observeRejectedVerificationArgs(
+    [VERIFICATION_RUN_CLI_SURFACE.rootCommandName, VERIFY_CLI.startCommandName],
+    VERIFY_CLI.startCommandName,
+    scenario.productDir,
+  );
+}
+
+export async function observeNonNounLocalEvidenceRejection(
+  testCase: VerifyNonNounLocalEvidenceCase,
+): Promise<{
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly expectedDiagnosticToken: string;
+  readonly handlerInvocationCount: number;
+}> {
+  const scenario = createVerifyRunContextScenario();
+  return observeRejectedVerificationArgs(
+    verificationRunArgs([testCase.rejectedCommandName], []),
+    testCase.rejectedCommandName,
+    scenario.productDir,
+  );
+}
+
+export async function observeMissingEvidenceRequiredOptionRejection(
+  testCase: VerifyEvidenceRequiredOptionCase,
+): Promise<{
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly expectedDiagnosticToken: string;
+  readonly handlerInvocationCount: number;
+}> {
+  const scenario = createVerifyRunContextScenario();
+  const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
+  const payloadSource = sampleLiteralTestValue(arbitrarySourceFilePath());
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const options = [
+    requiredFlag(VERIFY_CLI.verificationTypeOption),
+    scenario.verificationType,
+    requiredFlag(VERIFY_CLI.scopeTypeOption),
+    VERIFY_SCOPE_TYPE.CHANGESET,
+    requiredFlag(VERIFY_CLI.scopeOption),
+    scenario.scope,
+    requiredFlag(VERIFY_CLI.runOption),
+    runToken,
+    ...(testCase.omittedOption === VERIFY_CLI.payloadOption
+      ? []
+      : [requiredFlag(VERIFY_CLI.payloadOption), payloadSource]),
+    ...(testCase.omittedOption === VERIFY_CLI.idempotencyKeyOption
+      ? []
+      : [requiredFlag(VERIFY_CLI.idempotencyKeyOption), idempotencyKey]),
+  ];
+  return observeRejectedVerificationArgs(
+    verificationRunArgs(
+      [testCase.resourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
+      options,
+    ),
+    requiredFlag(testCase.omittedOption),
+    scenario.productDir,
+  );
 }
 
 export function createSealRetryFileSystem(): SealRetryFileSystem {
@@ -764,6 +867,7 @@ export async function observeScopeTypeMapping(
 ): Promise<{
   readonly resolvedScope: readonly string[];
   readonly subject: VerificationContextSubject;
+  readonly reportFields: readonly string[];
 }> {
   if (mapping.scopeType === VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET) {
     const started = await startChangesetScopeRun(
@@ -775,6 +879,7 @@ export async function observeScopeTypeMapping(
     return {
       resolvedScope: started.report.resolvedScope,
       subject: started.context.context.subject,
+      reportFields: Object.keys(started.report),
     };
   }
 
@@ -782,6 +887,22 @@ export async function observeScopeTypeMapping(
   return {
     resolvedScope: started.report.resolvedScope,
     subject: started.context.context.subject,
+    reportFields: Object.keys(started.report),
+  };
+}
+
+export async function observeVerificationScopeOptionMapping(
+  mapping: VerifyScopeMappingCase,
+): Promise<{
+  readonly recordedOptions: readonly VerifyStartCliOptions[];
+  readonly resolvedScope: readonly string[];
+  readonly reportFields: readonly string[];
+}> {
+  const observed = await observeScopeTypeMapping(mapping);
+  return {
+    recordedOptions: await recordVerifyStartOptions(mapping.scopeType, mapping.scope),
+    resolvedScope: observed.resolvedScope,
+    reportFields: observed.reportFields,
   };
 }
 
