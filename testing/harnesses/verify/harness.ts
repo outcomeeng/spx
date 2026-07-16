@@ -2743,7 +2743,7 @@ export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
   await expect(fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING)).resolves.toBe(
     expectedContext.canonicalJson,
   );
-  expect(report.changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
+  expect(report.resolvedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
   expect(report.input.source).toBe(VERIFY_INPUT_SOURCE.STDIN);
   expect(report.input.digest).toBe(expectedRunInputDigest(scenario));
   expect(report.locator.runToken).toBe(report.runToken);
@@ -2759,7 +2759,7 @@ export async function assertChangesetScopeDerivesChangedFiles(): Promise<void> {
     fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changedPaths()),
     async ([range, changedPaths]) => {
       const scenario = withChangedPaths(withScope(base, range.base, range.head), changedPaths);
-      expect((await startReportFor(scenario)).changedScope).toEqual(
+      expect((await startReportFor(scenario)).resolvedScope).toEqual(
         pathsFromNameStatus(formatNameStatusZ(changedPaths)),
       );
     },
@@ -2804,7 +2804,7 @@ export async function assertChangedPathsStayOutsideContextDigest(): Promise<void
       const first = await startReportFor(withChangedPaths(scoped, pair.first));
       const second = await startReportFor(withChangedPaths(scoped, pair.second));
       expect(second.contextDigest).toBe(first.contextDigest);
-      expect(second.changedScope).not.toEqual(first.changedScope);
+      expect(second.resolvedScope).not.toEqual(first.resolvedScope);
     },
   );
 }
@@ -2853,7 +2853,7 @@ export async function assertStartFromNestedDirectoryUsesProductRelativeChangedSc
   );
 
   expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  expect(parseStartReport(started.output).changedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
+  expect(parseStartReport(started.output).resolvedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
   expect(recording.changedScopeCwd()).toBe(scenario.productDir);
 }
 

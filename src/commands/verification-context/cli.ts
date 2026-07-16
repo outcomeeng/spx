@@ -1,8 +1,7 @@
-import { isAbsolute, win32 } from "node:path";
-
 import type { CliCommandResult } from "@/config/types";
 import {
   createVerificationContextDocument,
+  normalizeVerificationContextFileSubjectPath,
   VERIFICATION_CONTEXT_PERSISTENCE,
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
@@ -35,17 +34,6 @@ export const VERIFICATION_CONTEXT_CLI_ERROR = {
   FILE_PATH_REQUIRED: "verification context file subject requires --path",
   FILE_PATH_UNSAFE: "verification context file subject path must be product-relative",
   CHANGESET_REFS_REQUIRED: "verification context changeset subject requires --base and --head",
-} as const;
-
-export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
-  PARENT_DIRECTORY: {
-    SEGMENT: "..",
-    PREFIX: "../",
-  },
-  SEPARATOR: {
-    CANONICAL: "/",
-    WINDOWS: "\\",
-  },
 } as const;
 
 export interface VerificationContextCliDeps {
@@ -102,32 +90,12 @@ function errorResult(error: string): CliCommandResult {
   return { exitCode: VERIFICATION_CONTEXT_CLI_EXIT_CODE.ERROR, output: error };
 }
 
-function normalizeFileSubjectPath(path: string): string | undefined {
-  const windowsRoot = win32.parse(path).root;
-  const normalized = win32
-    .normalize(path)
-    .replaceAll(
-      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
-      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
-    );
-  const segments = normalized.split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
-  if (
-    isAbsolute(path)
-    || win32.isAbsolute(path)
-    || windowsRoot.length > 0
-    || segments.includes(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT)
-  ) {
-    return undefined;
-  }
-  return normalized;
-}
-
 function resolveSubject(options: VerificationContextCreateCliOptions): VerificationContextSubject | string {
   if (options.subject === VERIFICATION_CONTEXT_SUBJECT_KIND.FILE) {
     if (options.path === undefined || options.path.length === 0) {
       return VERIFICATION_CONTEXT_CLI_ERROR.FILE_PATH_REQUIRED;
     }
-    const path = normalizeFileSubjectPath(options.path);
+    const path = normalizeVerificationContextFileSubjectPath(options.path);
     if (path === undefined) return VERIFICATION_CONTEXT_CLI_ERROR.FILE_PATH_UNSAFE;
     return { kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE, path };
   }

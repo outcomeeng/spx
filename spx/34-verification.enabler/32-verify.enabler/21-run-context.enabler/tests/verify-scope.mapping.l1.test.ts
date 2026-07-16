@@ -6,6 +6,7 @@ import {
   formatNameStatusZ,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   createVerifyRunContextScenario,
   startFileScopeRun,
@@ -13,7 +14,6 @@ import {
   withChangedPaths,
   withScope,
 } from "@testing/harnesses/verify/harness";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("verify scope mapping", () => {
   it("maps changeset selectors to changed product paths", async () => {

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeVerificationContextFileSubjectPath } from "@/domains/verification-context/context";
-import {
-  arbitrarySafeFileScopeIdentity,
-  arbitraryUnsafeFileScopeIdentity,
-} from "@testing/generators/verify/verify";
+import { arbitrarySafeFileScopeIdentity, arbitraryUnsafeFileScopeIdentity } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("verify file-scope normalization", () => {

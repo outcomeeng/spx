@@ -14,16 +14,20 @@ describe("audit file-root conformance", () => {
     assertProperty(
       arbitraryFileAuditScopeScenario(),
       (scenario) => {
-        expect(evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
-          payload: scenario.rootPayload,
-          events: [],
-          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-        })).toStrictEqual(scenario.root);
-        expect(evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
-          payload: scenario.childPayload,
-          events: [scenario.rootEvent],
-          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-        })).toStrictEqual(scenario.child);
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.rootPayload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toEqual(scenario.rootPayload);
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.childPayload,
+            events: [scenario.rootEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toEqual(scenario.childPayload);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -33,11 +37,13 @@ describe("audit file-root conformance", () => {
     assertProperty(
       arbitraryFileAuditScopeScenario(),
       (scenario) => {
-        expect(evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
-          payload: scenario.mismatchedRootPayload,
-          events: [],
-          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-        })).toBeUndefined();
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.mismatchedRootPayload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
       },
       { level: PROPERTY_LEVEL.L1 },
     );

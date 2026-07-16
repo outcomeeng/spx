@@ -1,3 +1,5 @@
+import { isAbsolute, win32 } from "node:path";
+
 import { canonicalDescriptorJson, digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
 
@@ -8,12 +10,45 @@ export const VERIFICATION_CONTEXT_SUBJECT_KIND = {
   CHANGESET: "changeset",
 } as const;
 
+export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
+  PARENT_DIRECTORY: {
+    SEGMENT: "..",
+    PREFIX: "../",
+  },
+  SEPARATOR: {
+    CANONICAL: "/",
+    WINDOWS: "\\",
+  },
+} as const;
+
 export type VerificationContextSubjectKind =
   (typeof VERIFICATION_CONTEXT_SUBJECT_KIND)[keyof typeof VERIFICATION_CONTEXT_SUBJECT_KIND];
 
 export interface VerificationContextFileSubject {
   readonly kind: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.FILE;
   readonly path: string;
+}
+
+export function normalizeVerificationContextFileSubjectPath(path: string): string | undefined {
+  const windowsRoot = win32.parse(path).root;
+  const normalized = win32
+    .normalize(path)
+    .replaceAll(
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+    );
+  const segments = normalized.split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
+  if (
+    path.trim().length === 0
+    || normalized === "."
+    || isAbsolute(path)
+    || win32.isAbsolute(path)
+    || windowsRoot.length > 0
+    || segments.includes(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT)
+  ) {
+    return undefined;
+  }
+  return normalized;
 }
 
 export interface VerificationContextChangesetSubject {
