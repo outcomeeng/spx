@@ -64,13 +64,33 @@ export function arbitraryAuditProducerProvenance(): fc.Arbitrary<AuditProducerPr
   });
 }
 
-export function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+interface AuditClassKind {
+  readonly auditClass: AuditScopeUnit["auditClass"];
+  readonly auditKind: AuditScopeUnit["auditKind"];
+}
+
+function arbitraryExecutedAuditClassKind(): fc.Arbitrary<AuditClassKind> {
+  return fc.oneof(
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.INSTRUCTIONS),
+      auditKind: fc.constantFrom(AUDIT_KIND.SKILL, AUDIT_KIND.SUBAGENT, AUDIT_KIND.PROMPT, AUDIT_KIND.GUIDE_TEMPLATE),
+    }),
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.SPEC),
+      auditKind: fc.constantFrom(AUDIT_KIND.SPEC, AUDIT_KIND.ADR, AUDIT_KIND.PDR),
+    }),
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.IMPLEMENTATION),
+      auditKind: fc.constantFrom(AUDIT_KIND.CODE, AUDIT_KIND.TESTS, AUDIT_KIND.ARCHITECTURE, AUDIT_KIND.EVAL_EVIDENCE),
+    }),
+  );
+}
+
+function arbitraryAuditScopeFields(): fc.Arbitrary<Omit<AuditScopeUnit, keyof AuditClassKind>> {
   return fc.record({
     unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
     parentUnitId: fc.option(STATE_STORE_TEST_GENERATOR.scopeToken(), { nil: undefined }),
     subject: arbitrarySourceFilePath(),
-    auditClass: fc.constant(AUDIT_CLASS.IMPLEMENTATION),
-    auditKind: fc.constant(AUDIT_KIND.CODE),
     coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
     coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
     priorContext: fc.record({
@@ -82,6 +102,32 @@ export function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
     recordedByRunDriver: arbitraryAuditProducerIdentity(),
     producerProvenance: arbitraryAuditProducerProvenance(),
   });
+}
+
+export function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return fc.oneof(
+    arbitraryExecutedAuditScopeUnit(),
+    fc
+      .tuple(
+        fc.constantFrom(...Object.values(AUDIT_CLASS)),
+        arbitraryAuditScopeFields(),
+        fc.constantFrom(...AUDIT_UNCOVERED_COVERAGE_STATUSES),
+      )
+      .map(([auditClass, { producerProvenance: _producerProvenance, ...fields }, coverageStatus]) => ({
+        ...fields,
+        auditClass,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageStatus,
+      })),
+  );
+}
+
+function arbitraryExecutedAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return fc.tuple(arbitraryExecutedAuditClassKind(), arbitraryAuditScopeFields()).map(([kind, fields]) => ({
+    ...fields,
+    auditClass: kind.auditClass,
+    auditKind: kind.auditKind,
+  }));
 }
 
 export function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
@@ -306,9 +352,9 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
     .tuple(
       arbitrarySourceFilePath(),
       arbitrarySourceFilePath(),
-      arbitraryAuditScopeUnit(),
-      arbitraryAuditScopeUnit(),
-      arbitraryAuditScopeUnit(),
+      arbitraryExecutedAuditScopeUnit(),
+      arbitraryExecutedAuditScopeUnit(),
+      arbitraryExecutedAuditScopeUnit(),
       arbitraryAuditFinding(),
       STATE_STORE_TEST_GENERATOR.scopeToken(),
     )
