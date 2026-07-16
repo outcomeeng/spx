@@ -265,6 +265,7 @@ describe("agent resume scope mappings", () => {
     const worktreeOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 58);
     const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 59);
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 60);
+    const piInWorktree = sampleAgentResumeValue(arbitraryAgentSessionId(), 61);
 
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
@@ -281,10 +282,15 @@ describe("agent resume scope mappings", () => {
       codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
       nowMs - 2,
     );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piInWorktree)),
+      piTranscript({ sessionId: piInWorktree, cwd: cwdInWorktree, timestamp }),
+      nowMs - 3,
+    );
 
     const resolveWorktreeRoot = agentResumeMultiRootResolver(worktreeRoot, siblingRoot);
     const cases: readonly { readonly scope: AgentResumeScope; readonly expected: readonly string[] }[] = [
-      { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther] },
+      { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther, piInWorktree] },
       { scope: branchResumeScope(targetBranch), expected: [worktreeOnTarget, siblingOnTarget] },
     ];
 
