@@ -8,6 +8,7 @@ import {
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
 } from "@/domains/agent/protocol";
+import { withPiBranchScopeEvidence } from "@testing/harnesses/agent/pi-resume";
 import {
   withConfiguredAgentHomeDiscoveryEvidence,
   withDefaultAgentSessionStoreEvidence,
@@ -63,6 +64,12 @@ describe("Pi resume compliance", () => {
       });
       expect(evidence.resumeOutput).toContain(evidence.configuredSessionId);
       expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
+    });
+  });
+
+  it("skips the Pi store entirely for branch-scoped discovery", async () => {
+    await withPiBranchScopeEvidence((evidence) => {
+      expect(evidence.piStoreWasRead).toBe(false);
     });
   });
 

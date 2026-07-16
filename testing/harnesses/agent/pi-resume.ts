@@ -1,6 +1,6 @@
 import type { SpawnOptions } from "node:child_process";
 
-import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
@@ -104,6 +104,7 @@ interface PiBranchScopeEvidence {
   readonly actualSessionIds: readonly string[];
   readonly codexSessionId: string;
   readonly claudeSessionId: string;
+  readonly piStoreWasRead: boolean;
 }
 
 export async function withPiBranchScopeEvidence(
@@ -144,10 +145,11 @@ export async function withPiBranchScopeEvidence(
     piTranscript({ sessionId: piWithoutBranch, cwd: cwdA, timestamp }),
     nowMs - 3,
   );
+  const agentHomeDirs = agentHomeDirsFromHomeDir(homeDir);
   callback({
     actualSessionIds: (await discoverAgentResumeCandidates({
       invocationDir,
-      agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+      agentHomeDirs,
       nowMs,
       scope: branchResumeScope(targetBranch),
       fs,
@@ -155,6 +157,7 @@ export async function withPiBranchScopeEvidence(
     })).map((candidate) => candidate.sessionId),
     codexSessionId: codexOnBranch,
     claudeSessionId: claudeOnBranch,
+    piStoreWasRead: fs.wasDirectoryRead(piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions)),
   });
 }
 
