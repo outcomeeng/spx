@@ -6,7 +6,6 @@ import {
   type VerificationContextCliDeps,
   verificationContextCreateCommand,
 } from "@/commands/verification-context/cli";
-import { VERIFICATION_CONTEXT_RUNTIME_ERROR } from "@/commands/verification-context/runtime";
 import {
   createVerificationContextDocument,
   type VerificationContextDocument,
@@ -23,6 +22,8 @@ import {
 import { STATE_STORE_TEXT_ENCODING, type StateStoreFileSystem } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
+  createDivergentVerificationContextContent,
+  createRuntimeContaminatedVerificationContextFileScenario,
   createVerificationContextChangesetScenario,
   createVerificationContextFileScenario,
   createWindowsVerificationContextFileScenario,
@@ -185,6 +186,12 @@ export function runWindowsVerificationContextFileScenario(): Promise<
   return runPersistedScenario(createWindowsVerificationContextFileScenario());
 }
 
+export function runRuntimeContaminatedVerificationContextFileScenario(): Promise<
+  PersistedScenarioResult<VerificationContextFileScenario>
+> {
+  return runPersistedScenario(createRuntimeContaminatedVerificationContextFileScenario());
+}
+
 export async function runIdenticalVerificationContextPersistenceScenario(): Promise<{
   readonly first: PersistedVerificationContextOutput;
   readonly second: PersistedVerificationContextOutput;
@@ -226,7 +233,7 @@ export async function runMismatchedVerificationContextPersistenceScenario(): Pro
     const first = await verificationContextCreateCommand(scenario.request, deps);
     await fs.writeFile(
       parsePersistedOutput(first.output).contextPath,
-      VERIFICATION_CONTEXT_RUNTIME_ERROR.CONTENT_MISMATCH,
+      createDivergentVerificationContextContent(),
     );
     return { command: await verificationContextCreateCommand(scenario.request, deps) };
   });

@@ -13,7 +13,6 @@ import {
   type AuditProducerIdentity,
   type AuditProducerProvenance,
   type AuditScopeUnit,
-  buildAppendEvent,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_SCOPE_COVERAGE_STATE,
@@ -22,11 +21,9 @@ import {
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
-  VERIFY_APPEND_EVENT_TYPE,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
-import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -303,67 +300,9 @@ export interface FindingWithKey {
   readonly idempotencyKey: string;
 }
 
-export interface FileAuditScopeScenario {
-  readonly scopeIdentity: string;
-  readonly relatedSubject: string;
-  readonly root: AuditScopeUnit;
-  readonly rootPayload: JsonValue;
-  readonly child: AuditScopeUnit;
-  readonly childPayload: JsonValue;
-  readonly mismatchedRootPayload: JsonValue;
-  readonly parentedRootPayload: JsonValue;
-  readonly optionalRootPayload: JsonValue;
-  readonly mismatchedRootEvent: JournalEvent;
-  readonly orphanChildPayload: JsonValue;
-  readonly duplicateRootEvent: JournalEvent;
-  readonly rootEvent: JournalEvent;
-  readonly childEvent: JournalEvent;
-  readonly requiredNotApplicableEvent: JournalEvent;
-  readonly optionalUncoveredEvent: JournalEvent;
-  readonly requiredUncoveredEvents: readonly JournalEvent[];
-  readonly requiredCoverageGapEvent: JournalEvent;
-  readonly findingEvents: readonly JournalEvent[];
-}
-
 export interface FileScopeIdentityScenario {
   readonly input: string;
   readonly normalized: string;
-}
-
-function auditScopePayload(unit: AuditScopeUnit): JsonValue {
-  return JSON.parse(JSON.stringify(unit)) as JsonValue;
-}
-
-function auditScopeEvent(unit: AuditScopeUnit, sequence: number): JournalEvent {
-  const input = buildAppendEvent({
-    eventType: VERIFY_APPEND_EVENT_TYPE.SCOPE,
-    idempotencyKey: unit.unitId,
-    payload: auditScopePayload(unit),
-    at: new Date(0),
-  });
-  return {
-    ...input,
-    specversion: CLOUDEVENTS_SPECVERSION,
-    streamid: unit.unitId,
-    seq: sequence,
-    runid: unit.unitId,
-  };
-}
-
-function auditFindingEvent(finding: AuditFinding, sequence: number): JournalEvent {
-  const input = buildAppendEvent({
-    eventType: VERIFY_APPEND_EVENT_TYPE.FINDING,
-    idempotencyKey: finding.unitId,
-    payload: JSON.parse(JSON.stringify(finding)) as JsonValue,
-    at: new Date(0),
-  });
-  return {
-    ...input,
-    specversion: CLOUDEVENTS_SPECVERSION,
-    streamid: finding.unitId,
-    seq: sequence,
-    runid: finding.unitId,
-  };
 }
 
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
@@ -406,113 +345,6 @@ export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
       ].join(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL)
     ),
   );
-}
-
-export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeScenario> {
-  return fc
-    .tuple(
-      arbitrarySourceFilePath(),
-      arbitrarySourceFilePath(),
-      arbitraryAuditScopeUnit(),
-      arbitraryAuditScopeUnit(),
-      arbitraryAuditScopeUnit(),
-      arbitraryAuditFinding(),
-      STATE_STORE_TEST_GENERATOR.scopeToken(),
-    )
-    .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, _finding, orphanParent]) =>
-      scopeIdentity !== relatedSubject
-      && root.unitId !== child.unitId
-      && root.unitId !== duplicateRoot.unitId
-      && child.unitId !== duplicateRoot.unitId
-      && orphanParent !== root.unitId
-      && orphanParent !== child.unitId
-    )
-    .map(([
-      scopeIdentity,
-      relatedSubject,
-      rootCandidate,
-      childCandidate,
-      duplicateRootCandidate,
-      findingCandidate,
-      orphanParent,
-    ]) => {
-      const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
-      const { parentUnitId: _duplicateParent, ...duplicateRootFields } = duplicateRootCandidate;
-      const root: AuditScopeUnit = {
-        ...rootFields,
-        subject: scopeIdentity,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
-      };
-      const child: AuditScopeUnit = {
-        ...childCandidate,
-        parentUnitId: root.unitId,
-        subject: relatedSubject,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
-        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
-      };
-      const duplicateRoot: AuditScopeUnit = {
-        ...duplicateRootFields,
-        subject: scopeIdentity,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
-      };
-      const requiredNotApplicable: AuditScopeUnit = {
-        ...child,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
-      };
-      const optionalUncovered: AuditScopeUnit = {
-        ...child,
-        coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
-      };
-      const { producerProvenance: _coverageGapProvenance, ...coverageGapFields } = child;
-      const requiredCoverageGap: AuditScopeUnit = {
-        ...coverageGapFields,
-        auditKind: AUDIT_KIND.COVERAGE_GAP,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
-      };
-      const mismatchedRoot: AuditScopeUnit = { ...root, subject: relatedSubject };
-      return {
-        scopeIdentity,
-        relatedSubject,
-        root,
-        rootPayload: auditScopePayload(root),
-        child,
-        childPayload: auditScopePayload(child),
-        mismatchedRootPayload: auditScopePayload(mismatchedRoot),
-        parentedRootPayload: auditScopePayload({ ...root, parentUnitId: orphanParent }),
-        optionalRootPayload: auditScopePayload({
-          ...root,
-          coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
-        }),
-        mismatchedRootEvent: auditScopeEvent(mismatchedRoot, JOURNAL_SEQ_BASE),
-        orphanChildPayload: auditScopePayload({ ...child, parentUnitId: orphanParent }),
-        rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
-        childEvent: auditScopeEvent(child, JOURNAL_SEQ_BASE + 1),
-        requiredNotApplicableEvent: auditScopeEvent(requiredNotApplicable, JOURNAL_SEQ_BASE + 1),
-        optionalUncoveredEvent: auditScopeEvent(optionalUncovered, JOURNAL_SEQ_BASE + 1),
-        requiredUncoveredEvents: AUDIT_UNCOVERED_COVERAGE_STATUSES.map((coverageStatus, index) =>
-          auditScopeEvent(
-            {
-              ...child,
-              coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-              coverageStatus,
-            },
-            JOURNAL_SEQ_BASE + 1 + index,
-          )
-        ),
-        requiredCoverageGapEvent: auditScopeEvent(requiredCoverageGap, JOURNAL_SEQ_BASE + 1),
-        findingEvents: AUDIT_FINDING_SEVERITIES.map((severity, index) =>
-          auditFindingEvent(
-            { ...findingCandidate, unitId: root.unitId, severity },
-            JOURNAL_SEQ_BASE + 1 + index,
-          )
-        ),
-        duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
-      };
-    });
 }
 
 /**
@@ -562,6 +394,14 @@ export const VERIFY_TEST_GENERATOR = {
       changedPaths,
       resolvedPaths: [...changedPaths].sort((left, right) => left.localeCompare(right)),
     })),
+  distinctChangesetRanges: (): fc.Arbitrary<{
+    readonly first: { readonly base: string; readonly head: string };
+    readonly second: { readonly base: string; readonly head: string };
+  }> =>
+    fc
+      .tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changesetRange())
+      .filter(([first, second]) => first.base !== second.base || first.head !== second.head)
+      .map(([first, second]) => ({ first, second })),
   runLocatorScenario: (): fc.Arbitrary<{
     readonly verificationType: string;
     readonly range: { readonly base: string; readonly head: string };
@@ -602,6 +442,14 @@ export const VERIFY_TEST_GENERATOR = {
         [...first].sort((a, b) => a.localeCompare(b)).join() !== [...second].sort((a, b) => a.localeCompare(b)).join()
       )
       .map(([first, second]) => ({ first, second })),
+  changesetChangedPathsPair: (): fc.Arbitrary<{
+    readonly range: { readonly base: string; readonly head: string };
+    readonly paths: { readonly first: readonly string[]; readonly second: readonly string[] };
+  }> =>
+    fc.record({
+      range: VERIFY_TEST_GENERATOR.changesetRange(),
+      paths: VERIFY_TEST_GENERATOR.changedPathsPair(),
+    }),
   idempotencyKey: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   idempotencyKeyPair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
     fc

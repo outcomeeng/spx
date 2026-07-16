@@ -1,23 +1,35 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
+import { VERIFY_SCOPE_ERROR } from "@/domains/verify/verify";
+import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   assertStartPreservesReusedVerificationContextWhenInputPersistenceFails,
   assertStartPreservesReusedVerificationContextWhenJournalOpenFails,
   assertStartPreservesReusedVerificationContextWhenRunContextFails,
-  assertStartRecordsInputForInputReplay,
   assertStartRejectsChangedScopeFailureBeforeOpeningRun,
   assertStartRejectsUnsupportedVerificationTypeBeforeOpeningRun,
   assertStartRemovesOpenedRunArtifactsWhenInputPersistenceFails,
   assertStartRemovesOpenedRunArtifactsWhenRunContextFails,
   assertStartRemovesVerificationContextWhenJournalOpenFails,
   assertStartReportsInputReadFailuresBeforeOpeningRun,
-  assertStartRequiresNonBlankInputSource,
-  assertWorkingTreeScopeIsRejected,
+  observeStartRecordedInputReplay,
+  startWithInputSource,
+  startWorkingTreeScope,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify start compliance", () => {
   it("requires a non-blank --input source before starting a run", async () => {
-    await assertStartRequiresNonBlankInputSource();
+    await assertProperty(
+      VERIFY_TEST_GENERATOR.blankInputSource(),
+      async (input) => {
+        const started = await startWithInputSource(input);
+        expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(started.output).toBe(VERIFY_CLI_ERROR.INPUT_REQUIRED);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("rejects an unsupported verification type before opening a run", async () => {
@@ -57,10 +69,17 @@ describe("verify start compliance", () => {
   });
 
   it("records the verification input at start so the input verb replays it", async () => {
-    await assertStartRecordsInputForInputReplay();
+    await observeStartRecordedInputReplay().then(({ scenario, start, replay, inputReport }) => {
+      expect(start.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(replay.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(inputReport.content).toBe(scenario.inputContent);
+    });
   });
 
   it("rejects a working-tree scope type that the verification-context substrate cannot represent", async () => {
-    await assertWorkingTreeScopeIsRejected();
+    await startWorkingTreeScope().then((started) => {
+      expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
+    });
   });
 });
