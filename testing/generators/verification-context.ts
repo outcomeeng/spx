@@ -9,6 +9,7 @@ import {
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextPayload,
+  type VerificationContextPersistence,
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
@@ -49,6 +50,7 @@ export interface VerificationContextDigestPropertyScenario {
   readonly predicate: string;
   readonly workflow: string;
   readonly createdAt: string;
+  readonly persistence: VerificationContextPersistence;
 }
 
 export type VerificationContextCliScenario =
@@ -77,6 +79,13 @@ export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
       VERIFICATION_CONTEXT_TEST_GENERATOR.fileSubject(),
       VERIFICATION_CONTEXT_TEST_GENERATOR.changesetSubject(),
     ),
+  persistence: (): fc.Arbitrary<VerificationContextPersistence> =>
+    fc.record({
+      kind: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      scope: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      domain: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      format: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
   payload: (): fc.Arbitrary<VerificationContextPayload> =>
     fc.record({
       schemaVersion: fc.constant(VERIFICATION_CONTEXT_SCHEMA_VERSION),
@@ -90,7 +99,10 @@ export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
         headSha: STATE_STORE_TEST_GENERATOR.headSha(),
         createdAt: VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
       }),
-      persistence: fc.constant(VERIFICATION_CONTEXT_PERSISTENCE),
+      persistence: fc.oneof(
+        fc.constant(VERIFICATION_CONTEXT_PERSISTENCE),
+        VERIFICATION_CONTEXT_TEST_GENERATOR.persistence(),
+      ),
     }),
   pathPropertyScenario: (): fc.Arbitrary<VerificationContextPathPropertyScenario> =>
     fc.record({
@@ -106,12 +118,14 @@ export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
         predicate: VERIFICATION_CONTEXT_TEST_GENERATOR.predicate(),
         workflow: VERIFICATION_CONTEXT_TEST_GENERATOR.workflow(),
         launchedAt: VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt(),
+        persistence: VERIFICATION_CONTEXT_TEST_GENERATOR.persistence(),
       })
-      .filter(({ payload, subject, predicate, workflow, launchedAt }) =>
+      .filter(({ payload, subject, predicate, workflow, launchedAt, persistence }) =>
         JSON.stringify(payload.subject) !== JSON.stringify(subject)
         && payload.predicate !== predicate
         && payload.workflow.name !== workflow
         && payload.launch.createdAt !== launchedAt.toISOString()
+        && JSON.stringify(payload.persistence) !== JSON.stringify(persistence)
       )
       .map(({ launchedAt, ...scenario }) => ({ ...scenario, createdAt: launchedAt.toISOString() })),
 } as const;

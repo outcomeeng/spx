@@ -24,6 +24,10 @@ describe("verification context digest", () => {
           ...scenario.payload,
           launch: { ...scenario.payload.launch, createdAt: scenario.createdAt },
         });
+        const changedPersistence = createVerificationContextDocument({
+          ...scenario.payload,
+          persistence: scenario.persistence,
+        });
 
         expect(first.ok).toBe(true);
         expect(second.ok).toBe(true);
@@ -31,6 +35,7 @@ describe("verification context digest", () => {
         expect(changedPredicate.ok).toBe(true);
         expect(changedWorkflow.ok).toBe(true);
         expect(changedLaunch.ok).toBe(true);
+        expect(changedPersistence.ok).toBe(true);
         if (
           !first.ok
           || !second.ok
@@ -38,12 +43,14 @@ describe("verification context digest", () => {
           || !changedPredicate.ok
           || !changedWorkflow.ok
           || !changedLaunch.ok
+          || !changedPersistence.ok
         ) return;
         expect(second.value.digest).toBe(first.value.digest);
         expect(changedSubject.value.digest).not.toBe(first.value.digest);
         expect(changedPredicate.value.digest).not.toBe(first.value.digest);
         expect(changedWorkflow.value.digest).not.toBe(first.value.digest);
         expect(changedLaunch.value.digest).not.toBe(first.value.digest);
+        expect(changedPersistence.value.digest).not.toBe(first.value.digest);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

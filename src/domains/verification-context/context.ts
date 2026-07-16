@@ -84,7 +84,14 @@ export const VERIFICATION_CONTEXT_PERSISTENCE = {
   scope: "branch",
   domain: "verification-context",
   format: "canonical-json",
-} as const;
+} as const satisfies VerificationContextPersistence;
+
+export interface VerificationContextPersistence {
+  readonly kind: string;
+  readonly scope: string;
+  readonly domain: string;
+  readonly format: string;
+}
 
 export const VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS = {
   STATUS: "status",
@@ -99,7 +106,7 @@ export interface VerificationContextPayload {
   readonly predicate: string;
   readonly workflow: VerificationContextWorkflow;
   readonly launch: VerificationContextLaunch;
-  readonly persistence: typeof VERIFICATION_CONTEXT_PERSISTENCE;
+  readonly persistence: VerificationContextPersistence;
 }
 
 export interface VerificationContextDocument {
