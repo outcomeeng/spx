@@ -59,6 +59,25 @@ describe("audit file-root terminal mapping", () => {
     })).toStrictEqual({ ok: true, value: undefined });
   });
 
+  it("maps optional and parented sole roots to rejected", () => {
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).optionalRootEvent],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({ ok: true, value: undefined });
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).parentedRootEvent],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({ ok: true, value: undefined });
+  });
+
   it("maps every required uncovered status to rejected", () => {
     expect(
       sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).requiredUncoveredEvents.map((event) =>

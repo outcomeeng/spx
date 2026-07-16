@@ -39,6 +39,8 @@ export interface FileAuditScopeScenario {
   readonly mismatchedRootPayload: JsonValue;
   readonly parentedRootPayload: JsonValue;
   readonly optionalRootPayload: JsonValue;
+  readonly parentedRootEvent: JournalEvent;
+  readonly optionalRootEvent: JournalEvent;
   readonly mismatchedRootEvent: JournalEvent;
   readonly orphanChildPayload: JsonValue;
   readonly duplicateRootEvent: JournalEvent;
@@ -498,17 +500,21 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
       };
       const mismatchedRoot: AuditScopeUnit = { ...root, subject: relatedSubject };
+      const parentedRoot: AuditScopeUnit = { ...root, parentUnitId: orphan };
+      const optionalRoot: AuditScopeUnit = {
+        ...root,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+      };
       return {
         scopeIdentity,
         relatedSubject,
         rootPayload: auditScopePayload(root),
         childPayload: auditScopePayload(child),
         mismatchedRootPayload: auditScopePayload(mismatchedRoot),
-        parentedRootPayload: auditScopePayload({ ...root, parentUnitId: orphan }),
-        optionalRootPayload: auditScopePayload({
-          ...root,
-          coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
-        }),
+        parentedRootPayload: auditScopePayload(parentedRoot),
+        optionalRootPayload: auditScopePayload(optionalRoot),
+        parentedRootEvent: auditScopeEvent(parentedRoot, JOURNAL_SEQ_BASE),
+        optionalRootEvent: auditScopeEvent(optionalRoot, JOURNAL_SEQ_BASE),
         mismatchedRootEvent: auditScopeEvent(mismatchedRoot, JOURNAL_SEQ_BASE),
         orphanChildPayload: auditScopePayload({ ...child, parentUnitId: orphan }),
         rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),

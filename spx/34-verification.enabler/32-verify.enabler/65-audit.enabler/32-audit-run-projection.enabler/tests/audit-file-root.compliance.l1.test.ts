@@ -32,5 +32,27 @@ describe("audit file-root terminal compliance", () => {
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
     });
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).optionalRootEvent],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({
+      ok: false,
+      error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+    });
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).parentedRootEvent],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({
+      ok: false,
+      error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+    });
   });
 });
