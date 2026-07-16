@@ -20,6 +20,7 @@ const RAW_BASENAME_CHARACTERS = [..."abcXYZ012_-. /"] as const;
 // Interpreters that run a shebang-installed agent script, so `ps -o args=` reports
 // the interpreter followed by the agent script path. None names an agent runtime.
 const AGENT_INTERPRETERS = ["node", "python3"] as const;
+const AGENT_SCRIPT_SUFFIXES = [".js", ".py"] as const;
 const TIMEZONE_NAMES = ["America/New_York", "Asia/Tokyo", "Europe/Zurich", "UTC"] as const;
 const RANDOM_BYTE_LENGTH = 8;
 const MIN_PID = 1;
@@ -151,10 +152,11 @@ export const WORKTREE_TEST_GENERATOR = {
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
         fc.constantFrom(...AGENT_RUNTIME_NAMES),
         fc.constantFrom(...AGENT_INTERPRETERS),
+        fc.constantFrom(...AGENT_SCRIPT_SUFFIXES),
         fc.boolean(),
       )
-      .map(([dir, name, interpreter, interpreted]) =>
-        interpreted ? `/usr/bin/${interpreter} /${dir}/${name}` : `/${dir}/${name}`
+      .map(([dir, name, interpreter, suffix, interpreted]) =>
+        interpreted ? `/usr/bin/${interpreter} /${dir}/${name}${suffix}` : `/${dir}/${name}`
       ),
   /** A full command line where an interpreter invokes the agent script — the shebang case. */
   interpretedAgentCommand: (): fc.Arbitrary<string> =>
@@ -163,16 +165,18 @@ export const WORKTREE_TEST_GENERATOR = {
         fc.constantFrom(...AGENT_INTERPRETERS),
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
         fc.constantFrom(...AGENT_RUNTIME_NAMES),
+        fc.constantFrom(...AGENT_SCRIPT_SUFFIXES),
       )
-      .map(([interpreter, dir, name]) => `/usr/bin/${interpreter} /${dir}/${name}`),
+      .map(([interpreter, dir, name, suffix]) => `/usr/bin/${interpreter} /${dir}/${name}${suffix}`),
   /** A full command line where an interpreter invokes the Pi agent script. */
   interpretedPiAgentCommand: (): fc.Arbitrary<string> =>
     fc
       .tuple(
         fc.constantFrom(...AGENT_INTERPRETERS),
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
+        fc.constantFrom(...AGENT_SCRIPT_SUFFIXES),
       )
-      .map(([interpreter, dir]) => `/usr/bin/${interpreter} /${dir}/${AGENT_RUNTIME.PI}`),
+      .map(([interpreter, dir, suffix]) => `/usr/bin/${interpreter} /${dir}/${AGENT_RUNTIME.PI}${suffix}`),
   /** A process command whose executable basename cannot equal an agent runtime name. */
   nonAgentCommand: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 }).map((token) => `/usr/bin/tool-${token}`),

@@ -109,7 +109,7 @@ function agentRuntimeName(command: string | undefined): AgentRuntimeName | undef
 function runtimeNameFromToken(token: string | undefined): AgentRuntimeName | undefined {
   if (token === undefined) return undefined;
   const executableName = basename(token).toLowerCase();
-  return AGENT_RUNTIME_NAMES.find((name) => name === executableName);
+  return AGENT_RUNTIME_NAMES.find((name) => executableName === name || executableName.startsWith(`${name}.`));
 }
 
 function parsePid(value: string | undefined): number | undefined {
