@@ -1752,64 +1752,6 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
   });
 }
 
-export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
-  const fixture = createConfiguredAgentHomeFixture();
-  const output = await listAgentResumeSessions({
-    cwd: fixture.codexCwd,
-    fallbackWorktreeRoot: fixture.worktreeRoot,
-    scope: worktreeResumeScope(),
-    deps: {
-      fs: fixture.fs,
-      agentHomeDirs: () => fixture.agentHomeDirs,
-      nowMs: () => fixture.nowMs,
-      resolveWorktreeRoot: async () => fixture.worktreeRoot,
-    },
-  });
-
-  expect(output).toContain(fixture.codexSessionId);
-  expect(output).toContain(fixture.claudeSessionId);
-  expect(output).not.toContain(fixture.defaultSessionId);
-}
-
-export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
-  const fixture = createConfiguredAgentHomeFixture();
-  const configuredOutput = await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
-    jsonAgentSearchSessions({
-      cwd: fixture.codexCwd,
-      fallbackProductScopeRoot: fixture.worktreeRoot,
-      query: agentSearchQueryFromOptions({}),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveProductScopeRoot: async () => fixture.worktreeRoot,
-        resolveBranchAssociatedWorktreeRoots: async () => [],
-      },
-    }));
-  const defaultOutput = await withAgentHomeEnvironment(null, () =>
-    jsonAgentSearchSessions({
-      cwd: fixture.codexCwd,
-      fallbackProductScopeRoot: fixture.worktreeRoot,
-      query: agentSearchQueryFromOptions({}),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveProductScopeRoot: async () => fixture.worktreeRoot,
-        resolveBranchAssociatedWorktreeRoots: async () => [],
-      },
-    }));
-
-  expect(configuredOutput).toContain(fixture.codexSessionId);
-  expect(configuredOutput).toContain(fixture.claudeSessionId);
-  expect(configuredOutput).not.toContain(fixture.defaultSessionId);
-  expect(configuredOutput).not.toContain(fixture.defaultClaudeSessionId);
-  expect(defaultOutput).toContain(fixture.defaultSessionId);
-  expect(defaultOutput).toContain(fixture.defaultClaudeSessionId);
-  expect(defaultOutput).not.toContain(fixture.codexSessionId);
-  expect(defaultOutput).not.toContain(fixture.claudeSessionId);
-}
-
 async function withAgentHomeEnvironment<T>(
   agentHomeDirs: AgentHomeDirs | null,
   callback: () => Promise<T>,

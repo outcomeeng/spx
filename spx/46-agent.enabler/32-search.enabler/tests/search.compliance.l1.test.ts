@@ -1,6 +1,6 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { assertAgentSearchUsesConfiguredAgentHomes } from "@testing/harnesses/agent/resume";
+import { withConfiguredAgentHomeDiscoveryEvidence } from "@testing/harnesses/agent/resume";
 import {
   assertAgentSearchBoundsDefaultOutputByLimit,
   assertAgentSearchBranchExistenceAloneReturnsNoSessions,
@@ -17,7 +17,16 @@ import {
 
 describe("agent session search compliance", () => {
   it("reads Codex and Claude Code sessions from configured agent session stores", async () => {
-    await assertAgentSearchUsesConfiguredAgentHomes();
+    await withConfiguredAgentHomeDiscoveryEvidence((evidence) => {
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredCodexSessionId);
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultCodexSessionId);
+      expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultCodexSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredCodexSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredClaudeSessionId);
+    });
   });
 
   it("matches all scoped recent agent sessions when no selector is provided", async () => {
