@@ -46,8 +46,6 @@ import {
   createResumeFixture,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
-  piTranscript,
-  piTranscriptPath,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume mode behavior mappings", () => {
@@ -227,10 +225,9 @@ describe("agent resume mode behavior mappings", () => {
 });
 
 describe("agent resume launch command mappings", () => {
-  it("maps Codex, Claude Code, and Pi candidates to native resume commands from the recorded cwd", () => {
+  it("maps Codex and Claude Code candidates to native resume commands from the recorded cwd", () => {
     const codex = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CODEX });
     const claudeCode = agentResumeCandidate({ agent: AGENT_SESSION_KIND.CLAUDE_CODE });
-    const pi = agentResumeCandidate({ agent: AGENT_SESSION_KIND.PI });
 
     expect(buildAgentResumeLaunchCommand(codex)).toEqual({
       command: AGENT_RESUME_COMMAND.CODEX_BINARY,
@@ -241,11 +238,6 @@ describe("agent resume launch command mappings", () => {
       command: AGENT_RESUME_COMMAND.CLAUDE_BINARY,
       args: [AGENT_RESUME_COMMAND.CLAUDE_RESUME, claudeCode.sessionId],
       cwd: claudeCode.cwd,
-    });
-    expect(buildAgentResumeLaunchCommand(pi)).toEqual({
-      command: AGENT_RESUME_COMMAND.PI_BINARY,
-      args: [AGENT_RESUME_COMMAND.PI_SESSION, pi.sourcePath],
-      cwd: pi.cwd,
     });
   });
 });
@@ -265,7 +257,6 @@ describe("agent resume scope mappings", () => {
     const worktreeOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 58);
     const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 59);
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 60);
-    const piInWorktree = sampleAgentResumeValue(arbitraryAgentSessionId(), 61);
 
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
@@ -282,15 +273,10 @@ describe("agent resume scope mappings", () => {
       codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
       nowMs - 2,
     );
-    fs.writeFile(
-      piTranscriptPath(homeDir, agentSessionJsonlName(piInWorktree)),
-      piTranscript({ sessionId: piInWorktree, cwd: cwdInWorktree, timestamp }),
-      nowMs - 3,
-    );
 
     const resolveWorktreeRoot = agentResumeMultiRootResolver(worktreeRoot, siblingRoot);
     const cases: readonly { readonly scope: AgentResumeScope; readonly expected: readonly string[] }[] = [
-      { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther, piInWorktree] },
+      { scope: worktreeResumeScope(), expected: [worktreeOnTarget, worktreeOnOther] },
       { scope: branchResumeScope(targetBranch), expected: [worktreeOnTarget, siblingOnTarget] },
     ];
 
@@ -320,7 +306,6 @@ describe("agent resume scope mappings", () => {
     const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 68);
     const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 69);
     const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 70);
-    const piWithoutBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 71);
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(siblingOnTarget)),
       codexTranscript({ sessionId: siblingOnTarget, cwd: siblingCwd, timestamp, branch: targetBranch }),
@@ -330,11 +315,6 @@ describe("agent resume scope mappings", () => {
       codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
       codexTranscript({ sessionId: worktreeOnOther, cwd: invocationCwd, timestamp, branch: otherBranch }),
       nowMs - 1,
-    );
-    fs.writeFile(
-      piTranscriptPath(homeDir, agentSessionJsonlName(piWithoutBranch)),
-      piTranscript({ sessionId: piWithoutBranch, cwd: invocationCwd, timestamp }),
-      nowMs - 2,
     );
     const stdout: string[] = [];
     const program = createInteractiveResumeProgram({
@@ -357,7 +337,6 @@ describe("agent resume scope mappings", () => {
     const rendered = stdout.join("");
     expect(rendered).toContain(siblingOnTarget);
     expect(rendered).not.toContain(worktreeOnOther);
-    expect(rendered).not.toContain(piWithoutBranch);
   });
 });
 
