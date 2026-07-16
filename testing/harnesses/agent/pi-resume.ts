@@ -168,6 +168,18 @@ export async function withPiWorktreeScopeEvidence(
   });
 }
 
+function sampleRoot(seed: number): string {
+  return sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), seed);
+}
+
+function sampleCwd(root: string, seed: number): string {
+  return sampleAgentResumeValue(arbitraryAgentSessionCwd(root), seed);
+}
+
+function sampleSessionId(seed: number): string {
+  return sampleAgentResumeValue(arbitraryAgentSessionId(), seed);
+}
+
 interface PiBranchScopeEvidence {
   readonly actualSessionIds: readonly string[];
   readonly codexSessionId: string;
@@ -181,18 +193,18 @@ export async function withPiBranchScopeEvidence(
   const fs = new MemoryAgentSessionFileSystem();
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 30);
   const timestamp = new Date(nowMs).toISOString();
-  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 31);
-  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 32);
-  const siblingRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 33);
-  const invocationDir = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 34);
-  const cwdA = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 35);
-  const cwdB = sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingRoot), 36);
+  const homeDir = sampleRoot(31);
+  const worktreeRoot = sampleRoot(32);
+  const siblingRoot = sampleRoot(33);
+  const invocationDir = sampleCwd(worktreeRoot, 34);
+  const cwdA = sampleCwd(worktreeRoot, 35);
+  const cwdB = sampleCwd(siblingRoot, 36);
   const targetBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 37);
   const otherBranch = sampleAgentResumeValue(arbitraryAgentBranch(), 38);
-  const codexOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 39);
-  const claudeOnBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 40);
-  const codexOtherBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 41);
-  const piWithoutBranch = sampleAgentResumeValue(arbitraryAgentSessionId(), 42);
+  const codexOnBranch = sampleSessionId(39);
+  const claudeOnBranch = sampleSessionId(40);
+  const codexOtherBranch = sampleSessionId(41);
+  const piWithoutBranch = sampleSessionId(42);
   fs.writeFile(
     codexTranscriptPath(homeDir, agentSessionJsonlName(codexOnBranch)),
     codexTranscript({ sessionId: codexOnBranch, cwd: cwdA, timestamp, branch: targetBranch }),
@@ -351,26 +363,31 @@ export async function withPiScopeMappingEvidence(
   const siblingOnTarget = sampleAgentResumeValue(arbitraryAgentSessionId(), 79);
   const worktreeOnOther = sampleAgentResumeValue(arbitraryAgentSessionId(), 80);
   const piInWorktree = sampleAgentResumeValue(arbitraryAgentSessionId(), 81);
-  fs.writeFile(
-    codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
-    codexTranscript({ sessionId: worktreeOnTarget, cwd: cwdInWorktree, timestamp, branch: targetBranch }),
-    nowMs,
-  );
-  fs.writeFile(
-    claudeProjectTranscriptPath(homeDir, cwdInSibling, agentSessionJsonlName(siblingOnTarget)),
-    claudeCodeTranscript({ sessionId: siblingOnTarget, cwd: cwdInSibling, timestamp, branch: targetBranch }),
-    nowMs - 1,
-  );
-  fs.writeFile(
-    codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
-    codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
-    nowMs - 2,
-  );
-  fs.writeFile(
-    piTranscriptPath(homeDir, agentSessionJsonlName(piInWorktree)),
-    piTranscript({ sessionId: piInWorktree, cwd: cwdInWorktree, timestamp }),
-    nowMs - 3,
-  );
+  const transcriptFiles = [
+    {
+      path: codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnTarget)),
+      content: codexTranscript({ sessionId: worktreeOnTarget, cwd: cwdInWorktree, timestamp, branch: targetBranch }),
+      mtimeMs: nowMs,
+    },
+    {
+      path: claudeProjectTranscriptPath(homeDir, cwdInSibling, agentSessionJsonlName(siblingOnTarget)),
+      content: claudeCodeTranscript({ sessionId: siblingOnTarget, cwd: cwdInSibling, timestamp, branch: targetBranch }),
+      mtimeMs: nowMs - 1,
+    },
+    {
+      path: codexTranscriptPath(homeDir, agentSessionJsonlName(worktreeOnOther)),
+      content: codexTranscript({ sessionId: worktreeOnOther, cwd: cwdInWorktree, timestamp, branch: otherBranch }),
+      mtimeMs: nowMs - 2,
+    },
+    {
+      path: piTranscriptPath(homeDir, agentSessionJsonlName(piInWorktree)),
+      content: piTranscript({ sessionId: piInWorktree, cwd: cwdInWorktree, timestamp }),
+      mtimeMs: nowMs - 3,
+    },
+  ];
+  for (const transcriptFile of transcriptFiles) {
+    fs.writeFile(transcriptFile.path, transcriptFile.content, transcriptFile.mtimeMs);
+  }
   const resolveWorktreeRoot = agentResumeMultiRootResolver(worktreeRoot, siblingRoot);
   callback({
     actualRows: [
@@ -396,6 +413,35 @@ export async function withPiScopeMappingEvidence(
     piInWorktree,
     siblingOnTarget,
   });
+}
+
+interface BranchListOutputInput {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly homeDir: string;
+  readonly cwd: string;
+  readonly nowMs: number;
+  readonly worktreeRoot: string;
+  readonly branch: string;
+}
+
+async function branchListOutput(input: BranchListOutputInput): Promise<string> {
+  const output: string[] = [];
+  const program = createInteractiveResumeProgram({
+    fs: input.fs,
+    homeDir: input.homeDir,
+    cwd: input.cwd,
+    nowMs: input.nowMs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(input.worktreeRoot),
+    launchCandidate: async () => {
+      throw new Error("list mode should not launch an agent");
+    },
+    writeStdout: (text) => output.push(text),
+  });
+  await program.parseAsync(
+    [AGENT_CLI.commandName, AGENT_CLI.resumeCommandName, AGENT_CLI.flags.branch, input.branch, AGENT_CLI.flags.list],
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  return output.join("");
 }
 
 interface PiBranchCliScopeEvidence {
@@ -435,24 +481,8 @@ export async function withPiBranchCliScopeEvidence(
     piTranscript({ sessionId: piWithoutBranch, cwd: invocationCwd, timestamp }),
     nowMs - 2,
   );
-  const stdout: string[] = [];
-  const program = createInteractiveResumeProgram({
-    fs,
-    homeDir,
-    cwd: invocationCwd,
-    nowMs,
-    resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
-    launchCandidate: async () => {
-      throw new Error("list mode should not launch an agent");
-    },
-    writeStdout: (output) => stdout.push(output),
-  });
-  await program.parseAsync(
-    [AGENT_CLI.commandName, AGENT_CLI.resumeCommandName, AGENT_CLI.flags.branch, targetBranch, AGENT_CLI.flags.list],
-    { from: SPX_COMMANDER_PARSE_SOURCE },
-  );
   callback({
-    output: stdout.join(""),
+    output: await branchListOutput({ fs, homeDir, cwd: invocationCwd, nowMs, worktreeRoot, branch: targetBranch }),
     includedSessionId: siblingOnTarget,
     excludedSessionIds: [worktreeOnOther, piWithoutBranch],
   });
