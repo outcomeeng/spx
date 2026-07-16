@@ -14,6 +14,7 @@ import {
   withPiPerAgentCapEvidence,
   withPiSessionHeaderEvidence,
   withPiSinceEvidence,
+  withPiUnknownActivityEvidence,
 } from "@testing/harnesses/agent/pi-resume";
 
 describe("Pi resume compliance", () => {
@@ -34,10 +35,20 @@ describe("Pi resume compliance", () => {
     });
   });
 
+  it("fills default-window Pi slots with unknown activity after timestamped sessions", async () => {
+    await withPiUnknownActivityEvidence((evidence) => {
+      expect(evidence.actualRows).toEqual([
+        [evidence.timestampedSessionId, expect.any(Number)],
+        [evidence.unknownSessionId, null],
+      ]);
+    });
+  });
+
   it("uses bounded Pi tail activity for explicit activity windows", async () => {
     await withPiSinceEvidence((evidence) => {
       expect(evidence.actualSessionIds).toContain(evidence.recentSessionId);
       expect(evidence.actualSessionIds).not.toContain(evidence.staleSessionId);
+      expect(evidence.actualSessionIds).not.toContain(evidence.unknownSessionId);
       expect(evidence.actualActivityAtMs).toBe(evidence.recentActivityAtMs);
       expect(evidence.maxTailReadBytes).toBe(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES);
     });
