@@ -417,12 +417,13 @@ export function parseChangesetScope(scope: string): Result<ChangesetScope> {
   if (separatorIndex < 0) {
     return { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET };
   }
+  const secondSeparatorIndex = scope.indexOf(VERIFY_SCOPE_SEPARATOR, separatorIndex + 1);
   const base = scope.slice(0, separatorIndex);
   const head = scope.slice(separatorIndex + VERIFY_SCOPE_SEPARATOR.length);
   if (
     base.length === 0
     || head.length === 0
-    || head.includes(VERIFY_SCOPE_SEPARATOR)
+    || secondSeparatorIndex >= 0
   ) {
     return { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET };
   }

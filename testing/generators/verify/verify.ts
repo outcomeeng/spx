@@ -416,6 +416,10 @@ export const VERIFY_TEST_GENERATOR = {
       scopeIdentity: `${range.base}${VERIFY_SCOPE_SEPARATOR}${range.head}`,
     })),
   malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  overlappingChangesetScope: (): fc.Arbitrary<string> =>
+    fc
+      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .map(([base, head]) => `${base}${VERIFY_SCOPE_SEPARATOR}${VERIFY_SCOPE_SEPARATOR.slice(0, 1)}${head}`),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankRunToken: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
