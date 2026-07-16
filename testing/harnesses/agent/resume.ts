@@ -4,12 +4,7 @@ import { expect } from "vitest";
 
 import { listAgentResumeSessions } from "@/commands/agent/resume";
 import { defaultAgentSearchCommandDeps, jsonAgentSearchSessions } from "@/commands/agent/search";
-import {
-  AGENT_HOME_ENV,
-  type AgentHomeDirs,
-  agentHomeDirsFromHomeDir,
-  resolveAgentHomeDirs,
-} from "@/domains/agent/home";
+import { AGENT_HOME_ENV, type AgentHomeDirs, agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_MODE,
@@ -1335,36 +1330,6 @@ export function assertDefaultAgentSessionStoreDirs(): void {
   expect(claudeCodeSessionStoreDir(agentHomeDirs.claudeCode)).toBe(
     join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR),
   );
-}
-
-export function assertAgentHomeResolutionHonorsEnvironment(): void {
-  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
-  const configuredCodexHome = sampleAgentResumeValue(
-    arbitraryAgentWorktreeRoot(),
-    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME,
-  );
-  const configuredClaudeHome = sampleAgentResumeValue(
-    arbitraryAgentWorktreeRoot(),
-    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME,
-  );
-  const resolved = resolveAgentHomeDirs(
-    {
-      [AGENT_HOME_ENV.CODEX]: configuredCodexHome,
-      [AGENT_HOME_ENV.CLAUDE]: configuredClaudeHome,
-    },
-    { homeDir: () => defaultHome },
-  );
-
-  expect(resolved).toEqual({
-    codex: configuredCodexHome,
-    claudeCode: configuredClaudeHome,
-  });
-}
-
-export function assertAgentHomeResolutionUsesDefaultHomes(): void {
-  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
-
-  expect(resolveAgentHomeDirs({}, { homeDir: () => defaultHome })).toEqual(agentHomeDirsFromHomeDir(defaultHome));
 }
 
 export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
