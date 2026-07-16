@@ -21,6 +21,7 @@ import {
   type AgentSessionKind,
   CODEX_SESSION_ORIGINATOR,
   CODEX_SESSION_THREAD_SOURCE,
+  compareAgentSessionText,
 } from "./protocol";
 import { firstString, parseJsonObject, valueAtPath } from "./transcript-json";
 
@@ -359,7 +360,7 @@ async function recentStoreFiles(
   });
   return stats
     .filter((file): file is AgentStoreFile => file !== null)
-    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
+    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || compareAgentSessionText(left.path, right.path));
 }
 
 // Claude Code stores each session's transcript directly under its

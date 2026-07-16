@@ -61,6 +61,10 @@ export const AGENT_RESUME_LIMITS = {
   READ_CONCURRENCY: 8,
 } as const;
 
+export function compareAgentSessionText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export const AGENT_RESUME_SCOPE = {
   WORKTREE: "worktree",
   BRANCH: "branch",
