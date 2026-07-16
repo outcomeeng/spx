@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { AGENT_RESUME_COMMAND } from "@/domains/agent/protocol";
 import {
   withPiBranchCliScopeEvidence,
   withPiLaunchMappingEvidence,
@@ -9,7 +10,10 @@ import {
 describe("Pi resume mappings", () => {
   it("maps worktree scope to Pi inclusion and branch scope to branchless Pi exclusion", async () => {
     await withPiScopeMappingEvidence((evidence) => {
-      expect(evidence.actualRows).toEqual(evidence.expectedRows);
+      expect(evidence.actualRows).toEqual([
+        [evidence.worktreeOnTarget, evidence.worktreeOnOther, evidence.piInWorktree],
+        [evidence.worktreeOnTarget, evidence.siblingOnTarget],
+      ]);
     });
   });
 
@@ -22,7 +26,11 @@ describe("Pi resume mappings", () => {
 
   it("maps a Pi candidate to the native exact-source launch command", () => {
     withPiLaunchMappingEvidence((evidence) => {
-      expect(evidence.actual).toEqual(evidence.expected);
+      expect(evidence.actual).toEqual({
+        command: AGENT_RESUME_COMMAND.PI_BINARY,
+        args: [AGENT_RESUME_COMMAND.PI_SESSION, evidence.candidate.sourcePath],
+        cwd: evidence.candidate.cwd,
+      });
     });
   });
 });

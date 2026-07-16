@@ -11,7 +11,6 @@ import {
   resolveAgentHomeDirs,
 } from "@/domains/agent/home";
 import {
-  AGENT_RESUME_COMMAND,
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_MODE,
   AGENT_RESUME_RECENT_WINDOW_MS,
@@ -542,13 +541,12 @@ export function createAgentResumeDiscoveryFixture(seedOffset: number): AgentResu
 
 interface PiPerAgentCapEvidence {
   readonly codexSessionIds: readonly string[];
-  readonly expectedCodexSessionIds: readonly string[];
+  readonly codexInputSessionIds: readonly string[];
   readonly claudeSessionIds: readonly string[];
-  readonly expectedClaudeSessionIds: readonly string[];
+  readonly claudeInputSessionIds: readonly string[];
   readonly piSessionIds: readonly string[];
-  readonly expectedPiSessionIds: readonly string[];
+  readonly piInputSessionIds: readonly string[];
   readonly totalCandidateCount: number;
-  readonly expectedTotalCandidateCount: number;
 }
 
 export async function withPiPerAgentCapEvidence(
@@ -560,7 +558,6 @@ export async function withPiPerAgentCapEvidence(
   const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 2);
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
   const count = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 4);
-  const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
   const codexIds: string[] = [];
   const claudeIds: string[] = [];
   const piIds: string[] = [];
@@ -600,17 +597,16 @@ export async function withPiPerAgentCapEvidence(
     codexSessionIds: candidates
       .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX)
       .map((candidate) => candidate.sessionId),
-    expectedCodexSessionIds: codexIds.slice(0, cap),
+    codexInputSessionIds: codexIds,
     claudeSessionIds: candidates
       .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE)
       .map((candidate) => candidate.sessionId),
-    expectedClaudeSessionIds: claudeIds.slice(0, cap),
+    claudeInputSessionIds: claudeIds,
     piSessionIds: candidates
       .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI)
       .map((candidate) => candidate.sessionId),
-    expectedPiSessionIds: piIds.slice(0, cap),
+    piInputSessionIds: piIds,
     totalCandidateCount: candidates.length,
-    expectedTotalCandidateCount: cap * Object.values(AGENT_SESSION_KIND).length,
   });
 }
 
@@ -1009,9 +1005,10 @@ export async function assertExcludesClaudeSubagentTranscripts(): Promise<void> {
 
 interface PiSessionHeaderEvidence {
   readonly discoveredSessionIds: readonly string[];
-  readonly expectedSessionIds: readonly string[];
+  readonly validSessionId: string;
   readonly launchCommand: AgentResumeLaunchCommand;
-  readonly expectedLaunchCommand: AgentResumeLaunchCommand;
+  readonly sourcePath: string;
+  readonly cwd: string;
 }
 
 export async function withPiSessionHeaderEvidence(
@@ -1060,13 +1057,10 @@ export async function withPiSessionHeaderEvidence(
   });
   callback({
     discoveredSessionIds: candidates.map((candidate) => candidate.sessionId),
-    expectedSessionIds: [validId],
+    validSessionId: validId,
     launchCommand: buildAgentResumeLaunchCommand(candidates[0]),
-    expectedLaunchCommand: {
-      command: AGENT_RESUME_COMMAND.PI_BINARY,
-      args: [AGENT_RESUME_COMMAND.PI_SESSION, sourcePath],
-      cwd,
-    },
+    sourcePath,
+    cwd,
   });
 }
 
@@ -1518,7 +1512,7 @@ export function assertDefaultAgentSessionStoreDirs(): void {
 
 interface DefaultAgentSessionStoreEvidence {
   readonly resolvedHomeDirs: AgentHomeDirs;
-  readonly expectedHomeDirs: AgentHomeDirs;
+  readonly homeDir: string;
   readonly resumeOutput: string;
   readonly codexSessionId: string;
   readonly claudeSessionId: string;
@@ -1560,7 +1554,7 @@ export async function withDefaultAgentSessionStoreEvidence(
 
   callback({
     resolvedHomeDirs,
-    expectedHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    homeDir,
     resumeOutput: await listAgentResumeSessions({
       cwd,
       fallbackWorktreeRoot: worktreeRoot,
@@ -1580,9 +1574,9 @@ export async function withDefaultAgentSessionStoreEvidence(
 
 interface AgentHomeResolutionEvidence {
   readonly configured: AgentHomeDirs;
-  readonly configuredExpected: AgentHomeDirs;
+  readonly configuredInputs: AgentHomeDirs;
   readonly defaults: AgentHomeDirs;
-  readonly defaultsExpected: AgentHomeDirs;
+  readonly defaultHome: string;
 }
 
 export function withAgentHomeResolutionEvidence(
@@ -1605,15 +1599,16 @@ export function withAgentHomeResolutionEvidence(
       },
       { homeDir: () => defaultHome },
     ),
-    configuredExpected,
+    configuredInputs: configuredExpected,
     defaults: resolveAgentHomeDirs({}, { homeDir: () => defaultHome }),
-    defaultsExpected: agentHomeDirsFromHomeDir(defaultHome),
+    defaultHome,
   });
 }
 
 interface PiAgentDirectoryEvidence {
   readonly resolved: AgentHomeDirs;
-  readonly expected: AgentHomeDirs;
+  readonly defaultHome: string;
+  readonly piAgentHome: string;
   readonly resumeOutput: string;
   readonly configuredSessionId: string;
   readonly defaultSessionId: string;
@@ -1648,11 +1643,8 @@ export async function withPiAgentDirectoryEvidence(
 
   callback({
     resolved,
-    expected: {
-      ...agentHomeDirsFromHomeDir(defaultHome),
-      piAgent: piAgentHome,
-      piSessions: join(piAgentHome, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
-    },
+    defaultHome,
+    piAgentHome,
     resumeOutput: await listAgentResumeSessions({
       cwd,
       fallbackWorktreeRoot: worktreeRoot,

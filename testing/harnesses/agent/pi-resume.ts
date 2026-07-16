@@ -1,7 +1,7 @@
 import type { SpawnOptions } from "node:child_process";
 
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
-import { AGENT_RESUME_COMMAND, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
   branchResumeScope,
@@ -12,7 +12,6 @@ import {
 import { AGENT_CLI } from "@/interfaces/cli/agent";
 import { launchAgentResume } from "@/interfaces/cli/agent/resume/launch-agent-resume";
 import { selectedAgentResumeCandidate } from "@/interfaces/cli/agent/resume/run-picker";
-import { FOREGROUND_LAUNCH_STDIO } from "@/interfaces/cli/foreground-launch";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import {
   arbitraryAgentBranch,
@@ -43,7 +42,9 @@ import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/se
 
 interface PiWorktreeScopeEvidence {
   readonly actualCandidates: readonly (readonly [string, string])[];
-  readonly expectedCandidates: readonly (readonly [string, string])[];
+  readonly codexSessionId: string;
+  readonly claudeSessionId: string;
+  readonly piSessionId: string;
 }
 
 export async function withPiWorktreeScopeEvidence(
@@ -93,17 +94,16 @@ export async function withPiWorktreeScopeEvidence(
       fs,
       resolveWorktreeRoot: agentResumeMultiRootResolver(worktreeRoot, siblingRoot),
     })).map((candidate) => [candidate.agent, candidate.sessionId]),
-    expectedCandidates: [
-      [AGENT_SESSION_KIND.CODEX, codexSessionId],
-      [AGENT_SESSION_KIND.CLAUDE_CODE, claudeSessionId],
-      [AGENT_SESSION_KIND.PI, piSessionId],
-    ],
+    codexSessionId,
+    claudeSessionId,
+    piSessionId,
   });
 }
 
 interface PiBranchScopeEvidence {
   readonly actualSessionIds: readonly string[];
-  readonly expectedSessionIds: readonly string[];
+  readonly codexSessionId: string;
+  readonly claudeSessionId: string;
 }
 
 export async function withPiBranchScopeEvidence(
@@ -153,26 +153,24 @@ export async function withPiBranchScopeEvidence(
       fs,
       resolveWorktreeRoot: agentResumeMultiRootResolver(worktreeRoot, siblingRoot),
     })).map((candidate) => candidate.sessionId),
-    expectedSessionIds: [codexOnBranch, claudeOnBranch],
+    codexSessionId: codexOnBranch,
+    claudeSessionId: claudeOnBranch,
   });
 }
 
 interface PiInteractiveLaunchEvidence {
   readonly parseError: unknown;
   readonly launchedCandidates: readonly (readonly [string, string, string])[];
-  readonly expectedLaunchedCandidates: readonly (readonly [string, string, string])[];
+  readonly piSessionId: string;
+  readonly piSourcePath: string;
   readonly commands: readonly string[];
-  readonly expectedCommands: readonly string[];
   readonly args: readonly (readonly string[])[];
-  readonly expectedArgs: readonly (readonly string[])[];
   readonly cwd: SpawnOptions["cwd"];
-  readonly expectedCwd: SpawnOptions["cwd"];
+  readonly piCwd: string;
   readonly stdio: SpawnOptions["stdio"];
-  readonly expectedStdio: typeof FOREGROUND_LAUNCH_STDIO;
   readonly restoreCount: number;
-  readonly expectedRestoreCount: number;
   readonly exitCodes: readonly number[];
-  readonly expectedExitCodes: readonly number[];
+  readonly launchExitCode: number;
 }
 
 export async function withPiInteractiveLaunchEvidence(
@@ -244,25 +242,25 @@ export async function withPiInteractiveLaunchEvidence(
   callback({
     parseError,
     launchedCandidates: launched.map((candidate) => [candidate.agent, candidate.sessionId, candidate.sourcePath]),
-    expectedLaunchedCandidates: [[AGENT_SESSION_KIND.PI, piSessionId, piSourcePath]],
+    piSessionId,
+    piSourcePath,
     commands: runner.commands,
-    expectedCommands: [AGENT_RESUME_COMMAND.PI_BINARY],
     args: runner.args,
-    expectedArgs: [[AGENT_RESUME_COMMAND.PI_SESSION, piSourcePath]],
     cwd: runner.options[0]?.cwd,
-    expectedCwd: piCwd,
+    piCwd,
     stdio: runner.options[0]?.stdio,
-    expectedStdio: FOREGROUND_LAUNCH_STDIO,
     restoreCount: suspender.restoreCount,
-    expectedRestoreCount: 1,
     exitCodes,
-    expectedExitCodes: [launchExitCode],
+    launchExitCode,
   });
 }
 
 interface PiScopeMappingEvidence {
   readonly actualRows: readonly (readonly string[])[];
-  readonly expectedRows: readonly (readonly string[])[];
+  readonly worktreeOnTarget: string;
+  readonly worktreeOnOther: string;
+  readonly piInWorktree: string;
+  readonly siblingOnTarget: string;
 }
 
 export async function withPiScopeMappingEvidence(
@@ -322,10 +320,10 @@ export async function withPiScopeMappingEvidence(
         resolveWorktreeRoot,
       })).map((candidate) => candidate.sessionId),
     ],
-    expectedRows: [
-      [worktreeOnTarget, worktreeOnOther, piInWorktree],
-      [worktreeOnTarget, siblingOnTarget],
-    ],
+    worktreeOnTarget,
+    worktreeOnOther,
+    piInWorktree,
+    siblingOnTarget,
   });
 }
 
@@ -391,7 +389,7 @@ export async function withPiBranchCliScopeEvidence(
 
 interface PiLaunchMappingEvidence {
   readonly actual: ReturnType<typeof buildAgentResumeLaunchCommand>;
-  readonly expected: ReturnType<typeof buildAgentResumeLaunchCommand>;
+  readonly candidate: AgentResumeCandidate;
 }
 
 export function withPiLaunchMappingEvidence(
@@ -400,10 +398,6 @@ export function withPiLaunchMappingEvidence(
   const candidate = agentResumeCandidate({ agent: AGENT_SESSION_KIND.PI });
   callback({
     actual: buildAgentResumeLaunchCommand(candidate),
-    expected: {
-      command: AGENT_RESUME_COMMAND.PI_BINARY,
-      args: [AGENT_RESUME_COMMAND.PI_SESSION, candidate.sourcePath],
-      cwd: candidate.cwd,
-    },
+    candidate,
   });
 }
