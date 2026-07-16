@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { listAgentResumeSessions } from "@/commands/agent/resume";
+import { defaultAgentResumeCommandDeps, listAgentResumeSessions } from "@/commands/agent/resume";
 import { defaultAgentSearchCommandDeps, jsonAgentSearchSessions } from "@/commands/agent/search";
 import {
   AGENT_HOME_ENV,
@@ -73,7 +73,7 @@ export async function withDefaultAgentSessionStoreEvidence(
   callback({
     resolvedHomeDirs,
     homeDir,
-    resumeOutput: await discoverResume(fs, resolvedHomeDirs, worktreeRoot, cwd, nowMs),
+    resumeOutput: await discoverResume(fs, () => resolvedHomeDirs, worktreeRoot, cwd, nowMs),
     codexSessionId,
     claudeSessionId,
     piSessionId,
@@ -149,8 +149,11 @@ export async function withPiAgentDirectoryEvidence(
     resolved,
     defaultHome,
     piAgentHome,
-    resumeOutput: await discoverResume(fs, resolved, worktreeRoot, cwd, nowMs),
-    defaultResumeOutput: await discoverResume(fs, defaults, worktreeRoot, cwd, nowMs),
+    resumeOutput: await withAgentHomeEnvironment(
+      { [AGENT_HOME_ENV.PI_AGENT]: piAgentHome },
+      () => discoverResume(fs, defaultAgentResumeCommandDeps.agentHomeDirs, worktreeRoot, cwd, nowMs),
+    ),
+    defaultResumeOutput: await discoverResume(fs, () => defaults, worktreeRoot, cwd, nowMs),
     configuredSessionId,
     defaultSessionId,
   });
@@ -174,22 +177,26 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
 ): Promise<void> {
   const fixture = createConfiguredAgentHomeFixture();
   callback({
-    resumeOutput: await discoverResume(
-      fixture.fs,
-      fixture.agentHomeDirs,
-      fixture.worktreeRoot,
-      fixture.codexCwd,
-      fixture.nowMs,
+    resumeOutput: await withAgentHomeEnvironment(
+      agentHomeEnvironment(fixture.agentHomeDirs),
+      () =>
+        discoverResume(
+          fixture.fs,
+          defaultAgentResumeCommandDeps.agentHomeDirs,
+          fixture.worktreeRoot,
+          fixture.codexCwd,
+          fixture.nowMs,
+        ),
     ),
     defaultResumeOutput: await discoverResume(
       fixture.fs,
-      fixture.defaultHomeDirs,
+      () => fixture.defaultHomeDirs,
       fixture.worktreeRoot,
       fixture.codexCwd,
       fixture.nowMs,
     ),
     configuredSearchOutput: await withAgentHomeEnvironment(
-      fixture.agentHomeDirs,
+      agentHomeEnvironment(fixture.agentHomeDirs),
       () => discoverSearch(fixture, defaultAgentSearchCommandDeps.agentHomeDirs),
     ),
     defaultSearchOutput: await discoverSearch(fixture, () => fixture.defaultHomeDirs),
@@ -347,7 +354,7 @@ function piTranscriptFile(piSessions: string, sessionId: string): string {
 
 async function discoverResume(
   fs: MemoryAgentSessionFileSystem,
-  homes: AgentHomeDirs,
+  agentHomeDirs: () => AgentHomeDirs,
   worktreeRoot: string,
   cwd: string,
   nowMs: number,
@@ -356,7 +363,7 @@ async function discoverResume(
     cwd,
     fallbackWorktreeRoot: worktreeRoot,
     scope: worktreeResumeScope(),
-    deps: { fs, agentHomeDirs: () => homes, nowMs: () => nowMs, resolveWorktreeRoot: async () => worktreeRoot },
+    deps: { fs, agentHomeDirs, nowMs: () => nowMs, resolveWorktreeRoot: async () => worktreeRoot },
   });
 }
 
@@ -378,17 +385,30 @@ async function discoverSearch(
   });
 }
 
-async function withAgentHomeEnvironment<T>(agentHomeDirs: AgentHomeDirs, callback: () => Promise<T>): Promise<T> {
+function agentHomeEnvironment(agentHomeDirs: AgentHomeDirs): Record<string, string> {
+  return {
+    [AGENT_HOME_ENV.CODEX]: agentHomeDirs.codex,
+    [AGENT_HOME_ENV.CLAUDE]: agentHomeDirs.claudeCode,
+    [AGENT_HOME_ENV.PI_AGENT]: agentHomeDirs.piAgent,
+    [AGENT_HOME_ENV.PI_SESSIONS]: agentHomeDirs.piSessions,
+  };
+}
+
+async function withAgentHomeEnvironment<T>(
+  environment: Readonly<Record<string, string>>,
+  callback: () => Promise<T>,
+): Promise<T> {
   const original = {
     codex: process.env[AGENT_HOME_ENV.CODEX],
     claude: process.env[AGENT_HOME_ENV.CLAUDE],
     piAgent: process.env[AGENT_HOME_ENV.PI_AGENT],
     piSessions: process.env[AGENT_HOME_ENV.PI_SESSIONS],
   };
-  process.env[AGENT_HOME_ENV.CODEX] = agentHomeDirs.codex;
-  process.env[AGENT_HOME_ENV.CLAUDE] = agentHomeDirs.claudeCode;
-  process.env[AGENT_HOME_ENV.PI_AGENT] = agentHomeDirs.piAgent;
-  process.env[AGENT_HOME_ENV.PI_SESSIONS] = agentHomeDirs.piSessions;
+  delete process.env[AGENT_HOME_ENV.CODEX];
+  delete process.env[AGENT_HOME_ENV.CLAUDE];
+  delete process.env[AGENT_HOME_ENV.PI_AGENT];
+  delete process.env[AGENT_HOME_ENV.PI_SESSIONS];
+  Object.assign(process.env, environment);
   try {
     return await callback();
   } finally {
