@@ -9,8 +9,6 @@ export const CONTROL_CHAR_UPPER_BOUND = 0x1f;
 export const ESCAPE_CONTROL_CHAR_CODE = 0x1b;
 export const DEL_CHAR_CODE = 0x7f;
 export const FIRST_PRINTABLE_CHAR_CODE = 0x20;
-export const LINE_FEED_CHAR_CODE = 0x0a;
-
 export const HEX_RADIX = 16;
 export const HEX_PAD = 2;
 
@@ -32,26 +30,14 @@ export function escapeCliArgument(input: unknown): string {
   if (typeof input !== "string") return nonStringSentinel(typeof input);
   if (input.length === 0) return SENTINEL_EMPTY;
 
-  return escapeControlCharacters(input, false);
+  return escapeControlCharacters(input);
 }
 
-export function escapeTerminalDiagnostic(input: string, untrustedValues: readonly string[] = []): string {
-  const sanitized = untrustedValues.reduce((diagnostic, value) => {
-    const escaped = escapeControlCharacters(value, false);
-    return escaped === value ? diagnostic : diagnostic.replaceAll(value, escaped);
-  }, input);
-  return escapeControlCharacters(sanitized, true);
-}
-
-function escapeControlCharacters(value: string, preserveLineFeeds: boolean): string {
+function escapeControlCharacters(value: string): string {
   let out = "";
   for (const char of value) {
     const code = char.codePointAt(0);
     if (code === undefined) continue;
-    if (preserveLineFeeds && code === LINE_FEED_CHAR_CODE) {
-      out += char;
-      continue;
-    }
     if (code <= CONTROL_CHAR_UPPER_BOUND || code === DEL_CHAR_CODE) {
       out += formatHexEscape(code);
     } else {

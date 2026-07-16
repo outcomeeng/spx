@@ -1,9 +1,9 @@
-import { Command } from "commander";
+import { Command, type ErrorOptions } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { escapeTerminalDiagnostic } from "@/lib/sanitize-cli-argument";
+import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -21,9 +21,18 @@ type CliGlobalOptions = {
   readonly directory?: string;
 };
 
+class SafeDiagnosticCommand extends Command {
+  override createCommand(name?: string): Command {
+    return new SafeDiagnosticCommand(name);
+  }
+
+  override error(message: string, errorOptions?: ErrorOptions): never {
+    return super.error(escapeCliArgument(message), errorOptions);
+  }
+}
+
 export function createCliProgram(options: CliProgramOptions = {}): Command {
-  const program = new Command();
-  let diagnosticArguments: readonly string[] = process.argv;
+  const program = new SafeDiagnosticCommand();
   const io: CliIo = {
     writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
     writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
@@ -32,18 +41,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
   };
   program.configureOutput({
     writeErr: io.writeStderr,
-    outputError: (value, write) => write(escapeTerminalDiagnostic(value, diagnosticArguments)),
   });
-  const parse = program.parse.bind(program);
-  const parseAsync = program.parseAsync.bind(program);
-  program.parse = (argv, parseOptions) => {
-    diagnosticArguments = argv ?? process.argv;
-    return parse(argv, parseOptions);
-  };
-  program.parseAsync = (argv, parseOptions) => {
-    diagnosticArguments = argv ?? process.argv;
-    return parseAsync(argv, parseOptions);
-  };
 
   program
     .name(SPX_PROGRAM_NAME)

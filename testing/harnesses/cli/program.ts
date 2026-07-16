@@ -30,4 +30,14 @@ export async function assertCommanderDiagnosticsPreserveStructureAndLength(): Pr
   expect(diagnostic).toContain(`\nUsage: ${SPX_PROGRAM_NAME}`);
   expect(diagnostic).toContain("--help");
   expect(diagnostic.length).toBeGreaterThan(scenario.minimumCompleteLength);
+
+  const directStderr: string[] = [];
+  const directProgram = createCliProgram({
+    domains: [],
+    writeStderr: (value) => directStderr.push(value),
+  });
+  directProgram.exitOverride();
+  expect(() => directProgram.error(scenario.unsafeErrorFragment)).toThrow(CommanderError);
+  expect(directStderr.join("")).toContain(scenario.expectedPrintableErrorFragment);
+  expect(directStderr.join("")).not.toContain(`\n${scenario.forgedLine}`);
 }
