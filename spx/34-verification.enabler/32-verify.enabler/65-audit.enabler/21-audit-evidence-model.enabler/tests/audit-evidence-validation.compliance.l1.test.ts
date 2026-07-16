@@ -10,11 +10,13 @@ import {
   arbitraryAuditFindingValidationScenario,
   arbitraryInvalidAuditFindingScenario,
   arbitraryInvalidAuditScopeScenario,
+  invalidCoveredCoverageGapAuditScopePayloads,
 } from "@testing/generators/verify/audit";
+import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("audit evidence validation", () => {
-  it("rejects invalid audit scope payloads before append", async () => {
+  it("rejects invalid audit scope payloads before append", () => {
     assertProperty(
       arbitraryInvalidAuditScopeScenario(),
       (scenario) => {
@@ -30,7 +32,22 @@ describe("audit evidence validation", () => {
     );
   });
 
-  it("rejects invalid audit finding payloads before append", async () => {
+  it("rejects covered coverage-gap statuses before append", () => {
+    expect(
+      invalidCoveredCoverageGapAuditScopePayloads().map((payload) =>
+        evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+          payload,
+          events: [],
+          selector: {
+            scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+            scopeIdentity: sampleVerifyTestValue(arbitraryInvalidAuditScopeScenario()).scopeIdentity,
+          },
+        })
+      ),
+    ).toStrictEqual([undefined, undefined]);
+  });
+
+  it("rejects invalid audit finding payloads before append", () => {
     assertProperty(
       arbitraryInvalidAuditFindingScenario(),
       (scenario) => {
@@ -46,7 +63,7 @@ describe("audit evidence validation", () => {
     );
   });
 
-  it("rejects audit findings that reference units absent from scope evidence before append", async () => {
+  it("rejects audit findings that reference units absent from scope evidence before append", () => {
     assertProperty(
       arbitraryAuditFindingValidationScenario(),
       (scenario) => {
@@ -62,7 +79,7 @@ describe("audit evidence validation", () => {
     );
   });
 
-  it("rejects audit findings that omit observed-versus-expected evidence before append", async () => {
+  it("rejects audit findings that omit observed-versus-expected evidence before append", () => {
     assertProperty(
       arbitraryAuditFindingValidationScenario(),
       (scenario) => {
