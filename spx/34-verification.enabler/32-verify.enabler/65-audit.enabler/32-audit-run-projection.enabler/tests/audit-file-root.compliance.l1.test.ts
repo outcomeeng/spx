@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import {
-  TERMINAL_METADATA_VALIDATION_ERROR,
-  validateAuditTerminal,
-  VERIFY_SCOPE_TYPE,
-} from "@/domains/verify/verify";
+import { TERMINAL_METADATA_VALIDATION_ERROR, validateAuditTerminal, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 

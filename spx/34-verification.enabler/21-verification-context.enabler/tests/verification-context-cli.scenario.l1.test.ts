@@ -6,12 +6,14 @@ import {
   VERIFICATION_CONTEXT_CLI_ENV,
   VERIFICATION_CONTEXT_CLI_ERROR,
   VERIFICATION_CONTEXT_CLI_EXIT_CODE,
-  VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
   type VerificationContextCliDeps,
   verificationContextCreateCommand,
 } from "@/commands/verification-context/cli";
 import { VERIFICATION_CONTEXT_RUNTIME_ERROR } from "@/commands/verification-context/runtime";
-import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
+import {
+  VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
+  VERIFICATION_CONTEXT_SUBJECT_KIND,
+} from "@/domains/verification-context/context";
 import {
   type ExecResult,
   GIT_COMMON_DIR_ARGS,

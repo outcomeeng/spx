@@ -9,10 +9,16 @@ import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
+  FILE: "file",
   WORKING_TREE: "working-tree",
 } as const;
 
 export type VerifyScopeType = (typeof VERIFY_SCOPE_TYPE)[keyof typeof VERIFY_SCOPE_TYPE];
+
+export interface VerifyRunSelector {
+  readonly scopeType: VerifyScopeType;
+  readonly scopeIdentity: string;
+}
 
 export const VERIFY_VERB = {
   START: "start",
@@ -339,6 +345,7 @@ export interface TerminalValidationInput {
   readonly terminalStatus: string;
   readonly metadata?: JsonValue;
   readonly events: readonly JournalEvent[];
+  readonly selector: VerifyRunSelector;
 }
 
 export const TERMINAL_METADATA_VALIDATION_ERROR = {
@@ -388,6 +395,7 @@ export const VERIFY_SCOPE_SEPARATOR = "..";
 
 export const VERIFY_SCOPE_ERROR = {
   MALFORMED_CHANGESET: "verify changeset scope must be <base>..<head>",
+  MALFORMED_FILE: "verify file scope must be a safe product-relative path",
   UNSUPPORTED_SCOPE_TYPE: "verify scope type has no verification-context substrate representation",
 } as const;
 
@@ -699,6 +707,7 @@ function isCompatibleAuditKind(auditClass: AuditClass, auditKind: AuditKind): bo
 export interface EvidenceValidationInput {
   readonly payload: JsonValue;
   readonly events: readonly JournalEvent[];
+  readonly selector: VerifyRunSelector;
 }
 
 export type EvidenceValidator = (input: EvidenceValidationInput) => unknown | undefined;
@@ -1098,6 +1107,31 @@ export function validateTestTerminal(input: TerminalValidationInput): TerminalMe
   return { ok: true, value: undefined };
 }
 
+function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly AuditScopeUnit[] {
+  return events.flatMap((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return [];
+    const scope = validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
+    return scope === undefined ? [] : [scope];
+  });
+}
+
+function validateAuditScopeForRun(input: EvidenceValidationInput): AuditScopeUnit | undefined {
+  const scope = validateAuditScope(input.payload);
+  if (scope === undefined || input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return scope;
+  const recordedScopes = auditScopeUnitsFromEvents(input.events);
+  if (recordedScopes.length === 0) {
+    return scope.parentUnitId === undefined
+        && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
+        && scope.subject === input.selector.scopeIdentity
+      ? scope
+      : undefined;
+  }
+  return scope.parentUnitId !== undefined
+      && recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId)
+    ? scope
+    : undefined;
+}
+
 /**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
@@ -1114,7 +1148,7 @@ const EVIDENCE_VALIDATORS: Readonly<
   >
 > = {
   [VERIFY_VERIFICATION_TYPE.AUDIT]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateAuditScope),
+    [VERIFY_EVIDENCE_KIND.SCOPE]: validateAuditScopeForRun,
     [VERIFY_EVIDENCE_KIND.FINDING]: validateAuditFindingForRun,
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateAuditTerminal,
   },
@@ -1163,19 +1197,27 @@ function auditCoverageRejectsRun(scope: AuditScopeUnit): boolean {
   );
 }
 
-function expectedAuditTerminalStatus(events: readonly JournalEvent[]): string {
-  const hasFinding = countVerifyFindings(events) > 0;
-  const auditScopeEvents = events.filter((event) => {
-    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
-    return validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]) !== undefined;
-  });
-  const hasUncoveredRequiredScope = events.some((event) => {
-    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
-    const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
-    const scope = validateAuditScope(payload);
-    return scope === undefined ? false : auditCoverageRejectsRun(scope);
-  });
-  return hasFinding || auditScopeEvents.length === 0 || hasUncoveredRequiredScope
+function fileAuditRootMatchesSelector(
+  scopes: readonly AuditScopeUnit[],
+  selector: VerifyRunSelector,
+): boolean {
+  if (selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return true;
+  const roots = scopes.filter(
+    (scope) =>
+      scope.parentUnitId === undefined
+      && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+  );
+  return roots.length === 1 && roots[0]?.subject === selector.scopeIdentity;
+}
+
+function expectedAuditTerminalStatus(input: TerminalValidationInput): string {
+  const hasFinding = countVerifyFindings(input.events) > 0;
+  const auditScopes = auditScopeUnitsFromEvents(input.events);
+  const hasUncoveredRequiredScope = auditScopes.some(auditCoverageRejectsRun);
+  return hasFinding
+      || auditScopes.length === 0
+      || hasUncoveredRequiredScope
+      || !fileAuditRootMatchesSelector(auditScopes, input.selector)
     ? JOURNAL_RUN_STATE_STATUS.REJECTED
     : JOURNAL_RUN_STATE_STATUS.APPROVED;
 }
@@ -1184,7 +1226,7 @@ export function validateAuditTerminal(input: TerminalValidationInput): TerminalM
   if (input.metadata !== undefined) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
   }
-  if (input.terminalStatus !== expectedAuditTerminalStatus(input.events)) {
+  if (input.terminalStatus !== expectedAuditTerminalStatus(input)) {
     return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
   }
   return { ok: true, value: undefined };

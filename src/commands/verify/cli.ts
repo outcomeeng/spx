@@ -14,7 +14,10 @@ import { isJournalRunSealed, JOURNAL_RUNTIME_ERROR } from "@/commands/journal/ru
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { CliCommandResult, Result } from "@/config/types";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
-import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
+import {
+  normalizeVerificationContextFileSubjectPath,
+  VERIFICATION_CONTEXT_SUBJECT_KIND,
+} from "@/domains/verification-context/context";
 import {
   buildAppendEvent,
   buildRunContextEvent,
@@ -40,6 +43,7 @@ import {
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_ERROR,
+  VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
   type VerifyAppendEventType,
@@ -48,6 +52,8 @@ import {
   type VerifyRunProjection,
   type VerifyRunScope,
   verifyRunsDir,
+  type VerifyRunSelector,
+  type VerifyScopeType,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { writeFileAtomic } from "@/lib/atomic-file-write";
@@ -160,7 +166,7 @@ export interface VerifyInputCliOptions {
 export interface VerifyStartReport {
   readonly runToken: string;
   readonly contextDigest: string;
-  readonly changedScope: readonly string[];
+  readonly resolvedScope: readonly string[];
   readonly input: InputDescriptor;
   readonly locator: RunLocator;
 }
@@ -340,6 +346,95 @@ async function resolveChangedScope(
   }
 }
 
+interface VerifyStartContextSubjectOptions {
+  readonly subject: string;
+  readonly path?: string;
+  readonly base?: string;
+  readonly head?: string;
+}
+
+interface VerifyStartScopeResolution {
+  readonly selector: VerifyRunSelector;
+  readonly context: VerifyStartContextSubjectOptions;
+  readonly resolvedScope: readonly string[];
+}
+
+type VerifyStartScopeResolver = (
+  selector: VerifyRunSelector,
+  worktreeRoot: string,
+  deps: VerifyCliDeps,
+) => Promise<Result<VerifyStartScopeResolution>>;
+
+function normalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
+  if (scopeType === VERIFY_SCOPE_TYPE.CHANGESET) {
+    const parsed = parseChangesetScope(scopeIdentity);
+    if (!parsed.ok) return parsed;
+    return {
+      ok: true,
+      value: {
+        scopeType,
+        scopeIdentity: `${parsed.value.base}${VERIFY_SCOPE_SEPARATOR}${parsed.value.head}`,
+      },
+    };
+  }
+  if (scopeType === VERIFY_SCOPE_TYPE.FILE) {
+    const normalized = normalizeVerificationContextFileSubjectPath(scopeIdentity);
+    return normalized === undefined
+      ? { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_FILE }
+      : { ok: true, value: { scopeType, scopeIdentity: normalized } };
+  }
+  return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
+}
+
+const VERIFY_START_SCOPE_RESOLVERS: Readonly<
+  Record<VerifyScopeType, VerifyStartScopeResolver | undefined>
+> = {
+  [VERIFY_SCOPE_TYPE.CHANGESET]: async (selector, worktreeRoot, deps) => {
+    const changeset = parseChangesetScope(selector.scopeIdentity);
+    if (!changeset.ok) return changeset;
+    const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
+    if (!resolvedScope.ok) return resolvedScope;
+    return {
+      ok: true,
+      value: {
+        selector,
+        context: {
+          subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+          base: changeset.value.base,
+          head: changeset.value.head,
+        },
+        resolvedScope: resolvedScope.value,
+      },
+    };
+  },
+  [VERIFY_SCOPE_TYPE.FILE]: async (selector) => ({
+    ok: true,
+    value: {
+      selector,
+      context: {
+        subject: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+        path: selector.scopeIdentity,
+      },
+      resolvedScope: [selector.scopeIdentity],
+    },
+  }),
+  [VERIFY_SCOPE_TYPE.WORKING_TREE]: undefined,
+};
+
+async function resolveVerifyStartScope(
+  scopeType: string,
+  scopeIdentity: string,
+  worktreeRoot: string,
+  deps: VerifyCliDeps,
+): Promise<Result<VerifyStartScopeResolution>> {
+  const selector = normalizeVerifyRunSelector(scopeType, scopeIdentity);
+  if (!selector.ok) return selector;
+  const resolver = VERIFY_START_SCOPE_RESOLVERS[selector.value.scopeType];
+  return resolver === undefined
+    ? { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE }
+    : resolver(selector.value, worktreeRoot, deps);
+}
+
 async function persistInputRecord(
   runScope: VerifyRunScope,
   record: RecordedInput,
@@ -479,7 +574,7 @@ interface CompleteVerifyStartArgs {
   readonly productDir: string;
   readonly branchSlug: string;
   readonly backendIdentity: string;
-  readonly changedScope: readonly string[];
+  readonly resolvedScope: readonly string[];
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -606,7 +701,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   const report: VerifyStartReport = {
     runToken,
     contextDigest: args.contextDigest,
-    changedScope: args.changedScope,
+    resolvedScope: args.resolvedScope,
     input: { source: options.input, digest: args.inputDigest },
     locator,
   };
@@ -614,7 +709,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 }
 
 /**
- * Start a changeset-scoped verification run: derive the changed-file scope, create a canonical
+ * Start a verification run: resolve its scope, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
  * report the run token, context digest, changed scope, input descriptor, and run locator a caller
  * persists to address the run.
@@ -626,26 +721,25 @@ export async function verifyStartCommand(
   if (!isVerifyVerificationType(options.verificationType)) {
     return errorResult(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
   }
-  if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) return errorResult(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
   if (options.input.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.INPUT_REQUIRED);
-  const scope = parseChangesetScope(options.scope);
-  if (!scope.ok) return errorResult(scope.error);
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return errorResult(resolved.error);
+  const scope = await resolveVerifyStartScope(options.scopeType, options.scope, resolved.value.worktreeRoot, deps);
+  if (!scope.ok) return errorResult(scope.error);
+  const normalizedOptions: VerifyStartCliOptions = {
+    ...options,
+    scopeType: scope.value.selector.scopeType,
+    scope: scope.value.selector.scopeIdentity,
+  };
 
   const inputContent = await readStartInputContent(options.input, deps);
   if (!inputContent.ok) return errorResult(inputContent.error);
   const inputDigest = digestRunInput(options.input, inputContent.value);
   if (!inputDigest.ok) return errorResult(inputDigest.error);
 
-  const changedScope = await resolveChangedScope(scope.value, resolved.value.worktreeRoot, deps);
-  if (!changedScope.ok) return errorResult(changedScope.error);
-
   const context = await verificationContextCreateCommand(
     {
-      subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
-      base: scope.value.base,
-      head: scope.value.head,
+      ...scope.value.context,
       predicate: options.verificationType,
       workflow: options.verificationType,
     },
@@ -659,12 +753,12 @@ export async function verifyStartCommand(
   };
 
   return completeVerifyStartCommand({
-    options,
+    options: normalizedOptions,
     deps,
     productDir: resolved.value.productDir,
     branchSlug: resolved.value.branchSlug,
     backendIdentity: resolved.value.backendIdentity,
-    changedScope: changedScope.value,
+    resolvedScope: scope.value.resolvedScope,
     inputDigest: inputDigest.value,
     inputContent: inputContent.value,
     contextDigest,
@@ -713,6 +807,7 @@ interface PreparedAppend {
   readonly namespace: string;
   readonly backendIdentity: string;
   readonly existingEvents: readonly JournalEvent[];
+  readonly selector: VerifyRunSelector;
 }
 
 /** Read append history and reject terminal runs before mutable sidecar state is consulted. */
@@ -766,11 +861,8 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (options.idempotencyKey.trim().length === 0) {
     return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
   }
-  if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
-    return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
-  }
-  const scope = parseChangesetScope(options.scope);
-  if (!scope.ok) return scope;
+  const selector = normalizeVerifyRunSelector(options.scopeType, options.scope);
+  if (!selector.ok) return selector;
 
   const readPayload = deps.readPayloadSource;
   const binding = deps.journalBinding;
@@ -813,7 +905,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       error: appendRunNotFoundDiagnostic(options, resolved.value.backendIdentity, namespace.value, inputPath.value),
     };
   }
-  if (!recordedSelectorMatches(inputRecord.value, options)) {
+  if (!recordedSelectorMatches(inputRecord.value, selector.value)) {
     return {
       ok: false,
       error: appendRunSelectorMismatchDiagnostic(
@@ -841,6 +933,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
       existingEvents: existingEvents.value,
+      selector: selector.value,
     },
   };
 }
@@ -887,11 +980,12 @@ function validateAppendEvidence(
   verificationType: string,
   payload: JsonValue,
   events: readonly JournalEvent[],
+  selector: VerifyRunSelector,
 ): Result<JsonValue> {
   const evidenceKind = verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_EVIDENCE_KIND.FINDING : VERIFY_EVIDENCE_KIND.SCOPE;
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
-  const validated = validator({ payload, events });
+  const validated = validator({ payload, events, selector });
   if (validated === undefined) {
     return {
       ok: false,
@@ -919,7 +1013,7 @@ async function verifyAppend(
 ): Promise<CliCommandResult> {
   const prepared = await prepareAppend(options, deps);
   if (!prepared.ok) return errorResult(prepared.error);
-  const { readPayload, binding, journalScope, existingEvents } = prepared.value;
+  const { readPayload, binding, journalScope, existingEvents, selector } = prepared.value;
   const eventType = appendEventType(verb);
 
   const existing = findAppendedSequence(existingEvents, options.idempotencyKey, eventType);
@@ -936,7 +1030,7 @@ async function verifyAppend(
   }
   const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
-  const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents);
+  const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents, selector);
   if (!evidence.ok) return errorResult(evidence.error);
 
   const event = buildAppendEvent({
@@ -983,6 +1077,7 @@ interface VerifyExistingRun {
   readonly backendIdentity: string;
   readonly inputRecordPath: string;
   readonly recordedInput: RecordedInput;
+  readonly selector: VerifyRunSelector;
 }
 
 type VerifyExistingRunAddress = Omit<VerifyExistingRun, "recordedInput">;
@@ -1020,8 +1115,8 @@ function existingRunSelectorMismatch(run: VerifyExistingRunAddress, options: Ver
   });
 }
 
-function recordedSelectorMatches(record: RecordedInput, options: VerifyExistingRunSelector): boolean {
-  return record.scopeType === options.scopeType && record.scopeIdentity === options.scope;
+function recordedSelectorMatches(record: RecordedInput, selector: VerifyRunSelector): boolean {
+  return record.scopeType === selector.scopeType && record.scopeIdentity === selector.scopeIdentity;
 }
 
 async function readExistingRecordedInput(
@@ -1039,11 +1134,8 @@ async function resolveExistingRunAddress(
   if (!isVerifyVerificationType(options.verificationType)) {
     return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  if (options.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
-    return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
-  }
-  const scope = parseChangesetScope(options.scope);
-  if (!scope.ok) return scope;
+  const selector = normalizeVerifyRunSelector(options.scopeType, options.scope);
+  if (!selector.ok) return selector;
   if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return resolved;
@@ -1066,6 +1158,7 @@ async function resolveExistingRunAddress(
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
       inputRecordPath: inputPath.value,
+      selector: selector.value,
     },
   };
 }
@@ -1086,7 +1179,7 @@ async function resolveExistingRun(
   if (inputRecord.value === undefined) {
     return { ok: false, error: existingRunNotFound(address.value, options) };
   }
-  if (!recordedSelectorMatches(inputRecord.value, options)) {
+  if (!recordedSelectorMatches(inputRecord.value, address.value.selector)) {
     return { ok: false, error: existingRunSelectorMismatch(address.value, options) };
   }
   const run: VerifyExistingRun = { ...address.value, recordedInput: inputRecord.value };
@@ -1112,7 +1205,7 @@ async function readRecordedInputForProjection(
     return inputRecord;
   }
   if (inputRecord.value === undefined) return { ok: true, value: undefined };
-  if (!recordedSelectorMatches(inputRecord.value, options)) {
+  if (!recordedSelectorMatches(inputRecord.value, run.selector)) {
     return { ok: false, error: existingRunSelectorMismatch(run, options) };
   }
   return { ok: true, value: inputRecord.value };
@@ -1181,6 +1274,7 @@ function validateTerminalMetadata(
   terminalStatus: string,
   metadata: JsonValue | undefined,
   events: readonly JournalEvent[],
+  selector: VerifyRunSelector,
 ): Result<JsonValue | undefined> {
   const validator = terminalMetadataValidatorFor(verificationType);
   if (validator === undefined) {
@@ -1188,7 +1282,7 @@ function validateTerminalMetadata(
       ? { ok: true, value: undefined }
       : { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  const validated = validator({ terminalStatus, metadata, events });
+  const validated = validator({ terminalStatus, metadata, events, selector });
   if (validated.ok) return { ok: true, value: validated.value };
   return {
     ok: false,
@@ -1252,6 +1346,7 @@ export async function verifyFinishCommand(
     options.terminalStatus,
     rawTerminalMetadata.value,
     before.value,
+    run.value.selector,
   );
   if (!terminalMetadata.ok) return errorResult(terminalMetadata.error);
 

@@ -25,12 +25,7 @@ import {
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
-import {
-  CLOUDEVENTS_SPECVERSION,
-  JOURNAL_SEQ_BASE,
-  type JournalEvent,
-  type JsonValue,
-} from "@/lib/agent-run-journal";
+import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -315,6 +310,7 @@ export interface FileAuditScopeScenario {
   readonly child: AuditScopeUnit;
   readonly childPayload: JsonValue;
   readonly mismatchedRootPayload: JsonValue;
+  readonly mismatchedRootEvent: JournalEvent;
   readonly orphanChildPayload: JsonValue;
   readonly duplicateRootEvent: JournalEvent;
   readonly rootEvent: JournalEvent;
@@ -395,6 +391,7 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
         coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
       };
+      const mismatchedRoot: AuditScopeUnit = { ...root, subject: relatedSubject };
       return {
         scopeIdentity,
         relatedSubject,
@@ -402,7 +399,8 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         rootPayload: auditScopePayload(root),
         child,
         childPayload: auditScopePayload(child),
-        mismatchedRootPayload: auditScopePayload({ ...root, subject: relatedSubject }),
+        mismatchedRootPayload: auditScopePayload(mismatchedRoot),
+        mismatchedRootEvent: auditScopeEvent(mismatchedRoot, JOURNAL_SEQ_BASE),
         orphanChildPayload: auditScopePayload({ ...child, parentUnitId: orphanParent }),
         rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
         childEvent: auditScopeEvent(child, JOURNAL_SEQ_BASE + 1),
