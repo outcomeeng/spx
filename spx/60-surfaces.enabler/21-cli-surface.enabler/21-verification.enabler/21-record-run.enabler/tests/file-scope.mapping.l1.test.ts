@@ -12,14 +12,17 @@ describe("record-run scope option mapping", () => {
   it.each(verifyScopeMappingCases())(
     "passes $scopeType selectors through the caller-driven command path",
     async (mapping) => {
-      await observeVerificationScopeOptionMapping(mapping).then(({ recordedOptions, reportFields, resolvedScope }) => {
-        expect(recordedOptions).toMatchObject([{
-          scopeType: mapping.scopeType,
-          scope: mapping.scope,
-        }]);
-        expect(resolvedScope).toStrictEqual(mapping.expectedResolvedScope);
-        expect(reportFields).toStrictEqual(Object.values(VERIFY_START_REPORT_FIELD));
-      });
+      await observeVerificationScopeOptionMapping(mapping).then(
+        ({ recordedOptions, reportFields, resolvedScope, subject }) => {
+          expect(recordedOptions).toMatchObject([{
+            scopeType: mapping.scopeType,
+            scope: mapping.scope,
+          }]);
+          expect(subject).toStrictEqual(mapping.expectedSubject);
+          expect(resolvedScope).toStrictEqual(mapping.expectedResolvedScope);
+          expect(reportFields).toStrictEqual(Object.values(VERIFY_START_REPORT_FIELD));
+        },
+      );
     },
   );
 
