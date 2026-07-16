@@ -54,9 +54,11 @@ export interface FileAuditScopeScenario {
 }
 
 export interface AuditChangesetProjectionScenario {
+  readonly scopeIdentity: string;
   readonly rootPayload: JsonValue;
   readonly specPayload: JsonValue;
   readonly implementationPayload: JsonValue;
+  readonly orphanChildPayload: JsonValue;
   readonly rootEvent: JournalEvent;
   readonly specEvent: JournalEvent;
   readonly implementationEvent: JournalEvent;
@@ -399,19 +401,24 @@ export function arbitraryAuditChangesetProjectionScenario(): fc.Arbitrary<AuditC
       arbitraryExecutedAuditScopeUnit(),
       arbitraryExecutedAuditScopeUnit(),
       arbitraryExecutedAuditScopeUnit(),
+      STATE_STORE_TEST_GENERATOR.scopeToken(),
     )
-    .filter(([_changeset, root, spec, implementation]) =>
+    .filter(([_changeset, root, spec, implementation, orphanParent]) =>
       root.unitId !== spec.unitId
       && root.unitId !== implementation.unitId
       && spec.unitId !== implementation.unitId
+      && orphanParent !== root.unitId
+      && orphanParent !== spec.unitId
+      && orphanParent !== implementation.unitId
     )
-    .map(([changeset, rootCandidate, specCandidate, implementationCandidate]) => {
+    .map(([changeset, rootCandidate, specCandidate, implementationCandidate, orphanParent]) => {
       const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
+      const scopeIdentity = `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`;
       const root: AuditScopeUnit = {
         ...rootFields,
         auditClass: AUDIT_CLASS.INSTRUCTIONS,
         auditKind: AUDIT_KIND.SUBAGENT,
-        subject: `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`,
+        subject: scopeIdentity,
         coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
         coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
       };
@@ -432,9 +439,11 @@ export function arbitraryAuditChangesetProjectionScenario(): fc.Arbitrary<AuditC
         coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
       };
       return {
+        scopeIdentity,
         rootPayload: auditScopePayload(root),
         specPayload: auditScopePayload(spec),
         implementationPayload: auditScopePayload(implementation),
+        orphanChildPayload: auditScopePayload({ ...spec, parentUnitId: orphanParent }),
         rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
         specEvent: auditScopeEvent(spec, JOURNAL_SEQ_BASE + 1),
         implementationEvent: auditScopeEvent(implementation, JOURNAL_SEQ_BASE + 2),

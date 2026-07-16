@@ -51,9 +51,7 @@ import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
   AUDIT_COVERAGE_STATUS,
-  AUDIT_FINDING_SEVERITY,
   AUDIT_KIND,
-  type AuditFinding,
   auditPriorContextSelectorForScopeUnit,
   type AuditScopeUnit,
   filterAuditScopeUnitsForPriorContext,
@@ -2071,23 +2069,6 @@ async function appendAuditScope(
   expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
 }
 
-async function appendAuditFinding(
-  scenario: VerifyRunContextScenario,
-  deps: VerifyCliDeps,
-  runToken: string,
-  finding: AuditFinding,
-): Promise<void> {
-  const appended = await verifyAppendFindingCommand(
-    verifyAppendOptions(scenario, {
-      run: runToken,
-      payload: JSON.stringify(finding),
-      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
-    }),
-    deps,
-  );
-  expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-}
-
 export async function assertAuditScopeProjectionPreservesUnits(): Promise<void> {
   const { scenario, deps, runToken } = await auditAppendScenario();
   const scopeIds = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
@@ -2242,171 +2223,6 @@ export async function assertAuditCleanCoverageDoesNotInventFinding(): Promise<vo
   expect(report.events.filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
 }
 
-export async function assertAuditTerminalRollupMapsCoverageAndFindings(): Promise<void> {
-  const requiredClean = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
-    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
-  };
-  const requiredNotApplicable = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
-    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-    coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
-  };
-  const optionalUncovered = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
-    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
-    coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
-  };
-  const { producerProvenance: _requiredCoverageGapProvenance, ...requiredCoverageGapBase } = sampleVerifyTestValue(
-    VERIFY_TEST_GENERATOR.auditScopeUnit(),
-  );
-  const requiredCoverageGap = {
-    ...requiredCoverageGapBase,
-    auditKind: AUDIT_KIND.COVERAGE_GAP,
-    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-    coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
-  };
-
-  const cleanScenario = await auditAppendScenario();
-  const cleanScopeKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
-  await appendAuditScope(
-    cleanScenario.scenario,
-    cleanScenario.deps,
-    cleanScenario.runToken,
-    requiredClean,
-    cleanScopeKeys.first,
-  );
-  await appendAuditScope(
-    cleanScenario.scenario,
-    cleanScenario.deps,
-    cleanScenario.runToken,
-    optionalUncovered,
-    cleanScopeKeys.second,
-  );
-  await appendAuditScope(
-    cleanScenario.scenario,
-    cleanScenario.deps,
-    cleanScenario.runToken,
-    requiredNotApplicable,
-  );
-  expect(
-    await finishRun(
-      cleanScenario.scenario,
-      cleanScenario.deps,
-      cleanScenario.runToken,
-      JOURNAL_RUN_STATE_STATUS.APPROVED,
-    ),
-  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED });
-
-  const emptyScenario = await auditAppendScenario();
-  const emptyRejected = await verifyFinishCommand(
-    verifyFinishOptions(emptyScenario.scenario, {
-      run: emptyScenario.runToken,
-      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
-    }),
-    emptyScenario.deps,
-  );
-  expect(emptyRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(emptyRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
-  expect(
-    await finishRun(
-      emptyScenario.scenario,
-      emptyScenario.deps,
-      emptyScenario.runToken,
-      JOURNAL_RUN_STATE_STATUS.REJECTED,
-    ),
-  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
-
-  for (const coverageStatus of requiredRejectingAuditCoverageStatuses()) {
-    const uncoveredScenario = await auditAppendScenario();
-    await appendAuditScope(
-      uncoveredScenario.scenario,
-      uncoveredScenario.deps,
-      uncoveredScenario.runToken,
-      {
-        ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus,
-      },
-    );
-    const uncoveredRejected = await verifyFinishCommand(
-      verifyFinishOptions(uncoveredScenario.scenario, {
-        run: uncoveredScenario.runToken,
-        terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
-      }),
-      uncoveredScenario.deps,
-    );
-    expect(uncoveredRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(uncoveredRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
-    expect(
-      await finishRun(
-        uncoveredScenario.scenario,
-        uncoveredScenario.deps,
-        uncoveredScenario.runToken,
-        JOURNAL_RUN_STATE_STATUS.REJECTED,
-      ),
-    ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
-  }
-
-  const gapScenario = await auditAppendScenario();
-  await appendAuditScope(
-    gapScenario.scenario,
-    gapScenario.deps,
-    gapScenario.runToken,
-    requiredCoverageGap,
-  );
-  const gapRejected = await verifyFinishCommand(
-    verifyFinishOptions(gapScenario.scenario, {
-      run: gapScenario.runToken,
-      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
-    }),
-    gapScenario.deps,
-  );
-  expect(gapRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(gapRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
-  expect(
-    await finishRun(
-      gapScenario.scenario,
-      gapScenario.deps,
-      gapScenario.runToken,
-      JOURNAL_RUN_STATE_STATUS.REJECTED,
-    ),
-  ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
-
-  for (const severity of Object.values(AUDIT_FINDING_SEVERITY)) {
-    const findingScenario = await auditAppendScenario();
-    await appendAuditScope(findingScenario.scenario, findingScenario.deps, findingScenario.runToken, requiredClean);
-    await appendAuditFinding(
-      findingScenario.scenario,
-      findingScenario.deps,
-      findingScenario.runToken,
-      {
-        ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
-        unitId: requiredClean.unitId,
-        severity,
-      },
-    );
-    const findingRejected = await verifyFinishCommand(
-      verifyFinishOptions(findingScenario.scenario, {
-        run: findingScenario.runToken,
-        terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
-      }),
-      findingScenario.deps,
-    );
-    expect(findingRejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(findingRejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
-    expect(
-      await finishRun(
-        findingScenario.scenario,
-        findingScenario.deps,
-        findingScenario.runToken,
-        JOURNAL_RUN_STATE_STATUS.REJECTED,
-      ),
-    ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
-  }
-}
-
 export async function assertAuditRejectsSuppliedTerminalMetadata(): Promise<void> {
   const { scenario, fs, deps, runToken } = await auditAppendScenario();
   const scope = {
@@ -2435,12 +2251,6 @@ export async function assertAuditRejectsSuppliedTerminalMetadata(): Promise<void
       JOURNAL_RUN_STATE_STATUS.APPROVED,
     ),
   ).toMatchObject({ terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED });
-}
-
-function requiredRejectingAuditCoverageStatuses(): readonly AuditScopeUnit["coverageStatus"][] {
-  return Object.values(AUDIT_COVERAGE_STATUS).filter((status) =>
-    status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
-  );
 }
 
 export async function assertInvalidReviewFindingRejectedBeforeAppend(): Promise<void> {
