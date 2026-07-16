@@ -280,7 +280,13 @@ export async function discoverAgentResumeCandidates(
     ),
   );
 
-  return perAgent.flat().sort(compareCandidates).slice(0, AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
+  return limitAgentResumeCandidates(perAgent.flat());
+}
+
+export function limitAgentResumeCandidates(
+  candidates: readonly AgentResumeCandidate[],
+): AgentResumeCandidate[] {
+  return [...candidates].sort(compareCandidates).slice(0, AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
 }
 
 interface AgentResumeScopeContext {
