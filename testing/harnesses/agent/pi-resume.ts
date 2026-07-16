@@ -1,12 +1,22 @@
 import type { SpawnOptions } from "node:child_process";
+import { resolve } from "node:path";
 
 import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
-import { AGENT_RESUME_LIMITS, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+import {
+  AGENT_RESUME_LIMITS,
+  AGENT_SESSION_JSON_FIELDS,
+  AGENT_SESSION_KIND,
+  AGENT_SESSION_ROW_TYPE,
+  AGENT_SESSION_STORE,
+} from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
+  type AgentResumeLaunchCommand,
+  type AgentSessionDirEntry,
   branchResumeScope,
   buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
+  limitAgentResumeCandidates,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { AGENT_CLI } from "@/interfaces/cli/agent";
@@ -17,6 +27,7 @@ import {
   arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
   arbitraryAgentResumeNowMs,
+  arbitraryAgentResumeOverCapCount,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
@@ -36,10 +47,181 @@ import {
   createInteractiveResumeProgram,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
-  piTranscript,
-  piTranscriptPath,
+  type TranscriptInput,
 } from "@testing/harnesses/agent/resume";
 import { RecordingLaunchRunner, RecordingSuspender } from "@testing/harnesses/session/launch-runner";
+
+class DirectoryReadRecordingFileSystem extends MemoryAgentSessionFileSystem {
+  private readonly directoryReads = new Set<string>();
+
+  override async readDir(path: string): Promise<readonly AgentSessionDirEntry[]> {
+    this.directoryReads.add(path);
+    return super.readDir(path);
+  }
+
+  wasDirectoryRead(path: string): boolean {
+    return this.directoryReads.has(path);
+  }
+}
+
+export function piTranscript(input: TranscriptInput): string {
+  return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
+    [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+    [AGENT_SESSION_JSON_FIELDS.ID]: input.sessionId,
+    [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: input.timestamp,
+    [AGENT_SESSION_JSON_FIELDS.CWD]: input.cwd,
+  });
+}
+
+export function piTranscriptPath(homeDir: string, fileName: string): string {
+  return resolve(
+    homeDir,
+    AGENT_SESSION_STORE.PI_DIR,
+    AGENT_SESSION_STORE.PI_AGENT_DIR,
+    AGENT_SESSION_STORE.PI_SESSIONS_DIR,
+    fileName,
+  );
+}
+
+interface PiPerAgentCapEvidence {
+  readonly codexSessionIds: readonly string[];
+  readonly codexInputSessionIds: readonly string[];
+  readonly claudeSessionIds: readonly string[];
+  readonly claudeInputSessionIds: readonly string[];
+  readonly piSessionIds: readonly string[];
+  readonly piInputSessionIds: readonly string[];
+  readonly totalCandidateCount: number;
+  readonly overTotalCapInputCount: number;
+  readonly totalBoundedCandidateCount: number;
+}
+
+export async function withPiPerAgentCapEvidence(
+  callback: (evidence: PiPerAgentCapEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 2);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
+  const count = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 4);
+  const codexIds: string[] = [];
+  const claudeIds: string[] = [];
+  const piIds: string[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const codexId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10 + index);
+    const claudeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 40 + index);
+    const piId = sampleAgentResumeValue(arbitraryAgentSessionId(), 70 + index);
+    codexIds.push(codexId);
+    claudeIds.push(claudeId);
+    piIds.push(piId);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexId)),
+      codexTranscript({ sessionId: codexId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(claudeId)),
+      claudeCodeTranscript({ sessionId: claudeId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piId)),
+      piTranscript({ sessionId: piId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+  }
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    scope: worktreeResumeScope(),
+    fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+  });
+  callback({
+    codexSessionIds: candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX).map((candidate) =>
+      candidate.sessionId
+    ),
+    codexInputSessionIds: codexIds,
+    claudeSessionIds: candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE).map((
+      candidate,
+    ) => candidate.sessionId),
+    claudeInputSessionIds: claudeIds,
+    piSessionIds: candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI).map((candidate) =>
+      candidate.sessionId
+    ),
+    piInputSessionIds: piIds,
+    totalCandidateCount: candidates.length,
+    overTotalCapInputCount: AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES + 1,
+    totalBoundedCandidateCount: limitAgentResumeCandidates(
+      Array.from(
+        { length: AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES + 1 },
+        (_, index) => agentResumeCandidate({ modifiedAtMs: nowMs - index }),
+      ),
+    ).length,
+  });
+}
+
+interface PiSessionHeaderEvidence {
+  readonly discoveredSessionIds: readonly string[];
+  readonly validSessionId: string;
+  readonly launchCommand: AgentResumeLaunchCommand;
+  readonly sourcePath: string;
+  readonly cwd: string;
+}
+
+export async function withPiSessionHeaderEvidence(
+  callback: (evidence: PiSessionHeaderEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 166);
+  const timestamp = new Date(nowMs).toISOString();
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 167);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 168);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 169);
+  const validId = sampleAgentResumeValue(arbitraryAgentSessionId(), 170);
+  const invalidTypeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 171);
+  const unversionedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 172);
+  const sourcePath = piTranscriptPath(homeDir, agentSessionJsonlName(validId));
+  fs.writeFile(sourcePath, piTranscript({ sessionId: validId, cwd, timestamp }), nowMs);
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(invalidTypeId)),
+    JSON.stringify({
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.CODEX_SESSION_META,
+      [AGENT_SESSION_JSON_FIELDS.VERSION]: AGENT_SESSION_STORE.PI_SESSION_VERSION,
+      [AGENT_SESSION_JSON_FIELDS.ID]: invalidTypeId,
+      [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp,
+      [AGENT_SESSION_JSON_FIELDS.CWD]: cwd,
+    }),
+    nowMs - 1,
+  );
+  fs.writeFile(
+    piTranscriptPath(homeDir, agentSessionJsonlName(unversionedId)),
+    JSON.stringify({
+      [AGENT_SESSION_JSON_FIELDS.TYPE]: AGENT_SESSION_ROW_TYPE.PI_SESSION,
+      [AGENT_SESSION_JSON_FIELDS.ID]: unversionedId,
+      [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: timestamp,
+      [AGENT_SESSION_JSON_FIELDS.CWD]: cwd,
+    }),
+    nowMs - 2,
+  );
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    scope: worktreeResumeScope(),
+    fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+  });
+  callback({
+    discoveredSessionIds: candidates.map((candidate) => candidate.sessionId),
+    validSessionId: validId,
+    launchCommand: buildAgentResumeLaunchCommand(candidates[0]),
+    sourcePath,
+    cwd,
+  });
+}
 
 interface PiSinceEvidence {
   readonly actualSessionIds: readonly string[];
@@ -190,7 +372,7 @@ interface PiBranchScopeEvidence {
 export async function withPiBranchScopeEvidence(
   callback: (evidence: PiBranchScopeEvidence) => void,
 ): Promise<void> {
-  const fs = new MemoryAgentSessionFileSystem();
+  const fs = new DirectoryReadRecordingFileSystem();
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 30);
   const timestamp = new Date(nowMs).toISOString();
   const homeDir = sampleRoot(31);

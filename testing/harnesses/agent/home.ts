@@ -18,12 +18,12 @@ import {
   arbitraryAgentWorktreeRoot,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+import { piTranscript } from "@testing/harnesses/agent/pi-resume";
 import {
   agentSessionJsonlName,
   claudeCodeTranscript,
   codexTranscript,
   MemoryAgentSessionFileSystem,
-  piTranscript,
 } from "@testing/harnesses/agent/resume";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
