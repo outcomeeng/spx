@@ -57,6 +57,10 @@ describe("Pi resume compliance", () => {
   it("accepts a versioned opening session row and launches the exact source path", async () => {
     await withPiSessionHeaderEvidence((evidence) => {
       expect(evidence.discoveredSessionIds).toEqual([evidence.validSessionId]);
+      expect(evidence.discoveredSessionIds).not.toContain(evidence.zeroVersionSessionId);
+      expect(evidence.discoveredSessionIds).not.toContain(evidence.negativeVersionSessionId);
+      expect(evidence.discoveredSessionIds).not.toContain(evidence.fractionalVersionSessionId);
+      expect(evidence.discoveredSessionIds).not.toContain(evidence.nonNumericVersionSessionId);
       expect(evidence.launchCommand).toEqual({
         command: AGENT_RESUME_COMMAND.PI_BINARY,
         args: [AGENT_RESUME_COMMAND.PI_SESSION, evidence.sourcePath],
