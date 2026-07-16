@@ -31,6 +31,8 @@ describe("agent home resolution compliance", () => {
       });
       expect(evidence.resumeOutput).toContain(evidence.configuredSessionId);
       expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
+      expect(evidence.defaultResumeOutput).toContain(evidence.defaultSessionId);
+      expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredSessionId);
     });
   });
 
@@ -42,6 +44,12 @@ describe("agent home resolution compliance", () => {
       expect(evidence.resumeOutput).not.toContain(evidence.defaultCodexSessionId);
       expect(evidence.resumeOutput).not.toContain(evidence.defaultClaudeSessionId);
       expect(evidence.resumeOutput).not.toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultResumeOutput).toContain(evidence.defaultCodexSessionId);
+      expect(evidence.defaultResumeOutput).toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.defaultResumeOutput).toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredCodexSessionId);
+      expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredPiSessionId);
     });
   });
 
@@ -53,6 +61,12 @@ describe("agent home resolution compliance", () => {
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultClaudeSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.configuredPiSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultCodexSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredCodexSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredPiSessionId);
     });
   });
 });

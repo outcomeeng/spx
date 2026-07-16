@@ -1615,6 +1615,7 @@ interface PiAgentDirectoryEvidence {
   readonly defaultHome: string;
   readonly piAgentHome: string;
   readonly resumeOutput: string;
+  readonly defaultResumeOutput: string;
   readonly configuredSessionId: string;
   readonly defaultSessionId: string;
 }
@@ -1661,6 +1662,17 @@ export async function withPiAgentDirectoryEvidence(
         resolveWorktreeRoot: async () => worktreeRoot,
       },
     }),
+    defaultResumeOutput: await listAgentResumeSessions({
+      cwd,
+      fallbackWorktreeRoot: worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs,
+        agentHomeDirs: () => agentHomeDirsFromHomeDir(defaultHome),
+        nowMs: () => nowMs,
+        resolveWorktreeRoot: async () => worktreeRoot,
+      },
+    }),
     configuredSessionId,
     defaultSessionId,
   });
@@ -1668,7 +1680,9 @@ export async function withPiAgentDirectoryEvidence(
 
 interface ConfiguredAgentHomeDiscoveryEvidence {
   readonly resumeOutput: string;
+  readonly defaultResumeOutput: string;
   readonly configuredSearchOutput: string;
+  readonly defaultSearchOutput: string;
   readonly configuredCodexSessionId: string;
   readonly configuredClaudeSessionId: string;
   readonly configuredPiSessionId: string;
@@ -1693,6 +1707,17 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
         resolveWorktreeRoot: async () => fixture.worktreeRoot,
       },
     }),
+    defaultResumeOutput: await listAgentResumeSessions({
+      cwd: fixture.codexCwd,
+      fallbackWorktreeRoot: fixture.worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: () => fixture.defaultHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveWorktreeRoot: async () => fixture.worktreeRoot,
+      },
+    }),
     configuredSearchOutput: await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
       jsonAgentSearchSessions({
         cwd: fixture.codexCwd,
@@ -1706,6 +1731,18 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
           resolveBranchAssociatedWorktreeRoots: async () => [],
         },
       })),
+    defaultSearchOutput: await jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: () => fixture.defaultHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }),
     configuredCodexSessionId: fixture.codexSessionId,
     configuredClaudeSessionId: fixture.claudeSessionId,
     configuredPiSessionId: fixture.piSessionId,
@@ -1813,6 +1850,7 @@ function restoreEnvironmentVariable(name: string, value: string | undefined): vo
 interface ConfiguredAgentHomeFixture {
   readonly fs: MemoryAgentSessionFileSystem;
   readonly agentHomeDirs: AgentHomeDirs;
+  readonly defaultHomeDirs: AgentHomeDirs;
   readonly worktreeRoot: string;
   readonly codexCwd: string;
   readonly claudeCwd: string;
@@ -1918,6 +1956,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   return {
     fs,
     agentHomeDirs,
+    defaultHomeDirs,
     worktreeRoot,
     codexCwd,
     claudeCwd,
