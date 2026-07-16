@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { posix } from "node:path";
+import { posix, win32 } from "node:path";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFICATION_CONTEXT_FILE_SUBJECT_PATH } from "@/domains/verification-context/context";
@@ -310,11 +310,23 @@ export interface FileAuditScopeScenario {
   readonly child: AuditScopeUnit;
   readonly childPayload: JsonValue;
   readonly mismatchedRootPayload: JsonValue;
+  readonly parentedRootPayload: JsonValue;
+  readonly optionalRootPayload: JsonValue;
   readonly mismatchedRootEvent: JournalEvent;
   readonly orphanChildPayload: JsonValue;
   readonly duplicateRootEvent: JournalEvent;
   readonly rootEvent: JournalEvent;
   readonly childEvent: JournalEvent;
+  readonly requiredNotApplicableEvent: JournalEvent;
+  readonly optionalUncoveredEvent: JournalEvent;
+  readonly requiredUncoveredEvent: JournalEvent;
+  readonly requiredCoverageGapEvent: JournalEvent;
+  readonly findingEvents: readonly JournalEvent[];
+}
+
+export interface FileScopeIdentityScenario {
+  readonly input: string;
+  readonly normalized: string;
 }
 
 function auditScopePayload(unit: AuditScopeUnit): JsonValue {
@@ -337,14 +349,51 @@ function auditScopeEvent(unit: AuditScopeUnit, sequence: number): JournalEvent {
   };
 }
 
+function auditFindingEvent(finding: AuditFinding, sequence: number): JournalEvent {
+  const input = buildAppendEvent({
+    eventType: VERIFY_APPEND_EVENT_TYPE.FINDING,
+    idempotencyKey: finding.unitId,
+    payload: JSON.parse(JSON.stringify(finding)) as JsonValue,
+    at: new Date(0),
+  });
+  return {
+    ...input,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    streamid: finding.unitId,
+    seq: sequence,
+    runid: finding.unitId,
+  };
+}
+
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
   return arbitrarySourceFilePath();
+}
+
+export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIdentityScenario> {
+  return fc.oneof(
+    arbitrarySourceFilePath().map((path) => ({ input: path, normalized: path })),
+    fc.tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), arbitrarySourceFilePath()).map(([segment, path]) => ({
+      input: `${segment}/${path}`,
+      normalized: `${segment}/${path}`,
+    })),
+    arbitrarySourceFilePath().map((path) => ({
+      input: path.replaceAll(
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      ),
+      normalized: path,
+    })),
+  );
 }
 
 export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
   return fc.oneof(
     arbitraryBlankArgument(),
+    fc.constant(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.CURRENT_DIRECTORY),
     arbitrarySourceFilePath().map((path) => posix.resolve(posix.sep, path)),
+    fc.tuple(fc.constantFrom("C", "D"), arbitrarySourceFilePath()).map(([drive, path]) =>
+      win32.join(`${drive}:\\`, path)
+    ),
     arbitrarySourceFilePath().map(
       (path) => `${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
     ),
@@ -359,9 +408,10 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
       arbitraryAuditScopeUnit(),
       arbitraryAuditScopeUnit(),
       arbitraryAuditScopeUnit(),
+      arbitraryAuditFinding(),
       STATE_STORE_TEST_GENERATOR.scopeToken(),
     )
-    .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, orphanParent]) =>
+    .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, _finding, orphanParent]) =>
       scopeIdentity !== relatedSubject
       && root.unitId !== child.unitId
       && root.unitId !== duplicateRoot.unitId
@@ -369,7 +419,15 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
       && orphanParent !== root.unitId
       && orphanParent !== child.unitId
     )
-    .map(([scopeIdentity, relatedSubject, rootCandidate, childCandidate, duplicateRootCandidate, orphanParent]) => {
+    .map(([
+      scopeIdentity,
+      relatedSubject,
+      rootCandidate,
+      childCandidate,
+      duplicateRootCandidate,
+      findingCandidate,
+      orphanParent,
+    ]) => {
       const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
       const { parentUnitId: _duplicateParent, ...duplicateRootFields } = duplicateRootCandidate;
       const root: AuditScopeUnit = {
@@ -391,6 +449,27 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
         coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
       };
+      const requiredNotApplicable: AuditScopeUnit = {
+        ...child,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
+      };
+      const optionalUncovered: AuditScopeUnit = {
+        ...child,
+        coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
+      };
+      const requiredUncovered: AuditScopeUnit = {
+        ...child,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
+      };
+      const { producerProvenance: _coverageGapProvenance, ...coverageGapFields } = child;
+      const requiredCoverageGap: AuditScopeUnit = {
+        ...coverageGapFields,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
+      };
       const mismatchedRoot: AuditScopeUnit = { ...root, subject: relatedSubject };
       return {
         scopeIdentity,
@@ -400,10 +479,25 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         child,
         childPayload: auditScopePayload(child),
         mismatchedRootPayload: auditScopePayload(mismatchedRoot),
+        parentedRootPayload: auditScopePayload({ ...root, parentUnitId: orphanParent }),
+        optionalRootPayload: auditScopePayload({
+          ...root,
+          coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+        }),
         mismatchedRootEvent: auditScopeEvent(mismatchedRoot, JOURNAL_SEQ_BASE),
         orphanChildPayload: auditScopePayload({ ...child, parentUnitId: orphanParent }),
         rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
         childEvent: auditScopeEvent(child, JOURNAL_SEQ_BASE + 1),
+        requiredNotApplicableEvent: auditScopeEvent(requiredNotApplicable, JOURNAL_SEQ_BASE + 1),
+        optionalUncoveredEvent: auditScopeEvent(optionalUncovered, JOURNAL_SEQ_BASE + 1),
+        requiredUncoveredEvent: auditScopeEvent(requiredUncovered, JOURNAL_SEQ_BASE + 1),
+        requiredCoverageGapEvent: auditScopeEvent(requiredCoverageGap, JOURNAL_SEQ_BASE + 1),
+        findingEvents: AUDIT_FINDING_SEVERITIES.map((severity, index) =>
+          auditFindingEvent(
+            { ...findingCandidate, unitId: root.unitId, severity },
+            JOURNAL_SEQ_BASE + 1 + index,
+          )
+        ),
         duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
       };
     });

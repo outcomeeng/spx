@@ -17,6 +17,38 @@ describe("audit file-root terminal mapping", () => {
         })).toStrictEqual({ ok: true, value: undefined });
         expect(validateAuditTerminal({
           terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+          events: [scenario.rootEvent, scenario.requiredNotApplicableEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({ ok: true, value: undefined });
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+          events: [scenario.rootEvent, scenario.optionalUncoveredEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({ ok: true, value: undefined });
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({ ok: true, value: undefined });
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          events: [scenario.rootEvent, scenario.requiredUncoveredEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({ ok: true, value: undefined });
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          events: [scenario.rootEvent, scenario.requiredCoverageGapEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+        })).toStrictEqual({ ok: true, value: undefined });
+        for (const findingEvent of scenario.findingEvents) {
+          expect(validateAuditTerminal({
+            terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+            events: [scenario.rootEvent, findingEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          })).toStrictEqual({ ok: true, value: undefined });
+        }
+        expect(validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
           events: [scenario.mismatchedRootEvent],
           selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
         })).toStrictEqual({

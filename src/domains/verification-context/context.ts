@@ -11,6 +11,7 @@ export const VERIFICATION_CONTEXT_SUBJECT_KIND = {
 } as const;
 
 export const VERIFICATION_CONTEXT_FILE_SUBJECT_PATH = {
+  CURRENT_DIRECTORY: ".",
   PARENT_DIRECTORY: {
     SEGMENT: "..",
     PREFIX: "../",
@@ -40,7 +41,7 @@ export function normalizeVerificationContextFileSubjectPath(path: string): strin
   const segments = normalized.split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
   if (
     path.trim().length === 0
-    || normalized === "."
+    || normalized === VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.CURRENT_DIRECTORY
     || isAbsolute(path)
     || win32.isAbsolute(path)
     || windowsRoot.length > 0

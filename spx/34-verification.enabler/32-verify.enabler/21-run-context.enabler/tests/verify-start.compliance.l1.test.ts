@@ -1,4 +1,9 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
+import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { arbitraryFileScopeIdentityScenario } from "@testing/generators/verify/verify";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 import {
   assertStartPreservesReusedVerificationContextWhenInputPersistenceFails,
@@ -14,6 +19,7 @@ import {
   assertStartReportsPersistableRunLocator,
   assertStartRequiresNonBlankInputSource,
   assertWorkingTreeScopeIsRejected,
+  startFileScopeRun,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify start compliance", () => {
@@ -63,6 +69,25 @@ describe("verify start compliance", () => {
 
   it("reports every run-locator selector a caller persists to replay the run identity", async () => {
     await assertStartReportsPersistableRunLocator();
+  });
+
+  it("reports every file selector needed to replay the run identity", async () => {
+    await assertProperty(
+      arbitraryFileScopeIdentityScenario(),
+      async (scope) => {
+        const started = await startFileScopeRun(scope.input);
+        expect(started.report.locator).toMatchObject({
+          runToken: started.report.runToken,
+          verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+          scopeType: VERIFY_SCOPE_TYPE.FILE,
+          scopeIdentity: scope.normalized,
+          backendIdentity: JOURNAL_BACKEND.LOCAL,
+        });
+        expect(started.report.locator.storageNamespace.length).toBeGreaterThan(0);
+        expect(started.report.locator.runTarget).toContain(started.report.runToken);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("rejects a working-tree scope type that the verification-context substrate cannot represent", async () => {
