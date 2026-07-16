@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
+import { parseChangesetScope, VERIFY_SCOPE_ERROR } from "@/domains/verify/verify";
 import { arbitraryFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
@@ -21,6 +22,19 @@ describe("verify changeset scope properties", () => {
       VERIFY_TEST_GENERATOR.changesetScopeScenario(),
       async (scenario) => {
         expect((await runChangesetScopeScenario(scenario)).resolvedScope).toEqual(scenario.resolvedPaths);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects overlapping changeset separators", () => {
+    assertProperty(
+      VERIFY_TEST_GENERATOR.overlappingChangesetScope(),
+      (scope) => {
+        expect(parseChangesetScope(scope)).toStrictEqual({
+          ok: false,
+          error: VERIFY_SCOPE_ERROR.MALFORMED_CHANGESET,
+        });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
