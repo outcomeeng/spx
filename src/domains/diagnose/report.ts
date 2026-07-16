@@ -541,15 +541,17 @@ function toVerboseModel(report: DiagnoseReport): StyledReportModel {
   return {
     sections: report.checks.map((check) => {
       const text = humanText(check);
+      const remediation = `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`;
       return {
         severity: BUCKET_SEVERITY[check.bucket],
         header: text.header,
         details: [
           `${DIAGNOSE_TEXT_LABEL.CONCLUSION}: ${text.header}`,
+          ...text.details.filter((detail) => detail !== remediation),
           ...Object.entries(check.readings).map(
             ([name, value]) => `${escapeCliArgument(name)}: ${escapeCliArgument(value)}`,
           ),
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+          remediation,
         ],
       };
     }),

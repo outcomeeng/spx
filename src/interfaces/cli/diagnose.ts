@@ -94,7 +94,7 @@ export function createDiagnoseDomain(dependencies: DiagnoseDomainDependencies = 
         .description(DIAGNOSE_DOMAIN_DESCRIPTION)
         .option(
           `${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`,
-          "Path to a declarative diagnose manifest that fully instruments the diagnosis",
+          "Select caller-overridable facts and checks; harness-environment facts remain product-owned by the addressed checkout",
         )
         .addOption(new Option(DIAGNOSE_CLI.VERBOSE_FLAG, "Render every diagnostic fact").conflicts(
           DIAGNOSE_OPTION_NAME.JSON,
