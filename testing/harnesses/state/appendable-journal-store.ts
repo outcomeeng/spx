@@ -1,8 +1,8 @@
 import { dirname, join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { execa } from "execa";
 import fc from "fast-check";
-import { expect } from "vitest";
 
 import {
   CLOUDEVENTS_SPECVERSION,
@@ -26,7 +26,7 @@ import {
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -51,106 +51,150 @@ const POST_PUBLICATION_MODE = "post-publication";
 const INJECTED_SEAL_INTERRUPTION = "injected seal interruption";
 const INJECTED_SEALING_BARRIER_INTERRUPTION = "injected sealing barrier interruption";
 
-/** Prove sequence exclusivity when independent stores append to one run history concurrently. */
-export async function assertOverlappingAppendSequenceProperty(): Promise<void> {
-  await assertProperty(
-    fc.tuple(
-      arbitraryJournalEventInput(),
-      arbitraryJournalEventInput(),
-      arbitraryJournalIdentity(),
-    ),
-    async ([leftInput, rightInput, identity]) => {
-      const fs = createInMemoryStateStoreFileSystem();
-      const runFilePath = journalRunFilePath(identity.streamid);
-      const leftJournal = createJournal(
-        createAppendableJournalStore({ runFilePath, fs }),
-        identity,
-      );
-      const rightJournal = createJournal(
-        createAppendableJournalStore({ runFilePath, fs }),
-        identity,
-      );
-      const outcomes = await Promise.allSettled([
-        leftJournal.append(leftInput),
-        rightJournal.append(rightInput),
-      ]);
-      const replay = await createAppendableJournalStore({
-        runFilePath,
-        fs,
-      }).readAll();
-      const fulfilled = outcomes.filter(isFulfilled);
-      const rejected = outcomes.filter(isRejected);
+export const OVERLAPPING_APPEND_SEQUENCE_PROPERTY = {
+  arbitrary: fc.tuple(
+    arbitraryJournalEventInput(),
+    arbitraryJournalEventInput(),
+    arbitraryJournalIdentity(),
+  ),
+  predicate: async ([leftInput, rightInput, identity]: readonly [
+    JournalEventInput,
+    JournalEventInput,
+    JournalIdentity,
+  ]): Promise<boolean> => {
+    const fs = createInMemoryStateStoreFileSystem();
+    const runFilePath = journalRunFilePath(identity.streamid);
+    const leftJournal = createJournal(
+      createAppendableJournalStore({ runFilePath, fs }),
+      identity,
+    );
+    const rightJournal = createJournal(
+      createAppendableJournalStore({ runFilePath, fs }),
+      identity,
+    );
+    const outcomes = await Promise.allSettled([
+      leftJournal.append(leftInput),
+      rightJournal.append(rightInput),
+    ]);
+    const replay = await createAppendableJournalStore({ runFilePath, fs }).readAll();
+    const fulfilled = outcomes.filter(isFulfilled);
+    const rejected = outcomes.filter(isRejected);
+    return isDeepStrictEqual(
+      replay.map((event) => event.seq),
+      replay.map((_event, index) => JOURNAL_SEQ_BASE + index),
+    )
+      && new Set(replay.map((event) => event.seq)).size === replay.length
+      && fulfilled.length === replay.length
+      && rejected.length === 1
+      && rejectionMessage(rejected[0]) === JOURNAL_ERROR.SEQ_CONSUMED;
+  },
+  classification: { level: PROPERTY_LEVEL.L1 },
+} as const;
 
-      expect(replay.map((event) => event.seq)).toEqual(
-        replay.map((_event, index) => JOURNAL_SEQ_BASE + index),
-      );
-      expect(new Set(replay.map((event) => event.seq)).size).toBe(
-        replay.length,
-      );
-      expect(fulfilled).toHaveLength(replay.length);
-      expect(rejected).toHaveLength(1);
-      expect(rejectionMessage(rejected[0])).toBe(JOURNAL_ERROR.SEQ_CONSUMED);
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
+export const APPENDABLE_JOURNAL_SEALING_RACE_PROPERTY = {
+  arbitrary: fc.tuple(
+    arbitraryJournalEventInput(),
+    arbitraryJournalEventInput(),
+    arbitraryJournalIdentity(),
+  ),
+  predicate: async ([firstInput, secondInput, identity]: readonly [
+    JournalEventInput,
+    JournalEventInput,
+    JournalIdentity,
+  ]): Promise<boolean> =>
+    (await sealingBarrierWins(identity, firstInput, secondInput))
+    && (await appendPublicationWins(identity, firstInput, secondInput)),
+  classification: { level: PROPERTY_LEVEL.L1 },
+} as const;
+
+interface ComparisonObservation {
+  readonly actual: unknown;
+  readonly expected: unknown;
 }
 
-/** Prove sealing cannot omit an append that reports successful publication. */
-export async function assertAppendableJournalSealingRaceProperty(): Promise<void> {
-  await assertProperty(
-    fc.tuple(
-      arbitraryJournalEventInput(),
-      arbitraryJournalEventInput(),
-      arbitraryJournalIdentity(),
-    ),
-    async ([firstInput, secondInput, identity]) => {
-      await assertSealingBarrierWins(identity, firstInput, secondInput);
-      await assertAppendPublicationWins(identity, firstInput, secondInput);
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
+export type AppendableJournalInterruptionObservation = ComparisonObservation;
+
+let interruptionObservationPromise: Promise<AppendableJournalInterruptionObservation> | undefined;
+
+/** Collect actual and expected recovery states across append and seal interruption boundaries. */
+export function appendableJournalInterruptionObservation(): Promise<AppendableJournalInterruptionObservation> {
+  interruptionObservationPromise ??= collectAppendableJournalInterruptionObservation();
+  return interruptionObservationPromise;
 }
 
-/** Prove fresh processes recover on both sides of atomic sequence publication. */
-export async function assertAppendableJournalInterruptionCompliance(): Promise<void> {
+async function collectAppendableJournalInterruptionObservation(): Promise<
+  AppendableJournalInterruptionObservation
+> {
   const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
   const firstInput = sampleAgentRunJournalValue(arbitraryJournalEventInput());
   const nextInput = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+  const prePublication = await observePrePublicationInterruption(identity, firstInput);
+  const postPublication = await observePostPublicationInterruption(identity, firstInput, nextInput);
+  const aggregateSeal = await observeInterruptedSealRecovery(identity, firstInput, nextInput);
+  const staleBarrier = await observeStaleSealingBarrierRecovery(identity, firstInput, nextInput);
+  return {
+    actual: {
+      prePublication: prePublication.actual,
+      postPublication: postPublication.actual,
+      aggregateSeal: aggregateSeal.actual,
+      staleBarrier: staleBarrier.actual,
+    },
+    expected: {
+      prePublication: prePublication.expected,
+      postPublication: postPublication.expected,
+      aggregateSeal: aggregateSeal.expected,
+      staleBarrier: staleBarrier.expected,
+    },
+  };
+}
 
-  await withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
+async function observePrePublicationInterruption(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+): Promise<ComparisonObservation> {
+  return withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
     const runFilePath = join(tempDir, journalRunFilePath(identity.streamid));
-    expect(
-      await runInterruptedAppend(
-        PRE_PUBLICATION_MODE,
-        runFilePath,
-        identity,
-        firstInput,
-      ),
-    ).toBe(PRE_PUBLICATION_EXIT_CODE);
-
+    const exitCode = await runInterruptedAppend(
+      PRE_PUBLICATION_MODE,
+      runFilePath,
+      identity,
+      firstInput,
+    );
     const reopenedStore = createAppendableJournalStore({ runFilePath });
-    const reopened = createJournal(reopenedStore, identity);
-    const appended = await reopened.append(firstInput);
-    expect(appended.seq).toBe(JOURNAL_SEQ_BASE);
-    await expect(reopenedStore.readAll()).resolves.toEqual([appended]);
+    const appended = await createJournal(reopenedStore, identity).append(firstInput);
+    return {
+      actual: {
+        exitCode,
+        appendedSequence: appended.seq,
+        replay: await reopenedStore.readAll(),
+      },
+      expected: {
+        exitCode: PRE_PUBLICATION_EXIT_CODE,
+        appendedSequence: JOURNAL_SEQ_BASE,
+        replay: [appended],
+      },
+    };
   });
+}
 
-  await withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
+async function observePostPublicationInterruption(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+  nextInput: JournalEventInput,
+): Promise<ComparisonObservation> {
+  return withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
     const runFilePath = join(tempDir, journalRunFilePath(identity.streamid));
-    expect(
-      await runInterruptedAppend(
-        POST_PUBLICATION_MODE,
-        runFilePath,
-        identity,
-        firstInput,
-      ),
-    ).toBe(POST_PUBLICATION_EXIT_CODE);
-
+    const exitCode = await runInterruptedAppend(
+      POST_PUBLICATION_MODE,
+      runFilePath,
+      identity,
+      firstInput,
+    );
     const reopenedStore = createAppendableJournalStore({ runFilePath });
     const reopened = createJournal(reopenedStore, identity);
     const replay = await reopenedStore.readAll();
-    expect(replay).toHaveLength(1);
-    expect(replay[0]).toMatchObject({
+    const next = await reopened.append(nextInput);
+    const expectedFirst: JournalEvent = {
       id: firstInput.id,
       source: firstInput.source,
       type: firstInput.type,
@@ -160,22 +204,24 @@ export async function assertAppendableJournalInterruptionCompliance(): Promise<v
       seq: JOURNAL_SEQ_BASE,
       runid: identity.runid,
       attempt: firstInput.attempt,
-    });
-    expect(replay[0]?.data).toEqual(firstInput.data);
-    await expect(reopened.append(nextInput)).resolves.toMatchObject({
-      seq: JOURNAL_SEQ_BASE + 1,
-    });
+      ...(firstInput.data === undefined ? {} : { data: firstInput.data }),
+    };
+    return {
+      actual: { exitCode, replay, nextSequence: next.seq },
+      expected: {
+        exitCode: POST_PUBLICATION_EXIT_CODE,
+        replay: [expectedFirst],
+        nextSequence: JOURNAL_SEQ_BASE + 1,
+      },
+    };
   });
-
-  await assertInterruptedSealRecovery(identity, firstInput, nextInput);
-  await assertStaleSealingBarrierRecovery(identity, firstInput, nextInput);
 }
 
-async function assertSealingBarrierWins(
+async function sealingBarrierWins(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
-): Promise<void> {
+): Promise<boolean> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const seedJournal = createJournal(
@@ -199,19 +245,17 @@ async function assertSealingBarrierWins(
   const appendOutcome = await appendOutcomePromise;
   const hydratedReplay = await readHydratedReplay(base, runFilePath);
 
-  if (appendOutcome.status === "fulfilled") {
-    expect(hydratedReplay).toEqual([first, appendOutcome.value]);
-  } else {
-    expect(rejectionMessage(appendOutcome)).toBe(JOURNAL_ERROR.SEALED);
-    expect(hydratedReplay).toEqual([first]);
-  }
+  return appendOutcome.status === "fulfilled"
+    ? isDeepStrictEqual(hydratedReplay, [first, appendOutcome.value])
+    : rejectionMessage(appendOutcome) === JOURNAL_ERROR.SEALED
+      && isDeepStrictEqual(hydratedReplay, [first]);
 }
 
-async function assertAppendPublicationWins(
+async function appendPublicationWins(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
-): Promise<void> {
+): Promise<boolean> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const seedJournal = createJournal(
@@ -237,20 +281,15 @@ async function assertAppendPublicationWins(
     identity,
   ).seal();
   const appendOutcome = await appendOutcomePromise;
-  expect(appendOutcome.status).toBe("fulfilled");
-  if (appendOutcome.status !== "fulfilled") return;
-
-  await expect(readHydratedReplay(base, runFilePath)).resolves.toEqual([
-    first,
-    appendOutcome.value,
-  ]);
+  return appendOutcome.status === "fulfilled"
+    && isDeepStrictEqual(await readHydratedReplay(base, runFilePath), [first, appendOutcome.value]);
 }
 
-async function assertInterruptedSealRecovery(
+async function observeInterruptedSealRecovery(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   nextInput: JournalEventInput,
-): Promise<void> {
+): Promise<ComparisonObservation> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const interrupted = createInterruptedSealFileSystem(runFilePath, base);
@@ -263,10 +302,10 @@ async function assertInterruptedSealRecovery(
     await journal.append(nextInput),
   ];
 
-  await expect(journal.seal()).rejects.toThrow(INJECTED_SEAL_INTERRUPTION);
+  const sealOutcome = await settle(journal.seal());
   const reopenedStore = createAppendableJournalStore({ runFilePath, fs: base });
-  await expect(reopenedStore.isSealed()).resolves.toBe(false);
-  await expect(reopenedStore.readAll()).resolves.toEqual(appended);
+  const sealedAfterInterruption = await reopenedStore.isSealed();
+  const replayAfterInterruption = await reopenedStore.readAll();
 
   await createJournal(reopenedStore, identity).seal();
   const aggregate = await base.readFile(runFilePath, "utf8");
@@ -277,9 +316,7 @@ async function assertInterruptedSealRecovery(
     appendableJournalSealMarkerPath(runFilePath),
     APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
   );
-  await expect(
-    createAppendableJournalStore({ runFilePath, fs: hydrated }).readAll(),
-  ).resolves.toEqual(appended);
+  const hydratedReplay = await createAppendableJournalStore({ runFilePath, fs: hydrated }).readAll();
 
   const unsealedAggregate = createInMemoryStateStoreFileSystem();
   await unsealedAggregate.mkdir(join(runFilePath, ".."), { recursive: true });
@@ -287,19 +324,33 @@ async function assertInterruptedSealRecovery(
     runFilePath,
     serializeJsonlRecord({ ...appended[0] }),
   );
-  await expect(
-    createAppendableJournalStore({
-      runFilePath,
-      fs: unsealedAggregate,
-    }).readAll(),
-  ).resolves.toEqual([]);
+  const unsealedAggregateReplay = await createAppendableJournalStore({
+    runFilePath,
+    fs: unsealedAggregate,
+  }).readAll();
+  return {
+    actual: {
+      sealError: rejectionMessage(sealOutcome),
+      sealedAfterInterruption,
+      replayAfterInterruption,
+      hydratedReplay,
+      unsealedAggregateReplay,
+    },
+    expected: {
+      sealError: INJECTED_SEAL_INTERRUPTION,
+      sealedAfterInterruption: false,
+      replayAfterInterruption: appended,
+      hydratedReplay: appended,
+      unsealedAggregateReplay: [],
+    },
+  };
 }
 
-async function assertStaleSealingBarrierRecovery(
+async function observeStaleSealingBarrierRecovery(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   nextInput: JournalEventInput,
-): Promise<void> {
+): Promise<ComparisonObservation> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const journal = createJournal(
@@ -312,23 +363,33 @@ async function assertStaleSealingBarrierRecovery(
   ];
   const interrupted = createInterruptedSealingBarrierFileSystem(base);
 
-  await expect(
+  const sealOutcome = await settle(
     createJournal(
       createAppendableJournalStore({ runFilePath, fs: interrupted }),
       identity,
     ).seal(),
-  ).rejects.toThrow(INJECTED_SEALING_BARRIER_INTERRUPTION);
-  await expect(
-    createAppendableJournalStore({ runFilePath, fs: base }).isSealed(),
-  ).resolves.toBe(false);
-  await expect(journal.append(firstInput)).rejects.toThrow(
-    JOURNAL_ERROR.SEALED,
   );
+  const sealedAfterInterruption = await createAppendableJournalStore({
+    runFilePath,
+    fs: base,
+  }).isSealed();
+  const appendOutcome = await settle(journal.append(firstInput));
 
   await journal.seal();
-  await expect(readHydratedReplay(base, runFilePath)).resolves.toEqual(
-    appended,
-  );
+  return {
+    actual: {
+      sealError: rejectionMessage(sealOutcome),
+      sealedAfterInterruption,
+      appendError: rejectionMessage(appendOutcome),
+      hydratedReplay: await readHydratedReplay(base, runFilePath),
+    },
+    expected: {
+      sealError: INJECTED_SEALING_BARRIER_INTERRUPTION,
+      sealedAfterInterruption: false,
+      appendError: JOURNAL_ERROR.SEALED,
+      hydratedReplay: appended,
+    },
+  };
 }
 
 async function readHydratedReplay(
@@ -464,9 +525,10 @@ function isRejected<T>(
 }
 
 function rejectionMessage(
-  outcome: PromiseRejectedResult | undefined,
+  outcome: PromiseSettledResult<unknown> | undefined,
 ): string | undefined {
-  const reason: unknown = outcome?.reason;
+  if (outcome?.status !== "rejected") return undefined;
+  const reason: unknown = outcome.reason;
   return reason instanceof Error ? reason.message : undefined;
 }
 
