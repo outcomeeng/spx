@@ -25,6 +25,7 @@ import {
 } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
+  type AgentResumeLaunchCommand,
   type AgentResumeSessionFileSystem,
   type AgentSessionDirEntry,
   branchResumeScope,
@@ -34,7 +35,6 @@ import {
   codexSessionStoreDir,
   discoverAgentResumeCandidates,
   isPathInsideOrEqual,
-  piSessionStoreDir,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { agentSearchQueryFromOptions } from "@/domains/agent/search";
@@ -540,6 +540,64 @@ export function createAgentResumeDiscoveryFixture(seedOffset: number): AgentResu
   return { fs, nowMs, homeDir, worktreeRoot, cwd };
 }
 
+interface PiPerAgentCapEvidence {
+  readonly piSessionIds: readonly string[];
+  readonly expectedPiSessionIds: readonly string[];
+  readonly totalCandidateCount: number;
+  readonly expectedTotalCandidateCount: number;
+}
+
+export async function withPiPerAgentCapEvidence(
+  callback: (evidence: PiPerAgentCapEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs());
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 1);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 2);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
+  const count = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 4);
+  const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
+  const piIds: string[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const codexId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10 + index);
+    const claudeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 40 + index);
+    const piId = sampleAgentResumeValue(arbitraryAgentSessionId(), 70 + index);
+    piIds.push(piId);
+    fs.writeFile(
+      codexTranscriptPath(homeDir, agentSessionJsonlName(codexId)),
+      codexTranscript({ sessionId: codexId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+    fs.writeFile(
+      claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(claudeId)),
+      claudeCodeTranscript({ sessionId: claudeId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+    fs.writeFile(
+      piTranscriptPath(homeDir, agentSessionJsonlName(piId)),
+      piTranscript({ sessionId: piId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
+      nowMs - index,
+    );
+  }
+
+  const candidates = await discoverAgentResumeCandidates({
+    invocationDir: cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    nowMs,
+    scope: worktreeResumeScope(),
+    fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+  });
+  callback({
+    piSessionIds: candidates
+      .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI)
+      .map((candidate) => candidate.sessionId),
+    expectedPiSessionIds: piIds.slice(0, cap),
+    totalCandidateCount: candidates.length,
+    expectedTotalCandidateCount: cap * Object.values(AGENT_SESSION_KIND).length,
+  });
+}
+
 export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 230);
@@ -548,11 +606,8 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 233);
   const newestSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 234);
   const olderSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 235);
-  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 236);
-  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 237);
-  const piActivityAtMs = nowMs - 1;
+  const olderModifiedAtMs = nowMs - sampleAgentResumeValue(arbitraryAgentResumeRecentOffsetMs(), 236);
   const staleOpeningTimestamp = new Date(olderModifiedAtMs).toISOString();
-  const piActivityTimestamp = new Date(piActivityAtMs).toISOString();
   const newestActivityTimestamp = new Date(nowMs).toISOString();
   fs.writeFile(
     claudeProjectTranscriptPath(homeDir, cwd, agentSessionJsonlName(newestSessionId)),
@@ -561,11 +616,6 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
       agentTranscriptActivityRow(newestActivityTimestamp),
     ].join("\n"),
     olderModifiedAtMs,
-  );
-  fs.writeFile(
-    piTranscriptPath(homeDir, agentSessionJsonlName(piSessionId)),
-    piTranscript({ sessionId: piSessionId, cwd, timestamp: piActivityTimestamp }),
-    piActivityAtMs,
   );
   fs.writeFile(
     codexTranscriptPath(homeDir, agentSessionJsonlName(olderSessionId)),
@@ -585,13 +635,11 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
     },
   });
 
-  const [firstLine, secondLine, thirdLine] = output.split("\n");
+  const [firstLine, secondLine] = output.split("\n");
   expect(firstLine).toContain(newestActivityTimestamp);
   expect(firstLine).toContain(newestSessionId);
-  expect(secondLine).toContain(piActivityTimestamp);
-  expect(secondLine).toContain(piSessionId);
-  expect(thirdLine).toContain(staleOpeningTimestamp);
-  expect(thirdLine).toContain(olderSessionId);
+  expect(secondLine).toContain(staleOpeningTimestamp);
+  expect(secondLine).toContain(olderSessionId);
 }
 
 export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
@@ -624,18 +672,6 @@ export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
       nowMs - index,
     );
   }
-  const piCount = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 6);
-  const piIds: string[] = [];
-  for (let index = 0; index < piCount; index += 1) {
-    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 50 + index);
-    piIds.push(sessionId);
-    fs.writeFile(
-      piTranscriptPath(homeDir, agentSessionJsonlName(sessionId)),
-      piTranscript({ sessionId, cwd, timestamp: new Date(nowMs - index).toISOString() }),
-      nowMs - index,
-    );
-  }
-
   const candidates = await discoverAgentResumeCandidates({
     invocationDir: cwd,
     agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
@@ -647,10 +683,8 @@ export async function assertNewestSessionsPerAgentWithinScope(): Promise<void> {
 
   const codexResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX);
   const claudeResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE);
-  const piResult = candidates.filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI);
   expect(codexResult.map((candidate) => candidate.sessionId)).toEqual(codexIds.slice(0, cap));
   expect(claudeResult.map((candidate) => candidate.sessionId)).toEqual(claudeIds.slice(0, cap));
-  expect(piResult.map((candidate) => candidate.sessionId)).toEqual(piIds.slice(0, cap));
   const timestampedActivity = candidates
     .map((candidate) => candidate.lastActivityAtMs)
     .filter((activityAtMs): activityAtMs is number => activityAtMs !== null);
@@ -957,7 +991,16 @@ export async function assertExcludesClaudeSubagentTranscripts(): Promise<void> {
   expect(candidates.map((candidate) => candidate.sessionId)).toEqual([topLevelId]);
 }
 
-export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void> {
+interface PiSessionHeaderEvidence {
+  readonly discoveredSessionIds: readonly string[];
+  readonly expectedSessionIds: readonly string[];
+  readonly launchCommand: AgentResumeLaunchCommand;
+  readonly expectedLaunchCommand: AgentResumeLaunchCommand;
+}
+
+export async function withPiSessionHeaderEvidence(
+  callback: (evidence: PiSessionHeaderEvidence) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 166);
   const timestamp = new Date(nowMs).toISOString();
@@ -968,11 +1011,7 @@ export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void
   const invalidTypeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 171);
   const unversionedId = sampleAgentResumeValue(arbitraryAgentSessionId(), 172);
   const sourcePath = piTranscriptPath(homeDir, agentSessionJsonlName(validId));
-  fs.writeFile(
-    sourcePath,
-    piTranscript({ sessionId: validId, cwd, timestamp }),
-    nowMs,
-  );
+  fs.writeFile(sourcePath, piTranscript({ sessionId: validId, cwd, timestamp }), nowMs);
   fs.writeFile(
     piTranscriptPath(homeDir, agentSessionJsonlName(invalidTypeId)),
     JSON.stringify({
@@ -1003,12 +1042,15 @@ export async function assertPiRequiresVersionedOpeningSessionRow(): Promise<void
     fs,
     resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
   });
-
-  expect(candidates.map((candidate) => candidate.sessionId)).toEqual([validId]);
-  expect(buildAgentResumeLaunchCommand(candidates[0])).toEqual({
-    command: AGENT_RESUME_COMMAND.PI_BINARY,
-    args: [AGENT_RESUME_COMMAND.PI_SESSION, sourcePath],
-    cwd,
+  callback({
+    discoveredSessionIds: candidates.map((candidate) => candidate.sessionId),
+    expectedSessionIds: [validId],
+    launchCommand: buildAgentResumeLaunchCommand(candidates[0]),
+    expectedLaunchCommand: {
+      command: AGENT_RESUME_COMMAND.PI_BINARY,
+      args: [AGENT_RESUME_COMMAND.PI_SESSION, sourcePath],
+      cwd,
+    },
   });
 }
 
@@ -1446,7 +1488,30 @@ export function assertClaudeProjectNameEncodesPathSeparators(): void {
   expect(windowsEncoded).toBe(posixEncoded);
 }
 
-export async function assertDefaultAgentSessionStoreDirs(): Promise<void> {
+export function assertDefaultAgentSessionStoreDirs(): void {
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
+
+  const agentHomeDirs = agentHomeDirsFromHomeDir(homeDir);
+  expect(codexSessionStoreDir(agentHomeDirs.codex)).toBe(
+    join(homeDir, AGENT_SESSION_STORE.CODEX_DIR, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR),
+  );
+  expect(claudeCodeSessionStoreDir(agentHomeDirs.claudeCode)).toBe(
+    join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR),
+  );
+}
+
+interface DefaultAgentSessionStoreEvidence {
+  readonly resolvedHomeDirs: AgentHomeDirs;
+  readonly expectedHomeDirs: AgentHomeDirs;
+  readonly resumeOutput: string;
+  readonly codexSessionId: string;
+  readonly claudeSessionId: string;
+  readonly piSessionId: string;
+}
+
+export async function withDefaultAgentSessionStoreEvidence(
+  callback: (evidence: DefaultAgentSessionStoreEvidence) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 390);
@@ -1456,51 +1521,45 @@ export async function assertDefaultAgentSessionStoreDirs(): Promise<void> {
   const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 394);
   const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 395);
   const timestamp = new Date(nowMs).toISOString();
-  const agentHomeDirs = resolveAgentHomeDirs({}, { homeDir: () => homeDir });
-  expect(codexSessionStoreDir(agentHomeDirs.codex)).toBe(
-    join(homeDir, AGENT_SESSION_STORE.CODEX_DIR, AGENT_SESSION_STORE.CODEX_SESSIONS_DIR),
-  );
-  expect(claudeCodeSessionStoreDir(agentHomeDirs.claudeCode)).toBe(
-    join(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR, AGENT_SESSION_STORE.CLAUDE_PROJECTS_DIR),
-  );
-  expect(agentHomeDirs.piAgent).toBe(
-    join(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR),
-  );
-  expect(agentHomeDirs.piSessions).toBe(
-    join(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
-  );
-  expect(piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions)).toBe(agentHomeDirs.piSessions);
+  const resolvedHomeDirs = resolveAgentHomeDirs({}, { homeDir: () => homeDir });
   fs.writeFile(
-    codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
+    codexTranscriptPathFromAgentHome(resolvedHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
     codexTranscript({ sessionId: codexSessionId, cwd, timestamp }),
     nowMs,
   );
   fs.writeFile(
-    claudeProjectTranscriptPathFromAgentHome(agentHomeDirs.claudeCode, cwd, agentSessionJsonlName(claudeSessionId)),
+    claudeProjectTranscriptPathFromAgentHome(
+      resolvedHomeDirs.claudeCode,
+      cwd,
+      agentSessionJsonlName(claudeSessionId),
+    ),
     claudeCodeTranscript({ sessionId: claudeSessionId, cwd, timestamp }),
     nowMs,
   );
   fs.writeFile(
-    piTranscriptPathFromSessionDir(agentHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
+    piTranscriptPathFromSessionDir(resolvedHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
     piTranscript({ sessionId: piSessionId, cwd, timestamp }),
     nowMs,
   );
 
-  const output = await listAgentResumeSessions({
-    cwd,
-    fallbackWorktreeRoot: worktreeRoot,
-    scope: worktreeResumeScope(),
-    deps: {
-      fs,
-      agentHomeDirs: () => agentHomeDirs,
-      nowMs: () => nowMs,
-      resolveWorktreeRoot: async () => worktreeRoot,
-    },
+  callback({
+    resolvedHomeDirs,
+    expectedHomeDirs: agentHomeDirsFromHomeDir(homeDir),
+    resumeOutput: await listAgentResumeSessions({
+      cwd,
+      fallbackWorktreeRoot: worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs,
+        agentHomeDirs: () => resolvedHomeDirs,
+        nowMs: () => nowMs,
+        resolveWorktreeRoot: async () => worktreeRoot,
+      },
+    }),
+    codexSessionId,
+    claudeSessionId,
+    piSessionId,
   });
-
-  expect(output).toContain(codexSessionId);
-  expect(output).toContain(claudeSessionId);
-  expect(output).toContain(piSessionId);
 }
 
 interface AgentHomeResolutionEvidence {
@@ -1655,6 +1714,64 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
     defaultClaudeSessionId: fixture.defaultClaudeSessionId,
     defaultPiSessionId: fixture.defaultPiSessionId,
   });
+}
+
+export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
+  const fixture = createConfiguredAgentHomeFixture();
+  const output = await listAgentResumeSessions({
+    cwd: fixture.codexCwd,
+    fallbackWorktreeRoot: fixture.worktreeRoot,
+    scope: worktreeResumeScope(),
+    deps: {
+      fs: fixture.fs,
+      agentHomeDirs: () => fixture.agentHomeDirs,
+      nowMs: () => fixture.nowMs,
+      resolveWorktreeRoot: async () => fixture.worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(fixture.codexSessionId);
+  expect(output).toContain(fixture.claudeSessionId);
+  expect(output).not.toContain(fixture.defaultSessionId);
+}
+
+export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
+  const fixture = createConfiguredAgentHomeFixture();
+  const configuredOutput = await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
+    jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }));
+  const defaultOutput = await withAgentHomeEnvironment(null, () =>
+    jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }));
+
+  expect(configuredOutput).toContain(fixture.codexSessionId);
+  expect(configuredOutput).toContain(fixture.claudeSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).toContain(fixture.defaultSessionId);
+  expect(defaultOutput).toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).not.toContain(fixture.codexSessionId);
+  expect(defaultOutput).not.toContain(fixture.claudeSessionId);
 }
 
 async function withAgentHomeEnvironment<T>(
