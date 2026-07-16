@@ -9,20 +9,3 @@ This mismatch makes config harder to compare with other domains and makes future
 **Resolution:** Add or revise the command/domain architecture decision before moving code. The decision should define the CLI adapter boundary, the domain behavior boundary, dependency injection ownership, and the expected test level for each side. Then refactor config first as the pilot domain and apply the same rule to validation once the pilot passes `spx validation all`.
 
 **Skills:** `spec-tree:align`, `typescript:architect-typescript`, `typescript:audit-typescript-architecture`, `typescript:test-typescript`, `typescript:code-typescript`, `typescript:audit-typescript`.
-
-## Executed tests delegate their assertions to config test infrastructure
-
-The `work/verification-tag-alignment` changeset moves the **assertion flow** from two executed config tests into `testing/harnesses/config/resolution.ts`. The resulting test files only call exported `assert*` functions, while the imported test-infrastructure module owns `expect` calls and the behavioral predicates.
-
-**Affected evidence:**
-
-- `spx/16-config.enabler/tests/format-api.mapping.l1.test.ts` delegates its complete predicate to `assertEveryConfigFormatSupportsReadParseSerialize`.
-- `spx/16-config.enabler/tests/resolution-scope.compliance.l1.test.ts` delegates its complete predicate to `assertResolutionUsesOnlyCanonicalProductConfig`.
-
-This shape violates the assertion ownership defined by [`spx/12-test-infrastructure.adr.md`](../12-test-infrastructure.adr.md) and [`spx/local/typescript-tests.md`](../local/typescript-tests.md): executed test files own assertion flow and every `expect`; test infrastructure owns reusable resource lifecycle, controlled boundaries, execution policy, cleanup, and diagnostics.
-
-**Resolution:** return setup and observed results from config test infrastructure, then place each behavioral predicate and `expect` in its executed test file. Move variable input domains or construction-derived expected values into config generators, and expose any required production vocabulary through its production owner.
-
-**Skills:** `spec-tree:apply`, `spec-tree:test`, `spec-tree:audit-tests`.
-
-**Revisit condition:** before publishing or merging the `work/verification-tag-alignment` changeset.
