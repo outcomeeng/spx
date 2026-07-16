@@ -336,7 +336,10 @@ export function inspectVerificationEvidenceCommands(): {
   };
 }
 
-export function assertVerificationRunPathsHideJournalMechanics(): void {
+export function inspectVerificationRunCommandNames(): {
+  readonly rootCommandNames: readonly string[];
+  readonly verificationCommandNames: readonly string[];
+} {
   const program = createCliProgram();
   const commandNames = program.commands.flatMap((command) => commandTokens(command));
   const verificationCommand = program.commands.find(
@@ -349,10 +352,31 @@ export function assertVerificationRunPathsHideJournalMechanics(): void {
     ? []
     : collectCommandTokens(verificationCommand);
 
-  expect(commandNames).not.toContain(VERIFICATION_RUN_CLI_SURFACE.forbiddenRootCommandName);
-  for (const forbiddenRunCommandName of VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames) {
-    expect(verificationCommandNames).not.toContain(forbiddenRunCommandName);
-  }
+  return { rootCommandNames: commandNames, verificationCommandNames };
+}
+
+export function inspectVerificationStartScopeGrammar(): {
+  readonly scopeTypeFlags: string | undefined;
+  readonly scopeFlags: string | undefined;
+  readonly scopeTypeDescription: string | undefined;
+  readonly scopeDescription: string | undefined;
+} {
+  const program = createCliProgram();
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+  const runCommand = verificationCommand?.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+  );
+  const startCommand = runCommand?.commands.find((command) => command.name() === VERIFY_CLI.startCommandName);
+  const scopeTypeOption = startCommand?.options.find((option) => option.flags === VERIFY_CLI.scopeTypeOption);
+  const scopeOption = startCommand?.options.find((option) => option.flags === VERIFY_CLI.scopeOption);
+  return {
+    scopeTypeFlags: scopeTypeOption?.flags,
+    scopeFlags: scopeOption?.flags,
+    scopeTypeDescription: scopeTypeOption?.description,
+    scopeDescription: scopeOption?.description,
+  };
 }
 
 export async function recordVerificationRunHandlerOptions(): Promise<{
@@ -483,6 +507,32 @@ export async function recordVerifyStartOptions(
     { from: SPX_COMMANDER_PARSE_SOURCE },
   );
   return recording.startOptions;
+}
+
+export async function observeFileScopeOptionMapping(): Promise<{
+  readonly path: string;
+  readonly recordedOptions: readonly VerifyStartCliOptions[];
+  readonly started: StartedFileScopeRun;
+}> {
+  const path = sampleLiteralTestValue(arbitrarySourceFilePath());
+  return {
+    path,
+    recordedOptions: await recordVerifyStartOptions(VERIFY_SCOPE_TYPE.FILE, path),
+    started: await startFileScopeRun(path),
+  };
+}
+
+export async function observeChangesetScopeOptionMapping(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly recordedOptions: readonly VerifyStartCliOptions[];
+  readonly started: StartedChangesetScopeRun;
+}> {
+  const scenario = createVerifyRunContextScenario();
+  return {
+    scenario,
+    recordedOptions: await recordVerifyStartOptions(VERIFY_SCOPE_TYPE.CHANGESET, scenario.scope),
+    started: await startChangesetScopeRun(scenario),
+  };
 }
 
 export function createSealRetryFileSystem(): SealRetryFileSystem {
