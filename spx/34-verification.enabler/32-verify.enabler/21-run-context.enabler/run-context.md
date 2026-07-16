@@ -25,7 +25,6 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 ### Compliance
 
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
-- ALWAYS: `start` reports enough resolved selector context for a caller to persist and replay the run identity without reconstructing journal namespace details itself ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: recorded-input replay requires a run token and rejects ambiguous type/scope-only selection ([test](tests/verify-input.compliance.l1.test.ts))
 - ALWAYS: when `input` cannot locate a run, the diagnostic names the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address it ([test](tests/verify-input.compliance.l1.test.ts))
 - NEVER: recorded-input replay reads a fresh input value instead of replaying the input recorded at start ([test](tests/verify-input.compliance.l1.test.ts))
