@@ -1,7 +1,5 @@
 import { join } from "node:path";
 
-import { expect } from "vitest";
-
 import {
   COMPACT_MARKER,
   COMPACT_RECORD_FIELDS,
@@ -29,60 +27,83 @@ function jsonlNestedStringRecord(content: string): string {
   return jsonlStringRecord(JSON.stringify({ content }));
 }
 
-export function assertEscapedTranscriptUsesLatestNode(): void {
+export type CompactRecordObservation = {
+  readonly actual: ReturnType<typeof extractCompactRecord>;
+  readonly expected: ReturnType<typeof extractCompactRecord>;
+};
+
+export type CompactPathObservation = {
+  readonly actual: ReturnType<typeof compactStashPath>;
+  readonly expected: string;
+};
+
+type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
+
+export function withEscapedTranscriptObservation(consume: ObservationConsumer<CompactRecordObservation>): void {
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
   const transcript = [
     jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
     jsonlStringRecord(escapedMarker(firstNode)),
     jsonlStringRecord(escapedMarker(latestNode)),
   ].join("\n");
-  expect(extractCompactRecord(transcript)).toEqual({
-    [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-    [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+  void consume({
+    actual: extractCompactRecord(transcript),
+    expected: {
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    },
   });
 }
 
-export function assertUnescapedTranscriptUsesLatestNode(): void {
+export function withUnescapedTranscriptObservation(consume: ObservationConsumer<CompactRecordObservation>): void {
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
   const transcript = [
     jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
     jsonlStringRecord(unescapedMarker(firstNode)),
     jsonlStringRecord(unescapedMarker(latestNode)),
   ].join("\n");
-  expect(extractCompactRecord(transcript)).toEqual({
-    [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-    [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+  void consume({
+    actual: extractCompactRecord(transcript),
+    expected: {
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    },
   });
 }
 
-export function assertNestedTranscriptUsesLatestNode(): void {
+export function withNestedTranscriptObservation(consume: ObservationConsumer<CompactRecordObservation>): void {
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
   const transcript = [
     jsonlStringRecord(COMPACT_MARKER.FOUNDATION),
     jsonlNestedStringRecord(unescapedMarker(firstNode)),
     jsonlNestedStringRecord(unescapedMarker(latestNode)),
   ].join("\n");
-  expect(extractCompactRecord(transcript)).toEqual({
-    [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-    [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+  void consume({
+    actual: extractCompactRecord(transcript),
+    expected: {
+      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    },
   });
 }
 
-export function assertMarkerTextOutsideStringValuesIsIgnored(): void {
+export function withNonStringMarkerObservation(consume: ObservationConsumer<CompactRecordObservation>): void {
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcript = JSON.stringify({
     [COMPACT_MARKER.FOUNDATION]: true,
     [unescapedMarker(node)]: true,
   });
-  expect(extractCompactRecord(transcript)).toBeUndefined();
+  void consume({ actual: extractCompactRecord(transcript), expected: undefined });
 }
 
-export function assertTranscriptWithoutFoundationHasNoRecord(): void {
+export function withMissingFoundationObservation(consume: ObservationConsumer<CompactRecordObservation>): void {
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
-  expect(extractCompactRecord(jsonlStringRecord(escapedMarker(node)))).toBeUndefined();
+  void consume({ actual: extractCompactRecord(jsonlStringRecord(escapedMarker(node))), expected: undefined });
 }
 
-export async function assertCompactPathUsesLocalWorktreeSessionScope(): Promise<void> {
+export async function forEachCompactPathObservation(
+  consume: ObservationConsumer<CompactPathObservation>,
+): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const mainCheckoutScope = await resolveWorktreeScopeDir({
     deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
@@ -93,24 +114,26 @@ export async function assertCompactPathUsesLocalWorktreeSessionScope(): Promise<
   const mainCheckout = compactStashPath(mainCheckoutScope, sessionToken);
   const nonMain = compactStashPath(nonMainScope, sessionToken);
 
-  expect(mainCheckout.ok).toBe(true);
-  expect(nonMain.ok).toBe(true);
-  if (!mainCheckout.ok) throw new Error(mainCheckout.error);
-  if (!nonMain.ok) throw new Error(nonMain.error);
-  expect(mainCheckout.value).toBe(join(
-    SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
-    STATE_STORE_SCOPE_PATH.SPX_DIR,
-    STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
-    sessionToken,
-    STATE_STORE_DOMAIN.COMPACT,
-    COMPACT_STORE_PATH.STASH_FILE,
-  ));
-  expect(nonMain.value).toBe(join(
-    SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
-    STATE_STORE_SCOPE_PATH.SPX_DIR,
-    STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
-    sessionToken,
-    STATE_STORE_DOMAIN.COMPACT,
-    COMPACT_STORE_PATH.STASH_FILE,
-  ));
+  await consume({
+    actual: mainCheckout,
+    expected: join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+      sessionToken,
+      STATE_STORE_DOMAIN.COMPACT,
+      COMPACT_STORE_PATH.STASH_FILE,
+    ),
+  });
+  await consume({
+    actual: nonMain,
+    expected: join(
+      SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+      sessionToken,
+      STATE_STORE_DOMAIN.COMPACT,
+      COMPACT_STORE_PATH.STASH_FILE,
+    ),
+  });
 }

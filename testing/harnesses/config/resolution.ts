@@ -1,12 +1,9 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
-import { expect } from "vitest";
-
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
-  type ConfigFile,
   type ConfigFileFormat,
   parseConfigFileSections,
   readProductConfigFile,
@@ -48,7 +45,6 @@ function readFirstKind(category: SpecTreeKindCategory): readonly [string, Config
 
 function readResolvedSpecTree(config: Config): typeof specTreeConfigDescriptor.defaults {
   const validated = specTreeConfigDescriptor.validate(config[specTreeConfigDescriptor.section]);
-  expect(validated.ok).toBe(true);
   if (!validated.ok) {
     throw new Error(validated.error);
   }
@@ -67,16 +63,25 @@ function writeConfigPath(directory: string, format: ConfigFileFormat): string {
   return join(directory, CONFIG_FILE_DEFINITIONS[format].filename);
 }
 
-function parseSerialized(file: ConfigFile, raw: string): Record<string, unknown> {
-  const parsed = parseConfigFileSections({ ...file, raw });
-  expect(parsed.ok).toBe(true);
-  if (!parsed.ok) {
-    throw new Error(parsed.error);
-  }
-  return parsed.value;
-}
+export type ResolutionScopeObservation = {
+  readonly expectedKinds: readonly string[];
+  readonly result: Awaited<ReturnType<typeof resolveConfig>>;
+};
 
-export async function assertResolutionUsesOnlyCanonicalProductConfig(): Promise<void> {
+export type ConfigFormatObservation = {
+  readonly expectedConfig: Config;
+  readonly format: ConfigFileFormat;
+  readonly parsed: ReturnType<typeof parseConfigFileSections> | undefined;
+  readonly read: Awaited<ReturnType<typeof readProductConfigFile>>;
+  readonly reparsed: ReturnType<typeof parseConfigFileSections> | undefined;
+  readonly serialized: ReturnType<typeof serializeConfigFileSections> | undefined;
+};
+
+type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
+
+export async function forEachResolutionScopeObservation(
+  consume: ObservationConsumer<ResolutionScopeObservation>,
+): Promise<void> {
   const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
   const parentOnly = sampleConfigTestValue(CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE));
   const nestedOnly = sampleConfigTestValue(CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE));
@@ -94,11 +99,7 @@ export async function assertResolutionUsesOnlyCanonicalProductConfig(): Promise<
       );
 
       const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(readResolvedSpecTree(result.value)).toEqual(specTreeConfigDescriptor.defaults);
-      }
+      await consume({ result, expectedKinds: Object.keys(specTreeConfigDescriptor.defaults.kinds) });
     });
 
     await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
@@ -110,18 +111,14 @@ export async function assertResolutionUsesOnlyCanonicalProductConfig(): Promise<
       );
 
       const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(Object.keys(readResolvedSpecTree(result.value).kinds)).toEqual(
-          Object.keys(readResolvedSpecTree(rootConfig).kinds),
-        );
-      }
+      await consume({ result, expectedKinds: Object.keys(readResolvedSpecTree(rootConfig).kinds) });
     });
   }
 }
 
-export async function assertEveryConfigFormatSupportsReadParseSerialize(): Promise<void> {
+export async function forEachConfigFormatObservation(
+  consume: ObservationConsumer<ConfigFormatObservation>,
+): Promise<void> {
   const [kind, definition] = readFirstKind(SPEC_TREE_KIND_CATEGORY.DECISION);
   const config = buildSpecTreeConfig(kind, definition);
 
@@ -133,19 +130,14 @@ export async function assertEveryConfigFormatSupportsReadParseSerialize(): Promi
       await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, config));
 
       const read = await readProductConfigFile(productDir);
-      expect(read.ok).toBe(true);
-      if (!read.ok || read.value.kind !== "ok") return;
-      expect(read.value.file.format).toBe(format);
-
-      const parsed = parseConfigFileSections(read.value.file);
-      expect(parsed.ok).toBe(true);
-      if (!parsed.ok) return;
-      expect(readResolvedSpecTree(parsed.value)).toEqual(readResolvedSpecTree(config));
-
-      const serialized = serializeConfigFileSections(read.value.file.format, parsed.value);
-      expect(serialized.ok).toBe(true);
-      if (!serialized.ok) return;
-      expect(parseSerialized(read.value.file, serialized.value)).toEqual(parsed.value);
+      const parsed = read.ok && read.value.kind === "ok" ? parseConfigFileSections(read.value.file) : undefined;
+      const serialized = parsed?.ok === true && read.ok && read.value.kind === "ok"
+        ? serializeConfigFileSections(read.value.file.format, parsed.value)
+        : undefined;
+      const reparsed = serialized?.ok === true && read.ok && read.value.kind === "ok"
+        ? parseConfigFileSections({ ...read.value.file, raw: serialized.value })
+        : undefined;
+      await consume({ expectedConfig: config, format, parsed, read, reparsed, serialized });
     });
   }
 }

@@ -1,108 +1,68 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultsCommand } from "@/commands/config/defaults";
-import type { CliDeps } from "@/commands/config/types";
-import {
-  CONFIG_FILE_FORMAT,
-  configFileForFormat,
-  type ConfigFileFormat,
-  DEFAULT_CONFIG_FILE_FORMAT,
-  parseConfigFileSections,
-} from "@/config/index";
-import type { Config, ConfigDescriptor } from "@/config/types";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-
-function makeDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
-  return {
-    resolveConfig: async () => {
-      throw new Error("defaultsCommand must not call resolveConfig");
-    },
-    readProductConfigFile: async () => {
-      throw new Error("defaultsCommand must not call readProductConfigFile");
-    },
-    resolveConfigFromReadResult: () => {
-      throw new Error("defaultsCommand must not call resolveConfigFromReadResult");
-    },
-    resolveProductDir: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
-    descriptors,
-  };
-}
-
-function parseOutput(format: ConfigFileFormat, raw: string): Config {
-  const parsed = parseConfigFileSections(
-    configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()), format, raw),
-  );
-  expect(parsed.ok).toBe(true);
-  if (!parsed.ok) {
-    throw new Error(parsed.error);
-  }
-  return parsed.value;
-}
+import {
+  withDefaultsFormatEquivalenceObservation,
+  withDefaultsIndependenceObservation,
+  withDefaultsJsonObservation,
+  withDefaultsOutputObservation,
+  withDefaultsRegistryObservation,
+} from "@testing/harnesses/config/cli";
 
 describe("defaultsCommand — default-format output", () => {
   it("emits a default-format dump of every registered descriptor's defaults, exit 0", async () => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
-    const deps = makeDeps([specTreeConfigDescriptor, generated.descriptor]);
-
-    const result = await defaultsCommand({}, deps);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toHaveLength(0);
-
-    const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
-    expect(parsed[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
-    expect(parsed[generated.section]).toEqual(generated.defaults);
+    await withDefaultsOutputObservation(({ defaultParsed, generatedDefaults, generatedSection, result }) => {
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      expect(defaultParsed?.ok).toBe(true);
+      if (defaultParsed?.ok !== true || generatedSection === undefined) return;
+      expect(defaultParsed.value[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+      expect(defaultParsed.value[generatedSection]).toEqual(generatedDefaults);
+    });
   });
 
   it("does not call resolveConfig — output is independent of any product config file present at the product directory", async () => {
-    const deps = makeDeps([specTreeConfigDescriptor]);
-
-    const result = await defaultsCommand({}, deps);
-
-    expect(result.exitCode).toBe(0);
-    const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
-    expect(parsed[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+    await withDefaultsIndependenceObservation(({ defaultParsed, result }) => {
+      expect(result?.exitCode).toBe(0);
+      expect(defaultParsed?.ok).toBe(true);
+      if (defaultParsed?.ok === true) {
+        expect(defaultParsed.value[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+      }
+    });
   });
 });
 
 describe("defaultsCommand — JSON output", () => {
   it("emits descriptor defaults as a JSON document when --json is set, exit 0", async () => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
-    const deps = makeDeps([specTreeConfigDescriptor, generated.descriptor]);
-
-    const result = await defaultsCommand({ json: true }, deps);
-
-    expect(result.exitCode).toBe(0);
-    const parsed = parseOutput(CONFIG_FILE_FORMAT.JSON, result.stdout);
-    expect(parsed[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
-    expect(parsed[generated.section]).toEqual(generated.defaults);
+    await withDefaultsJsonObservation(({ generatedDefaults, generatedSection, jsonParsed, result }) => {
+      expect(result?.exitCode).toBe(0);
+      expect(jsonParsed?.ok).toBe(true);
+      if (jsonParsed?.ok !== true || generatedSection === undefined) return;
+      expect(jsonParsed.value[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+      expect(jsonParsed.value[generatedSection]).toEqual(generatedDefaults);
+    });
   });
 
   it("JSON and default-format encodings round-trip to equal Configs", async () => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
-    const deps = makeDeps([specTreeConfigDescriptor, generated.descriptor]);
-
-    const defaultResult = await defaultsCommand({}, deps);
-    const jsonResult = await defaultsCommand({ json: true }, deps);
-
-    expect(parseOutput(DEFAULT_CONFIG_FILE_FORMAT, defaultResult.stdout)).toEqual(
-      parseOutput(CONFIG_FILE_FORMAT.JSON, jsonResult.stdout),
-    );
+    await withDefaultsFormatEquivalenceObservation(({ defaultParsed, jsonParsed }) => {
+      expect(defaultParsed?.ok).toBe(true);
+      expect(jsonParsed?.ok).toBe(true);
+      if (defaultParsed?.ok === true && jsonParsed?.ok === true) {
+        expect(defaultParsed.value).toEqual(jsonParsed.value);
+      }
+    });
   });
 });
 
 describe("defaultsCommand — registry iteration", () => {
   it("emits one section per descriptor in the supplied list — no more, no fewer", async () => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
-    const deps = makeDeps([specTreeConfigDescriptor, generated.descriptor]);
-
-    const result = await defaultsCommand({}, deps);
-
-    const parsed = parseOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
-    expect(Object.keys(parsed).sort(compareAsciiStrings)).toEqual(
-      [generated.section, specTreeConfigDescriptor.section].sort(compareAsciiStrings),
-    );
+    await withDefaultsRegistryObservation(({ defaultParsed, generatedSection }) => {
+      expect(defaultParsed?.ok).toBe(true);
+      if (defaultParsed?.ok === true && generatedSection !== undefined) {
+        expect(Object.keys(defaultParsed.value).sort(compareAsciiStrings)).toEqual(
+          [generatedSection, specTreeConfigDescriptor.section].sort(compareAsciiStrings),
+        );
+      }
+    });
   });
 });

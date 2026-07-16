@@ -2,29 +2,24 @@ import { execa } from "execa";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { expect } from "vitest";
-
 import { defaultsCommand } from "@/commands/config/defaults";
 import { showCommand } from "@/commands/config/show";
 import type { CliDeps } from "@/commands/config/types";
-import { VALIDATE_SUCCESS_TOKENS, validateCommand } from "@/commands/config/validate";
+import { validateCommand } from "@/commands/config/validate";
 import {
   absentConfigFileReadResult,
   CONFIG_FILE_FORMAT,
-  CONFIG_FILENAMES,
   configFileForFormat,
   type ConfigFileFormat,
   type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
   resolveConfigFromReadResult,
-  serializeConfigFileSections,
 } from "@/config/index";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
 import {
   CONFIG_TEST_GENERATOR,
   type GeneratedConfigCliDeterminismCase,
@@ -34,6 +29,34 @@ import { NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 const EFFECT_SENTINEL_SUCCESS = "CONFIG_EFFECT_SENTINEL_OK";
+
+type ConfigCliResult = Awaited<ReturnType<typeof showCommand>>;
+
+export type ConfigCliObservation = {
+  readonly config?: Config;
+  readonly defaultParsed?: ReturnType<typeof parseConfigFileSections>;
+  readonly defaults?: ConfigCliResult;
+  readonly defaultsAgain?: ConfigCliResult;
+  readonly effects?: readonly string[];
+  readonly expectedReadResult?: ConfigFileReadResult;
+  readonly generatedDefaults?: unknown;
+  readonly generatedSection?: string;
+  readonly jsonParsed?: ReturnType<typeof parseConfigFileSections>;
+  readonly observedProductDir?: string;
+  readonly observedReadResult?: ConfigFileReadResult;
+  readonly offendingKind?: string;
+  readonly optionFlags?: readonly string[];
+  readonly productDir?: string;
+  readonly result?: ConfigCliResult;
+  readonly sentinelResult?: Awaited<ReturnType<typeof execa>>;
+  readonly sentinelSuccess?: string;
+  readonly show?: ConfigCliResult;
+  readonly showAgain?: ConfigCliResult;
+  readonly validate?: ConfigCliResult;
+  readonly validateAgain?: ConfigCliResult;
+};
+
+type ObservationConsumer = (observation: ConfigCliObservation) => void | Promise<void>;
 
 type ProcessOverrides = {
   restore: () => void;
@@ -129,180 +152,223 @@ export function configCliDefaults(): Config {
   return resolved.value;
 }
 
-export async function assertConfigHandlersDeterministic(): Promise<void> {
+export async function forEachConfigHandlerDeterminismObservation(consume: ObservationConsumer): Promise<void> {
   await assertProperty(
     CONFIG_TEST_GENERATOR.configCliDeterminismCase(),
     async (generated) => {
       const deps = configCliPropertyDeps(generated);
-      expect(await showCommand({ json: generated.asJson }, deps)).toEqual(
-        await showCommand({ json: generated.asJson }, deps),
-      );
-      expect(await validateCommand({}, deps)).toEqual(await validateCommand({}, deps));
-      expect(await defaultsCommand({ json: generated.asJson }, deps)).toEqual(
-        await defaultsCommand({ json: generated.asJson }, deps),
-      );
+      await consume({
+        defaults: await defaultsCommand({ json: generated.asJson }, deps),
+        defaultsAgain: await defaultsCommand({ json: generated.asJson }, deps),
+        show: await showCommand({ json: generated.asJson }, deps),
+        showAgain: await showCommand({ json: generated.asJson }, deps),
+        validate: await validateCommand({}, deps),
+        validateAgain: await validateCommand({}, deps),
+      });
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
 }
 
-export async function assertShowHasNoDirectProcessEffects(): Promise<void> {
+export async function withShowProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
-  expect(
-    await observeProcessSideEffects(async () => {
+  await consume({
+    effects: await observeProcessSideEffects(async () => {
       await showCommand({}, deps);
       await showCommand({ json: true }, deps);
     }),
-  ).toEqual([]);
+  });
 }
 
-export async function assertValidateSuccessHasNoDirectProcessEffects(): Promise<void> {
+export async function withValidateSuccessProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
-  expect(await observeProcessSideEffects(async () => validateCommand({}, deps))).toEqual([]);
+  await consume({ effects: await observeProcessSideEffects(async () => validateCommand({}, deps)) });
 }
 
-export async function assertValidateRejectionHasNoDirectProcessEffects(): Promise<void> {
+export async function withValidateRejectionProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({
     ok: false,
     error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
   });
-  expect(await observeProcessSideEffects(async () => validateCommand({}, deps))).toEqual([]);
+  await consume({ effects: await observeProcessSideEffects(async () => validateCommand({}, deps)) });
 }
 
-export async function assertDefaultsHasNoDirectProcessEffects(): Promise<void> {
+export async function withDefaultsProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
-  expect(
-    await observeProcessSideEffects(async () => {
+  await consume({
+    effects: await observeProcessSideEffects(async () => {
       await defaultsCommand({}, deps);
       await defaultsCommand({ json: true }, deps);
     }),
-  ).toEqual([]);
+  });
 }
 
-export async function assertHandlersCannotWriteFilesOrSpawnAndPreserveEnvironment(): Promise<void> {
+export async function withHandlerEffectSentinelObservation(consume: ObservationConsumer): Promise<void> {
   const sentinelPath = join(dirname(fileURLToPath(import.meta.url)), "effect-sentinel.ts");
   const result = await execa(
     NODE_EXECUTABLE,
     ["--no-warnings", "--permission", "--allow-fs-read=*", "--allow-worker", "--import", "tsx", sentinelPath],
     { env: { TSX_DISABLE_CACHE: "1" }, reject: false },
   );
-  expect(result.exitCode).toBe(0);
-  expect(result.stderr).toHaveLength(0);
-  expect(result.stdout).toBe(EFFECT_SENTINEL_SUCCESS);
+  await consume({ sentinelResult: result, sentinelSuccess: EFFECT_SENTINEL_SUCCESS });
 }
 
-export function assertConfigCommandsExposePresentationOptionsOnly(): void {
+export function withConfigCommandOptionsObservation(consume: ObservationConsumer): void {
   const configCommand = createCliProgram({ domains: [configDomain] }).commands
     .find((command) => command.name() === CONFIG_CLI.commandName);
-  expect(configCommand).toBeDefined();
-  expect(
-    [configCommand, ...(configCommand?.commands ?? [])]
-      .flatMap((command) => command?.options.map((option) => option.long) ?? []),
-  ).toEqual([CONFIG_CLI.flags.json, CONFIG_CLI.flags.json]);
+  void consume({
+    optionFlags: [configCommand, ...(configCommand?.commands ?? [])]
+      .flatMap((command) => command?.options.map((option) => option.long) ?? [])
+      .filter((flag): flag is string => flag !== undefined),
+  });
 }
 
-export async function assertConfigHandlersResolveResults(): Promise<void> {
+export async function withConfigHandlerResultsObservation(consume: ObservationConsumer): Promise<void> {
   const okDeps = configCliDeps({ ok: true, value: configCliDefaults() });
   const failDeps = configCliDeps({
     ok: false,
     error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
   });
 
-  await expect(showCommand({}, okDeps)).resolves.toMatchObject({ exitCode: 0 });
-  await expect(showCommand({}, failDeps)).resolves.toMatchObject({ exitCode: expect.any(Number) });
-  await expect(validateCommand({}, okDeps)).resolves.toMatchObject({ exitCode: 0 });
-  await expect(validateCommand({}, failDeps)).resolves.toMatchObject({ exitCode: expect.any(Number) });
-  await expect(defaultsCommand({}, okDeps)).resolves.toMatchObject({ exitCode: 0 });
+  await consume({
+    defaults: await defaultsCommand({}, okDeps),
+    show: await showCommand({}, okDeps),
+    showAgain: await showCommand({}, failDeps),
+    validate: await validateCommand({}, okDeps),
+    validateAgain: await validateCommand({}, failDeps),
+  });
 }
 
-export async function assertSuccessfulShowAndDefaultsUseStdout(): Promise<void> {
+export async function withSuccessfulOutputObservation(consume: ObservationConsumer): Promise<void> {
   const defaults = configCliDefaults();
   const deps = configCliDeps({ ok: true, value: defaults });
-  const serialized = serializeConfigFileSections(DEFAULT_CONFIG_FILE_FORMAT, defaults);
   const show = await showCommand({}, deps);
   const listedDefaults = await defaultsCommand({}, deps);
-  expect(show.stdout).toBe(serialized.value);
-  expect(show.stderr).toHaveLength(0);
-  expect(listedDefaults.stdout).toBe(serialized.value);
-  expect(listedDefaults.stderr).toHaveLength(0);
+  await consume({ defaults: listedDefaults, show });
 }
 
-export async function assertFailedResolutionUsesStderr(): Promise<void> {
+export async function withFailedResolutionOutputObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({
     ok: false,
     error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
   });
   const show = await showCommand({}, deps);
   const validate = await validateCommand({}, deps);
-  expect(show.stdout).toHaveLength(0);
-  expect(show.stderr.length).toBeGreaterThan(0);
-  expect(validate.stdout).toHaveLength(0);
-  expect(validate.stderr.length).toBeGreaterThan(0);
+  await consume({ show, validate });
 }
 
-export async function assertSuccessfulValidateUsesStdout(): Promise<void> {
+export async function withSuccessfulValidateOutputObservation(consume: ObservationConsumer): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const result = await validateCommand(
     {},
     configCliDeps({ ok: true, value: configCliDefaults() }, { productDir }),
   );
-  expect(result.stdout).toBe(
-    `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${productDir}; `
-      + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`,
-  );
-  expect(result.stderr).toHaveLength(0);
+  await consume({ productDir, result });
 }
 
-function parseConfigOutput(format: ConfigFileFormat, raw: string): Config {
-  const parsed = parseConfigFileSections(
+function parseConfigOutput(format: ConfigFileFormat, raw: string): ReturnType<typeof parseConfigFileSections> {
+  return parseConfigFileSections(
     configFileForFormat(sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()), format, raw),
   );
-  expect(parsed.ok).toBe(true);
-  if (!parsed.ok) throw new Error(parsed.error);
-  return parsed.value;
 }
 
 function configSubset(): Config {
   return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
 }
 
-export async function assertShowEmitsDefaultConfig(): Promise<void> {
-  const config = configCliDefaults();
-  const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
-  expect(result.exitCode).toBe(0);
-  expect(result.stderr).toHaveLength(0);
-  expect(parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout)).toEqual(config);
+function defaultsOnlyDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
+  return {
+    resolveConfig: async () => {
+      throw new Error("defaultsCommand must not call resolveConfig");
+    },
+    readProductConfigFile: async () => {
+      throw new Error("defaultsCommand must not call readProductConfigFile");
+    },
+    resolveConfigFromReadResult: () => {
+      throw new Error("defaultsCommand must not call resolveConfigFromReadResult");
+    },
+    resolveProductDir: () => sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
+    descriptors,
+  };
 }
 
-export async function assertShowReflectsConfigOverrides(): Promise<void> {
+export async function withDefaultsOutputObservation(consume: ObservationConsumer): Promise<void> {
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
+  const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]));
+  await consume({
+    defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout),
+    generatedDefaults: generated.defaults,
+    generatedSection: generated.section,
+    result,
+  });
+}
+
+export async function withDefaultsIndependenceObservation(consume: ObservationConsumer): Promise<void> {
+  const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor]));
+  await consume({ defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+}
+
+export async function withDefaultsJsonObservation(consume: ObservationConsumer): Promise<void> {
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
+  const result = await defaultsCommand(
+    { json: true },
+    defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]),
+  );
+  await consume({
+    generatedDefaults: generated.defaults,
+    generatedSection: generated.section,
+    jsonParsed: parseConfigOutput(CONFIG_FILE_FORMAT.JSON, result.stdout),
+    result,
+  });
+}
+
+export async function withDefaultsFormatEquivalenceObservation(consume: ObservationConsumer): Promise<void> {
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
+  const deps = defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]);
+  await consume({
+    defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, (await defaultsCommand({}, deps)).stdout),
+    jsonParsed: parseConfigOutput(CONFIG_FILE_FORMAT.JSON, (await defaultsCommand({ json: true }, deps)).stdout),
+  });
+}
+
+export async function withDefaultsRegistryObservation(consume: ObservationConsumer): Promise<void> {
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
+  const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]));
+  await consume({
+    defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout),
+    generatedSection: generated.section,
+  });
+}
+
+export async function withShowDefaultConfigObservation(consume: ObservationConsumer): Promise<void> {
+  const config = configCliDefaults();
+  const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
+  await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+}
+
+export async function withShowOverrideObservation(consume: ObservationConsumer): Promise<void> {
   const config = configSubset();
   const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
-  const parsed = parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout);
-  const specTree = parsed[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-  const expected = config[specTreeConfigDescriptor.section] as typeof specTreeConfigDescriptor.defaults;
-  expect(result.exitCode).toBe(0);
-  expect(Object.keys(specTree.kinds).sort(compareAsciiStrings)).toEqual(
-    Object.keys(expected.kinds).sort(compareAsciiStrings),
-  );
+  await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
 }
 
-export async function assertShowEmitsJsonConfig(): Promise<void> {
+export async function withShowJsonConfigObservation(consume: ObservationConsumer): Promise<void> {
   const config = configCliDefaults();
   const result = await showCommand({ json: true }, configCliDeps({ ok: true, value: config }));
-  expect(result.exitCode).toBe(0);
-  expect(parseConfigOutput(CONFIG_FILE_FORMAT.JSON, result.stdout)).toEqual(config);
+  await consume({ config, jsonParsed: parseConfigOutput(CONFIG_FILE_FORMAT.JSON, result.stdout), result });
 }
 
-export async function assertShowDefaultAndJsonFormatsAreEquivalent(): Promise<void> {
+export async function withShowFormatEquivalenceObservation(consume: ObservationConsumer): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configSubset() });
   const defaultResult = await showCommand({}, deps);
   const jsonResult = await showCommand({ json: true }, deps);
-  expect(parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, defaultResult.stdout)).toEqual(
-    parseConfigOutput(CONFIG_FILE_FORMAT.JSON, jsonResult.stdout),
-  );
+  await consume({
+    defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, defaultResult.stdout),
+    jsonParsed: parseConfigOutput(CONFIG_FILE_FORMAT.JSON, jsonResult.stdout),
+  });
 }
 
-export async function assertShowSurfacesResolutionFailure(): Promise<void> {
+export async function withShowResolutionFailureObservation(consume: ObservationConsumer): Promise<void> {
   const result = await showCommand(
     {},
     configCliDeps({
@@ -310,27 +376,19 @@ export async function assertShowSurfacesResolutionFailure(): Promise<void> {
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     }),
   );
-  expect(result.exitCode).not.toBe(0);
-  expect(result.stdout).toHaveLength(0);
-  expect(result.stderr).toContain(specTreeConfigDescriptor.section);
+  await consume({ result });
 }
 
-export async function assertValidateDefaultsSuccessLine(): Promise<void> {
+export async function withValidateDefaultsSuccessObservation(consume: ObservationConsumer): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const result = await validateCommand(
     {},
     configCliDeps({ ok: true, value: configCliDefaults() }, { productDir }),
   );
-  expect(result.exitCode).toBe(0);
-  expect(result.stdout).toBe(
-    `${VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX} at ${productDir}; `
-      + `${VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT} ${VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX}\n`,
-  );
-  expect(result.stderr).toHaveLength(0);
-  for (const filename of Object.values(CONFIG_FILENAMES)) expect(result.stdout).not.toContain(filename);
+  await consume({ productDir, result });
 }
 
-export async function assertValidatePresentConfigSuccessLine(): Promise<void> {
+export async function withValidatePresentConfigObservation(consume: ObservationConsumer): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,
@@ -343,12 +401,10 @@ export async function assertValidatePresentConfigSuccessLine(): Promise<void> {
     {},
     configCliDeps({ ok: true, value: configCliDefaults() }, { productDir, readResult: fileResult }),
   );
-  expect(result.exitCode).toBe(0);
-  expect(result.stdout).toContain(CONFIG_FILENAMES.toml);
-  expect(result.stderr).toHaveLength(0);
+  await consume({ result });
 }
 
-export async function assertValidateRejectsResolutionError(): Promise<void> {
+export async function withValidateResolutionErrorObservation(consume: ObservationConsumer): Promise<void> {
   const result = await validateCommand(
     {},
     configCliDeps({
@@ -356,18 +412,16 @@ export async function assertValidateRejectsResolutionError(): Promise<void> {
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     }),
   );
-  expect(result.exitCode).not.toBe(0);
+  await consume({ result });
 }
 
-export async function assertValidateReportsDescriptorError(): Promise<void> {
+export async function withValidateDescriptorErrorObservation(consume: ObservationConsumer): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
   const result = await validateCommand({}, configCliDeps({ ok: false, error: generated.error }));
-  expect(result.stderr).toContain(specTreeConfigDescriptor.section);
-  expect(result.stderr).toContain(generated.offendingKind);
-  expect(result.stdout).toHaveLength(0);
+  await consume({ offendingKind: generated.offendingKind, result });
 }
 
-export async function assertValidateExactRejectionExitCode(): Promise<void> {
+export async function withValidateRejectionCodeObservation(consume: ObservationConsumer): Promise<void> {
   const result = await validateCommand(
     {},
     configCliDeps({
@@ -375,10 +429,10 @@ export async function assertValidateExactRejectionExitCode(): Promise<void> {
       error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
     }),
   );
-  expect(result.exitCode).toBe(1);
+  await consume({ result });
 }
 
-export async function assertValidateReadsResolvedProductDirectory(): Promise<void> {
+export async function withValidateProductDirectoryObservation(consume: ObservationConsumer): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   let observedProductDir: string | undefined;
   const deps: CliDeps = {
@@ -394,10 +448,10 @@ export async function assertValidateReadsResolvedProductDirectory(): Promise<voi
     descriptors: [specTreeConfigDescriptor],
   };
   await validateCommand({}, deps);
-  expect(observedProductDir).toBe(productDir);
+  await consume({ observedProductDir, productDir });
 }
 
-export async function assertValidateUsesReadResultForResolution(): Promise<void> {
+export async function withValidateReadResultObservation(consume: ObservationConsumer): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,
@@ -420,6 +474,5 @@ export async function assertValidateUsesReadResultForResolution(): Promise<void>
     descriptors: [specTreeConfigDescriptor],
   };
   const result = await validateCommand({}, deps);
-  expect(observedReadResult).toBe(fileResult.value);
-  expect(result.stdout).toContain(CONFIG_FILENAMES.json);
+  await consume({ expectedReadResult: fileResult.value, observedReadResult, result });
 }

@@ -102,18 +102,18 @@ function expectAttempts(expected: readonly string[]): void {
   }
 }
 
+const { defaultsCommand } = await import("@/commands/config/defaults");
+const { showCommand } = await import("@/commands/config/show");
+const { validateCommand } = await import("@/commands/config/validate");
+const { CONFIG_TEST_GENERATOR, sampleConfigTestValue } = await import(
+  "@testing/generators/config/descriptors"
+);
+const { configCliDefaults, configCliDeps } = await import("@testing/harnesses/config/cli");
+
 installEffectTraps();
 
 try {
   await proveCaughtAttemptsRemainObservable();
-
-  const { defaultsCommand } = await import("@/commands/config/defaults");
-  const { showCommand } = await import("@/commands/config/show");
-  const { validateCommand } = await import("@/commands/config/validate");
-  const { CONFIG_TEST_GENERATOR, sampleConfigTestValue } = await import(
-    "@testing/generators/config/descriptors"
-  );
-  const { configCliDefaults, configCliDeps } = await import("@testing/harnesses/config/cli");
 
   const initialCwd = process.cwd();
   const initialEnvironment = { ...process.env };

@@ -2,8 +2,6 @@ import { execa } from "execa";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { expect } from "vitest";
-
 import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
 import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
@@ -26,6 +24,24 @@ type CliRun = {
   readonly immediateExitCodes: readonly number[];
   readonly stdout: string;
 };
+
+type SpxRun = Awaited<ReturnType<typeof runSpx>>;
+
+export type CompactCliObservation = {
+  readonly cliRetrieved?: CliRun;
+  readonly cliStored?: CliRun;
+  readonly expectedRecord?: Readonly<Record<string, unknown>>;
+  readonly firstStored?: SpxRun;
+  readonly latestStored?: SpxRun;
+  readonly readEnvironmentStash?: () => Promise<Buffer>;
+  readonly readScope?: () => Promise<readonly string[]>;
+  readonly retrieved?: SpxRun;
+  readonly stashLineCount?: number;
+  readonly stashText?: string;
+  readonly stored?: SpxRun;
+};
+
+type ObservationConsumer = (observation: CompactCliObservation) => void | Promise<void>;
 
 export async function runSpx(
   args: readonly string[],
@@ -121,7 +137,7 @@ async function runCompactCli(args: readonly string[], productDir: string, sessio
   return { deferredExitCodes, immediateExitCodes, stdout: stdout.join("") };
 }
 
-export async function assertAgentSessionEnvironmentRetrievesLatestRecord(): Promise<void> {
+export async function withAgentSessionLatestRecordObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
   const fixtureCommitMessage = sampleCompactTestValue(COMPACT_TEST_GENERATOR.commitMessage());
@@ -142,37 +158,32 @@ export async function assertAgentSessionEnvironmentRetrievesLatestRecord(): Prom
       gitEnv.productDir,
       agentSessionEnv(sessionToken),
     );
-    expect(firstStored.exitCode).toBe(0);
-    expect(firstStored.stdout).toHaveLength(0);
-    expect(firstStored.stderr).toHaveLength(0);
-
     await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(latestNode)]));
     const latestStored = await runSpx(
       [COMPACT_CLI.commandName, COMPACT_CLI.storeCommandName, COMPACT_CLI.transcriptFlag, transcriptPath],
       gitEnv.productDir,
       agentSessionEnv(sessionToken),
     );
-    expect(latestStored.exitCode).toBe(0);
-    expect(latestStored.stdout).toHaveLength(0);
-    expect(latestStored.stderr).toHaveLength(0);
-
     const retrieved = await runSpx(
       [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
       gitEnv.productDir,
       agentSessionEnv(sessionToken),
     );
-    expect(retrieved.exitCode).toBe(0);
-    expect(retrieved.stderr).toHaveLength(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      firstStored,
+      latestStored,
+      retrieved,
+      stashLineCount: (await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim()
+        .split(/\r?\n/u).length,
     });
-    expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim().split(/\r?\n/u))
-      .toHaveLength(2);
   });
 }
 
-export async function assertTranscriptWithoutFoundationStoresNothing(): Promise<void> {
+export async function withMissingFoundationStoreObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -186,22 +197,16 @@ export async function assertTranscriptWithoutFoundationStoresNothing(): Promise<
       gitEnv.productDir,
       agentSessionEnv(sessionToken),
     );
-    expect(stored.exitCode).toBe(0);
-    expect(stored.stdout).toHaveLength(0);
-    expect(stored.stderr).toHaveLength(0);
-
     const retrieved = await runSpx(
       [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
       gitEnv.productDir,
       agentSessionEnv(sessionToken),
     );
-    expect(retrieved.exitCode).toBe(1);
-    expect(retrieved.stdout).toHaveLength(0);
-    expect(retrieved.stderr).toHaveLength(0);
+    await consume({ retrieved, stored });
   });
 }
 
-export async function assertCodexUnsafeSessionIdentityStoresRecord(): Promise<void> {
+export async function withCodexUnsafeIdentityObservation(consume: ObservationConsumer): Promise<void> {
   const unsafeSessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -224,18 +229,19 @@ export async function assertCodexUnsafeSessionIdentityStoresRecord(): Promise<vo
       env,
     );
 
-    expect(stored.exitCode).toBe(0);
-    expect(stored.stdout).toHaveLength(0);
-    expect(retrieved.exitCode).toBe(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      retrieved,
+      stashText: (await readFile(compactStashPath(gitEnv.productDir, resolvedSessionToken))).toString(),
+      stored,
     });
-    expect((await readFile(compactStashPath(gitEnv.productDir, resolvedSessionToken))).toString()).toContain(node);
   });
 }
 
-export async function assertMissingCompactRecordReturnsNoOutput(): Promise<void> {
+export async function withMissingCompactRecordObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
 
   await withGitWorktreeEnv(async (gitEnv) => {
@@ -245,13 +251,11 @@ export async function assertMissingCompactRecordReturnsNoOutput(): Promise<void>
       agentSessionEnv(sessionToken),
     );
 
-    expect(retrieved.exitCode).toBe(1);
-    expect(retrieved.stdout).toHaveLength(0);
-    expect(retrieved.stderr).toHaveLength(0);
+    await consume({ retrieved });
   });
 }
 
-export async function assertExplicitSessionIdRetrievesLatestRecord(): Promise<void> {
+export async function withExplicitSessionLatestRecordObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const [firstNode, latestNode] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctNodePaths());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -259,36 +263,32 @@ export async function assertExplicitSessionIdRetrievesLatestRecord(): Promise<vo
   await withGitWorktreeEnv(async (gitEnv) => {
     const transcriptPath = join(gitEnv.productDir, transcriptFileName);
     await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(firstNode)]));
-    expect(
-      (await runSpx(
-        [
-          COMPACT_CLI.commandName,
-          COMPACT_CLI.storeCommandName,
-          COMPACT_CLI.sessionIdFlag,
-          sessionToken,
-          COMPACT_CLI.transcriptFlag,
-          transcriptPath,
-        ],
-        gitEnv.productDir,
-        emptyAgentSessionEnv(),
-      )).exitCode,
-    ).toBe(0);
+    const firstStored = await runSpx(
+      [
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.sessionIdFlag,
+        sessionToken,
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
 
     await writeFile(transcriptPath, transcriptJsonl([COMPACT_MARKER.FOUNDATION, escapedMarker(latestNode)]));
-    expect(
-      (await runSpx(
-        [
-          COMPACT_CLI.commandName,
-          COMPACT_CLI.storeCommandName,
-          COMPACT_CLI.sessionIdFlag,
-          sessionToken,
-          COMPACT_CLI.transcriptFlag,
-          transcriptPath,
-        ],
-        gitEnv.productDir,
-        emptyAgentSessionEnv(),
-      )).exitCode,
-    ).toBe(0);
+    const latestStored = await runSpx(
+      [
+        COMPACT_CLI.commandName,
+        COMPACT_CLI.storeCommandName,
+        COMPACT_CLI.sessionIdFlag,
+        sessionToken,
+        COMPACT_CLI.transcriptFlag,
+        transcriptPath,
+      ],
+      gitEnv.productDir,
+      emptyAgentSessionEnv(),
+    );
 
     const retrieved = await runSpx(
       [
@@ -300,17 +300,21 @@ export async function assertExplicitSessionIdRetrievesLatestRecord(): Promise<vo
       gitEnv.productDir,
       emptyAgentSessionEnv(),
     );
-    expect(retrieved.exitCode).toBe(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: latestNode,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      firstStored,
+      latestStored,
+      retrieved,
+      stashLineCount: (await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim()
+        .split(/\r?\n/u).length,
     });
-    expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString().trim().split(/\r?\n/u))
-      .toHaveLength(2);
   });
 }
 
-export async function assertUnsafeExplicitSessionIdStoresRecord(): Promise<void> {
+export async function withUnsafeExplicitSessionObservation(consume: ObservationConsumer): Promise<void> {
   const unsafeSessionId = sampleCompactTestValue(COMPACT_TEST_GENERATOR.unsafeSessionToken());
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -337,16 +341,18 @@ export async function assertUnsafeExplicitSessionIdStoresRecord(): Promise<void>
       emptyAgentSessionEnv(),
     );
 
-    expect(stored.exitCode).toBe(0);
-    expect(retrieved.exitCode).toBe(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      retrieved,
+      stored,
     });
   });
 }
 
-export async function assertEmptySessionIdUsesAgentSessionEnvironment(): Promise<void> {
+export async function withEmptySessionIdObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -373,17 +379,19 @@ export async function assertEmptySessionIdUsesAgentSessionEnvironment(): Promise
       agentSessionEnv(sessionToken),
     );
 
-    expect(stored.exitCode).toBe(0);
-    expect(retrieved.exitCode).toBe(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      retrieved,
+      stashText: (await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString(),
+      stored,
     });
-    expect((await readFile(compactStashPath(gitEnv.productDir, sessionToken))).toString()).toContain(node);
   });
 }
 
-export async function assertExplicitSessionIdOverridesAgentSessionEnvironment(): Promise<void> {
+export async function withExplicitSessionOverrideObservation(consume: ObservationConsumer): Promise<void> {
   const [flagToken, envToken] = sampleCompactTestValue(COMPACT_TEST_GENERATOR.distinctSessionTokens());
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -410,18 +418,20 @@ export async function assertExplicitSessionIdOverridesAgentSessionEnvironment():
       agentSessionEnv(envToken),
     );
 
-    expect(stored.exitCode).toBe(0);
-    expect(retrieved.exitCode).toBe(0);
-    expect(JSON.parse(retrieved.stdout)).toEqual({
-      [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
-      [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+    await consume({
+      expectedRecord: {
+        [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
+        [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
+      },
+      readEnvironmentStash: () => readFile(compactStashPath(gitEnv.productDir, envToken)),
+      retrieved,
+      stashText: (await readFile(compactStashPath(gitEnv.productDir, flagToken))).toString(),
+      stored,
     });
-    expect((await readFile(compactStashPath(gitEnv.productDir, flagToken))).toString()).toContain(node);
-    await expect(readFile(compactStashPath(gitEnv.productDir, envToken))).rejects.toThrow();
   });
 }
 
-export async function assertMissingSessionIdentityFailsWithoutWriting(): Promise<void> {
+export async function withMissingSessionIdentityObservation(consume: ObservationConsumer): Promise<void> {
   const node = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
 
@@ -440,21 +450,20 @@ export async function assertMissingSessionIdentityFailsWithoutWriting(): Promise
       emptyAgentSessionEnv(),
     );
 
-    expect(stored.exitCode).toBe(1);
-    expect(stored.stdout).toHaveLength(0);
-    expect(stored.stderr).toHaveLength(0);
-    expect(retrieved.exitCode).toBe(1);
-    expect(retrieved.stdout).toHaveLength(0);
-    expect(retrieved.stderr).toHaveLength(0);
-    await expect(readdir(join(
-      gitEnv.productDir,
-      STATE_STORE_SCOPE_PATH.SPX_DIR,
-      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
-    ))).rejects.toThrow();
+    await consume({
+      readScope: () =>
+        readdir(join(
+          gitEnv.productDir,
+          STATE_STORE_SCOPE_PATH.SPX_DIR,
+          STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+        )),
+      retrieved,
+      stored,
+    });
   });
 }
 
-export async function assertRetrieveDefersExitUntilStdoutDrains(): Promise<void> {
+export async function withRetrieveExitObservation(consume: ObservationConsumer): Promise<void> {
   const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
   const nodePath = sampleCompactTestValue(COMPACT_TEST_GENERATOR.nodePath());
   const transcriptFileName = sampleCompactTestValue(COMPACT_TEST_GENERATOR.transcriptFileName());
@@ -480,15 +489,15 @@ export async function assertRetrieveDefersExitUntilStdoutDrains(): Promise<void>
       gitEnv.productDir,
       sessionToken,
     );
-    expect([...stored.immediateExitCodes, ...stored.deferredExitCodes]).toEqual([0]);
-
     const retrieved = await runCompactCli(
       [COMPACT_CLI.commandName, COMPACT_CLI.retrieveCommandName],
       gitEnv.productDir,
       sessionToken,
     );
-    expect(retrieved.immediateExitCodes).toHaveLength(0);
-    expect(retrieved.deferredExitCodes).toEqual([0]);
-    expect(retrieved.stdout).toContain(nodePath);
+    await consume({
+      cliRetrieved: retrieved,
+      cliStored: stored,
+      expectedRecord: { [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: nodePath },
+    });
   });
 }

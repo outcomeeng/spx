@@ -1,8 +1,6 @@
 import { mkdir, realpath } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { expect } from "vitest";
-
 import { resolveProductDir } from "@/domains/config/root";
 import { type CliIo, createCliInvocation } from "@/interfaces/cli/product-context";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -25,25 +23,50 @@ async function withGitProduct(callback: (productDir: string) => Promise<void>): 
   });
 }
 
-export async function assertProductDirectoryResolvesWorktreeRoot(): Promise<void> {
+export type ProductRootObservation = {
+  readonly actualProductDir: string;
+  readonly expectedProductDir: string;
+  readonly warning: string | undefined;
+};
+
+export type InvocationRootObservation = {
+  readonly context: ReturnType<ReturnType<typeof createCliInvocation>["resolveProductContext"]>;
+  readonly expectedInvocationDir: string;
+  readonly observedInvocationDir: string;
+  readonly writtenWarning?: string;
+};
+
+type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
+
+export async function withProductDirectoryRootObservation(
+  consume: ObservationConsumer<ProductRootObservation>,
+): Promise<void> {
   await withGitProduct(async (productDir) => {
     const resolved = resolveProductDir(productDir);
-    expect(await realpath(resolved.productDir)).toBe(await realpath(productDir));
-    expect(resolved.warning).toBeUndefined();
+    await consume({
+      actualProductDir: await realpath(resolved.productDir),
+      expectedProductDir: await realpath(productDir),
+      warning: resolved.warning,
+    });
   });
 }
 
-export async function assertSubdirectoryResolvesWorktreeRoot(): Promise<void> {
+export async function withSubdirectoryRootObservation(
+  consume: ObservationConsumer<ProductRootObservation>,
+): Promise<void> {
   await withGitProduct(async (productDir) => {
     const subdirectory = resolve(productDir, "nested", "deep");
     await mkdir(subdirectory, { recursive: true });
     const resolved = resolveProductDir(subdirectory);
-    expect(await realpath(resolved.productDir)).toBe(await realpath(productDir));
-    expect(resolved.warning).toBeUndefined();
+    await consume({
+      actualProductDir: await realpath(resolved.productDir),
+      expectedProductDir: await realpath(productDir),
+      warning: resolved.warning,
+    });
   });
 }
 
-export function assertDirectoryOptionDeterminesEffectiveInvocationDirectory(): void {
+export function withDirectoryOptionObservation(consume: ObservationConsumer<InvocationRootObservation>): void {
   const invocationDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const directoryOption = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
   const expected = resolve(invocationDirectory, directoryOption);
@@ -59,14 +82,14 @@ export function assertDirectoryOptionDeterminesEffectiveInvocationDirectory(): v
     io: TEST_IO,
   });
 
-  expect(invocation.resolveProductContext()).toEqual({
-    effectiveInvocationDir: expected,
-    productDir: expected,
+  void consume({
+    context: invocation.resolveProductContext(),
+    expectedInvocationDir: expected,
+    observedInvocationDir: observed,
   });
-  expect(observed).toBe(expected);
 }
 
-export function assertInvocationDirectoryDeterminesEffectiveInvocationDirectory(): void {
+export function withInvocationDirectoryObservation(consume: ObservationConsumer<InvocationRootObservation>): void {
   const invocationDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   let observed = "";
   const invocation = createCliInvocation({
@@ -80,14 +103,16 @@ export function assertInvocationDirectoryDeterminesEffectiveInvocationDirectory(
     io: TEST_IO,
   });
 
-  expect(invocation.resolveProductContext()).toEqual({
-    effectiveInvocationDir: invocationDirectory,
-    productDir: invocationDirectory,
+  void consume({
+    context: invocation.resolveProductContext(),
+    expectedInvocationDir: invocationDirectory,
+    observedInvocationDir: observed,
   });
-  expect(observed).toBe(invocationDirectory);
 }
 
-export async function assertNonWorktreeInvocationFallsBackWithWarning(): Promise<void> {
+export async function withNonWorktreeRootObservation(
+  consume: ObservationConsumer<InvocationRootObservation>,
+): Promise<void> {
   await withTempDir(sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix()), async (invocationDirectory) => {
     let writtenWarning: string | undefined;
     const invocation = createCliInvocation({
@@ -100,9 +125,11 @@ export async function assertNonWorktreeInvocationFallsBackWithWarning(): Promise
     });
 
     const context = invocation.resolveProductContext();
-    expect(await realpath(context.productDir)).toBe(await realpath(invocationDirectory));
-    expect(context.effectiveInvocationDir).toBe(invocationDirectory);
-    expect(context.warning).toBeDefined();
-    expect(writtenWarning).toBe(context.warning);
+    await consume({
+      context,
+      expectedInvocationDir: invocationDirectory,
+      observedInvocationDir: context.effectiveInvocationDir,
+      writtenWarning,
+    });
   });
 }
