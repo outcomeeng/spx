@@ -12,12 +12,13 @@ import {
   type AuditScopeUnit,
   buildAppendEvent,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_SCOPE_SEPARATOR,
   type VerifyAppendEventType,
 } from "@/domains/verify/verify";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
+import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
 const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
@@ -48,6 +49,15 @@ export interface FileAuditScopeScenario {
   readonly requiredUncoveredEvents: readonly JournalEvent[];
   readonly requiredCoverageGapEvent: JournalEvent;
   readonly findingEvents: readonly JournalEvent[];
+}
+
+export interface AuditChangesetProjectionScenario {
+  readonly rootPayload: JsonValue;
+  readonly specPayload: JsonValue;
+  readonly implementationPayload: JsonValue;
+  readonly rootEvent: JournalEvent;
+  readonly specEvent: JournalEvent;
+  readonly implementationEvent: JournalEvent;
 }
 
 function arbitraryAuditProducerIdentity(): fc.Arbitrary<AuditProducerIdentity> {
@@ -378,6 +388,56 @@ function auditFindingEvent(finding: AuditFinding, sequence: number): JournalEven
     JSON.parse(JSON.stringify(finding)) as JsonValue,
     sequence,
   );
+}
+
+export function arbitraryAuditChangesetProjectionScenario(): fc.Arbitrary<AuditChangesetProjectionScenario> {
+  return fc
+    .tuple(
+      VERIFY_TEST_GENERATOR.changesetScopeScenario(),
+      arbitraryExecutedAuditScopeUnit(),
+      arbitraryExecutedAuditScopeUnit(),
+      arbitraryExecutedAuditScopeUnit(),
+    )
+    .filter(([_changeset, root, spec, implementation]) =>
+      root.unitId !== spec.unitId
+      && root.unitId !== implementation.unitId
+      && spec.unitId !== implementation.unitId
+    )
+    .map(([changeset, rootCandidate, specCandidate, implementationCandidate]) => {
+      const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
+      const root: AuditScopeUnit = {
+        ...rootFields,
+        auditClass: AUDIT_CLASS.INSTRUCTIONS,
+        auditKind: AUDIT_KIND.SUBAGENT,
+        subject: `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      const spec: AuditScopeUnit = {
+        ...specCandidate,
+        parentUnitId: root.unitId,
+        auditClass: AUDIT_CLASS.SPEC,
+        auditKind: AUDIT_KIND.SPEC,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      const implementation: AuditScopeUnit = {
+        ...implementationCandidate,
+        parentUnitId: root.unitId,
+        auditClass: AUDIT_CLASS.IMPLEMENTATION,
+        auditKind: AUDIT_KIND.CODE,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      return {
+        rootPayload: auditScopePayload(root),
+        specPayload: auditScopePayload(spec),
+        implementationPayload: auditScopePayload(implementation),
+        rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
+        specEvent: auditScopeEvent(spec, JOURNAL_SEQ_BASE + 1),
+        implementationEvent: auditScopeEvent(implementation, JOURNAL_SEQ_BASE + 2),
+      };
+    });
 }
 
 export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeScenario> {
