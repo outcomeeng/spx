@@ -4,5 +4,4 @@
 
 ## Pending work
 
-1. Record passing evidence for the audit scope schema and audit finding schema tests named by `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md`.
-2. Migrate audit run drivers and leaf skill producer callers to `spx verification run` for individual audit runs; prior-run context waits for `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md`.
+1. Migrate audit run drivers and leaf skill producer callers to `spx verification run` for individual audit runs; prior-run context waits for `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md`.
