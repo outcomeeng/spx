@@ -11,7 +11,11 @@
 import { execa } from "execa";
 
 import type { Result } from "@/config/types";
-import { type ControllingProcess, resolveControllingProcess } from "@/domains/worktree/controlling-process";
+import {
+  CONTROLLING_PID_ENV,
+  type ControllingProcess,
+  resolveControllingProcess,
+} from "@/domains/worktree/controlling-process";
 import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -119,19 +123,64 @@ export function createProcessTable(state: ProcessTableState): ProcessTable {
   };
 }
 
-export interface PiControllingProcessEvidence {
+export interface ControllingProcessEvidence {
   readonly result: Result<ControllingProcess>;
-  readonly piPid: number;
+  readonly processPid: number;
   readonly startedAt: string;
   readonly host: string;
 }
 
-export function withPiControllingProcessEvidence(
-  callback: (evidence: PiControllingProcessEvidence) => void,
+export interface UnreadableControllingProcessEvidence {
+  readonly result: Result<ControllingProcess>;
+  readonly processPid: number;
+  readonly host: string;
+}
+
+export interface InvalidControllingProcessEvidence {
+  readonly result: Result<ControllingProcess>;
+}
+
+export function withControllingPidOverrideEvidence(
+  callback: (evidence: ControllingProcessEvidence) => void,
 ): void {
   const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
   const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
-  const [selfPid, hookPid, piPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const [selfPid, overridePid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const table = createProcessTable({
+    host,
+    processes: new Map<number, ProcessTableEntry>([[overridePid, { startTime: startedAt, alive: true }]]),
+  });
+  callback({
+    result: resolveControllingProcess(selfPid, table, { [CONTROLLING_PID_ENV]: String(overridePid) }),
+    processPid: overridePid,
+    startedAt,
+    host,
+  });
+}
+
+export function withUnreadableControllingPidOverrideEvidence(
+  callback: (evidence: UnreadableControllingProcessEvidence) => void,
+): void {
+  const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+  const [selfPid, overridePid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const table = createProcessTable({
+    host,
+    processes: new Map<number, ProcessTableEntry>([[overridePid, { alive: true }]]),
+  });
+  callback({
+    result: resolveControllingProcess(selfPid, table, { [CONTROLLING_PID_ENV]: String(overridePid) }),
+    processPid: overridePid,
+    host,
+  });
+}
+
+function withAgentAncestorCommandEvidence(
+  command: string,
+  callback: (evidence: ControllingProcessEvidence) => void,
+): void {
+  const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+  const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+  const [selfPid, hookPid, agentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
   const table = createProcessTable({
     host,
     processes: new Map<number, ProcessTableEntry>([
@@ -139,21 +188,71 @@ export function withPiControllingProcessEvidence(
       [
         hookPid,
         {
-          ppid: piPid,
+          ppid: agentPid,
           command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.nonAgentCommand()),
         },
       ],
+      [agentPid, { command, startTime: startedAt, alive: true }],
+    ]),
+  });
+  callback({ result: resolveControllingProcess(selfPid, table, {}), processPid: agentPid, startedAt, host });
+}
+
+export function withAgentAncestorEvidence(callback: (evidence: ControllingProcessEvidence) => void): void {
+  withAgentAncestorCommandEvidence(sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.agentCommand()), callback);
+}
+
+export function withInterpretedAgentAncestorEvidence(
+  callback: (evidence: ControllingProcessEvidence) => void,
+): void {
+  withAgentAncestorCommandEvidence(
+    sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.interpretedAgentCommand()),
+    callback,
+  );
+}
+
+export function withPiControllingProcessEvidence(
+  callback: (evidence: ControllingProcessEvidence) => void,
+): void {
+  withAgentAncestorCommandEvidence(
+    sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.interpretedPiAgentCommand()),
+    callback,
+  );
+}
+
+export function withImmediateParentControllingProcessEvidence(
+  callback: (evidence: ControllingProcessEvidence) => void,
+): void {
+  const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+  const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+  const [selfPid, parentPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const table = createProcessTable({
+    host,
+    processes: new Map<number, ProcessTableEntry>([
+      [selfPid, { ppid: parentPid }],
       [
-        piPid,
+        parentPid,
         {
-          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.interpretedPiAgentCommand()),
+          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.nonAgentCommand()),
           startTime: startedAt,
           alive: true,
         },
       ],
     ]),
   });
-  callback({ result: resolveControllingProcess(selfPid, table, {}), piPid, startedAt, host });
+  callback({ result: resolveControllingProcess(selfPid, table, {}), processPid: parentPid, startedAt, host });
+}
+
+export function withInvalidParentPidEvidence(callback: (evidence: InvalidControllingProcessEvidence) => void): void {
+  const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+  const table = createProcessTable({
+    host: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host()),
+    processes: new Map<number, ProcessTableEntry>([
+      [selfPid, { ppid: 0 }],
+      [0, { alive: true }],
+    ]),
+  });
+  callback({ result: resolveControllingProcess(selfPid, table, {}) });
 }
 
 export const OCCUPANCY_FS_OP = {
