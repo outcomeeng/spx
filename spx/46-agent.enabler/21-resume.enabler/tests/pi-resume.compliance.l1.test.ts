@@ -11,6 +11,8 @@ import {
 describe("Pi resume compliance", () => {
   it("applies the per-agent cap and total candidate bound to Pi sessions", async () => {
     await withPiPerAgentCapEvidence((evidence) => {
+      expect(evidence.codexSessionIds).toEqual(evidence.expectedCodexSessionIds);
+      expect(evidence.claudeSessionIds).toEqual(evidence.expectedClaudeSessionIds);
       expect(evidence.piSessionIds).toEqual(evidence.expectedPiSessionIds);
       expect(evidence.totalCandidateCount).toBe(evidence.expectedTotalCandidateCount);
     });

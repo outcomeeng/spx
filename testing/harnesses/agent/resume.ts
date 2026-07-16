@@ -541,6 +541,10 @@ export function createAgentResumeDiscoveryFixture(seedOffset: number): AgentResu
 }
 
 interface PiPerAgentCapEvidence {
+  readonly codexSessionIds: readonly string[];
+  readonly expectedCodexSessionIds: readonly string[];
+  readonly claudeSessionIds: readonly string[];
+  readonly expectedClaudeSessionIds: readonly string[];
   readonly piSessionIds: readonly string[];
   readonly expectedPiSessionIds: readonly string[];
   readonly totalCandidateCount: number;
@@ -557,11 +561,15 @@ export async function withPiPerAgentCapEvidence(
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 3);
   const count = sampleAgentResumeValue(arbitraryAgentResumeOverCapCount(), 4);
   const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
+  const codexIds: string[] = [];
+  const claudeIds: string[] = [];
   const piIds: string[] = [];
   for (let index = 0; index < count; index += 1) {
     const codexId = sampleAgentResumeValue(arbitraryAgentSessionId(), 10 + index);
     const claudeId = sampleAgentResumeValue(arbitraryAgentSessionId(), 40 + index);
     const piId = sampleAgentResumeValue(arbitraryAgentSessionId(), 70 + index);
+    codexIds.push(codexId);
+    claudeIds.push(claudeId);
     piIds.push(piId);
     fs.writeFile(
       codexTranscriptPath(homeDir, agentSessionJsonlName(codexId)),
@@ -589,6 +597,14 @@ export async function withPiPerAgentCapEvidence(
     resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
   });
   callback({
+    codexSessionIds: candidates
+      .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CODEX)
+      .map((candidate) => candidate.sessionId),
+    expectedCodexSessionIds: codexIds.slice(0, cap),
+    claudeSessionIds: candidates
+      .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.CLAUDE_CODE)
+      .map((candidate) => candidate.sessionId),
+    expectedClaudeSessionIds: claudeIds.slice(0, cap),
     piSessionIds: candidates
       .filter((candidate) => candidate.agent === AGENT_SESSION_KIND.PI)
       .map((candidate) => candidate.sessionId),
