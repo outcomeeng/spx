@@ -320,7 +320,7 @@ export interface FileAuditScopeScenario {
   readonly childEvent: JournalEvent;
   readonly requiredNotApplicableEvent: JournalEvent;
   readonly optionalUncoveredEvent: JournalEvent;
-  readonly requiredUncoveredEvent: JournalEvent;
+  readonly requiredUncoveredEvents: readonly JournalEvent[];
   readonly requiredCoverageGapEvent: JournalEvent;
   readonly findingEvents: readonly JournalEvent[];
 }
@@ -398,6 +398,13 @@ export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
     arbitrarySourceFilePath().map(
       (path) => `${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
     ),
+    fc.tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), arbitrarySourceFilePath()).map(([segment, path]) =>
+      [
+        segment,
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT,
+        path,
+      ].join(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL)
+    ),
   );
 }
 
@@ -459,11 +466,6 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         ...child,
         coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
       };
-      const requiredUncovered: AuditScopeUnit = {
-        ...child,
-        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-        coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
-      };
       const { producerProvenance: _coverageGapProvenance, ...coverageGapFields } = child;
       const requiredCoverageGap: AuditScopeUnit = {
         ...coverageGapFields,
@@ -491,7 +493,16 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         childEvent: auditScopeEvent(child, JOURNAL_SEQ_BASE + 1),
         requiredNotApplicableEvent: auditScopeEvent(requiredNotApplicable, JOURNAL_SEQ_BASE + 1),
         optionalUncoveredEvent: auditScopeEvent(optionalUncovered, JOURNAL_SEQ_BASE + 1),
-        requiredUncoveredEvent: auditScopeEvent(requiredUncovered, JOURNAL_SEQ_BASE + 1),
+        requiredUncoveredEvents: AUDIT_UNCOVERED_COVERAGE_STATUSES.map((coverageStatus, index) =>
+          auditScopeEvent(
+            {
+              ...child,
+              coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+              coverageStatus,
+            },
+            JOURNAL_SEQ_BASE + 1 + index,
+          )
+        ),
         requiredCoverageGapEvent: auditScopeEvent(requiredCoverageGap, JOURNAL_SEQ_BASE + 1),
         findingEvents: AUDIT_FINDING_SEVERITIES.map((severity, index) =>
           auditFindingEvent(
@@ -528,10 +539,11 @@ export function formatNameStatusZ(paths: readonly string[]): string {
 
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
-  changesetRef: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  changesetRef: (): fc.Arbitrary<string> =>
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith("-")),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
     fc
-      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .tuple(VERIFY_TEST_GENERATOR.changesetRef(), VERIFY_TEST_GENERATOR.changesetRef())
       .filter(([base, head]) => base !== head)
       .map(([base, head]) => ({ base, head })),
   changesetScopeScenario: (): fc.Arbitrary<{

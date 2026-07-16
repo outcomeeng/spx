@@ -38,6 +38,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import type { Domain } from "@/domains/types";
 import {
   createVerificationContextDocument,
+  normalizeVerificationContextFileSubjectPath,
   VERIFICATION_CONTEXT_PERSISTENCE,
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
@@ -58,6 +59,7 @@ import {
   findTerminalEvent,
   projectVerifyRun,
   REVIEW_SCOPE_COVERAGE_STATE,
+  type RunLocator,
   TERMINAL_METADATA_VALIDATION_ERROR,
   validateAuditFinding,
   validateAuditScope,
@@ -108,6 +110,7 @@ import {
 import {
   ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,
+  runFileName,
   slugBranchIdentity,
   STATE_STORE_PATH,
   STATE_STORE_SCOPE_PATH,
@@ -645,12 +648,16 @@ interface StartedVerifyRun {
 
 export interface StartedFileScopeRun {
   readonly report: VerifyStartReport;
+  readonly expectedLocator: RunLocator;
+  readonly runTargetExists: boolean;
   readonly context: VerificationContextDocument;
   readonly nameStatusCalls: number;
 }
 
 export interface StartedChangesetScopeRun {
   readonly report: VerifyStartReport;
+  readonly expectedLocator: RunLocator;
+  readonly runTargetExists: boolean;
   readonly context: VerificationContextDocument;
 }
 
@@ -691,8 +698,20 @@ export async function startChangesetScopeRun(
   scenario: VerifyRunContextScenario,
 ): Promise<StartedChangesetScopeRun> {
   const started = await startVerifyRun(scenario);
+  const storageNamespace = scenarioRunsDir(scenario);
+  const runTarget = join(storageNamespace, runFileName(started.report.runToken));
   return {
     report: started.report,
+    expectedLocator: {
+      runToken: started.report.runToken,
+      verificationType: scenario.verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      scopeIdentity: scenario.scope,
+      backendIdentity: JOURNAL_BACKEND.LOCAL,
+      storageNamespace,
+      runTarget,
+    },
+    runTargetExists: await started.fs.lstat(runTarget).then(() => true, () => false),
     context: await readStartedVerificationContext(scenario, started.report, started.fs),
   };
 }
@@ -719,8 +738,26 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
     throw new Error(`verify file-scope start failed in harness: ${started.output}`);
   }
   const report = parseStartReport(started.output);
+  const scopeIdentity = normalizeVerificationContextFileSubjectPath(path);
+  if (scopeIdentity === undefined) throw new Error("verify file-scope harness received an invalid path");
+  const storageNamespace = scenarioRunsDir(scenario);
+  const runTarget = join(storageNamespace, runFileName(report.runToken));
   const context = await readStartedVerificationContext(scenario, report, fs);
-  return { report, context, nameStatusCalls };
+  return {
+    report,
+    expectedLocator: {
+      runToken: report.runToken,
+      verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+      scopeType: VERIFY_SCOPE_TYPE.FILE,
+      scopeIdentity,
+      backendIdentity: JOURNAL_BACKEND.LOCAL,
+      storageNamespace,
+      runTarget,
+    },
+    runTargetExists: await fs.lstat(runTarget).then(() => true, () => false),
+    context,
+    nameStatusCalls,
+  };
 }
 
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {

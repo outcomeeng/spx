@@ -30,11 +30,13 @@ describe("audit file-root terminal mapping", () => {
           events: [],
           selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
         })).toStrictEqual({ ok: true, value: undefined });
-        expect(validateAuditTerminal({
-          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-          events: [scenario.rootEvent, scenario.requiredUncoveredEvent],
-          selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-        })).toStrictEqual({ ok: true, value: undefined });
+        for (const requiredUncoveredEvent of scenario.requiredUncoveredEvents) {
+          expect(validateAuditTerminal({
+            terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+            events: [scenario.rootEvent, requiredUncoveredEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          })).toStrictEqual({ ok: true, value: undefined });
+        }
         expect(validateAuditTerminal({
           terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
           events: [scenario.rootEvent, scenario.requiredCoverageGapEvent],
