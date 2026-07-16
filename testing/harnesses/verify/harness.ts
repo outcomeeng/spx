@@ -126,8 +126,11 @@ import {
   sampleVerifyTestValue,
   VERIFY_TEST_GENERATOR,
   type VerifyEvidenceRequiredOptionCase,
+  verifyEvidenceRequiredOptionCases,
   type VerifyNonNounLocalEvidenceCase,
+  verifyNonNounLocalEvidenceCases,
   type VerifyScopeMappingCase,
+  verifyScopeMappingCases,
 } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
@@ -169,6 +172,25 @@ export interface SealRetryFileSystem extends StateStoreFileSystem {
   failDirectoryListings(): void;
   failFirstSealWriteAt(path: string): void;
   failSealMarkerReadsAt(path: string): void;
+}
+
+interface VerifyCliRejectionObservation {
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly expectedDiagnosticToken: string;
+  readonly handlerInvocationCount: number;
+}
+
+interface VerificationScopeOptionMappingObservation {
+  readonly recordedOptions: readonly VerifyStartCliOptions[];
+  readonly resolvedScope: readonly string[];
+  readonly reportFields: readonly string[];
+  readonly subject: VerificationContextSubject;
+  readonly expectedResolvedScope: readonly string[];
+  readonly expectedSubject: VerificationContextSubject;
+  readonly scope: string;
+  readonly scopeType: string;
 }
 
 function commandTokens(command: Command): readonly string[] {
@@ -294,13 +316,7 @@ async function observeRejectedVerificationArgs(
   args: readonly string[],
   expectedDiagnosticToken: string,
   productDir: string,
-): Promise<{
-  readonly rejected: boolean;
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly expectedDiagnosticToken: string;
-  readonly handlerInvocationCount: number;
-}> {
+): Promise<VerifyCliRejectionObservation> {
   const recording = createRecordingVerifyHandlers();
   const stderr: string[] = [];
   const program = createRecordingVerifyProgram(recording, productDir);
@@ -570,13 +586,7 @@ export async function recordVerifyStartOptions(
   return recording.startOptions;
 }
 
-export async function observeVerificationLifecycleOutsideRunRejection(): Promise<{
-  readonly rejected: boolean;
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly expectedDiagnosticToken: string;
-  readonly handlerInvocationCount: number;
-}> {
+export async function observeVerificationLifecycleOutsideRunRejection(): Promise<VerifyCliRejectionObservation> {
   const scenario = createVerifyRunContextScenario();
   return observeRejectedVerificationArgs(
     [VERIFICATION_RUN_CLI_SURFACE.rootCommandName, VERIFY_CLI.startCommandName],
@@ -587,13 +597,7 @@ export async function observeVerificationLifecycleOutsideRunRejection(): Promise
 
 export async function observeNonNounLocalEvidenceRejection(
   testCase: VerifyNonNounLocalEvidenceCase,
-): Promise<{
-  readonly rejected: boolean;
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly expectedDiagnosticToken: string;
-  readonly handlerInvocationCount: number;
-}> {
+): Promise<VerifyCliRejectionObservation> {
   const scenario = createVerifyRunContextScenario();
   return observeRejectedVerificationArgs(
     verificationRunArgs([testCase.rejectedCommandName], []),
@@ -602,15 +606,13 @@ export async function observeNonNounLocalEvidenceRejection(
   );
 }
 
+export function observeNonNounLocalEvidenceRejections(): Promise<readonly VerifyCliRejectionObservation[]> {
+  return Promise.all(verifyNonNounLocalEvidenceCases().map(observeNonNounLocalEvidenceRejection));
+}
+
 export async function observeMissingEvidenceRequiredOptionRejection(
   testCase: VerifyEvidenceRequiredOptionCase,
-): Promise<{
-  readonly rejected: boolean;
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly expectedDiagnosticToken: string;
-  readonly handlerInvocationCount: number;
-}> {
+): Promise<VerifyCliRejectionObservation> {
   const scenario = createVerifyRunContextScenario();
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const payloadSource = sampleLiteralTestValue(arbitrarySourceFilePath());
@@ -639,6 +641,10 @@ export async function observeMissingEvidenceRequiredOptionRejection(
     requiredFlag(testCase.omittedOption),
     scenario.productDir,
   );
+}
+
+export function observeMissingEvidenceRequiredOptionRejections(): Promise<readonly VerifyCliRejectionObservation[]> {
+  return Promise.all(verifyEvidenceRequiredOptionCases().map(observeMissingEvidenceRequiredOptionRejection));
 }
 
 export function createSealRetryFileSystem(): SealRetryFileSystem {
@@ -906,6 +912,20 @@ export async function observeVerificationScopeOptionMapping(
     reportFields: observed.reportFields,
     subject: observed.subject,
   };
+}
+
+export function observeVerificationScopeOptionMappings(): Promise<
+  readonly VerificationScopeOptionMappingObservation[]
+> {
+  return Promise.all(
+    verifyScopeMappingCases().map(async (mapping) => ({
+      ...await observeVerificationScopeOptionMapping(mapping),
+      expectedResolvedScope: mapping.expectedResolvedScope,
+      expectedSubject: mapping.expectedSubject,
+      scope: mapping.scope,
+      scopeType: mapping.scopeType,
+    })),
+  );
 }
 
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {

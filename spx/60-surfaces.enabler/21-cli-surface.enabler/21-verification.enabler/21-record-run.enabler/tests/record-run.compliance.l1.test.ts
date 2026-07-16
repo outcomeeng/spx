@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
-import { verifyEvidenceRequiredOptionCases, verifyNonNounLocalEvidenceCases } from "@testing/generators/verify/verify";
 import {
   inspectVerificationEvidenceCommands,
   inspectVerificationRunCommandNames,
   inspectVerificationRunNounGroup,
-  observeMissingEvidenceRequiredOptionRejection,
-  observeNonNounLocalEvidenceRejection,
+  observeMissingEvidenceRequiredOptionRejections,
+  observeNonNounLocalEvidenceRejections,
   observeVerificationLifecycleOutsideRunRejection,
   recordVerificationRunHandlerOptions,
 } from "@testing/harnesses/verify/harness";
@@ -56,29 +55,27 @@ describe("record run compliance", () => {
     });
   });
 
-  it.each(verifyNonNounLocalEvidenceCases())(
-    "rejects non-noun-local evidence command $rejectedCommandName",
-    async (testCase) => {
-      await observeNonNounLocalEvidenceRejection(testCase).then((observation) => {
+  it("rejects every non-noun-local evidence command", async () => {
+    await observeNonNounLocalEvidenceRejections().then((observations) => {
+      observations.forEach((observation) => {
         expect(observation.rejected).toBe(true);
         expect(observation.exitCode).toBeGreaterThan(0);
         expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
         expect(observation.handlerInvocationCount).toBe(0);
       });
-    },
-  );
+    });
+  });
 
-  it.each(verifyEvidenceRequiredOptionCases())(
-    "rejects $resourceCommandName add without $omittedOption",
-    async (testCase) => {
-      await observeMissingEvidenceRequiredOptionRejection(testCase).then((observation) => {
+  it("rejects every evidence resource when either required evidence option is absent", async () => {
+    await observeMissingEvidenceRequiredOptionRejections().then((observations) => {
+      observations.forEach((observation) => {
         expect(observation.rejected).toBe(true);
         expect(observation.exitCode).toBeGreaterThan(0);
         expect(observation.stderr).toContain(observation.expectedDiagnosticToken);
         expect(observation.handlerInvocationCount).toBe(0);
       });
-    },
-  );
+    });
+  });
 
   it("passes parsed verification-run selector options to lifecycle handlers", async () => {
     await recordVerificationRunHandlerOptions().then((observation) => {
