@@ -89,6 +89,17 @@ export const DIAGNOSE_TEXT_LABEL = {
   WORKTREES: "Worktrees",
 } as const;
 
+export const DIAGNOSE_READING_FIELD = {
+  PATH: "path",
+  VERSION: "version",
+  FLOOR: "floor",
+  CONFIGURED_SOURCE: "configuredSource",
+  CONFIGURED_VERSION: "configuredVersion",
+  OBSERVED_VERSION: "observedVersion",
+  RUNNING: "running",
+  FREE: "free",
+} as const;
+
 export const DIAGNOSE_TEXT_HINT = {
   VERBOSE: "Run `spx diagnose --verbose` to inspect every diagnostic fact.",
   JSON: "Run `spx diagnose --json` for the complete machine-readable report.",
@@ -247,9 +258,9 @@ export function parseDiagnoseReportJson(input: string): Result<DiagnoseReport> {
 }
 
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
-  const configuredSource = reading(check, "configuredSource");
-  const configuredVersion = reading(check, "configuredVersion");
-  const observedVersion = reading(check, "observedVersion");
+  const configuredSource = reading(check, DIAGNOSE_READING_FIELD.CONFIGURED_SOURCE);
+  const configuredVersion = reading(check, DIAGNOSE_READING_FIELD.CONFIGURED_VERSION);
+  const observedVersion = reading(check, DIAGNOSE_READING_FIELD.OBSERVED_VERSION);
   switch (check.verdict as MethodologyContextVerdict) {
     case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
       return {
@@ -289,13 +300,13 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
 }
 
 function reading(check: CheckRecord, key: string): string | undefined {
-  return check.readings[key];
+  return Object.hasOwn(check.readings, key) ? escapeCliArgument(check.readings[key]) : undefined;
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
-  const version = reading(check, "version");
-  const path = reading(check, "path");
-  const floor = reading(check, "floor");
+  const version = reading(check, DIAGNOSE_READING_FIELD.VERSION);
+  const path = reading(check, DIAGNOSE_READING_FIELD.PATH);
+  const floor = reading(check, DIAGNOSE_READING_FIELD.FLOOR);
   switch (check.verdict as SpxReachabilityVerdict) {
     case SPX_REACHABILITY_VERDICT.REACHABLE:
     case SPX_REACHABILITY_VERDICT.PRESENT:
@@ -377,8 +388,8 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
 }
 
 function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
-  const running = reading(check, "running") ?? "0";
-  const free = reading(check, "free") ?? "0";
+  const running = reading(check, DIAGNOSE_READING_FIELD.RUNNING) ?? "0";
+  const free = reading(check, DIAGNOSE_READING_FIELD.FREE) ?? "0";
   switch (check.verdict as WorktreePoolVerdict) {
     case WORKTREE_POOL_VERDICT.COMPLIANT:
       return {

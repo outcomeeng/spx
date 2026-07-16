@@ -407,12 +407,11 @@ export function assertVerboseDiagnoseSanitizesReadings(): void {
   const scenario = unsafeDiagnoseReadingScenario();
   const verbose = renderReportVerbose(scenario.report, { color: false });
   const machine = parseReportText(renderReportJson(scenario.report));
-  expect(verbose).toContain(
-    `${escapeCliArgument(scenario.readingName)}: ${escapeCliArgument(scenario.readingValue)}`,
-  );
-  expect(verbose).not.toContain(scenario.readingName);
+  for (const field of scenario.readingFields) {
+    expect(verbose).toContain(`${field}: ${escapeCliArgument(scenario.readingValue)}`);
+    expect(machine.checks.some((check) => check.readings[field] === scenario.readingValue)).toBe(true);
+  }
   expect(verbose).not.toContain(scenario.readingValue);
-  expect(machine.checks[0]?.readings[scenario.readingName]).toBe(scenario.readingValue);
 }
 
 export async function assertOutputSelectorCase(testCase: DiagnoseOutputSelectorCase): Promise<void> {

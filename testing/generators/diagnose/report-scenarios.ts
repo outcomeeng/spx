@@ -29,7 +29,7 @@ import {
 } from "@/domains/diagnose/checks/worktree-pool";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
+import { DIAGNOSE_READING_FIELD, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { type CanonicalCheckoutFailureVerdict, CHECK_VERDICT_BUCKET } from "@/domains/diagnose/report-contract";
 import {
   CHECK_RECORD_FIELDS,
@@ -41,7 +41,7 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
-import { CONTROL_CHAR_UPPER_BOUND, ESCAPE_CONTROL_CHAR_CODE } from "@/lib/sanitize-cli-argument";
+import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
 import { SPX_VERSION } from "@/version";
 import { pluginBootstrapMappingCases } from "@testing/generators/agent-environment/plugin-bootstrap";
@@ -96,7 +96,7 @@ export interface DiagnoseExitCodeCase {
 
 export interface UnsafeDiagnoseReadingScenario {
   readonly report: DiagnoseReport;
-  readonly readingName: string;
+  readonly readingFields: readonly string[];
   readonly readingValue: string;
 }
 
@@ -270,18 +270,74 @@ export function allProviderRecords(): readonly CheckRecord[] {
 }
 
 export function unsafeDiagnoseReadingScenario(): UnsafeDiagnoseReadingScenario {
-  const [record, ...remainingRecords] = allProviderRecords();
-  const readingName = `path${String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE)}[31m`;
+  const records = allProviderRecords();
   const readingValue = `value${String.fromCodePoint(CONTROL_CHAR_UPPER_BOUND)}`;
+  const readingFields = Object.values(DIAGNOSE_READING_FIELD);
+  const updatedRecords = records.map((record) => {
+    if (record.name === CHECK_NAME.SPX_REACHABILITY) {
+      return {
+        ...record,
+        readings: {
+          ...record.readings,
+          [DIAGNOSE_READING_FIELD.PATH]: readingValue,
+          [DIAGNOSE_READING_FIELD.VERSION]: readingValue,
+        },
+      };
+    }
+    if (record.name === CHECK_NAME.WORKTREE_POOL) {
+      return {
+        ...record,
+        readings: {
+          ...record.readings,
+          [DIAGNOSE_READING_FIELD.RUNNING]: readingValue,
+          [DIAGNOSE_READING_FIELD.FREE]: readingValue,
+        },
+      };
+    }
+    if (record.name === CHECK_NAME.METHODOLOGY_CONTEXT) {
+      return {
+        ...record,
+        readings: {
+          ...record.readings,
+          [DIAGNOSE_READING_FIELD.CONFIGURED_SOURCE]: readingValue,
+          [DIAGNOSE_READING_FIELD.OBSERVED_VERSION]: readingValue,
+        },
+      };
+    }
+    return record;
+  });
+  const spxRecord = updatedRecords.find((record) => record.name === CHECK_NAME.SPX_REACHABILITY);
+  const methodologyRecord = updatedRecords.find((record) => record.name === CHECK_NAME.METHODOLOGY_CONTEXT);
+  if (spxRecord === undefined || methodologyRecord === undefined) {
+    throw new Error("unsafe diagnose scenario requires spx and methodology records");
+  }
+  const branchRecords: readonly CheckRecord[] = [
+    {
+      ...spxRecord,
+      verdict: SPX_REACHABILITY_VERDICT.UNKNOWN,
+      bucket: VERDICT_BUCKET.UNKNOWN,
+      readings: {
+        ...spxRecord.readings,
+        [DIAGNOSE_READING_FIELD.FLOOR]: readingValue,
+      },
+    },
+    {
+      ...methodologyRecord,
+      verdict: METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH,
+      bucket: VERDICT_BUCKET.DEGRADED,
+      readings: {
+        ...methodologyRecord.readings,
+        [DIAGNOSE_READING_FIELD.CONFIGURED_VERSION]: readingValue,
+      },
+    },
+  ];
+  const checks = [...updatedRecords, ...branchRecords];
   return {
-    readingName,
+    readingFields,
     readingValue,
     report: {
-      overall: foldOverallVerdict([record.bucket, ...remainingRecords.map((candidate) => candidate.bucket)]),
-      checks: [
-        { ...record, readings: { [readingName]: readingValue } },
-        ...remainingRecords,
-      ],
+      overall: foldOverallVerdict(checks.map((record) => record.bucket)),
+      checks,
     },
   };
 }
