@@ -1,5 +1,8 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   withAgentHomeResolutionEvidence,
   withConfiguredAgentHomeDiscoveryEvidence,
@@ -9,19 +12,23 @@ import {
 describe("agent home resolution compliance", () => {
   it("resolves configured Codex, Claude Code, and Pi homes before default homes", () => {
     withAgentHomeResolutionEvidence((evidence) => {
-      expect(evidence.configured).toEqual(evidence.configuredExpected);
+      expect(evidence.configured).toEqual(evidence.configuredInputs);
     });
   });
 
   it("resolves default Codex, Claude Code, and Pi homes when no configured homes exist", () => {
     withAgentHomeResolutionEvidence((evidence) => {
-      expect(evidence.defaults).toEqual(evidence.defaultsExpected);
+      expect(evidence.defaults).toEqual(agentHomeDirsFromHomeDir(evidence.defaultHome));
     });
   });
 
   it("resolves Pi sessions under PI_CODING_AGENT_DIR and carries that path into discovery", async () => {
     await withPiAgentDirectoryEvidence((evidence) => {
-      expect(evidence.resolved).toEqual(evidence.expected);
+      expect(evidence.resolved).toEqual({
+        ...agentHomeDirsFromHomeDir(evidence.defaultHome),
+        piAgent: evidence.piAgentHome,
+        piSessions: join(evidence.piAgentHome, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
+      });
       expect(evidence.resumeOutput).toContain(evidence.configuredSessionId);
       expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
     });
