@@ -174,6 +174,45 @@ export async function withPiAgentDirectoryEvidence(
   });
 }
 
+interface PiSessionDirectoryEvidence {
+  readonly resolved: AgentHomeDirs;
+  readonly defaultHome: string;
+  readonly piSessionHome: string;
+  readonly resumeOutput: string;
+  readonly sessionId: string;
+}
+
+export async function withPiSessionDirectoryEvidence(
+  callback: (evidence: PiSessionDirectoryEvidence) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 431);
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 432);
+  const piSessionHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 433);
+  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 434);
+  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 435);
+  const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 436);
+  const resolved = resolveAgentHomeDirs(
+    { [AGENT_HOME_ENV.PI_SESSIONS]: piSessionHome },
+    { homeDir: () => defaultHome },
+  );
+  fs.writeFile(
+    piTranscriptFile(piSessionHome, sessionId),
+    piTranscript({ sessionId, cwd, timestamp: new Date(nowMs).toISOString() }),
+    nowMs,
+  );
+  callback({
+    resolved,
+    defaultHome,
+    piSessionHome,
+    resumeOutput: await withAgentHomeEnvironment(
+      { [AGENT_HOME_ENV.PI_SESSIONS]: piSessionHome },
+      () => discoverResume(fs, defaultAgentResumeCommandDeps.agentHomeDirs, worktreeRoot, cwd, nowMs),
+    ),
+    sessionId,
+  });
+}
+
 interface ConfiguredAgentHomeDiscoveryEvidence {
   readonly resumeOutput: string;
   readonly defaultResumeOutput: string;
