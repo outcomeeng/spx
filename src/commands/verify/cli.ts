@@ -742,10 +742,6 @@ async function readAppendExistingEvents(
 }
 
 /**
- * Validate the append request's required selectors and injected capabilities, then resolve the
- * run's journal scope and storage namespace, so `verifyAppend` orchestrates a prepared run.
- */
-/**
  * Whether an append invocation is an external caller reaching a run recorded as spx-driven. The
  * executor's own recorder operations assert spx drive mode on their deps; the append verbs expose no
  * drive-mode flag, so a CLI caller carries caller-driven mode and does not assert it.
@@ -757,6 +753,10 @@ function isExternalAppendToSpxDrivenRun(events: readonly JournalEvent[], deps: V
   );
 }
 
+/**
+ * Validate the append request's required selectors and injected capabilities, then resolve the
+ * run's journal scope and storage namespace, so `verifyAppend` orchestrates a prepared run.
+ */
 async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDeps): Promise<Result<PreparedAppend>> {
   if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
   if (!isVerifyVerificationType(options.verificationType)) {
