@@ -15,7 +15,6 @@ import {
 } from "@/lib/agent-run-journal";
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
-  appendableJournalSealingMarkerPath,
   appendableJournalSealMarkerPath,
   createAppendableJournalStore,
 } from "@/lib/appendable-journal-store";
@@ -53,8 +52,6 @@ const PARTIAL_WRITE_DIVISOR = 2;
 const MINIMUM_PARTIAL_WRITE_LENGTH = 1;
 const INJECTED_SEAL_INTERRUPTION = "injected seal interruption";
 const INJECTED_SEALING_BARRIER_INTERRUPTION = "injected sealing barrier interruption";
-const SEQUENCE_RECORD_PATH_FRAGMENT = ".seq-";
-const ATOMIC_TEMPORARY_PATH_SUFFIX = ".tmp";
 
 /** Prove sequence exclusivity when independent stores append to one run history concurrently. */
 export async function assertOverlappingAppendSequenceProperty(): Promise<void> {
@@ -315,10 +312,7 @@ async function assertStaleSealingBarrierRecovery(
     await journal.append(firstInput),
     await journal.append(nextInput),
   ];
-  const interrupted = createInterruptedSealingBarrierFileSystem(
-    runFilePath,
-    base,
-  );
+  const interrupted = createInterruptedSealingBarrierFileSystem(base);
 
   await expect(
     createJournal(
@@ -367,6 +361,7 @@ interface PausedPublicationFileSystem {
   readonly fs: StateStoreFileSystem;
   readonly linkStarted: Promise<void>;
   readonly linkCompleted: Promise<void>;
+  readonly temporaryPath: Promise<string>;
   releaseLink(): void;
 }
 
@@ -376,6 +371,7 @@ function createPausedPublicationFileSystem(
   const started = deferred();
   const released = deferred();
   const completed = deferred();
+  const temporaryPath = deferredValue<string>();
   return {
     fs: {
       mkdir: (path, options) => delegate.mkdir(path, options),
@@ -385,6 +381,7 @@ function createPausedPublicationFileSystem(
       readdir: (path, options) => delegate.readdir(path, options),
       lstat: (path) => delegate.lstat(path),
       link: async (existingPath, newPath) => {
+        temporaryPath.resolve(existingPath);
         started.resolve();
         await released.promise;
         try {
@@ -398,6 +395,7 @@ function createPausedPublicationFileSystem(
     },
     linkStarted: started.promise,
     linkCompleted: completed.promise,
+    temporaryPath: temporaryPath.promise,
     releaseLink: released.resolve,
   };
 }
@@ -411,6 +409,7 @@ function createPublicationWinningSealFileSystem(
     paused.releaseLink();
     await paused.linkCompleted;
   }
+  const publicationTemporaryPath = paused.temporaryPath;
   return {
     mkdir: (path, options) => delegate.mkdir(path, options),
     writeFile: async (path, data, options) => {
@@ -424,10 +423,7 @@ function createPublicationWinningSealFileSystem(
     link: (existingPath, newPath) => delegate.link(existingPath, newPath),
     rename: (from, to) => delegate.rename(from, to),
     rm: async (path, options) => {
-      if (
-        path.includes(SEQUENCE_RECORD_PATH_FRAGMENT)
-        && path.endsWith(ATOMIC_TEMPORARY_PATH_SUFFIX)
-      ) {
+      if (path === await publicationTemporaryPath) {
         await releasePublication();
       }
       await delegate.rm(path, options);
@@ -441,6 +437,17 @@ function deferred(): {
 } {
   let resolvePromise = (): void => undefined;
   const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
+
+function deferredValue<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
+  let resolvePromise = (_value: T): void => undefined;
+  const promise = new Promise<T>((resolve) => {
     resolvePromise = resolve;
   });
   return { promise, resolve: resolvePromise };
@@ -551,16 +558,14 @@ function createInterruptedSealFileSystem(
 }
 
 function createInterruptedSealingBarrierFileSystem(
-  runFilePath: string,
   delegate: StateStoreFileSystem,
 ): StateStoreFileSystem {
-  const sealingMarkerPath = appendableJournalSealingMarkerPath(runFilePath);
   let interruptBarrierWrite = true;
   return {
     mkdir: (path, options) => delegate.mkdir(path, options),
     writeFile: async (path, data, options) => {
       await delegate.writeFile(path, data, options);
-      if (path === sealingMarkerPath && interruptBarrierWrite) {
+      if (data === APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT && interruptBarrierWrite) {
         interruptBarrierWrite = false;
         throw new Error(INJECTED_SEALING_BARRIER_INTERRUPTION);
       }
