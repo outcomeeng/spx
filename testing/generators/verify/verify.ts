@@ -1,6 +1,8 @@
 import * as fc from "fast-check";
+import { posix } from "node:path";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import { VERIFICATION_CONTEXT_FILE_SUBJECT_PATH } from "@/domains/verification-context/context";
 import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
@@ -11,6 +13,7 @@ import {
   type AuditProducerIdentity,
   type AuditProducerProvenance,
   type AuditScopeUnit,
+  buildAppendEvent,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
   REVIEW_SCOPE_COVERAGE_STATE,
@@ -19,8 +22,15 @@ import {
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
+  VERIFY_APPEND_EVENT_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
+import {
+  CLOUDEVENTS_SPECVERSION,
+  JOURNAL_SEQ_BASE,
+  type JournalEvent,
+  type JsonValue,
+} from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -297,6 +307,110 @@ export interface FindingWithKey {
   readonly idempotencyKey: string;
 }
 
+export interface FileAuditScopeScenario {
+  readonly scopeIdentity: string;
+  readonly relatedSubject: string;
+  readonly root: AuditScopeUnit;
+  readonly rootPayload: JsonValue;
+  readonly child: AuditScopeUnit;
+  readonly childPayload: JsonValue;
+  readonly mismatchedRootPayload: JsonValue;
+  readonly orphanChildPayload: JsonValue;
+  readonly duplicateRootEvent: JournalEvent;
+  readonly rootEvent: JournalEvent;
+  readonly childEvent: JournalEvent;
+}
+
+function auditScopePayload(unit: AuditScopeUnit): JsonValue {
+  return JSON.parse(JSON.stringify(unit)) as JsonValue;
+}
+
+function auditScopeEvent(unit: AuditScopeUnit, sequence: number): JournalEvent {
+  const input = buildAppendEvent({
+    eventType: VERIFY_APPEND_EVENT_TYPE.SCOPE,
+    idempotencyKey: unit.unitId,
+    payload: auditScopePayload(unit),
+    at: new Date(0),
+  });
+  return {
+    ...input,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    streamid: unit.unitId,
+    seq: sequence,
+    runid: unit.unitId,
+  };
+}
+
+export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
+  return arbitrarySourceFilePath();
+}
+
+export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryBlankArgument(),
+    arbitrarySourceFilePath().map((path) => posix.resolve(posix.sep, path)),
+    arbitrarySourceFilePath().map(
+      (path) => `${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
+    ),
+  );
+}
+
+export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeScenario> {
+  return fc
+    .tuple(
+      arbitrarySourceFilePath(),
+      arbitrarySourceFilePath(),
+      arbitraryAuditScopeUnit(),
+      arbitraryAuditScopeUnit(),
+      arbitraryAuditScopeUnit(),
+      STATE_STORE_TEST_GENERATOR.scopeToken(),
+    )
+    .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, orphanParent]) =>
+      scopeIdentity !== relatedSubject
+      && root.unitId !== child.unitId
+      && root.unitId !== duplicateRoot.unitId
+      && child.unitId !== duplicateRoot.unitId
+      && orphanParent !== root.unitId
+      && orphanParent !== child.unitId
+    )
+    .map(([scopeIdentity, relatedSubject, rootCandidate, childCandidate, duplicateRootCandidate, orphanParent]) => {
+      const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
+      const { parentUnitId: _duplicateParent, ...duplicateRootFields } = duplicateRootCandidate;
+      const root: AuditScopeUnit = {
+        ...rootFields,
+        subject: scopeIdentity,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      const child: AuditScopeUnit = {
+        ...childCandidate,
+        parentUnitId: root.unitId,
+        subject: relatedSubject,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      const duplicateRoot: AuditScopeUnit = {
+        ...duplicateRootFields,
+        subject: scopeIdentity,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+        coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+      };
+      return {
+        scopeIdentity,
+        relatedSubject,
+        root,
+        rootPayload: auditScopePayload(root),
+        child,
+        childPayload: auditScopePayload(child),
+        mismatchedRootPayload: auditScopePayload({ ...root, subject: relatedSubject }),
+        orphanChildPayload: auditScopePayload({ ...child, parentUnitId: orphanParent }),
+        rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
+        childEvent: auditScopeEvent(child, JOURNAL_SEQ_BASE + 1),
+        duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
+      };
+    });
+}
+
 /**
  * The blank-argument domain: whitespace-only and empty strings a caller supplies when no real
  * `--input` source or `--run` token was given. The verify command trims and rejects these, so
@@ -327,6 +441,17 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
       .filter(([base, head]) => base !== head)
       .map(([base, head]) => ({ base, head })),
+  changesetScopeScenario: (): fc.Arbitrary<{
+    readonly range: { readonly base: string; readonly head: string };
+    readonly changedPaths: readonly string[];
+  }> =>
+    fc.record({
+      range: VERIFY_TEST_GENERATOR.changesetRange(),
+      changedPaths: fc.uniqueArray(arbitrarySourceFilePath(), {
+        minLength: CHANGED_PATH_MIN,
+        maxLength: CHANGED_PATH_MAX,
+      }),
+    }),
   malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
