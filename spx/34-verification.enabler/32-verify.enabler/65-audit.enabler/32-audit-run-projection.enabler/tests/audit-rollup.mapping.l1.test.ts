@@ -2,10 +2,28 @@ import { describe, expect, it } from "vitest";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { TERMINAL_METADATA_VALIDATION_ERROR, validateAuditTerminal, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
-import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
+import {
+  arbitraryAuditChangesetProjectionScenario,
+  arbitraryFileAuditScopeScenario,
+} from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
-describe("audit file-root terminal mapping", () => {
+describe("audit terminal rollup", () => {
+  it("maps clean changeset coverage to approved", () => {
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      events: [
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).rootEvent,
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).specEvent,
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).implementationEvent,
+      ],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        scopeIdentity: sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({ ok: true, value: undefined });
+  });
+
   it("maps fully audited rooted coverage to approved", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
