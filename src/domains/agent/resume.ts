@@ -50,6 +50,8 @@ export type AgentResumeScope =
   | { readonly kind: typeof AGENT_RESUME_SCOPE.WORKTREE }
   | { readonly kind: typeof AGENT_RESUME_SCOPE.BRANCH; readonly branch: string };
 
+type AgentResumeScopeKind = AgentResumeScope["kind"];
+
 export function worktreeResumeScope(): AgentResumeScope {
   return { kind: AGENT_RESUME_SCOPE.WORKTREE };
 }
@@ -192,6 +194,7 @@ export function claudeProjectDirName(cwd: string): string {
 
 interface AgentResumeAdapter {
   readonly agent: AgentSessionKind;
+  readonly scopes: readonly AgentResumeScopeKind[];
   readonly collectFiles: (
     options: DiscoverAgentResumeCandidatesOptions,
     scope: AgentResumeScopeContext,
@@ -203,6 +206,7 @@ interface AgentResumeAdapter {
 export const AGENT_RESUME_ADAPTER_REGISTRY: Readonly<Record<AgentSessionKind, AgentResumeAdapter>> = {
   [AGENT_SESSION_KIND.CODEX]: {
     agent: AGENT_SESSION_KIND.CODEX,
+    scopes: [AGENT_RESUME_SCOPE.WORKTREE, AGENT_RESUME_SCOPE.BRANCH],
     collectFiles: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
     parseHead: parseCodexHead,
     launch: (candidate) => ({
@@ -213,6 +217,7 @@ export const AGENT_RESUME_ADAPTER_REGISTRY: Readonly<Record<AgentSessionKind, Ag
   },
   [AGENT_SESSION_KIND.CLAUDE_CODE]: {
     agent: AGENT_SESSION_KIND.CLAUDE_CODE,
+    scopes: [AGENT_RESUME_SCOPE.WORKTREE, AGENT_RESUME_SCOPE.BRANCH],
     collectFiles: (options, scope) =>
       claudeTranscriptFiles(
         claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
@@ -228,6 +233,7 @@ export const AGENT_RESUME_ADAPTER_REGISTRY: Readonly<Record<AgentSessionKind, Ag
   },
   [AGENT_SESSION_KIND.PI]: {
     agent: AGENT_SESSION_KIND.PI,
+    scopes: [AGENT_RESUME_SCOPE.WORKTREE],
     collectFiles: (options) =>
       collectJsonlFiles(
         piSessionStoreDir(options.agentHomeDirs.piAgent, options.agentHomeDirs.piSessions),
@@ -255,7 +261,7 @@ export async function discoverAgentResumeCandidates(
   const cap = AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES;
   const recentWindowMs = options.sinceMs ?? AGENT_RESUME_RECENT_WINDOW_MS;
   const perAgent = await Promise.all(
-    AGENT_RESUME_ADAPTERS.map(async (adapter) =>
+    AGENT_RESUME_ADAPTERS.filter((adapter) => adapter.scopes.includes(options.scope.kind)).map(async (adapter) =>
       collectAgentCandidates(
         adapter.agent,
         await recentStoreFiles(
