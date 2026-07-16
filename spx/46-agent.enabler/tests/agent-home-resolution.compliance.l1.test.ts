@@ -7,7 +7,7 @@ import {
   withAgentHomeResolutionEvidence,
   withConfiguredAgentHomeDiscoveryEvidence,
   withPiAgentDirectoryEvidence,
-} from "@testing/harnesses/agent/resume";
+} from "@testing/harnesses/agent/home";
 
 describe("agent home resolution compliance", () => {
   it("resolves configured Codex, Claude Code, and Pi homes before default homes", () => {
