@@ -36,6 +36,7 @@ describe("record-run scope option mapping", () => {
 
   it("describes both public scope grammar forms", () => {
     expect(inspectVerificationStartScopeGrammar()).toStrictEqual({
+      startDescription: VERIFY_CLI.startCommandDescription,
       scopeTypeFlags: VERIFY_CLI.scopeTypeOption,
       scopeFlags: VERIFY_CLI.scopeOption,
       scopeTypeDescription: VERIFY_CLI.scopeTypeOptionDescription,

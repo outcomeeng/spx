@@ -357,6 +357,7 @@ export function inspectVerificationRunCommandNames(): {
 }
 
 export function inspectVerificationStartScopeGrammar(): {
+  readonly startDescription: string | undefined;
   readonly scopeTypeFlags: string | undefined;
   readonly scopeFlags: string | undefined;
   readonly scopeTypeDescription: string | undefined;
@@ -373,6 +374,7 @@ export function inspectVerificationStartScopeGrammar(): {
   const scopeTypeOption = startCommand?.options.find((option) => option.flags === VERIFY_CLI.scopeTypeOption);
   const scopeOption = startCommand?.options.find((option) => option.flags === VERIFY_CLI.scopeOption);
   return {
+    startDescription: startCommand?.description(),
     scopeTypeFlags: scopeTypeOption?.flags,
     scopeFlags: scopeOption?.flags,
     scopeTypeDescription: scopeTypeOption?.description,

@@ -42,6 +42,7 @@ export const VERIFY_CLI = {
   commandName: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
   description: "Record and replay a typed verification run",
   startCommandName: VERIFY_VERB.START,
+  startCommandDescription: "Start a changeset- or file-scoped verification run and report its run locator",
   inputCommandName: VERIFY_VERB.INPUT,
   findingCommandName: VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
   runCommandName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
@@ -156,7 +157,7 @@ export function registerVerifyCommands(
 
   runCommand
     .command(VERIFY_CLI.startCommandName)
-    .description("Start a changeset-scoped verification run and report its run locator")
+    .description(VERIFY_CLI.startCommandDescription)
     .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
