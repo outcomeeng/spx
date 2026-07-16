@@ -149,11 +149,16 @@ const CONFIGURED_AGENT_HOME_SAMPLE = {
 
 export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSystem {
   private readonly files = new Map<string, MemoryFile>();
+  private readonly directoryReads = new Set<string>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
+  }
+
+  wasDirectoryRead(path: string): boolean {
+    return this.directoryReads.has(resolve(path));
   }
 
   maxHeadReadBytes(path: string): number {
@@ -166,6 +171,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
 
   async readDir(path: string): Promise<readonly AgentSessionDirEntry[]> {
     const root = resolve(path);
+    this.directoryReads.add(root);
     const names = new Map<string, AgentSessionDirEntry>();
     for (const filePath of this.files.keys()) {
       const relativePath = relative(root, filePath);
