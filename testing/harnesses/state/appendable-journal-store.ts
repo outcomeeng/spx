@@ -48,8 +48,6 @@ const INTERRUPTION_INPUT_ENV = "SPX_JOURNAL_INTERRUPTION_INPUT";
 const INTERRUPTION_RUN_FILE_ENV = "SPX_JOURNAL_INTERRUPTION_RUN_FILE";
 const PRE_PUBLICATION_MODE = "pre-publication";
 const POST_PUBLICATION_MODE = "post-publication";
-const PARTIAL_WRITE_DIVISOR = 2;
-const MINIMUM_PARTIAL_WRITE_LENGTH = 1;
 const INJECTED_SEAL_INTERRUPTION = "injected seal interruption";
 const INJECTED_SEALING_BARRIER_INTERRUPTION = "injected sealing barrier interruption";
 
@@ -532,27 +530,22 @@ function createInterruptedSealFileSystem(
   runFilePath: string,
   delegate: StateStoreFileSystem,
 ): StateStoreFileSystem {
-  let interruptAggregateWrite = true;
+  let interruptAggregateRename = true;
   return {
     mkdir: (path, options) => delegate.mkdir(path, options),
-    writeFile: async (path, data, options) => {
-      if (path === runFilePath && interruptAggregateWrite) {
-        interruptAggregateWrite = false;
-        const partialLength = Math.max(
-          MINIMUM_PARTIAL_WRITE_LENGTH,
-          Math.floor(data.length / PARTIAL_WRITE_DIVISOR),
-        );
-        await delegate.writeFile(path, data.slice(0, partialLength), options);
-        throw new Error(INJECTED_SEAL_INTERRUPTION);
-      }
-      await delegate.writeFile(path, data, options);
-    },
+    writeFile: (path, data, options) => delegate.writeFile(path, data, options),
     appendFile: (path, data) => delegate.appendFile(path, data),
     readFile: (path, encoding) => delegate.readFile(path, encoding),
     readdir: (path, options) => delegate.readdir(path, options),
     lstat: (path) => delegate.lstat(path),
     link: (existingPath, newPath) => delegate.link(existingPath, newPath),
-    rename: (from, to) => delegate.rename(from, to),
+    rename: async (from, to) => {
+      if (to === runFilePath && interruptAggregateRename) {
+        interruptAggregateRename = false;
+        throw new Error(INJECTED_SEAL_INTERRUPTION);
+      }
+      await delegate.rename(from, to);
+    },
     rm: (path, options) => delegate.rm(path, options),
   };
 }

@@ -1,3 +1,4 @@
+import { randomBytes as nodeRandomBytes } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 
 import {
@@ -9,10 +10,13 @@ import {
 } from "@/lib/agent-run-journal";
 import {
   defaultStateStoreFileSystem,
+  ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
+  EXCLUSIVE_CREATE_FLAG,
   hasErrorCode,
   type JsonRecord,
   publishJsonlRecordAtomically,
+  removeAtomicJsonlTemporaryFiles,
   serializeJsonlRecord,
   STATE_STORE_ERROR,
   STATE_STORE_TEXT_ENCODING,
@@ -20,10 +24,15 @@ import {
 } from "@/lib/state-store";
 
 const SEAL_MARKER_SUFFIX = ".sealed";
+const SEALING_MARKER_SUFFIX = ".sealing";
 const SEQUENCE_RECORD_MARKER = ".seq-";
 const SEQUENCE_RECORD_SUFFIX = ".jsonl";
 const SEQUENCE_TOKEN_PATTERN = /^[1-9]\d*$/;
 export const APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT = "";
+const AGGREGATE_TEMPORARY_MARKER = ".aggregate";
+const ATOMIC_TEMPORARY_SUFFIX = ".tmp";
+const AGGREGATE_TEMPORARY_ID_BYTES = 6;
+const AGGREGATE_TEMPORARY_CREATE_ATTEMPTS = 10;
 const LINE_SEPARATOR = "\n";
 
 interface SequenceRecordAddress {
@@ -44,6 +53,10 @@ export function appendableJournalSealMarkerPath(runFilePath: string): string {
   return `${runFilePath}${SEAL_MARKER_SUFFIX}`;
 }
 
+export function appendableJournalSealingMarkerPath(runFilePath: string): string {
+  return `${runFilePath}${SEALING_MARKER_SUFFIX}`;
+}
+
 export function appendableJournalSequenceRecordPath(runFilePath: string, sequence: number): string {
   return `${runFilePath}${SEQUENCE_RECORD_MARKER}${sequence}${SEQUENCE_RECORD_SUFFIX}`;
 }
@@ -53,8 +66,9 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
   const fs = options.fs ?? defaultStateStoreFileSystem;
   const { runFilePath } = options;
   const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
+  const sealingMarkerPath = appendableJournalSealingMarkerPath(runFilePath);
 
-  async function readAll(): Promise<readonly JournalEvent[]> {
+  async function readSequenceEvents(): Promise<readonly JournalEvent[]> {
     const sequenceRecords = await listSequenceRecords(fs, runFilePath);
     const eventsBySequence = new Map<number, JournalEvent>();
     for (const sequenceRecord of sequenceRecords) {
@@ -65,13 +79,15 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
         }
       }
     }
-    if (sequenceRecords.length === 0 && (await readFileOrUndefined(fs, sealMarkerPath)) !== undefined) {
-      const aggregate = await readFileOrUndefined(fs, runFilePath);
-      for (const event of parseJournalEvents(aggregate)) {
-        eventsBySequence.set(event.seq, event);
-      }
-    }
     return [...eventsBySequence.values()].sort((left, right) => left.seq - right.seq);
+  }
+
+  async function readAll(): Promise<readonly JournalEvent[]> {
+    const sequenceRecords = await listSequenceRecords(fs, runFilePath);
+    if (sequenceRecords.length > 0) return readSequenceEvents();
+    if ((await readFileOrUndefined(fs, sealMarkerPath)) === undefined) return [];
+    return [...parseJournalEvents(await readFileOrUndefined(fs, runFilePath))]
+      .sort((left, right) => left.seq - right.seq);
   }
 
   return {
@@ -81,11 +97,20 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       const result = await publishJsonlRecordAtomically(
         appendableJournalSequenceRecordPath(runFilePath, record.seq),
         toJsonRecord(record),
-        { fs, randomBytes: options.randomBytes },
+        {
+          fs,
+          randomBytes: options.randomBytes,
+          publicationGuard: async () =>
+            !(await markerExists(fs, sealingMarkerPath))
+            && !(await markerExists(fs, sealMarkerPath)),
+        },
       );
       if (!result.ok) {
         if (result.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS) {
           throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+        }
+        if (result.error === STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED) {
+          throw new Error(JOURNAL_ERROR.SEALED);
         }
         throw new Error(result.error);
       }
@@ -94,19 +119,80 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
     readAll,
 
     async seal(): Promise<void> {
-      const events = await readAll();
       await fs.mkdir(dirname(sealMarkerPath), { recursive: true });
-      await fs.writeFile(
+      if (await markerExists(fs, sealMarkerPath)) {
+        await removeFileBestEffort(fs, sealingMarkerPath);
+        return;
+      }
+      await fs.writeFile(sealingMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
+      await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`);
+      await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath));
+      const events = await readSequenceEvents();
+      await replaceAggregateAtomically(
+        fs,
         runFilePath,
         events.map((event) => serializeJsonlRecord(toJsonRecord(event))).join(""),
+        options.randomBytes ?? nodeRandomBytes,
       );
       await fs.writeFile(sealMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
+      await removeFileBestEffort(fs, sealingMarkerPath);
     },
 
     async isSealed(): Promise<boolean> {
       return (await readFileOrUndefined(fs, sealMarkerPath)) !== undefined;
     },
   };
+}
+
+async function removeTemporaryPublications(
+  fs: StateStoreFileSystem,
+  destinationPathPrefix: string,
+): Promise<void> {
+  const result = await removeAtomicJsonlTemporaryFiles(destinationPathPrefix, { fs });
+  if (!result.ok) throw new Error(result.error);
+}
+
+async function replaceAggregateAtomically(
+  fs: StateStoreFileSystem,
+  runFilePath: string,
+  content: string,
+  randomBytes: (size: number) => Buffer,
+): Promise<void> {
+  for (let attempt = 0; attempt < AGGREGATE_TEMPORARY_CREATE_ATTEMPTS; attempt += 1) {
+    const temporaryPath = `${aggregateTemporaryPrefix(runFilePath)}.${
+      randomBytes(AGGREGATE_TEMPORARY_ID_BYTES).toString("hex")
+    }${ATOMIC_TEMPORARY_SUFFIX}`;
+    try {
+      await fs.writeFile(temporaryPath, content, { flag: EXCLUSIVE_CREATE_FLAG });
+    } catch (error) {
+      if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
+      throw error;
+    }
+    try {
+      await fs.rename(temporaryPath, runFilePath);
+      return;
+    } catch (error) {
+      await removeFileBestEffort(fs, temporaryPath);
+      throw error;
+    }
+  }
+  throw new Error(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
+}
+
+function aggregateTemporaryPrefix(runFilePath: string): string {
+  return `${runFilePath}${AGGREGATE_TEMPORARY_MARKER}`;
+}
+
+async function markerExists(fs: StateStoreFileSystem, path: string): Promise<boolean> {
+  return (await readFileOrUndefined(fs, path)) !== undefined;
+}
+
+async function removeFileBestEffort(fs: StateStoreFileSystem, path: string): Promise<void> {
+  try {
+    await fs.rm(path, { force: true });
+  } catch {
+    // A committed seal remains valid when recovery-marker cleanup is interrupted.
+  }
 }
 
 function parseJournalEvents(content: string | undefined): readonly JournalEvent[] {
