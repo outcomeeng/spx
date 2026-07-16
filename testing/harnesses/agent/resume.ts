@@ -21,6 +21,7 @@ import {
   AGENT_SESSION_STORE,
   CODEX_SESSION_ORIGINATOR,
   CODEX_SESSION_THREAD_SOURCE,
+  compareAgentSessionText,
 } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
@@ -469,11 +470,13 @@ export function claudeSubagentTranscriptPath(homeDir: string, cwd: string, fileN
 }
 
 export function piTranscriptPath(homeDir: string, fileName: string): string {
-  return piTranscriptPathFromSessionDir(agentHomeDirsFromHomeDir(homeDir).piSessions, fileName);
-}
-
-function piTranscriptPathFromSessionDir(piSessionDir: string, fileName: string): string {
-  return join(piSessionDir, fileName);
+  return resolve(
+    homeDir,
+    AGENT_SESSION_STORE.PI_DIR,
+    AGENT_SESSION_STORE.PI_AGENT_DIR,
+    AGENT_SESSION_STORE.PI_SESSIONS_DIR,
+    fileName,
+  );
 }
 
 export function writePiTranscriptFile(
@@ -1455,7 +1458,7 @@ export async function assertSourcePathTieBreakSelectsPerAgentCap(): Promise<void
     fs.writeFile(path, codexTranscript({ sessionId, cwd, timestamp }), nowMs);
   }
   const expected = [...written]
-    .sort((left, right) => left.path.localeCompare(right.path))
+    .sort((left, right) => compareAgentSessionText(left.path, right.path))
     .slice(0, AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES)
     .map((entry) => entry.sessionId);
 
