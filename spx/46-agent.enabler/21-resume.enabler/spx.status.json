@@ -3,6 +3,9 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/46-agent.enabler/21-resume.enabler/tests/pi-resume.compliance.l1.test.ts": "passed",
+      "spx/46-agent.enabler/21-resume.enabler/tests/pi-resume.mapping.l1.test.ts": "passed",
+      "spx/46-agent.enabler/21-resume.enabler/tests/pi-resume.scenario.l1.test.ts": "passed",
       "spx/46-agent.enabler/21-resume.enabler/tests/resume-cli.compliance.l1.test.ts": "passed",
       "spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l1.test.ts": "passed",
       "spx/46-agent.enabler/21-resume.enabler/tests/resume.mapping.l1.test.ts": "passed",
