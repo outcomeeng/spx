@@ -9,7 +9,7 @@ import {
   rename as nodeRename,
   rm as nodeRm,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import type { Result } from "@/config/types";
 import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
@@ -40,6 +40,7 @@ export const STATE_STORE_ERROR = {
   RUN_FILE_CREATE_FAILED: "state-store run file create failed",
   RUN_FILE_COLLISION_LIMIT: "state-store run file collision limit exhausted",
   RECORD_ALREADY_EXISTS: "state-store record already exists",
+  RECORD_PUBLICATION_BLOCKED: "state-store record publication blocked",
   RECORD_WRITE_FAILED: "state-store record write failed",
   RECORD_READ_FAILED: "state-store record read failed",
 } as const;
@@ -114,6 +115,7 @@ export interface JsonlWriteOptions {
 export interface AtomicJsonlWriteOptions extends JsonlWriteOptions {
   readonly randomBytes?: (size: number) => Buffer;
   readonly maxAttempts?: number;
+  readonly publicationGuard?: () => Promise<boolean>;
 }
 
 export interface JsonlReadOptions {
@@ -163,6 +165,7 @@ const ATOMIC_RECORD_TEMP_CREATE_ATTEMPTS = 10;
 const ATOMIC_RECORD_TEMP_ID_BYTES = 6;
 const ATOMIC_RECORD_TEMP_SEPARATOR = ".";
 const ATOMIC_RECORD_TEMP_SUFFIX = ".tmp";
+const ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN = /^.+\.[a-f0-9]{12}\.tmp$/;
 const ATOMIC_RECORD_TEMP_COLLISION_DETAIL = "temporary file collision limit exhausted";
 const RUN_TIMESTAMP_SEPARATOR = "_";
 const SLUG_SEPARATOR = "-";
@@ -572,6 +575,12 @@ export async function publishJsonlRecordAtomically(
       };
     }
 
+    const guardResult = await evaluatePublicationGuard(options.publicationGuard);
+    if (!guardResult.ok) {
+      await removeTemporaryFileBestEffort(fs, temporaryPath);
+      return guardResult;
+    }
+
     const published = await publishAtomicJsonlTemporaryFile(fs, temporaryPath, filePath);
     await removeTemporaryFileBestEffort(fs, temporaryPath);
     return published;
@@ -584,6 +593,61 @@ export async function publishJsonlRecordAtomically(
       ATOMIC_RECORD_TEMP_COLLISION_DETAIL,
     ),
   };
+}
+
+export async function removeAtomicJsonlTemporaryFiles(
+  destinationPathPrefix: string,
+  options: JsonlWriteOptions = {},
+): Promise<Result<number>> {
+  const fs = options.fs ?? defaultFileSystem;
+  const directory = dirname(destinationPathPrefix);
+  const namePrefix = basename(destinationPathPrefix);
+  let entries: readonly StateStoreFileEntry[];
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return { ok: true, value: 0 };
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
+  }
+
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isFile() || !isOwnedAtomicJsonlTemporaryName(entry.name, namePrefix)) continue;
+    try {
+      await fs.rm(join(directory, entry.name), { force: true });
+      removed += 1;
+    } catch (error) {
+      return {
+        ok: false,
+        error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+      };
+    }
+  }
+  return { ok: true, value: removed };
+}
+
+async function evaluatePublicationGuard(
+  publicationGuard: (() => Promise<boolean>) | undefined,
+): Promise<Result<undefined>> {
+  if (publicationGuard === undefined) return { ok: true, value: undefined };
+  try {
+    return (await publicationGuard())
+      ? { ok: true, value: undefined }
+      : { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED };
+  } catch (error) {
+    return {
+      ok: false,
+      error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
+    };
+  }
+}
+
+function isOwnedAtomicJsonlTemporaryName(name: string, namePrefix: string): boolean {
+  return name.startsWith(namePrefix)
+    && ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN.test(name.slice(namePrefix.length));
 }
 
 function atomicJsonlTemporaryPath(
@@ -605,6 +669,9 @@ async function publishAtomicJsonlTemporaryFile(
   } catch (error) {
     if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) {
       return { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS };
+    }
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
+      return { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED };
     }
     return {
       ok: false,
