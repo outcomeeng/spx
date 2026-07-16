@@ -2,6 +2,7 @@ import type { AgentHomeDirs } from "../home";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_SEARCH_MATCH_REASON,
+  AGENT_SEARCH_SESSION_KINDS,
   AGENT_SESSION_KIND,
   type AgentSearchMatchReason,
   type AgentSearchSessionKind,
@@ -63,9 +64,7 @@ export interface AgentSearchResult {
 }
 
 export async function searchAgentSessions(options: AgentSearchOptions): Promise<AgentSearchResult[]> {
-  const selectedAgents = options.query.agent === null
-    ? [AGENT_SESSION_KIND.CODEX, AGENT_SESSION_KIND.CLAUDE_CODE]
-    : [options.query.agent];
+  const selectedAgents = options.query.agent === null ? AGENT_SEARCH_SESSION_KINDS : [options.query.agent];
   const perAgent = await Promise.all(
     selectedAgents.map((agent) => searchAgentStore(agent, options)),
   );
