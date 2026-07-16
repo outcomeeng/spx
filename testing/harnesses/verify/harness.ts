@@ -897,12 +897,14 @@ export async function observeVerificationScopeOptionMapping(
   readonly recordedOptions: readonly VerifyStartCliOptions[];
   readonly resolvedScope: readonly string[];
   readonly reportFields: readonly string[];
+  readonly subject: VerificationContextSubject;
 }> {
   const observed = await observeScopeTypeMapping(mapping);
   return {
     recordedOptions: await recordVerifyStartOptions(mapping.scopeType, mapping.scope),
     resolvedScope: observed.resolvedScope,
     reportFields: observed.reportFields,
+    subject: observed.subject,
   };
 }
 
