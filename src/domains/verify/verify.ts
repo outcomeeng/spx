@@ -1118,19 +1118,20 @@ function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly Au
 
 function validateAuditScopeForRun(input: EvidenceValidationInput): AuditScopeUnit | undefined {
   const scope = validateAuditScope(input.payload);
-  if (scope === undefined || input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return scope;
+  if (scope === undefined) return undefined;
   const recordedScopes = auditScopeUnitsFromEvents(input.events);
   if (recordedScopes.length === 0) {
-    return scope.parentUnitId === undefined
-        && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
+    if (scope.parentUnitId !== undefined) return undefined;
+    if (input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return scope;
+    return scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
         && scope.subject === input.selector.scopeIdentity
       ? scope
       : undefined;
   }
-  return scope.parentUnitId !== undefined
-      && recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId)
-    ? scope
-    : undefined;
+  if (scope.parentUnitId === undefined) {
+    return input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE ? undefined : scope;
+  }
+  return recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId) ? scope : undefined;
 }
 
 /**
