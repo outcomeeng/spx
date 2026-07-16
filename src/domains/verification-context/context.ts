@@ -32,6 +32,12 @@ export interface VerificationContextFileSubject {
 
 export function normalizeVerificationContextFileSubjectPath(path: string): string | undefined {
   const windowsRoot = win32.parse(path).root;
+  const inputSegments = path
+    .replaceAll(
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+    )
+    .split(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
   const normalized = win32
     .normalize(path)
     .replaceAll(
@@ -45,6 +51,7 @@ export function normalizeVerificationContextFileSubjectPath(path: string): strin
     || isAbsolute(path)
     || win32.isAbsolute(path)
     || windowsRoot.length > 0
+    || inputSegments.includes(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT)
     || segments.includes(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT)
   ) {
     return undefined;
