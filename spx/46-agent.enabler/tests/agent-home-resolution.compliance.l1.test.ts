@@ -7,6 +7,7 @@ import {
   withAgentHomeResolutionEvidence,
   withConfiguredAgentHomeDiscoveryEvidence,
   withPiAgentDirectoryEvidence,
+  withPiSessionDirectoryEvidence,
 } from "@testing/harnesses/agent/home";
 
 describe("agent home resolution compliance", () => {
@@ -33,6 +34,16 @@ describe("agent home resolution compliance", () => {
       expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
       expect(evidence.defaultResumeOutput).toContain(evidence.defaultSessionId);
       expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredSessionId);
+    });
+  });
+
+  it("coordinates a standalone PI_CODING_AGENT_SESSION_DIR override", async () => {
+    await withPiSessionDirectoryEvidence((evidence) => {
+      expect(evidence.resolved).toEqual({
+        ...agentHomeDirsFromHomeDir(evidence.defaultHome),
+        piSessions: evidence.piSessionHome,
+      });
+      expect(evidence.resumeOutput).toContain(evidence.sessionId);
     });
   });
 

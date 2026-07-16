@@ -7,6 +7,7 @@ import {
   withConfiguredAgentHomeDiscoveryEvidence,
   withDefaultAgentSessionStoreEvidence,
   withPiAgentDirectoryEvidence,
+  withPiSessionDirectoryEvidence,
 } from "@testing/harnesses/agent/home";
 import {
   withPiBranchScopeEvidence,
@@ -73,6 +74,16 @@ describe("Pi resume compliance", () => {
       expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
       expect(evidence.defaultResumeOutput).toContain(evidence.defaultSessionId);
       expect(evidence.defaultResumeOutput).not.toContain(evidence.configuredSessionId);
+    });
+  });
+
+  it("discovers sessions from PI_CODING_AGENT_SESSION_DIR alone", async () => {
+    await withPiSessionDirectoryEvidence((evidence) => {
+      expect(evidence.resolved).toEqual({
+        ...agentHomeDirsFromHomeDir(evidence.defaultHome),
+        piSessions: evidence.piSessionHome,
+      });
+      expect(evidence.resumeOutput).toContain(evidence.sessionId);
     });
   });
 
