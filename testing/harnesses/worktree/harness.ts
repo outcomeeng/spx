@@ -10,9 +10,12 @@
 
 import { execa } from "execa";
 
+import type { Result } from "@/config/types";
+import { type ControllingProcess, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
@@ -114,6 +117,43 @@ export function createProcessTable(state: ProcessTableState): ProcessTable {
     parentOf: (pid) => entry(pid)?.ppid,
     commandOf: (pid) => entry(pid)?.command,
   };
+}
+
+export interface PiControllingProcessEvidence {
+  readonly result: Result<ControllingProcess>;
+  readonly piPid: number;
+  readonly startedAt: string;
+  readonly host: string;
+}
+
+export function withPiControllingProcessEvidence(
+  callback: (evidence: PiControllingProcessEvidence) => void,
+): void {
+  const host = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.host());
+  const startedAt = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime());
+  const [selfPid, hookPid, piPid] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPids());
+  const table = createProcessTable({
+    host,
+    processes: new Map<number, ProcessTableEntry>([
+      [selfPid, { ppid: hookPid }],
+      [
+        hookPid,
+        {
+          ppid: piPid,
+          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.nonAgentCommand()),
+        },
+      ],
+      [
+        piPid,
+        {
+          command: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.interpretedPiAgentCommand()),
+          startTime: startedAt,
+          alive: true,
+        },
+      ],
+    ]),
+  });
+  callback({ result: resolveControllingProcess(selfPid, table, {}), piPid, startedAt, host });
 }
 
 export const OCCUPANCY_FS_OP = {

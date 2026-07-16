@@ -16,12 +16,14 @@ export const CONTROLLING_PID_ENV = "SPX_WORKTREE_CONTROLLING_PID";
 export const AGENT_RUNTIME = {
   CLAUDE: "claude",
   CODEX: "codex",
+  PI: "pi",
 } as const;
-export const AGENT_RUNTIME_NAMES = [AGENT_RUNTIME.CLAUDE, AGENT_RUNTIME.CODEX] as const;
+export const AGENT_RUNTIME_NAMES = [AGENT_RUNTIME.CLAUDE, AGENT_RUNTIME.CODEX, AGENT_RUNTIME.PI] as const;
 export type AgentRuntimeName = (typeof AGENT_RUNTIME_NAMES)[number];
 export const AGENT_RUNTIME_DISPLAY_NAME: Readonly<Record<AgentRuntimeName, string>> = {
   claude: "Claude Code",
   codex: "Codex",
+  pi: "Pi",
 } as const;
 export const AGENT_COMMAND_PATTERN = new RegExp(String.raw`\b(?:${AGENT_RUNTIME_NAMES.join("|")})\b`, "i");
 
