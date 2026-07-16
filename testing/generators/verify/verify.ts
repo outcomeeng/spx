@@ -2,7 +2,11 @@ import * as fc from "fast-check";
 import { posix, win32 } from "node:path";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import { VERIFICATION_CONTEXT_FILE_SUBJECT_PATH } from "@/domains/verification-context/context";
+import {
+  VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
+  VERIFICATION_CONTEXT_SUBJECT_KIND,
+  type VerificationContextSubject,
+} from "@/domains/verification-context/context";
 import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
@@ -305,6 +309,21 @@ export interface FileScopeIdentityScenario {
   readonly normalized: string;
 }
 
+export type VerifyScopeMappingCase =
+  | {
+    readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET;
+    readonly range: { readonly base: string; readonly head: string };
+    readonly changedPaths: readonly string[];
+    readonly expectedResolvedScope: readonly string[];
+    readonly expectedSubject: VerificationContextSubject;
+  }
+  | {
+    readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.FILE;
+    readonly path: string;
+    readonly expectedResolvedScope: readonly string[];
+    readonly expectedSubject: VerificationContextSubject;
+  };
+
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
   return arbitrarySourceFilePath();
 }
@@ -324,6 +343,33 @@ export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIden
       normalized: path,
     })),
   );
+}
+
+export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
+  const changeset = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changesetScopeScenario());
+  const file = sampleVerifyTestValue(arbitraryFileScopeIdentityScenario());
+  return [
+    {
+      scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+      range: changeset.range,
+      changedPaths: changeset.changedPaths,
+      expectedResolvedScope: changeset.resolvedPaths,
+      expectedSubject: {
+        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+        base: changeset.range.base,
+        head: changeset.range.head,
+      },
+    },
+    {
+      scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+      path: file.input,
+      expectedResolvedScope: [file.normalized],
+      expectedSubject: {
+        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+        path: file.normalized,
+      },
+    },
+  ];
 }
 
 export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
