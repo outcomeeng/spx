@@ -514,6 +514,29 @@ export async function assertVerificationRunOptionsReachHandlers(): Promise<void>
   ]);
 }
 
+export async function recordVerifyStartOptions(
+  scopeType: string,
+  scope: string,
+): Promise<readonly VerifyStartCliOptions[]> {
+  const scenario = createVerifyRunContextScenario();
+  const recording = createRecordingVerifyHandlers();
+  const program = createRecordingVerifyProgram(recording, scenario.productDir);
+  await program.parseAsync(
+    verificationRunArgs([VERIFY_CLI.startCommandName], [
+      requiredFlag(VERIFY_CLI.verificationTypeOption),
+      scenario.verificationType,
+      requiredFlag(VERIFY_CLI.scopeTypeOption),
+      scopeType,
+      requiredFlag(VERIFY_CLI.scopeOption),
+      scope,
+      requiredFlag(VERIFY_CLI.inputOption),
+      sampleLiteralTestValue(arbitrarySourceFilePath()),
+    ]),
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  return recording.startOptions;
+}
+
 export function createSealRetryFileSystem(): SealRetryFileSystem {
   const fs = createInMemoryStateStoreFileSystem();
   let blockedSealMarkerPath: string | undefined;
@@ -621,6 +644,12 @@ interface StartedVerifyRun {
   readonly fs: VerifyStateStoreFileSystem;
 }
 
+export interface StartedFileScopeRun {
+  readonly report: VerifyStartReport;
+  readonly context: VerificationContextDocument;
+  readonly nameStatusCalls: number;
+}
+
 async function startVerifyRun(scenario: VerifyRunContextScenario): Promise<StartedVerifyRun> {
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
@@ -632,6 +661,44 @@ async function startVerifyRun(scenario: VerifyRunContextScenario): Promise<Start
 
 export async function startReportFor(scenario: VerifyRunContextScenario): Promise<VerifyStartReport> {
   return (await startVerifyRun(scenario)).report;
+}
+
+export async function startFileScopeRun(path: string): Promise<StartedFileScopeRun> {
+  const scenario = withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT);
+  const fs = createInMemoryStateStoreFileSystem();
+  let nameStatusCalls = 0;
+  const git: GitDependencies = {
+    execa: async (command, args, options) => {
+      if (args.includes(GIT_NAME_STATUS_FLAG)) nameStatusCalls += 1;
+      return verifyGitDeps(scenario).execa(command, args, options);
+    },
+  };
+  const started = await verifyStartCommand(
+    {
+      ...verifyStartOptions(scenario),
+      scopeType: VERIFY_SCOPE_TYPE.FILE,
+      scope: path,
+    },
+    { ...verifyDeps(scenario, fs), git },
+  );
+  if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify file-scope start failed in harness: ${started.output}`);
+  }
+  const report = parseStartReport(started.output);
+  const branchSlug = slugBranchIdentity(resolveBranchIdentity({
+    branchName: scenario.branchIdentity,
+    headSha: scenario.headSha,
+  }));
+  const contextPath = verificationContextFilePath({
+    productDir: scenario.productDir,
+    branchSlug,
+    digest: report.contextDigest,
+  });
+  if (!contextPath.ok) throw new Error(`verify harness: context path failed: ${contextPath.error}`);
+  const context = JSON.parse(
+    await fs.readFile(contextPath.value, STATE_STORE_TEXT_ENCODING),
+  ) as VerificationContextDocument;
+  return { report, context, nameStatusCalls };
 }
 
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {
