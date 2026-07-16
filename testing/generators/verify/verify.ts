@@ -28,6 +28,7 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
+import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -312,6 +313,7 @@ export interface FileScopeIdentityScenario {
 export type VerifyScopeMappingCase =
   | {
     readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET;
+    readonly scope: string;
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];
     readonly expectedResolvedScope: readonly string[];
@@ -319,10 +321,22 @@ export type VerifyScopeMappingCase =
   }
   | {
     readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.FILE;
+    readonly scope: string;
     readonly path: string;
     readonly expectedResolvedScope: readonly string[];
     readonly expectedSubject: VerificationContextSubject;
   };
+
+export interface VerifyNonNounLocalEvidenceCase {
+  readonly rejectedCommandName: (typeof VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames)[number];
+}
+
+export interface VerifyEvidenceRequiredOptionCase {
+  readonly resourceCommandName:
+    | typeof VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName
+    | typeof VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName;
+  readonly omittedOption: typeof VERIFY_CLI.payloadOption | typeof VERIFY_CLI.idempotencyKeyOption;
+}
 
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
   return arbitrarySourceFilePath();
@@ -351,6 +365,7 @@ export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
   return [
     {
       scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+      scope: `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`,
       range: changeset.range,
       changedPaths: changeset.changedPaths,
       expectedResolvedScope: changeset.resolvedPaths,
@@ -362,6 +377,7 @@ export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
     },
     {
       scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+      scope: file.input,
       path: file.input,
       expectedResolvedScope: [file.normalized],
       expectedSubject: {
@@ -370,6 +386,24 @@ export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
       },
     },
   ];
+}
+
+export function verifyNonNounLocalEvidenceCases(): readonly VerifyNonNounLocalEvidenceCase[] {
+  return VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames.map((rejectedCommandName) => ({
+    rejectedCommandName,
+  }));
+}
+
+export function verifyEvidenceRequiredOptionCases(): readonly VerifyEvidenceRequiredOptionCase[] {
+  return [
+    VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
+    VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
+  ].flatMap((resourceCommandName) =>
+    [VERIFY_CLI.payloadOption, VERIFY_CLI.idempotencyKeyOption].map((omittedOption) => ({
+      resourceCommandName,
+      omittedOption,
+    }))
+  );
 }
 
 export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
