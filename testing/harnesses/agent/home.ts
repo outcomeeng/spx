@@ -68,7 +68,14 @@ export async function withDefaultAgentSessionStoreEvidence(
   const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 423);
   const timestamp = new Date(nowMs).toISOString();
   const resolvedHomeDirs = agentHomeDirsFromHomeDir(homeDir);
-  writeAgentTranscripts(fs, resolvedHomeDirs, { codexSessionId, claudeSessionId, piSessionId, cwd, timestamp, nowMs });
+  writeAgentTranscripts(fs, literalDefaultHomeDirs(homeDir), {
+    codexSessionId,
+    claudeSessionId,
+    piSessionId,
+    cwd,
+    timestamp,
+    nowMs,
+  });
 
   callback({
     resolvedHomeDirs,
@@ -135,12 +142,12 @@ export async function withPiAgentDirectoryEvidence(
   const resolved = resolveAgentHomeDirs({ [AGENT_HOME_ENV.PI_AGENT]: piAgentHome }, { homeDir: () => defaultHome });
   const defaults = agentHomeDirsFromHomeDir(defaultHome);
   fs.writeFile(
-    piTranscriptFile(resolved.piSessions, configuredSessionId),
+    piTranscriptFile(resolve(piAgentHome, "./sessions"), configuredSessionId),
     piTranscript({ sessionId: configuredSessionId, cwd, timestamp }),
     nowMs,
   );
   fs.writeFile(
-    piTranscriptFile(defaults.piSessions, defaultSessionId),
+    piTranscriptFile(resolve(defaultHome, ".pi/agent/sessions"), defaultSessionId),
     piTranscript({ sessionId: defaultSessionId, cwd, timestamp }),
     nowMs,
   );
@@ -232,9 +239,8 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
     piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
   };
-  const defaultHomeDirs = agentHomeDirsFromHomeDir(
-    sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME),
-  );
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+  const defaultHomeDirs = agentHomeDirsFromHomeDir(defaultHome);
   const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT);
   const codexCwd = sampleAgentResumeValue(
     arbitraryAgentSessionCwd(worktreeRoot),
@@ -278,7 +284,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     timestamp,
     nowMs,
   });
-  writeAgentTranscripts(fs, defaultHomeDirs, {
+  writeAgentTranscripts(fs, literalDefaultHomeDirs(defaultHome), {
     codexSessionId: defaultCodexSessionId,
     claudeSessionId: defaultClaudeSessionId,
     piSessionId: defaultPiSessionId,
@@ -301,6 +307,14 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     defaultClaudeSessionId,
     defaultPiSessionId,
     nowMs,
+  };
+}
+
+function literalDefaultHomeDirs(homeDir: string): AgentHomeDirs {
+  return {
+    ...agentHomeDirsFromHomeDir(homeDir),
+    piAgent: resolve(homeDir, ".pi/agent"),
+    piSessions: resolve(homeDir, ".pi/agent/sessions"),
   };
 }
 

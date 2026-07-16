@@ -2,12 +2,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
-import {
-  AGENT_RESUME_COMMAND,
-  AGENT_RESUME_LIMITS,
-  AGENT_SESSION_KIND,
-  AGENT_SESSION_STORE,
-} from "@/domains/agent/protocol";
+import { AGENT_RESUME_COMMAND, AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   withConfiguredAgentHomeDiscoveryEvidence,
   withDefaultAgentSessionStoreEvidence,
@@ -28,9 +23,7 @@ describe("Pi resume compliance", () => {
       expect(evidence.piSessionIds).toEqual(
         evidence.piInputSessionIds.slice(0, AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES),
       );
-      expect(evidence.totalCandidateCount).toBe(
-        AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES * Object.values(AGENT_SESSION_KIND).length,
-      );
+      expect(evidence.totalCandidateCount).toBe(AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
     });
   });
 
