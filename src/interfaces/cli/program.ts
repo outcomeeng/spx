@@ -23,6 +23,7 @@ type CliGlobalOptions = {
 
 export function createCliProgram(options: CliProgramOptions = {}): Command {
   const program = new Command();
+  let diagnosticArguments: readonly string[] = process.argv;
   const io: CliIo = {
     writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
     writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
@@ -31,8 +32,18 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
   };
   program.configureOutput({
     writeErr: io.writeStderr,
-    outputError: (value, write) => write(escapeTerminalDiagnostic(value)),
+    outputError: (value, write) => write(escapeTerminalDiagnostic(value, diagnosticArguments)),
   });
+  const parse = program.parse.bind(program);
+  const parseAsync = program.parseAsync.bind(program);
+  program.parse = (argv, parseOptions) => {
+    diagnosticArguments = argv ?? process.argv;
+    return parse(argv, parseOptions);
+  };
+  program.parseAsync = (argv, parseOptions) => {
+    diagnosticArguments = argv ?? process.argv;
+    return parseAsync(argv, parseOptions);
+  };
 
   program
     .name(SPX_PROGRAM_NAME)

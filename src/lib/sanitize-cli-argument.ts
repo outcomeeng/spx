@@ -35,8 +35,12 @@ export function escapeCliArgument(input: unknown): string {
   return escapeControlCharacters(input, false);
 }
 
-export function escapeTerminalDiagnostic(input: string): string {
-  return escapeControlCharacters(input, true);
+export function escapeTerminalDiagnostic(input: string, untrustedValues: readonly string[] = []): string {
+  const sanitized = untrustedValues.reduce((diagnostic, value) => {
+    const escaped = escapeControlCharacters(value, false);
+    return escaped === value ? diagnostic : diagnostic.replaceAll(value, escaped);
+  }, input);
+  return escapeControlCharacters(sanitized, true);
 }
 
 function escapeControlCharacters(value: string, preserveLineFeeds: boolean): string {

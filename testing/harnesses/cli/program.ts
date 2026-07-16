@@ -26,6 +26,7 @@ export async function assertCommanderDiagnosticsPreserveStructureAndLength(): Pr
   const diagnostic = stderr.join("");
   expect(diagnostic).toContain(scenario.expectedPrintableToken);
   expect(diagnostic).not.toContain(String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE));
+  expect(diagnostic).not.toContain(`\n${scenario.forgedLine}`);
   expect(diagnostic).toContain(`\nUsage: ${SPX_PROGRAM_NAME}`);
   expect(diagnostic).toContain("--help");
   expect(diagnostic.length).toBeGreaterThan(scenario.minimumCompleteLength);
