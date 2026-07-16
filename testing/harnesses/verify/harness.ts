@@ -44,6 +44,7 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextDocument,
   type VerificationContextDocumentResult,
+  type VerificationContextSubject,
 } from "@/domains/verification-context/context";
 import { verificationContextFilePath } from "@/domains/verification-context/path";
 import {
@@ -108,7 +109,6 @@ import {
   type GitDependencies,
 } from "@/lib/git/root";
 import {
-  ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,
   runFileName,
   slugBranchIdentity,
@@ -125,6 +125,7 @@ import {
   formatNameStatusZ,
   sampleVerifyTestValue,
   VERIFY_TEST_GENERATOR,
+  type VerifyScopeMappingCase,
 } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
@@ -756,6 +757,32 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
   };
 }
 
+export async function observeScopeTypeMapping(
+  mapping: VerifyScopeMappingCase,
+): Promise<{
+  readonly resolvedScope: readonly string[];
+  readonly subject: VerificationContextSubject;
+}> {
+  if (mapping.scopeType === VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET) {
+    const started = await startChangesetScopeRun(
+      withChangedPaths(
+        withScope(createVerifyRunContextScenario(), mapping.range.base, mapping.range.head),
+        mapping.changedPaths,
+      ),
+    );
+    return {
+      resolvedScope: started.report.resolvedScope,
+      subject: started.context.context.subject,
+    };
+  }
+
+  const started = await startFileScopeRun(mapping.path);
+  return {
+    resolvedScope: started.report.resolvedScope,
+    subject: started.context.context.subject,
+  };
+}
+
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {
   return {
     verificationType: scenario.verificationType,
@@ -1050,6 +1077,10 @@ function scenarioContextFilePath(scenario: VerifyRunContextScenario): string {
   });
   if (!contextPath.ok) throw new Error(`verify harness: context path failed: ${contextPath.error}`);
   return contextPath.value;
+}
+
+async function verifyPathExists(fs: StateStoreFileSystem, path: string): Promise<boolean> {
+  return fs.lstat(path).then(() => true, () => false);
 }
 
 export function verifyAppendOptions(
@@ -2926,7 +2957,10 @@ export async function replayStartedRunWithToken(runToken: string): Promise<{
   };
 }
 
-export async function assertInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup(): Promise<void> {
+export async function observeInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup(): Promise<{
+  readonly replayed: CliCommandResult;
+  readonly gitCalls: number;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const recorder = createRecordingGitDeps();
@@ -2939,9 +2973,7 @@ export async function assertInputRejectsUnsupportedVerificationTypeBeforeExistin
     deps,
   );
 
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
-  expect(recorder.calls()).toBe(0);
+  return { replayed, gitCalls: recorder.calls() };
 }
 
 export async function observeMissingRunLookup(): Promise<{
@@ -2964,13 +2996,17 @@ export async function observeMissingRunLookup(): Promise<{
   };
 }
 
-export async function assertInputRejectsRecordedScopeMismatch(): Promise<void> {
+export async function observeInputRejectsRecordedScopeMismatch(): Promise<{
+  readonly started: CliCommandResult;
+  readonly replayed: CliCommandResult;
+  readonly runToken: string;
+  readonly inputRecordPath: string;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const { runToken } = parseStartReport(started.output);
 
   const replayed = await verifyInputCommand(
@@ -2978,10 +3014,12 @@ export async function assertInputRejectsRecordedScopeMismatch(): Promise<void> {
     deps,
   );
 
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
-  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
-  expect(replayed.output).toContain(verifyInputRecordFilePath(scenario, runToken));
+  return {
+    started,
+    replayed,
+    runToken,
+    inputRecordPath: verifyInputRecordFilePath(scenario, runToken),
+  };
 }
 
 export async function observeRecordedInputReplay(): Promise<{
@@ -3034,13 +3072,15 @@ export async function observeInputReplayReaderCalls(): Promise<{
   };
 }
 
-export async function assertInputReportsReadFailureForRecordMissingSelectorFields(): Promise<void> {
+export async function observeInputReportsReadFailureForRecordMissingSelectorFields(): Promise<{
+  readonly started: CliCommandResult;
+  readonly replayed: CliCommandResult;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
 
   const malformedRecord = {
@@ -3052,28 +3092,31 @@ export async function assertInputReportsReadFailureForRecordMissingSelectorField
 
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
 
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+  return { started, replayed };
 }
 
-export async function assertInputReportsReadFailureForInvalidRecordJson(): Promise<void> {
+export async function observeInputReportsReadFailureForInvalidRecordJson(): Promise<{
+  readonly started: CliCommandResult;
+  readonly replayed: CliCommandResult;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
   const invalidJson = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())).slice(0, -1);
   await fs.writeFile(verifyInputRecordFilePath(scenario, startReport.runToken), invalidJson);
 
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
 
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+  return { started, replayed };
 }
 
-export async function assertStartRejectsUnsupportedVerificationTypeBeforeOpeningRun(): Promise<void> {
+export async function observeStartRejectsUnsupportedVerificationTypeBeforeOpeningRun(): Promise<{
+  readonly started: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const unsupportedType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedVerificationType());
@@ -3081,33 +3124,37 @@ export async function assertStartRejectsUnsupportedVerificationTypeBeforeOpening
     { ...verifyStartOptions(scenario), verificationType: unsupportedType },
     verifyDeps(scenario, fs),
   );
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
-  await expect(fs.lstat(join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR))).rejects.toThrow(
-    ERROR_CODE_NOT_FOUND,
-  );
+  return {
+    started,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
 }
 
-export async function assertStartRejectsChangedScopeFailureBeforeOpeningRun(): Promise<void> {
+export async function observeStartRejectsChangedScopeFailureBeforeOpeningRun(): Promise<{
+  readonly started: CliCommandResult;
+  readonly replayed: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
   const failingDeps = { ...deps, git: failChangedScopeGitDeps(verifyGitDeps(scenario)) };
   const started = await verifyStartCommand(verifyStartOptions(scenario), failingDeps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.CHANGED_SCOPE_FAILED);
-  await expect(fs.lstat(join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR))).rejects.toThrow(
-    ERROR_CODE_NOT_FOUND,
-  );
   const replayed = await verifyInputCommand(
     verifyInputOptions(scenario, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken())),
     deps,
   );
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toContain(VERIFY_CLI_ERROR.RUN_NOT_FOUND);
+  return {
+    started,
+    replayed,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
 }
 
-export async function assertStartReportsInputReadFailuresBeforeOpeningRun(): Promise<void> {
+export async function observeStartReportsInputReadFailuresBeforeOpeningRun(): Promise<{
+  readonly started: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = {
@@ -3117,82 +3164,97 @@ export async function assertStartReportsInputReadFailuresBeforeOpeningRun(): Pro
     },
   };
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
-  await expect(fs.lstat(join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR))).rejects.toThrow(
-    ERROR_CODE_NOT_FOUND,
-  );
+  return {
+    started,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
 }
 
-export async function assertStartRemovesVerificationContextWhenJournalOpenFails(): Promise<void> {
+export async function observeStartRemovesVerificationContextWhenJournalOpenFails(): Promise<{
+  readonly started: CliCommandResult;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createJournalOpenFailureFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
+  return { started, contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)) };
 }
 
-export async function assertStartPreservesReusedVerificationContextWhenJournalOpenFails(): Promise<void> {
+export async function observeStartPreservesReusedVerificationContextWhenJournalOpenFails(): Promise<{
+  readonly created: CliCommandResult;
+  readonly started: CliCommandResult;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const started = await verifyStartCommand(
     verifyStartOptions(scenario),
     verifyDeps(scenario, createJournalOpenFailureFileSystem(fs)),
   );
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+  return { created, started, contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)) };
 }
 
-export async function assertStartRemovesOpenedRunArtifactsWhenInputPersistenceFails(): Promise<void> {
+export async function observeStartRemovesOpenedRunArtifactsWhenInputPersistenceFails(): Promise<{
+  readonly started: CliCommandResult;
+  readonly runEntryCount: number;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInputPersistFailureFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED);
   const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
-  expect(runEntries).toHaveLength(0);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
+  return {
+    started,
+    runEntryCount: runEntries.length,
+    contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)),
+  };
 }
 
-export async function assertStartPreservesReusedVerificationContextWhenInputPersistenceFails(): Promise<void> {
+export async function observeStartPreservesReusedVerificationContextWhenInputPersistenceFails(): Promise<{
+  readonly created: CliCommandResult;
+  readonly started: CliCommandResult;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const started = await verifyStartCommand(
     verifyStartOptions(scenario),
     verifyDeps(scenario, createInputPersistFailureFileSystem(fs)),
   );
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.INPUT_PERSIST_FAILED);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+  return { created, started, contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)) };
 }
 
-export async function assertStartRemovesOpenedRunArtifactsWhenRunContextFails(): Promise<void> {
+export async function observeStartRemovesOpenedRunArtifactsWhenRunContextFails(): Promise<{
+  readonly started: CliCommandResult;
+  readonly runEntryCount: number;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createRunContextAppendFailureFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED);
   const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
-  expect(runEntries).toHaveLength(0);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).rejects.toThrow(ERROR_CODE_NOT_FOUND);
+  return {
+    started,
+    runEntryCount: runEntries.length,
+    contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)),
+  };
 }
 
-export async function assertStartPreservesReusedVerificationContextWhenRunContextFails(): Promise<void> {
+export async function observeStartPreservesReusedVerificationContextWhenRunContextFails(): Promise<{
+  readonly created: CliCommandResult;
+  readonly started: CliCommandResult;
+  readonly contextExists: boolean;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(created.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const started = await verifyStartCommand(
     verifyStartOptions(scenario),
     verifyDeps(scenario, createRunContextAppendFailureFileSystem(fs)),
   );
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toContain(VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED);
-  await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
+  return { created, started, contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)) };
 }
 
 export async function observeStartRecordedInputReplay(): Promise<{

@@ -6,11 +6,11 @@ import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
-  assertInputRejectsRecordedScopeMismatch,
-  assertInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup,
-  assertInputReportsReadFailureForInvalidRecordJson,
-  assertInputReportsReadFailureForRecordMissingSelectorFields,
+  observeInputRejectsRecordedScopeMismatch,
+  observeInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup,
   observeInputReplayReaderCalls,
+  observeInputReportsReadFailureForInvalidRecordJson,
+  observeInputReportsReadFailureForRecordMissingSelectorFields,
   observeMissingRunLookup,
   replayStartedRunWithToken,
   replayWithRunToken,
@@ -43,7 +43,11 @@ describe("verify input compliance", () => {
   });
 
   it("rejects an unsupported verification type before resolving an existing run", async () => {
-    await assertInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup();
+    await observeInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup().then(({ replayed, gitCalls }) => {
+      expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(replayed.output).toBe(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+      expect(gitCalls).toBe(0);
+    });
   });
 
   it("names every run selector and searched target when the run cannot be located", async () => {
@@ -67,7 +71,13 @@ describe("verify input compliance", () => {
   });
 
   it("rejects an existing run token when the requested scope differs from the recorded run scope", async () => {
-    await assertInputRejectsRecordedScopeMismatch();
+    await observeInputRejectsRecordedScopeMismatch().then(({ started, replayed, runToken, inputRecordPath }) => {
+      expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(replayed.output).toContain(VERIFY_CLI_ERROR.RUN_SELECTOR_MISMATCH);
+      expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN}${runToken}`);
+      expect(replayed.output).toContain(inputRecordPath);
+    });
   });
 
   it("replays the recorded input rather than reading a fresh input source", async () => {
@@ -80,10 +90,18 @@ describe("verify input compliance", () => {
   });
 
   it("reports input-read failure when the recorded input file is missing selector fields", async () => {
-    await assertInputReportsReadFailureForRecordMissingSelectorFields();
+    await observeInputReportsReadFailureForRecordMissingSelectorFields().then(({ started, replayed }) => {
+      expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+    });
   });
 
   it("reports input-read failure when the recorded input file is invalid JSON", async () => {
-    await assertInputReportsReadFailureForInvalidRecordJson();
+    await observeInputReportsReadFailureForInvalidRecordJson().then(({ started, replayed }) => {
+      expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(replayed.output).toContain(VERIFY_CLI_ERROR.INPUT_READ_FAILED);
+    });
   });
 });
