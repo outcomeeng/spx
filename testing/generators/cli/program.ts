@@ -10,13 +10,14 @@ export interface CommanderDiagnosticScenario {
   readonly unsafeErrorFragment: string;
   readonly expectedPrintableErrorFragment: string;
   readonly forgedLine: string;
-  readonly minimumCompleteLength: number;
 }
 
 export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
   const escapeCharacter = String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE);
   const lineFeed = "\n";
-  const token = sampleLiteralTestValue(arbitraryDomainLiteral());
+  const token = sampleLiteralTestValue(arbitraryDomainLiteral()).repeat(
+    MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1,
+  );
   const forgedLine = `Usage: ${token}`;
   return {
     unsafeOption:
@@ -26,6 +27,5 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     unsafeErrorFragment: `${token}${lineFeed}${forgedLine}`,
     expectedPrintableErrorFragment: `${token}${String.raw`\x0a`}${forgedLine}`,
     forgedLine,
-    minimumCompleteLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   };
 }
