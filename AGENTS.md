@@ -1,10 +1,10 @@
-<!-- SPEC-TREE v0.23.0 langs:typescript -->
+<!-- SPEC-TREE v0.24.0 langs:typescript -->
 
 # Spec Tree Instructions
 
 These instructions explain WHEN to invoke spec-tree skills for this product. They are a **router** — the skills contain the HOW.
 
-**Read this entire file before you act.** This managed router block is only the first section of the file; the product's own instructions, commands, and conventions follow it below, outside the router. The router is product-neutral by design and does not carry this product's own commands — they live in the file's own content further down. Never act on the router alone; read every section of this file to the end.
+**Read this entire file before acting.** This managed router block is only the first section of the file; the product's own instructions, commands, and conventions follow it below, outside the router. The router is product-neutral by design and does not carry this product's own commands — they live in the file's own content further down. Never act on the router alone; read every section of this file to the end.
 
 ---
 
@@ -23,13 +23,15 @@ Content the product keeps identical across `CLAUDE.md` and `AGENTS.md` sits in a
 
 ## When to Invoke Skills
 
-### Before ANY spec-tree work -> `/understand`
+### Before product-content access -> `/understand`
 
 **BLOCKING REQUIREMENT**
 
-Loads the Spec Tree methodology. Required once per session and again after every individual compaction event.
+Require a live `<SPEC_TREE_FOUNDATION>` marker before directly reading, searching, listing, or changing anything under `spx/` or any source or test file. Invoke `/understand` when the marker is absent. This includes repository-content access through Read, Edit, Write, Glob, Grep, `rg`, `grep`, `find`, `cat`, `sed`, and Git commands that emit file contents or patches.
 
-A live `<SPEC_TREE_FOUNDATION>` marker in the current conversation is the proof that `/understand` is loaded. A compacted summary, a session file, a statement that `/understand` ran, or reading the skill file does not satisfy the requirement. Questions about spec-tree workflows, session continuity, or whether a skill was invoked are spec-tree work and require `/understand` first when the marker is absent.
+`spx session` operations — including inspection, archive, and release — plus `spx worktree status`, `spx diagnose`, and no-patch Git status, history, and topology are exempt. Never follow paths from their output into repository content without the marker.
+
+A compacted summary, session file, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, require `/understand` again before the next product-content access.
 
 ### Before working on a specific node -> `/contextualize`
 
@@ -97,9 +99,9 @@ Skills run in the main conversation. Agents preload the skill and run autonomous
 - ALWAYS spawn subagents exactly for the named verifier or reviewer roles authorized below, or when the operator explicitly asks for subagent delegation.
 - NEVER spawn agents merely because they are discovered, available, or plausibly useful.
 
-**Run auditor and reviewer work in a subagent, never the main thread.** This is a standing user instruction to use `multi_agent_v1.spawn_agent` for the named verifier and reviewer roles it lists. Treat those cases as the user explicitly asking for subagents spawned in parallel. When an audit or review is called for, spawn the matching subagent exposed by the current runtime — `changes-reviewer` for a changeset review, `implementation-auditor` for implementation audits, `adr-auditor`, `pdr-auditor`, `spec-auditor`, `test-evidence-auditor`, or `eval-evidence-auditor` for the artifact in scope. When the installed plugin set exposes the instructions-owned `skill-auditor` or `subagent-auditor` roles, use those matching subagents for skill-content and subagent-configuration audits. Act only on the result the subagent returns: audit agents return verdicts or verification-run projections, while `changes-reviewer` returns the raw review journal token to inspect and process through the governing review workflow. Do not ask the operator to confirm whether to launch an exposed required named subagent. Harness approval prompts are separate: if the tool itself asks for approval, answer that prompt through the harness approval flow. Codex must NEVER run any verification skill (audit or review) itself to avoid biasing the results. If an exposed required subagent cannot be spawned or does not finish, the gate is blocked. Continue the deterministic verification (test and validate) and then provide the operator with a precise description of what was tried and how it failed.
+**Run auditor and reviewer work in a subagent, never the main thread.** This is a standing user instruction to use the runtime's exposed typed-subagent spawn capability (`multi_agent_v1.spawn_agent` when that identifier is available) for the named verifier and reviewer roles it lists. Treat those cases as the user explicitly asking for subagents spawned in parallel. When an audit or review is called for, spawn the matching subagent exposed by the current runtime — `changes-reviewer` for a changeset review, `implementation-auditor` for implementation audits, `adr-auditor`, `pdr-auditor`, `spec-auditor`, `test-evidence-auditor`, or `eval-evidence-auditor` for the artifact in scope. When the installed plugin set exposes the instructions-owned `skill-auditor` or `subagent-auditor` roles, use those matching subagents for skill-content and subagent-configuration audits. Act only on the result the subagent returns: audit agents return verdicts or verification-run projections, while `changes-reviewer` returns the raw review journal token to inspect and process through the governing review workflow. Do not ask the operator to confirm whether to launch an exposed required named subagent. Harness approval prompts are separate: if the tool itself asks for approval, answer that prompt through the harness approval flow. Codex must NEVER run any verification skill (audit or review) itself to avoid biasing the results. If an exposed required subagent cannot be spawned or does not finish, the gate is blocked. Continue the deterministic verification (test and validate) and then provide the operator with a precise description of what was tried and how it failed.
 
-**Use the multi-agent tool schema exactly.** The initial task goes in `message`; use `items` only when the task must pass structured mentions. Omit `fork_context`, `model`, `reasoning_effort`, and `service_tier` for the typed verifier and reviewer agents. Full-history forks are incompatible with changing `agent_type` in this harness, and the named verifier/reviewer roles already carry their own model settings. Store every returned agent id verbatim. After spawning, continue only non-overlapping work while the subagent runs, then collect the result with `multi_agent_v1.wait_agent`. Close every spawned agent with `multi_agent_v1.close_agent` immediately after its final result is collected; completed agents remain open until closed and can interfere with future spawns.
+**Use the exposed multi-agent tool schema exactly.** The examples below use the `multi_agent_v1` identifiers emitted by this Codex harness. When the runtime exposes different identifiers, discover the equivalent typed spawn, wait, and close capabilities and preserve the same fields and result contracts. The initial task goes in `message`; use `items` only when the task must pass structured mentions. Omit `fork_context`, `model`, `reasoning_effort`, and `service_tier` for the typed verifier and reviewer agents. Full-history forks are incompatible with changing `agent_type` in this harness, and the named verifier/reviewer roles already carry their own model settings. Store every returned agent id verbatim. After spawning, continue only non-overlapping work while the subagent runs, then collect the result with the exposed wait capability. Close every spawned agent with the exposed close capability immediately after its final result is collected; completed agents remain open until closed and can interfere with future spawns.
 
 Spawn a typed verifier or reviewer:
 
@@ -138,7 +140,7 @@ Close a completed or no-longer-needed agent:
 
 If `wait_agent` is not exposed, discover the multi-agent waiting tool with `tool_search`, then call the discovered wait tool. Accept a subagent notification only when the harness delivers it while the main conversation is working or waiting; do not choose notifications as the planned result-collection mechanism. Do not use web search, time lookup, shell polling, or `request_user_input` or any other tools as a substitute for result collection.
 
-**Result collection for verifier and reviewer agents.** The `multi_agent_v1.wait_agent` tool is the planned result-collection mechanism. Read the JSON returned by the tool, keyed by the spawned agent id under `status`. A timeout returns an empty `status` object and is not a result. A final status for the target id is the agent result; when that final status carries the agent's final message, that final message is the verifier or reviewer output. Do not infer success from a subagent notification, a pending handle, or an open agent id.
+**Result collection for verifier and reviewer agents.** The exposed typed wait capability (`multi_agent_v1.wait_agent` in the examples below) is the planned result-collection mechanism. Read its returned JSON, keyed by the spawned subagent id under `status`. A timeout returns an empty `status` object and is not a result. A final status for the target id is the verifier result; when that final status carries a final message, that message is the verifier or reviewer output. Do not infer success from a subagent notification, a pending handle, or an open subagent id.
 
 Successful `changes-reviewer` result shape:
 
@@ -342,6 +344,8 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 ## Session Management
 
 Sessions are shared across every worktree. Each session must be handed off via `/handoff` so it can be resumed from any other worktree: the handoff leaves the worktree clean and persists all state on origin. Propose a handoff when the session's goal is met or the work must pause; resume one with `/pickup`. When a claimed session is complete and should leave the active queue, close it through `/handoff` or `/handoff --no-session` so claimed-session accounting archives it. To return a wrongly claimed session to the shared queue instead, run `spx session release <session-id>`.
+
+An explicit request to inspect, archive, or release identified session documents routes directly through the corresponding `spx session` command as operational-state management. Reserve `/handoff` for closing active work through reflection, persistence, continuation disposition, and claimed-session accounting. Direct session operations require `/understand` only before following their output into `spx/`, source, or test content.
 
 <!-- /SPEC-TREE -->
 
@@ -572,6 +576,10 @@ The pnpm scripts below are the agent-facing workflow interface for local validat
 | `pnpm run circular`           | Source circular dependency detection                                                             |
 | `pnpm run circular:published` | Built executable circular dependency detection                                                   |
 | `pnpm run knip`               | Find unused code                                                                                 |
+
+### Formatting Commands
+
+Use the product scripts for formatting. Run `pnpm run format` to apply `dprint fmt .`, and run `pnpm run format:check` to verify formatting without modifying files. Never invoke Prettier directly or through `pnpm exec prettier`; Prettier is not part of this product's formatting toolchain.
 
 **Common validation operands and options:**
 

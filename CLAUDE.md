@@ -1,10 +1,10 @@
-<!-- SPEC-TREE v0.23.0 langs:typescript -->
+<!-- SPEC-TREE v0.24.0 langs:typescript -->
 
 # Spec Tree Instructions
 
 These instructions explain WHEN to invoke spec-tree skills for this product. They are a **router** — the skills contain the HOW.
 
-**Read this entire file before you act.** This managed router block is only the first section of the file; the product's own instructions, commands, and conventions follow it below, outside the router. The router is product-neutral by design and does not carry this product's own commands — they live in the file's own content further down. Never act on the router alone; read every section of this file to the end.
+**Read this entire file before acting.** This managed router block is only the first section of the file; the product's own instructions, commands, and conventions follow it below, outside the router. The router is product-neutral by design and does not carry this product's own commands — they live in the file's own content further down. Never act on the router alone; read every section of this file to the end.
 
 ---
 
@@ -23,13 +23,15 @@ Content the product keeps identical across `CLAUDE.md` and `AGENTS.md` sits in a
 
 ## When to Invoke Skills
 
-### Before ANY spec-tree work -> `/understand`
+### Before product-content access -> `/understand`
 
 **BLOCKING REQUIREMENT**
 
-Loads the Spec Tree methodology. Required once per session and again after every individual compaction event.
+Require a live `<SPEC_TREE_FOUNDATION>` marker before directly reading, searching, listing, or changing anything under `spx/` or any source or test file. Invoke `/understand` when the marker is absent. This includes repository-content access through Read, Edit, Write, Glob, Grep, `rg`, `grep`, `find`, `cat`, `sed`, and Git commands that emit file contents or patches.
 
-A live `<SPEC_TREE_FOUNDATION>` marker in the current conversation is the proof that `/understand` is loaded. A compacted summary, a session file, a statement that `/understand` ran, or reading the skill file does not satisfy the requirement. Questions about spec-tree workflows, session continuity, or whether a skill was invoked are spec-tree work and require `/understand` first when the marker is absent.
+`spx session` operations — including inspection, archive, and release — plus `spx worktree status`, `spx diagnose`, and no-patch Git status, history, and topology are exempt. Never follow paths from their output into repository content without the marker.
+
+A compacted summary, session file, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, require `/understand` again before the next product-content access.
 
 ### Before working on a specific node -> `/contextualize`
 
@@ -137,6 +139,8 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 ## Session Management
 
 Sessions are shared across every worktree. Each session must be handed off via `/handoff` so it can be resumed from any other worktree: the handoff leaves the worktree clean and persists all state on origin. Propose a handoff when the session's goal is met or the work must pause; resume one with `/pickup`. When a claimed session is complete and should leave the active queue, close it through `/handoff` or `/handoff --no-session` so claimed-session accounting archives it. To return a wrongly claimed session to the shared queue instead, run `spx session release <session-id>`.
+
+An explicit request to inspect, archive, or release identified session documents routes directly through the corresponding `spx session` command as operational-state management. Reserve `/handoff` for closing active work through reflection, persistence, continuation disposition, and claimed-session accounting. Direct session operations require `/understand` only before following their output into `spx/`, source, or test content.
 
 <!-- /SPEC-TREE -->
 
@@ -367,6 +371,10 @@ The pnpm scripts below are the agent-facing workflow interface for local validat
 | `pnpm run circular`           | Source circular dependency detection                                                             |
 | `pnpm run circular:published` | Built executable circular dependency detection                                                   |
 | `pnpm run knip`               | Find unused code                                                                                 |
+
+### Formatting Commands
+
+Use the product scripts for formatting. Run `pnpm run format` to apply `dprint fmt .`, and run `pnpm run format:check` to verify formatting without modifying files. Never invoke Prettier directly or through `pnpm exec prettier`; Prettier is not part of this product's formatting toolchain.
 
 **Common validation operands and options:**
 
