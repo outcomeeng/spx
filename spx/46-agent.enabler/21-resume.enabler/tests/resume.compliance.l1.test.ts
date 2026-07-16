@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 
 import {
+  assertAgentResumeUsesConfiguredAgentHomes,
   assertBoundedMetadataHeadAndActivityTailWindows,
   assertClaudeBranchReadFromLaterHeadRow,
   assertClaudeProjectNameEncodesPathSeparators,
@@ -24,7 +25,6 @@ import {
   assertSourcePathTieBreakSelectsPerAgentCap,
   assertTimestamplessSessionSortsAfterTimestamped,
   assertUnknownActivityFillsRemainingCapSlots,
-  withConfiguredAgentHomeDiscoveryEvidence,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume per-agent display cap compliance", () => {
@@ -141,11 +141,6 @@ describe("agent resume store path compliance", () => {
   });
 
   it("reads Codex and Claude Code candidates from configured agent session stores", async () => {
-    await withConfiguredAgentHomeDiscoveryEvidence((evidence) => {
-      expect(evidence.resumeOutput).toContain(evidence.configuredCodexSessionId);
-      expect(evidence.resumeOutput).toContain(evidence.configuredClaudeSessionId);
-      expect(evidence.resumeOutput).not.toContain(evidence.defaultCodexSessionId);
-      expect(evidence.resumeOutput).not.toContain(evidence.defaultClaudeSessionId);
-    });
+    await assertAgentResumeUsesConfiguredAgentHomes();
   });
 });

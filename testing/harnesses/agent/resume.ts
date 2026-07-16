@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { expect } from "vitest";
 
@@ -1515,241 +1516,92 @@ export function assertDefaultAgentSessionStoreDirs(): void {
   );
 }
 
-interface DefaultAgentSessionStoreEvidence {
-  readonly resolvedHomeDirs: AgentHomeDirs;
-  readonly homeDir: string;
-  readonly resumeOutput: string;
-  readonly codexSessionId: string;
-  readonly claudeSessionId: string;
-  readonly piSessionId: string;
-}
-
-export async function withDefaultAgentSessionStoreEvidence(
-  callback: (evidence: DefaultAgentSessionStoreEvidence) => void,
-): Promise<void> {
-  const fs = new MemoryAgentSessionFileSystem();
-  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
-  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 390);
-  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 391);
-  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 392);
-  const codexSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 393);
-  const claudeSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 394);
-  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 395);
-  const timestamp = new Date(nowMs).toISOString();
-  const resolvedHomeDirs = resolveAgentHomeDirs({}, { homeDir: () => homeDir });
-  fs.writeFile(
-    codexTranscriptPathFromAgentHome(resolvedHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
-    codexTranscript({ sessionId: codexSessionId, cwd, timestamp }),
-    nowMs,
-  );
-  fs.writeFile(
-    claudeProjectTranscriptPathFromAgentHome(
-      resolvedHomeDirs.claudeCode,
-      cwd,
-      agentSessionJsonlName(claudeSessionId),
-    ),
-    claudeCodeTranscript({ sessionId: claudeSessionId, cwd, timestamp }),
-    nowMs,
-  );
-  fs.writeFile(
-    piTranscriptPathFromSessionDir(resolvedHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
-    piTranscript({ sessionId: piSessionId, cwd, timestamp }),
-    nowMs,
-  );
-
-  callback({
-    resolvedHomeDirs,
-    homeDir,
-    resumeOutput: await listAgentResumeSessions({
-      cwd,
-      fallbackWorktreeRoot: worktreeRoot,
-      scope: worktreeResumeScope(),
-      deps: {
-        fs,
-        agentHomeDirs: () => resolvedHomeDirs,
-        nowMs: () => nowMs,
-        resolveWorktreeRoot: async () => worktreeRoot,
-      },
-    }),
-    codexSessionId,
-    claudeSessionId,
-    piSessionId,
-  });
-}
-
-interface AgentHomeResolutionEvidence {
-  readonly configured: AgentHomeDirs;
-  readonly configuredInputs: AgentHomeDirs;
-  readonly defaults: AgentHomeDirs;
-  readonly defaultHome: string;
-}
-
-export function withAgentHomeResolutionEvidence(
-  callback: (evidence: AgentHomeResolutionEvidence) => void,
-): void {
+export function assertAgentHomeResolutionHonorsEnvironment(): void {
   const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
-  const configuredExpected = {
-    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
-    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
-    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
-    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
-  };
-  callback({
-    configured: resolveAgentHomeDirs(
-      {
-        [AGENT_HOME_ENV.CODEX]: configuredExpected.codex,
-        [AGENT_HOME_ENV.CLAUDE]: configuredExpected.claudeCode,
-        [AGENT_HOME_ENV.PI_AGENT]: configuredExpected.piAgent,
-        [AGENT_HOME_ENV.PI_SESSIONS]: configuredExpected.piSessions,
-      },
-      { homeDir: () => defaultHome },
-    ),
-    configuredInputs: configuredExpected,
-    defaults: resolveAgentHomeDirs({}, { homeDir: () => defaultHome }),
-    defaultHome,
-  });
-}
-
-interface PiAgentDirectoryEvidence {
-  readonly resolved: AgentHomeDirs;
-  readonly defaultHome: string;
-  readonly piAgentHome: string;
-  readonly resumeOutput: string;
-  readonly defaultResumeOutput: string;
-  readonly configuredSessionId: string;
-  readonly defaultSessionId: string;
-}
-
-export async function withPiAgentDirectoryEvidence(
-  callback: (evidence: PiAgentDirectoryEvidence) => void,
-): Promise<void> {
-  const fs = new MemoryAgentSessionFileSystem();
-  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), 422);
-  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 423);
-  const piAgentHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 424);
-  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), 425);
-  const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), 426);
-  const configuredSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 427);
-  const defaultSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 428);
-  const timestamp = new Date(nowMs).toISOString();
+  const configuredCodexHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME,
+  );
+  const configuredClaudeHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME,
+  );
   const resolved = resolveAgentHomeDirs(
-    { [AGENT_HOME_ENV.PI_AGENT]: piAgentHome },
+    {
+      [AGENT_HOME_ENV.CODEX]: configuredCodexHome,
+      [AGENT_HOME_ENV.CLAUDE]: configuredClaudeHome,
+    },
     { homeDir: () => defaultHome },
   );
-  fs.writeFile(
-    piTranscriptPathFromSessionDir(resolved.piSessions, agentSessionJsonlName(configuredSessionId)),
-    piTranscript({ sessionId: configuredSessionId, cwd, timestamp }),
-    nowMs,
-  );
-  fs.writeFile(
-    piTranscriptPath(defaultHome, agentSessionJsonlName(defaultSessionId)),
-    piTranscript({ sessionId: defaultSessionId, cwd, timestamp }),
-    nowMs,
-  );
 
-  callback({
-    resolved,
-    defaultHome,
-    piAgentHome,
-    resumeOutput: await listAgentResumeSessions({
-      cwd,
-      fallbackWorktreeRoot: worktreeRoot,
-      scope: worktreeResumeScope(),
-      deps: {
-        fs,
-        agentHomeDirs: () => resolved,
-        nowMs: () => nowMs,
-        resolveWorktreeRoot: async () => worktreeRoot,
-      },
-    }),
-    defaultResumeOutput: await listAgentResumeSessions({
-      cwd,
-      fallbackWorktreeRoot: worktreeRoot,
-      scope: worktreeResumeScope(),
-      deps: {
-        fs,
-        agentHomeDirs: () => agentHomeDirsFromHomeDir(defaultHome),
-        nowMs: () => nowMs,
-        resolveWorktreeRoot: async () => worktreeRoot,
-      },
-    }),
-    configuredSessionId,
-    defaultSessionId,
+  expect(resolved).toEqual({
+    codex: configuredCodexHome,
+    claudeCode: configuredClaudeHome,
   });
 }
 
-interface ConfiguredAgentHomeDiscoveryEvidence {
-  readonly resumeOutput: string;
-  readonly defaultResumeOutput: string;
-  readonly configuredSearchOutput: string;
-  readonly defaultSearchOutput: string;
-  readonly configuredCodexSessionId: string;
-  readonly configuredClaudeSessionId: string;
-  readonly configuredPiSessionId: string;
-  readonly defaultCodexSessionId: string;
-  readonly defaultClaudeSessionId: string;
-  readonly defaultPiSessionId: string;
+export function assertAgentHomeResolutionUsesDefaultHomes(): void {
+  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+
+  expect(resolveAgentHomeDirs({}, { homeDir: () => defaultHome })).toEqual(agentHomeDirsFromHomeDir(defaultHome));
 }
 
-export async function withConfiguredAgentHomeDiscoveryEvidence(
-  callback: (evidence: ConfiguredAgentHomeDiscoveryEvidence) => void,
-): Promise<void> {
+export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
   const fixture = createConfiguredAgentHomeFixture();
-  callback({
-    resumeOutput: await listAgentResumeSessions({
-      cwd: fixture.codexCwd,
-      fallbackWorktreeRoot: fixture.worktreeRoot,
-      scope: worktreeResumeScope(),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: () => fixture.agentHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveWorktreeRoot: async () => fixture.worktreeRoot,
-      },
-    }),
-    defaultResumeOutput: await listAgentResumeSessions({
-      cwd: fixture.codexCwd,
-      fallbackWorktreeRoot: fixture.worktreeRoot,
-      scope: worktreeResumeScope(),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: () => fixture.defaultHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveWorktreeRoot: async () => fixture.worktreeRoot,
-      },
-    }),
-    configuredSearchOutput: await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
-      jsonAgentSearchSessions({
-        cwd: fixture.codexCwd,
-        fallbackProductScopeRoot: fixture.worktreeRoot,
-        query: agentSearchQueryFromOptions({}),
-        deps: {
-          fs: fixture.fs,
-          agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-          nowMs: () => fixture.nowMs,
-          resolveProductScopeRoot: async () => fixture.worktreeRoot,
-          resolveBranchAssociatedWorktreeRoots: async () => [],
-        },
-      })),
-    defaultSearchOutput: await jsonAgentSearchSessions({
+  const output = await listAgentResumeSessions({
+    cwd: fixture.codexCwd,
+    fallbackWorktreeRoot: fixture.worktreeRoot,
+    scope: worktreeResumeScope(),
+    deps: {
+      fs: fixture.fs,
+      agentHomeDirs: () => fixture.agentHomeDirs,
+      nowMs: () => fixture.nowMs,
+      resolveWorktreeRoot: async () => fixture.worktreeRoot,
+    },
+  });
+
+  expect(output).toContain(fixture.codexSessionId);
+  expect(output).toContain(fixture.claudeSessionId);
+  expect(output).not.toContain(fixture.defaultSessionId);
+}
+
+export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
+  const fixture = createConfiguredAgentHomeFixture();
+  const configuredOutput = await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
+    jsonAgentSearchSessions({
       cwd: fixture.codexCwd,
       fallbackProductScopeRoot: fixture.worktreeRoot,
       query: agentSearchQueryFromOptions({}),
       deps: {
         fs: fixture.fs,
-        agentHomeDirs: () => fixture.defaultHomeDirs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
         nowMs: () => fixture.nowMs,
         resolveProductScopeRoot: async () => fixture.worktreeRoot,
         resolveBranchAssociatedWorktreeRoots: async () => [],
       },
-    }),
-    configuredCodexSessionId: fixture.codexSessionId,
-    configuredClaudeSessionId: fixture.claudeSessionId,
-    configuredPiSessionId: fixture.piSessionId,
-    defaultCodexSessionId: fixture.defaultSessionId,
-    defaultClaudeSessionId: fixture.defaultClaudeSessionId,
-    defaultPiSessionId: fixture.defaultPiSessionId,
-  });
+    }));
+  const defaultOutput = await withAgentHomeEnvironment(null, () =>
+    jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => fixture.worktreeRoot,
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }));
+
+  expect(configuredOutput).toContain(fixture.codexSessionId);
+  expect(configuredOutput).toContain(fixture.claudeSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultSessionId);
+  expect(configuredOutput).not.toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).toContain(fixture.defaultSessionId);
+  expect(defaultOutput).toContain(fixture.defaultClaudeSessionId);
+  expect(defaultOutput).not.toContain(fixture.codexSessionId);
+  expect(defaultOutput).not.toContain(fixture.claudeSessionId);
 }
 
 async function withAgentHomeEnvironment<T>(
@@ -1758,26 +1610,18 @@ async function withAgentHomeEnvironment<T>(
 ): Promise<T> {
   const originalCodexHome = process.env[AGENT_HOME_ENV.CODEX];
   const originalClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
-  const originalPiAgentHome = process.env[AGENT_HOME_ENV.PI_AGENT];
-  const originalPiSessionHome = process.env[AGENT_HOME_ENV.PI_SESSIONS];
   if (agentHomeDirs === null) {
     delete process.env[AGENT_HOME_ENV.CODEX];
     delete process.env[AGENT_HOME_ENV.CLAUDE];
-    delete process.env[AGENT_HOME_ENV.PI_AGENT];
-    delete process.env[AGENT_HOME_ENV.PI_SESSIONS];
   } else {
     process.env[AGENT_HOME_ENV.CODEX] = agentHomeDirs.codex;
     process.env[AGENT_HOME_ENV.CLAUDE] = agentHomeDirs.claudeCode;
-    process.env[AGENT_HOME_ENV.PI_AGENT] = agentHomeDirs.piAgent;
-    process.env[AGENT_HOME_ENV.PI_SESSIONS] = agentHomeDirs.piSessions;
   }
   try {
     return await callback();
   } finally {
     restoreEnvironmentVariable(AGENT_HOME_ENV.CODEX, originalCodexHome);
     restoreEnvironmentVariable(AGENT_HOME_ENV.CLAUDE, originalClaudeHome);
-    restoreEnvironmentVariable(AGENT_HOME_ENV.PI_AGENT, originalPiAgentHome);
-    restoreEnvironmentVariable(AGENT_HOME_ENV.PI_SESSIONS, originalPiSessionHome);
   }
 }
 
@@ -1792,17 +1636,13 @@ function restoreEnvironmentVariable(name: string, value: string | undefined): vo
 interface ConfiguredAgentHomeFixture {
   readonly fs: MemoryAgentSessionFileSystem;
   readonly agentHomeDirs: AgentHomeDirs;
-  readonly defaultHomeDirs: AgentHomeDirs;
   readonly worktreeRoot: string;
   readonly codexCwd: string;
   readonly claudeCwd: string;
-  readonly piCwd: string;
   readonly codexSessionId: string;
   readonly claudeSessionId: string;
-  readonly piSessionId: string;
   readonly defaultSessionId: string;
   readonly defaultClaudeSessionId: string;
-  readonly defaultPiSessionId: string;
   readonly nowMs: number;
 }
 
@@ -1810,10 +1650,9 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   const fs = new MemoryAgentSessionFileSystem();
   const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
   const agentHomeDirs = {
+    ...agentHomeDirsFromHomeDir(defaultHome),
     codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
     claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
-    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
-    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
   };
   const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT);
   const codexCwd = sampleAgentResumeValue(
@@ -1824,10 +1663,6 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionCwd(worktreeRoot),
     CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CWD,
   );
-  const piCwd = sampleAgentResumeValue(
-    arbitraryAgentSessionCwd(worktreeRoot),
-    CONFIGURED_AGENT_HOME_SAMPLE.PI_CWD,
-  );
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), CONFIGURED_AGENT_HOME_SAMPLE.NOW_MS);
   const codexSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
@@ -1837,10 +1672,6 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
   );
-  const piSessionId = sampleAgentResumeValue(
-    arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_ID,
-  );
   const defaultSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
@@ -1849,12 +1680,8 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     arbitraryAgentSessionId(),
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
   );
-  const defaultPiSessionId = sampleAgentResumeValue(
-    arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_PI_SESSION_ID,
-  );
   const timestamp = new Date(nowMs).toISOString();
-  const defaultHomeDirs = agentHomeDirsFromHomeDir(defaultHome);
+  const defaultHomeDirs = agentHomeDirsFromHomeDir(homedir());
 
   fs.writeFile(
     codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
@@ -1870,11 +1697,12 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     claudeCodeTranscript({ sessionId: claudeSessionId, cwd: claudeCwd, timestamp }),
     nowMs,
   );
-  fs.writeFile(
-    piTranscriptPathFromSessionDir(agentHomeDirs.piSessions, agentSessionJsonlName(piSessionId)),
-    piTranscript({ sessionId: piSessionId, cwd: piCwd, timestamp }),
-    nowMs,
-  );
+  writeCodexTranscriptFile(fs, defaultHome, {
+    sessionId: defaultSessionId,
+    cwd: codexCwd,
+    timestamp,
+    modifiedAtMs: nowMs,
+  });
   fs.writeFile(
     codexTranscriptPathFromAgentHome(defaultHomeDirs.codex, agentSessionJsonlName(defaultSessionId)),
     codexTranscript({ sessionId: defaultSessionId, cwd: codexCwd, timestamp }),
@@ -1889,26 +1717,17 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     claudeCodeTranscript({ sessionId: defaultClaudeSessionId, cwd: claudeCwd, timestamp }),
     nowMs,
   );
-  fs.writeFile(
-    piTranscriptPathFromSessionDir(defaultHomeDirs.piSessions, agentSessionJsonlName(defaultPiSessionId)),
-    piTranscript({ sessionId: defaultPiSessionId, cwd: piCwd, timestamp }),
-    nowMs,
-  );
 
   return {
     fs,
     agentHomeDirs,
-    defaultHomeDirs,
     worktreeRoot,
     codexCwd,
     claudeCwd,
-    piCwd,
     codexSessionId,
     claudeSessionId,
-    piSessionId,
     defaultSessionId,
     defaultClaudeSessionId,
-    defaultPiSessionId,
     nowMs,
   };
 }
