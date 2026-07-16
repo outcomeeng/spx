@@ -1,8 +1,6 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  assertAgentResumeUsesConfiguredAgentHomes,
-  assertAgentResumeUsesPiAgentDirectory,
   assertBoundedMetadataHeadAndActivityTailWindows,
   assertClaudeBranchReadFromLaterHeadRow,
   assertClaudeProjectNameEncodesPathSeparators,
@@ -27,6 +25,8 @@ import {
   assertSourcePathTieBreakSelectsPerAgentCap,
   assertTimestamplessSessionSortsAfterTimestamped,
   assertUnknownActivityFillsRemainingCapSlots,
+  withConfiguredAgentHomeDiscoveryEvidence,
+  withPiAgentDirectoryEvidence,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume per-agent display cap compliance", () => {
@@ -149,10 +149,20 @@ describe("agent resume store path compliance", () => {
   });
 
   it("reads Pi candidates from PI_CODING_AGENT_DIR sessions when no direct session directory is configured", async () => {
-    await assertAgentResumeUsesPiAgentDirectory();
+    await withPiAgentDirectoryEvidence((evidence) => {
+      expect(evidence.resumeOutput).toContain(evidence.configuredSessionId);
+      expect(evidence.resumeOutput).not.toContain(evidence.defaultSessionId);
+    });
   });
 
   it("reads Codex, Claude Code, and Pi candidates from configured agent session stores", async () => {
-    await assertAgentResumeUsesConfiguredAgentHomes();
+    await withConfiguredAgentHomeDiscoveryEvidence((evidence) => {
+      expect(evidence.resumeOutput).toContain(evidence.configuredCodexSessionId);
+      expect(evidence.resumeOutput).toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.resumeOutput).toContain(evidence.configuredPiSessionId);
+      expect(evidence.resumeOutput).not.toContain(evidence.defaultCodexSessionId);
+      expect(evidence.resumeOutput).not.toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.resumeOutput).not.toContain(evidence.defaultPiSessionId);
+    });
   });
 });
