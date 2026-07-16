@@ -9,6 +9,8 @@ CAN append run records, recover the latest complete record, parse a run token fr
 ### Scenarios
 
 - Given a run token, when a single-artifact run path is built, then the path is `runs/run-{run-token}.jsonl` ([test](tests/record-store.scenario.l1.test.ts))
+- Given two records appended to one JSONL file, when the latest record is read, then the second record is returned ([test](tests/jsonl-records.scenario.l1.test.ts))
+- Given a parse-valid JSONL record followed by malformed and blank trailing lines, when the latest record is read, then the parse-valid record is returned ([test](tests/jsonl-records.scenario.l1.test.ts))
 
 ### Properties
 
@@ -18,7 +20,6 @@ CAN append run records, recover the latest complete record, parse a run token fr
 
 ### Compliance
 
-- ALWAYS: JSONL append and latest-record reads ignore blank trailing lines and return the last parse-valid record ([test](tests/jsonl-records.scenario.l1.test.ts))
 - ALWAYS: atomic JSONL publication exposes a deterministic destination only after its complete serialized record exists; interruption before publication leaves the destination reusable, interruption after publication leaves the complete record readable, and a destination collision preserves the winning record ([test](tests/atomic-jsonl-publication.compliance.l1.test.ts))
 - ALWAYS: an atomic JSONL publication blocked by its caller-supplied guard or by removal of its unpublished temporary sibling creates no deterministic destination and returns `STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED` ([test](tests/atomic-jsonl-publication.compliance.l1.test.ts))
 - ALWAYS: temporary-file cleanup by destination prefix removes only temporary siblings owned by atomic JSONL publication and preserves deterministic destinations and non-matching files ([test](tests/atomic-jsonl-publication.compliance.l1.test.ts))
