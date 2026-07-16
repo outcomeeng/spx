@@ -27,7 +27,7 @@ import {
 } from "@testing/harnesses/agent/resume";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
-const CONFIGURED_AGENT_HOME_SAMPLE = {
+const PI_CONFIGURED_AGENT_HOME_SAMPLE = {
   DEFAULT_HOME: 401,
   CODEX_HOME: 402,
   CLAUDE_HOME: 403,
@@ -97,12 +97,15 @@ interface AgentHomeResolutionEvidence {
 export function withAgentHomeResolutionEvidence(
   callback: (evidence: AgentHomeResolutionEvidence) => void,
 ): void {
-  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+  const defaultHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME,
+  );
   const configuredInputs = {
-    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
-    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
-    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
-    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
+    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
+    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
+    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
+    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
   };
   callback({
     configured: resolveAgentHomeDirs({
@@ -281,45 +284,57 @@ interface ConfiguredAgentHomeFixture {
 function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   const fs = new MemoryAgentSessionFileSystem();
   const agentHomeDirs = {
-    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
-    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
-    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
-    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
+    codex: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.CODEX_HOME),
+    claudeCode: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_HOME),
+    piAgent: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_AGENT_HOME),
+    piSessions: sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_HOME),
   };
-  const defaultHome = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME);
+  const defaultHome = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_HOME,
+  );
   const defaultHomeDirs = agentHomeDirsFromHomeDir(defaultHome);
-  const worktreeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT);
+  const worktreeRoot = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.WORKTREE_ROOT,
+  );
   const codexCwd = sampleAgentResumeValue(
     arbitraryAgentSessionCwd(worktreeRoot),
-    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_CWD,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.CODEX_CWD,
   );
   const claudeCwd = sampleAgentResumeValue(
     arbitraryAgentSessionCwd(worktreeRoot),
-    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CWD,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_CWD,
   );
-  const piCwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(worktreeRoot), CONFIGURED_AGENT_HOME_SAMPLE.PI_CWD);
+  const piCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(worktreeRoot),
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_CWD,
+  );
   const codexSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.CODEX_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.CODEX_SESSION_ID,
   );
   const claudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.CLAUDE_SESSION_ID,
   );
-  const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_ID);
+  const piSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.PI_SESSION_ID,
+  );
   const defaultCodexSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_SESSION_ID,
   );
   const defaultClaudeSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_CLAUDE_SESSION_ID,
   );
   const defaultPiSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
-    CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_PI_SESSION_ID,
+    PI_CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_PI_SESSION_ID,
   );
-  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), CONFIGURED_AGENT_HOME_SAMPLE.NOW_MS);
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), PI_CONFIGURED_AGENT_HOME_SAMPLE.NOW_MS);
   const timestamp = new Date(nowMs).toISOString();
   writeAgentTranscripts(fs, agentHomeDirs, {
     codexSessionId,
