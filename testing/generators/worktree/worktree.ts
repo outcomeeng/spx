@@ -8,7 +8,7 @@
 
 import * as fc from "fast-check";
 
-import { AGENT_COMMAND_PATTERN, AGENT_RUNTIME_NAMES } from "@/domains/worktree/controlling-process";
+import { AGENT_COMMAND_PATTERN, AGENT_RUNTIME, AGENT_RUNTIME_NAMES } from "@/domains/worktree/controlling-process";
 import type { WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 
@@ -165,6 +165,14 @@ export const WORKTREE_TEST_GENERATOR = {
         fc.constantFrom(...AGENT_RUNTIME_NAMES),
       )
       .map(([interpreter, dir, name]) => `/usr/bin/${interpreter} /${dir}/${name}`),
+  /** A full command line where an interpreter invokes the Pi agent script. */
+  interpretedPiAgentCommand: (): fc.Arbitrary<string> =>
+    fc
+      .tuple(
+        fc.constantFrom(...AGENT_INTERPRETERS),
+        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
+      )
+      .map(([interpreter, dir]) => `/usr/bin/${interpreter} /${dir}/${AGENT_RUNTIME.PI}`),
   /** A process command that does not name any agent runtime. */
   nonAgentCommand: (): fc.Arbitrary<string> =>
     stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 })

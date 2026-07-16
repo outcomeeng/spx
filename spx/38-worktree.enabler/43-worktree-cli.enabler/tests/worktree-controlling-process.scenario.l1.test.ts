@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { CONTROLLING_PID_ENV, resolveControllingProcess } from "@/domains/worktree/controlling-process";
 import { unreadableStartedAt } from "@/domains/worktree/occupancy-store";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { createProcessTable, type ProcessTableEntry } from "@testing/harnesses/worktree/harness";
+import {
+  createProcessTable,
+  type ProcessTableEntry,
+  withPiControllingProcessEvidence,
+} from "@testing/harnesses/worktree/harness";
 
 describe("worktree controlling-process resolution", () => {
   it("records the SPX_WORKTREE_CONTROLLING_PID override when it names a live process", () => {
@@ -79,6 +83,18 @@ describe("worktree controlling-process resolution", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     expect(result.value).toEqual({ pid: agentPid, startedAt, host });
+  });
+
+  it("recognizes a Pi agent ancestor invoked through an interpreter", () => {
+    withPiControllingProcessEvidence((evidence) => {
+      expect(evidence.result.ok).toBe(true);
+      if (!evidence.result.ok) throw new Error(evidence.result.error);
+      expect(evidence.result.value).toEqual({
+        pid: evidence.piPid,
+        startedAt: evidence.startedAt,
+        host: evidence.host,
+      });
+    });
   });
 
   it("falls back to the immediate parent when no ancestor names an agent runtime", () => {
