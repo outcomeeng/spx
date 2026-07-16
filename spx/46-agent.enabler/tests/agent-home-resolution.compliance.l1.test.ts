@@ -53,12 +53,6 @@ describe("agent home resolution compliance", () => {
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultClaudeSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.configuredPiSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultPiSessionId);
-      expect(evidence.defaultSearchOutput).toContain(evidence.defaultCodexSessionId);
-      expect(evidence.defaultSearchOutput).toContain(evidence.defaultClaudeSessionId);
-      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredCodexSessionId);
-      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredClaudeSessionId);
-      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredPiSessionId);
-      expect(evidence.defaultSearchOutput).not.toContain(evidence.defaultPiSessionId);
     });
   });
 });

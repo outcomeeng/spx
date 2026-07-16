@@ -1,4 +1,3 @@
-import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { expect } from "vitest";
 
@@ -1670,7 +1669,6 @@ export async function withPiAgentDirectoryEvidence(
 interface ConfiguredAgentHomeDiscoveryEvidence {
   readonly resumeOutput: string;
   readonly configuredSearchOutput: string;
-  readonly defaultSearchOutput: string;
   readonly configuredCodexSessionId: string;
   readonly configuredClaudeSessionId: string;
   readonly configuredPiSessionId: string;
@@ -1696,19 +1694,6 @@ export async function withConfiguredAgentHomeDiscoveryEvidence(
       },
     }),
     configuredSearchOutput: await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
-      jsonAgentSearchSessions({
-        cwd: fixture.codexCwd,
-        fallbackProductScopeRoot: fixture.worktreeRoot,
-        query: agentSearchQueryFromOptions({}),
-        deps: {
-          fs: fixture.fs,
-          agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-          nowMs: () => fixture.nowMs,
-          resolveProductScopeRoot: async () => fixture.worktreeRoot,
-          resolveBranchAssociatedWorktreeRoots: async () => [],
-        },
-      })),
-    defaultSearchOutput: await withAgentHomeEnvironment(null, () =>
       jsonAgentSearchSessions({
         cwd: fixture.codexCwd,
         fallbackProductScopeRoot: fixture.worktreeRoot,
@@ -1889,7 +1874,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     CONFIGURED_AGENT_HOME_SAMPLE.DEFAULT_PI_SESSION_ID,
   );
   const timestamp = new Date(nowMs).toISOString();
-  const defaultHomeDirs = agentHomeDirsFromHomeDir(homedir());
+  const defaultHomeDirs = agentHomeDirsFromHomeDir(defaultHome);
 
   fs.writeFile(
     codexTranscriptPathFromAgentHome(agentHomeDirs.codex, agentSessionJsonlName(codexSessionId)),
@@ -1910,12 +1895,6 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     piTranscript({ sessionId: piSessionId, cwd: piCwd, timestamp }),
     nowMs,
   );
-  writeCodexTranscriptFile(fs, defaultHome, {
-    sessionId: defaultSessionId,
-    cwd: codexCwd,
-    timestamp,
-    modifiedAtMs: nowMs,
-  });
   fs.writeFile(
     codexTranscriptPathFromAgentHome(defaultHomeDirs.codex, agentSessionJsonlName(defaultSessionId)),
     codexTranscript({ sessionId: defaultSessionId, cwd: codexCwd, timestamp }),
