@@ -107,12 +107,48 @@ export const APPENDABLE_JOURNAL_SEALING_RACE_PROPERTY = {
   classification: { level: PROPERTY_LEVEL.L1 },
 } as const;
 
-interface ComparisonObservation {
-  readonly actual: unknown;
-  readonly expected: unknown;
+interface ComparisonObservation<T> {
+  readonly actual: T;
+  readonly expected: T;
 }
 
-export type AppendableJournalInterruptionObservation = ComparisonObservation;
+interface PrePublicationInterruptionResult {
+  readonly exitCode: number | undefined;
+  readonly appendedSequence: number;
+  readonly replay: readonly JournalEvent[];
+}
+
+interface PostPublicationInterruptionResult {
+  readonly exitCode: number | undefined;
+  readonly replay: readonly JournalEvent[];
+  readonly nextSequence: number;
+}
+
+interface AggregateSealInterruptionResult {
+  readonly sealError: string | undefined;
+  readonly sealedAfterInterruption: boolean;
+  readonly replayAfterInterruption: readonly JournalEvent[];
+  readonly hydratedReplay: readonly JournalEvent[];
+  readonly unsealedAggregateReplay: readonly JournalEvent[];
+}
+
+interface StaleBarrierInterruptionResult {
+  readonly sealError: string | undefined;
+  readonly sealedAfterInterruption: boolean;
+  readonly appendError: string | undefined;
+  readonly hydratedReplay: readonly JournalEvent[];
+}
+
+interface AppendableJournalInterruptionResult {
+  readonly prePublication: PrePublicationInterruptionResult;
+  readonly postPublication: PostPublicationInterruptionResult;
+  readonly aggregateSeal: AggregateSealInterruptionResult;
+  readonly staleBarrier: StaleBarrierInterruptionResult;
+}
+
+export type AppendableJournalInterruptionObservation = ComparisonObservation<
+  AppendableJournalInterruptionResult
+>;
 
 let interruptionObservationPromise: Promise<AppendableJournalInterruptionObservation> | undefined;
 
@@ -151,7 +187,7 @@ async function collectAppendableJournalInterruptionObservation(): Promise<
 async function observePrePublicationInterruption(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
-): Promise<ComparisonObservation> {
+): Promise<ComparisonObservation<PrePublicationInterruptionResult>> {
   return withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
     const runFilePath = join(tempDir, journalRunFilePath(identity.streamid));
     const exitCode = await runInterruptedAppend(
@@ -181,7 +217,7 @@ async function observePostPublicationInterruption(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   nextInput: JournalEventInput,
-): Promise<ComparisonObservation> {
+): Promise<ComparisonObservation<PostPublicationInterruptionResult>> {
   return withTempDir(INTERRUPTION_TEMP_DIR_PREFIX, async (tempDir) => {
     const runFilePath = join(tempDir, journalRunFilePath(identity.streamid));
     const exitCode = await runInterruptedAppend(
@@ -289,7 +325,7 @@ async function observeInterruptedSealRecovery(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   nextInput: JournalEventInput,
-): Promise<ComparisonObservation> {
+): Promise<ComparisonObservation<AggregateSealInterruptionResult>> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const interrupted = createInterruptedSealFileSystem(runFilePath, base);
@@ -350,7 +386,7 @@ async function observeStaleSealingBarrierRecovery(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   nextInput: JournalEventInput,
-): Promise<ComparisonObservation> {
+): Promise<ComparisonObservation<StaleBarrierInterruptionResult>> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const journal = createJournal(
