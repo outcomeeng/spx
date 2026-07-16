@@ -8,17 +8,18 @@ CAN continue the right Codex, Claude Code, or Pi conversation through `spx agent
 
 ### Scenarios
 
-- Given `spx agent resume` runs from a subdirectory of a Git worktree, when candidates are discovered, then sessions whose recorded current working directory resolves inside the same local worktree root are included and sessions from sibling worktrees are excluded ([test](tests/resume.scenario.l1.test.ts))
-- Given `spx agent resume --branch <name>` runs, when candidates are discovered, then Codex and Claude Code sessions whose initial recorded branch equals `<name>` are included regardless of which worktree they ran in, while Pi sessions without recorded branch identity are excluded ([test](tests/resume.scenario.l1.test.ts))
-- Given matching Codex, Claude Code, and Pi sessions exist, when `spx agent resume` runs in an interactive terminal, then the user can choose one candidate and SPX launches that candidate through the agent's native resume command ([test](tests/resume.scenario.l1.test.ts))
+- Given `spx agent resume` runs from a subdirectory of a Git worktree, when candidates are discovered, then sessions whose recorded current working directory resolves inside the same local worktree root are included and sessions from sibling worktrees are excluded ([test](tests/pi-resume.scenario.l1.test.ts))
+- Given `spx agent resume --branch <name>` runs, when candidates are discovered, then Codex and Claude Code sessions whose initial recorded branch equals `<name>` are included regardless of which worktree they ran in, while Pi sessions without recorded branch identity are excluded ([test](tests/pi-resume.scenario.l1.test.ts))
+- Given matching Codex, Claude Code, and Pi sessions exist, when `spx agent resume` runs in an interactive terminal, then the user can choose one candidate and SPX launches that candidate through the agent's native resume command ([test](tests/pi-resume.scenario.l1.test.ts))
 
 ### Mappings
 
 - Resume mode maps to behavior: default opens the interactive picker, `--latest` launches the newest matching session, `--list` prints matching sessions, and `--json` prints matching sessions as JSON ([test](tests/resume.mapping.l1.test.ts))
-- Resume scope maps to candidate set: no scope flag selects Codex, Claude Code, and Pi sessions in the current worktree; `--branch <name>` selects sessions carrying that initial recorded branch across worktrees and excludes sessions without recorded branch identity; either scope composes with every output mode ([test](tests/resume.mapping.l1.test.ts))
+- Resume scope maps to candidate set: no scope flag selects Codex, Claude Code, and Pi sessions in the current worktree; `--branch <name>` selects sessions carrying that initial recorded branch across worktrees and excludes sessions without recorded branch identity ([test](tests/pi-resume.mapping.l1.test.ts))
+- Worktree and branch resume scopes each compose with default, latest, list, and JSON output modes ([test](tests/resume.mapping.l1.test.ts))
 - Resume activity window maps to candidate eligibility: without `--since`, the default recent-session window applies; with `--since <duration>`, only sessions whose newest parseable transcript activity falls within that duration are eligible; either window composes with every scope and output mode ([test](tests/resume.mapping.l1.test.ts))
 - Conflicting resume mode flags map to a non-zero diagnostic that tells the user to choose only one resume mode and prevents any native agent launch ([test](tests/resume.mapping.l1.test.ts))
-- Agent candidate maps to launch command and context: every candidate launches from the candidate's recorded current working directory, a Codex candidate uses `codex resume <session-id>`, a Claude Code candidate uses `claude --resume <session-id>`, and a Pi candidate uses `pi --session <source-path>` ([test](tests/resume.mapping.l1.test.ts))
+- Agent candidate maps to launch command and context: every candidate launches from the candidate's recorded current working directory, a Codex candidate uses `codex resume <session-id>`, a Claude Code candidate uses `claude --resume <session-id>`, and a Pi candidate uses `pi --session <source-path>` ([test](tests/pi-resume.mapping.l1.test.ts))
 
 ### Compliance
 
