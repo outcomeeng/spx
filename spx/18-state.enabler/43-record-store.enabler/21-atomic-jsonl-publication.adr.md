@@ -25,7 +25,7 @@ The guard runs after the complete temporary file exists and immediately before t
 
 - ALWAYS: concurrent publications to one destination commit exactly one complete record and return `STATE_STORE_ERROR.RECORD_ALREADY_EXISTS` for every collision ([property])
 - ALWAYS: a fresh reader observes no destination after interruption before the hard link and the complete record after interruption following the hard link ([compliance])
-- ALWAYS: a false publication guard and source-owned removal of an unpublished temporary sibling both return `STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED` without creating the deterministic destination ([compliance])
+- ALWAYS: a false publication guard and source-owned removal of an unpublished temporary sibling both return `STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED` without creating the deterministic destination ([mapping])
 - ALWAYS: atomic temporary-file cleanup removes only complete temporary-name matches under the selected destination prefix ([compliance])
 
 ### Audit
