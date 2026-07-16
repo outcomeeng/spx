@@ -71,7 +71,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with execution persistence for fast status reporting, and a typed `spx verification run` lifecycle agents and launchers drive to record, stream, validate, resume, and render verification runs through the journal substrate
 - Result delivery — kind-agnostic, idempotent publication of a rendered verification, validation, or test result to the environment-bound backend (a local output target, a GitHub pull-request comment, a GitLab merge-request note, or an observability sink), so consumers deliver results without holding backend-specific I/O
 - Harness environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills for agents
-- Agent session coordination — discovery and native resume launch for Codex, Claude Code, and Pi agent sessions from the SPX CLI, distinct from SPX handoff session files
+- Agent session coordination — native resume discovery and launch for Codex, Claude Code, and Pi agent sessions, plus transcript-content search for Codex and Claude Code sessions, from the SPX CLI, distinct from SPX handoff session files
 - Session management — work handoffs between agent contexts with priority ordering
 - Release — per-release generation of release notes and documentation updates from the product git history, plus governed, provenance-bearing publication
 
