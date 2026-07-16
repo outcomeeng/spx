@@ -1,18 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import { projectVerifyRun, VERIFY_APPEND_EVENT_TYPE } from "@/domains/verify/verify";
-import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
+import {
+  arbitraryAuditChangesetProjectionScenario,
+  arbitraryFileAuditScopeScenario,
+} from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
 describe("audit scope projection", () => {
   it("preserves nested audit units in the run projection", () => {
     expect(projectVerifyRun([
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).childEvent,
+      sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).rootEvent,
+      sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).specEvent,
+      sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).implementationEvent,
     ])).toMatchObject({
       auditScopeUnits: [
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload,
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).childPayload,
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).rootPayload,
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).specPayload,
+        sampleVerifyTestValue(arbitraryAuditChangesetProjectionScenario()).implementationPayload,
       ],
       findingCount: 0,
     });
