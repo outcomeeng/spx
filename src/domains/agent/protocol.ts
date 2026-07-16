@@ -9,6 +9,7 @@ export type AgentSessionKind = (typeof AGENT_SESSION_KIND)[keyof typeof AGENT_SE
 export const AGENT_SEARCH_SESSION_KINDS = [
   AGENT_SESSION_KIND.CODEX,
   AGENT_SESSION_KIND.CLAUDE_CODE,
+  AGENT_SESSION_KIND.PI,
 ] as const;
 
 export type AgentSearchSessionKind = (typeof AGENT_SEARCH_SESSION_KINDS)[number];

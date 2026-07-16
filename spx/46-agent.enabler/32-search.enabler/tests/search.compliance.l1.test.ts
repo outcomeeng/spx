@@ -1,6 +1,6 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { assertAgentSearchUsesConfiguredAgentHomes } from "@testing/harnesses/agent/resume";
+import { withConfiguredAgentHomeDiscoveryEvidence } from "@testing/harnesses/agent/home";
 import {
   assertAgentSearchBoundsDefaultOutputByLimit,
   assertAgentSearchBranchExistenceAloneReturnsNoSessions,
@@ -16,8 +16,21 @@ import {
 } from "@testing/harnesses/agent/search";
 
 describe("agent session search compliance", () => {
-  it("reads Codex and Claude Code sessions from configured agent session stores", async () => {
-    await assertAgentSearchUsesConfiguredAgentHomes();
+  it("reads Codex, Claude Code, and Pi sessions from configured agent session stores", async () => {
+    await withConfiguredAgentHomeDiscoveryEvidence((evidence) => {
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredCodexSessionId);
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredPiSessionId);
+      expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultCodexSessionId);
+      expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultCodexSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultClaudeSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredCodexSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredPiSessionId);
+    });
   });
 
   it("matches all scoped recent agent sessions when no selector is provided", async () => {
