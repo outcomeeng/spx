@@ -243,6 +243,7 @@ export async function runLinkedWorktreeVerificationContextScenario(): Promise<
   PersistedScenarioResult<VerificationContextFileScenario> & {
     readonly storageProductDir: string;
     readonly worktreeRoot: string;
+    readonly branchIdentity: string;
     readonly headSha: string;
   }
 > {
@@ -266,6 +267,7 @@ export async function runLinkedWorktreeVerificationContextScenario(): Promise<
     ),
     storageProductDir,
     worktreeRoot,
+    branchIdentity,
     headSha,
   };
 }
