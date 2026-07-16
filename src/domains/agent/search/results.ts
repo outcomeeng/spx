@@ -5,6 +5,7 @@ import {
   AGENT_SESSION_KIND,
   type AgentSearchMatchReason,
   type AgentSearchSessionKind,
+  compareAgentSessionText,
 } from "../protocol";
 import {
   type AgentSessionFileStat,
@@ -309,7 +310,7 @@ async function storeFiles(
   });
   return files
     .filter((file): file is AgentStoreFile => file !== null)
-    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || left.path.localeCompare(right.path));
+    .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || compareAgentSessionText(left.path, right.path));
 }
 
 function recentStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
@@ -330,5 +331,5 @@ function emptyTopLevelBranchAssociations(): TopLevelBranchAssociations {
 function compareSearchResults(left: AgentSearchResult, right: AgentSearchResult): number {
   const modifiedDiff = right.modifiedAtMs - left.modifiedAtMs;
   if (modifiedDiff !== 0) return modifiedDiff;
-  return `${left.agent}:${left.sessionId}`.localeCompare(`${right.agent}:${right.sessionId}`);
+  return compareAgentSessionText(`${left.agent}:${left.sessionId}`, `${right.agent}:${right.sessionId}`);
 }
