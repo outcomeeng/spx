@@ -126,6 +126,7 @@ import {
   sampleVerifyTestValue,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { expect } from "vitest";
 
@@ -134,8 +135,6 @@ const GIT_UNEXPECTED_COMMAND: ExecResult = {
   stdout: "",
   stderr: "verify harness: unexpected git command",
 };
-const VERIFY_PROPERTY_REPLAY_SEED_ENV = "SPX_VERIFY_PROPERTY_SEED";
-const VERIFY_PROPERTY_RUNS = 100;
 const APPEND_COMMANDS = [verifyAppendScopeCommand, verifyAppendFindingCommand] as const;
 
 interface RawJournalOpenReport {
@@ -150,7 +149,7 @@ interface ExpectedTerminalProjection {
   readonly lastSequence: number;
 }
 
-interface VerifyCliRecording {
+export interface VerifyCliRecording {
   readonly appendFindingOptions: readonly VerifyAppendCliOptions[];
   readonly appendScopeOptions: readonly VerifyAppendCliOptions[];
   readonly finishOptions: readonly VerifyFinishCliOptions[];
@@ -273,21 +272,34 @@ function requiredOptionDescription(command: Command | undefined, optionExpressio
   return command?.options.find((option) => option.flags === optionExpression)?.description;
 }
 
-export function assertVerificationRunNounGroupExposed(): void {
+export function inspectVerificationRunNounGroup(): {
+  readonly rootCommandPresent: boolean;
+  readonly childCommandNames: readonly string[];
+} {
   const program = createCliProgram();
   const verificationCommand = program.commands.find(
     (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
   );
-
-  expect(verificationCommand).toBeDefined();
-  expect(verificationCommand?.commands.map((command) => command.name())).toContain(
-    VERIFICATION_RUN_CLI_SURFACE.runCommandName,
-  );
+  return {
+    rootCommandPresent: verificationCommand !== undefined,
+    childCommandNames: verificationCommand?.commands.map((command) => command.name()) ?? [],
+  };
 }
 
-export function assertVerificationEvidenceAdditionsAreNounLocal(): void {
+export function inspectVerificationEvidenceCommands(): {
+  readonly runCommandPresent: boolean;
+  readonly scopeCommandPresent: boolean;
+  readonly findingCommandPresent: boolean;
+  readonly scopeAddCommandPresent: boolean;
+  readonly findingAddCommandPresent: boolean;
+  readonly scopeRequiredFlags: readonly string[];
+  readonly findingRequiredFlags: readonly string[];
+  readonly scopePayloadDescription: string | undefined;
+  readonly findingPayloadDescription: string | undefined;
+  readonly scopeIdempotencyDescription: string | undefined;
+  readonly findingIdempotencyDescription: string | undefined;
+} {
   const verifyDomain = CLI_DOMAINS.find((domain) => domain.name === VERIFICATION_RUN_CLI_SURFACE.rootCommandName);
-  expect(verifyDomain).toBeDefined();
   if (verifyDomain === undefined) throw new Error("verification-run domain missing from the CLI registry");
 
   const program = createCliProgram({ domains: [verifyDomain] });
@@ -303,50 +315,25 @@ export function assertVerificationEvidenceAdditionsAreNounLocal(): void {
   const findingCommand = runCommand?.commands.find(
     (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
   );
-  expect(runCommand).toBeDefined();
-  expect(scopeCommand).toBeDefined();
-  expect(findingCommand).toBeDefined();
-
   const scopeAddCommand = scopeCommand?.commands.find(
     (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.addCommandName,
   );
   const findingAddCommand = findingCommand?.commands.find(
     (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.addCommandName,
   );
-  expect(scopeAddCommand).toBeDefined();
-  expect(findingAddCommand).toBeDefined();
-  expect(requiredOptionFlags(scopeAddCommand)).toEqual(
-    expect.arrayContaining([
-      VERIFY_CLI.payloadOption,
-      VERIFY_CLI.idempotencyKeyOption,
-    ]),
-  );
-  expect(requiredOptionFlags(findingAddCommand)).toEqual(
-    expect.arrayContaining([
-      VERIFY_CLI.payloadOption,
-      VERIFY_CLI.idempotencyKeyOption,
-    ]),
-  );
-  expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.payloadOption)).toBe(
-    VERIFY_CLI.payloadOptionDescription,
-  );
-  expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.payloadOption)).toBe(
-    VERIFY_CLI.payloadOptionDescription,
-  );
-  expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.idempotencyKeyOption)).toBe(
-    VERIFY_CLI.idempotencyKeyOptionDescription,
-  );
-  expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.idempotencyKeyOption)).toBe(
-    VERIFY_CLI.idempotencyKeyOptionDescription,
-  );
-  for (const forbiddenHelpTerm of VERIFICATION_RUN_CLI_SURFACE.forbiddenRunHelpTerms) {
-    expect(requiredOptionDescription(scopeAddCommand, VERIFY_CLI.payloadOption)).not.toContain(
-      forbiddenHelpTerm,
-    );
-    expect(requiredOptionDescription(findingAddCommand, VERIFY_CLI.payloadOption)).not.toContain(
-      forbiddenHelpTerm,
-    );
-  }
+  return {
+    runCommandPresent: runCommand !== undefined,
+    scopeCommandPresent: scopeCommand !== undefined,
+    findingCommandPresent: findingCommand !== undefined,
+    scopeAddCommandPresent: scopeAddCommand !== undefined,
+    findingAddCommandPresent: findingAddCommand !== undefined,
+    scopeRequiredFlags: requiredOptionFlags(scopeAddCommand),
+    findingRequiredFlags: requiredOptionFlags(findingAddCommand),
+    scopePayloadDescription: requiredOptionDescription(scopeAddCommand, VERIFY_CLI.payloadOption),
+    findingPayloadDescription: requiredOptionDescription(findingAddCommand, VERIFY_CLI.payloadOption),
+    scopeIdempotencyDescription: requiredOptionDescription(scopeAddCommand, VERIFY_CLI.idempotencyKeyOption),
+    findingIdempotencyDescription: requiredOptionDescription(findingAddCommand, VERIFY_CLI.idempotencyKeyOption),
+  };
 }
 
 export function assertVerificationRunPathsHideJournalMechanics(): void {
@@ -368,7 +355,17 @@ export function assertVerificationRunPathsHideJournalMechanics(): void {
   }
 }
 
-export async function assertVerificationRunOptionsReachHandlers(): Promise<void> {
+export async function recordVerificationRunHandlerOptions(): Promise<{
+  readonly recording: VerifyCliRecording;
+  readonly scenario: VerifyRunContextScenario;
+  readonly inputSource: string;
+  readonly scopePayloadSource: string;
+  readonly findingPayloadSource: string;
+  readonly terminalStatus: string;
+  readonly terminalMetadataSource: string;
+  readonly runToken: string;
+  readonly idempotencyKeys: { readonly first: string; readonly second: string };
+}> {
   const scenario = createVerifyRunContextScenario();
   const recording = createRecordingVerifyHandlers();
   const program = createRecordingVerifyProgram(recording, scenario.productDir);
@@ -452,68 +449,17 @@ export async function assertVerificationRunOptionsReachHandlers(): Promise<void>
     from: SPX_COMMANDER_PARSE_SOURCE,
   });
 
-  expect(recording.startOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      input: inputSource,
-    },
-  ]);
-  expect(recording.appendScopeOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-      payload: scopePayloadSource,
-      idempotencyKey: idempotencyKeys.first,
-    },
-  ]);
-  expect(recording.appendFindingOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-      payload: findingPayloadSource,
-      idempotencyKey: idempotencyKeys.second,
-    },
-  ]);
-  expect(recording.finishOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-      terminalStatus,
-      terminalMetadata: terminalMetadataSource,
-    },
-  ]);
-  expect(recording.inputOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-    },
-  ]);
-  expect(recording.statusOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-    },
-  ]);
-  expect(recording.renderOptions).toEqual([
-    {
-      verificationType: scenario.verificationType,
-      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      scope: scenario.scope,
-      run: runToken,
-    },
-  ]);
+  return {
+    recording,
+    scenario,
+    inputSource,
+    scopePayloadSource,
+    findingPayloadSource,
+    terminalStatus,
+    terminalMetadataSource,
+    runToken,
+    idempotencyKeys,
+  };
 }
 
 export async function recordVerifyStartOptions(
@@ -1056,15 +1002,6 @@ function scenarioContextFilePath(scenario: VerifyRunContextScenario): string {
   return contextPath.value;
 }
 
-async function readScenarioContext(
-  scenario: VerifyRunContextScenario,
-  fs: VerifyStateStoreFileSystem,
-): Promise<VerificationContextDocument> {
-  return JSON.parse(
-    await fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING),
-  ) as VerificationContextDocument;
-}
-
 export function verifyAppendOptions(
   scenario: VerifyRunContextScenario,
   args: { readonly run: string; readonly payload: string; readonly idempotencyKey: string },
@@ -1307,21 +1244,7 @@ async function assertVerifyProperty<T>(
   arbitrary: fc.Arbitrary<T>,
   assertion: (value: T) => Promise<void>,
 ): Promise<void> {
-  const replaySeed = verifyPropertyReplaySeed();
-  const parameters = replaySeed === undefined
-    ? { numRuns: VERIFY_PROPERTY_RUNS }
-    : { numRuns: VERIFY_PROPERTY_RUNS, seed: replaySeed };
-  await fc.assert(fc.asyncProperty(arbitrary, assertion), parameters);
-}
-
-function verifyPropertyReplaySeed(): number | undefined {
-  const rawSeed = process.env[VERIFY_PROPERTY_REPLAY_SEED_ENV];
-  if (rawSeed === undefined || rawSeed.length === 0) return undefined;
-  const seed = Number(rawSeed);
-  if (!Number.isInteger(seed)) {
-    throw new Error(`${VERIFY_PROPERTY_REPLAY_SEED_ENV} must be an integer fast-check seed`);
-  }
-  return seed;
+  await assertProperty(arbitrary, assertion, { level: PROPERTY_LEVEL.L1 });
 }
 
 async function reviewAppendScenario(): Promise<{
@@ -2774,111 +2697,90 @@ export async function assertAppendPayloadRequiredForEveryAppendVerb(): Promise<v
   }
 }
 
-export async function assertStartRequiresNonBlankInputSource(): Promise<void> {
+export async function startWithInputSource(input: string): Promise<CliCommandResult> {
   const scenario = createVerifyRunContextScenario();
-
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.blankInputSource(), async (blankInput) => {
-    const fs = createInMemoryStateStoreFileSystem();
-    const started = await verifyStartCommand(
-      { ...verifyStartOptions(scenario), input: blankInput },
-      verifyDeps(scenario, fs),
-    );
-    expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(started.output).toBe(VERIFY_CLI_ERROR.INPUT_REQUIRED);
-  });
+  return verifyStartCommand(
+    { ...verifyStartOptions(scenario), input },
+    verifyDeps(scenario, createInMemoryStateStoreFileSystem()),
+  );
 }
 
-export async function assertStartCreatesRunContextAndLocator(): Promise<void> {
+export async function observeStartedRunContext(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly command: CliCommandResult;
+  readonly report: VerifyStartReport;
+  readonly expectedContext: VerificationContextDocumentResult;
+  readonly expectedInputDigest: string;
+  readonly persistedContext: string;
+}> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
-
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const report = parseStartReport(started.output);
-  expect(report.runToken.length).toBeGreaterThan(0);
   const expectedContext = scenarioContextDocument(scenario);
-  expect(report.contextDigest).toBe(expectedContext.digest);
-  await expect(fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING)).resolves.toBe(
-    expectedContext.canonicalJson,
-  );
-  expect(report.resolvedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
-  expect(report.input.source).toBe(VERIFY_INPUT_SOURCE.STDIN);
-  expect(report.input.digest).toBe(expectedRunInputDigest(scenario));
-  expect(report.locator.runToken).toBe(report.runToken);
-  expect(report.locator.verificationType).toBe(scenario.verificationType);
-  expect(report.locator.scopeType).toBe(VERIFY_SCOPE_TYPE.CHANGESET);
-  expect(report.locator.scopeIdentity).toBe(scenario.scope);
-  expect(report.locator.runTarget.length).toBeGreaterThan(0);
+  return {
+    scenario,
+    command: started,
+    report,
+    expectedContext,
+    expectedInputDigest: expectedRunInputDigest(scenario),
+    persistedContext: await fs.readFile(scenarioContextFilePath(scenario), STATE_STORE_TEXT_ENCODING),
+  };
 }
 
-export async function assertChangesetScopeDerivesChangedFiles(): Promise<void> {
+export async function runChangesetScopeScenario(input: {
+  readonly range: { readonly base: string; readonly head: string };
+  readonly changedPaths: readonly string[];
+}): Promise<VerifyStartReport> {
+  return startReportFor(
+    withChangedPaths(
+      withScope(createVerifyRunContextScenario(), input.range.base, input.range.head),
+      input.changedPaths,
+    ),
+  );
+}
+
+export async function runChangesetReconstructionScenario(input: {
+  readonly first: { readonly base: string; readonly head: string };
+  readonly second: { readonly base: string; readonly head: string };
+}): Promise<{
+  readonly first: StartedChangesetScopeRun;
+  readonly second: StartedChangesetScopeRun;
+}> {
   const base = createVerifyRunContextScenario();
-  await assertVerifyProperty(
-    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changedPaths()),
-    async ([range, changedPaths]) => {
-      const scenario = withChangedPaths(withScope(base, range.base, range.head), changedPaths);
-      expect((await startReportFor(scenario)).resolvedScope).toEqual(
-        pathsFromNameStatus(formatNameStatusZ(changedPaths)),
-      );
-    },
-  );
+  return {
+    first: await startChangesetScopeRun(withScope(base, input.first.base, input.first.head)),
+    second: await startChangesetScopeRun(withScope(base, input.second.base, input.second.head)),
+  };
 }
 
-export async function assertChangesetReconstructionChangesContextDigest(): Promise<void> {
+export async function runChangedPathsContextScenario(input: {
+  readonly range: { readonly base: string; readonly head: string };
+  readonly paths: { readonly first: readonly string[]; readonly second: readonly string[] };
+}): Promise<{ readonly first: VerifyStartReport; readonly second: VerifyStartReport }> {
   const base = createVerifyRunContextScenario();
-  await assertVerifyProperty(
-    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changesetRange())
-      .filter(([first, second]) => first.base !== second.base || first.head !== second.head),
-    async ([first, second]) => {
-      const firstScenario = withScope(base, first.base, first.head);
-      const secondScenario = withScope(base, second.base, second.head);
-      const firstStarted = await startVerifyRun(firstScenario);
-      const secondStarted = await startVerifyRun(secondScenario);
-      const firstContext = await readScenarioContext(firstScenario, firstStarted.fs);
-      const secondContext = await readScenarioContext(secondScenario, secondStarted.fs);
-      expect(firstContext.context.subject).toEqual({
-        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
-        base: first.base,
-        head: first.head,
-      });
-      expect(secondContext.context.subject).toEqual({
-        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
-        base: second.base,
-        head: second.head,
-      });
-      expect(firstContext.digest).toBe(firstStarted.report.contextDigest);
-      expect(secondContext.digest).toBe(secondStarted.report.contextDigest);
-      expect(secondStarted.report.contextDigest).not.toBe(firstStarted.report.contextDigest);
-    },
-  );
+  const scoped = withScope(base, input.range.base, input.range.head);
+  return {
+    first: await startReportFor(withChangedPaths(scoped, input.paths.first)),
+    second: await startReportFor(withChangedPaths(scoped, input.paths.second)),
+  };
 }
 
-export async function assertChangedPathsStayOutsideContextDigest(): Promise<void> {
-  const base = createVerifyRunContextScenario();
-  await assertVerifyProperty(
-    fc.tuple(VERIFY_TEST_GENERATOR.changesetRange(), VERIFY_TEST_GENERATOR.changedPathsPair()),
-    async ([range, pair]) => {
-      const scoped = withScope(base, range.base, range.head);
-      const first = await startReportFor(withChangedPaths(scoped, pair.first));
-      const second = await startReportFor(withChangedPaths(scoped, pair.second));
-      expect(second.contextDigest).toBe(first.contextDigest);
-      expect(second.resolvedScope).not.toEqual(first.resolvedScope);
-    },
-  );
-}
-
-export async function assertWorkingTreeScopeIsRejected(): Promise<void> {
+export async function startWorkingTreeScope(): Promise<CliCommandResult> {
   const scenario = createVerifyRunContextScenario();
-  const started = await verifyStartCommand(
+  return verifyStartCommand(
     { ...verifyStartOptions(scenario), scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE },
     verifyDeps(scenario, createInMemoryStateStoreFileSystem()),
   );
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
 }
 
-export async function assertStartFromNestedDirectoryUsesProductRelativeChangedScope(): Promise<void> {
+export async function observeNestedDirectoryStart(): Promise<{
+  readonly command: CliCommandResult;
+  readonly report: VerifyStartReport;
+  readonly expectedScope: readonly string[];
+  readonly changedScopeCwd: string | undefined;
+  readonly expectedChangedScopeCwd: string;
+}> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const nestedCwd = join(scenario.productDir, sampleLiteralTestValue(arbitrarySourceFilePath()));
@@ -2888,13 +2790,22 @@ export async function assertStartFromNestedDirectoryUsesProductRelativeChangedSc
     verifyStartOptions(scenario),
     { ...verifyDeps(scenario, fs), cwd: nestedCwd, git: recording.git },
   );
-
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  expect(parseStartReport(started.output).resolvedScope).toEqual(pathsFromNameStatus(scenario.nameStatusStdout));
-  expect(recording.changedScopeCwd()).toBe(scenario.productDir);
+  return {
+    command: started,
+    report: parseStartReport(started.output),
+    expectedScope: pathsFromNameStatus(scenario.nameStatusStdout),
+    changedScopeCwd: recording.changedScopeCwd(),
+    expectedChangedScopeCwd: scenario.productDir,
+  };
 }
 
-export async function assertStartFromLinkedWorktreeSeparatesStateAndDiffRoots(): Promise<void> {
+export async function observeLinkedWorktreeStart(): Promise<{
+  readonly command: CliCommandResult;
+  readonly report: VerifyStartReport;
+  readonly changedScopeCwd: string | undefined;
+  readonly expectedChangedScopeCwd: string;
+  readonly stateRoot: string;
+}> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const worktreeRoot = join(scenario.productDir, "linked-worktree");
@@ -2916,48 +2827,53 @@ export async function assertStartFromLinkedWorktreeSeparatesStateAndDiffRoots():
     verifyStartOptions(scenario),
     { ...verifyDeps(scenario, fs), cwd: nestedCwd, git },
   );
-
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  expect(changedScopeCwd).toBe(worktreeRoot);
-  expect(parseStartReport(started.output).locator.runTarget).toContain(scenario.productDir);
+  return {
+    command: started,
+    report: parseStartReport(started.output),
+    changedScopeCwd,
+    expectedChangedScopeCwd: worktreeRoot,
+    stateRoot: scenario.productDir,
+  };
 }
 
-export async function assertStartPersistsRunJournalAtLocatorTarget(): Promise<void> {
+export async function observePersistedRunJournal(): Promise<{
+  readonly command: CliCommandResult;
+  readonly report: VerifyStartReport;
+  readonly persistedJournal: string;
+}> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const report = parseStartReport(started.output);
-  expect(report.locator.runTarget).toContain(report.runToken);
-  await expect(fs.readFile(report.locator.runTarget, STATE_STORE_TEXT_ENCODING)).resolves.toBeDefined();
+  return {
+    command: started,
+    report,
+    persistedJournal: await fs.readFile(report.locator.runTarget, STATE_STORE_TEXT_ENCODING),
+  };
 }
 
-export async function assertInputRequiresNonBlankRunToken(): Promise<void> {
+export async function replayWithRunToken(runToken: string): Promise<CliCommandResult> {
   const scenario = createVerifyRunContextScenario();
-
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.blankRunToken(), async (blankRun) => {
-    const fs = createInMemoryStateStoreFileSystem();
-    const replayed = await verifyInputCommand(verifyInputOptions(scenario, blankRun), verifyDeps(scenario, fs));
-    expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(replayed.output).toBe(VERIFY_CLI_ERROR.RUN_REQUIRED);
-  });
+  return verifyInputCommand(
+    verifyInputOptions(scenario, runToken),
+    verifyDeps(scenario, createInMemoryStateStoreFileSystem()),
+  );
 }
 
-export async function assertInputRejectsTypeScopeSelectionWithoutRunToken(): Promise<void> {
+export async function replayStartedRunWithToken(runToken: string): Promise<{
+  readonly start: CliCommandResult;
+  readonly replay: CliCommandResult;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.blankRunToken(), async (blankRun) => {
-    const replayed = await verifyInputCommand(verifyInputOptions(scenario, blankRun), deps);
-    expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(replayed.output).toBe(VERIFY_CLI_ERROR.RUN_REQUIRED);
-  });
+  return {
+    start: started,
+    replay: await verifyInputCommand(verifyInputOptions(scenario, runToken), deps),
+  };
 }
 
 export async function assertInputRejectsUnsupportedVerificationTypeBeforeExistingRunLookup(): Promise<void> {
@@ -2978,27 +2894,24 @@ export async function assertInputRejectsUnsupportedVerificationTypeBeforeExistin
   expect(recorder.calls()).toBe(0);
 }
 
-export async function assertInputReportsSelectorAndTargetForMissingRun(): Promise<void> {
+export async function observeMissingRunLookup(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly runToken: string;
+  readonly command: CliCommandResult;
+  readonly inputRecordPath: string;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
   const missingRunToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
 
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, missingRunToken), deps);
-
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(replayed.output).toContain(missingRunToken);
-  expect(replayed.output).toContain(scenario.verificationType);
-  expect(replayed.output).toContain(VERIFY_SCOPE_TYPE.CHANGESET);
-  expect(replayed.output).toContain(scenario.scope);
-  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.BACKEND}${JOURNAL_BACKEND.LOCAL}`);
-  expect(replayed.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.NAMESPACE);
-  expect(replayed.output).toContain(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.TARGET);
-  expect(replayed.output).toContain(verifyInputRecordFilePath(scenario, missingRunToken));
-  expect(replayed.output).toContain(
-    `${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.SCOPE_TYPE}${VERIFY_SCOPE_TYPE.CHANGESET}`,
-  );
-  expect(replayed.output).toContain(`${VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.SCOPE}${scenario.scope}`);
+  return {
+    scenario,
+    runToken: missingRunToken,
+    command: replayed,
+    inputRecordPath: verifyInputRecordFilePath(scenario, missingRunToken),
+  };
 }
 
 export async function assertInputRejectsRecordedScopeMismatch(): Promise<void> {
@@ -3021,40 +2934,54 @@ export async function assertInputRejectsRecordedScopeMismatch(): Promise<void> {
   expect(replayed.output).toContain(verifyInputRecordFilePath(scenario, runToken));
 }
 
-export async function assertInputReplaysRecordedInput(): Promise<void> {
+export async function observeRecordedInputReplay(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly start: CliCommandResult;
+  readonly startReport: VerifyStartReport;
+  readonly replay: CliCommandResult;
+  readonly inputReport: VerifyInputReport;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
 
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
-
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  const inputReport = parseInputReport(replayed.output);
-  expect(inputReport.content).toBe(scenario.inputContent);
-  expect(inputReport.source).toBe(startReport.input.source);
-  expect(inputReport.digest).toBe(startReport.input.digest);
+  return {
+    scenario,
+    start: started,
+    startReport,
+    replay: replayed,
+    inputReport: parseInputReport(replayed.output),
+  };
 }
 
-export async function assertInputDoesNotReadFreshInputSource(): Promise<void> {
+export async function observeInputReplayReaderCalls(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly start: CliCommandResult;
+  readonly replay: CliCommandResult;
+  readonly inputReport: VerifyInputReport;
+  readonly readerCalls: number;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
 
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
 
   const reader = createRecordingInputReader();
   const replayDeps: VerifyCliDeps = { ...deps, readInputSource: reader.read };
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), replayDeps);
-
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  expect(parseInputReport(replayed.output).content).toBe(scenario.inputContent);
-  expect(reader.calls()).toBe(0);
+  return {
+    scenario,
+    start: started,
+    replay: replayed,
+    inputReport: parseInputReport(replayed.output),
+    readerCalls: reader.calls(),
+  };
 }
 
 export async function assertInputReportsReadFailureForRecordMissingSelectorFields(): Promise<void> {
@@ -3218,7 +3145,12 @@ export async function assertStartPreservesReusedVerificationContextWhenRunContex
   await expect(fs.lstat(scenarioContextFilePath(scenario))).resolves.toMatchObject({});
 }
 
-export async function assertStartRecordsInputForInputReplay(): Promise<void> {
+export async function observeStartRecordedInputReplay(): Promise<{
+  readonly scenario: VerifyRunContextScenario;
+  readonly start: CliCommandResult;
+  readonly replay: CliCommandResult;
+  readonly inputReport: VerifyInputReport;
+}> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const laterInputContent = `${scenario.inputContent}${scenario.scope}`;
@@ -3228,12 +3160,15 @@ export async function assertStartRecordsInputForInputReplay(): Promise<void> {
     readInputSource: async () => currentInputContent,
   };
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   const startReport = parseStartReport(started.output);
   currentInputContent = laterInputContent;
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
-  expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  expect(parseInputReport(replayed.output).content).toBe(scenario.inputContent);
+  return {
+    scenario,
+    start: started,
+    replay: replayed,
+    inputReport: parseInputReport(replayed.output),
+  };
 }
 
 export async function assertAppendRejectsUnsupportedScopeTypesBeforePayloadRead(): Promise<void> {

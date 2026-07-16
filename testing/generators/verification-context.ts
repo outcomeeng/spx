@@ -5,6 +5,7 @@ import type { VerificationContextCreateCliOptions } from "@/commands/verificatio
 import {
   VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
   VERIFICATION_CONTEXT_PERSISTENCE,
+  VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS,
   VERIFICATION_CONTEXT_SCHEMA_VERSION,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextPayload,
@@ -30,6 +31,24 @@ export interface VerificationContextChangesetScenario {
     readonly head: string;
   };
   readonly createdAt: Date;
+}
+
+export interface VerificationContextPathPropertyScenario {
+  readonly productDir: string;
+  readonly branchSlug: string;
+  readonly payload: VerificationContextPayload;
+}
+
+export interface RuntimeContaminatedVerificationContextFileScenario extends VerificationContextFileScenario {
+  readonly request: VerificationContextFileScenario["request"] & Record<string, unknown>;
+}
+
+export interface VerificationContextDigestPropertyScenario {
+  readonly payload: VerificationContextPayload;
+  readonly subject: VerificationContextSubject;
+  readonly predicate: string;
+  readonly workflow: string;
+  readonly createdAt: string;
 }
 
 export type VerificationContextCliScenario =
@@ -73,6 +92,28 @@ export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
       }),
       persistence: fc.constant(VERIFICATION_CONTEXT_PERSISTENCE),
     }),
+  pathPropertyScenario: (): fc.Arbitrary<VerificationContextPathPropertyScenario> =>
+    fc.record({
+      productDir: STATE_STORE_TEST_GENERATOR.productRoot(),
+      branchSlug: STATE_STORE_TEST_GENERATOR.branchSlug(),
+      payload: VERIFICATION_CONTEXT_TEST_GENERATOR.payload(),
+    }),
+  digestPropertyScenario: (): fc.Arbitrary<VerificationContextDigestPropertyScenario> =>
+    fc
+      .record({
+        payload: VERIFICATION_CONTEXT_TEST_GENERATOR.payload(),
+        subject: VERIFICATION_CONTEXT_TEST_GENERATOR.subject(),
+        predicate: VERIFICATION_CONTEXT_TEST_GENERATOR.predicate(),
+        workflow: VERIFICATION_CONTEXT_TEST_GENERATOR.workflow(),
+        launchedAt: VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt(),
+      })
+      .filter(({ payload, subject, predicate, workflow, launchedAt }) =>
+        JSON.stringify(payload.subject) !== JSON.stringify(subject)
+        && payload.predicate !== predicate
+        && payload.workflow.name !== workflow
+        && payload.launch.createdAt !== launchedAt.toISOString()
+      )
+      .map(({ launchedAt, ...scenario }) => ({ ...scenario, createdAt: launchedAt.toISOString() })),
 } as const;
 
 export function sampleVerificationContextTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -118,6 +159,32 @@ export function createWindowsVerificationContextFileScenario(): VerificationCont
       ),
     },
   };
+}
+
+export function createRuntimeContaminatedVerificationContextFileScenario(): RuntimeContaminatedVerificationContextFileScenario {
+  const scenario = createVerificationContextFileScenario();
+  return {
+    ...scenario,
+    request: {
+      ...scenario.request,
+      [VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS.STATUS]: sampleVerificationContextTestValue(
+        VERIFICATION_CONTEXT_TEST_GENERATOR.predicate(),
+      ),
+      [VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS.VERDICT]: sampleVerificationContextTestValue(
+        VERIFICATION_CONTEXT_TEST_GENERATOR.predicate(),
+      ),
+      [VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS.COST]: sampleVerificationContextTestValue(
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+      ),
+      [VERIFICATION_CONTEXT_RUNTIME_ONLY_FIELDS.ACTIVITY_TRACE]: sampleVerificationContextTestValue(
+        VERIFICATION_CONTEXT_TEST_GENERATOR.workflow(),
+      ),
+    },
+  };
+}
+
+export function createDivergentVerificationContextContent(): string {
+  return sampleVerificationContextTestValue(VERIFICATION_CONTEXT_TEST_GENERATOR.predicate());
 }
 
 export function unsafeVerificationContextFileSubjectPaths(

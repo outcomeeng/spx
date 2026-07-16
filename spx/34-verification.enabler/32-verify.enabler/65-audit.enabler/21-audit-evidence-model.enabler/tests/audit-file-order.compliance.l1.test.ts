@@ -6,7 +6,7 @@ import {
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
-import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/verify";
+import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("audit file-scope append order", () => {
