@@ -8,7 +8,7 @@ import {
   AGENT_SESSION_KIND,
   AGENT_SESSION_STORE,
 } from "@/domains/agent/protocol";
-import { withPiBranchScopeEvidence } from "@testing/harnesses/agent/pi-resume";
+import { withPiBranchScopeEvidence, withPiSinceEvidence } from "@testing/harnesses/agent/pi-resume";
 import {
   withConfiguredAgentHomeDiscoveryEvidence,
   withDefaultAgentSessionStoreEvidence,
@@ -32,6 +32,15 @@ describe("Pi resume compliance", () => {
       expect(evidence.totalCandidateCount).toBe(
         AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES * Object.values(AGENT_SESSION_KIND).length,
       );
+    });
+  });
+
+  it("uses bounded Pi tail activity for explicit activity windows", async () => {
+    await withPiSinceEvidence((evidence) => {
+      expect(evidence.actualSessionIds).toContain(evidence.recentSessionId);
+      expect(evidence.actualSessionIds).not.toContain(evidence.staleSessionId);
+      expect(evidence.actualActivityAtMs).toBe(evidence.recentActivityAtMs);
+      expect(evidence.maxTailReadBytes).toBe(AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES);
     });
   });
 
