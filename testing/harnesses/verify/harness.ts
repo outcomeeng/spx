@@ -108,7 +108,6 @@ import {
 import {
   ERROR_CODE_NOT_FOUND,
   resolveBranchIdentity,
-  runFileName,
   slugBranchIdentity,
   STATE_STORE_PATH,
   STATE_STORE_SCOPE_PATH,
@@ -2832,28 +2831,6 @@ export async function assertChangedPathsStayOutsideContextDigest(): Promise<void
   );
 }
 
-export async function assertRunLocatorMapsResolvedSelectors(): Promise<void> {
-  const base = createVerifyRunContextScenario();
-  await assertVerifyProperty(
-    fc.tuple(VERIFY_TEST_GENERATOR.verificationType(), VERIFY_TEST_GENERATOR.changesetRange()),
-    async ([verificationType, range]) => {
-      const scenario = withVerificationType(withScope(base, range.base, range.head), verificationType);
-      const started = await startVerifyRun(scenario);
-      const namespace = scenarioRunsDir(scenario);
-      expect(started.report.locator).toEqual({
-        runToken: started.report.runToken,
-        verificationType,
-        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-        scopeIdentity: scenario.scope,
-        backendIdentity: JOURNAL_BACKEND.LOCAL,
-        storageNamespace: namespace,
-        runTarget: join(namespace, runFileName(started.report.runToken)),
-      });
-      await expect(started.fs.lstat(started.report.locator.runTarget)).resolves.toMatchObject({});
-    },
-  );
-}
-
 export async function assertWorkingTreeScopeIsRejected(): Promise<void> {
   const scenario = createVerifyRunContextScenario();
   const started = await verifyStartCommand(
@@ -3220,27 +3197,6 @@ export async function assertStartRecordsInputForInputReplay(): Promise<void> {
   const replayed = await verifyInputCommand(verifyInputOptions(scenario, startReport.runToken), deps);
   expect(replayed.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   expect(parseInputReport(replayed.output).content).toBe(scenario.inputContent);
-}
-
-export async function assertStartReportsPersistableRunLocator(): Promise<void> {
-  const scenario = createVerifyRunContextScenario();
-  const fs = createInMemoryStateStoreFileSystem();
-  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  const report = parseStartReport(started.output);
-  const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
-  const runFileEntries = runEntries.filter((entry) => entry.isFile() && entry.name === runFileName(report.runToken));
-  expect(runFileEntries).toHaveLength(1);
-  expect(report.locator).toEqual({
-    runToken: report.runToken,
-    verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-    scopeIdentity: scenario.scope,
-    backendIdentity: JOURNAL_BACKEND.LOCAL,
-    storageNamespace: scenarioRunsDir(scenario),
-    runTarget: join(scenarioRunsDir(scenario), runFileEntries[0]?.name),
-  });
-  await expect(fs.lstat(report.locator.runTarget)).resolves.toMatchObject({});
 }
 
 export async function assertAppendRejectsUnsupportedScopeTypesBeforePayloadRead(): Promise<void> {

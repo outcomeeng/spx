@@ -23,6 +23,7 @@ import {
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_SCOPE_SEPARATOR,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
@@ -536,6 +537,7 @@ export const VERIFY_TEST_GENERATOR = {
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];
+    readonly resolvedPaths: readonly string[];
   }> =>
     fc.record({
       range: VERIFY_TEST_GENERATOR.changesetRange(),
@@ -543,7 +545,24 @@ export const VERIFY_TEST_GENERATOR = {
         minLength: CHANGED_PATH_MIN,
         maxLength: CHANGED_PATH_MAX,
       }),
-    }),
+    }).map(({ range, changedPaths }) => ({
+      range,
+      changedPaths,
+      resolvedPaths: [...changedPaths].sort((left, right) => left.localeCompare(right)),
+    })),
+  runLocatorScenario: (): fc.Arbitrary<{
+    readonly verificationType: string;
+    readonly range: { readonly base: string; readonly head: string };
+    readonly scopeIdentity: string;
+  }> =>
+    fc.record({
+      verificationType: VERIFY_TEST_GENERATOR.verificationType(),
+      range: VERIFY_TEST_GENERATOR.changesetRange(),
+    }).map(({ verificationType, range }) => ({
+      verificationType,
+      range,
+      scopeIdentity: `${range.base}${VERIFY_SCOPE_SEPARATOR}${range.head}`,
+    })),
   malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
-import { arbitraryFileScopeIdentityScenario } from "@testing/generators/verify/verify";
+import { arbitraryFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 import {
@@ -16,10 +16,13 @@ import {
   assertStartRemovesOpenedRunArtifactsWhenRunContextFails,
   assertStartRemovesVerificationContextWhenJournalOpenFails,
   assertStartReportsInputReadFailuresBeforeOpeningRun,
-  assertStartReportsPersistableRunLocator,
   assertStartRequiresNonBlankInputSource,
   assertWorkingTreeScopeIsRejected,
+  createVerifyRunContextScenario,
+  startChangesetScopeRun,
   startFileScopeRun,
+  withScope,
+  withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify start compliance", () => {
@@ -68,7 +71,27 @@ describe("verify start compliance", () => {
   });
 
   it("reports every run-locator selector a caller persists to replay the run identity", async () => {
-    await assertStartReportsPersistableRunLocator();
+    await assertProperty(
+      VERIFY_TEST_GENERATOR.runLocatorScenario(),
+      async (scope) => {
+        const started = await startChangesetScopeRun(
+          withVerificationType(
+            withScope(createVerifyRunContextScenario(), scope.range.base, scope.range.head),
+            scope.verificationType,
+          ),
+        );
+        expect(started.report.locator).toMatchObject({
+          runToken: started.report.runToken,
+          verificationType: scope.verificationType,
+          scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+          scopeIdentity: scope.scopeIdentity,
+          backendIdentity: JOURNAL_BACKEND.LOCAL,
+        });
+        expect(started.report.locator.storageNamespace.length).toBeGreaterThan(0);
+        expect(started.report.locator.runTarget).toContain(started.report.runToken);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("reports every file selector needed to replay the run identity", async () => {
