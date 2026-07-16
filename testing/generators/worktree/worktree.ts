@@ -8,7 +8,7 @@
 
 import * as fc from "fast-check";
 
-import { AGENT_COMMAND_PATTERN, AGENT_RUNTIME, AGENT_RUNTIME_NAMES } from "@/domains/worktree/controlling-process";
+import { AGENT_RUNTIME, AGENT_RUNTIME_NAMES } from "@/domains/worktree/controlling-process";
 import type { WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 
@@ -173,11 +173,14 @@ export const WORKTREE_TEST_GENERATOR = {
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),
       )
       .map(([interpreter, dir]) => `/usr/bin/${interpreter} /${dir}/${AGENT_RUNTIME.PI}`),
-  /** A process command that does not name any agent runtime. */
+  /** A process command whose executable basename cannot equal an agent runtime name. */
   nonAgentCommand: (): fc.Arbitrary<string> =>
-    stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 })
-      .map((token) => `/usr/bin/${token}`)
-      .filter((command) => !AGENT_COMMAND_PATTERN.test(command)),
+    stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 }).map((token) => `/usr/bin/tool-${token}`),
+  /** A non-agent command carrying incidental Pi text outside executable or script basename positions. */
+  incidentalPiCommand: (): fc.Arbitrary<string> =>
+    stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 24 }).map(
+      (token) => `/usr/bin/tool-${token} /workspace/${AGENT_RUNTIME.PI}/entry --label ${AGENT_RUNTIME.PI}`,
+    ),
 } as const;
 
 export function sampleWorktreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {

@@ -7,6 +7,8 @@
  * @module domains/worktree/controlling-process
  */
 
+import { basename } from "node:path";
+
 import type { Result } from "@/config/types";
 
 import { unreadableStartedAt } from "./occupancy-store";
@@ -25,7 +27,10 @@ export const AGENT_RUNTIME_DISPLAY_NAME: Readonly<Record<AgentRuntimeName, strin
   codex: "Codex",
   pi: "Pi",
 } as const;
-export const AGENT_COMMAND_PATTERN = new RegExp(String.raw`\b(?:${AGENT_RUNTIME_NAMES.join("|")})\b`, "i");
+
+const COMMAND_TOKEN_SEPARATOR = /\s+/;
+const EXECUTABLE_TOKEN_INDEX = 0;
+const INVOKED_SCRIPT_TOKEN_INDEX = 1;
 
 export const CONTROLLING_PROCESS_ERROR = {
   UNRESOLVED: "worktree controlling process could not be resolved",
@@ -83,20 +88,28 @@ function findAgentAncestor(selfPid: number, table: ProcessTable): number | undef
   let pid = table.parentOf(selfPid);
   for (let depth = 0; pid !== undefined && isValidPid(pid) && depth < MAX_ANCESTRY_DEPTH; depth += 1) {
     const command = table.commandOf(pid);
-    if (command !== undefined && AGENT_COMMAND_PATTERN.test(command)) return pid;
+    if (agentRuntimeName(command) !== undefined) return pid;
     pid = table.parentOf(pid);
   }
   return undefined;
 }
 
 export function agentRuntimeDisplayName(command: string | undefined): string | undefined {
+  const name = agentRuntimeName(command);
+  return name === undefined ? undefined : AGENT_RUNTIME_DISPLAY_NAME[name];
+}
+
+function agentRuntimeName(command: string | undefined): AgentRuntimeName | undefined {
   if (command === undefined) return undefined;
-  for (const name of AGENT_RUNTIME_NAMES) {
-    if (new RegExp(String.raw`\b${name}\b`, "i").test(command)) {
-      return AGENT_RUNTIME_DISPLAY_NAME[name];
-    }
-  }
-  return undefined;
+  const tokens = command.trim().split(COMMAND_TOKEN_SEPARATOR);
+  return runtimeNameFromToken(tokens[EXECUTABLE_TOKEN_INDEX])
+    ?? runtimeNameFromToken(tokens[INVOKED_SCRIPT_TOKEN_INDEX]);
+}
+
+function runtimeNameFromToken(token: string | undefined): AgentRuntimeName | undefined {
+  if (token === undefined) return undefined;
+  const executableName = basename(token).toLowerCase();
+  return AGENT_RUNTIME_NAMES.find((name) => name === executableName);
 }
 
 function parsePid(value: string | undefined): number | undefined {
