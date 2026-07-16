@@ -24,6 +24,8 @@ describe("Pi resume compliance", () => {
         evidence.piInputSessionIds.slice(0, AGENT_RESUME_LIMITS.PER_AGENT_DISPLAYED_CANDIDATES),
       );
       expect(evidence.totalCandidateCount).toBe(AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
+      expect(evidence.overTotalCapInputCount).toBeGreaterThan(AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
+      expect(evidence.totalBoundedCandidateCount).toBe(AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES);
     });
   });
 

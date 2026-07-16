@@ -68,7 +68,7 @@ export async function withDefaultAgentSessionStoreEvidence(
   const piSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), 423);
   const timestamp = new Date(nowMs).toISOString();
   const resolvedHomeDirs = agentHomeDirsFromHomeDir(homeDir);
-  writeAgentTranscripts(fs, literalDefaultHomeDirs(homeDir), {
+  writeAgentTranscripts(fs, defaultFixtureHomeDirs(homeDir), {
     codexSessionId,
     claudeSessionId,
     piSessionId,
@@ -142,12 +142,20 @@ export async function withPiAgentDirectoryEvidence(
   const resolved = resolveAgentHomeDirs({ [AGENT_HOME_ENV.PI_AGENT]: piAgentHome }, { homeDir: () => defaultHome });
   const defaults = agentHomeDirsFromHomeDir(defaultHome);
   fs.writeFile(
-    piTranscriptFile(resolve(piAgentHome, "./sessions"), configuredSessionId),
+    piTranscriptFile(resolve(piAgentHome, AGENT_SESSION_STORE.PI_SESSIONS_DIR), configuredSessionId),
     piTranscript({ sessionId: configuredSessionId, cwd, timestamp }),
     nowMs,
   );
   fs.writeFile(
-    piTranscriptFile(resolve(defaultHome, ".pi/agent/sessions"), defaultSessionId),
+    piTranscriptFile(
+      resolve(
+        defaultHome,
+        AGENT_SESSION_STORE.PI_DIR,
+        AGENT_SESSION_STORE.PI_AGENT_DIR,
+        AGENT_SESSION_STORE.PI_SESSIONS_DIR,
+      ),
+      defaultSessionId,
+    ),
     piTranscript({ sessionId: defaultSessionId, cwd, timestamp }),
     nowMs,
   );
@@ -284,7 +292,7 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
     timestamp,
     nowMs,
   });
-  writeAgentTranscripts(fs, literalDefaultHomeDirs(defaultHome), {
+  writeAgentTranscripts(fs, defaultFixtureHomeDirs(defaultHome), {
     codexSessionId: defaultCodexSessionId,
     claudeSessionId: defaultClaudeSessionId,
     piSessionId: defaultPiSessionId,
@@ -310,11 +318,13 @@ function createConfiguredAgentHomeFixture(): ConfiguredAgentHomeFixture {
   };
 }
 
-function literalDefaultHomeDirs(homeDir: string): AgentHomeDirs {
+function defaultFixtureHomeDirs(homeDir: string): AgentHomeDirs {
+  const piAgent = resolve(homeDir, AGENT_SESSION_STORE.PI_DIR, AGENT_SESSION_STORE.PI_AGENT_DIR);
   return {
-    ...agentHomeDirsFromHomeDir(homeDir),
-    piAgent: resolve(homeDir, ".pi/agent"),
-    piSessions: resolve(homeDir, ".pi/agent/sessions"),
+    codex: resolve(homeDir, AGENT_SESSION_STORE.CODEX_DIR),
+    claudeCode: resolve(homeDir, AGENT_SESSION_STORE.CLAUDE_DIR),
+    piAgent,
+    piSessions: resolve(piAgent, AGENT_SESSION_STORE.PI_SESSIONS_DIR),
   };
 }
 

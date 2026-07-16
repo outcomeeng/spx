@@ -34,6 +34,7 @@ import {
   codexSessionStoreDir,
   discoverAgentResumeCandidates,
   isPathInsideOrEqual,
+  limitAgentResumeCandidates,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
 import { agentSearchQueryFromOptions } from "@/domains/agent/search";
@@ -553,6 +554,8 @@ interface PiPerAgentCapEvidence {
   readonly piSessionIds: readonly string[];
   readonly piInputSessionIds: readonly string[];
   readonly totalCandidateCount: number;
+  readonly overTotalCapInputCount: number;
+  readonly totalBoundedCandidateCount: number;
 }
 
 export async function withPiPerAgentCapEvidence(
@@ -613,6 +616,13 @@ export async function withPiPerAgentCapEvidence(
       .map((candidate) => candidate.sessionId),
     piInputSessionIds: piIds,
     totalCandidateCount: candidates.length,
+    overTotalCapInputCount: AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES + 1,
+    totalBoundedCandidateCount: limitAgentResumeCandidates(
+      Array.from(
+        { length: AGENT_RESUME_LIMITS.TOTAL_DISPLAYED_CANDIDATES + 1 },
+        (_, index) => agentResumeCandidate({ modifiedAtMs: nowMs - index }),
+      ),
+    ).length,
   });
 }
 
