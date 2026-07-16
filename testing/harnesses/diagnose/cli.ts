@@ -33,6 +33,7 @@ import { foldOverallVerdict, overallExitCode, VERDICT_EXIT_CODE } from "@/domain
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import {
   DIAGNOSE_OUTPUT_MODE,
+  DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
   DIAGNOSE_TEXT_HINT,
   DIAGNOSE_TEXT_LABEL,
@@ -470,6 +471,8 @@ export async function assertPresentationModesPreserveDiagnosis(): Promise<void> 
       expect(results[1]?.output).toContain(expectedHumanHeader(check));
       expect(results[1]?.output).toContain(check.remediation);
     }
+    expect(results[1]?.output).toContain(DIAGNOSE_TEXT_DETAIL.SESSION_STORE_READABLE);
+    expect(results[1]?.output).toContain(DIAGNOSE_TEXT_DETAIL.PLUGIN_BOOTSTRAP_CONFIGURED);
   });
 }
 
