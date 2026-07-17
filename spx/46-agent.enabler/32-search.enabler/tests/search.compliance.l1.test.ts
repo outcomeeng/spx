@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+import { AGENT_SEARCH_DEFAULT_LIMIT, AGENT_SEARCH_MATCH_REASON, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+
 import { withConfiguredAgentHomeDiscoveryEvidence } from "@testing/harnesses/agent/home";
 import {
-  assertAgentSearchBoundsDefaultOutputByLimit,
-  assertAgentSearchBranchExistenceAloneReturnsNoSessions,
-  assertAgentSearchExcludesStaleOutOfScopeSubagentAndHandoffFiles,
-  assertAgentSearchExcludesSubagentsFromBranchAssociatedResults,
-  assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence,
-  assertAgentSearchIncludesTranscriptMetadataBranchAssociation,
-  assertAgentSearchIncludesWorktreeRootBranchAssociation,
-  assertAgentSearchMatchesAllScopedRecentSessionsWithoutSelector,
-  assertAgentSearchMatchesOnlySelectedAgentKind,
-  assertAgentSearchRequiresEverySelectorOnSameSession,
-  assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelSessions,
+  withAgentSearchAllScopedSessionsEvidence,
+  withAgentSearchBranchCommandEvidence,
+  withAgentSearchBranchExistenceEvidence,
+  withAgentSearchDefaultLimitEvidence,
+  withAgentSearchExclusionEvidence,
+  withAgentSearchMetadataBranchEvidence,
+  withAgentSearchOlderBranchEvidence,
+  withAgentSearchSelectedKindEvidence,
+  withAgentSearchSelectorIntersectionEvidence,
+  withAgentSearchSubagentMetadataEvidence,
+  withAgentSearchWorktreeRootEvidence,
 } from "@testing/harnesses/agent/search";
 
 describe("agent session search compliance", () => {
@@ -34,46 +36,136 @@ describe("agent session search compliance", () => {
   });
 
   it("matches all scoped recent agent sessions when no selector is provided", async () => {
-    await assertAgentSearchMatchesAllScopedRecentSessionsWithoutSelector();
+    await withAgentSearchAllScopedSessionsEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
+        [AGENT_SESSION_KIND.CODEX, evidence.codexSessionId, [AGENT_SEARCH_MATCH_REASON.ALL]],
+        [AGENT_SESSION_KIND.CLAUDE_CODE, evidence.claudeSessionId, [AGENT_SEARCH_MATCH_REASON.ALL]],
+      ]);
+    });
   });
 
   it("matches only the selected agent kind for agent-only searches", async () => {
-    await assertAgentSearchMatchesOnlySelectedAgentKind();
+    await withAgentSearchSelectedKindEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
+        [AGENT_SESSION_KIND.CODEX, evidence.codexSessionId, [AGENT_SEARCH_MATCH_REASON.AGENT]],
+      ]);
+    });
   });
 
   it("requires every supplied selector to match the same session", async () => {
-    await assertAgentSearchRequiresEverySelectorOnSameSession();
+    await withAgentSearchSelectorIntersectionEvidence((evidence) => {
+      expect(evidence.agentAndContent.map((result) => [result.sessionId, result.matches])).toEqual([[
+        evidence.codexWithLiteral,
+        [AGENT_SEARCH_MATCH_REASON.AGENT, AGENT_SEARCH_MATCH_REASON.CONTAINS],
+      ]]);
+      expect(evidence.sessionAndBranch.map((result) => [result.sessionId, result.matches])).toEqual([[
+        evidence.sessionRightBranch,
+        [AGENT_SEARCH_MATCH_REASON.SESSION_ID, AGENT_SEARCH_MATCH_REASON.BRANCH],
+      ]]);
+    });
   });
 
   it("bounds default output by result limit", async () => {
-    await assertAgentSearchBoundsDefaultOutputByLimit();
+    await withAgentSearchDefaultLimitEvidence((evidence) => {
+      expect(evidence.results).toHaveLength(AGENT_SEARCH_DEFAULT_LIMIT);
+      expect(evidence.results.every((result) => result.agent === AGENT_SESSION_KIND.CODEX)).toBe(true);
+      expect(evidence.results.map((result) => result.sessionId)).toEqual(
+        evidence.matchingSessionIds.slice(0, AGENT_SEARCH_DEFAULT_LIMIT),
+      );
+    });
   });
 
   it("excludes stale, out-of-scope, subagent, and SPX handoff session files", async () => {
-    await assertAgentSearchExcludesStaleOutOfScopeSubagentAndHandoffFiles();
+    await withAgentSearchExclusionEvidence((evidence) => {
+      expect(evidence.results.map((result) => result.sessionId)).toEqual([evidence.includedSessionId]);
+    });
   });
 
   it("returns no session for branch existence alone", async () => {
-    await assertAgentSearchBranchExistenceAloneReturnsNoSessions();
+    await withAgentSearchBranchExistenceEvidence((evidence) => {
+      expect(evidence.observedBranches).toEqual([evidence.targetBranch]);
+      expect(evidence.results).toEqual([]);
+    });
   });
 
   it("includes sessions associated by branch metadata", async () => {
-    await assertAgentSearchIncludesTranscriptMetadataBranchAssociation();
+    await withAgentSearchMetadataBranchEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.sessionId, result.matches])).toEqual([
+        [evidence.sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+        [evidence.claudeSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+      ]);
+      expect(evidence.results.map((result) => result.cwd)).toEqual([evidence.cwd, evidence.claudeCwd]);
+      expect(evidence.results.some((result) => result.sessionId === evidence.foreignSessionId)).toBe(false);
+      expect(evidence.wrongBranchResults).toEqual([]);
+    });
   });
 
   it("includes sessions associated by same-product worktree root", async () => {
-    await assertAgentSearchIncludesWorktreeRootBranchAssociation();
+    await withAgentSearchWorktreeRootEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.sessionId, result.matches])).toEqual([[
+        evidence.sessionId,
+        [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      ]]);
+      expect(evidence.results.map((result) => result.cwd)).toEqual([evidence.cwd]);
+      expect(evidence.missingRootResults).toEqual([]);
+    });
   });
 
   it("includes sessions associated by accepted transcript command evidence", async () => {
-    await assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence();
+    await withAgentSearchBranchCommandEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.sessionId, result.matches])).toEqual([
+        [evidence.codexSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+        [evidence.claudeSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
+      ]);
+    });
   });
 
   it("excludes subagent rows from branch-associated search results", async () => {
-    await assertAgentSearchExcludesSubagentsFromBranchAssociatedResults();
+    await withAgentSearchSubagentMetadataEvidence((evidence) => {
+      expect(evidence.results.map((result) => [
+        result.sessionId,
+        result.cwd,
+        result.sourcePath,
+        result.matches,
+      ])).toEqual([[
+        evidence.sessionId,
+        evidence.evidenceCwd,
+        evidence.parentSourcePath,
+        [AGENT_SEARCH_MATCH_REASON.BRANCH],
+      ]]);
+      expect(evidence.results.some((result) => result.sessionId === evidence.subagentTranscriptId)).toBe(false);
+    });
   });
 
   it("uses older branch evidence to associate recent top-level sessions", async () => {
-    await assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelSessions();
+    await withAgentSearchOlderBranchEvidence((evidence) => {
+      expect(evidence.results.map((result) => [
+        result.sessionId,
+        result.cwd,
+        result.sourcePath,
+        result.modifiedAtMs,
+        result.branch,
+        result.matches,
+      ])).toEqual([
+        [
+          evidence.commandSessionId,
+          evidence.cwd,
+          expect.any(String),
+          evidence.nowMs,
+          evidence.otherBranch,
+          [AGENT_SEARCH_MATCH_REASON.BRANCH],
+        ],
+        [
+          evidence.parentSessionId,
+          evidence.subagentCwd,
+          evidence.parentSourcePath,
+          evidence.nowMs - 1,
+          evidence.otherBranch,
+          [AGENT_SEARCH_MATCH_REASON.BRANCH],
+        ],
+      ]);
+      expect(evidence.results.some((result) => result.sessionId === evidence.outsideSessionId)).toBe(false);
+      expect(evidence.results.some((result) => result.sessionId === evidence.futureSessionId)).toBe(false);
+    });
   });
 });

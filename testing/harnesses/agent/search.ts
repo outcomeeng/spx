@@ -1,7 +1,5 @@
 import { join, sep } from "node:path";
 
-import { expect } from "vitest";
-
 import {
   jsonAgentSearchSessions,
   resolveAgentSearchBranchAssociatedWorktreeRoots,
@@ -11,7 +9,6 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
-  AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_ROW_TYPE,
@@ -23,13 +20,12 @@ import {
 import {
   type AgentSearchQuery,
   agentSearchQueryFromOptions,
-  type AgentSearchQueryOptions,
+  type AgentSearchResult,
   pickupIdSearchLiteral,
   searchAgentSessions,
   transcriptHasAcceptedBranchCommand,
 } from "@/domains/agent/search";
 import { resolveProductDir } from "@/domains/config/root";
-import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
 import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -59,6 +55,7 @@ import {
 } from "@testing/generators/agent/resume";
 import {
   AGENT_SEARCH_TRANSCRIPT_COMMAND_SAMPLE,
+  type AgentSearchBranchCommandEvidenceCase,
   agentSearchBranchCommandEvidenceCases,
   agentSearchSwitchCommand,
   agentSearchSwitchCreateCommand,
@@ -75,12 +72,6 @@ import {
   writeCodexSubagentTranscriptFile,
   writeCodexTranscriptFile,
 } from "./resume";
-
-interface MappingCase {
-  readonly name: string;
-  readonly options: AgentSearchQueryOptions;
-  readonly assertQuery: (query: AgentSearchQuery) => void;
-}
 
 interface SearchFixture {
   readonly fs: MemoryAgentSessionFileSystem;
@@ -280,7 +271,9 @@ function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT):
   };
 }
 
-export async function assertAgentSearchProductScopeUsesLinkedWorktreeRoot(): Promise<void> {
+export async function withAgentSearchProductScopeEvidence(
+  callback: (evidence: { readonly resolvedRoot: string; readonly linkedWorktreeRoot: string }) => void,
+): Promise<void> {
   const linkedWorktreeRoot = sampleAgentResumeValue(
     arbitraryAgentWorktreeRoot(),
     SEARCH_SAMPLE.LINKED_WORKTREE_ROOT,
@@ -305,12 +298,23 @@ export async function assertAgentSearchProductScopeUsesLinkedWorktreeRoot(): Pro
     },
   };
 
-  await expect(
-    resolveAgentSearchProductScopeRoot(linkedWorktreeRoot, fallbackProductScopeRoot, git),
-  ).resolves.toBe(linkedWorktreeRoot);
+  callback({
+    resolvedRoot: await resolveAgentSearchProductScopeRoot(linkedWorktreeRoot, fallbackProductScopeRoot, git),
+    linkedWorktreeRoot,
+  });
 }
 
-export async function assertAgentSearchFindsPickupMarkerInProductScopedTopLevelSessions(): Promise<void> {
+export async function withAgentSearchPickupMarkerEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly codexSessionId: string;
+    readonly claudeSessionId: string;
+    readonly foreignSessionId: string;
+    readonly subagentSessionId: string;
+    readonly codexCwd: string;
+    readonly claudeCwd: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot());
   const productScopeRoot = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT);
@@ -364,22 +368,27 @@ export async function assertAgentSearchFindsPickupMarkerInProductScopedTopLevelS
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
-  expect(results).toHaveLength(2);
-  expect(results.map((result) => result.sessionId)).toEqual([codexSessionId, claudeSessionId]);
-  expect(results.map((result) => result.agent)).toEqual([
-    AGENT_SESSION_KIND.CODEX,
-    AGENT_SESSION_KIND.CLAUDE_CODE,
-  ]);
-  expect(results.map((result) => result.matches)).toEqual([
-    [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
-    [AGENT_SEARCH_MATCH_REASON.PICKUP_ID],
-  ]);
-  expect(results.map((result) => result.cwd)).toEqual([codexCwd, claudeCwd]);
-  expect(results.map((result) => result.sessionId)).not.toContain(foreignSessionId);
-  expect(results.map((result) => result.sessionId)).not.toContain(subagentSessionId);
+  callback({
+    results,
+    codexSessionId,
+    claudeSessionId,
+    foreignSessionId,
+    subagentSessionId,
+    codexCwd,
+    claudeCwd,
+  });
 }
 
-export async function assertAgentSearchJsonRecordsExposeMetadataAndMatchReasons(): Promise<void> {
+export async function withAgentSearchJsonMetadataEvidence(
+  callback: (evidence: {
+    readonly records: readonly Record<string, unknown>[];
+    readonly sessionId: string;
+    readonly cwd: string;
+    readonly sourcePath: string;
+    readonly modifiedAtMs: number;
+    readonly updatedAt: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.JSON_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -425,21 +434,25 @@ export async function assertAgentSearchJsonRecordsExposeMetadataAndMatchReasons(
     AGENT_CLI.flags.json,
   ], { from: SPX_COMMANDER_PARSE_SOURCE });
 
-  const parsed = JSON.parse(stdout.join("")) as readonly Record<string, unknown>[];
-
-  expect(parsed).toHaveLength(1);
-  const [record] = parsed;
-  expect(record.agent).toBe(AGENT_SESSION_KIND.CODEX);
-  expect(record.sessionId).toBe(sessionId);
-  expect(record.cwd).toBe(cwd);
-  expect(record.sourcePath).toBe(sourcePath);
-  expect(record.modifiedAtMs).toBe(nowMs);
-  expect(record.updatedAt).toBe(timestamp);
-  expect(record.branch).toBeNull();
-  expect(record.matches).toEqual([AGENT_SEARCH_MATCH_REASON.PICKUP_ID]);
+  callback({
+    records: JSON.parse(stdout.join("")) as readonly Record<string, unknown>[],
+    sessionId,
+    cwd,
+    sourcePath,
+    modifiedAtMs: nowMs,
+    updatedAt: timestamp,
+  });
 }
 
-export async function assertAgentSearchKeepsFallbackScopeOutsideGit(): Promise<void> {
+export async function withAgentSearchFallbackScopeEvidence(
+  callback: (evidence: {
+    readonly stdout: string;
+    readonly stderr: string;
+    readonly warning: string;
+    readonly sessionId: string;
+    readonly foreignSessionId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.FALLBACK_HOME_DIR);
   const fallbackProductScopeRoot = sampleAgentResumeValue(
@@ -510,12 +523,23 @@ export async function assertAgentSearchKeepsFallbackScopeOutsideGit(): Promise<v
     pickupId,
   ], { from: SPX_COMMANDER_PARSE_SOURCE });
 
-  expect(stderr.join("")).toContain(warning);
-  expect(stdout.join("")).toContain(sessionId);
-  expect(stdout.join("")).not.toContain(foreignSessionId);
+  callback({
+    stdout: stdout.join(""),
+    stderr: stderr.join(""),
+    warning,
+    sessionId,
+    foreignSessionId,
+  });
 }
 
-export async function assertAgentSearchSanitizesInvalidLimitValues(): Promise<void> {
+export async function withAgentSearchUnsafeLimitEvidence(
+  callback: (evidence: {
+    readonly error: unknown;
+    readonly stderr: string;
+    readonly unsafeLimit: string;
+    readonly sanitizedLimit: string;
+  }) => void,
+): Promise<void> {
   const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.LIMIT_CWD);
   const unsafeLimit = sampleAgentResumeValue(arbitraryUnsafeAgentSearchLimit(), SEARCH_SAMPLE.UNSAFE_LIMIT);
   const stderr: string[] = [];
@@ -526,20 +550,33 @@ export async function assertAgentSearchSanitizesInvalidLimitValues(): Promise<vo
   });
   program.exitOverride();
 
-  await expect(
-    program.parseAsync([
+  let error: unknown = null;
+  try {
+    await program.parseAsync([
       AGENT_CLI.commandName,
       AGENT_CLI.searchCommandName,
       AGENT_CLI.flags.limit,
       unsafeLimit,
-    ], { from: SPX_COMMANDER_PARSE_SOURCE }),
-  ).rejects.toThrow();
-
-  expect(stderr.join("")).toContain(sanitizeCliArgument(unsafeLimit));
-  expect(stderr.join("")).not.toContain(unsafeLimit);
+    ], { from: SPX_COMMANDER_PARSE_SOURCE });
+  } catch (caught) {
+    error = caught;
+  }
+  callback({
+    error,
+    stderr: stderr.join(""),
+    unsafeLimit,
+    sanitizedLimit: sanitizeCliArgument(unsafeLimit),
+  });
 }
 
-export async function assertAgentSearchRejectsPartiallyNumericLimitValues(): Promise<void> {
+export async function withAgentSearchPartialLimitEvidence(
+  callback: (evidence: {
+    readonly error: unknown;
+    readonly stderr: string;
+    readonly partialNumericLimit: string;
+    readonly sanitizedLimit: string;
+  }) => void,
+): Promise<void> {
   const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.PARTIAL_LIMIT_CWD);
   const partialNumericLimit = sampleAgentResumeValue(
     arbitraryPartialNumericAgentSearchLimit(),
@@ -553,19 +590,32 @@ export async function assertAgentSearchRejectsPartiallyNumericLimitValues(): Pro
   });
   program.exitOverride();
 
-  await expect(
-    program.parseAsync([
+  let error: unknown = null;
+  try {
+    await program.parseAsync([
       AGENT_CLI.commandName,
       AGENT_CLI.searchCommandName,
       AGENT_CLI.flags.limit,
       partialNumericLimit,
-    ], { from: SPX_COMMANDER_PARSE_SOURCE }),
-  ).rejects.toThrow();
-
-  expect(stderr.join("")).toContain(sanitizeCliArgument(partialNumericLimit));
+    ], { from: SPX_COMMANDER_PARSE_SOURCE });
+  } catch (caught) {
+    error = caught;
+  }
+  callback({
+    error,
+    stderr: stderr.join(""),
+    partialNumericLimit,
+    sanitizedLimit: sanitizeCliArgument(partialNumericLimit),
+  });
 }
 
-export async function assertAgentSearchFindsSessionByBranchAssociatedWorktreeRoot(): Promise<void> {
+export async function withAgentSearchBranchWorktreeEvidence(
+  callback: (evidence: {
+    readonly results: readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
+    readonly associatedSessionId: string;
+    readonly claudeAssociatedSessionId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -676,13 +726,16 @@ export async function assertAgentSearchFindsSessionByBranchAssociatedWorktreeRoo
   });
   const results = JSON.parse(output) as readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
 
-  expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
-    [associatedSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-    [claudeAssociatedSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
+  callback({ results, associatedSessionId, claudeAssociatedSessionId });
 }
 
-export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence(): Promise<void> {
+export async function withAgentSearchBranchCommandEvidence(
+  callback: (evidence: {
+    readonly results: readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
+    readonly codexSessionId: string;
+    readonly claudeSessionId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.COMMAND_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -734,13 +787,12 @@ export async function assertAgentSearchFindsSessionByAcceptedBranchCommandEviden
   });
   const results = JSON.parse(output) as readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
 
-  expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
-    [codexSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-    [claudeSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
+  callback({ results, codexSessionId, claudeSessionId });
 }
 
-export async function assertAgentSearchReturnsNoBranchRootsWhenGitWorktreeListThrows(): Promise<void> {
+export async function withAgentSearchGitFailureEvidence(
+  callback: (evidence: { readonly roots: readonly string[] }) => void,
+): Promise<void> {
   const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_PRODUCT_SCOPE_ROOT);
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.BRANCH_TARGET_BRANCH);
   const git: GitDependencies = {
@@ -749,124 +801,72 @@ export async function assertAgentSearchReturnsNoBranchRootsWhenGitWorktreeListTh
     },
   };
 
-  await expect(resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git)).resolves.toEqual([]);
+  callback({ roots: await resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git) });
 }
 
-export function agentSearchMappingCases(): readonly MappingCase[] {
+export function withAgentSearchOptionMappingEvidence(
+  callback: (evidence: {
+    readonly pickup: { readonly query: AgentSearchQuery; readonly pickupId: string };
+    readonly contains: { readonly query: AgentSearchQuery; readonly literal: string };
+    readonly session: { readonly query: AgentSearchQuery; readonly sessionId: string };
+    readonly branch: { readonly query: AgentSearchQuery; readonly branch: string };
+    readonly agent: AgentSearchQuery;
+    readonly limit: { readonly query: AgentSearchQuery; readonly limit: number };
+    readonly all: AgentSearchQuery;
+  }) => void,
+): void {
   const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral());
   const contains = sampleAgentResumeValue(arbitraryDomainLiteral(), SEARCH_SAMPLE.MAPPING_CONTAINS);
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.MAPPING_SESSION_ID);
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
   const explicitLimit = AGENT_SEARCH_DEFAULT_LIMIT + 1;
-  return [
-    {
-      name: "pickup id maps to exact pickup-marker content search",
-      options: { pickupId },
-      assertQuery: (query) =>
-        expect(query.contentNeedles).toEqual([
-          {
-            reason: AGENT_SEARCH_MATCH_REASON.PICKUP_ID,
-            value: formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, pickupId),
-          },
-        ]),
-    },
-    {
-      name: "literal content maps to transcript content search",
-      options: { contains },
-      assertQuery: (query) =>
-        expect(query.contentNeedles).toEqual([
-          { reason: AGENT_SEARCH_MATCH_REASON.CONTAINS, value: contains },
-        ]),
-    },
-    {
-      name: "agent session id maps to session metadata",
-      options: { sessionId },
-      assertQuery: (query) => expect(query.sessionId).toBe(sessionId),
-    },
-    {
-      name: "branch maps to branch association",
-      options: { branch },
-      assertQuery: (query) => expect(query.branch).toBe(branch),
-    },
-    {
-      name: "agent kind maps to the selected adapter set",
-      options: { agent: AGENT_SESSION_KIND.CLAUDE_CODE },
-      assertQuery: (query) => expect(query.agent).toBe(AGENT_SESSION_KIND.CLAUDE_CODE),
-    },
-    {
-      name: "limit maps to maximum result count",
-      options: { limit: explicitLimit },
-      assertQuery: (query) => expect(query.limit).toBe(explicitLimit),
-    },
-    {
-      name: "all maps to removing the recent-session bound",
-      options: { all: true },
-      assertQuery: (query) => expect(query.includeAll).toBe(true),
-    },
-  ];
+  callback({
+    pickup: { query: agentSearchQueryFromOptions({ pickupId }), pickupId },
+    contains: { query: agentSearchQueryFromOptions({ contains }), literal: contains },
+    session: { query: agentSearchQueryFromOptions({ sessionId }), sessionId },
+    branch: { query: agentSearchQueryFromOptions({ branch }), branch },
+    agent: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CLAUDE_CODE }),
+    limit: { query: agentSearchQueryFromOptions({ limit: explicitLimit }), limit: explicitLimit },
+    all: agentSearchQueryFromOptions({ all: true }),
+  });
 }
 
-export function assertAgentSearchOptionMapping(
-  options: AgentSearchQueryOptions,
-  assertQuery: MappingCase["assertQuery"],
+export function withAgentSearchBranchCommandMappingEvidence(
+  callback: (evidence: {
+    readonly declaredCases: readonly {
+      readonly input: AgentSearchBranchCommandEvidenceCase;
+      readonly accepted: boolean;
+    }[];
+    readonly failedAccepted: readonly boolean[];
+    readonly incompleteAccepted: readonly boolean[];
+  }) => void,
 ): void {
-  assertQuery(agentSearchQueryFromOptions(options));
-}
-
-export function assertAgentSearchOptionMappings(): void {
-  for (const { options, assertQuery } of agentSearchMappingCases()) {
-    assertAgentSearchOptionMapping(options, assertQuery);
-  }
-}
-
-export function assertAgentSearchBranchCommandEvidenceMappings(): void {
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
-
-  for (const testCase of agentSearchBranchCommandEvidenceCases(branch)) {
-    expect(transcriptHasAcceptedBranchCommand(
-      codexExecCommandRows(testCase.command),
-      testCase.branch ?? branch,
-    )).toBe(testCase.expected);
-  }
-
-  for (
-    const failedRows of [
+  callback({
+    declaredCases: agentSearchBranchCommandEvidenceCases(branch).map((input) => ({
+      input,
+      accepted: transcriptHasAcceptedBranchCommand(codexExecCommandRows(input.command), input.branch ?? branch),
+    })),
+    failedAccepted: [
       failedCodexExecCommandRows(agentSearchSwitchCommand(branch)),
       unknownCodexExecCommandRows(agentSearchSwitchCommand(branch)),
       failedClaudeBashCommandRows(agentSearchSwitchCommand(branch)),
       unknownClaudeBashCommandRows(agentSearchSwitchCommand(branch)),
-    ]
-  ) {
-    expect(transcriptHasAcceptedBranchCommand(failedRows, branch)).toBe(false);
-  }
-
-  for (
-    const incompleteRows of [
+    ].map((rows) => transcriptHasAcceptedBranchCommand(rows, branch)),
+    incompleteAccepted: [
       codexExecFunctionCallRow(agentSearchSwitchCommand(branch)),
       claudeBashToolUseRow(agentSearchSwitchCommand(branch)),
-    ]
-  ) {
-    expect(transcriptHasAcceptedBranchCommand(incompleteRows, branch)).toBe(false);
-  }
+    ].map((rows) => transcriptHasAcceptedBranchCommand(rows, branch)),
+  });
 }
 
-export async function assertAgentSearchBranchAssociationSignalMappings(): Promise<void> {
-  await assertAgentSearchIncludesTranscriptMetadataBranchAssociation();
-  await assertAgentSearchIgnoresStaleDuplicateBranchMetadata();
-  await assertAgentSearchIncludesWorktreeRootBranchAssociation();
-  await assertAgentSearchFindsSessionByAcceptedBranchCommandEvidence();
-  await assertAgentSearchExcludesSubagentsFromBranchAssociatedResults();
-  await assertAgentSearchAttributesCodexSubagentCommandEvidenceToParent();
-  await assertAgentSearchScopesParentByCodexSubagentBranchEvidenceCwd();
-}
-
-export async function assertAgentSearchOptionBehaviorMappings(): Promise<void> {
-  await assertAgentSearchAppliesExplicitLimit();
-  await assertAgentSearchAllIncludesOlderScopedSessions();
-  await assertAgentSearchContentSelectorCanMatchOlderDuplicateTranscript();
-}
-
-async function assertAgentSearchAppliesExplicitLimit(): Promise<void> {
+export async function withAgentSearchExplicitLimitEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly matchingSessionIds: readonly string[];
+    readonly explicitLimit: number;
+  }) => void,
+): Promise<void> {
   const fixture = searchFixture(SEARCH_SAMPLE.MAPPING_LIMIT_FIXTURE);
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), SEARCH_SAMPLE.LIMIT_CWD);
   const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), SEARCH_SAMPLE.PICKUP_ID);
@@ -897,10 +897,16 @@ async function assertAgentSearchAppliesExplicitLimit(): Promise<void> {
     query: agentSearchQueryFromOptions({ pickupId, limit: explicitLimit }),
   });
 
-  expect(results.map((result) => result.sessionId)).toEqual(matchingSessionIds.slice(0, explicitLimit));
+  callback({ results, matchingSessionIds, explicitLimit });
 }
 
-async function assertAgentSearchAllIncludesOlderScopedSessions(): Promise<void> {
+export async function withAgentSearchAllSessionsEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly recentSessionId: string;
+    readonly staleSessionId: string;
+  }) => void,
+): Promise<void> {
   const fixture = searchFixture(SEARCH_SAMPLE.MAPPING_ALL_FIXTURE);
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), SEARCH_SAMPLE.CODEX_CWD);
   const recentSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CODEX_SESSION_ID);
@@ -927,10 +933,16 @@ async function assertAgentSearchAllIncludesOlderScopedSessions(): Promise<void> 
     query: agentSearchQueryFromOptions({ all: true }),
   });
 
-  expect(results.map((result) => result.sessionId)).toEqual([recentSessionId, staleSessionId]);
+  callback({ results, recentSessionId, staleSessionId });
 }
 
-async function assertAgentSearchContentSelectorCanMatchOlderDuplicateTranscript(): Promise<void> {
+export async function withAgentSearchOlderDuplicateEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly olderSourcePath: string;
+  }) => void,
+): Promise<void> {
   const fixture = searchFixture(SEARCH_SAMPLE.MAPPING_ALL_FIXTURE);
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), SEARCH_SAMPLE.CODEX_CWD);
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.CONTENT_DUPLICATE_SESSION_ID);
@@ -967,23 +979,22 @@ async function assertAgentSearchContentSelectorCanMatchOlderDuplicateTranscript(
     query: agentSearchQueryFromOptions({ branch, contains }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.sourcePath])).toEqual([
-    [sessionId, olderSourcePath],
-  ]);
+  callback({ results, sessionId, olderSourcePath });
 }
 
-export function assertAgentSearchDefaultsToRecentBoundedAllAgentSearch(): void {
-  const query = agentSearchQueryFromOptions({});
-
-  expect(query.contentNeedles).toEqual([]);
-  expect(query.sessionId).toBeNull();
-  expect(query.branch).toBeNull();
-  expect(query.agent).toBeNull();
-  expect(query.includeAll).toBe(false);
-  expect(query.limit).toBe(AGENT_SEARCH_DEFAULT_LIMIT);
+export function withAgentSearchDefaultQueryEvidence(
+  callback: (evidence: { readonly query: AgentSearchQuery }) => void,
+): void {
+  callback({ query: agentSearchQueryFromOptions({}) });
 }
 
-export async function assertAgentSearchMatchesAllScopedRecentSessionsWithoutSelector(): Promise<void> {
+export async function withAgentSearchAllScopedSessionsEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly codexSessionId: string;
+    readonly claudeSessionId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.COMPLIANCE_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1057,13 +1068,12 @@ export async function assertAgentSearchMatchesAllScopedRecentSessionsWithoutSele
     query: agentSearchQueryFromOptions({}),
   });
 
-  expect(results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
-    [AGENT_SESSION_KIND.CODEX, codexSessionId, [AGENT_SEARCH_MATCH_REASON.ALL]],
-    [AGENT_SESSION_KIND.CLAUDE_CODE, claudeSessionId, [AGENT_SEARCH_MATCH_REASON.ALL]],
-  ]);
+  callback({ results, codexSessionId, claudeSessionId });
 }
 
-export async function assertAgentSearchMatchesOnlySelectedAgentKind(): Promise<void> {
+export async function withAgentSearchSelectedKindEvidence(
+  callback: (evidence: { readonly results: readonly AgentSearchResult[]; readonly codexSessionId: string }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.AGENT_ONLY_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1105,12 +1115,17 @@ export async function assertAgentSearchMatchesOnlySelectedAgentKind(): Promise<v
     query: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CODEX }),
   });
 
-  expect(results.map((result) => [result.agent, result.sessionId, result.matches])).toEqual([
-    [AGENT_SESSION_KIND.CODEX, codexSessionId, [AGENT_SEARCH_MATCH_REASON.AGENT]],
-  ]);
+  callback({ results, codexSessionId });
 }
 
-export async function assertAgentSearchRequiresEverySelectorOnSameSession(): Promise<void> {
+export async function withAgentSearchSelectorIntersectionEvidence(
+  callback: (evidence: {
+    readonly agentAndContent: readonly AgentSearchResult[];
+    readonly sessionAndBranch: readonly AgentSearchResult[];
+    readonly codexWithLiteral: string;
+    readonly sessionRightBranch: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.SELECTOR_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1173,15 +1188,15 @@ export async function assertAgentSearchRequiresEverySelectorOnSameSession(): Pro
     query: agentSearchQueryFromOptions({ sessionId: sessionRightBranch, branch: targetBranch }),
   });
 
-  expect(agentAndContent.map((result) => [result.sessionId, result.matches])).toEqual([
-    [codexWithLiteral, [AGENT_SEARCH_MATCH_REASON.AGENT, AGENT_SEARCH_MATCH_REASON.CONTAINS]],
-  ]);
-  expect(sessionAndBranch.map((result) => [result.sessionId, result.matches])).toEqual([
-    [sessionRightBranch, [AGENT_SEARCH_MATCH_REASON.SESSION_ID, AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
+  callback({ agentAndContent, sessionAndBranch, codexWithLiteral, sessionRightBranch });
 }
 
-export async function assertAgentSearchBoundsDefaultOutputByLimit(): Promise<void> {
+export async function withAgentSearchDefaultLimitEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly matchingSessionIds: readonly string[];
+  }) => void,
+): Promise<void> {
   const fixture = searchFixture();
   const cwd = sampleAgentResumeValue(arbitraryAgentSessionCwd(fixture.productScopeRoot), 2);
   const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), 4);
@@ -1211,14 +1226,12 @@ export async function assertAgentSearchBoundsDefaultOutputByLimit(): Promise<voi
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
-  expect(results).toHaveLength(AGENT_SEARCH_DEFAULT_LIMIT);
-  expect(results.map((result) => result.agent)).toEqual(
-    Array.from({ length: AGENT_SEARCH_DEFAULT_LIMIT }, () => AGENT_SESSION_KIND.CODEX),
-  );
-  expect(results.map((result) => result.sessionId)).toEqual(matchingSessionIds.slice(0, AGENT_SEARCH_DEFAULT_LIMIT));
+  callback({ results, matchingSessionIds });
 }
 
-export async function assertAgentSearchExcludesStaleOutOfScopeSubagentAndHandoffFiles(): Promise<void> {
+export async function withAgentSearchExclusionEvidence(
+  callback: (evidence: { readonly results: readonly AgentSearchResult[]; readonly includedSessionId: string }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.EXCLUSION_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1305,10 +1318,16 @@ export async function assertAgentSearchExcludesStaleOutOfScopeSubagentAndHandoff
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
-  expect(results.map((result) => result.sessionId)).toEqual([includedSessionId]);
+  callback({ results, includedSessionId });
 }
 
-export async function assertAgentSearchBranchExistenceAloneReturnsNoSessions(): Promise<void> {
+export async function withAgentSearchBranchExistenceEvidence(
+  callback: (evidence: {
+    readonly observedBranches: readonly string[];
+    readonly results: readonly unknown[];
+    readonly targetBranch: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_ONLY_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1361,11 +1380,24 @@ export async function assertAgentSearchBranchExistenceAloneReturnsNoSessions(): 
     AGENT_CLI.flags.json,
   ], { from: SPX_COMMANDER_PARSE_SOURCE });
 
-  expect(observedExistingBranches).toEqual([targetBranch]);
-  expect(JSON.parse(stdout.join(""))).toEqual([]);
+  callback({
+    observedBranches: observedExistingBranches,
+    results: JSON.parse(stdout.join("")) as readonly unknown[],
+    targetBranch,
+  });
 }
 
-export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociation(): Promise<void> {
+export async function withAgentSearchMetadataBranchEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly wrongBranchResults: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly claudeSessionId: string;
+    readonly foreignSessionId: string;
+    readonly cwd: string;
+    readonly claudeCwd: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_METADATA_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1457,16 +1489,12 @@ export async function assertAgentSearchIncludesTranscriptMetadataBranchAssociati
     query: agentSearchQueryFromOptions({ branch: otherBranch }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
-    [sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-    [claudeSessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
-  expect(results.map((result) => result.cwd)).toEqual([cwd, claudeCwd]);
-  expect(results.map((result) => result.sessionId)).not.toContain(foreignSessionId);
-  expect(wrongBranchResults).toEqual([]);
+  callback({ results, wrongBranchResults, sessionId, claudeSessionId, foreignSessionId, cwd, claudeCwd });
 }
 
-async function assertAgentSearchIgnoresStaleDuplicateBranchMetadata(): Promise<void> {
+export async function withAgentSearchStaleMetadataEvidence(
+  callback: (evidence: { readonly results: readonly AgentSearchResult[] }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_METADATA_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1525,10 +1553,17 @@ async function assertAgentSearchIgnoresStaleDuplicateBranchMetadata(): Promise<v
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results).toEqual([]);
+  callback({ results });
 }
 
-export async function assertAgentSearchIncludesWorktreeRootBranchAssociation(): Promise<void> {
+export async function withAgentSearchWorktreeRootEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly missingRootResults: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly cwd: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_ROOT_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1574,14 +1609,18 @@ export async function assertAgentSearchIncludesWorktreeRootBranchAssociation(): 
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.matches])).toEqual([
-    [sessionId, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
-  expect(results.map((result) => result.cwd)).toEqual([cwd]);
-  expect(missingRootResults).toEqual([]);
+  callback({ results, missingRootResults, sessionId, cwd });
 }
 
-export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResults(): Promise<void> {
+export async function withAgentSearchSubagentMetadataEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly evidenceCwd: string;
+    readonly parentSourcePath: string;
+    readonly subagentTranscriptId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_SUBAGENT_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1627,13 +1666,18 @@ export async function assertAgentSearchExcludesSubagentsFromBranchAssociatedResu
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.cwd, result.sourcePath, result.matches])).toEqual([
-    [sessionId, evidenceCwd, parentSourcePath, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
-  expect(results.map((result) => result.sessionId)).not.toContain(subagentTranscriptId);
+  callback({ results, sessionId, evidenceCwd, parentSourcePath, subagentTranscriptId });
 }
 
-async function assertAgentSearchAttributesCodexSubagentCommandEvidenceToParent(): Promise<void> {
+export async function withAgentSearchSubagentCommandEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly evidenceCwd: string;
+    readonly parentSourcePath: string;
+    readonly subagentTranscriptId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_SUBAGENT_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1686,13 +1730,18 @@ async function assertAgentSearchAttributesCodexSubagentCommandEvidenceToParent()
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.cwd, result.sourcePath, result.matches])).toEqual([
-    [sessionId, evidenceCwd, parentSourcePath, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
-  expect(results.map((result) => result.sessionId)).not.toContain(subagentTranscriptId);
+  callback({ results, sessionId, evidenceCwd, parentSourcePath, subagentTranscriptId });
 }
 
-async function assertAgentSearchScopesParentByCodexSubagentBranchEvidenceCwd(): Promise<void> {
+export async function withAgentSearchSubagentScopeEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly evidenceCwd: string;
+    readonly parentSourcePath: string;
+    readonly subagentTranscriptId: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.BRANCH_SUBAGENT_HOME_DIR);
   const productScopeRoot = sampleAgentResumeValue(
@@ -1745,13 +1794,23 @@ async function assertAgentSearchScopesParentByCodexSubagentBranchEvidenceCwd(): 
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results.map((result) => [result.sessionId, result.cwd, result.sourcePath, result.matches])).toEqual([
-    [sessionId, evidenceCwd, parentSourcePath, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-  ]);
-  expect(results.map((result) => result.sessionId)).not.toContain(subagentTranscriptId);
+  callback({ results, sessionId, evidenceCwd, parentSourcePath, subagentTranscriptId });
 }
 
-export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelSessions(): Promise<void> {
+export async function withAgentSearchOlderBranchEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly commandSessionId: string;
+    readonly parentSessionId: string;
+    readonly outsideSessionId: string;
+    readonly futureSessionId: string;
+    readonly cwd: string;
+    readonly subagentCwd: string;
+    readonly parentSourcePath: string;
+    readonly nowMs: number;
+    readonly otherBranch: string;
+  }) => void,
+): Promise<void> {
   const fs = new MemoryAgentSessionFileSystem();
   const homeDir = sampleAgentResumeValue(
     arbitraryAgentWorktreeRoot(),
@@ -1908,26 +1967,18 @@ export async function assertAgentSearchUsesOlderBranchEvidenceForRecentTopLevelS
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
-  expect(results.map((result) => [
-    result.sessionId,
-    result.cwd,
-    result.sourcePath,
-    result.modifiedAtMs,
-    result.branch,
-    result.matches,
-  ])).toEqual([
-    [commandSessionId, cwd, expect.any(String), nowMs, otherBranch, [AGENT_SEARCH_MATCH_REASON.BRANCH]],
-    [
-      parentSessionId,
-      subagentCwd,
-      parentSourcePath,
-      nowMs - 1,
-      otherBranch,
-      [AGENT_SEARCH_MATCH_REASON.BRANCH],
-    ],
-  ]);
-  expect(results.map((result) => result.sessionId)).not.toContain(outsideSessionId);
-  expect(results.map((result) => result.sessionId)).not.toContain(futureSessionId);
+  callback({
+    results,
+    commandSessionId,
+    parentSessionId,
+    outsideSessionId,
+    futureSessionId,
+    cwd,
+    subagentCwd,
+    parentSourcePath,
+    nowMs,
+    otherBranch,
+  });
 }
 
 function codexExecCommandRows(command: string): string {
