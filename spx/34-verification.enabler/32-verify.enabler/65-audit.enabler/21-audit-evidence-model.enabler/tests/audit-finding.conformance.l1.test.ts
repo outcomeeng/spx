@@ -10,7 +10,7 @@ import { arbitraryAuditFindingValidationScenario } from "@testing/generators/ver
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("audit finding payload conformance", () => {
-  it("accepts audit findings with unit identity, producer provenance, severity, message, and evidence", async () => {
+  it("accepts complete audit findings only when their unit identity is already recorded", async () => {
     assertProperty(
       arbitraryAuditFindingValidationScenario(),
       (scenario) => {
@@ -21,6 +21,13 @@ describe("audit finding payload conformance", () => {
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
           }),
         ).toEqual(scenario.finding);
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
+            payload: JSON.parse(JSON.stringify(scenario.unknownUnitFinding)),
+            events: [scenario.scopeEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
       },
       { level: PROPERTY_LEVEL.L1 },
     );
