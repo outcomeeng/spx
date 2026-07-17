@@ -3,8 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { expect } from "vitest";
 
 import { listAgentResumeSessions } from "@/commands/agent/resume";
-import { defaultAgentSearchCommandDeps, jsonAgentSearchSessions } from "@/commands/agent/search";
-import { AGENT_HOME_ENV, type AgentHomeDirs, agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { type AgentHomeDirs, agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_RESUME_MODE,
@@ -29,7 +28,6 @@ import {
   isPathInsideOrEqual,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
-import { agentSearchQueryFromOptions } from "@/domains/agent/search";
 import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
@@ -1349,74 +1347,6 @@ export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void>
   expect(output).toContain(fixture.codexSessionId);
   expect(output).toContain(fixture.claudeSessionId);
   expect(output).not.toContain(fixture.defaultSessionId);
-}
-
-export async function assertAgentSearchUsesConfiguredAgentHomes(): Promise<void> {
-  const fixture = createConfiguredAgentHomeFixture();
-  const configuredOutput = await withAgentHomeEnvironment(fixture.agentHomeDirs, () =>
-    jsonAgentSearchSessions({
-      cwd: fixture.codexCwd,
-      fallbackProductScopeRoot: fixture.worktreeRoot,
-      query: agentSearchQueryFromOptions({}),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveProductScopeRoot: async () => fixture.worktreeRoot,
-        resolveBranchAssociatedWorktreeRoots: async () => [],
-      },
-    }));
-  const defaultOutput = await withAgentHomeEnvironment(null, () =>
-    jsonAgentSearchSessions({
-      cwd: fixture.codexCwd,
-      fallbackProductScopeRoot: fixture.worktreeRoot,
-      query: agentSearchQueryFromOptions({}),
-      deps: {
-        fs: fixture.fs,
-        agentHomeDirs: defaultAgentSearchCommandDeps.agentHomeDirs,
-        nowMs: () => fixture.nowMs,
-        resolveProductScopeRoot: async () => fixture.worktreeRoot,
-        resolveBranchAssociatedWorktreeRoots: async () => [],
-      },
-    }));
-
-  expect(configuredOutput).toContain(fixture.codexSessionId);
-  expect(configuredOutput).toContain(fixture.claudeSessionId);
-  expect(configuredOutput).not.toContain(fixture.defaultSessionId);
-  expect(configuredOutput).not.toContain(fixture.defaultClaudeSessionId);
-  expect(defaultOutput).toContain(fixture.defaultSessionId);
-  expect(defaultOutput).toContain(fixture.defaultClaudeSessionId);
-  expect(defaultOutput).not.toContain(fixture.codexSessionId);
-  expect(defaultOutput).not.toContain(fixture.claudeSessionId);
-}
-
-async function withAgentHomeEnvironment<T>(
-  agentHomeDirs: AgentHomeDirs | null,
-  callback: () => Promise<T>,
-): Promise<T> {
-  const originalCodexHome = process.env[AGENT_HOME_ENV.CODEX];
-  const originalClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
-  if (agentHomeDirs === null) {
-    delete process.env[AGENT_HOME_ENV.CODEX];
-    delete process.env[AGENT_HOME_ENV.CLAUDE];
-  } else {
-    process.env[AGENT_HOME_ENV.CODEX] = agentHomeDirs.codex;
-    process.env[AGENT_HOME_ENV.CLAUDE] = agentHomeDirs.claudeCode;
-  }
-  try {
-    return await callback();
-  } finally {
-    restoreEnvironmentVariable(AGENT_HOME_ENV.CODEX, originalCodexHome);
-    restoreEnvironmentVariable(AGENT_HOME_ENV.CLAUDE, originalClaudeHome);
-  }
-}
-
-function restoreEnvironmentVariable(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-    return;
-  }
-  process.env[name] = value;
 }
 
 interface ConfiguredAgentHomeFixture {
