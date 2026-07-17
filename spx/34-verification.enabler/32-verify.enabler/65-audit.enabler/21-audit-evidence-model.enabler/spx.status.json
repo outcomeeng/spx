@@ -4,7 +4,9 @@
     "test": {
       "overall": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-evidence-validation.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-file-root.conformance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-finding.conformance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-order.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-scope.conformance.l1.test.ts": "passed"
     }
   }
