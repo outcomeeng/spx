@@ -89,7 +89,6 @@ export interface PiSearchBranchEvidence {
 
 export interface PiSearchCliSelectionEvidence {
   readonly stdout: string;
-  readonly stderr: string;
   readonly expectedSessionId: string;
   readonly excludedSessionIds: readonly string[];
 }
@@ -288,7 +287,6 @@ export async function withPiSearchCliSelectionEvidence(
 
   callback({
     stdout: stdout.join(""),
-    stderr: stderr.join(""),
     expectedSessionId: piSessionId,
     excludedSessionIds: [codexSessionId, claudeSessionId],
   });

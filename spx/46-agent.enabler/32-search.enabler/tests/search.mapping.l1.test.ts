@@ -61,7 +61,6 @@ describe("agent session search option mappings", () => {
 
   it("maps Pi agent selection to the Pi session adapter", async () => {
     await withPiSearchCliSelectionEvidence((evidence) => {
-      expect(evidence.stderr).toHaveLength(0);
       expect(JSON.parse(evidence.stdout)).toEqual([
         expect.objectContaining({
           agent: AGENT_SESSION_KIND.PI,

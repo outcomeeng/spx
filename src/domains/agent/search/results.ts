@@ -23,6 +23,7 @@ import {
   mapWithConcurrency,
   parseClaudeHead,
   parseCodexHead,
+  parsePiHead,
 } from "../resume";
 import {
   type AgentHeadParser,
@@ -42,6 +43,42 @@ import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
 }
+
+interface AgentSearchAdapter {
+  readonly collectPaths: (
+    options: AgentSearchOptions,
+    acceptsClaudeDir: (dirName: string) => boolean,
+  ) => Promise<readonly string[]>;
+  readonly parseHead: AgentHeadParser;
+  readonly acceptsTranscriptCommandEvidence: boolean;
+  readonly acceptsCodexSubagentEvidence: boolean;
+}
+
+const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, AgentSearchAdapter>> = {
+  [AGENT_SESSION_KIND.CODEX]: {
+    collectPaths: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
+    parseHead: parseCodexHead,
+    acceptsTranscriptCommandEvidence: true,
+    acceptsCodexSubagentEvidence: true,
+  },
+  [AGENT_SESSION_KIND.CLAUDE_CODE]: {
+    collectPaths: (options, acceptsClaudeDir) =>
+      claudeTranscriptFiles(
+        claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
+        options.fs,
+        acceptsClaudeDir,
+      ),
+    parseHead: parseClaudeHead,
+    acceptsTranscriptCommandEvidence: true,
+    acceptsCodexSubagentEvidence: false,
+  },
+  [AGENT_SESSION_KIND.PI]: {
+    collectPaths: (options) => collectJsonlFiles(options.agentHomeDirs.piSessions, options.fs),
+    parseHead: parsePiHead,
+    acceptsTranscriptCommandEvidence: false,
+    acceptsCodexSubagentEvidence: false,
+  },
+};
 
 export interface AgentSearchOptions {
   readonly agentHomeDirs: AgentHomeDirs;
@@ -79,28 +116,32 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
-  const acceptsClaudeDir = claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots);
-  const paths = agent === AGENT_SESSION_KIND.CODEX
-    ? await collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs)
-    : await claudeTranscriptFiles(
-      claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
-      options.fs,
-      acceptsClaudeDir,
-    );
-  const parser = agent === AGENT_SESSION_KIND.CODEX ? parseCodexHead : parseClaudeHead;
+  const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
+  const paths = await adapter.collectPaths(
+    options,
+    claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots),
+  );
+  const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const allFiles = needsBranchEvidence ? await storeFiles(paths, options.fs, options.nowMs, true) : [];
   const files = needsBranchEvidence
     ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs)
     : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
   const branchEvidenceFiles = needsBranchEvidence ? nonFutureStoreFiles(allFiles, options.nowMs) : [];
-  const topLevelBranchAssociations = needsBranchEvidence
+  const topLevelBranchAssociations = needsBranchEvidence && adapter.acceptsTranscriptCommandEvidence
     ? await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser)
     : emptyTopLevelBranchAssociations();
-  const subagentBranchAssociations = needsBranchEvidence && agent === AGENT_SESSION_KIND.CODEX
+  const subagentBranchAssociations = needsBranchEvidence && adapter.acceptsCodexSubagentEvidence
     ? await collectCodexSubagentBranchAssociations(branchEvidenceFiles, options)
     : new Map<string, CodexSubagentBranchAssociation>();
-  return collectMatchingSessions(agent, files, options, parser, topLevelBranchAssociations, subagentBranchAssociations);
+  return collectMatchingSessions(
+    agent,
+    files,
+    options,
+    adapter,
+    topLevelBranchAssociations,
+    subagentBranchAssociations,
+  );
 }
 
 function claudeDirAcceptsProductScope(
@@ -118,7 +159,7 @@ async function collectMatchingSessions(
   agent: AgentSearchSessionKind,
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
-  parseHead: AgentHeadParser,
+  adapter: AgentSearchAdapter,
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchResult[]> {
@@ -129,7 +170,7 @@ async function collectMatchingSessions(
   for (const file of files) {
     const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
     if (head === null) continue;
-    const core = parseHead(head);
+    const core = adapter.parseHead(head);
     if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
     const candidateMetadataIsCurrent = !currentMetadataSessionIds.has(core.sessionId);
     currentMetadataSessionIds.add(core.sessionId);
@@ -145,6 +186,7 @@ async function collectMatchingSessions(
       core,
       file.path,
       options,
+      adapter,
       topLevelBranchAssociations,
       subagentBranchAssociations,
       currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
@@ -200,6 +242,7 @@ async function matchReasons(
   core: AgentSessionHead,
   path: string,
   options: AgentSearchOptions,
+  adapter: AgentSearchAdapter,
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
   candidateMetadataBranchAssociationCwd: string | null,
@@ -224,12 +267,17 @@ async function matchReasons(
   if (branchMatches === null && topLevelBranchAssociations.commandCheckedSessionIds.has(core.sessionId)) {
     return null;
   }
-  const needsTranscriptContent = branchMatches === null || options.query.contentNeedles.length > 0;
+  const needsTranscriptContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
+    || options.query.contentNeedles.length > 0;
   const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
   if (content === null) {
     return null;
   }
-  const resolvedBranchMatches = branchMatches ?? branchTranscriptCommandMatchReasons(content, options.query.branch);
+  const resolvedBranchMatches = branchMatches ?? (
+    adapter.acceptsTranscriptCommandEvidence
+      ? branchTranscriptCommandMatchReasons(content, options.query.branch)
+      : null
+  );
   if (resolvedBranchMatches === null) {
     return null;
   }
