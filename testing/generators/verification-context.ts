@@ -49,7 +49,7 @@ export interface VerificationContextDigestPropertyScenario {
   readonly subject: VerificationContextSubject;
   readonly predicate: string;
   readonly workflow: string;
-  readonly createdAt: string;
+  readonly launch: VerificationContextPayload["launch"];
   readonly persistence: VerificationContextPersistence;
 }
 
@@ -117,17 +117,26 @@ export const VERIFICATION_CONTEXT_TEST_GENERATOR = {
         subject: VERIFICATION_CONTEXT_TEST_GENERATOR.subject(),
         predicate: VERIFICATION_CONTEXT_TEST_GENERATOR.predicate(),
         workflow: VERIFICATION_CONTEXT_TEST_GENERATOR.workflow(),
-        launchedAt: VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt(),
+        launch: fc.record({
+          productDir: STATE_STORE_TEST_GENERATOR.productRoot(),
+          branchSlug: STATE_STORE_TEST_GENERATOR.branchSlug(),
+          branchIdentity: STATE_STORE_TEST_GENERATOR.branchIdentity(),
+          headSha: STATE_STORE_TEST_GENERATOR.headSha(),
+          createdAt: VERIFICATION_CONTEXT_TEST_GENERATOR.launchedAt().map((date) => date.toISOString()),
+        }),
         persistence: VERIFICATION_CONTEXT_TEST_GENERATOR.persistence(),
       })
-      .filter(({ payload, subject, predicate, workflow, launchedAt, persistence }) =>
+      .filter(({ payload, subject, predicate, workflow, launch, persistence }) =>
         JSON.stringify(payload.subject) !== JSON.stringify(subject)
         && payload.predicate !== predicate
         && payload.workflow.name !== workflow
-        && payload.launch.createdAt !== launchedAt.toISOString()
+        && payload.launch.productDir !== launch.productDir
+        && payload.launch.branchSlug !== launch.branchSlug
+        && payload.launch.branchIdentity !== launch.branchIdentity
+        && payload.launch.headSha !== launch.headSha
+        && payload.launch.createdAt !== launch.createdAt
         && JSON.stringify(payload.persistence) !== JSON.stringify(persistence)
-      )
-      .map(({ launchedAt, ...scenario }) => ({ ...scenario, createdAt: launchedAt.toISOString() })),
+      ),
 } as const;
 
 export function sampleVerificationContextTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
