@@ -180,6 +180,12 @@ interface VerifyCliRejectionObservation {
   readonly handlerInvocationCount: number;
 }
 
+interface VerifyStartDriveModeObservation {
+  readonly started: CliCommandResult;
+  readonly runContextCount: number;
+  readonly recordedDriveMode: unknown;
+}
+
 interface VerificationScopeOptionMappingObservation {
   readonly recordedOptions: readonly VerifyStartCliOptions[];
   readonly resolvedScope: readonly string[];
@@ -1545,23 +1551,48 @@ async function startRunWithDriveMode(driveMode: VerifyDriveMode): Promise<{
   return { scenario, fs, deps, runToken: parseStartReport(started.output).runToken };
 }
 
-/** Asserts a caller-path start records exactly one run-context event carrying caller-driven drive mode. */
-export async function assertStartRecordsCallerDriveModeByDefault(): Promise<void> {
+async function observeStartDriveMode(driveMode?: VerifyDriveMode): Promise<VerifyStartDriveModeObservation> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
-  const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  const runContexts = await runContextEvents(scenario, fs, parseStartReport(started.output).runToken);
-  expect(runContexts).toHaveLength(1);
-  expect(recordedDriveMode(runContexts[0])).toBe(VERIFY_DRIVE_MODE.CALLER);
+  const deps = driveMode === undefined ? verifyDeps(scenario, fs) : verifyDepsWithDriveMode(scenario, fs, driveMode);
+  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  const runContexts = started.exitCode === VERIFY_CLI_EXIT_CODE.OK
+    ? await runContextEvents(scenario, fs, parseStartReport(started.output).runToken)
+    : [];
+  return {
+    started,
+    runContextCount: runContexts.length,
+    recordedDriveMode: recordedDriveMode(runContexts[0]),
+  };
 }
 
-/** Asserts an spx-driven start records the run-context event carrying spx-driven drive mode. */
-export async function assertStartRecordsSpxDriveModeWhenSpxDriven(): Promise<void> {
-  const { scenario, fs, runToken } = await startRunWithDriveMode(VERIFY_DRIVE_MODE.SPX);
-  const runContexts = await runContextEvents(scenario, fs, runToken);
-  expect(runContexts).toHaveLength(1);
-  expect(recordedDriveMode(runContexts[0])).toBe(VERIFY_DRIVE_MODE.SPX);
+export function observeCallerStartDriveMode(): Promise<VerifyStartDriveModeObservation> {
+  return observeStartDriveMode();
+}
+
+export function observeSpxStartDriveMode(): Promise<VerifyStartDriveModeObservation> {
+  return observeStartDriveMode(VERIFY_DRIVE_MODE.SPX);
+}
+
+export async function observeCallerDriveModeOverrideRejection(): Promise<VerifyCliRejectionObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const forbiddenOption = "--drive-mode";
+  return observeRejectedVerificationArgs(
+    verificationRunArgs([VERIFY_CLI.startCommandName], [
+      requiredFlag(VERIFY_CLI.verificationTypeOption),
+      scenario.verificationType,
+      requiredFlag(VERIFY_CLI.scopeTypeOption),
+      VERIFY_SCOPE_TYPE.CHANGESET,
+      requiredFlag(VERIFY_CLI.scopeOption),
+      scenario.scope,
+      requiredFlag(VERIFY_CLI.inputOption),
+      sampleLiteralTestValue(arbitrarySourceFilePath()),
+      forbiddenOption,
+      VERIFY_DRIVE_MODE.SPX,
+    ]),
+    forbiddenOption,
+    scenario.productDir,
+  );
 }
 
 /** Asserts a caller-driven run's status and render advertise the caller evidence-append actions. */
