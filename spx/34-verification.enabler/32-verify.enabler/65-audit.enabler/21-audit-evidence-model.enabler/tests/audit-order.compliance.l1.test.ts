@@ -33,6 +33,20 @@ describe("audit scope append order", () => {
         ).toBeUndefined();
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.lateRootPayload,
+            events: [scenario.rootEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toEqual(scenario.lateRootPayload);
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.lateRootPayload,
+            events: [scenario.rootEvent, scenario.specEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.rootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
@@ -82,6 +96,13 @@ describe("audit scope append order", () => {
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
           }),
         ).toEqual(scenario.childPayload);
+        expect(
+          evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload: scenario.duplicateRootPayload,
+            events: [scenario.rootEvent, scenario.childEvent],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
+          }),
+        ).toBeUndefined();
       },
       { level: PROPERTY_LEVEL.L1 },
     );

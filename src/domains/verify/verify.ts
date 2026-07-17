@@ -1129,7 +1129,8 @@ function validateAuditScopeForRun(input: EvidenceValidationInput): AuditScopeUni
       : undefined;
   }
   if (scope.parentUnitId === undefined) {
-    return input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE ? undefined : scope;
+    if (input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE) return undefined;
+    return recordedScopes.some((recordedScope) => recordedScope.parentUnitId !== undefined) ? undefined : scope;
   }
   return recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId) ? scope : undefined;
 }

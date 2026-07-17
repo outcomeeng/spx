@@ -39,6 +39,7 @@ export interface FileAuditScopeScenario {
   readonly mismatchedRootPayload: JsonValue;
   readonly parentedRootPayload: JsonValue;
   readonly optionalRootPayload: JsonValue;
+  readonly duplicateRootPayload: JsonValue;
   readonly parentedRootEvent: JournalEvent;
   readonly optionalRootEvent: JournalEvent;
   readonly mismatchedRootEvent: JournalEvent;
@@ -56,6 +57,7 @@ export interface FileAuditScopeScenario {
 export interface AuditChangesetProjectionScenario {
   readonly scopeIdentity: string;
   readonly rootPayload: JsonValue;
+  readonly lateRootPayload: JsonValue;
   readonly specPayload: JsonValue;
   readonly implementationPayload: JsonValue;
   readonly orphanChildPayload: JsonValue;
@@ -438,9 +440,12 @@ export function arbitraryAuditChangesetProjectionScenario(): fc.Arbitrary<AuditC
         coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
         coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
       };
+      const { parentUnitId: _lateRootParent, ...lateRootFields } = implementation;
+      const lateRoot: AuditScopeUnit = lateRootFields;
       return {
         scopeIdentity,
         rootPayload: auditScopePayload(root),
+        lateRootPayload: auditScopePayload(lateRoot),
         specPayload: auditScopePayload(spec),
         implementationPayload: auditScopePayload(implementation),
         orphanChildPayload: auditScopePayload({ ...spec, parentUnitId: orphanParent }),
@@ -522,6 +527,7 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         mismatchedRootPayload: auditScopePayload(mismatchedRoot),
         parentedRootPayload: auditScopePayload(parentedRoot),
         optionalRootPayload: auditScopePayload(optionalRoot),
+        duplicateRootPayload: auditScopePayload(duplicateRoot),
         parentedRootEvent: auditScopeEvent(parentedRoot, JOURNAL_SEQ_BASE),
         optionalRootEvent: auditScopeEvent(optionalRoot, JOURNAL_SEQ_BASE),
         mismatchedRootEvent: auditScopeEvent(mismatchedRoot, JOURNAL_SEQ_BASE),
