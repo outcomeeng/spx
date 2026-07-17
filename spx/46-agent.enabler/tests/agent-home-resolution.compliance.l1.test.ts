@@ -37,6 +37,15 @@ describe("agent home resolution compliance", () => {
     });
   });
 
+  it("searches PI_CODING_AGENT_DIR sessions when no session-directory override exists", async () => {
+    await withPiAgentDirectoryEvidence((evidence) => {
+      expect(evidence.searchOutput).toContain(evidence.configuredSessionId);
+      expect(evidence.searchOutput).not.toContain(evidence.defaultSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultSessionId);
+      expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredSessionId);
+    });
+  });
+
   it("coordinates a standalone PI_CODING_AGENT_SESSION_DIR override", async () => {
     await withPiSessionDirectoryEvidence((evidence) => {
       expect(evidence.resolved).toEqual({
