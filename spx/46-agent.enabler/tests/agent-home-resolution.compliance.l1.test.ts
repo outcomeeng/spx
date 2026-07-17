@@ -64,17 +64,17 @@ describe("agent home resolution compliance", () => {
     });
   });
 
-  it("uses Codex and Claude Code homes without adding Pi sessions to search discovery", async () => {
+  it("uses configured Codex, Claude Code, and Pi homes for search discovery", async () => {
     await withConfiguredAgentHomeDiscoveryEvidence((evidence) => {
       expect(evidence.configuredSearchOutput).toContain(evidence.configuredCodexSessionId);
       expect(evidence.configuredSearchOutput).toContain(evidence.configuredClaudeSessionId);
+      expect(evidence.configuredSearchOutput).toContain(evidence.configuredPiSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultCodexSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultClaudeSessionId);
-      expect(evidence.configuredSearchOutput).not.toContain(evidence.configuredPiSessionId);
       expect(evidence.configuredSearchOutput).not.toContain(evidence.defaultPiSessionId);
       expect(evidence.defaultSearchOutput).toContain(evidence.defaultCodexSessionId);
       expect(evidence.defaultSearchOutput).toContain(evidence.defaultClaudeSessionId);
-      expect(evidence.defaultSearchOutput).not.toContain(evidence.defaultPiSessionId);
+      expect(evidence.defaultSearchOutput).toContain(evidence.defaultPiSessionId);
       expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredCodexSessionId);
       expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredClaudeSessionId);
       expect(evidence.defaultSearchOutput).not.toContain(evidence.configuredPiSessionId);
