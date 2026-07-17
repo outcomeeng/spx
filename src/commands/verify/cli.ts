@@ -375,61 +375,77 @@ type VerifyStartScopeResolver = (
   deps: VerifyCliDeps,
 ) => Promise<Result<VerifyStartScopeResolution>>;
 
-function normalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
-  if (scopeType === VERIFY_SCOPE_TYPE.CHANGESET) {
-    const parsed = parseChangesetScope(scopeIdentity);
-    if (!parsed.ok) return parsed;
-    return {
-      ok: true,
-      value: {
-        scopeType,
-        scopeIdentity: `${parsed.value.base}${VERIFY_SCOPE_SEPARATOR}${parsed.value.head}`,
-      },
-    };
-  }
-  if (scopeType === VERIFY_SCOPE_TYPE.FILE) {
-    const normalized = normalizeVerificationContextFileSubjectPath(scopeIdentity);
-    return normalized === undefined
-      ? { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_FILE }
-      : { ok: true, value: { scopeType, scopeIdentity: normalized } };
-  }
-  return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
+interface VerifyScopeResolver {
+  readonly canonicalize: (scopeIdentity: string) => Result<VerifyRunSelector>;
+  readonly resolveStart: VerifyStartScopeResolver;
 }
 
-const VERIFY_START_SCOPE_RESOLVERS: Readonly<
-  Record<VerifyScopeType, VerifyStartScopeResolver | undefined>
+const VERIFY_SCOPE_RESOLVERS: Readonly<
+  Record<VerifyScopeType, VerifyScopeResolver | undefined>
 > = {
-  [VERIFY_SCOPE_TYPE.CHANGESET]: async (selector, worktreeRoot, deps) => {
-    const changeset = parseChangesetScope(selector.scopeIdentity);
-    if (!changeset.ok) return changeset;
-    const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
-    if (!resolvedScope.ok) return resolvedScope;
-    return {
+  [VERIFY_SCOPE_TYPE.CHANGESET]: {
+    canonicalize: (scopeIdentity) => {
+      const parsed = parseChangesetScope(scopeIdentity);
+      if (!parsed.ok) return parsed;
+      return {
+        ok: true,
+        value: {
+          scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+          scopeIdentity: `${parsed.value.base}${VERIFY_SCOPE_SEPARATOR}${parsed.value.head}`,
+        },
+      };
+    },
+    resolveStart: async (selector, worktreeRoot, deps) => {
+      const changeset = parseChangesetScope(selector.scopeIdentity);
+      if (!changeset.ok) return changeset;
+      const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
+      if (!resolvedScope.ok) return resolvedScope;
+      return {
+        ok: true,
+        value: {
+          selector,
+          context: {
+            subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+            base: changeset.value.base,
+            head: changeset.value.head,
+          },
+          resolvedScope: resolvedScope.value,
+        },
+      };
+    },
+  },
+  [VERIFY_SCOPE_TYPE.FILE]: {
+    canonicalize: (scopeIdentity) => {
+      const normalized = normalizeVerificationContextFileSubjectPath(scopeIdentity);
+      return normalized === undefined
+        ? { ok: false, error: VERIFY_SCOPE_ERROR.MALFORMED_FILE }
+        : { ok: true, value: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: normalized } };
+    },
+    resolveStart: async (selector) => ({
       ok: true,
       value: {
         selector,
         context: {
-          subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
-          base: changeset.value.base,
-          head: changeset.value.head,
+          subject: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+          path: selector.scopeIdentity,
         },
-        resolvedScope: resolvedScope.value,
+        resolvedScope: [selector.scopeIdentity],
       },
-    };
+    }),
   },
-  [VERIFY_SCOPE_TYPE.FILE]: async (selector) => ({
-    ok: true,
-    value: {
-      selector,
-      context: {
-        subject: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
-        path: selector.scopeIdentity,
-      },
-      resolvedScope: [selector.scopeIdentity],
-    },
-  }),
   [VERIFY_SCOPE_TYPE.WORKING_TREE]: undefined,
 };
+
+function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefined {
+  return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver | undefined>>)[scopeType];
+}
+
+function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
+  const resolver = verifyScopeResolverFor(scopeType);
+  return resolver === undefined
+    ? { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE }
+    : resolver.canonicalize(scopeIdentity);
+}
 
 async function resolveVerifyStartScope(
   scopeType: string,
@@ -437,12 +453,11 @@ async function resolveVerifyStartScope(
   worktreeRoot: string,
   deps: VerifyCliDeps,
 ): Promise<Result<VerifyStartScopeResolution>> {
-  const selector = normalizeVerifyRunSelector(scopeType, scopeIdentity);
+  const resolver = verifyScopeResolverFor(scopeType);
+  if (resolver === undefined) return { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE };
+  const selector = resolver.canonicalize(scopeIdentity);
   if (!selector.ok) return selector;
-  const resolver = VERIFY_START_SCOPE_RESOLVERS[selector.value.scopeType];
-  return resolver === undefined
-    ? { ok: false, error: VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE }
-    : resolver(selector.value, worktreeRoot, deps);
+  return resolver.resolveStart(selector.value, worktreeRoot, deps);
 }
 
 async function persistInputRecord(
@@ -871,7 +886,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (options.idempotencyKey.trim().length === 0) {
     return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
   }
-  const selector = normalizeVerifyRunSelector(options.scopeType, options.scope);
+  const selector = canonicalizeVerifyRunSelector(options.scopeType, options.scope);
   if (!selector.ok) return selector;
 
   const readPayload = deps.readPayloadSource;
@@ -1144,7 +1159,7 @@ async function resolveExistingRunAddress(
   if (!isVerifyVerificationType(options.verificationType)) {
     return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  const selector = normalizeVerifyRunSelector(options.scopeType, options.scope);
+  const selector = canonicalizeVerifyRunSelector(options.scopeType, options.scope);
   if (!selector.ok) return selector;
   if (options.run.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.RUN_REQUIRED };
   const resolved = await resolveVerifyScope(deps);
