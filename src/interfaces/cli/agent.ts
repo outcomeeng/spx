@@ -247,7 +247,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         });
       agentCmd
         .command(AGENT_CLI.searchCommandName)
-        .description("Search Codex and Claude Code agent session transcripts for this product")
+        .description("Search Codex, Claude Code, and Pi agent session transcripts for this product")
         .option(AGENT_CLI.optionArgs.pickupId, "Search for an exact SPX pickup marker")
         .option(AGENT_CLI.optionArgs.contains, "Search transcript content for a literal string")
         .option(AGENT_CLI.optionArgs.sessionId, "Search for an agent session id")
