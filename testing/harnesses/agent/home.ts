@@ -126,6 +126,8 @@ interface PiAgentDirectoryEvidence {
   readonly piAgentHome: string;
   readonly resumeOutput: string;
   readonly defaultResumeOutput: string;
+  readonly searchOutput: string;
+  readonly defaultSearchOutput: string;
   readonly configuredSessionId: string;
   readonly defaultSessionId: string;
 }
@@ -172,6 +174,18 @@ export async function withPiAgentDirectoryEvidence(
       () => discoverResume(fs, defaultAgentResumeCommandDeps.agentHomeDirs, worktreeRoot, cwd, nowMs),
     ),
     defaultResumeOutput: await discoverResume(fs, () => defaults, worktreeRoot, cwd, nowMs),
+    searchOutput: await withAgentHomeEnvironment(
+      { [AGENT_HOME_ENV.PI_AGENT]: piAgentHome },
+      () =>
+        discoverSearch(
+          { fs, codexCwd: cwd, worktreeRoot, nowMs },
+          defaultAgentSearchCommandDeps.agentHomeDirs,
+        ),
+    ),
+    defaultSearchOutput: await discoverSearch(
+      { fs, codexCwd: cwd, worktreeRoot, nowMs },
+      () => defaults,
+    ),
     configuredSessionId,
     defaultSessionId,
   });
@@ -445,8 +459,15 @@ async function discoverResume(
   });
 }
 
+interface SearchDiscoveryFixture {
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly codexCwd: string;
+  readonly worktreeRoot: string;
+  readonly nowMs: number;
+}
+
 async function discoverSearch(
-  fixture: ConfiguredAgentHomeFixture,
+  fixture: SearchDiscoveryFixture,
   agentHomeDirs: () => AgentHomeDirs,
 ): Promise<string> {
   return jsonAgentSearchSessions({
