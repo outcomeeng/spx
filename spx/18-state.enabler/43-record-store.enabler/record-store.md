@@ -21,7 +21,7 @@ CAN append run records, recover the latest complete record, parse a run token fr
 
 ### Mappings
 
-- An interruption before the atomic JSONL publication link maps to an absent reusable destination, while an interruption after the link maps to a complete record visible to a fresh reader ([test](tests/atomic-jsonl-publication.mapping.l1.test.ts))
+- An interruption before the atomic JSONL publication link maps to an absent reusable destination, while an interruption surfaced after the link maps to committed success and a complete record visible to a fresh reader ([test](tests/atomic-jsonl-publication.mapping.l1.test.ts))
 - A false atomic JSONL publication guard and removal of an unpublished temporary sibling both map to `STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED` with no deterministic destination ([test](tests/atomic-jsonl-publication.mapping.l1.test.ts))
 
 ### Compliance
