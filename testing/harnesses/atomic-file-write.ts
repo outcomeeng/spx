@@ -177,7 +177,7 @@ function markedTemporaryPath(marker: string): (targetPath: string, randomBytes: 
 function sequentialRandomBytes(values: readonly [Uint8Array, Uint8Array]): RandomBytes {
   let index = 0;
   return () => {
-    const value = values[index];
+    const value = values.at(index);
     index += 1;
     if (value === undefined) throw new Error("Atomic-write random-byte sequence exhausted");
     return Buffer.from(value);

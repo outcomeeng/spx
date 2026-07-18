@@ -39,6 +39,5 @@ export function arbitraryAtomicWriteCollisionInput(): fc.Arbitrary<AtomicWriteCo
 
 export function sampleAtomicWriteCollisionInput(): AtomicWriteCollisionInput {
   const [input] = fc.sample(arbitraryAtomicWriteCollisionInput(), { seed: SAMPLE_SEED, numRuns: 1 });
-  if (input === undefined) throw new Error("Atomic-write collision generator returned no sample");
   return input;
 }
