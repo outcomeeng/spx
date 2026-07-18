@@ -16,7 +16,6 @@ import type { SessionRecord } from "@/domains/session/list";
 /** The session-store verdict labels. */
 export const SESSION_STORE_VERDICT = {
   CONSISTENT: "consistent",
-  ORPHANED_CLAIMS: "orphaned-claims",
   UNKNOWN: "unknown",
 } as const;
 
@@ -26,7 +25,7 @@ export type SessionStoreVerdict = (typeof SESSION_STORE_VERDICT)[keyof typeof SE
 export interface SessionStoreReading {
   /** True when a command errored. */
   readonly errored: boolean;
-  /** The number of doing sessions whose backing worktree reads `free` or is absent. */
+  /** Informational count of doing sessions whose backing worktree reads `free` or is absent. */
   readonly orphanedClaims: number;
 }
 
@@ -43,9 +42,7 @@ export function doingSessionBackedByClaim(session: SessionRecord, claimedSession
 }
 
 const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
-  [SESSION_STORE_VERDICT.CONSISTENT]: "Session store is consistent; no action needed.",
-  [SESSION_STORE_VERDICT.ORPHANED_CLAIMS]:
-    "Release or reclaim doing sessions whose backing worktree reads free or is absent (spx session release).",
+  [SESSION_STORE_VERDICT.CONSISTENT]: "Session store read succeeded; no action needed.",
   [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and occupancy claims.",
 };
 
@@ -69,9 +66,6 @@ function record(
 export function classifySessionStore(reading: SessionStoreReading): CheckRecord {
   if (reading.errored) {
     return record(SESSION_STORE_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
-  }
-  if (reading.orphanedClaims > 0) {
-    return record(SESSION_STORE_VERDICT.ORPHANED_CLAIMS, VERDICT_BUCKET.DEGRADED, reading);
   }
   return record(SESSION_STORE_VERDICT.CONSISTENT, VERDICT_BUCKET.HEALTHY, reading);
 }
