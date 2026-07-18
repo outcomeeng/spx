@@ -1,31 +1,24 @@
 import {
+  ERROR_CODE_NOT_FOUND,
   parseStateStoreError,
   publishJsonlRecordAtomically,
   readLatestJsonlRecord,
   removeAtomicJsonlTemporaryFiles,
+  STATE_STORE_ERROR,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
-import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import {
+  type AtomicJsonlPublicationFixture,
+  sampleStateStoreTestValue,
+  STATE_STORE_TEST_GENERATOR,
+} from "@testing/generators/state-store/state-store";
 import {
   createDelegatingStateStoreFileSystem,
   createInMemoryStateStoreFileSystem,
 } from "@testing/harnesses/state/in-memory-file-system";
+import { expect } from "vitest";
 
-const ATOMIC_RECORD_PATH = "record-store/atomic-record.jsonl";
-const PRE_PUBLICATION_RECORD_PATH = "record-store/pre-publication.jsonl";
-const POST_PUBLICATION_RECORD_PATH = "record-store/post-publication.jsonl";
 const INJECTED_INTERRUPTION = "injected publication interruption";
-const BLOCKED_RECORD_PATH = "record-store/blocked-record.jsonl";
-const REMOVED_TEMPORARY_RECORD_PATH = "record-store/removed-temporary-record.jsonl";
-const CLEANUP_DESTINATION_PREFIX = "record-store/cleanup-record-";
-const FIRST_CLEANUP_TEMPORARY_PATH = "record-store/cleanup-record-1.jsonl.000000000001.tmp";
-const SECOND_CLEANUP_TEMPORARY_PATH = "record-store/cleanup-record-2.jsonl.000000000002.tmp";
-const CLEANUP_DESTINATION_PATH = "record-store/cleanup-record-1.jsonl";
-const NON_MATCHING_TEMPORARY_PATH = "record-store/cleanup-record-3.jsonl.invalid.tmp";
-const FIRST_CLEANUP_CONTENT = "first";
-const SECOND_CLEANUP_CONTENT = "second";
-const DESTINATION_CONTENT = "destination";
-const NON_MATCHING_CONTENT = "unowned";
 
 type PublicationInterruption = "before-link" | "after-link" | undefined;
 
@@ -51,15 +44,7 @@ export interface AtomicJsonlPublicationObservation {
   readonly actual: AtomicJsonlPublicationResult;
   readonly firstRecord: unknown;
   readonly secondRecord: unknown;
-  readonly paths: {
-    readonly atomicRecord: string;
-    readonly prePublicationRecord: string;
-    readonly postPublicationRecord: string;
-  };
-  readonly preservedContent: {
-    readonly destination: string;
-    readonly nonMatching: string;
-  };
+  readonly fixture: AtomicJsonlPublicationFixture;
 }
 
 let observationPromise: Promise<AtomicJsonlPublicationObservation> | undefined;
@@ -70,46 +55,70 @@ export function atomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicat
   return observationPromise;
 }
 
+export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
+  const observation = await atomicJsonlPublicationObservation();
+  expect(observation.actual.first).toEqual({ ok: true, value: observation.fixture.paths.atomicRecord });
+  expect(observation.actual.collision).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS });
+  expect(observation.actual.winnerContent).toBe(`${JSON.stringify(observation.firstRecord)}\n`);
+  expect(observation.actual.beforePublicationError).toBe(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
+  expect(observation.actual.beforePublicationDestinationError).toBe(ERROR_CODE_NOT_FOUND);
+  expect(observation.actual.retry).toEqual({ ok: true, value: observation.fixture.paths.prePublicationRecord });
+  expect(observation.actual.afterPublicationRecord).toEqual({ ok: true, value: observation.secondRecord });
+  expect(observation.actual.guarded).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED });
+  expect(observation.actual.guardedDestinationError).toBe(ERROR_CODE_NOT_FOUND);
+  expect(observation.actual.removedTemporary).toEqual({
+    ok: false,
+    error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,
+  });
+  expect(observation.actual.cleanup).toEqual({ ok: true, value: 2 });
+  expect(observation.actual.firstCleanupError).toBe(ERROR_CODE_NOT_FOUND);
+  expect(observation.actual.secondCleanupError).toBe(ERROR_CODE_NOT_FOUND);
+  expect(observation.actual.destinationContent).toBe(observation.fixture.content.destination);
+  expect(observation.actual.nonMatchingContent).toBe(observation.fixture.content.nonMatching);
+}
+
 async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicationObservation> {
   const [firstRecord, secondRecord] = sampleStateStoreTestValue(
     STATE_STORE_TEST_GENERATOR.jsonRecordPair(),
   );
+  const fixture = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.atomicPublicationFixture());
+  const { paths } = fixture;
   const fs = createLinkCapableFileSystem();
-  const first = await publishJsonlRecordAtomically(ATOMIC_RECORD_PATH, firstRecord, { fs });
-  const collision = await publishJsonlRecordAtomically(ATOMIC_RECORD_PATH, secondRecord, { fs });
+  const first = await publishJsonlRecordAtomically(paths.atomicRecord, firstRecord, { fs });
+  const collision = await publishJsonlRecordAtomically(paths.atomicRecord, secondRecord, { fs });
 
   const beforeDelegate = createInMemoryStateStoreFileSystem();
   const interruptedBefore = createLinkCapableFileSystem("before-link", beforeDelegate);
-  const beforeResult = await publishJsonlRecordAtomically(PRE_PUBLICATION_RECORD_PATH, firstRecord, {
+  const beforeResult = await publishJsonlRecordAtomically(paths.prePublicationRecord, firstRecord, {
     fs: interruptedBefore,
   });
   const beforePublicationDestinationError = await rejectedErrorCode(
-    interruptedBefore.readFile(PRE_PUBLICATION_RECORD_PATH, "utf8"),
+    interruptedBefore.readFile(paths.prePublicationRecord, "utf8"),
   );
-  const retry = await publishJsonlRecordAtomically(PRE_PUBLICATION_RECORD_PATH, firstRecord, {
+  const retry = await publishJsonlRecordAtomically(paths.prePublicationRecord, firstRecord, {
     fs: createLinkCapableFileSystem(undefined, beforeDelegate),
   });
 
   const interruptedAfter = createLinkCapableFileSystem("after-link");
-  await publishJsonlRecordAtomically(POST_PUBLICATION_RECORD_PATH, secondRecord, {
+  await publishJsonlRecordAtomically(paths.postPublicationRecord, secondRecord, {
     fs: interruptedAfter,
   });
-  const afterPublicationRecord = await readLatestJsonlRecord(POST_PUBLICATION_RECORD_PATH, {
+  const afterPublicationRecord = await readLatestJsonlRecord(paths.postPublicationRecord, {
     fs: interruptedAfter,
   });
 
-  const guarded = await publishJsonlRecordAtomically(BLOCKED_RECORD_PATH, firstRecord, {
+  const guarded = await publishJsonlRecordAtomically(paths.blockedRecord, firstRecord, {
     fs,
     publicationGuard: async () => false,
   });
-  const guardedDestinationError = await rejectedErrorCode(fs.readFile(BLOCKED_RECORD_PATH, "utf8"));
+  const guardedDestinationError = await rejectedErrorCode(fs.readFile(paths.blockedRecord, "utf8"));
 
   let temporaryPath: string | undefined;
   const removedTemporaryFileSystem = createTemporaryCapturingFileSystem(fs, (path) => {
     temporaryPath = path;
   });
   const removedTemporary = await publishJsonlRecordAtomically(
-    REMOVED_TEMPORARY_RECORD_PATH,
+    paths.removedTemporaryRecord,
     firstRecord,
     {
       fs: removedTemporaryFileSystem,
@@ -120,14 +129,14 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
     },
   );
 
-  await seedTemporaryCleanupFiles(fs);
-  const cleanup = await removeAtomicJsonlTemporaryFiles(CLEANUP_DESTINATION_PREFIX, { fs });
+  await seedTemporaryCleanupFiles(fs, fixture);
+  const cleanup = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, { fs });
 
   return {
     actual: {
       first,
       collision,
-      winnerContent: await fs.readFile(ATOMIC_RECORD_PATH, "utf8"),
+      winnerContent: await fs.readFile(paths.atomicRecord, "utf8"),
       beforePublicationError: !beforeResult.ok
         ? parseStateStoreError(beforeResult.error)?.code
         : undefined,
@@ -138,30 +147,25 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       guardedDestinationError,
       removedTemporary,
       cleanup,
-      firstCleanupError: await rejectedErrorCode(fs.readFile(FIRST_CLEANUP_TEMPORARY_PATH, "utf8")),
-      secondCleanupError: await rejectedErrorCode(fs.readFile(SECOND_CLEANUP_TEMPORARY_PATH, "utf8")),
-      destinationContent: await fs.readFile(CLEANUP_DESTINATION_PATH, "utf8"),
-      nonMatchingContent: await fs.readFile(NON_MATCHING_TEMPORARY_PATH, "utf8"),
+      firstCleanupError: await rejectedErrorCode(fs.readFile(paths.firstCleanupTemporary, "utf8")),
+      secondCleanupError: await rejectedErrorCode(fs.readFile(paths.secondCleanupTemporary, "utf8")),
+      destinationContent: await fs.readFile(paths.cleanupDestination, "utf8"),
+      nonMatchingContent: await fs.readFile(paths.nonMatchingTemporary, "utf8"),
     },
     firstRecord,
     secondRecord,
-    paths: {
-      atomicRecord: ATOMIC_RECORD_PATH,
-      prePublicationRecord: PRE_PUBLICATION_RECORD_PATH,
-      postPublicationRecord: POST_PUBLICATION_RECORD_PATH,
-    },
-    preservedContent: {
-      destination: DESTINATION_CONTENT,
-      nonMatching: NON_MATCHING_CONTENT,
-    },
+    fixture,
   };
 }
 
-async function seedTemporaryCleanupFiles(fs: StateStoreFileSystem): Promise<void> {
-  await fs.writeFile(FIRST_CLEANUP_TEMPORARY_PATH, FIRST_CLEANUP_CONTENT);
-  await fs.writeFile(SECOND_CLEANUP_TEMPORARY_PATH, SECOND_CLEANUP_CONTENT);
-  await fs.writeFile(CLEANUP_DESTINATION_PATH, DESTINATION_CONTENT);
-  await fs.writeFile(NON_MATCHING_TEMPORARY_PATH, NON_MATCHING_CONTENT);
+async function seedTemporaryCleanupFiles(
+  fs: StateStoreFileSystem,
+  fixture: AtomicJsonlPublicationFixture,
+): Promise<void> {
+  await fs.writeFile(fixture.paths.firstCleanupTemporary, fixture.content.firstCleanup);
+  await fs.writeFile(fixture.paths.secondCleanupTemporary, fixture.content.secondCleanup);
+  await fs.writeFile(fixture.paths.cleanupDestination, fixture.content.destination);
+  await fs.writeFile(fixture.paths.nonMatchingTemporary, fixture.content.nonMatching);
 }
 
 async function rejectedErrorCode(promise: Promise<unknown>): Promise<string | undefined> {
