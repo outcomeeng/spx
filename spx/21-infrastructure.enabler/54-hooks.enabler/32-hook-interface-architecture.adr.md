@@ -10,8 +10,11 @@ call shared domain services directly; they never depend on `src/commands/`
 handlers, and shared operations needed by both commands and hooks live below both
 interface layers. The `session-start` adapter resolves an explicit payload
 session id first; a Pi payload without that id supplies the exact native
-transcript path, whose bounded opening metadata identifies the session only when
-it is a valid Pi header for the resolved product directory.
+transcript path. The adapter canonicalizes that path and the configured Pi
+session-store root through an injected boundary before reading content, then
+accepts bounded opening metadata only when the canonical path is contained by
+that trusted root and carries a valid Pi header for the resolved product
+directory.
 
 ## Rationale
 
@@ -27,8 +30,12 @@ Pi's native identity without inventing a second identifier or guessing from
 store recency. Store scanning and latest-file selection are rejected because two
 Pi processes can start in the same product directory, making a recency winner an
 uncertain holder identity. Header validation and product-directory agreement
-bind the supplied path to the hook invocation; malformed or mismatched evidence
-degrades to no identity and therefore no worktree claim.
+bind the supplied path to the hook invocation. Canonical containment under the
+configured Pi session-store root establishes path provenance before content is
+read; lexical containment alone is insufficient because a symlink inside the
+store can resolve outside it. A path outside the trusted root, or malformed or
+mismatched evidence inside it, degrades to no identity and therefore no worktree
+claim.
 
 ## Invariants
 
@@ -39,7 +46,8 @@ degrades to no identity and therefore no worktree claim.
 - Hook adapters are the only modules that interpret hook payload stdin, hook
   env-file paths, and hook-specific stdout semantics.
 - Pi native-session identity is accepted only from a valid bounded header at the
-  exact transcript path supplied by the Pi lifecycle adapter, with a cwd that
+  exact transcript path supplied by the Pi lifecycle adapter, after canonical
+  containment under the configured Pi session-store root, with a cwd that
   matches the hook's resolved product directory.
 
 ## Verification
@@ -67,9 +75,17 @@ degrades to no identity and therefore no worktree claim.
   adapter derives identity only from a valid Pi header at the exact supplied
   transcript path whose cwd matches the resolved product directory ([audit])
 - ALWAYS: Pi transcript metadata reads are bounded independently of transcript
-  size and use a typed injected reader ([audit])
+  size and use a typed injected reader; canonical path resolution for the
+  configured store root and supplied transcript path is injected through the
+  same boundary ([audit])
+- ALWAYS: a Pi transcript path is canonicalized and proven contained by the
+  canonical configured Pi session-store root before its opening metadata is read
+  ([audit])
+- NEVER: lexical containment substitutes for canonical containment when a Pi
+  transcript path can traverse a symlink ([audit])
 - NEVER: `session-start` scans a Pi session store, selects a latest transcript,
-  or records a worktree claim from malformed, missing, or product-mismatched Pi
+  reads a transcript outside the trusted Pi session-store root, or records a
+  worktree claim from untrusted, malformed, missing, or product-mismatched Pi
   transcript metadata ([audit])
 - NEVER: hook tests use `vi.mock()` or `jest.mock()` to replace hook event
   modules, command handlers, or shared domain services; tests exercise real
