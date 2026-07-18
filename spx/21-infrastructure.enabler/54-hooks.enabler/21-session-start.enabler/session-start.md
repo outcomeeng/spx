@@ -11,6 +11,7 @@ CAN establish session continuity through one lifecycle hook invocation
 ### Scenarios
 
 - Given `spx hook run session-start` receives a payload with a product directory and session identity, when the hook runtime supplies an env-file path, worktree scope, and controlling process context, then SPX exits successfully, appends the session and project exports, exports `SPX_WORKTREE_CLAIM_PATH`, and writes a readable worktree claim record carrying the session id, pid, host, and start time ([test](tests/session-start.scenario.l2.test.ts))
+- Given `spx hook run session-start` receives a Pi payload with a product directory and exact native transcript path whose opening header identifies that directory and session, when the hook runtime supplies worktree scope and controlling process context, then SPX exits successfully, claims the linked worktree under the Pi session id, and `spx worktree status --format json` reports that running holder identity ([test](tests/session-start.scenario.l2.test.ts))
 
 ### Compliance
 
