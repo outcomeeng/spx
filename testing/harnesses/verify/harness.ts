@@ -119,6 +119,7 @@ import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/genera
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import {
+  type FileScopeCanonicalizationScenario,
   type FindingWithKey,
   formatNameStatusZ,
   sampleVerifyTestValue,
@@ -697,6 +698,7 @@ export function createSealRetryFileSystem(): SealRetryFileSystem {
 
 export interface VerifyRunContextScenario {
   readonly verificationType: string;
+  readonly scopeType: string;
   readonly base: string;
   readonly head: string;
   readonly scope: string;
@@ -714,6 +716,7 @@ export function createVerifyRunContextScenario(): VerifyRunContextScenario {
   const changedPaths = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changedPaths());
   return {
     verificationType: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType()),
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
     base: range.base,
     head: range.head,
     scope: `${range.base}${VERIFY_SCOPE_SEPARATOR}${range.head}`,
@@ -739,7 +742,19 @@ export function withScope(
   base: string,
   head: string,
 ): VerifyRunContextScenario {
-  return { ...scenario, base, head, scope: `${base}${VERIFY_SCOPE_SEPARATOR}${head}` };
+  return {
+    ...scenario,
+    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    base,
+    head,
+    scope: `${base}${VERIFY_SCOPE_SEPARATOR}${head}`,
+  };
+}
+
+export function withFileScope(scenario: VerifyRunContextScenario, path: string): VerifyRunContextScenario {
+  const scope = normalizeVerificationContextFileSubjectPath(path);
+  if (scope === undefined) throw new Error("verify file-scope harness received an invalid path");
+  return { ...scenario, scopeType: VERIFY_SCOPE_TYPE.FILE, scope };
 }
 
 export function withVerificationType(
@@ -764,6 +779,23 @@ export interface StartedFileScopeRun {
   readonly runTargetExists: boolean;
   readonly context: VerificationContextDocument;
   readonly nameStatusCalls: number;
+}
+
+export interface FileScopeExistingRunObservation {
+  readonly canonicalScope: string;
+  readonly existingRunScope: string;
+  readonly selectorFormsDiffer: boolean;
+  readonly start: CliCommandResult;
+  readonly startReport: VerifyStartReport;
+  readonly appendScope: CliCommandResult;
+  readonly appendFinding: CliCommandResult;
+  readonly status: CliCommandResult;
+  readonly statusReport: VerifyStatusReport;
+  readonly mismatchedStatus: CliCommandResult;
+  readonly render: CliCommandResult;
+  readonly renderReport: VerifyRenderReport;
+  readonly finish: CliCommandResult;
+  readonly finishReport: VerifyFinishReport;
 }
 
 export interface StartedChangesetScopeRun {
@@ -829,7 +861,10 @@ export async function startChangesetScopeRun(
 }
 
 export async function startFileScopeRun(path: string): Promise<StartedFileScopeRun> {
-  const scenario = withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT);
+  const scenario = withFileScope(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+    path,
+  );
   const fs = createInMemoryStateStoreFileSystem();
   let nameStatusCalls = 0;
   const git: GitDependencies = {
@@ -841,7 +876,6 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
   const started = await verifyStartCommand(
     {
       ...verifyStartOptions(scenario),
-      scopeType: VERIFY_SCOPE_TYPE.FILE,
       scope: path,
     },
     { ...verifyDeps(scenario, fs), git },
@@ -850,8 +884,6 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
     throw new Error(`verify file-scope start failed in harness: ${started.output}`);
   }
   const report = parseStartReport(started.output);
-  const scopeIdentity = normalizeVerificationContextFileSubjectPath(path);
-  if (scopeIdentity === undefined) throw new Error("verify file-scope harness received an invalid path");
   const storageNamespace = scenarioRunsDir(scenario);
   const runTarget = join(storageNamespace, runFileName(report.runToken));
   const context = await readStartedVerificationContext(scenario, report, fs);
@@ -861,7 +893,7 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
       runToken: report.runToken,
       verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
       scopeType: VERIFY_SCOPE_TYPE.FILE,
-      scopeIdentity,
+      scopeIdentity: scenario.scope,
       backendIdentity: JOURNAL_BACKEND.LOCAL,
       storageNamespace,
       runTarget,
@@ -869,6 +901,80 @@ export async function startFileScopeRun(path: string): Promise<StartedFileScopeR
     runTargetExists: await fs.lstat(runTarget).then(() => true, () => false),
     context,
     nameStatusCalls,
+  };
+}
+
+export async function runFileScopeExistingCommandsScenario(
+  input: FileScopeCanonicalizationScenario,
+): Promise<FileScopeExistingRunObservation> {
+  const scenario = withFileScope(
+    withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+    input.canonicalScope,
+  );
+  const { deps } = createVerifyAppendScenario(scenario);
+  const start = await verifyStartCommand(verifyStartOptions(scenario), deps);
+  if (start.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`verify file-scope scenario start failed: ${start.output}`);
+  }
+  const runToken = parseStartReport(start.output).runToken;
+  const existingRunScenario = { ...scenario, scope: input.equivalentScope };
+  const scopeCandidate = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
+  const { parentUnitId: _parentUnitId, ...scopeFields } = scopeCandidate;
+  const scope: AuditScopeUnit = {
+    ...scopeFields,
+    subject: scenario.scope,
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  };
+  const finding = {
+    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    unitId: scope.unitId,
+  };
+  const keys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const appendScope = await verifyAppendScopeCommand(
+    verifyAppendOptions(existingRunScenario, {
+      run: runToken,
+      payload: JSON.stringify(scope),
+      idempotencyKey: keys.first,
+    }),
+    deps,
+  );
+  const appendFinding = await verifyAppendFindingCommand(
+    verifyAppendOptions(existingRunScenario, {
+      run: runToken,
+      payload: JSON.stringify(finding),
+      idempotencyKey: keys.second,
+    }),
+    deps,
+  );
+  const status = await verifyStatusCommand(verifyStatusOptions(existingRunScenario, runToken), deps);
+  const mismatchedStatus = await verifyStatusCommand(
+    verifyStatusOptions({ ...scenario, scope: input.mismatchedScope }, runToken),
+    deps,
+  );
+  const render = await verifyRenderCommand(verifyRenderOptions(existingRunScenario, runToken), deps);
+  const finish = await verifyFinishCommand(
+    verifyFinishOptions(existingRunScenario, {
+      run: runToken,
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+    }),
+    deps,
+  );
+  return {
+    canonicalScope: scenario.scope,
+    existingRunScope: input.equivalentScope,
+    selectorFormsDiffer: scenario.scope !== input.equivalentScope,
+    start,
+    startReport: parseStartReport(start.output),
+    appendScope,
+    appendFinding,
+    status,
+    statusReport: parseStatusReport(status.output),
+    mismatchedStatus,
+    render,
+    renderReport: parseRenderReport(render.output),
+    finish,
+    finishReport: parseFinishReport(finish.output),
   };
 }
 
@@ -935,7 +1041,7 @@ export function observeVerificationScopeOptionMappings(): Promise<
 export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifyStartCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     input: VERIFY_INPUT_SOURCE.STDIN,
   };
@@ -944,7 +1050,7 @@ export function verifyStartOptions(scenario: VerifyRunContextScenario): VerifySt
 export function verifyInputOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyInputCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     run: runToken,
   };
@@ -1193,11 +1299,13 @@ function scenarioContextDocument(scenario: VerifyRunContextScenario): Verificati
   }));
   const document = createVerificationContextDocument({
     schemaVersion: VERIFICATION_CONTEXT_SCHEMA_VERSION,
-    subject: {
-      kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
-      base: scenario.base,
-      head: scenario.head,
-    },
+    subject: scenario.scopeType === VERIFY_SCOPE_TYPE.FILE
+      ? { kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE, path: scenario.scope }
+      : {
+        kind: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+        base: scenario.base,
+        head: scenario.head,
+      },
     predicate: scenario.verificationType,
     workflow: { name: scenario.verificationType },
     launch: {
@@ -1238,7 +1346,7 @@ export function verifyAppendOptions(
 ): VerifyAppendCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     run: args.run,
     payload: args.payload,
@@ -1335,7 +1443,7 @@ export function verifyFinishOptions(
 ): VerifyFinishCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     run: args.run,
     terminalStatus: args.terminalStatus,
@@ -1345,7 +1453,7 @@ export function verifyFinishOptions(
 export function verifyStatusOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyStatusCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     run: runToken,
   };
@@ -1354,7 +1462,7 @@ export function verifyStatusOptions(scenario: VerifyRunContextScenario, runToken
 export function verifyRenderOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyRenderCliOptions {
   return {
     verificationType: scenario.verificationType,
-    scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+    scopeType: scenario.scopeType,
     scope: scenario.scope,
     run: runToken,
   };

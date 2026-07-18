@@ -310,6 +310,12 @@ export interface FileScopeIdentityScenario {
   readonly normalized: string;
 }
 
+export interface FileScopeCanonicalizationScenario {
+  readonly canonicalScope: string;
+  readonly equivalentScope: string;
+  readonly mismatchedScope: string;
+}
+
 export type VerifyScopeMappingCase =
   | {
     readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET;
@@ -357,6 +363,22 @@ export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIden
       normalized: path,
     })),
   );
+}
+
+export function arbitraryFileScopeCanonicalizationScenario(): fc.Arbitrary<FileScopeCanonicalizationScenario> {
+  return arbitrarySafeFileScopeIdentity().map((path) => {
+    const canonicalScope = [path, path].join(VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL);
+    return {
+      canonicalScope,
+      equivalentScope: canonicalScope.replaceAll(
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.WINDOWS,
+      ),
+      mismatchedScope: [canonicalScope, path].join(
+        VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL,
+      ),
+    };
+  });
 }
 
 export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
