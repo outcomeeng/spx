@@ -62,6 +62,26 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
   });
 }
 
+/** Build the complete event expected when a journal assigns identity and sequence to an input. */
+export function journalEventFromInput(
+  input: JournalEventInput,
+  identity: JournalIdentity,
+  sequence: number,
+): JournalEvent {
+  return {
+    id: input.id,
+    source: input.source,
+    type: input.type,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    time: input.time,
+    streamid: identity.streamid,
+    seq: sequence,
+    runid: identity.runid,
+    attempt: input.attempt,
+    ...(input.data === undefined ? {} : { data: input.data }),
+  };
+}
+
 const SAMPLE_SEED = 0x6a726e6c;
 
 /** Draw one deterministic value from an agent-run-journal arbitrary. */
