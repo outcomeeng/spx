@@ -144,8 +144,8 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       }
       await fs.writeFile(sealingMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
       await ensureCreationMarker(fs, runFilePath, creationMarkerPath);
-      await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`);
-      await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath));
+      await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`, runFilePath);
+      await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath), runFilePath);
       const events = await readSequenceEvents(await listSequenceRecords(fs, runFilePath));
       await replaceAggregateAtomically(
         fs,
@@ -180,9 +180,22 @@ async function ensureCreationMarker(
 async function removeTemporaryPublications(
   fs: StateStoreFileSystem,
   destinationPathPrefix: string,
+  runFilePath: string,
 ): Promise<void> {
-  const result = await removeAtomicJsonlTemporaryFiles(destinationPathPrefix, { fs });
+  const result = await removeAtomicJsonlTemporaryFiles(destinationPathPrefix, {
+    fs,
+    isDeterministicDestination: (path) => isAppendableJournalDestination(path, runFilePath),
+  });
   if (!result.ok) throw new Error(result.error);
+}
+
+function isAppendableJournalDestination(path: string, runFilePath: string): boolean {
+  if (path === runFilePath) return true;
+  if (dirname(path) !== dirname(runFilePath)) return false;
+  return sequenceFromRecordName(
+    basename(path),
+    `${basename(runFilePath)}${SEQUENCE_RECORD_MARKER}`,
+  ) !== undefined;
 }
 
 async function replaceAggregateAtomically(
