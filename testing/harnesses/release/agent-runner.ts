@@ -9,6 +9,8 @@ import {
   RELEASE_VERSION_DATA_BLOCK_OPEN,
 } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import { sampleReleaseTestValue } from "@testing/generators/release/release";
 
 /**
  * A recording + writing AgentRunner double for release-notes composition tests.
@@ -60,6 +62,20 @@ export class RecordingWritingAgentRunner implements AgentRunner {
 
 export function promptReleaseVersion(prompt: string): string | undefined {
   return promptJsonString(prompt, RELEASE_VERSION_DATA_BLOCK_OPEN, RELEASE_VERSION_DATA_BLOCK_CLOSE);
+}
+
+export function releaseDataDrivenAgentRunner(
+  workingDirectory: string,
+  outputPath: string,
+  subjects: readonly string[],
+): RecordingWritingAgentRunner {
+  return new RecordingWritingAgentRunner(workingDirectory, outputPath, (request) => {
+    const version = promptReleaseVersion(request.prompt);
+    if (version === undefined) {
+      throw new Error("release-notes prompt omitted release-version data");
+    }
+    return sampleReleaseTestValue(arbitraryConformantChangelog(version, subjects));
+  });
 }
 
 function promptChangelogPath(prompt: string): string | undefined {

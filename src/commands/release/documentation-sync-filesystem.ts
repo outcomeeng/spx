@@ -19,7 +19,7 @@ import {
   PATH_CONTAINMENT_ROOT_CANDIDATE,
 } from "@/lib/file-system/pathContainment";
 
-const DOCUMENTATION_TEXT_ENCODING = "utf8";
+export const DOCUMENTATION_TEXT_ENCODING = "utf8";
 const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
 const DOCUMENTATION_STAGE_DIRECTORY_PREFIX = "spx-documentation-sync-stage-";
 const DOCUMENTATION_ROLLBACK_FAILURE_MESSAGE = "Documentation promotion rollback failed";

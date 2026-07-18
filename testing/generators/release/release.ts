@@ -1,3 +1,5 @@
+import { win32 } from "node:path";
+
 import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
@@ -13,6 +15,9 @@ const COMMIT_SUBJECT_SUFFIX = " update";
 const SOURCE_FILE_SUFFIX = ".ts";
 const FILE_CONTENT_PREFIX = "// ";
 const FILE_CONTENT_NEWLINE = "\n";
+const WINDOWS_EXTENDED_PATH_PREFIX = "\\\\?\\";
+const WINDOWS_DRIVE_SEPARATOR = ":";
+const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Z]$/;
 
 const COMMITS_AFTER_TAG = 2;
 const FULL_HISTORY_COMMITS = 2;
@@ -60,9 +65,12 @@ export const RELEASE_TEST_GENERATOR = {
     releaseNotesCommits: RELEASE_NOTES_COMMITS,
   },
   semver: arbitrarySemver,
+  distinctSemverFrom: arbitraryDistinctSemverFrom,
+  distinctWindowsExtendedLengthDriveRoots: arbitraryDistinctWindowsExtendedLengthDriveRoots,
   releaseTag: arbitraryReleaseTag,
   releaseTagPair: arbitraryReleaseTagPair,
   distinctReleaseTags: arbitraryDistinctReleaseTags,
+  distinctPathSegmentTriple: arbitraryDistinctPathSegmentTriple,
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
@@ -108,6 +116,22 @@ function arbitrarySemver(): fc.Arbitrary<string> {
   return arbitrarySemverParts().map(formatSemver);
 }
 
+function arbitraryDistinctSemverFrom(version: string): fc.Arbitrary<string> {
+  return arbitrarySemver().filter((candidate) => candidate !== version);
+}
+
+function arbitraryDistinctWindowsExtendedLengthDriveRoots(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN), fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN))
+    .filter(([first, second]) => first !== second)
+    .map(([first, second]) =>
+      [
+        `${WINDOWS_EXTENDED_PATH_PREFIX}${first}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
+        `${WINDOWS_EXTENDED_PATH_PREFIX}${second}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
+      ] as const
+    );
+}
+
 function arbitraryReleaseTag(): fc.Arbitrary<string> {
   return arbitrarySemverParts().map(formatReleaseTag);
 }
@@ -125,6 +149,12 @@ function arbitraryDistinctReleaseTags(count: number): fc.Arbitrary<readonly stri
   return fc
     .uniqueArray(arbitrarySemver(), { minLength: count, maxLength: count })
     .map((versions) => versions.map((version) => `${RELEASE_TAG_PREFIX}${version}`));
+}
+
+function arbitraryDistinctPathSegmentTriple(): fc.Arbitrary<readonly [string, string, string]> {
+  return fc
+    .tuple(arbitraryPathSegment(), arbitraryPathSegment(), arbitraryPathSegment())
+    .filter((segments) => new Set(segments).size === segments.length);
 }
 
 function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCommitFixture[]> {

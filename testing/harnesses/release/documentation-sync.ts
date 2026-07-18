@@ -5,7 +5,6 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { Command } from "commander";
 import { execa } from "execa";
-import { expect } from "vitest";
 
 import {
   AGENT_PERMISSION_MODES,
@@ -24,6 +23,7 @@ import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/rele
 import {
   createDocumentationAtomicWriter,
   createDocumentationSyncFilesystem,
+  DOCUMENTATION_TEXT_ENCODING,
   type DocumentationAtomicWriter,
   type DocumentationCanonicalPathResolver,
   type DocumentationFileOpener,
@@ -84,10 +84,10 @@ import {
   documentationPathMappingCases,
   type DocumentationSyncScenario,
   type DocumentationUnrelatedVersionRewriteScenario,
+  type DocumentationUpdatedContent,
+  type DocumentationVersionPreservationScenarios,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -135,22 +135,6 @@ class DocumentationWritingAgent implements AgentRunner {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
     await writeGeneratedDocumentation(this.updated, input.documents);
-  }
-}
-
-class FileToolBoundaryDocumentationAgent implements AgentRunner {
-  private readonly writer: DocumentationWritingAgent;
-
-  constructor(
-    updated: DocumentationSyncScenario["updated"],
-    private readonly scenario: DocumentationAgentFileToolBoundaryScenario,
-  ) {
-    this.writer = new DocumentationWritingAgent(updated);
-  }
-
-  async run(request: AgentRunRequest): Promise<void> {
-    await assertAgentRunRequestFileToolBoundary(request, this.scenario);
-    await this.writer.run(request);
   }
 }
 
@@ -519,8 +503,10 @@ async function withDocumentationScenario(
 const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
 
 const rejectingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {
-  throw new Error("Documentation faithfulness rejected");
+  throw new Error(REJECTING_DOCUMENTATION_AUDIT_MESSAGE);
 };
+
+const REJECTING_DOCUMENTATION_AUDIT_MESSAGE = "Documentation faithfulness rejected";
 
 const failingDocumentationReader: StagedDocumentationReader = async () => {
   throw new Error("Documentation read-back failed");
@@ -599,391 +585,6 @@ async function writeFirstReleasedVersionReference(
   }
 }
 
-async function expectProductDocumentationUnchanged(
-  scenario: DocumentationSyncScenario,
-  readProductDocument: ProductDocumentationReader,
-): Promise<void> {
-  for (const path of scenario.paths) {
-    await expect(readProductDocument(path)).resolves.toBe(scenario.original[path]);
-  }
-}
-
-async function expectOnlyInterveningDocumentationEdit(
-  scenario: DocumentationSyncScenario,
-  interveningPath: string,
-  readProductDocument: ProductDocumentationReader,
-): Promise<void> {
-  for (const path of scenario.paths) {
-    await expect(readProductDocument(path)).resolves.toBe(
-      path === interveningPath ? scenario.intervening[path] : scenario.original[path],
-    );
-  }
-}
-
-async function assertDocumentationFailureLeavesProductUnchanged(
-  scenario: DocumentationSyncScenario,
-  controls: DocumentationFailureControls,
-): Promise<void> {
-  const promoter = new RecordingDocumentationPromoter();
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    await expect(composeDocumentationSync({
-      ...options,
-      ...controls,
-      promoteDocumentation: promoter.promote,
-    })).rejects.toThrow();
-    expect(promoter.calls).toHaveLength(0);
-    await expectProductDocumentationUnchanged(scenario, readProductDocument);
-  });
-}
-
-async function assertDuplicateDocumentationIdentityRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primaryPath = scenario.paths.at(0);
-  const aliasPath = scenario.paths.at(1);
-  if (primaryPath === undefined || aliasPath === undefined) {
-    throw new Error("Generated documentation identity case requires two paths");
-  }
-  const promoter = new RecordingDocumentationPromoter();
-  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-    await rm(join(options.productDir, aliasPath));
-    await link(
-      join(options.productDir, primaryPath),
-      join(options.productDir, aliasPath),
-    );
-    await expect(composeDocumentationSync({
-      ...options,
-      promoteDocumentation: promoter.promote,
-    })).rejects.toThrow();
-    expect(agent.requests).toHaveLength(0);
-    expect(promoter.calls).toHaveLength(0);
-    await expectProductDocumentationUnchanged(scenario, readProductDocument);
-  });
-}
-
-async function assertFifoRejectedWithoutBlocking(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  const promoter = new RecordingDocumentationPromoter();
-  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-    const fifoPath = join(options.productDir, primary.path);
-    await rm(fifoPath);
-    await execa(DOCUMENTATION_FIFO_COMMAND, [fifoPath]);
-    const sync = composeDocumentationSync({
-      ...options,
-      promoteDocumentation: promoter.promote,
-    });
-    const outcome = await Promise.race([
-      sync.then(
-        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.RESOLVED,
-        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.REJECTED,
-      ),
-      delay(DOCUMENTATION_FIFO_BLOCK_DETECTION_MS).then(
-        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED,
-      ),
-    ]);
-    if (outcome === DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED) {
-      await Promise.allSettled([
-        sync,
-        writeFile(fifoPath, primary.originalContent),
-      ]);
-    }
-    expect(outcome).toBe(DOCUMENTATION_FIFO_STAGE_OUTCOME.REJECTED);
-    expect(agent.requests).toHaveLength(0);
-    expect(promoter.calls).toHaveLength(0);
-  });
-}
-
-async function assertUnrelatedVersionRewriteRejected(
-  testCase: DocumentationUnrelatedVersionRewriteScenario,
-): Promise<void> {
-  const promoter = new RecordingDocumentationPromoter();
-  await withDocumentationScenario(testCase.scenario, async (options, readProductDocument) => {
-    await expect(composeDocumentationSync({
-      ...options,
-      agentRunner: new DocumentationWritingAgent(testCase.rewritten),
-      faithfulnessAuditor: async (request) => {
-        expect(request.documents.map(({ path, updatedContent }) => ({ path, updatedContent }))).toEqual(
-          testCase.scenario.paths.map((path) => ({
-            path,
-            updatedContent: testCase.rewritten[path],
-          })),
-        );
-        await rejectingDocumentationAuditor(request);
-      },
-      promoteDocumentation: promoter.promote,
-    })).rejects.toThrow();
-    expect(promoter.calls).toHaveLength(0);
-    await expectProductDocumentationUnchanged(testCase.scenario, readProductDocument);
-  });
-}
-
-async function assertDocumentationAgentFileToolBoundary(
-  scenario: DocumentationAgentFileToolBoundaryScenario,
-): Promise<void> {
-  const documentationScenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-  await withDocumentationScenario(documentationScenario, async (options) => {
-    await composeDocumentationSync({
-      ...options,
-      agentRunner: new FileToolBoundaryDocumentationAgent(documentationScenario.updated, scenario),
-    });
-  });
-}
-
-async function assertAgentRunRequestFileToolBoundary(
-  request: AgentRunRequest,
-  scenario: DocumentationAgentFileToolBoundaryScenario,
-): Promise<void> {
-  const promptInput = parseDocumentationSyncPromptInput(request.prompt);
-  expect(promptInput.documents.every(({ stagedPath }) => isPathContained(request.workingDirectory, stagedPath)))
-    .toBe(true);
-  expect(request.tools).toContain(scenario.tool);
-  expect(request.allowedTools).toContain(scenario.tool);
-  const options = createAgentRunOptions(request);
-  expect(options.permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
-  expect(options.allowedTools).toContain(scenario.tool);
-  const preToolUseHook = options.hooks?.PreToolUse?.at(0)?.hooks.at(0);
-  if (preToolUseHook === undefined) {
-    throw new Error("Agent run options do not enforce pre-tool-use containment");
-  }
-  const hookOptions = {
-    signal: new AbortController().signal,
-  };
-  const containedPath = join(request.workingDirectory, posix.basename(scenario.containedPath));
-  const escapedPaths = [
-    scenario.escapedPaths[0],
-    join(dirname(request.workingDirectory), posix.basename(scenario.escapedPaths[1])),
-  ];
-  await expect(
-    preToolUseHook(
-      {
-        hook_event_name: AGENT_PRE_TOOL_USE_HOOK_EVENT,
-        session_id: request.prompt,
-        transcript_path: containedPath,
-        cwd: request.workingDirectory,
-        tool_name: scenario.tool,
-        tool_input: { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: containedPath },
-        tool_use_id: containedPath,
-      },
-      containedPath,
-      hookOptions,
-    ),
-  ).resolves.toMatchObject({
-    hookSpecificOutput: { permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.ALLOW },
-  });
-  for (const escapedPath of escapedPaths) {
-    await expect(
-      preToolUseHook(
-        {
-          hook_event_name: AGENT_PRE_TOOL_USE_HOOK_EVENT,
-          session_id: request.prompt,
-          transcript_path: escapedPath,
-          cwd: request.workingDirectory,
-          tool_name: scenario.tool,
-          tool_input: { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: escapedPath },
-          tool_use_id: escapedPath,
-        },
-        escapedPath,
-        hookOptions,
-      ),
-    ).resolves.toMatchObject({
-      hookSpecificOutput: { permissionDecision: AGENT_TOOL_PERMISSION_BEHAVIOR.DENY },
-    });
-  }
-}
-
-async function assertVersionValidationPrecedesFaithfulnessAudit(
-  scenario: DocumentationSyncScenario,
-  agentRunner: AgentRunner,
-): Promise<void> {
-  const auditor = new RecordingDocumentationAuditor();
-  const promoter = new RecordingDocumentationPromoter();
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    await expect(composeDocumentationSync({
-      ...options,
-      agentRunner,
-      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
-      promoteDocumentation: promoter.promote,
-    })).rejects.toThrow();
-    expect(auditor.requests).toHaveLength(0);
-    expect(promoter.calls).toHaveLength(0);
-    await expectProductDocumentationUnchanged(scenario, readProductDocument);
-  });
-}
-
-async function assertStagedSymlinkRejectedBeforeAuditAndPromotion(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const sourcePath = scenario.paths.at(0);
-  if (sourcePath === undefined) throw new Error("Generated documentation set is empty");
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    const auditor = new RecordingDocumentationAuditor();
-    const promoter = new RecordingDocumentationPromoter();
-    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-      await expect(composeDocumentationSync({
-        ...options,
-        agentRunner: new StagedSymlinkReplacingAgent(
-          scenario.updated,
-          sourcePath,
-          join(externalDir, sourcePath),
-        ),
-        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
-        promoteDocumentation: promoter.promote,
-      })).rejects.toThrow();
-      expect(auditor.requests).toHaveLength(0);
-      expect(promoter.calls).toHaveLength(0);
-      await expectProductDocumentationUnchanged(scenario, readProductDocument);
-    });
-  });
-}
-
-async function assertProductStagingIdentityChangeRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  await assertDocumentationReadIdentityChangeRejected(
-    scenario,
-    DOCUMENTATION_READ_RACE_TARGET.PRODUCT,
-  );
-}
-
-async function assertStagedReadbackIdentityChangeRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  await assertDocumentationReadIdentityChangeRejected(
-    scenario,
-    DOCUMENTATION_READ_RACE_TARGET.STAGED,
-  );
-}
-
-async function assertCanonicalResolutionIdentityChangeRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-      const canonicalProductDir = await realpath(options.productDir);
-      const resolver = new RetargetingDocumentationCanonicalPathResolver(
-        join(canonicalProductDir, primary.path),
-        join(externalDir, primary.path),
-        primary.originalContent,
-      );
-      const writer = new RecordingDocumentationAtomicWriter();
-      const filesystem = createDocumentationSyncFilesystem({
-        resolveCanonicalDocumentationPath: resolver.resolve,
-        writeDocumentAtomic: writer.write,
-      });
-      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
-      expect(agent.requests).toHaveLength(0);
-      expect(writer.writes).toBe(0);
-      await expectProductDocumentationUnchanged(scenario, readProductDocument);
-    });
-  });
-}
-
-async function assertDocumentationReadIdentityChangeRejected(
-  scenario: DocumentationSyncScenario,
-  target: DocumentationReadRaceTarget,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-      const canonicalProductDir = await realpath(options.productDir);
-      const opener = new RetargetingDocumentationFileOpener(
-        target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
-          ? (path) => path === join(canonicalProductDir, primary.path)
-          : (path) => !isPathContained(canonicalProductDir, path),
-        join(externalDir, primary.path),
-        target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
-          ? primary.originalContent
-          : primary.updatedContent,
-      );
-      const writer = new RecordingDocumentationAtomicWriter();
-      const filesystem = createDocumentationSyncFilesystem({
-        openDocumentationFile: opener.open,
-        writeDocumentAtomic: writer.write,
-      });
-      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
-      if (target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT) expect(agent.requests).toHaveLength(0);
-      expect(writer.writes).toBe(0);
-      await expectProductDocumentationUnchanged(scenario, readProductDocument);
-    });
-  });
-}
-
-async function assertPromotionIdentityChangeRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-      const canonicalProductDir = await realpath(options.productDir);
-      const writer = new IdentityReplacingDocumentationAtomicWriter(
-        join(canonicalProductDir, primary.path),
-        join(externalDir, primary.path),
-        primary.originalContent,
-      );
-      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toThrow();
-      expect(writer.writes).toBe(0);
-      await expectProductDocumentationUnchanged(scenario, readProductDocument);
-    });
-  });
-}
-
-async function assertStagedIdentityReplacementRejected(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-      const writer = new RecordingDocumentationAtomicWriter();
-      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-      const promoter = new InterveningDocumentationIdentityPromoter(
-        join(options.productDir, primary.path),
-        join(externalDir, primary.path),
-        primary.originalContent,
-        filesystem.promoteDocumentation,
-      );
-      await expect(composeDocumentationSync({
-        ...options,
-        promoteDocumentation: promoter.promote,
-      })).rejects.toThrow();
-      expect(writer.writes).toBe(0);
-      await expectProductDocumentationUnchanged(scenario, readProductDocument);
-    });
-  });
-}
-
-async function assertAtomicPromotionClosesDocumentationHandles(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const opener = new TrackingDocumentationFileOpener();
-  const writer = createDocumentationAtomicWriter({
-    writeFile: async (path, content) => await writeFile(path, content),
-    rename: async (from, to) => {
-      if (opener.openHandleCount > 0) {
-        throw new Error("Atomic rename attempted with an open documentation handle");
-      }
-      await rename(from, to);
-    },
-    rm: async (path, options) => await rm(path, options),
-  });
-  const filesystem = createDocumentationSyncFilesystem({
-    openDocumentationFile: opener.open,
-    writeDocumentAtomic: writer,
-  });
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    await expect(composeWithDocumentationFilesystem(options, filesystem)).resolves.toEqual({
-      paths: scenario.paths,
-    });
-    expect(opener.openHandleCount).toBe(0);
-    for (const path of scenario.paths) {
-      await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-    }
-  });
-}
-
 async function replaceDocumentationPathIdentity(
   targetPath: string,
   replacementPath: string,
@@ -992,46 +593,6 @@ async function replaceDocumentationPathIdentity(
   await mkdir(dirname(replacementPath), { recursive: true });
   await writeFile(replacementPath, replacementContent);
   await rename(replacementPath, targetPath);
-}
-
-async function assertRollbackPreservesPostPromotionEdit(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    const writer = new PostPromotionEditFailingAtomicWriter(
-      join(options.productDir, primary.path),
-      primary.interveningContent,
-    );
-    const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-    await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
-    expect(writer.failures).toBe(1);
-    await expectOnlyInterveningDocumentationEdit(scenario, primary.path, readProductDocument);
-  });
-}
-
-async function assertRollbackPreservesPostPromotionIdentityReplacement(
-  scenario: DocumentationSyncScenario,
-): Promise<void> {
-  const primary = primaryDocumentation(scenario);
-  await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-      const fileSystem = new PostRenameIdentityReplacingAtomicFileSystem(
-        join(externalDir, primary.path),
-        primary.updatedContent,
-      );
-      const filesystem = createDocumentationSyncFilesystem({
-        writeDocumentAtomic: createDocumentationAtomicWriter(fileSystem),
-      });
-      await expect(composeWithDocumentationFilesystem(options, filesystem)).rejects.toBeInstanceOf(AggregateError);
-      expect(fileSystem.failures).toBe(1);
-      for (const path of scenario.paths) {
-        await expect(readProductDocument(path)).resolves.toBe(
-          path === primary.path ? primary.updatedContent : scenario.original[path],
-        );
-      }
-    });
-  });
 }
 
 function composeWithDocumentationFilesystem(
@@ -1058,53 +619,362 @@ function primaryDocumentation(scenario: DocumentationSyncScenario): PrimaryDocum
   return { path, originalContent, updatedContent, interveningContent };
 }
 
-async function assertDocumentationPathFailure(
-  failureCase: DocumentationPathFailureCase,
-): Promise<void> {
-  await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
-    await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
-      await materializeDocumentationPathFailure(failureCase, productDir, externalDir);
-      const filesystem = createDocumentationSyncFilesystem();
-      const agent = new PassiveDocumentationAgent();
-      const promoter = new RecordingDocumentationPromoter();
-      await expect(composeDocumentationSync({
-        releaseData: failureCase.releaseData,
-        config: failureCase.config,
-        productDir,
-        agentRunner: agent,
-        stageDocumentation: filesystem.stageDocumentation,
-        readDocument: filesystem.readDocument,
-        promoteDocumentation: promoter.promote,
-        faithfulnessAuditor: approvingDocumentationAuditor,
-      })).rejects.toThrow();
-      expect(agent.requests).toHaveLength(0);
-      expect(promoter.calls).toHaveLength(0);
-      await expectDocumentationPathBackingUnchanged(failureCase, productDir, externalDir);
+function lastDocumentationPath(scenario: DocumentationSyncScenario): string {
+  const path = scenario.paths.at(-1);
+  if (path === undefined) throw new Error("Generated documentation set has no last path");
+  return path;
+}
+
+interface DocumentationContentObservation {
+  readonly actual: readonly { readonly path: string; readonly content: string }[];
+  readonly expected: readonly { readonly path: string; readonly content: string | undefined }[];
+}
+
+interface VersionlessDocumentationSyncObservation extends DocumentationContentObservation {
+  readonly producerInstruction: string;
+  readonly encodedVersion: string;
+  readonly permissionMode: AgentRunRequest["permissionMode"];
+  readonly auditRequestCount: number;
+  readonly auditInstruction: string;
+}
+
+async function observeDefaultDocumentationSync(): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(
+    sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario()),
+  );
+}
+
+async function observeConfiguredDocumentationSync(): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(
+    sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+  );
+}
+
+async function observeFirstReleaseDocumentationSync(): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(
+    sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
+  );
+}
+
+async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
+  VersionlessDocumentationSyncObservation
+> {
+  const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
+  const auditor = new RecordingDocumentationAuditor();
+  let observation: VersionlessDocumentationSyncObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+    await runDocumentationSyncCli({
+      ...options,
+      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
     });
+    const producerRequest = requiredAgentRequest(agent.requests, "producer");
+    const auditRequest = requiredAgentRequest(auditor.requests, "audit");
+    observation = {
+      ...await observeDocumentationContent(scenario, readProductDocument),
+      producerInstruction: documentationSyncPromptInstruction(producerRequest.prompt),
+      encodedVersion: JSON.stringify(scenario.releaseData.version),
+      permissionMode: producerRequest.permissionMode,
+      auditRequestCount: auditor.requests.length,
+      auditInstruction: documentationSyncPromptInstruction(auditRequest.prompt),
+    };
+  });
+  if (observation === undefined) {
+    throw new Error("Versionless documentation sync produced no observation");
+  }
+  return observation;
+}
+
+async function observeDocumentationSync(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationContentObservation> {
+  let observation: DocumentationContentObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    await runDocumentationSyncCli(options);
+    observation = await observeDocumentationContent(scenario, readProductDocument);
+  });
+  if (observation === undefined) {
+    throw new Error("Documentation sync produced no content observation");
+  }
+  return observation;
+}
+
+async function observeDocumentationContent(
+  scenario: DocumentationSyncScenario,
+  readProductDocument: ProductDocumentationReader,
+): Promise<DocumentationContentObservation> {
+  return {
+    actual: await Promise.all(
+      scenario.paths.map(async (path) => ({ path, content: await readProductDocument(path) })),
+    ),
+    expected: scenario.paths.map((path) => ({ path, content: scenario.updated[path] })),
+  };
+}
+
+function requiredAgentRequest<T extends AgentRunRequest | AgentAuditRequest>(
+  requests: readonly T[],
+  boundary: string,
+): T {
+  const request = requests.at(0);
+  if (request === undefined) {
+    throw new Error(`Documentation sync ${boundary} emitted no request`);
+  }
+  return request;
+}
+
+interface DocumentationPathMappingObservation {
+  readonly actual: readonly string[];
+  readonly expected: readonly string[];
+}
+
+interface DocumentationPathSemanticsObservation {
+  readonly actual: string | undefined;
+  readonly expected: string;
+}
+
+interface DocumentationPathAliasObservation {
+  readonly actualDocumentCount: number;
+  readonly actualSourcePath: string;
+  readonly expectedSourcePath: string;
+  readonly actualTargetPath: string;
+  readonly expectedTargetPath: string;
+  readonly actualStagedPath: string;
+  readonly expectedStagedPath: string;
+  readonly actualContent: string;
+  readonly expectedContent: string;
+}
+
+interface DocumentationConfigObservation {
+  readonly actual: Awaited<
+    ReturnType<typeof DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES.resolveDocumentationConfig>
+  >;
+  readonly expected: DocumentationSyncScenario["config"];
+}
+
+async function observeDocumentationPathMappings(): Promise<readonly DocumentationPathMappingObservation[]> {
+  const observations: DocumentationPathMappingObservation[] = [];
+  for (const { scenario, expected } of documentationPathMappingCases()) {
+    await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+      await runDocumentationSyncCli(options);
+      observations.push({
+        actual: parseDocumentationSyncPromptInput(requiredAgentRequest(agent.requests, "producer").prompt)
+          .documents.map(({ sourcePath }) => sourcePath),
+        expected,
+      });
+    });
+  }
+  return observations;
+}
+
+function observeDocumentationPathSemantics(): readonly DocumentationPathSemanticsObservation[] {
+  return DOCUMENTATION_PATH_SEMANTICS.map(({ join: joinPath, operations }) => {
+    const scenario = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario());
+    const sourcePath = scenario.paths.at(0);
+    if (sourcePath === undefined) {
+      throw new Error("Generated nested documentation scenario has no source path");
+    }
+    const productDir = joinPath(operations.sep, PRODUCT_DIRECTORY_PREFIX);
+    return {
+      actual: resolveCanonicalDocumentationTarget(productDir, sourcePath, operations),
+      expected: operations.resolve(productDir, sourcePath),
+    };
   });
 }
 
-async function assertDocumentationPathAliasResolves(
-  aliasCase: DocumentationPathAliasCase,
-): Promise<void> {
-  await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
-    const canonicalPath = join(productDir, aliasCase.canonicalPath);
-    await mkdir(dirname(canonicalPath), { recursive: true });
-    await writeFile(canonicalPath, aliasCase.content);
-    const filesystem = createDocumentationSyncFilesystem();
-    const stage = await filesystem.stageDocumentation(productDir, [aliasCase.configuredPath]);
-    try {
-      expect(stage.documents).toHaveLength(1);
-      expect(stage.documents[0].sourcePath).toBe(aliasCase.configuredPath);
-      expect(stage.documents[0].targetPath).toBe(await realpath(canonicalPath));
-      expect(stage.documents[0].stagedPath).toBe(join(stage.workingDirectory, aliasCase.canonicalPath));
-      await expect(
-        filesystem.readDocument(stage.workingDirectory, stage.documents[0].stagedPath),
-      ).resolves.toBe(aliasCase.content);
-    } finally {
-      await stage.cleanup();
-    }
+async function observeDocumentationPathAliases(): Promise<readonly DocumentationPathAliasObservation[]> {
+  const observations: DocumentationPathAliasObservation[] = [];
+  for (const aliasCase of sampleReleaseTestValue(arbitraryDocumentationPathAliasCases())) {
+    await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
+      const canonicalPath = join(productDir, aliasCase.canonicalPath);
+      await mkdir(dirname(canonicalPath), { recursive: true });
+      await writeFile(canonicalPath, aliasCase.content);
+      const filesystem = createDocumentationSyncFilesystem();
+      const stage = await filesystem.stageDocumentation(productDir, [aliasCase.configuredPath]);
+      try {
+        const document = stage.documents.at(0);
+        if (document === undefined) {
+          throw new Error("Documentation alias staging produced no document");
+        }
+        observations.push({
+          actualDocumentCount: stage.documents.length,
+          actualSourcePath: document.sourcePath,
+          expectedSourcePath: aliasCase.configuredPath,
+          actualTargetPath: document.targetPath,
+          expectedTargetPath: await realpath(canonicalPath),
+          actualStagedPath: document.stagedPath,
+          expectedStagedPath: join(stage.workingDirectory, aliasCase.canonicalPath),
+          actualContent: await filesystem.readDocument(stage.workingDirectory, document.stagedPath),
+          expectedContent: aliasCase.content,
+        });
+      } finally {
+        await stage.cleanup();
+      }
+    });
+  }
+  return observations;
+}
+
+async function observeIndependentDocumentationConfigResolution(): Promise<DocumentationConfigObservation> {
+  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  return await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
+    await writeFile(
+      join(productDir, DEFAULT_CONFIG_FILENAME),
+      serializeConfigFileSections(CONFIG_FILE_FORMAT.YAML, {
+        [RELEASE_SECTION]: {
+          [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
+            [RELEASE_CONFIG_FIELDS.PATHS]: scenario.paths,
+          },
+        },
+        [DIAGNOSE_SECTION]: sampleReleaseTestValue(arbitraryDomainLiteral()),
+      }).value,
+    );
+    return {
+      actual: await DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES.resolveDocumentationConfig(productDir),
+      expected: scenario.config,
+    };
   });
+}
+
+interface DocumentationPathSetObservation {
+  readonly actual: readonly string[];
+  readonly expected: readonly string[];
+}
+
+type DocumentationVersionPreservationObservation = DocumentationContentObservation;
+
+interface DocumentationUnrelatedVersionRewriteObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[];
+  readonly expectedAuditDocuments: readonly { readonly path: string; readonly updatedContent: string | undefined }[];
+  readonly promotionCallCount: number;
+}
+
+interface DocumentationAgentFileToolBoundaryObservation {
+  readonly promptPaths: readonly string[];
+  readonly workingDirectory: string;
+  readonly requestTools: readonly string[];
+  readonly requestAllowedTools: readonly string[];
+  readonly optionPermissionMode: string | undefined;
+  readonly optionAllowedTools: readonly string[];
+  readonly tool: string;
+  readonly containedHookResult: unknown;
+  readonly escapedHookResults: readonly unknown[];
+}
+
+async function observeConfiguredDocumentationPathSet(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationPathSetObservation> {
+  let observation: DocumentationPathSetObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+    await runDocumentationSyncCli(options);
+    observation = {
+      actual: parseDocumentationSyncPromptInput(requiredAgentRequest(agent.requests, "producer").prompt)
+        .documents.map(({ sourcePath }) => sourcePath),
+      expected: scenario.paths,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation path-set property produced no observation");
+  return observation;
+}
+
+async function observeDocumentationVersionPreservation(
+  scenarios: DocumentationVersionPreservationScenarios,
+): Promise<readonly DocumentationVersionPreservationObservation[]> {
+  return await Promise.all(
+    [scenarios.withPreviousTag, scenarios.withoutPreviousTag].map(async (scenario) =>
+      await observeDocumentationSync(scenario)
+    ),
+  );
+}
+
+async function observeUnrelatedVersionRewrite(
+  testCase: DocumentationUnrelatedVersionRewriteScenario,
+): Promise<DocumentationUnrelatedVersionRewriteObservation> {
+  const promoter = new RecordingDocumentationPromoter();
+  let observation: DocumentationUnrelatedVersionRewriteObservation | undefined;
+  await withDocumentationScenario(testCase.scenario, async (options, readProductDocument) => {
+    let actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[] = [];
+    let error: unknown;
+    try {
+      await composeDocumentationSync({
+        ...options,
+        agentRunner: new DocumentationWritingAgent(testCase.rewritten),
+        faithfulnessAuditor: async (request) => {
+          actualAuditDocuments = request.documents.map(({ path, updatedContent }) => ({ path, updatedContent }));
+          await rejectingDocumentationAuditor(request);
+        },
+        promoteDocumentation: promoter.promote,
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    const content = await observeDocumentationContent(testCase.scenario, readProductDocument);
+    observation = {
+      actual: content.actual,
+      expected: testCase.scenario.paths.map((path) => ({
+        path,
+        content: testCase.scenario.original[path],
+      })),
+      error,
+      actualAuditDocuments,
+      expectedAuditDocuments: testCase.scenario.paths.map((path) => ({
+        path,
+        updatedContent: testCase.rewritten[path],
+      })),
+      promotionCallCount: promoter.calls.length,
+    };
+  });
+  if (observation === undefined) throw new Error("Unrelated version rewrite produced no observation");
+  return observation;
+}
+
+async function observeDocumentationAgentFileToolBoundary(
+  scenario: DocumentationAgentFileToolBoundaryScenario,
+): Promise<DocumentationAgentFileToolBoundaryObservation> {
+  const documentationScenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  const agent = new DocumentationWritingAgent(documentationScenario.updated);
+  let observation: DocumentationAgentFileToolBoundaryObservation | undefined;
+  await withDocumentationScenario(documentationScenario, async (options) => {
+    await composeDocumentationSync({ ...options, agentRunner: agent });
+    const request = requiredAgentRequest(agent.requests, "producer");
+    const agentOptions = createAgentRunOptions(request);
+    const preToolUseHook = agentOptions.hooks?.PreToolUse?.at(0)?.hooks.at(0);
+    if (preToolUseHook === undefined) {
+      throw new Error("Agent run options do not enforce pre-tool-use containment");
+    }
+    const containedPath = join(request.workingDirectory, posix.basename(scenario.containedPath));
+    const escapedPaths = [
+      scenario.escapedPaths[0],
+      join(dirname(request.workingDirectory), posix.basename(scenario.escapedPaths[1])),
+    ];
+    const hookOptions = { signal: new AbortController().signal };
+    const invokeHook = async (path: string): Promise<unknown> =>
+      await preToolUseHook(
+        {
+          hook_event_name: AGENT_PRE_TOOL_USE_HOOK_EVENT,
+          session_id: request.prompt,
+          transcript_path: path,
+          cwd: request.workingDirectory,
+          tool_name: scenario.tool,
+          tool_input: { [AGENT_FILE_TOOL_PATH_INPUT_FIELD]: path },
+          tool_use_id: path,
+        },
+        path,
+        hookOptions,
+      );
+    observation = {
+      promptPaths: parseDocumentationSyncPromptInput(request.prompt).documents.map(({ stagedPath }) => stagedPath),
+      workingDirectory: request.workingDirectory,
+      requestTools: request.tools,
+      requestAllowedTools: request.allowedTools,
+      optionPermissionMode: agentOptions.permissionMode,
+      optionAllowedTools: agentOptions.allowedTools ?? [],
+      tool: scenario.tool,
+      containedHookResult: await invokeHook(containedPath),
+      escapedHookResults: await Promise.all(escapedPaths.map(invokeHook)),
+    };
+  });
+  if (observation === undefined) throw new Error("Agent file-tool boundary produced no observation");
+  return observation;
 }
 
 async function materializeDocumentationPathFailure(
@@ -1127,23 +997,6 @@ async function materializeDocumentationPathFailure(
     case DOCUMENTATION_PATH_FAILURE_KIND.TRAVERSAL:
     case DOCUMENTATION_PATH_FAILURE_KIND.MISSING_FILE:
       return;
-  }
-}
-
-async function expectDocumentationPathBackingUnchanged(
-  failureCase: DocumentationPathFailureCase,
-  productDir: string,
-  externalDir: string,
-): Promise<void> {
-  if (failureCase.kind === DOCUMENTATION_PATH_FAILURE_KIND.CANONICAL_ESCAPE) {
-    await expect(readFile(join(externalDir, failureCase.backingPath), "utf8")).resolves.toBe(
-      failureCase.backingContent,
-    );
-  }
-  if (failureCase.kind === DOCUMENTATION_PATH_FAILURE_KIND.FINAL_SYMLINK) {
-    await expect(readFile(join(productDir, failureCase.backingPath), "utf8")).resolves.toBe(
-      failureCase.backingContent,
-    );
   }
 }
 
@@ -1193,468 +1046,125 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
   );
 }
 
-function registerScenarioTests(): void {
-  describe("documentation sync scenarios", () => {
-    it("updates the default product README to the released version", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await runDocumentationSyncCli(options);
-        await expect(readProductDocument(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0])).resolves.toBe(
-          scenario.updated[DEFAULT_RELEASE_DOCUMENTATION_PATHS[0]],
-        );
-      });
-    });
-
-    it("updates every configured documentation path to the released version", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await runDocumentationSyncCli(options);
-        for (const path of scenario.paths) {
-          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-        }
-      });
-    });
-
-    it("adds the released version to first-release documentation", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await runDocumentationSyncCli(options);
-        for (const path of scenario.paths) {
-          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-        }
-      });
-    });
-
-    it("adds the released version when subsequent-release documentation has no previous version reference", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
-      const auditor = new RecordingDocumentationAuditor();
-      await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
-        await runDocumentationSyncCli({
-          ...options,
-          faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
-        });
-        const promptInstruction = documentationSyncPromptInstruction(agent.requests[0].prompt);
-        expect(promptInstruction).toContain(scenario.releaseData.version);
-        expect(promptInstruction).not.toContain(JSON.stringify(scenario.releaseData.version));
-        expect(agent.requests[0].permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
-        expect(auditor.requests).toHaveLength(1);
-        expect(documentationSyncPromptInstruction(auditor.requests[0].prompt)).toContain(
-          DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
-        );
-        for (const path of scenario.paths) {
-          await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-        }
-      });
-    });
-  });
-}
-
-function registerMappingTests(): void {
-  describe("documentation sync path mapping", () => {
-    it.each(documentationPathMappingCases())("maps %s documentation paths", async ({ scenario, expected }) => {
-      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-        await runDocumentationSyncCli(options);
-        expect(
-          parseDocumentationSyncPromptInput(agent.requests[0].prompt).documents.map(({ sourcePath }) => sourcePath),
-        )
-          .toEqual(expected);
-      });
-    });
-
-    it.each(DOCUMENTATION_PATH_SEMANTICS)(
-      "resolves nested slash-separated paths with $label semantics",
-      ({ join: joinPath, operations }) => {
-        const scenario = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario());
-        const sourcePath = scenario.paths[0];
-        const productDir = joinPath(operations.sep, PRODUCT_DIRECTORY_PREFIX);
-        expect(resolveCanonicalDocumentationTarget(productDir, sourcePath, operations)).toBe(
-          operations.resolve(productDir, sourcePath),
-        );
-      },
-    );
-
-    it("resolves configured path aliases to their canonical staged documents", async () => {
-      const aliasCases = sampleReleaseTestValue(arbitraryDocumentationPathAliasCases());
-      for (const aliasCase of aliasCases) await assertDocumentationPathAliasResolves(aliasCase);
-    });
-
-    it("resolves release documentation config independently of unrelated sections", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
-        await writeFile(
-          join(productDir, DEFAULT_CONFIG_FILENAME),
-          serializeConfigFileSections(CONFIG_FILE_FORMAT.YAML, {
-            [RELEASE_SECTION]: {
-              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
-                [RELEASE_CONFIG_FIELDS.PATHS]: scenario.paths,
-              },
-            },
-            [DIAGNOSE_SECTION]: sampleReleaseTestValue(arbitraryDomainLiteral()),
-          }).value,
-        );
-        await expect(
-          DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES.resolveDocumentationConfig(productDir),
-        ).resolves.toEqual(scenario.config);
-      });
-    });
-  });
-}
-
-function registerPropertyTests(): void {
-  describe("documentation sync path properties", () => {
-    it("preserves every generated configured documentation path set", async () => {
-      await assertProperty(
-        arbitraryConfiguredDocumentationSyncScenario(),
-        async (scenario) => {
-          await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-            await runDocumentationSyncCli(options);
-            expect(
-              parseDocumentationSyncPromptInput(agent.requests[0].prompt).documents.map(({ sourcePath }) => sourcePath),
-            ).toEqual(scenario.paths);
-          });
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-
-    it("rejects every generated duplicate-bearing configured documentation path set", () => {
-      assertProperty(
-        arbitraryDuplicateDocumentationPathSet(),
-        (paths) => {
-          expect(
-            releaseConfigDescriptor.validate({
-              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
-                [RELEASE_CONFIG_FIELDS.PATHS]: paths,
-              },
-            }).ok,
-          ).toBe(false);
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-
-    it("rejects every generated sparse configured documentation path set", () => {
-      assertProperty(
-        arbitrarySparseDocumentationPathSet(),
-        (paths) => {
-          expect(
-            releaseConfigDescriptor.validate({
-              [RELEASE_CONFIG_FIELDS.DOCUMENTATION]: {
-                [RELEASE_CONFIG_FIELDS.PATHS]: paths,
-              },
-            }).ok,
-          ).toBe(false);
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-
-    it("preserves every generated unrelated semantic version across release histories", async () => {
-      await assertProperty(
-        arbitraryDocumentationVersionPreservationScenarios(),
-        async (scenarios) => {
-          for (const scenario of [scenarios.withPreviousTag, scenarios.withoutPreviousTag]) {
-            await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-              await runDocumentationSyncCli(options);
-              for (const path of scenario.paths) {
-                await expect(readProductDocument(path)).resolves.toBe(scenario.updated[path]);
-              }
-            });
-          }
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-
-    it("rejects every generated unrelated semantic-version rewrite before promotion", async () => {
-      await assertProperty(
-        arbitraryUnrelatedVersionRewriteScenario(),
-        assertUnrelatedVersionRewriteRejected,
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-
-    it("confines every generated agent file read, write, and edit to the staging workspace", async () => {
-      await assertProperty(
-        arbitraryDocumentationAgentFileToolBoundaryScenario(),
-        assertDocumentationAgentFileToolBoundary,
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-  });
-}
-
-function registerComplianceTests(): void {
-  describe("documentation sync compliance", () => {
-    it.each(documentationPathFailureCases())(
-      "rejects $label before generation or promotion",
-      async (failureCase) => await assertDocumentationPathFailure(failureCase),
-    );
-
-    it("leaves product documentation unpromoted when generation fails", async () => {
-      await assertDocumentationFailureLeavesProductUnchanged(
-        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-        { agentRunner: new FailingDocumentationAgent() },
-      );
-    });
-
-    it("leaves product documentation unpromoted when staged read-back fails", async () => {
-      await assertDocumentationFailureLeavesProductUnchanged(
-        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-        { readDocument: failingDocumentationReader },
-      );
-    });
-
-    it("rejects staged symlinks before audit or promotion", async () => {
-      await assertStagedSymlinkRejectedBeforeAuditAndPromotion(
-        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-      );
-    });
-
-    it("rejects product documentation identity changes during staging reads", async () => {
-      await assertProductStagingIdentityChangeRejected(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("rejects product documentation identity changes during canonical resolution", async () => {
-      await assertCanonicalResolutionIdentityChangeRejected(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("rejects staged documentation identity changes during read-back", async () => {
-      await assertStagedReadbackIdentityChangeRejected(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("rejects configured documentation paths that share one file identity", async () => {
-      await assertDuplicateDocumentationIdentityRejected(
-        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
-      );
-    });
-
-    it("rejects FIFO documentation paths without blocking on open", async () => {
-      await assertFifoRejectedWithoutBlocking(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("validates every released version before invoking the faithfulness audit", async () => {
-      await assertVersionValidationPrecedesFaithfulnessAudit(
-        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-        new PassiveDocumentationAgent(),
-      );
-    });
-
-    it("rejects a release-version variant as the only released-version reference", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryReleaseVersionVariantOnlyScenario());
-      await assertVersionValidationPrecedesFaithfulnessAudit(
-        scenario,
-        new DocumentationWritingAgent(scenario.updated),
-      );
-    });
-
-    it("rejects partially updated version references before invoking the faithfulness audit", async () => {
-      await assertVersionValidationPrecedesFaithfulnessAudit(
-        sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-        new PartiallyUpdatingDocumentationAgent(),
-      );
-    });
-
-    it("validates the complete configured set before promoting any document", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
-      await assertDocumentationFailureLeavesProductUnchanged(scenario, {
-        agentRunner: new FirstDocumentationWritingAgent(scenario.updated),
-      });
-    });
-
-    it("restores earlier documents when a later atomic promotion fails", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
-      const writer = new FailingSecondDocumentationAtomicWriter();
-      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await expect(composeDocumentationSync({
-          ...options,
-          promoteDocumentation: filesystem.promoteDocumentation,
-        })).rejects.toThrow();
-        expect(writer.failures).toBe(1);
-        await expectProductDocumentationUnchanged(scenario, readProductDocument);
-      });
-    });
-
-    it("leaves the complete staged set unpromoted when a document changes after staging", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
-      const interveningPath = scenario.paths.at(-1);
-      if (interveningPath === undefined) throw new Error("Generated documentation set is empty");
-      const interveningContent = scenario.intervening[interveningPath];
-      if (interveningContent === undefined) throw new Error(`No intervening documentation for ${interveningPath}`);
-      const writer = new RecordingDocumentationAtomicWriter();
-      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        const promoter = new InterveningDocumentationEditPromoter(
-          options.productDir,
-          interveningPath,
-          interveningContent,
-          filesystem.promoteDocumentation,
-        );
-        await expect(composeDocumentationSync({
-          ...options,
-          promoteDocumentation: promoter.promote,
-        })).rejects.toThrow();
-        expect(writer.writes).toBe(0);
-        await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
-      });
-    });
-
-    it("rejects a same-content identity replacement after staging", async () => {
-      await assertStagedIdentityReplacementRejected(
-        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
-      );
-    });
-
-    it("rolls back earlier writes when a later document changes during promotion", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
-      const interveningPath = scenario.paths[1];
-      const interveningContent = scenario.intervening[interveningPath];
-      if (interveningContent === undefined) throw new Error(`No intervening documentation for ${interveningPath}`);
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        const writer = new InterveningDuringPromotionAtomicWriter(
-          join(options.productDir, interveningPath),
-          interveningContent,
-        );
-        const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
-        await expect(composeDocumentationSync({
-          ...options,
-          promoteDocumentation: filesystem.promoteDocumentation,
-        })).rejects.toThrow();
-        await expectOnlyInterveningDocumentationEdit(scenario, interveningPath, readProductDocument);
-      });
-    });
-
-    it("rejects a target identity change at the atomic replacement boundary", async () => {
-      await assertPromotionIdentityChangeRejected(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("closes documentation handles before the production atomic replacement", async () => {
-      await assertAtomicPromotionClosesDocumentationHandles(
-        sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
-      );
-    });
-
-    it("preserves a post-promotion edit when rollback follows a later failure", async () => {
-      await assertRollbackPreservesPostPromotionEdit(
-        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
-      );
-    });
-
-    it("preserves a same-content identity replacement when rollback follows a later failure", async () => {
-      await assertRollbackPreservesPostPromotionIdentityReplacement(
-        sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
-      );
-    });
-
-    it("audits the read-back set before promoting any document", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      const promoter = new RecordingDocumentationPromoter();
-      await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-        await expect(composeDocumentationSync({
-          ...options,
-          faithfulnessAuditor: async ({ releaseData, documents }) => {
-            expect(releaseData).toBe(scenario.releaseData);
-            expect(documents.map(({ path }) => path)).toEqual(scenario.paths);
-            await rejectingDocumentationAuditor({ releaseData, documents });
-          },
-          promoteDocumentation: promoter.promote,
-        })).rejects.toThrow("Documentation faithfulness rejected");
-        expect(promoter.calls).toHaveLength(0);
-        await expectProductDocumentationUnchanged(scenario, readProductDocument);
-      });
-    });
-
-    it("audits each original-to-read-back documentation transformation", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options) => {
-        await composeDocumentationSync({
-          ...options,
-          faithfulnessAuditor: async ({ releaseData, documents }) => {
-            expect(releaseData).toBe(scenario.releaseData);
-            expect(documents).toEqual(scenario.paths.map((path) => ({
-              path,
-              originalContent: scenario.original[path],
-              updatedContent: scenario.updated[path],
-            })));
-          },
-        });
-      });
-    });
-
-    it("passes only release data and staged document paths to the producing agent", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-        await composeDocumentationSync(options);
-        expect(agent.requests).toHaveLength(1);
-        expect(parseDocumentationSyncPromptInput(agent.requests[0].prompt)).toEqual({
-          releaseData: scenario.releaseData,
-          documents: scenario.paths.map((sourcePath) => ({
-            sourcePath,
-            stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
-          })),
-        });
-      });
-    });
-
-    it("keeps delimiter-shaped release data inside producer and audit data blocks", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryPromptBoundaryDocumentationSyncScenario());
-      const auditor = new RecordingDocumentationAuditor();
-      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-        await composeDocumentationSync({
-          ...options,
-          faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
-        });
-        expect(parseDocumentationPromptDataBlock(agent.requests[0].prompt)).toEqual({
-          releaseData: scenario.releaseData,
-          documents: scenario.paths.map((sourcePath) => ({
-            sourcePath,
-            stagedPath: join(agent.requests[0].workingDirectory, sourcePath),
-          })),
-        });
-        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).not.toContain(
-          DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
-        );
-        expect(documentationSyncPromptInstruction(agent.requests[0].prompt)).toContain(
-          encodeReleasePromptData(scenario.releaseData.version).slice(1, -1),
-        );
-        expect(auditor.requests).toHaveLength(1);
-        expect(parseDocumentationPromptDataBlock(auditor.requests[0].prompt)).toEqual({
-          releaseData: scenario.releaseData,
-          documents: scenario.paths.map((path) => ({
-            path,
-            originalContent: scenario.original[path],
-            updatedContent: scenario.updated[path],
-          })),
-        });
-      });
-    });
-
-    it("excludes ambient spec-tree and domain state from the producing prompt", async () => {
-      const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-      await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
-        await composeDocumentationSync(options);
-        expect(agent.requests).toHaveLength(1);
-        for (const { path, content } of scenario.ambientState) {
-          expect(agent.requests[0].prompt).not.toContain(path);
-          expect(agent.requests[0].prompt).not.toContain(content);
-        }
-      });
-    });
-  });
-}
-
-export const documentationSyncScenarioCases = collectHarnessTestCases(registerScenarioTests);
-export const documentationSyncMappingCases = collectHarnessTestCases(registerMappingTests);
-export const documentationSyncPropertyCases = collectHarnessTestCases(registerPropertyTests);
-export const documentationSyncComplianceCases = collectHarnessTestCases(registerComplianceTests);
+export {
+  AGENT_FILE_TOOL_PATH_INPUT_FIELD,
+  AGENT_PERMISSION_MODES,
+  AGENT_PRE_TOOL_USE_HOOK_EVENT,
+  AGENT_TOOL_PERMISSION_BEHAVIOR,
+  type AgentRunner,
+  type AgentRunRequest,
+  approvingDocumentationAuditor,
+  arbitraryConfiguredDocumentationSyncScenario,
+  arbitraryDefaultDocumentationSyncScenario,
+  arbitraryDocumentationAgentFileToolBoundaryScenario,
+  arbitraryDocumentationPathAliasCases,
+  arbitraryDocumentationVersionPreservationScenarios,
+  arbitraryDomainLiteral,
+  arbitraryDuplicateDocumentationPathSet,
+  arbitraryFirstReleaseDocumentationSyncScenario,
+  arbitraryMultiDocumentSyncScenario,
+  arbitraryNestedDocumentationSyncScenario,
+  arbitraryPromptBoundaryDocumentationSyncScenario,
+  arbitraryReleaseVersionVariantOnlyScenario,
+  arbitrarySingleDocumentSyncScenario,
+  arbitrarySparseDocumentationPathSet,
+  arbitraryUnrelatedVersionRewriteScenario,
+  arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario,
+  composeDocumentationSync,
+  composeWithDocumentationFilesystem,
+  CONFIG_FILE_FORMAT,
+  createAgentRunOptions,
+  createDocumentationAtomicWriter,
+  createDocumentationFaithfulnessAuditor,
+  createDocumentationSyncFilesystem,
+  DEFAULT_CONFIG_FILENAME,
+  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  DEFAULT_RELEASE_DOCUMENTATION_PATHS,
+  delay,
+  DIAGNOSE_SECTION,
+  dirname,
+  DOCUMENTATION_FIFO_BLOCK_DETECTION_MS,
+  DOCUMENTATION_FIFO_COMMAND,
+  DOCUMENTATION_FIFO_STAGE_OUTCOME,
+  DOCUMENTATION_PATH_FAILURE_KIND,
+  DOCUMENTATION_PATH_SEMANTICS,
+  DOCUMENTATION_READ_RACE_TARGET,
+  DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
+  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+  DOCUMENTATION_TEXT_ENCODING,
+  type DocumentationAgentFileToolBoundaryScenario,
+  type DocumentationFailureControls,
+  type DocumentationPathAliasCase,
+  type DocumentationPathFailureCase,
+  documentationPathFailureCases,
+  documentationPathMappingCases,
+  type DocumentationReadRaceTarget,
+  documentationSyncPromptInstruction,
+  type DocumentationSyncScenario,
+  type DocumentationUnrelatedVersionRewriteScenario,
+  type DocumentationUpdatedContent,
+  DocumentationWritingAgent,
+  encodeReleasePromptData,
+  execa,
+  EXTERNAL_DIRECTORY_PREFIX,
+  FailingDocumentationAgent,
+  failingDocumentationReader,
+  FailingSecondDocumentationAtomicWriter,
+  FirstDocumentationWritingAgent,
+  IdentityReplacingDocumentationAtomicWriter,
+  InterveningDocumentationEditPromoter,
+  InterveningDocumentationIdentityPromoter,
+  InterveningDuringPromotionAtomicWriter,
+  isPathContained,
+  join,
+  lastDocumentationPath,
+  link,
+  materializeDocumentationPathFailure,
+  mkdir,
+  observeConfiguredDocumentationPathSet,
+  observeConfiguredDocumentationSync,
+  observeDefaultDocumentationSync,
+  observeDocumentationAgentFileToolBoundary,
+  observeDocumentationPathAliases,
+  observeDocumentationPathMappings,
+  observeDocumentationPathSemantics,
+  observeDocumentationVersionPreservation,
+  observeFirstReleaseDocumentationSync,
+  observeIndependentDocumentationConfigResolution,
+  observeUnrelatedVersionRewrite,
+  observeVersionlessSubsequentReleaseDocumentationSync,
+  open,
+  parseDocumentationPromptDataBlock,
+  parseDocumentationSyncPromptInput,
+  PartiallyUpdatingDocumentationAgent,
+  PassiveDocumentationAgent,
+  posix,
+  PostPromotionEditFailingAtomicWriter,
+  PostRenameIdentityReplacingAtomicFileSystem,
+  primaryDocumentation,
+  PRODUCT_DIRECTORY_PREFIX,
+  type ProductDocumentationReader,
+  readFile,
+  realpath,
+  RecordingDocumentationAtomicWriter,
+  RecordingDocumentationAuditor,
+  RecordingDocumentationPromoter,
+  REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
+  rejectingDocumentationAuditor,
+  RELEASE_CONFIG_FIELDS,
+  RELEASE_SECTION,
+  releaseConfigDescriptor,
+  rename,
+  resolveCanonicalDocumentationTarget,
+  RetargetingDocumentationCanonicalPathResolver,
+  RetargetingDocumentationFileOpener,
+  rm,
+  runDocumentationSyncCli,
+  sampleReleaseTestValue,
+  serializeConfigFileSections,
+  StagedSymlinkReplacingAgent,
+  TrackingDocumentationFileOpener,
+  withDocumentationScenario,
+  withTempDir,
+  writeFile,
+};
