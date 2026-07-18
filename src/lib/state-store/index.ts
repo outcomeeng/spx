@@ -171,7 +171,7 @@ const ATOMIC_RECORD_TEMP_CREATE_ATTEMPTS = 10;
 const ATOMIC_RECORD_TEMP_ID_BYTES = 6;
 const ATOMIC_RECORD_TEMP_SEPARATOR = ".";
 const ATOMIC_RECORD_TEMP_SUFFIX = ".tmp";
-const ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN = /^.*\.[a-f0-9]{12}\.tmp$/;
+const ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN = /^(.*)\.[a-f0-9]{12}\.tmp$/;
 const ATOMIC_RECORD_TEMP_COLLISION_DETAIL = "temporary file collision limit exhausted";
 const RUN_TIMESTAMP_SEPARATOR = "_";
 const SLUG_SEPARATOR = "-";
@@ -622,10 +622,11 @@ export async function removeAtomicJsonlTemporaryFiles(
   let removed = 0;
   for (const entry of entries) {
     const path = join(directory, entry.name);
+    if (!entry.isFile() || options.isDeterministicDestination(path)) continue;
+    const destinationName = atomicJsonlTemporaryDestinationName(entry.name, namePrefix);
     if (
-      !entry.isFile()
-      || options.isDeterministicDestination(path)
-      || !isOwnedAtomicJsonlTemporaryName(entry.name, namePrefix)
+      destinationName === undefined
+      || !options.isDeterministicDestination(join(directory, destinationName))
     ) continue;
     try {
       await fs.rm(path, { force: true });
@@ -656,9 +657,11 @@ async function evaluatePublicationGuard(
   }
 }
 
-function isOwnedAtomicJsonlTemporaryName(name: string, namePrefix: string): boolean {
-  return name.startsWith(namePrefix)
-    && ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN.test(name.slice(namePrefix.length));
+function atomicJsonlTemporaryDestinationName(name: string, namePrefix: string): string | undefined {
+  if (!name.startsWith(namePrefix)) return undefined;
+  const match = ATOMIC_RECORD_TEMPORARY_REMAINDER_PATTERN.exec(name.slice(namePrefix.length));
+  const destinationRemainder = match?.[1];
+  return destinationRemainder === undefined ? undefined : `${namePrefix}${destinationRemainder}`;
 }
 
 function atomicJsonlTemporaryPath(
