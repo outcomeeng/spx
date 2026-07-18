@@ -10,6 +10,7 @@ describe("hook session-start Pi identity rejection mapping", () => {
       expect(evidence.result.value.sessionId).toBeUndefined();
       expect(evidence.result.value.claimed).toBe(false);
       expect(evidence.result.value.diagnostics).toContainEqual(expect.stringContaining(testCase.diagnostic));
+      expect(evidence.transcriptPathsRead).toHaveLength(testCase.readHeadExpected ? 1 : 0);
     });
   });
 });
