@@ -54,26 +54,11 @@ export const HOOK_SESSION_START_ERROR = {
 } as const;
 
 export const PI_SESSION_START_REJECTION_REGISTRY = {
-  pathRequired: {
-    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
-    readsTranscriptMetadata: false,
-  },
-  pathUntrusted: {
-    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED,
-    readsTranscriptMetadata: false,
-  },
-  readFailed: {
-    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
-    readsTranscriptMetadata: true,
-  },
-  headerInvalid: {
-    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
-    readsTranscriptMetadata: true,
-  },
-  productMismatch: {
-    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
-    readsTranscriptMetadata: true,
-  },
+  pathRequired: { diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED },
+  pathUntrusted: { diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED },
+  readFailed: { diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED },
+  headerInvalid: { diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID },
+  productMismatch: { diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH },
 } as const;
 
 export type PiSessionStartRejectionKind = keyof typeof PI_SESSION_START_REJECTION_REGISTRY;
@@ -171,14 +156,14 @@ export function resolveHookPiSessionId(
   transcriptHead: string,
 ): Result<string> {
   if (payload.transcriptPath === undefined) {
-    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED };
+    return { ok: false, error: PI_SESSION_START_REJECTION_REGISTRY.pathRequired.diagnostic };
   }
   const head = parsePiHead(transcriptHead);
   if (head === null) {
-    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID };
+    return { ok: false, error: PI_SESSION_START_REJECTION_REGISTRY.headerInvalid.diagnostic };
   }
   if (resolve(head.cwd) !== resolve(productDir)) {
-    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH };
+    return { ok: false, error: PI_SESSION_START_REJECTION_REGISTRY.productMismatch.diagnostic };
   }
   return { ok: true, value: normalizeAgentSessionToken(head.sessionId) };
 }
