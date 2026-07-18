@@ -1,85 +1,49 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { basename } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
-import { HOOK_ENV_FILE, HOOK_SESSION_START_ENV, HOOK_SESSION_START_PAYLOAD } from "@/domains/hooks/session-start";
-import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
-import { OCCUPANCY_CLAIM, readClaim } from "@/domains/worktree/occupancy-store";
-import { worktreeClaimName } from "@/domains/worktree/worktree-name";
-import { HOOK_CLI } from "@/interfaces/cli/hook";
-import { HOOK_EVENT } from "@/interfaces/hooks/registry";
-import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
-import { defaultProcessTable } from "@/lib/worktree-process-table";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
-import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
-
-async function readHookEnvFile(envFile: string): Promise<string> {
-  return readFile(envFile, HOOK_ENV_FILE.ENCODING);
-}
-
-function expectHookEnvExport(envContent: string, name: string, value: string): void {
-  expect(envContent).toContain(`${HOOK_ENV_FILE.EXPORT_PREFIX}${name}=${value}`);
-}
+import { HOOK_ENV_FILE, HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
+import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
+import {
+  withPiSessionStartCliClaimEvidence,
+  withSessionStartCliClaimEvidence,
+} from "@testing/harnesses/hooks/session-start";
 
 describe("hook CLI session-start boundary", () => {
   it("writes the worktree claim and exports SPX_WORKTREE_CLAIM_PATH", async () => {
-    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
-    const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
-    const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
-    const existingEnvName = sampleLiteralTestValue(arbitraryDomainLiteral()).toUpperCase().replaceAll("-", "_");
-    const existingEnvValue = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const existingEnvFileLine = `${HOOK_ENV_FILE.EXPORT_PREFIX}${existingEnvName}=${existingEnvValue}\n`;
-
-    await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
-      const expectedHost = defaultProcessTable.currentHost();
-      const expectedStartedAt = defaultProcessTable.startTimeOf(process.pid);
-      await writeFile(env.envFile, existingEnvFileLine, HOOK_ENV_FILE.ENCODING);
-
-      const result = await runWorktreeCli(
-        [
-          HOOK_CLI.COMMAND,
-          HOOK_CLI.RUN,
-          HOOK_EVENT.SESSION_START,
-          HOOK_CLI.ENV_FILE_FLAG,
-          env.envFile,
-          HOOK_CLI.WORKTREES_DIR_FLAG,
-          env.worktreesDir,
-        ],
-        {
-          [CONTROLLING_PID_ENV]: String(process.pid),
-        },
-        env.worktreePath,
-        JSON.stringify({
-          [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sessionId,
-          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-        }),
+    await withSessionStartCliClaimEvidence((evidence) => {
+      expect(evidence.result.exitCode, evidence.result.stderr).toBe(0);
+      expect(evidence.result.stdout).toHaveLength(0);
+      expect(evidence.claim?.sessionId).toBe(evidence.sessionId);
+      expect(evidence.claim?.pid).toBe(evidence.pid);
+      expect(evidence.claim?.host).toBe(evidence.host);
+      expect(evidence.claim?.startedAt).toBe(evidence.startedAt);
+      expect(evidence.envContent.startsWith(evidence.originalEnvLine)).toBe(true);
+      expect(evidence.envContent).toContain(
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.sessionId}`,
       );
+      expect(evidence.envContent).toContain(
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR}=`,
+      );
+      expect(evidence.envContent).toContain(evidence.productDir);
+      expect(evidence.envContent).toContain(
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.PROJECT_DIR}=`,
+      );
+      expect(evidence.envContent).toContain(
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH}=`,
+      );
+      expect(evidence.envContent).toContain(evidence.claimPath);
+    });
+  });
 
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toHaveLength(0);
-
-      const claimName = worktreeClaimName(basename(env.worktreePath));
-      const claim = await readClaim(env.worktreesDir, claimName, { fs: defaultOccupancyFileSystem });
-      expect(claim.ok).toBe(true);
-      if (!claim.ok) throw new Error(claim.error);
-      expect(claim.value?.sessionId).toBe(sessionId);
-      expect(claim.value?.pid).toBe(process.pid);
-      expect(claim.value?.host).toBe(expectedHost);
-      expect(claim.value?.startedAt).toBe(expectedStartedAt);
-
-      const envContent = await readHookEnvFile(env.envFile);
-      expect(envContent.startsWith(existingEnvFileLine)).toBe(true);
-      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
-      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
-      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
-      expectHookEnvExport(
-        envContent,
-        HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH,
-        `'${env.worktreesDir}/${claimName}${OCCUPANCY_CLAIM.FILE_EXTENSION}'`,
+  it("claims the linked worktree under the Pi native session identity", async () => {
+    await withPiSessionStartCliClaimEvidence((evidence) => {
+      expect(evidence.hookResult.exitCode, evidence.hookResult.stderr).toBe(0);
+      expect(evidence.hookResult.stdout).toHaveLength(0);
+      expect(evidence.statusResult.exitCode, evidence.statusResult.stderr).toBe(0);
+      expect(JSON.parse(evidence.statusResult.stdout)).toEqual(
+        expect.objectContaining({
+          status: OCCUPANCY_STATUS.RUNNING,
+          session: evidence.sessionId,
+        }),
       );
     });
   });
