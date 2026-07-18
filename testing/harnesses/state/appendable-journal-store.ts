@@ -1,14 +1,9 @@
 import { dirname, join } from "node:path";
-import { isDeepStrictEqual } from "node:util";
 
 import { execa } from "execa";
-import fc from "fast-check";
-import { expect } from "vitest";
 
 import {
   createJournal,
-  JOURNAL_ERROR,
-  JOURNAL_SEQ_BASE,
   type JournalEvent,
   type JournalEventInput,
   type JournalIdentity,
@@ -25,11 +20,12 @@ import {
   arbitraryJournalEventInput,
   arbitraryJournalEventInputs,
   arbitraryJournalIdentity,
+  arbitraryJournalPairInput,
+  arbitraryMalformedJournalLines,
   journalRunFilePath,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
 import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   createDelegatingStateStoreFileSystem,
   createInMemoryStateStoreFileSystem,
@@ -61,61 +57,59 @@ export const APPENDABLE_JOURNAL_INTERRUPTION_ERROR = {
   SEALING_BARRIER: "injected sealing barrier interruption",
 } as const;
 
-export async function assertOverlappingAppendSequenceProperty(): Promise<void> {
-  await assertProperty(
-    fc.tuple(
-      arbitraryJournalEventInput(),
-      arbitraryJournalEventInput(),
-      arbitraryJournalIdentity(),
-    ),
-    async ([leftInput, rightInput, identity]: readonly [
-      JournalEventInput,
-      JournalEventInput,
-      JournalIdentity,
-    ]): Promise<boolean> => {
-      const fs = createInMemoryStateStoreFileSystem();
-      const runFilePath = journalRunFilePath(identity.streamid);
-      const leftJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
-      const rightJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
-      const outcomes = await Promise.allSettled([
-        leftJournal.append(leftInput),
-        rightJournal.append(rightInput),
-      ]);
-      const replay = await createAppendableJournalStore({ runFilePath, fs }).readAll();
-      const fulfilled = outcomes.filter(isFulfilledOutcome);
-      const rejected = outcomes.filter(isRejectedOutcome);
-      return isDeepStrictEqual(
-        replay.map((event) => event.seq),
-        replay.map((_event, index) => JOURNAL_SEQ_BASE + index),
-      )
-        && new Set(replay.map((event) => event.seq)).size === replay.length
-        && fulfilled.length === replay.length
-        && rejected.length === 1
-        && rejectedOutcomeMessage(rejected[0]) === JOURNAL_ERROR.SEQ_CONSUMED;
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
+export interface AppendableJournalSequenceObservation {
+  readonly appended: readonly JournalEvent[];
+  readonly replay: readonly JournalEvent[];
 }
 
-export async function assertAppendableJournalSealingRaceProperty(): Promise<void> {
-  await assertProperty(
-    fc.tuple(
-      arbitraryJournalEventInput(),
-      arbitraryJournalEventInput(),
-      arbitraryJournalIdentity(),
-    ),
-    async ([firstInput, secondInput, identity]: readonly [
-      JournalEventInput,
-      JournalEventInput,
-      JournalIdentity,
-    ]): Promise<boolean> =>
-      (await sealingBarrierWins(identity, firstInput, secondInput))
-      && (await appendPublicationWins(identity, firstInput, secondInput)),
-    { level: PROPERTY_LEVEL.L1 },
-  );
+export async function observeAppendableJournalSequence(
+  inputs: readonly JournalEventInput[],
+  identity: JournalIdentity,
+): Promise<AppendableJournalSequenceObservation> {
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const journal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+  const appended: JournalEvent[] = [];
+  for (const input of inputs) appended.push(await journal.append(input));
+  return { appended, replay: await createAppendableJournalStore({ runFilePath, fs }).readAll() };
 }
 
-export async function assertSequenceRecordReadReuseCompliance(): Promise<void> {
+export interface OverlappingAppendObservation {
+  readonly fulfilledCount: number;
+  readonly rejectedMessages: readonly (string | undefined)[];
+  readonly replay: readonly JournalEvent[];
+}
+
+export async function observeOverlappingAppendSequence(
+  leftInput: JournalEventInput,
+  rightInput: JournalEventInput,
+  identity: JournalIdentity,
+): Promise<OverlappingAppendObservation> {
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const leftJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+  const rightJournal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+  const outcomes = await Promise.allSettled([
+    leftJournal.append(leftInput),
+    rightJournal.append(rightInput),
+  ]);
+  return {
+    fulfilledCount: outcomes.filter(isFulfilledOutcome).length,
+    rejectedMessages: outcomes.filter(isRejectedOutcome).map(rejectedOutcomeMessage),
+    replay: await createAppendableJournalStore({ runFilePath, fs }).readAll(),
+  };
+}
+
+export interface SequenceRecordReadReuseObservation {
+  readonly inputCount: number;
+  readonly listCountAfterAppends: number;
+  readonly listCountAfterCurrentReplay: number;
+  readonly readCountAfterCurrentReplay: number;
+  readonly listCountAfterReopenedReplays: number;
+  readonly readCountAfterReopenedReplays: number;
+}
+
+export async function observeSequenceRecordReadReuse(): Promise<SequenceRecordReadReuseObservation> {
   const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
   const inputs = sampleAgentRunJournalValue(arbitraryJournalEventInputs());
   const base = createInMemoryStateStoreFileSystem();
@@ -140,19 +134,31 @@ export async function assertSequenceRecordReadReuseCompliance(): Promise<void> {
     const event = await journal.append(input);
     sequenceRecordPaths.add(appendableJournalSequenceRecordPath(runFilePath, event.seq));
   }
-  expect(sequenceRecordListCount).toBe(inputs.length);
+  const listCountAfterAppends = sequenceRecordListCount;
   await store.readAll();
-  expect(sequenceRecordListCount).toBe(inputs.length + 1);
-  expect(sequenceRecordReadCount).toBe(0);
+  const listCountAfterCurrentReplay = sequenceRecordListCount;
+  const readCountAfterCurrentReplay = sequenceRecordReadCount;
 
   const reopened = createAppendableJournalStore({ runFilePath, fs });
   await reopened.readAll();
   await reopened.readAll();
-  expect(sequenceRecordListCount).toBe(inputs.length + 3);
-  expect(sequenceRecordReadCount).toBe(inputs.length);
+  return {
+    inputCount: inputs.length,
+    listCountAfterAppends,
+    listCountAfterCurrentReplay,
+    readCountAfterCurrentReplay,
+    listCountAfterReopenedReplays: sequenceRecordListCount,
+    readCountAfterReopenedReplays: sequenceRecordReadCount,
+  };
 }
 
-export async function assertAppendableJournalCreationMarkerScenario(): Promise<void> {
+export interface AppendableJournalCreationMarkerObservation {
+  readonly openedBirthtimeMs: number;
+  readonly creationMarkerBirthtimeMs: number;
+  readonly aggregateBirthtimeMs: number;
+}
+
+export async function observeAppendableJournalCreationMarker(): Promise<AppendableJournalCreationMarkerObservation> {
   const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
   const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
   const fs = createInMemoryStateStoreFileSystem();
@@ -167,8 +173,83 @@ export async function assertAppendableJournalCreationMarkerScenario(): Promise<v
 
   const creationStats = await fs.lstat(appendableJournalCreationMarkerPath(runFilePath));
   const aggregateStats = await fs.lstat(runFilePath);
-  expect(creationStats.birthtimeMs).toBe(openedStats.birthtimeMs);
-  expect(aggregateStats.birthtimeMs).toBeGreaterThan(creationStats.birthtimeMs);
+  return {
+    openedBirthtimeMs: openedStats.birthtimeMs,
+    creationMarkerBirthtimeMs: creationStats.birthtimeMs,
+    aggregateBirthtimeMs: aggregateStats.birthtimeMs,
+  };
+}
+
+export interface ConsumedSequenceObservation {
+  readonly appendError: string | undefined;
+  readonly event: JournalEvent;
+  readonly replay: readonly JournalEvent[];
+}
+
+export async function observeConsumedSequenceRejection(): Promise<ConsumedSequenceObservation> {
+  const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
+  const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const store = createAppendableJournalStore({ runFilePath, fs });
+  const event = await createJournal(store, identity).append(input);
+  return {
+    appendError: rejectedOutcomeMessage(await settle(store.append(event))),
+    event,
+    replay: await store.readAll(),
+  };
+}
+
+export interface PersistedSealObservation {
+  readonly appendError: string | undefined;
+  readonly sealed: boolean;
+}
+
+export async function observePersistedSeal(): Promise<PersistedSealObservation> {
+  const { firstInput, secondInput, identity } = sampleAgentRunJournalValue(arbitraryJournalPairInput());
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const journal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+  await journal.append(firstInput);
+  await journal.seal();
+  const reopened = createAppendableJournalStore({ runFilePath, fs });
+  return {
+    sealed: await reopened.isSealed(),
+    appendError: rejectedOutcomeMessage(await settle(createJournal(reopened, identity).append(secondInput))),
+  };
+}
+
+export interface MalformedReplayObservation {
+  readonly event: JournalEvent;
+  readonly replay: readonly JournalEvent[];
+}
+
+export interface MalformedJournalReplayObservation {
+  readonly nonconformant: MalformedReplayObservation;
+  readonly unparsable: MalformedReplayObservation;
+}
+
+export async function observeMalformedJournalReplay(): Promise<MalformedJournalReplayObservation> {
+  const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
+  const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+  const [nonconformantLine, unparsableLine] = sampleAgentRunJournalValue(arbitraryMalformedJournalLines());
+  return {
+    nonconformant: await observeMalformedLine(identity, input, nonconformantLine),
+    unparsable: await observeMalformedLine(identity, input, unparsableLine),
+  };
+}
+
+async function observeMalformedLine(
+  identity: JournalIdentity,
+  input: JournalEventInput,
+  malformedLine: string,
+): Promise<MalformedReplayObservation> {
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const store = createAppendableJournalStore({ runFilePath, fs });
+  const event = await createJournal(store, identity).append(input);
+  await fs.appendFile(runFilePath, malformedLine);
+  return { event, replay: await store.readAll() };
 }
 
 export interface PreparedSealingRace {
@@ -179,6 +260,29 @@ export interface PreparedSealingRace {
   releaseAppendPublication(): void;
   readonly appendPublicationCompleted: Promise<void>;
   readonly appendTemporaryPath: Promise<string>;
+}
+
+export interface SealingRaceBranchObservation {
+  readonly first: JournalEvent;
+  readonly appended: JournalEvent | undefined;
+  readonly appendError: string | undefined;
+  readonly hydratedReplay: readonly JournalEvent[];
+}
+
+export interface AppendableJournalSealingRaceObservation {
+  readonly sealingBarrier: SealingRaceBranchObservation;
+  readonly appendPublication: SealingRaceBranchObservation;
+}
+
+export async function observeAppendableJournalSealingRace(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+  secondInput: JournalEventInput,
+): Promise<AppendableJournalSealingRaceObservation> {
+  return {
+    sealingBarrier: await observeSealingBarrierWinner(identity, firstInput, secondInput),
+    appendPublication: await observeAppendPublicationWinner(identity, firstInput, secondInput),
+  };
 }
 
 interface PrePublicationInterruptionResult {
@@ -287,11 +391,11 @@ async function observePostPublicationInterruption(
   });
 }
 
-async function sealingBarrierWins(
+async function observeSealingBarrierWinner(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
-): Promise<boolean> {
+): Promise<SealingRaceBranchObservation> {
   const race = await prepareSealingRace(identity, firstInput, secondInput);
   await createJournal(
     createAppendableJournalStore({ runFilePath: race.runFilePath, fs: race.base }),
@@ -300,17 +404,14 @@ async function sealingBarrierWins(
   race.releaseAppendPublication();
   const appendOutcome = await race.appendOutcomePromise;
   const hydratedReplay = await readHydratedReplay(race.base, race.runFilePath);
-  return isFulfilledOutcome(appendOutcome)
-    ? isDeepStrictEqual(hydratedReplay, [race.first, appendOutcome.value])
-    : rejectedOutcomeMessage(appendOutcome) === JOURNAL_ERROR.SEALED
-      && isDeepStrictEqual(hydratedReplay, [race.first]);
+  return sealingRaceBranchObservation(race.first, appendOutcome, hydratedReplay);
 }
 
-async function appendPublicationWins(
+async function observeAppendPublicationWinner(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
-): Promise<boolean> {
+): Promise<SealingRaceBranchObservation> {
   const race = await prepareSealingRace(identity, firstInput, secondInput);
   const sealingFileSystem = createPublicationWinningSealFileSystem(race);
   await createJournal(
@@ -318,11 +419,24 @@ async function appendPublicationWins(
     identity,
   ).seal();
   const appendOutcome = await race.appendOutcomePromise;
-  return isFulfilledOutcome(appendOutcome)
-    && isDeepStrictEqual(
-      await readHydratedReplay(race.base, race.runFilePath),
-      [race.first, appendOutcome.value],
-    );
+  return sealingRaceBranchObservation(
+    race.first,
+    appendOutcome,
+    await readHydratedReplay(race.base, race.runFilePath),
+  );
+}
+
+function sealingRaceBranchObservation(
+  first: JournalEvent,
+  appendOutcome: PromiseSettledResult<JournalEvent>,
+  hydratedReplay: readonly JournalEvent[],
+): SealingRaceBranchObservation {
+  return {
+    first,
+    appended: isFulfilledOutcome(appendOutcome) ? appendOutcome.value : undefined,
+    appendError: rejectedOutcomeMessage(appendOutcome),
+    hydratedReplay,
+  };
 }
 
 async function prepareSealingRace(

@@ -62,6 +62,43 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
   });
 }
 
+export interface JournalSequenceInput {
+  readonly inputs: readonly JournalEventInput[];
+  readonly identity: JournalIdentity;
+}
+
+export interface JournalPairInput {
+  readonly firstInput: JournalEventInput;
+  readonly secondInput: JournalEventInput;
+  readonly identity: JournalIdentity;
+}
+
+export function arbitraryJournalSequenceInput(): fc.Arbitrary<JournalSequenceInput> {
+  return fc.record({ inputs: arbitraryJournalEventInputs(), identity: arbitraryJournalIdentity() });
+}
+
+export function arbitraryJournalPairInput(): fc.Arbitrary<JournalPairInput> {
+  return fc.record({
+    firstInput: arbitraryJournalEventInput(),
+    secondInput: arbitraryJournalEventInput(),
+    identity: arbitraryJournalIdentity(),
+  });
+}
+
+export function arbitraryMalformedJournalLines(): fc.Arbitrary<readonly [string, string]> {
+  return fc.tuple(
+    fc.record({ unexpected: fc.string() }).map(JSON.stringify),
+    fc.string({ minLength: 1 }).filter((value) => {
+      try {
+        JSON.parse(value);
+        return false;
+      } catch {
+        return true;
+      }
+    }),
+  );
+}
+
 /** Build the complete event expected when a journal assigns identity and sequence to an input. */
 export function journalEventFromInput(
   input: JournalEventInput,
