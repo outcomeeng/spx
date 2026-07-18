@@ -2,23 +2,9 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createJsonlRunFile, STATE_STORE_DOMAIN, STATE_STORE_PATH, type StateStoreFileSystem } from "@/lib/state-store";
+import { createJsonlRunFile, STATE_STORE_DOMAIN, STATE_STORE_PATH } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-
-function createNoopStateStoreFileSystem(): StateStoreFileSystem {
-  return {
-    mkdir: () => Promise.resolve(),
-    writeFile: () => Promise.resolve(),
-    appendFile: () => Promise.resolve(),
-    readFile: () => Promise.resolve(""),
-    readdir: () => Promise.resolve([]),
-    lstat: () =>
-      Promise.resolve({ birthtimeMs: 0, isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false }),
-    link: () => Promise.resolve(),
-    rename: () => Promise.resolve(),
-    rm: () => Promise.resolve(),
-  };
-}
+import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 describe("record store run path", () => {
   it("builds a single-artifact run file under runs/run-{run-token}.jsonl", async () => {
@@ -27,7 +13,7 @@ describe("record store run path", () => {
     const scopeDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
 
     const created = await createJsonlRunFile(scopeDir, STATE_STORE_DOMAIN.TEST, {
-      fs: createNoopStateStoreFileSystem(),
+      fs: createInMemoryStateStoreFileSystem(),
       now: () => date,
       randomBytes: () => runBytes,
     });

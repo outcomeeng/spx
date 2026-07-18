@@ -1,53 +1,32 @@
 import { describe, expect, it } from "vitest";
 
+import { ERROR_CODE_NOT_FOUND, STATE_STORE_ERROR } from "@/lib/state-store";
 import { atomicJsonlPublicationObservation } from "@testing/harnesses/state/atomic-jsonl-publication";
 
 describe("record store — atomic JSONL publication", () => {
   it("publishes one complete record without overwriting the winner", async () => {
-    expect((await atomicJsonlPublicationObservation()).actual.first).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.first,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.collision).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.collision,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.winnerContent).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.winnerContent,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.beforePublicationError).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.beforePublicationError,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.beforePublicationDestinationError).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.beforePublicationDestinationError,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.retry).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.retry,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.afterPublicationRecord).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.afterPublicationRecord,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.guarded).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.guarded,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.guardedDestinationError).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.guardedDestinationError,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.removedTemporary).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.removedTemporary,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.cleanup).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.cleanup,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.firstCleanupError).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.firstCleanupError,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.secondCleanupError).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.secondCleanupError,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.destinationContent).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.destinationContent,
-    );
-    expect((await atomicJsonlPublicationObservation()).actual.nonMatchingContent).toEqual(
-      (await atomicJsonlPublicationObservation()).expected.nonMatchingContent,
-    );
+    const observation = await atomicJsonlPublicationObservation();
+
+    expect(observation.actual.first).toEqual({ ok: true, value: observation.paths.atomicRecord });
+    expect(observation.actual.collision).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS });
+    expect(observation.actual.winnerContent).toBe(`${JSON.stringify(observation.firstRecord)}\n`);
+    expect(observation.actual.beforePublicationError).toBe(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
+    expect(observation.actual.beforePublicationDestinationError).toBe(ERROR_CODE_NOT_FOUND);
+    expect(observation.actual.retry).toEqual({ ok: true, value: observation.paths.prePublicationRecord });
+    expect(observation.actual.afterPublicationRecord).toEqual({ ok: true, value: observation.secondRecord });
+    expect(observation.actual.guarded).toEqual({
+      ok: false,
+      error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,
+    });
+    expect(observation.actual.guardedDestinationError).toBe(ERROR_CODE_NOT_FOUND);
+    expect(observation.actual.removedTemporary).toEqual({
+      ok: false,
+      error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,
+    });
+    expect(observation.actual.cleanup).toEqual({ ok: true, value: 2 });
+    expect(observation.actual.firstCleanupError).toBe(ERROR_CODE_NOT_FOUND);
+    expect(observation.actual.secondCleanupError).toBe(ERROR_CODE_NOT_FOUND);
+    expect(observation.actual.destinationContent).toBe(observation.preservedContent.destination);
+    expect(observation.actual.nonMatchingContent).toBe(observation.preservedContent.nonMatching);
   });
 });
