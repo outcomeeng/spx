@@ -200,10 +200,9 @@ export function assertSessionStoreSnapshotMapping(): void {
     const record = classifySessionStore(reading);
 
     expect(reading).toEqual({ errored: false, orphanedClaims: includeOrphanedClaim ? 0 : 1 });
-    expect(record.verdict).toBe(
-      includeOrphanedClaim ? SESSION_STORE_VERDICT.CONSISTENT : SESSION_STORE_VERDICT.ORPHANED_CLAIMS,
-    );
-    expect(record.bucket).toBe(includeOrphanedClaim ? VERDICT_BUCKET.HEALTHY : VERDICT_BUCKET.DEGRADED);
+    expect(record.readings.orphaned).toBe(String(reading.orphanedClaims));
+    expect(record.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
+    expect(record.bucket).toBe(VERDICT_BUCKET.HEALTHY);
     expect(record.remediation.length).toBeGreaterThan(0);
   }
 }

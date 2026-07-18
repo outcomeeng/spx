@@ -41,6 +41,7 @@ import {
   VERDICT_BUCKET,
   type VerdictBucket,
 } from "@/domains/diagnose/types";
+import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
@@ -94,7 +95,7 @@ function sampleReport(): DiagnoseReport {
         drifted: false,
       }),
     ],
-    overall: OVERALL_VERDICT.DEGRADED,
+    overall: OVERALL_VERDICT.HEALTHY,
   };
 }
 
@@ -257,7 +258,7 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
     },
     {
       check: classifySessionStore({ errored: false, orphanedClaims: 11 }),
-      header: DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS,
+      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
     },
     {
       check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
@@ -290,15 +291,20 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
 export function assertTextReportSummary(): void {
   const report = sampleReport();
   const text = renderReportText(report, { color: false });
-  expect(text).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.DEGRADED}`);
+  expect(text).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.HEALTHY}`);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.VERSION}: ${report.checks[0]?.readings.version}`);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID);
   expect(text).toContain(report.checks[2]?.readings.running);
   expect(text).toContain(report.checks[2]?.readings.free);
-  expect(text).toContain(DIAGNOSE_TEXT_HEADER.STALE_DOING_SESSIONS);
-  expect(text).toContain(report.checks[3]?.readings.orphaned);
-  expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SESSION_STORE_ORPHANED_FIX}`);
+  expect(text).toContain(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN);
+  expect(text).toContain(
+    `${DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS}: ${report.checks[3]?.readings.orphaned}`,
+  );
+  expect(text).toContain(DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL);
+  expect(text).not.toContain(
+    `${sessionCliDefinition.domain.commandName} ${sessionCliDefinition.subcommands.release.commandName}`,
+  );
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED);
   expect(text).toContain(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_SKIPPED);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED);

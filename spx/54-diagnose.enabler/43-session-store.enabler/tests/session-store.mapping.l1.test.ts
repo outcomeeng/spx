@@ -10,6 +10,7 @@ import {
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { DEFAULT_SESSION_METADATA, type SessionRecord } from "@/domains/session/list";
 import { SESSION_STATUSES } from "@/domains/session/types";
+import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { sampleDistinctSessionIds, sampleSessionId } from "@testing/generators/session/session";
 
 const reading = (overrides: Partial<SessionStoreReading>): SessionStoreReading => ({
@@ -48,22 +49,22 @@ describe("the session-store check classifies the store from sessions joined to o
     expect(result.verdict).toBe(SESSION_STORE_VERDICT.UNKNOWN);
     expect(result.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
     expect(result.remediation.length).toBeGreaterThan(0);
+    expect(result.remediation).not.toContain(
+      `${sessionCliDefinition.domain.commandName} ${sessionCliDefinition.subcommands.release.commandName}`,
+    );
   });
 
-  it("classifies no orphaned claims as consistent (bucket healthy)", () => {
-    const result = classifySessionStore(reading({ orphanedClaims: 0 }));
-    expect(result.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
-    expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-    expect(result.remediation.length).toBeGreaterThan(0);
-  });
-
-  it("classifies any orphaned claim as orphaned-claims (bucket degraded)", () => {
+  it("classifies every successful orphan count as consistent and preserves the informational count", () => {
     fc.assert(
-      fc.property(fc.integer({ min: 1, max: 99 }), (orphanedClaims) => {
+      fc.property(fc.integer({ min: 0, max: 99 }), (orphanedClaims) => {
         const result = classifySessionStore(reading({ orphanedClaims }));
-        expect(result.verdict).toBe(SESSION_STORE_VERDICT.ORPHANED_CLAIMS);
-        expect(result.bucket).toBe(VERDICT_BUCKET.DEGRADED);
+        expect(result.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
+        expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+        expect(result.readings.orphaned).toBe(String(orphanedClaims));
         expect(result.remediation.length).toBeGreaterThan(0);
+        expect(result.remediation).not.toContain(
+          `${sessionCliDefinition.domain.commandName} ${sessionCliDefinition.subcommands.release.commandName}`,
+        );
       }),
     );
   });
