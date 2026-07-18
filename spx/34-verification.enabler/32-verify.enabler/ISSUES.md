@@ -2,31 +2,35 @@
 
 ## `status` next-actions advertise evidence actions without registered validators
 
-`projectVerifyRun` (`src/domains/verify/verify.ts`) reports `UNSEALED_NEXT_ACTIONS` — a
-static list including `finding add` — for every unsealed run, regardless of verification
+`projectVerifyRun` (`src/domains/verify/verify.ts`) advertises an unsealed run's next actions
+through `unsealedNextActionsForDriveMode`: a caller-driven run gets the full static
+`UNSEALED_NEXT_ACTIONS` list (including `finding add`), and an spx-driven run drops the caller
+evidence-append actions. For a caller-driven run the list is static regardless of verification
 type. The public lifecycle rejects unsupported verification types at `start`, and evidence-add
 operations reject a started run type that has no registered validator for the requested evidence
 kind, so a launcher that followed `status` for such a type would attempt an action the API rejects.
 
-Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains `review` and `audit`.
-Both implemented evidence boundaries register `scope` and `finding` validators, so `scope add` and
-`finding add` are legal for every constructible run and the advertised next
-actions are correct. The gap surfaces when an additional verification type registers only part of
-the evidence-action surface. Decide whether `status` and `render` next actions filter `scope add`
-and `finding add` by the run type's registered evidence validators before adding such a type, and
-add the covering assertion then.
+Current verification-type vocabulary (`VERIFY_VERIFICATION_TYPE`) contains `audit`, `review`, and
+`test`. All three evidence boundaries register `scope`, `finding`, and terminal validators, so
+`scope add` and `finding add` are legal for every constructible run and the advertised next
+actions are correct. The gap surfaces when an additional caller-driven verification type registers
+only part of the evidence-action surface. Decide whether `status` and `render` next actions filter
+`scope add` and `finding add` by the run type's registered evidence validators before adding such a
+type, and add the covering assertion then.
 
 The spx-driven command path (`spx verification <type> run`, per
 `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`) raises the same
 gap on the command surface rather than the validator registry: spx opens, streams, and seals such a
 run within one invocation, so no caller ever appends to it. A run left unsealed by an aborted
 invocation would still advertise `scope add` and `finding add` — actions no caller should invoke on
-a run spx drives. **Resolved:** next actions filter by the run's drive mode, recorded at `start`, so
-an unsealed spx-driven run advertises no caller evidence-append action — the assertions are declared
-in `spx/34-verification.enabler/32-verify.enabler/verify.md` (`start` records drive mode; status and
-render filter by it) and consumed by `spx/34-verification.enabler/43-execute.enabler`. Seal-on-abort
-is best-effort only — a `SIGKILL` runs no cleanup — so the drive-mode filter, not sealing, is the
-mechanism. Implementation lands in `/apply` on the executor node.
+a run spx drives. **Resolved and implemented:** `unsealedNextActionsForDriveMode` filters the next
+actions by the run's drive mode, recorded at `start`, so an unsealed spx-driven run advertises no
+caller evidence-append action — declared in `spx/34-verification.enabler/32-verify.enabler/verify.md`
+(`start` records drive mode; status and render filter by it), consumed by
+`spx/34-verification.enabler/43-execute.enabler`, and covered by
+`spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-drive-mode.compliance.l1.test.ts`.
+Seal-on-abort is best-effort only — a `SIGKILL` runs no cleanup — so the drive-mode filter, not
+sealing, is the mechanism.
 
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
