@@ -47,10 +47,10 @@ export interface JournalEventInput {
 }
 
 /**
- * Storage that records the canonical event history. The journal owns seal
- * policy — it rejects an append once `isSealed()` reports true — so the backend
- * `append` enforces only sequence exclusivity, and `seal`/`isSealed` persist and
- * report the seal state rather than gating writes themselves.
+ * Storage that records the canonical event history. The journal rejects an
+ * append once `isSealed()` reports true, while a durable backend also enforces
+ * its storage-level seal barrier at publication time. `append` enforces that
+ * barrier and sequence exclusivity; `seal`/`isSealed` persist and report state.
  */
 export interface AppendableBackend {
   readonly kind: typeof JOURNAL_BACKEND_KIND.APPENDABLE;
