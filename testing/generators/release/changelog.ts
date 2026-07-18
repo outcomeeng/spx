@@ -2,20 +2,21 @@ import * as fc from "fast-check";
 import { resolve } from "node:path";
 
 import type { ReleaseData } from "@/domains/release/release-data";
+import {
+  CHANGELOG_CHANGE_GROUPS,
+  CHANGELOG_TITLE,
+  type ChangelogChangeGroup,
+  changelogGroupHeading,
+  changelogVersionHeading,
+  changelogVersionHeadingText,
+  DEFAULT_CHANGELOG_PATH,
+} from "@/domains/release/release-notes";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
 const LINE_SEPARATOR = "\n";
 const BLANK_LINE = "";
 const ENTRY_PREFIX = "- ";
 const EMPTY_CHANGELOG = "";
-const ORACLE_CHANGELOG_TITLE = "# Changelog";
-const ORACLE_CHANGELOG_TITLE_TEXT = "Changelog";
-const ORACLE_CHANGELOG_VERSION_SECTION_PREFIX = "## [";
-const ORACLE_CHANGELOG_VERSION_TEXT_PREFIX = "[";
-const ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX = "]";
-const ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX = "### ";
-const ORACLE_CHANGELOG_CHANGE_GROUPS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"] as const;
-const ORACLE_DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
 const ORACLE_CHANGELOG_VERSION_HEADING_SUFFIX = " - unreleased";
 const ORACLE_CHANGELOG_REFERENCE_DEFINITION_PREFIX = "[";
 const ORACLE_CHANGELOG_REFERENCE_DEFINITION_SEPARATOR = "]: ";
@@ -73,20 +74,6 @@ const ABSOLUTE_ROOT = "/";
 const BLANK_PATH_CHARACTER_MAX_COUNT = 16;
 const CURRENT_DIRECTORY = ".";
 
-type OracleChangelogChangeGroup = (typeof ORACLE_CHANGELOG_CHANGE_GROUPS)[number];
-
-export function oracleChangelogChangeGroups(): readonly OracleChangelogChangeGroup[] {
-  return ORACLE_CHANGELOG_CHANGE_GROUPS;
-}
-
-export function oracleChangelogTitle(): string {
-  return ORACLE_CHANGELOG_TITLE;
-}
-
-export function oracleChangelogTitleText(): string {
-  return ORACLE_CHANGELOG_TITLE_TEXT;
-}
-
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
  * nested one directory deep — for the case where the resolved configuration sets a
@@ -142,11 +129,11 @@ function formatEntries(subjects: readonly string[]): string {
 
 function h1BoundaryChangelog(version: string, subjects: readonly string[]): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     ORACLE_MARKDOWN_INTERSTITIAL_H1,
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -154,11 +141,11 @@ function h1BoundaryChangelog(version: string, subjects: readonly string[]): stri
 
 function h1BoundaryBeforeVersionChangelog(version: string, subjects: readonly string[]): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ORACLE_MARKDOWN_INTERSTITIAL_H1,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -168,16 +155,16 @@ export function changelogWithDuplicateCurrentVersionSections(
   version: string,
   subjects: readonly string[],
 ): string {
-  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const groupHeading = changelogGroupHeading(SAMPLE_CHANGE_GROUP);
   const entries = formatEntries(subjects);
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     groupHeading,
     entries,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     groupHeading,
     entries,
     BLANK_LINE,
@@ -185,15 +172,15 @@ export function changelogWithDuplicateCurrentVersionSections(
 }
 
 function conformantChangelogWith(
-  group: OracleChangelogChangeGroup,
+  group: ChangelogChangeGroup,
   version: string,
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(group),
+    changelogVersionHeading(version),
+    changelogGroupHeading(group),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -204,8 +191,8 @@ function changelogVersionSection(
   subjects: readonly string[],
 ): readonly string[] {
   return [
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ];
@@ -220,7 +207,7 @@ export function changelogWithFooterReferences(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(version, subjects),
     changelogReferenceDefinition(version),
@@ -234,7 +221,7 @@ export function changelogWithPrependedReleaseAndFooterReferences(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(currentVersion, subjects),
     ...changelogVersionSection(priorVersion, subjects),
@@ -249,8 +236,8 @@ function changelogVersionSectionWithInSectionReference(
   subjects: readonly string[],
 ): readonly string[] {
   return [
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     changelogReferenceDefinition(version),
     ORACLE_CHANGELOG_POST_REFERENCE_ENTRY,
@@ -263,8 +250,8 @@ function truncatedChangelogVersionSectionAfterInSectionReference(
   subjects: readonly string[],
 ): readonly string[] {
   return [
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     changelogReferenceDefinition(version),
     BLANK_LINE,
@@ -276,7 +263,7 @@ export function changelogWithInSectionReferenceDefinition(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSectionWithInSectionReference(version, subjects),
   ].join(LINE_SEPARATOR);
@@ -288,7 +275,7 @@ export function changelogWithPrependedReleaseAndTruncatedInSectionReference(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(currentVersion, subjects),
     ...truncatedChangelogVersionSectionAfterInSectionReference(priorVersion, subjects),
@@ -301,7 +288,7 @@ export function changelogWithPrependedReleaseAndInSectionReference(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(currentVersion, subjects),
     ...changelogVersionSectionWithInSectionReference(priorVersion, subjects),
@@ -312,13 +299,14 @@ export function changelogWithFencedReferenceDefinition(
   version: string,
   subjects: readonly string[],
 ): string {
+  const priorVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctSemverFrom(version));
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(version, subjects),
     ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
     changelogReferenceDefinition(version),
-    ...changelogVersionSection(`${version}${PRIOR_VERSION_SUFFIX}`, subjects),
+    ...changelogVersionSection(priorVersion, subjects),
     ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -330,7 +318,7 @@ export function changelogWithTruncatedFencedReferenceDefinitionSection(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ...changelogVersionSection(currentVersion, subjects),
     ...changelogVersionSection(priorVersion, subjects),
@@ -339,16 +327,8 @@ export function changelogWithTruncatedFencedReferenceDefinitionSection(
   ].join(LINE_SEPARATOR);
 }
 
-export function oracleChangelogVersionHeading(version: string): string {
-  return `${ORACLE_CHANGELOG_VERSION_SECTION_PREFIX}${version}${ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX}`;
-}
-
-function oracleChangelogGroupHeading(group: OracleChangelogChangeGroup): string {
-  return `${ORACLE_CHANGELOG_CHANGE_GROUP_PREFIX}${group}`;
-}
-
 export function oracleResolvedChangelogPath(workingDirectory: string, changelogPath: string | undefined): string {
-  return resolve(workingDirectory, changelogPath ?? ORACLE_DEFAULT_CHANGELOG_PATH);
+  return resolve(workingDirectory, changelogPath ?? DEFAULT_CHANGELOG_PATH);
 }
 
 /**
@@ -361,15 +341,12 @@ export function arbitraryConformantChangelog(
   subjects: readonly string[],
 ): fc.Arbitrary<string> {
   return fc
-    .constantFrom(...ORACLE_CHANGELOG_CHANGE_GROUPS)
+    .constantFrom(...CHANGELOG_CHANGE_GROUPS)
     .map((group) => conformantChangelogWith(group, version, subjects));
 }
 
 /** The oracle change group the non-conformant cases use where a group heading must be present. */
-const SAMPLE_CHANGE_GROUP = ORACLE_CHANGELOG_CHANGE_GROUPS[0];
-
-/** A suffix that makes a prior release's version heading distinct from the current one's. */
-const PRIOR_VERSION_SUFFIX = "-prior";
+const SAMPLE_CHANGE_GROUP = CHANGELOG_CHANGE_GROUPS[0];
 
 /** A non-title preamble line, for the case where the title is present but does not open the file. */
 const PREAMBLE_LINE = "Release history.";
@@ -445,11 +422,11 @@ export function conformantChangelogWithIndentedFenceText(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     indentedCodeLine(ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     indentedCodeLine(ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER),
     BLANK_LINE,
@@ -461,14 +438,14 @@ export function conformantChangelogWithCdataText(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     ORACLE_MARKDOWN_CDATA_OPEN,
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     ORACLE_MARKDOWN_CDATA_CLOSE,
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -479,10 +456,10 @@ export function conformantChangelogWithAtxClosingHashes(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    `${oracleChangelogVersionHeading(version)} ${ORACLE_MARKDOWN_VERSION_CLOSING_HASHES}`,
-    `${oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP)} ${ORACLE_MARKDOWN_CHANGE_GROUP_CLOSING_HASHES}`,
+    `${changelogVersionHeading(version)} ${ORACLE_MARKDOWN_VERSION_CLOSING_HASHES}`,
+    `${changelogGroupHeading(SAMPLE_CHANGE_GROUP)} ${ORACLE_MARKDOWN_CHANGE_GROUP_CLOSING_HASHES}`,
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -493,10 +470,9 @@ export function conformantChangelogWithTabbedHeadings(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    `${ORACLE_MARKDOWN_H2_MARKER}${ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR}`
-    + `${ORACLE_CHANGELOG_VERSION_TEXT_PREFIX}${version}${ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX}`,
+    `${ORACLE_MARKDOWN_H2_MARKER}${ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR}${changelogVersionHeadingText(version)}`,
     `${ORACLE_MARKDOWN_H3_MARKER}${ORACLE_MARKDOWN_HEADING_TAB_SEPARATOR}${SAMPLE_CHANGE_GROUP}`,
     formatEntries(subjects),
     BLANK_LINE,
@@ -508,11 +484,11 @@ export function conformantChangelogWithTabPaddedListBeforeChangeGroup(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     ORACLE_MARKDOWN_TAB_PADDED_LIST_ITEM,
-    `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP)}`,
+    `${ORACLE_MARKDOWN_LIST_CONTINUATION_INDENT}${changelogGroupHeading(SAMPLE_CHANGE_GROUP)}`,
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -523,12 +499,12 @@ export function conformantChangelogWithHtmlBlockTerminatedByBlankLine(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     `${ORACLE_MARKDOWN_HTML_BLOCK_OPEN}note${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}`,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -539,11 +515,11 @@ export function conformantChangelogWithSameLineExplicitHtmlBlock(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     `${ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN}note${ORACLE_MARKDOWN_SCRIPT_BLOCK_CLOSE}`,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -554,12 +530,12 @@ export function conformantChangelogWithStandaloneInlineHtmlBeforeReleaseHeading(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -570,11 +546,11 @@ function changelogWithStandaloneInlineHtmlBeforeChangeGroup(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
-    oracleChangelogVersionHeading(version),
+    changelogVersionHeading(version),
     ORACLE_MARKDOWN_INLINE_HTML_VOID_TAG,
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -585,11 +561,11 @@ export function conformantChangelogWithCustomInlineHtmlBeforeReleaseHeading(
   subjects: readonly string[],
 ): string {
   return [
-    ORACLE_CHANGELOG_TITLE,
+    CHANGELOG_TITLE,
     BLANK_LINE,
     ORACLE_MARKDOWN_CUSTOM_INLINE_TAG,
-    oracleChangelogVersionHeading(version),
-    oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+    changelogVersionHeading(version),
+    changelogGroupHeading(SAMPLE_CHANGE_GROUP),
     formatEntries(subjects),
     BLANK_LINE,
   ].join(LINE_SEPARATOR);
@@ -653,15 +629,15 @@ function generatedChangelog(
 function generatedTitleLines(mode: GeneratedChangelogTitleMode): readonly string[] {
   switch (mode) {
     case "exact":
-      return [ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+      return [CHANGELOG_TITLE, BLANK_LINE];
     case "missing":
       return [];
     case "suffix":
-      return [`${ORACLE_CHANGELOG_TITLE}${TITLE_SUFFIX}`, BLANK_LINE];
+      return [`${CHANGELOG_TITLE}${TITLE_SUFFIX}`, BLANK_LINE];
     case "blank-before":
-      return [BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+      return [BLANK_LINE, CHANGELOG_TITLE, BLANK_LINE];
     case "preamble-before":
-      return [PREAMBLE_LINE, BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE];
+      return [PREAMBLE_LINE, BLANK_LINE, CHANGELOG_TITLE, BLANK_LINE];
   }
 }
 
@@ -674,7 +650,7 @@ function generatedPreambleLines(mode: GeneratedChangelogPreambleMode): readonly 
     case "fence":
       return [
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
-        oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP),
+        changelogGroupHeading(SAMPLE_CHANGE_GROUP),
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
         BLANK_LINE,
       ];
@@ -684,7 +660,7 @@ function generatedPreambleLines(mode: GeneratedChangelogPreambleMode): readonly 
         BLANK_LINE,
       ];
     case "blockquote":
-      return [blockquoteLine(oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP)), BLANK_LINE];
+      return [blockquoteLine(changelogGroupHeading(SAMPLE_CHANGE_GROUP)), BLANK_LINE];
   }
 }
 
@@ -692,7 +668,7 @@ function generatedVersionLines(
   mode: GeneratedChangelogVersionMode,
   version: string,
 ): readonly string[] {
-  const versionHeading = oracleChangelogVersionHeading(version);
+  const versionHeading = changelogVersionHeading(version);
   switch (mode) {
     case "top-level":
       return [versionHeading];
@@ -700,8 +676,7 @@ function generatedVersionLines(
       return [];
     case "wrong-level":
       return [
-        `${ORACLE_MARKDOWN_H3_MARKER} ${ORACLE_CHANGELOG_VERSION_TEXT_PREFIX}${version}`
-        + ORACLE_CHANGELOG_VERSION_SECTION_SUFFIX,
+        `${ORACLE_MARKDOWN_H3_MARKER} ${changelogVersionHeadingText(version)}`,
       ];
     case "blockquote":
       return [blockquoteLine(versionHeading)];
@@ -732,7 +707,7 @@ function generatedGroupLines(
   mode: GeneratedChangelogGroupMode,
   subjects: readonly string[],
 ): readonly string[] {
-  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const groupHeading = changelogGroupHeading(SAMPLE_CHANGE_GROUP);
   const entries = formatEntries(subjects);
   switch (mode) {
     case "top-level":
@@ -928,8 +903,9 @@ export function nonConformantChangelogCases(
   subjects: readonly string[],
 ): readonly NonConformantChangelogCase[] {
   const entries = formatEntries(subjects);
-  const groupHeading = oracleChangelogGroupHeading(SAMPLE_CHANGE_GROUP);
-  const versionHeading = oracleChangelogVersionHeading(version);
+  const groupHeading = changelogGroupHeading(SAMPLE_CHANGE_GROUP);
+  const versionHeading = changelogVersionHeading(version);
+  const priorVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctSemverFrom(version));
   return [
     {
       label: "is missing the title",
@@ -938,7 +914,7 @@ export function nonConformantChangelogCases(
     {
       label: "appends extra text to the title heading",
       content: [
-        `${ORACLE_CHANGELOG_TITLE}${TITLE_SUFFIX}`,
+        `${CHANGELOG_TITLE}${TITLE_SUFFIX}`,
         BLANK_LINE,
         versionHeading,
         groupHeading,
@@ -949,7 +925,7 @@ export function nonConformantChangelogCases(
     {
       label: "appends trailing whitespace to the title heading",
       content: [
-        `${ORACLE_CHANGELOG_TITLE}${TITLE_TRAILING_WHITESPACE}`,
+        `${CHANGELOG_TITLE}${TITLE_TRAILING_WHITESPACE}`,
         BLANK_LINE,
         versionHeading,
         groupHeading,
@@ -963,7 +939,7 @@ export function nonConformantChangelogCases(
       content: [
         PREAMBLE_LINE,
         BLANK_LINE,
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         groupHeading,
@@ -974,17 +950,17 @@ export function nonConformantChangelogCases(
     },
     {
       label: "opens with a blank line before the title",
-      content: [BLANK_LINE, ORACLE_CHANGELOG_TITLE, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE]
+      content: [BLANK_LINE, CHANGELOG_TITLE, BLANK_LINE, versionHeading, groupHeading, entries, BLANK_LINE]
         .join(LINE_SEPARATOR),
     },
     {
       label: "is missing the version section",
-      content: [ORACLE_CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+      content: [CHANGELOG_TITLE, BLANK_LINE, groupHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
     },
     {
       label: "appends trailing text to the version heading",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         `${versionHeading}${ORACLE_CHANGELOG_VERSION_HEADING_SUFFIX}`,
         groupHeading,
@@ -999,7 +975,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside a fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
         versionHeading,
@@ -1012,7 +988,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside an info-string fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         `${ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER}${ORACLE_MARKDOWN_FENCE_INFO_STRING}`,
         versionHeading,
@@ -1025,7 +1001,7 @@ export function nonConformantChangelogCases(
     {
       label: "quotes the version section as blockquote text",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         blockquoteLine(versionHeading),
         blockquoteLine(groupHeading),
@@ -1036,7 +1012,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside a raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
         versionHeading,
@@ -1049,7 +1025,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside a mixed-case raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         ORACLE_MARKDOWN_MIXED_CASE_HTML_BLOCK_OPEN,
         versionHeading,
@@ -1062,7 +1038,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside a raw HTML comment",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         ORACLE_MARKDOWN_HTML_COMMENT_OPEN,
         versionHeading,
@@ -1075,7 +1051,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version section inside a raw HTML processing instruction",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         ORACLE_MARKDOWN_PROCESSING_INSTRUCTION_OPEN,
         versionHeading,
@@ -1088,7 +1064,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the version heading at the wrong level",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         `${DEEPER_HEADING_HASH}${versionHeading}`,
         groupHeading,
@@ -1099,12 +1075,12 @@ export function nonConformantChangelogCases(
     },
     {
       label: "is missing a change-group heading",
-      content: [ORACLE_CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
+      content: [CHANGELOG_TITLE, BLANK_LINE, versionHeading, entries, BLANK_LINE].join(LINE_SEPARATOR),
     },
     {
       label: "puts another h2 section before the change-group heading",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_INTERSTITIAL_H2,
@@ -1116,7 +1092,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
@@ -1129,7 +1105,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside an info-string fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         `${ORACLE_MARKDOWN_FENCE_TILDE_MARKER}${ORACLE_MARKDOWN_FENCE_INFO_STRING}`,
@@ -1142,7 +1118,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a malformed backtick fence close inside a fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_FENCE_BACKTICK_MARKER,
@@ -1156,7 +1132,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a malformed tilde fence close inside a fenced code block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_FENCE_TILDE_MARKER,
@@ -1170,7 +1146,7 @@ export function nonConformantChangelogCases(
     {
       label: "quotes the change-group heading as blockquote text",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         blockquoteLine(groupHeading),
@@ -1181,7 +1157,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a list item",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_LIST_ITEM,
@@ -1193,7 +1169,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
@@ -1206,7 +1182,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a raw HTML close before a blank line",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
@@ -1220,7 +1196,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a standalone raw HTML close before a blank line",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         `${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}${RAW_HTML_CLOSE_TRAILING_WHITESPACE}`,
@@ -1232,7 +1208,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a raw HTML close with trailing text before a blank line",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         `${ORACLE_MARKDOWN_HTML_BLOCK_CLOSE}${RAW_HTML_CLOSE_TRAILING_TEXT}`,
@@ -1244,7 +1220,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a script HTML block with a blank line before close",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_SCRIPT_BLOCK_OPEN,
@@ -1258,7 +1234,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a pre HTML block with a blank line before close",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_PRE_BLOCK_OPEN,
@@ -1272,7 +1248,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a style HTML block with a blank line before close",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_STYLE_BLOCK_OPEN,
@@ -1286,7 +1262,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a textarea HTML block with a blank line before close",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_TEXTAREA_BLOCK_OPEN,
@@ -1300,7 +1276,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a custom raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_CUSTOM_BLOCK_OPEN,
@@ -1313,7 +1289,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after a suffix-lookalike raw HTML close inside a raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
@@ -1327,7 +1303,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading after an embedded raw HTML close inside a raw HTML block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_HTML_BLOCK_OPEN,
@@ -1341,7 +1317,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a raw HTML comment",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_HTML_COMMENT_OPEN,
@@ -1354,7 +1330,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a raw HTML declaration",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_DECLARATION_OPEN,
@@ -1367,7 +1343,7 @@ export function nonConformantChangelogCases(
     {
       label: "puts the change-group heading inside a CDATA block",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         ORACLE_MARKDOWN_CDATA_OPEN,
@@ -1380,7 +1356,7 @@ export function nonConformantChangelogCases(
     {
       label: "uses a heading one level too deep for the change group",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         `${DEEPER_HEADING_HASH}${groupHeading}`,
@@ -1392,12 +1368,12 @@ export function nonConformantChangelogCases(
     {
       label: "groups a prior version's section but leaves the current release's ungrouped",
       content: [
-        ORACLE_CHANGELOG_TITLE,
+        CHANGELOG_TITLE,
         BLANK_LINE,
         versionHeading,
         entries,
         BLANK_LINE,
-        oracleChangelogVersionHeading(`${version}${PRIOR_VERSION_SUFFIX}`),
+        changelogVersionHeading(priorVersion),
         groupHeading,
         entries,
         BLANK_LINE,

@@ -977,6 +977,688 @@ async function observeDocumentationAgentFileToolBoundary(
   return observation;
 }
 
+const DOCUMENTATION_FAILURE_CASE = {
+  GENERATION: "generation",
+  READ_BACK: "read-back",
+  INCOMPLETE_SET: "incomplete-set",
+} as const;
+
+type DocumentationFailureCase = (typeof DOCUMENTATION_FAILURE_CASE)[keyof typeof DOCUMENTATION_FAILURE_CASE];
+
+const DOCUMENTATION_VERSION_VALIDATION_CASE = {
+  COMPLETE_HISTORY: "complete-history",
+  VERSION_VARIANT: "version-variant",
+  PARTIAL_REWRITE: "partial-rewrite",
+} as const;
+
+type DocumentationVersionValidationCase =
+  (typeof DOCUMENTATION_VERSION_VALIDATION_CASE)[keyof typeof DOCUMENTATION_VERSION_VALIDATION_CASE];
+
+const DOCUMENTATION_IDENTITY_CASE = {
+  STAGED_SYMLINK: "staged-symlink",
+  PRODUCT_READ: "product-read",
+  CANONICAL_RESOLUTION: "canonical-resolution",
+  STAGED_READ: "staged-read",
+  DUPLICATE_FILE: "duplicate-file",
+  STAGED_REPLACEMENT: "staged-replacement",
+  PROMOTION_REPLACEMENT: "promotion-replacement",
+} as const;
+
+type DocumentationIdentityCase = (typeof DOCUMENTATION_IDENTITY_CASE)[keyof typeof DOCUMENTATION_IDENTITY_CASE];
+
+const DOCUMENTATION_ROLLBACK_CASE = {
+  POST_PROMOTION_EDIT: "post-promotion-edit",
+  IDENTITY_REPLACEMENT: "identity-replacement",
+} as const;
+
+type DocumentationRollbackCase = (typeof DOCUMENTATION_ROLLBACK_CASE)[keyof typeof DOCUMENTATION_ROLLBACK_CASE];
+
+const DOCUMENTATION_PROMOTION_FAILURE_CASE = {
+  SECOND_WRITE: "second-write",
+  POST_STAGING_EDIT: "post-staging-edit",
+  DURING_PROMOTION_EDIT: "during-promotion-edit",
+} as const;
+
+type DocumentationPromotionFailureCase =
+  (typeof DOCUMENTATION_PROMOTION_FAILURE_CASE)[keyof typeof DOCUMENTATION_PROMOTION_FAILURE_CASE];
+
+const DOCUMENTATION_AUDIT_CASE = {
+  REJECT_BEFORE_PROMOTION: "reject-before-promotion",
+  TRANSFORMATION: "transformation",
+} as const;
+
+type DocumentationAuditCase = (typeof DOCUMENTATION_AUDIT_CASE)[keyof typeof DOCUMENTATION_AUDIT_CASE];
+
+const DOCUMENTATION_PROMPT_CASE = {
+  PRODUCER_INPUT: "producer-input",
+  DATA_BOUNDARY: "data-boundary",
+  AMBIENT_EXCLUSION: "ambient-exclusion",
+} as const;
+
+type DocumentationPromptCase = (typeof DOCUMENTATION_PROMPT_CASE)[keyof typeof DOCUMENTATION_PROMPT_CASE];
+
+interface DocumentationRejectionObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly agentRequestCount: number;
+  readonly auditRequestCount: number;
+  readonly promotionCallCount: number;
+  readonly atomicWriteCount: number;
+}
+
+interface DocumentationPathFailureObservation {
+  readonly error: unknown;
+  readonly agentRequestCount: number;
+  readonly promotionCallCount: number;
+  readonly backingFiles: readonly { readonly actual: string; readonly expected: string }[];
+}
+
+interface DocumentationFifoObservation {
+  readonly outcome: (typeof DOCUMENTATION_FIFO_STAGE_OUTCOME)[keyof typeof DOCUMENTATION_FIFO_STAGE_OUTCOME];
+  readonly agentRequestCount: number;
+  readonly promotionCallCount: number;
+}
+
+interface DocumentationAtomicPromotionObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly result: { readonly paths: readonly string[] } | undefined;
+  readonly expectedPaths: readonly string[];
+  readonly openHandleCount: number;
+}
+
+interface DocumentationRollbackObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly failureCount: number;
+}
+
+interface DocumentationPromotionFailureObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly atomicWriteCount: number;
+  readonly atomicFailureCount: number;
+}
+
+interface DocumentationAuditObservation extends DocumentationContentObservation {
+  readonly error: unknown;
+  readonly actualReleaseData: ReleaseData | undefined;
+  readonly expectedReleaseData: ReleaseData;
+  readonly actualDocuments: readonly unknown[];
+  readonly expectedDocuments: readonly unknown[];
+  readonly promotionCallCount: number;
+}
+
+interface DocumentationPromptObservation {
+  readonly producerRequestCount: number;
+  readonly actualProducerInput: unknown;
+  readonly expectedProducerInput: unknown;
+  readonly producerInstruction: string;
+  readonly encodedVersion: string;
+  readonly auditRequestCount: number;
+  readonly actualAuditInput: unknown;
+  readonly expectedAuditInput: unknown;
+  readonly auditInstruction: string;
+  readonly ambientState: DocumentationSyncScenario["ambientState"];
+  readonly producerPrompt: string;
+}
+
+async function observeDocumentationPathFailures(): Promise<readonly DocumentationPathFailureObservation[]> {
+  return await Promise.all(
+    documentationPathFailureCases().map(async (failureCase) =>
+      await withTempDir(
+        PRODUCT_DIRECTORY_PREFIX,
+        async (productDir) =>
+          await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+            await materializeDocumentationPathFailure(failureCase, productDir, externalDir);
+            const filesystem = createDocumentationSyncFilesystem();
+            const agent = new PassiveDocumentationAgent();
+            const promoter = new RecordingDocumentationPromoter();
+            let error: unknown;
+            try {
+              await composeDocumentationSync({
+                releaseData: failureCase.releaseData,
+                config: failureCase.config,
+                productDir,
+                agentRunner: agent,
+                stageDocumentation: filesystem.stageDocumentation,
+                readDocument: filesystem.readDocument,
+                promoteDocumentation: promoter.promote,
+                faithfulnessAuditor: approvingDocumentationAuditor,
+              });
+            } catch (caught) {
+              error = caught;
+            }
+            const backingFiles: { readonly actual: string; readonly expected: string }[] = [];
+            if (failureCase.kind === DOCUMENTATION_PATH_FAILURE_KIND.CANONICAL_ESCAPE) {
+              backingFiles.push({
+                actual: await readFile(join(externalDir, failureCase.backingPath), DOCUMENTATION_TEXT_ENCODING),
+                expected: failureCase.backingContent,
+              });
+            }
+            if (failureCase.kind === DOCUMENTATION_PATH_FAILURE_KIND.FINAL_SYMLINK) {
+              backingFiles.push({
+                actual: await readFile(join(productDir, failureCase.backingPath), DOCUMENTATION_TEXT_ENCODING),
+                expected: failureCase.backingContent,
+              });
+            }
+            return {
+              error,
+              agentRequestCount: agent.requests.length,
+              promotionCallCount: promoter.calls.length,
+              backingFiles,
+            };
+          }),
+      )
+    ),
+  );
+}
+
+async function observeDocumentationFailure(
+  failureCase: DocumentationFailureCase,
+): Promise<DocumentationRejectionObservation> {
+  const scenario = sampleReleaseTestValue(
+    failureCase === DOCUMENTATION_FAILURE_CASE.INCOMPLETE_SET
+      ? arbitraryMultiDocumentSyncScenario()
+      : arbitraryConfiguredDocumentationSyncScenario(),
+  );
+  const promoter = new RecordingDocumentationPromoter();
+  const agent = failureCase === DOCUMENTATION_FAILURE_CASE.GENERATION
+    ? new FailingDocumentationAgent()
+    : failureCase === DOCUMENTATION_FAILURE_CASE.INCOMPLETE_SET
+    ? new FirstDocumentationWritingAgent(scenario.updated)
+    : new PassiveDocumentationAgent();
+  let observation: DocumentationRejectionObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    const auditor = new RecordingDocumentationAuditor();
+    let error: unknown;
+    try {
+      await composeDocumentationSync({
+        ...options,
+        agentRunner: agent,
+        readDocument: failureCase === DOCUMENTATION_FAILURE_CASE.READ_BACK
+          ? failingDocumentationReader
+          : options.readDocument,
+        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+        promoteDocumentation: promoter.promote,
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    observation = {
+      ...await observeOriginalDocumentationContent(scenario, readProductDocument),
+      error,
+      agentRequestCount: agent.requests.length,
+      auditRequestCount: auditor.requests.length,
+      promotionCallCount: promoter.calls.length,
+      atomicWriteCount: 0,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation failure case produced no observation");
+  return observation;
+}
+
+async function observeDocumentationVersionValidation(
+  validationCase: DocumentationVersionValidationCase,
+): Promise<DocumentationRejectionObservation> {
+  const scenario = sampleReleaseTestValue(
+    validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT
+      ? arbitraryReleaseVersionVariantOnlyScenario()
+      : arbitraryConfiguredDocumentationSyncScenario(),
+  );
+  const agent = validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT
+    ? new DocumentationWritingAgent(scenario.updated)
+    : validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.PARTIAL_REWRITE
+    ? new PartiallyUpdatingDocumentationAgent()
+    : new PassiveDocumentationAgent();
+  const auditor = new RecordingDocumentationAuditor();
+  const promoter = new RecordingDocumentationPromoter();
+  let observation: DocumentationRejectionObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    let error: unknown;
+    try {
+      await composeDocumentationSync({
+        ...options,
+        agentRunner: agent,
+        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+        promoteDocumentation: promoter.promote,
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    observation = {
+      ...await observeOriginalDocumentationContent(scenario, readProductDocument),
+      error,
+      agentRequestCount: agent.requests.length,
+      auditRequestCount: auditor.requests.length,
+      promotionCallCount: promoter.calls.length,
+      atomicWriteCount: 0,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation version validation produced no observation");
+  return observation;
+}
+
+async function observeDocumentationIdentityRejection(
+  identityCase: DocumentationIdentityCase,
+): Promise<DocumentationRejectionObservation> {
+  const scenario = sampleReleaseTestValue(
+    identityCase === DOCUMENTATION_IDENTITY_CASE.DUPLICATE_FILE
+      || identityCase === DOCUMENTATION_IDENTITY_CASE.STAGED_REPLACEMENT
+      ? arbitraryMultiDocumentSyncScenario()
+      : arbitrarySingleDocumentSyncScenario(),
+  );
+  return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    let observation: DocumentationRejectionObservation | undefined;
+    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+      const primary = primaryDocumentation(scenario);
+      const auditor = new RecordingDocumentationAuditor();
+      const promoter = new RecordingDocumentationPromoter();
+      let atomicWriteCount = 0;
+      let error: unknown;
+      switch (identityCase) {
+        case DOCUMENTATION_IDENTITY_CASE.STAGED_SYMLINK:
+          error = await captureError(async () =>
+            await composeDocumentationSync({
+              ...options,
+              agentRunner: new StagedSymlinkReplacingAgent(
+                scenario.updated,
+                primary.path,
+                join(externalDir, primary.path),
+              ),
+              faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+              promoteDocumentation: promoter.promote,
+            })
+          );
+          break;
+        case DOCUMENTATION_IDENTITY_CASE.PRODUCT_READ:
+        case DOCUMENTATION_IDENTITY_CASE.STAGED_READ: {
+          const target = identityCase === DOCUMENTATION_IDENTITY_CASE.PRODUCT_READ
+            ? DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+            : DOCUMENTATION_READ_RACE_TARGET.STAGED;
+          const canonicalProductDir = await realpath(options.productDir);
+          const opener = new RetargetingDocumentationFileOpener(
+            target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+              ? (path) => path === join(canonicalProductDir, primary.path)
+              : (path) => !isPathContained(canonicalProductDir, path),
+            join(externalDir, primary.path),
+            target === DOCUMENTATION_READ_RACE_TARGET.PRODUCT
+              ? primary.originalContent
+              : primary.updatedContent,
+          );
+          const writer = new RecordingDocumentationAtomicWriter();
+          const filesystem = createDocumentationSyncFilesystem({
+            openDocumentationFile: opener.open,
+            writeDocumentAtomic: writer.write,
+          });
+          error = await captureError(async () => await composeWithDocumentationFilesystem(options, filesystem));
+          atomicWriteCount = writer.writes;
+          break;
+        }
+        case DOCUMENTATION_IDENTITY_CASE.CANONICAL_RESOLUTION: {
+          const canonicalProductDir = await realpath(options.productDir);
+          const resolver = new RetargetingDocumentationCanonicalPathResolver(
+            join(canonicalProductDir, primary.path),
+            join(externalDir, primary.path),
+            primary.originalContent,
+          );
+          const writer = new RecordingDocumentationAtomicWriter();
+          const filesystem = createDocumentationSyncFilesystem({
+            resolveCanonicalDocumentationPath: resolver.resolve,
+            writeDocumentAtomic: writer.write,
+          });
+          error = await captureError(async () => await composeWithDocumentationFilesystem(options, filesystem));
+          atomicWriteCount = writer.writes;
+          break;
+        }
+        case DOCUMENTATION_IDENTITY_CASE.DUPLICATE_FILE: {
+          const aliasPath = scenario.paths.at(1);
+          if (aliasPath === undefined) throw new Error("Generated documentation identity case requires two paths");
+          await rm(join(options.productDir, aliasPath));
+          await link(join(options.productDir, primary.path), join(options.productDir, aliasPath));
+          error = await captureError(async () =>
+            await composeDocumentationSync({ ...options, promoteDocumentation: promoter.promote })
+          );
+          break;
+        }
+        case DOCUMENTATION_IDENTITY_CASE.STAGED_REPLACEMENT: {
+          const writer = new RecordingDocumentationAtomicWriter();
+          const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+          const identityPromoter = new InterveningDocumentationIdentityPromoter(
+            join(options.productDir, primary.path),
+            join(externalDir, primary.path),
+            primary.originalContent,
+            filesystem.promoteDocumentation,
+          );
+          error = await captureError(async () =>
+            await composeDocumentationSync({ ...options, promoteDocumentation: identityPromoter.promote })
+          );
+          atomicWriteCount = writer.writes;
+          break;
+        }
+        case DOCUMENTATION_IDENTITY_CASE.PROMOTION_REPLACEMENT: {
+          const canonicalProductDir = await realpath(options.productDir);
+          const writer = new IdentityReplacingDocumentationAtomicWriter(
+            join(canonicalProductDir, primary.path),
+            join(externalDir, primary.path),
+            primary.originalContent,
+          );
+          const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+          error = await captureError(async () => await composeWithDocumentationFilesystem(options, filesystem));
+          atomicWriteCount = writer.writes;
+          break;
+        }
+      }
+      observation = {
+        ...await observeOriginalDocumentationContent(scenario, readProductDocument),
+        error,
+        agentRequestCount: agent.requests.length,
+        auditRequestCount: auditor.requests.length,
+        promotionCallCount: promoter.calls.length,
+        atomicWriteCount,
+      };
+    });
+    if (observation === undefined) throw new Error("Documentation identity case produced no observation");
+    return observation;
+  });
+}
+
+async function observeDocumentationFifoRejection(): Promise<DocumentationFifoObservation> {
+  const scenario = sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario());
+  const primary = primaryDocumentation(scenario);
+  const promoter = new RecordingDocumentationPromoter();
+  let observation: DocumentationFifoObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+    const fifoPath = join(options.productDir, primary.path);
+    await rm(fifoPath);
+    await execa(DOCUMENTATION_FIFO_COMMAND, [fifoPath]);
+    const sync = composeDocumentationSync({ ...options, promoteDocumentation: promoter.promote });
+    const outcome = await Promise.race([
+      sync.then(
+        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.RESOLVED,
+        () => DOCUMENTATION_FIFO_STAGE_OUTCOME.REJECTED,
+      ),
+      delay(DOCUMENTATION_FIFO_BLOCK_DETECTION_MS).then(() => DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED),
+    ]);
+    if (outcome === DOCUMENTATION_FIFO_STAGE_OUTCOME.BLOCKED) {
+      await Promise.allSettled([sync, writeFile(fifoPath, primary.originalContent)]);
+    }
+    observation = {
+      outcome,
+      agentRequestCount: agent.requests.length,
+      promotionCallCount: promoter.calls.length,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation FIFO case produced no observation");
+  return observation;
+}
+
+async function observeAtomicDocumentationPromotion(): Promise<DocumentationAtomicPromotionObservation> {
+  const scenario = sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario());
+  const opener = new TrackingDocumentationFileOpener();
+  const writer = createDocumentationAtomicWriter({
+    writeFile: async (path, content) => await writeFile(path, content),
+    rename: async (from, to) => {
+      if (opener.openHandleCount > 0) {
+        throw new Error("Atomic rename attempted with an open documentation handle");
+      }
+      await rename(from, to);
+    },
+    rm: async (path, options) => await rm(path, options),
+  });
+  const filesystem = createDocumentationSyncFilesystem({
+    openDocumentationFile: opener.open,
+    writeDocumentAtomic: writer,
+  });
+  let observation: DocumentationAtomicPromotionObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    let result: { readonly paths: readonly string[] } | undefined;
+    let error: unknown;
+    try {
+      result = await composeWithDocumentationFilesystem(options, filesystem);
+    } catch (caught) {
+      error = caught;
+    }
+    observation = {
+      ...await observeDocumentationContent(scenario, readProductDocument),
+      error,
+      result,
+      expectedPaths: scenario.paths,
+      openHandleCount: opener.openHandleCount,
+    };
+  });
+  if (observation === undefined) throw new Error("Atomic documentation promotion produced no observation");
+  return observation;
+}
+
+async function observeDocumentationRollback(
+  rollbackCase: DocumentationRollbackCase,
+): Promise<DocumentationRollbackObservation> {
+  const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+  const primary = primaryDocumentation(scenario);
+  return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
+    let observation: DocumentationRollbackObservation | undefined;
+    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+      let error: unknown;
+      let failureCount: number;
+      if (rollbackCase === DOCUMENTATION_ROLLBACK_CASE.POST_PROMOTION_EDIT) {
+        const writer = new PostPromotionEditFailingAtomicWriter(
+          join(options.productDir, primary.path),
+          primary.interveningContent,
+        );
+        const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+        error = await captureError(async () => await composeWithDocumentationFilesystem(options, filesystem));
+        failureCount = writer.failures;
+      } else {
+        const fileSystem = new PostRenameIdentityReplacingAtomicFileSystem(
+          join(externalDir, primary.path),
+          primary.updatedContent,
+        );
+        const filesystem = createDocumentationSyncFilesystem({
+          writeDocumentAtomic: createDocumentationAtomicWriter(fileSystem),
+        });
+        error = await captureError(async () => await composeWithDocumentationFilesystem(options, filesystem));
+        failureCount = fileSystem.failures;
+      }
+      observation = {
+        actual: (await observeDocumentationContent(scenario, readProductDocument)).actual,
+        expected: scenario.paths.map((path) => ({
+          path,
+          content: rollbackCase === DOCUMENTATION_ROLLBACK_CASE.POST_PROMOTION_EDIT
+            ? path === primary.path ? primary.interveningContent : scenario.original[path]
+            : path === primary.path
+            ? primary.updatedContent
+            : scenario.original[path],
+        })),
+        error,
+        failureCount,
+      };
+    });
+    if (observation === undefined) throw new Error("Documentation rollback produced no observation");
+    return observation;
+  });
+}
+
+async function observeDocumentationPromotionFailure(
+  failureCase: DocumentationPromotionFailureCase,
+): Promise<DocumentationPromotionFailureObservation> {
+  const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
+  let observation: DocumentationPromotionFailureObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    let error: unknown;
+    let atomicWriteCount = 0;
+    let atomicFailureCount = 0;
+    let expected = scenario.paths.map((path) => ({ path, content: scenario.original[path] }));
+    if (failureCase === DOCUMENTATION_PROMOTION_FAILURE_CASE.SECOND_WRITE) {
+      const writer = new FailingSecondDocumentationAtomicWriter();
+      const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+      error = await captureError(async () =>
+        await composeDocumentationSync({ ...options, promoteDocumentation: filesystem.promoteDocumentation })
+      );
+      atomicWriteCount = writer.successfulWrites;
+      atomicFailureCount = writer.failures;
+    } else {
+      const interveningPath = failureCase === DOCUMENTATION_PROMOTION_FAILURE_CASE.POST_STAGING_EDIT
+        ? lastDocumentationPath(scenario)
+        : scenario.paths.at(1);
+      if (interveningPath === undefined) throw new Error("Generated promotion failure has no intervening path");
+      const interveningContent = scenario.intervening[interveningPath];
+      if (interveningContent === undefined) {
+        throw new Error(`Generated promotion failure has no intervening content for ${interveningPath}`);
+      }
+      if (failureCase === DOCUMENTATION_PROMOTION_FAILURE_CASE.POST_STAGING_EDIT) {
+        const writer = new RecordingDocumentationAtomicWriter();
+        const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+        const promoter = new InterveningDocumentationEditPromoter(
+          options.productDir,
+          interveningPath,
+          interveningContent,
+          filesystem.promoteDocumentation,
+        );
+        error = await captureError(async () =>
+          await composeDocumentationSync({ ...options, promoteDocumentation: promoter.promote })
+        );
+        atomicWriteCount = writer.writes;
+      } else {
+        const writer = new InterveningDuringPromotionAtomicWriter(
+          join(options.productDir, interveningPath),
+          interveningContent,
+        );
+        const filesystem = createDocumentationSyncFilesystem({ writeDocumentAtomic: writer.write });
+        error = await captureError(async () =>
+          await composeDocumentationSync({ ...options, promoteDocumentation: filesystem.promoteDocumentation })
+        );
+      }
+      expected = scenario.paths.map((path) => ({
+        path,
+        content: path === interveningPath ? interveningContent : scenario.original[path],
+      }));
+    }
+    observation = {
+      actual: (await observeDocumentationContent(scenario, readProductDocument)).actual,
+      expected,
+      error,
+      atomicWriteCount,
+      atomicFailureCount,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation promotion failure produced no observation");
+  return observation;
+}
+
+async function observeDocumentationAudit(auditCase: DocumentationAuditCase): Promise<DocumentationAuditObservation> {
+  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  const promoter = new RecordingDocumentationPromoter();
+  let observation: DocumentationAuditObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    let actualReleaseData: ReleaseData | undefined;
+    let actualDocuments: readonly unknown[] = [];
+    let error: unknown;
+    try {
+      await composeDocumentationSync({
+        ...options,
+        faithfulnessAuditor: async ({ releaseData, documents }) => {
+          actualReleaseData = releaseData;
+          actualDocuments = auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION
+            ? documents.map(({ path }) => path)
+            : documents;
+          if (auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION) {
+            await rejectingDocumentationAuditor({ releaseData, documents });
+          }
+        },
+        promoteDocumentation: promoter.promote,
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    const content = auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION
+      ? await observeOriginalDocumentationContent(scenario, readProductDocument)
+      : await observeDocumentationContent(scenario, readProductDocument);
+    observation = {
+      ...content,
+      error,
+      actualReleaseData,
+      expectedReleaseData: scenario.releaseData,
+      actualDocuments,
+      expectedDocuments: auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION
+        ? scenario.paths
+        : scenario.paths.map((path) => ({
+          path,
+          originalContent: scenario.original[path],
+          updatedContent: scenario.updated[path],
+        })),
+      promotionCallCount: promoter.calls.length,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation audit produced no observation");
+  return observation;
+}
+
+async function observeDocumentationPrompt(
+  promptCase: DocumentationPromptCase,
+): Promise<DocumentationPromptObservation> {
+  const scenario = sampleReleaseTestValue(
+    promptCase === DOCUMENTATION_PROMPT_CASE.DATA_BOUNDARY
+      ? arbitraryPromptBoundaryDocumentationSyncScenario()
+      : arbitraryConfiguredDocumentationSyncScenario(),
+  );
+  const auditor = new RecordingDocumentationAuditor();
+  let observation: DocumentationPromptObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+    await composeDocumentationSync({
+      ...options,
+      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+    });
+    const producerRequest = requiredAgentRequest(agent.requests, "producer");
+    const auditRequest = requiredAgentRequest(auditor.requests, "audit");
+    observation = {
+      producerRequestCount: agent.requests.length,
+      actualProducerInput: parseDocumentationSyncPromptInput(producerRequest.prompt),
+      expectedProducerInput: {
+        releaseData: scenario.releaseData,
+        documents: scenario.paths.map((sourcePath) => ({
+          sourcePath,
+          stagedPath: join(producerRequest.workingDirectory, sourcePath),
+        })),
+      },
+      producerInstruction: documentationSyncPromptInstruction(producerRequest.prompt),
+      encodedVersion: encodeReleasePromptData(scenario.releaseData.version),
+      auditRequestCount: auditor.requests.length,
+      actualAuditInput: parseDocumentationPromptDataBlock(auditRequest.prompt),
+      expectedAuditInput: {
+        releaseData: scenario.releaseData,
+        documents: scenario.paths.map((path) => ({
+          path,
+          originalContent: scenario.original[path],
+          updatedContent: scenario.updated[path],
+        })),
+      },
+      auditInstruction: documentationSyncPromptInstruction(auditRequest.prompt),
+      ambientState: scenario.ambientState,
+      producerPrompt: producerRequest.prompt,
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation prompt produced no observation");
+  return observation;
+}
+
+async function captureError(operation: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await operation();
+    return undefined;
+  } catch (error) {
+    return error;
+  }
+}
+
+async function observeOriginalDocumentationContent(
+  scenario: DocumentationSyncScenario,
+  readProductDocument: ProductDocumentationReader,
+): Promise<DocumentationContentObservation> {
+  return {
+    actual: await Promise.all(
+      scenario.paths.map(async (path) => ({ path, content: await readProductDocument(path) })),
+    ),
+    expected: scenario.paths.map((path) => ({ path, content: scenario.original[path] })),
+  };
+}
+
 async function materializeDocumentationPathFailure(
   failureCase: DocumentationPathFailureCase,
   productDir: string,
@@ -1083,15 +1765,22 @@ export {
   delay,
   DIAGNOSE_SECTION,
   dirname,
+  DOCUMENTATION_AUDIT_CASE,
+  DOCUMENTATION_FAILURE_CASE,
   DOCUMENTATION_FIFO_BLOCK_DETECTION_MS,
   DOCUMENTATION_FIFO_COMMAND,
   DOCUMENTATION_FIFO_STAGE_OUTCOME,
+  DOCUMENTATION_IDENTITY_CASE,
   DOCUMENTATION_PATH_FAILURE_KIND,
   DOCUMENTATION_PATH_SEMANTICS,
+  DOCUMENTATION_PROMOTION_FAILURE_CASE,
+  DOCUMENTATION_PROMPT_CASE,
   DOCUMENTATION_READ_RACE_TARGET,
+  DOCUMENTATION_ROLLBACK_CASE,
   DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_TEXT_ENCODING,
+  DOCUMENTATION_VERSION_VALIDATION_CASE,
   type DocumentationAgentFileToolBoundaryScenario,
   type DocumentationFailureControls,
   type DocumentationPathAliasCase,
@@ -1121,14 +1810,24 @@ export {
   link,
   materializeDocumentationPathFailure,
   mkdir,
+  observeAtomicDocumentationPromotion,
   observeConfiguredDocumentationPathSet,
   observeConfiguredDocumentationSync,
   observeDefaultDocumentationSync,
   observeDocumentationAgentFileToolBoundary,
+  observeDocumentationAudit,
+  observeDocumentationFailure,
+  observeDocumentationFifoRejection,
+  observeDocumentationIdentityRejection,
   observeDocumentationPathAliases,
+  observeDocumentationPathFailures,
   observeDocumentationPathMappings,
   observeDocumentationPathSemantics,
+  observeDocumentationPromotionFailure,
+  observeDocumentationPrompt,
+  observeDocumentationRollback,
   observeDocumentationVersionPreservation,
+  observeDocumentationVersionValidation,
   observeFirstReleaseDocumentationSync,
   observeIndependentDocumentationConfigResolution,
   observeUnrelatedVersionRewrite,

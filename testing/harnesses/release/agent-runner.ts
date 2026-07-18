@@ -78,7 +78,7 @@ export function releaseDataDrivenAgentRunner(
   });
 }
 
-function promptChangelogPath(prompt: string): string | undefined {
+export function promptChangelogPath(prompt: string): string | undefined {
   return promptJsonString(prompt, CHANGELOG_PATH_DATA_BLOCK_OPEN, CHANGELOG_PATH_DATA_BLOCK_CLOSE);
 }
 

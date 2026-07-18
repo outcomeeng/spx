@@ -1,8 +1,9 @@
 import { isAbsolute } from "node:path";
 
 import { RELEASE_NOTES_OUTPUT_PREFIX } from "@/commands/release/release-notes";
+import { changelogVersionHeading } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { oracleChangelogVersionHeading, oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import { oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
 import {
   observeCanonicalReleaseNotesCommand,
   observeComposedReleaseNotes,
@@ -36,7 +37,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
     await expect(observeComposedReleaseNotes()).resolves.toSatisfy(
-      (observation) => observation.content.includes(oracleChangelogVersionHeading(observation.version)),
+      (observation) => observation.content.includes(changelogVersionHeading(observation.version)),
     );
   });
 });
@@ -46,7 +47,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
     await expect(observeReleaseNotesCommand()).resolves.toSatisfy(
       (observation) =>
         observation.output === `${RELEASE_NOTES_OUTPUT_PREFIX}: ${observation.resolvedPath}`
-        && observation.content.includes(oracleChangelogVersionHeading(observation.version)),
+        && observation.content.includes(changelogVersionHeading(observation.version)),
     );
   });
 
@@ -55,7 +56,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
       (observation) =>
         observation.output === `${RELEASE_NOTES_OUTPUT_PREFIX}: ${observation.canonicalPath}`
         && observation.canonicalPath !== observation.lexicalPath
-        && observation.content.includes(oracleChangelogVersionHeading(observation.version)),
+        && observation.content.includes(changelogVersionHeading(observation.version)),
     );
   });
 });
