@@ -23,3 +23,50 @@ validation:
         - unresolvedTargets
         - verification
         - verify
+harnessEnvironment:
+  pluginBootstrap:
+    marketplaces:
+      - agent: claudeCode
+        name: outcomeeng
+        source: outcomeeng/plugins
+      - agent: codex
+        name: outcomeeng
+        source: https://github.com/outcomeeng/plugins.git
+      - agent: claudeCode
+        name: claude-plugins-official
+        source: anthropics/claude-plugins-official
+      - agent: codex
+        name: claude-plugins-official
+        source: https://github.com/anthropics/claude-plugins-official.git
+    plugins:
+      - agent: claudeCode
+        name: prose
+        marketplace: outcomeeng
+      - agent: claudeCode
+        name: instructions
+        marketplace: outcomeeng
+      - agent: claudeCode
+        name: typescript
+        marketplace: outcomeeng
+      - agent: claudeCode
+        name: spec-tree
+        marketplace: outcomeeng
+      - agent: claudeCode
+        name: sonarqube
+        marketplace: claude-plugins-official
+      - agent: codex
+        name: prose
+        marketplace: outcomeeng
+      - agent: codex
+        name: instructions
+        marketplace: outcomeeng
+      - agent: codex
+        name: typescript
+        marketplace: outcomeeng
+      - agent: codex
+        name: spec-tree
+        marketplace: outcomeeng
+      - agent: codex
+        name: sonarqube
+        marketplace: claude-plugins-official
+    skills: []

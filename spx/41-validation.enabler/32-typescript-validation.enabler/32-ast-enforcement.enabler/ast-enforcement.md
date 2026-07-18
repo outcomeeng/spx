@@ -17,7 +17,7 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 - `vi.fn()` maps to lint error — use an explicit typed implementation or recording object passed through dependency injection ([test](tests/ast-enforcement.mapping.l1.test.ts))
 - `readFileSync` import maps to lint error — source-text testing is not evidence; legitimate fixture reads require an explicit lint suppression with justification ([test](tests/ast-enforcement.mapping.l1.test.ts))
 - `skipIf` maps to lint error — restructure so the test runs in every environment, or remove it ([test](tests/ast-enforcement.mapping.l1.test.ts))
-- String literals in assertion arguments map to lint error — import source-owned values from their owning module; if none exists, refactor production code to export a semantic `as const` registry ([test](tests/ast-enforcement.mapping.l1.test.ts))
+- Matcher string literals receive no blanket restricted-syntax diagnostic solely because they are inline; exact values from named source registries remain governed by registry-specific rules, while typed protocol members remain valid matcher arguments ([test](tests/ast-enforcement.mapping.l1.test.ts))
 
 - Internal import, export, dynamic import, and TypeScript import-type sources ending in `.js`, `.mjs`, `.cjs`, `.cts`, `.mts`, `.ts`, `.tsx`, `.d.ts`, `.d.cts`, or `.d.mts`, including before query/hash suffixes, map to lint error with autofix to the extensionless source ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-import-source-extensions.ts))
 - Relative import, export, dynamic import, and TypeScript import-type sources that climb more than one parent directory (`../../` or deeper) map to lint error — use a configured alias or a local module boundary ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-deep-relative-imports.ts))
@@ -50,7 +50,7 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 
 ### Compliance
 
-- ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([review])
+- ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([audit])
 - NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-spec-references.ts))
-- ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([review])
-- NEVER: enforce compliance by reading source files as strings — AST analysis is the only valid enforcement mechanism for structural rules ([review])
+- ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([audit])
+- NEVER: enforce compliance by reading source files as strings — AST analysis is the only valid enforcement mechanism for structural rules ([audit])

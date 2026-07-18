@@ -1,5 +1,8 @@
 import * as fc from "fast-check";
+import { stringify as stringifyToml } from "smol-toml";
+import { stringify as stringifyYaml } from "yaml";
 
+import { CONFIG_FILE_FORMAT, type ConfigFileFormat } from "@/config/filenames";
 import type { ConfigFileReadResult } from "@/config/index";
 import {
   PATH_FILTER_CONFIG_FIELDS,
@@ -77,6 +80,22 @@ export type GeneratedResolutionScope = {
   readonly nestedDirectory: string;
 };
 
+export interface GeneratedConfigFormatScenario {
+  readonly rawByFormat: Readonly<Record<ConfigFileFormat, string>>;
+  readonly expectedSpecTreeConfig: {
+    readonly kinds: Readonly<Record<string, unknown>>;
+  };
+}
+
+export interface GeneratedConfigEnvironmentScenario {
+  readonly config: Record<string, unknown>;
+  readonly sentinel: GeneratedEnvironmentSentinel;
+}
+
+export interface GeneratedUnregisteredConfigScenario {
+  readonly config: Record<string, unknown>;
+}
+
 export type GeneratedInvalidPathFilter = {
   readonly value: unknown;
   readonly path: string;
@@ -118,6 +137,10 @@ export const CONFIG_TEST_GENERATOR = {
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
   resolutionScope: arbitraryResolutionScope,
+  configFormatScenario: arbitraryConfigFormatScenario,
+  configShape: arbitraryConfigShape,
+  configEnvironmentScenario: arbitraryConfigEnvironmentScenario,
+  unregisteredConfigScenario: arbitraryUnregisteredConfigScenario,
 } as const;
 
 export type GeneratedSpecTreeArrayKindsConfig = {
@@ -445,6 +468,58 @@ function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> 
         [SPEC_TREE_CONFIG_FIELDS.KINDS]: Object.fromEntries(
           kinds.map((kind) => [kind, KIND_REGISTRY[kind as keyof typeof KIND_REGISTRY]]),
         ),
+      },
+    }));
+}
+
+function arbitraryConfigFormatScenario(): fc.Arbitrary<GeneratedConfigFormatScenario> {
+  return arbitrarySpecTreeSubsetConfig().map((config) => {
+    const section = config[SPEC_TREE_SECTION];
+    const kinds = isConfigRecord(section) ? section[SPEC_TREE_CONFIG_FIELDS.KINDS] : undefined;
+    if (!isConfigRecord(kinds)) {
+      throw new Error("generated config format scenario carries no spec-tree section");
+    }
+    return {
+      rawByFormat: {
+        [CONFIG_FILE_FORMAT.JSON]: JSON.stringify(config),
+        [CONFIG_FILE_FORMAT.YAML]: stringifyYaml(config),
+        [CONFIG_FILE_FORMAT.TOML]: stringifyToml(config),
+      },
+      expectedSpecTreeConfig: {
+        kinds,
+      },
+    };
+  });
+}
+
+function isConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function arbitraryConfigShape(): fc.Arbitrary<Record<string, unknown>> {
+  return fc.oneof(arbitraryEmptyConfig(), arbitrarySpecTreeSubsetConfig());
+}
+
+function arbitraryConfigEnvironmentScenario(): fc.Arbitrary<GeneratedConfigEnvironmentScenario> {
+  return fc.record({
+    config: arbitraryConfigShape(),
+    sentinel: arbitraryEnvironmentSentinel(),
+  });
+}
+
+function arbitraryUnregisteredConfigScenario(): fc.Arbitrary<GeneratedUnregisteredConfigScenario> {
+  return fc
+    .record({
+      section: arbitraryConfigKey(),
+      field: arbitraryConfigKey(),
+      value: arbitraryConfigScalar(),
+    })
+    .map(({ section, field, value }) => ({
+      config: {
+        [SPEC_TREE_SECTION]: {
+          [SPEC_TREE_CONFIG_FIELDS.KINDS]: { enabler: KIND_REGISTRY.enabler },
+        },
+        [section]: { [field]: value },
       },
     }));
 }

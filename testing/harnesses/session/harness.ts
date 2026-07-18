@@ -36,6 +36,7 @@ import {
 } from "@/lib/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
+import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, gitArgsEqual } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
@@ -43,7 +44,7 @@ import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 const { statusDirs } = DEFAULT_CONFIG.sessions;
 
 /** Absolute path to the built CLI entry the l2 session tests invoke via `node`. */
-export const SESSION_CLI_ENTRY = join(process.cwd(), "bin/spx.js");
+export const SESSION_CLI_ENTRY = CLI_PATH;
 
 /** Internal fields the JSON list output must not leak. */
 export const SESSION_FORBIDDEN_JSON_RECORD_FIELD = {
@@ -59,8 +60,8 @@ export interface SessionCliResult {
 }
 
 /**
- * Runs the built `spx` executable through `node bin/spx.js` for l2 session
- * tests. execa pipes stdio, so the child sees no TTY unless a flag forces it.
+ * Runs the packaged CLI artifact for l2 session tests. execa pipes stdio, so
+ * the child sees no TTY unless a flag forces it.
  *
  * @param args - CLI arguments after the entry path.
  * @param input - Optional stdin content piped to the process.
@@ -73,7 +74,7 @@ export async function runSessionCli(
   cwd: string = process.cwd(),
   env?: Record<string, string>,
 ): Promise<SessionCliResult> {
-  const result = await execa("node", [SESSION_CLI_ENTRY, ...args], { cwd, input, reject: false, env });
+  const result = await execa(NODE_EXECUTABLE, [SESSION_CLI_ENTRY, ...args], { cwd, input, reject: false, env });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode ?? 1 };
 }
 

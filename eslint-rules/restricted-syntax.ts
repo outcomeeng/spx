@@ -37,13 +37,6 @@ export const TEST_VI_FN_RULE = {
     "vi.fn() is banned. Use an explicit typed implementation or recording object passed through dependency injection.",
 } as const;
 
-export const TEST_ASSERTION_STRING_LITERAL_RULE = {
-  selector:
-    "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toBe|toEqual|toStrictEqual|toContain|toMatch)$/] > Literal.arguments[raw=/^['\"`](?!(string|number|boolean|object|undefined|function|bigint|symbol)['\"`])/]",
-  message:
-    "Do not use string literals in assertions. Import source-owned values from their owning module; if none exists, refactor production code to export a semantic `as const` registry.",
-} as const;
-
 export const TEST_SKIP_IF_RULE = {
   selector: "CallExpression[callee.property.name='skipIf']",
   message:
@@ -59,7 +52,6 @@ export const TEST_READ_FILE_SYNC_IMPORT_RULE = {
 export const testRestrictedSyntax = [
   TEST_VI_MOCK_RULE,
   TEST_VI_FN_RULE,
-  TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_SKIP_IF_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
 ];

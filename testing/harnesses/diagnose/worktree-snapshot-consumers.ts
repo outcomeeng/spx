@@ -4,6 +4,7 @@ import { constants as fsConstants } from "node:fs";
 import { chmod, readFile, writeFile } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 
+import fc from "fast-check";
 import { expect } from "vitest";
 
 import {
@@ -19,7 +20,11 @@ import {
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
 import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { classifySessionStore, SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import {
+  classifySessionStore,
+  doingSessionBackedByClaim,
+  SESSION_STORE_VERDICT,
+} from "@/domains/diagnose/checks/session-store";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
@@ -27,8 +32,10 @@ import { DEFAULT_SESSION_METADATA, type SessionRecord } from "@/domains/session/
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { OCCUPANCY_STATUS, writeClaim } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
+import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { GIT_URL_SUFFIX, type GitFacts } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import { sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import {
   sampleDistinctPathUnsafeAgentSessionIdentities,
   sampleDistinctSessionIds,
@@ -185,6 +192,50 @@ export function assertSessionEnvironmentSnapshotMapping(): void {
   }
 }
 
+export function assertSessionStoreClassificationMapping(): void {
+  const orphanedClaims = sampleDiagnoseTestValue(fc.integer({ min: 1 }));
+  const unknown = classifySessionStore({ errored: true, orphanedClaims: 0 });
+  const consistent = classifySessionStore({ errored: false, orphanedClaims: 0 });
+  const consistentWithOrphans = classifySessionStore({
+    errored: false,
+    orphanedClaims,
+  });
+
+  expect(unknown.verdict).toBe(SESSION_STORE_VERDICT.UNKNOWN);
+  expect(unknown.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
+  expect(unknown.remediation.length).toBeGreaterThan(0);
+  expect(consistent.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
+  expect(consistent.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+  expect(consistent.remediation.length).toBeGreaterThan(0);
+  expect(consistentWithOrphans.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
+  expect(consistentWithOrphans.bucket).toBe(VERDICT_BUCKET.HEALTHY);
+  expect(Object.values(consistentWithOrphans.readings)).toEqual([String(orphanedClaims)]);
+  expect(consistentWithOrphans.remediation).toBe(consistent.remediation);
+  expect(unknown.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
+  expect(consistent.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
+  expect(consistentWithOrphans.remediation).not.toContain(sessionCliDefinition.subcommands.release.commandName);
+}
+
+export function assertDoingSessionClaimMapping(): void {
+  const [sessionId, agentSessionId] = sampleDistinctSessionIds(2);
+  const session = doingSession(sessionId, agentSessionId);
+  const sessionWithoutAgentSessionId: SessionRecord = {
+    id: sampleDistinctSessionIds(1)[0],
+    status: SESSION_STATUSES[1],
+    ...DEFAULT_SESSION_METADATA,
+    specs: [],
+    files: [],
+  };
+
+  expect(doingSessionBackedByClaim(session, new Set([session.id]))).toBe(true);
+  expect(doingSessionBackedByClaim(session, new Set([agentSessionId]))).toBe(true);
+  expect(doingSessionBackedByClaim(sessionWithoutAgentSessionId, new Set([sessionWithoutAgentSessionId.id]))).toBe(
+    true,
+  );
+  expect(doingSessionBackedByClaim(session, new Set())).toBe(false);
+  expect(doingSessionBackedByClaim(sessionWithoutAgentSessionId, new Set())).toBe(false);
+}
+
 export function assertSessionStoreSnapshotMapping(): void {
   for (const includeOrphanedClaim of [false, true]) {
     const [backedSessionId, orphanedSessionId] = sampleDistinctSessionIds(2);
@@ -200,10 +251,8 @@ export function assertSessionStoreSnapshotMapping(): void {
     const record = classifySessionStore(reading);
 
     expect(reading).toEqual({ errored: false, orphanedClaims: includeOrphanedClaim ? 0 : 1 });
-    expect(record.verdict).toBe(
-      includeOrphanedClaim ? SESSION_STORE_VERDICT.CONSISTENT : SESSION_STORE_VERDICT.ORPHANED_CLAIMS,
-    );
-    expect(record.bucket).toBe(includeOrphanedClaim ? VERDICT_BUCKET.HEALTHY : VERDICT_BUCKET.DEGRADED);
+    expect(record.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
+    expect(record.bucket).toBe(VERDICT_BUCKET.HEALTHY);
     expect(record.remediation.length).toBeGreaterThan(0);
   }
 }

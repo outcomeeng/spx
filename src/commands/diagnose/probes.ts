@@ -16,6 +16,8 @@ import { execa } from "execa";
 
 import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
 import { resolveAgentHomeDirs } from "@/domains/agent";
+import { AGENT } from "@/domains/agent-environment/config";
+import type { AgentPluginExpectation } from "@/domains/agent-environment/plugin-bootstrap-status";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -31,7 +33,6 @@ import {
   type SessionStoreReading,
 } from "@/domains/diagnose/checks/session-store";
 import type { WorktreePoolProbe, WorktreePoolReading } from "@/domains/diagnose/checks/worktree-pool";
-import type { MarketplaceIdentity } from "@/domains/diagnose/facts";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import type { SessionRecord } from "@/domains/session/list";
@@ -61,8 +62,23 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
+export const MARKETPLACE_PLUGIN_SURFACE = {
+  CLAUDE: "claude",
+  CODEX: "codex",
+} as const;
+export const MARKETPLACE_PLUGIN_COMMAND = {
+  LIST_MARKETPLACES: ["plugin", "marketplace", "list", "--json"],
+  LIST_PLUGINS: ["plugin", "list", "--json"],
+} as const;
+export const MARKETPLACE_PLUGIN_SURFACE_BY_AGENT = {
+  [AGENT.CLAUDE_CODE]: MARKETPLACE_PLUGIN_SURFACE.CLAUDE,
+  [AGENT.CODEX]: MARKETPLACE_PLUGIN_SURFACE.CODEX,
+} as const;
 
-const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+export const METHODOLOGY_PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+export const METHODOLOGY_CACHE_HOME_KEYS = ["codex", "claudeCode"] as const satisfies readonly (keyof ReturnType<
+  typeof resolveAgentHomeDirs
+>)[];
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
@@ -158,12 +174,12 @@ interface ExportedClaimDependencies {
   readonly processTable: ProcessTable;
 }
 
-interface Capture {
+export interface CommandCapture {
   readonly ok: boolean;
   readonly stdout: string;
 }
 
-async function runCapture(file: string, args: readonly string[]): Promise<Capture> {
+async function runCapture(file: string, args: readonly string[]): Promise<CommandCapture> {
   try {
     const result = await execa(file, args, { reject: false });
     return { ok: result.exitCode === 0, stdout: result.stdout };
@@ -426,15 +442,34 @@ function pluginSurfacePresent(cli: string): boolean {
   return findExecutableOnPath(cli) !== null;
 }
 
+export interface MarketplaceInstallProbeDependencies {
+  readonly surfacePresent: (cli: string) => boolean;
+  readonly capture: (file: string, args: readonly string[]) => Promise<CommandCapture>;
+}
+
+const defaultMarketplaceInstallProbeDependencies: MarketplaceInstallProbeDependencies = {
+  surfacePresent: pluginSurfacePresent,
+  capture: runCapture,
+};
+
 interface InstalledPlugin {
   readonly name: string;
+  readonly marketplace: string;
   readonly enabled: boolean;
+}
+
+function splitPluginId(pluginId: string): { readonly name: string; readonly marketplace: string } {
+  const separator = pluginId.lastIndexOf("@");
+  return separator < 0
+    ? { name: pluginId, marketplace: "" }
+    : { name: pluginId.slice(0, separator), marketplace: pluginId.slice(separator + 1) };
 }
 
 /**
  * Normalizes the installed plugins from `claude`/`codex plugin list --json`, or
  * null when the output is unparseable. Claude emits a flat array of
- * `{ id: "name@marketplace", enabled }`; Codex emits `{ installed: [{ name, enabled }] }`.
+ * `{ id: "name@marketplace", enabled }`; Codex emits
+ * `{ installed: [{ pluginId, name, marketplaceName, enabled }] }`.
  */
 function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | null {
   try {
@@ -442,14 +477,19 @@ function parseInstalledPlugins(stdout: string): readonly InstalledPlugin[] | nul
     if (Array.isArray(parsed)) {
       return parsed.map((entry) => {
         const record = entry as { id?: string; enabled?: boolean };
-        return { name: String(record.id ?? "").split("@")[0], enabled: record.enabled === true };
+        return { ...splitPluginId(String(record.id ?? "")), enabled: record.enabled === true };
       });
     }
     const installed = (parsed as { installed?: unknown }).installed;
     if (Array.isArray(installed)) {
       return installed.map((entry) => {
-        const record = entry as { name?: string; enabled?: boolean };
-        return { name: String(record.name ?? ""), enabled: record.enabled === true };
+        const record = entry as { pluginId?: string; name?: string; marketplaceName?: string; enabled?: boolean };
+        const pluginId = splitPluginId(String(record.pluginId ?? ""));
+        return {
+          name: String(record.name ?? pluginId.name),
+          marketplace: String(record.marketplaceName ?? pluginId.marketplace),
+          enabled: record.enabled === true,
+        };
       });
     }
     return null;
@@ -492,60 +532,70 @@ function parseRegisteredMarketplaces(stdout: string): readonly RegisteredMarketp
 
 async function surfaceState(
   cli: string,
-  marketplace: MarketplaceIdentity,
-  expectedPlugins: readonly string[],
+  expectation: AgentPluginExpectation,
+  deps: MarketplaceInstallProbeDependencies,
 ): Promise<{ ok: boolean; unregistered: boolean; drifted: boolean }> {
-  const marketplaces = await runCapture(cli, ["plugin", "marketplace", "list", "--json"]);
+  const marketplaces = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_MARKETPLACES);
   if (!marketplaces.ok) return { ok: false, unregistered: false, drifted: false };
   const registry = parseRegisteredMarketplaces(marketplaces.stdout);
   if (registry === null) return { ok: false, unregistered: false, drifted: false };
   // Match the marketplace identity on exact structured fields rather than a
   // substring of the rendered list, consistent with the plugin-list parse below.
-  const registered = registry.some((entry) => entry.name === marketplace.name || entry.source === marketplace.source);
+  const registered = registry.some((entry) =>
+    entry.name === expectation.marketplace.name && entry.source === expectation.marketplace.source
+  );
   if (!registered) return { ok: true, unregistered: true, drifted: false };
 
-  const plugins = await runCapture(cli, ["plugin", "list", "--json"]);
+  const plugins = await deps.capture(cli, MARKETPLACE_PLUGIN_COMMAND.LIST_PLUGINS);
   if (!plugins.ok) return { ok: false, unregistered: false, drifted: false };
   const installed = parseInstalledPlugins(plugins.stdout);
   if (installed === null) return { ok: false, unregistered: false, drifted: false };
   // A surface drifts when an expected plugin is absent or installed but disabled,
   // read from the structured enabled flag rather than a name substring match.
-  const drifted = expectedPlugins.some((expected) => {
-    const found = installed.find((plugin) => plugin.name === expected);
+  const drifted = expectation.plugins.some((expected) => {
+    const found = installed.find((plugin) =>
+      plugin.name === expected && plugin.marketplace === expectation.marketplace.name
+    );
     return !found?.enabled;
   });
   return { ok: true, unregistered: false, drifted };
 }
 
 /** Resolves the marketplace-install reading across the present Claude and Codex plugin CLI surfaces. */
-export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
-  async probe(
-    marketplace: MarketplaceIdentity,
-    expectedPlugins: readonly string[],
-  ): Promise<MarketplaceInstallProbeReading> {
-    const clean: MarketplaceInstallProbeReading = {
-      errored: false,
-      surfacePresent: false,
-      unregistered: false,
-      drifted: false,
-    };
-    let reading = clean;
-    for (const cli of ["claude", "codex"]) {
-      if (!pluginSurfacePresent(cli)) continue;
-      const state = await surfaceState(cli, marketplace, expectedPlugins);
-      if (!state.ok) {
-        return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
-      }
-      reading = {
+export function createMarketplaceInstallProbe(
+  deps: MarketplaceInstallProbeDependencies = defaultMarketplaceInstallProbeDependencies,
+): MarketplaceInstallProbe {
+  return {
+    async probe(
+      expectations: readonly AgentPluginExpectation[],
+    ): Promise<MarketplaceInstallProbeReading> {
+      const clean: MarketplaceInstallProbeReading = {
         errored: false,
-        surfacePresent: true,
-        unregistered: reading.unregistered || state.unregistered,
-        drifted: reading.drifted || state.drifted,
+        surfacePresent: false,
+        unregistered: false,
+        drifted: false,
       };
-    }
-    return reading;
-  },
-};
+      let reading = clean;
+      for (const expectation of expectations) {
+        const cli = MARKETPLACE_PLUGIN_SURFACE_BY_AGENT[expectation.agent];
+        if (!deps.surfacePresent(cli)) continue;
+        const state = await surfaceState(cli, expectation, deps);
+        if (!state.ok) {
+          return { errored: true, surfacePresent: true, unregistered: false, drifted: false };
+        }
+        reading = {
+          errored: false,
+          surfacePresent: true,
+          unregistered: reading.unregistered || state.unregistered,
+          drifted: reading.drifted || state.drifted,
+        };
+      }
+      return reading;
+    },
+  };
+}
+
+export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = createMarketplaceInstallProbe();
 
 interface LatestDirectoryReading {
   readonly errored: boolean;
@@ -616,10 +666,14 @@ async function configuredVersionDirectory(
 
 export function createMethodologyContextProbe(...agentHomeDirs: readonly string[]): MethodologyContextProbe {
   const resolvedHomes = resolveAgentHomeDirs();
-  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
+  const homeDirs = agentHomeDirs.length > 0
+    ? agentHomeDirs
+    : METHODOLOGY_CACHE_HOME_KEYS.map((key) => resolvedHomes[key]);
   return {
     async probe(config): Promise<MethodologyContextObservation> {
-      const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
+      const sourcePaths = homeDirs.map((home) =>
+        join(home, ...METHODOLOGY_PLUGIN_CACHE_SEGMENTS, ...config.source.split("/"))
+      );
       const reading = await configuredVersionDirectory(sourcePaths, config);
       if (reading.version === null) {
         return { source: null, version: null, errored: reading.errored };

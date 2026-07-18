@@ -22,7 +22,7 @@ import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
 import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
+import { DIAGNOSE_OUTPUT_MODE, DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
 import {
   CHECK_RECORD_FIELDS,
   type CheckRecord,
@@ -84,8 +84,7 @@ export function registerDiagnoseCliScenarios(): void {
       const result = await runDiagnoseCli([
         DIAGNOSE_CLI.MANIFEST_FLAG,
         manifestPath,
-        DIAGNOSE_CLI.FORMAT_FLAG,
-        DIAGNOSE_FORMAT.JSON,
+        DIAGNOSE_CLI.JSON_FLAG,
       ]);
 
       const report = JSON.parse(result.stdout) as DiagnoseReport;
@@ -105,8 +104,7 @@ export function registerDiagnoseCliScenarios(): void {
         runDiagnoseCli([
           DIAGNOSE_CLI.MANIFEST_FLAG,
           manifestPath,
-          DIAGNOSE_CLI.FORMAT_FLAG,
-          DIAGNOSE_FORMAT.JSON,
+          DIAGNOSE_CLI.JSON_FLAG,
         ]),
       ]);
 
@@ -125,8 +123,7 @@ export function registerDiagnoseCliScenarios(): void {
       const result = await runDiagnoseCli([
         DIAGNOSE_CLI.MANIFEST_FLAG,
         manifestPath,
-        DIAGNOSE_CLI.FORMAT_FLAG,
-        DIAGNOSE_FORMAT.JSON,
+        DIAGNOSE_CLI.JSON_FLAG,
       ]);
 
       const report = JSON.parse(result.stdout) as DiagnoseReport;
@@ -143,15 +140,14 @@ export function registerDiagnoseCliScenarios(): void {
       expectExitCodeKeyedToFold(result, report);
     });
 
-    it("rejects an unsupported --format value with a non-zero exit", async () => {
+    it("rejects the removed --format selector with a non-zero exit", async () => {
       const manifestPath = await writeSpxReachabilityManifest();
-      const unsupportedFormat = `${DIAGNOSE_FORMAT.JSON}${DIAGNOSE_FORMAT.TEXT}`;
 
       const result = await runDiagnoseCli([
         DIAGNOSE_CLI.MANIFEST_FLAG,
         manifestPath,
-        DIAGNOSE_CLI.FORMAT_FLAG,
-        unsupportedFormat,
+        DIAGNOSE_CLI.REMOVED_FORMAT_FLAG,
+        DIAGNOSE_OUTPUT_MODE.JSON,
       ]);
 
       expect(result.exitCode).not.toBe(0);
@@ -195,7 +191,7 @@ export function registerDiagnoseCliScenarios(): void {
         ].join("\n");
         await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
-        const result = await runDiagnoseCli([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+        const result = await runDiagnoseCli([DIAGNOSE_CLI.JSON_FLAG], { cwd });
 
         const report = JSON.parse(result.stdout) as DiagnoseReport;
         expectSchemaValidReport(report);
@@ -221,7 +217,7 @@ export function registerDiagnoseCliScenarios(): void {
         ].join("\n");
         await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
-        const result = await runDiagnoseCli([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+        const result = await runDiagnoseCli([DIAGNOSE_CLI.JSON_FLAG], { cwd });
 
         const report = JSON.parse(result.stdout) as DiagnoseReport;
         expectSchemaValidReport(report);
@@ -241,7 +237,7 @@ export function registerDiagnoseCliScenarios(): void {
         ].join("\n");
         await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
-        const result = await runDiagnoseCli([DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON], { cwd });
+        const result = await runDiagnoseCli([DIAGNOSE_CLI.JSON_FLAG], { cwd });
 
         const report = JSON.parse(result.stdout) as DiagnoseReport;
         const methodologyCheck = checkByName(report, CHECK_NAME.METHODOLOGY_CONTEXT);
@@ -265,8 +261,7 @@ export function registerDiagnoseCliScenarios(): void {
         const result = await runDiagnoseCli([
           DIAGNOSE_CLI.MANIFEST_FLAG,
           manifestPath,
-          DIAGNOSE_CLI.FORMAT_FLAG,
-          DIAGNOSE_FORMAT.JSON,
+          DIAGNOSE_CLI.JSON_FLAG,
         ], { cwd });
 
         const report = JSON.parse(result.stdout) as DiagnoseReport;
@@ -281,7 +276,7 @@ export function registerDiagnoseCliScenarios(): void {
       await withTempDir("diagnose-bare", async (cwd) => {
         const environment = isolatedDiagnoseEnvironment(cwd);
         const result = await runDiagnoseCli(
-          [DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
+          [DIAGNOSE_CLI.JSON_FLAG],
           { cwd, env: environment },
         );
 

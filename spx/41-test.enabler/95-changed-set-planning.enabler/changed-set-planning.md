@@ -19,6 +19,7 @@ CAN run only the tests their changes affect — selected by diff rather than nam
 - Given a changed TypeScript source index module imported through a tsconfig alias directory import, when `--changed` resolves the affected set, then the importing test file is selected ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed TypeScript source file under a tsconfig alias source root, when `--changed` resolves the affected set, then the importing test file is selected ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given changed testing harness source files and unrelated candidate tests that import other harnesses, when `--changed` resolves the affected set, then only the direct harness consumers are selected ([test](tests/changed-set-planning.scenario.l1.test.ts))
+- Given a changed TypeScript source entrypoint declared as an input to a source-owned packaged artifact descriptor, when `--changed` resolves candidate tests, then tests whose import closure reaches that descriptor are selected and unrelated tests remain unselected ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed path whose NUL-delimited name-status diff record contains path whitespace, when `--changed` reads changed paths, then the path is preserved exactly ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given `--changed` sees a rename in NUL-delimited name-status output, when changed paths are parsed, then both the original and new paths are included in the changed set with path whitespace preserved ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given a changed path outside the spec tree and source roots, when `--changed` partitions changed paths, then it is ignored as an operand source ([test](tests/changed-set-planning.scenario.l1.test.ts))
@@ -27,7 +28,7 @@ CAN run only the tests their changes affect — selected by diff rather than nam
 - Given `--changed --staged`, when changed paths are read, then they come from the staged snapshot rather than the whole worktree diff ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given `--changed --staged` sees a staged rename in NUL-delimited name-status output, when changed paths are parsed, then both the original and new paths are included in the changed set with path whitespace preserved ([test](tests/changed-set-planning.scenario.l1.test.ts))
 - Given `--changed --staged` resolves a changed source file through related tests, when candidate tests are listed and read, then candidate paths and content come from the staged snapshot ([test](tests/changed-set-planning.scenario.l1.test.ts))
-- Given a real repository on a branch ahead of its base, when `spx test passing --changed` runs against the real runner, then only the tests affected by the branch's changes execute and fresh last-run evidence is recorded ([test](tests/changed-set-planning.scenario.l2.test.ts))
+- Given a real product repository on a branch ahead of its base, when `spx test passing --changed` runs against the real runner, then only the tests affected by the branch's changes execute and fresh last-run evidence is recorded ([test](tests/changed-set-planning.scenario.l2.test.ts))
 
 ### Properties
 

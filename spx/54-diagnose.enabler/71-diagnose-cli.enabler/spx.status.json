@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/diagnose-cli.scenario.l2.test.ts": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/error-sanitization.compliance.l2.test.ts": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/exit-code.mapping.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/output-mode.mapping.l2.test.ts": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/styled-output.mapping.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/71-diagnose-cli.enabler/tests/verbose-reading-sanitization.compliance.l1.test.ts": "passed"
+    }
+  }
+}

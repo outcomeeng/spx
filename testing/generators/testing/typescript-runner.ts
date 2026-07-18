@@ -1,6 +1,8 @@
 import * as fc from "fast-check";
 
+import { PACKAGED_CLI_ARTIFACT } from "@/interfaces/cli/artifact";
 import { TYPESCRIPT_TEST_FILE_SUFFIXES } from "@/test/languages/typescript";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 const NON_MATCHING_EXTENSIONS = [
@@ -23,9 +25,26 @@ const MIN_TEST_PATHS = 0;
 const MAX_TEST_PATHS = 5;
 const TEST_PATH_PAIR_LENGTH = 2;
 const NODE_PATH_PAIR_LENGTH = 2;
+const ARTIFACT_MAPPING_CASES_PER_RELATION = 2;
+const ARTIFACT_MAPPING_RELATION_COUNT = 3;
+const ARTIFACT_MAPPING_CASE_COUNT = ARTIFACT_MAPPING_CASES_PER_RELATION * ARTIFACT_MAPPING_RELATION_COUNT;
 const MIN_EXIT_CODE = 0;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_EXIT_CODE = 255;
+const SOURCE_ROOT_PREFIX = "src/";
+const TYPESCRIPT_ALIAS_PREFIX = "@/";
+const TESTING_ALIAS_PREFIX = "@testing/";
+const GENERATED_CONSUMER_PATH = "testing/harnesses/generated-artifact-consumer.ts";
+const UNRELATED_SOURCE_PATH = "src/version.ts";
+
+export interface ArtifactRelatedTestMappingCase {
+  readonly name: string;
+  readonly changedSourcePath: string;
+  readonly candidateTestPath: string;
+  readonly expectedTestPaths: readonly string[];
+  readonly expectedResolvedSourcePaths: readonly string[];
+  readonly candidateContents: ReadonlyMap<string, string>;
+}
 
 export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   testFilePath: arbitraryTypeScriptTestFilePath,
@@ -38,6 +57,7 @@ export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   present: arbitraryPresence,
+  artifactRelatedTestMappings: artifactRelatedTestMappingCases,
 } as const;
 
 export function sampleTypescriptRunnerValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -128,4 +148,90 @@ function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
   return fc.boolean();
+}
+
+function sourceAlias(path: string): string {
+  return `${TYPESCRIPT_ALIAS_PREFIX}${path.slice(SOURCE_ROOT_PREFIX.length).replace(/\.ts$/u, "")}`;
+}
+
+function testingAlias(path: string): string {
+  return `${TESTING_ALIAS_PREFIX}${path.slice("testing/".length).replace(/\.ts$/u, "")}`;
+}
+
+function importStatement(specifier: string): string {
+  return `import ${JSON.stringify(specifier)};`;
+}
+
+function typescriptMarkerContents(): string {
+  return JSON.stringify({
+    compilerOptions: {
+      paths: {
+        "@/*": ["src/*"],
+        "@testing/*": ["testing/*"],
+      },
+    },
+  });
+}
+
+function directArtifactMappingCase(testPath: string): ArtifactRelatedTestMappingCase {
+  return {
+    name: `direct descriptor import ${testPath}`,
+    changedSourcePath: PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0],
+    candidateTestPath: testPath,
+    expectedTestPaths: [testPath],
+    expectedResolvedSourcePaths: [PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0]],
+    candidateContents: new Map([
+      [TYPESCRIPT_MARKER, typescriptMarkerContents()],
+      [testPath, importStatement(sourceAlias(PACKAGED_CLI_ARTIFACT.descriptorPath))],
+    ]),
+  };
+}
+
+function transitiveArtifactMappingCase(testPath: string): ArtifactRelatedTestMappingCase {
+  return {
+    name: `transitive descriptor import ${testPath}`,
+    changedSourcePath: PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0],
+    candidateTestPath: testPath,
+    expectedTestPaths: [testPath],
+    expectedResolvedSourcePaths: [PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0]],
+    candidateContents: new Map([
+      [TYPESCRIPT_MARKER, typescriptMarkerContents()],
+      [testPath, importStatement(testingAlias(GENERATED_CONSUMER_PATH))],
+      [GENERATED_CONSUMER_PATH, importStatement(sourceAlias(PACKAGED_CLI_ARTIFACT.descriptorPath))],
+    ]),
+  };
+}
+
+function unrelatedArtifactMappingCase(testPath: string): ArtifactRelatedTestMappingCase {
+  return {
+    name: `unrelated candidate ${testPath}`,
+    changedSourcePath: PACKAGED_CLI_ARTIFACT.sourceEntrypointPaths[0],
+    candidateTestPath: testPath,
+    expectedTestPaths: [],
+    expectedResolvedSourcePaths: [],
+    candidateContents: new Map([
+      [TYPESCRIPT_MARKER, typescriptMarkerContents()],
+      [testPath, importStatement(sourceAlias(UNRELATED_SOURCE_PATH))],
+      [UNRELATED_SOURCE_PATH, "export const unrelated = true;"],
+    ]),
+  };
+}
+
+/** Two generated candidates for each source-owned artifact reachability relation. */
+function artifactRelatedTestMappingCases(): readonly ArtifactRelatedTestMappingCase[] {
+  const paths = sampleTypescriptRunnerValue(
+    fc.uniqueArray(arbitraryTypeScriptTestFilePath(), {
+      minLength: ARTIFACT_MAPPING_CASE_COUNT,
+      maxLength: ARTIFACT_MAPPING_CASE_COUNT,
+    }),
+  );
+  return [
+    ...paths.slice(0, ARTIFACT_MAPPING_CASES_PER_RELATION).map(directArtifactMappingCase),
+    ...paths
+      .slice(ARTIFACT_MAPPING_CASES_PER_RELATION, ARTIFACT_MAPPING_CASES_PER_RELATION * 2)
+      .map(transitiveArtifactMappingCase),
+    ...paths
+      .slice(ARTIFACT_MAPPING_CASES_PER_RELATION * 2)
+      .map(unrelatedArtifactMappingCase),
+  ];
 }

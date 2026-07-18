@@ -130,6 +130,10 @@ function generatedTestPathForPattern(pattern: string): string {
   ].join("/");
 }
 
+function missingCandidateError(path: string): Error {
+  return Object.assign(new Error(`missing generated candidate: ${path}`), { code: "ENOENT" });
+}
+
 // Copies a committed fixture suite into a temporary product outside the repository so Vitest
 // resolves no inherited config and runs the suite under defaults.
 export function withTempVitestProduct(
@@ -412,6 +416,33 @@ export function registerTypescriptRunnerMappingTests(): void {
             oracleTypescriptExcludeFlag(nodePath),
           );
         });
+      },
+    );
+
+    it.each(TYPESCRIPT_RUNNER_TEST_GENERATOR.artifactRelatedTestMappings())(
+      "maps $name",
+      async (scenario) => {
+        const resolution = await typescriptTestingLanguage.relatedTestPaths?.(
+          {
+            productDir: sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
+            sourcePaths: [scenario.changedSourcePath],
+            candidateTestPaths: [scenario.candidateTestPath],
+            baseRef: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+          },
+          {
+            isLanguagePresent: () => true,
+            runCommand: () => Promise.resolve({ exitCode: 0, stdout: "", stderr: "" }),
+            readFile: (path) => {
+              const content = scenario.candidateContents.get(path);
+              return content === undefined
+                ? Promise.reject(missingCandidateError(path))
+                : Promise.resolve(content);
+            },
+          },
+        );
+
+        expect(resolution?.testPaths).toEqual(scenario.expectedTestPaths);
+        expect(resolution?.resolvedSourcePaths).toEqual(scenario.expectedResolvedSourcePaths);
       },
     );
   });

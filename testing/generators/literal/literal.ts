@@ -501,6 +501,7 @@ export const LITERAL_TEXT_LAYOUT = {
 
 export const LITERAL_TEST_GENERATOR = {
   domainLiteral: arbitraryDomainLiteral,
+  domainLiteralPair: arbitraryDomainLiteralPair,
   domainNumber: arbitraryDomainNumber,
   sourceFilePath: arbitrarySourceFilePath,
   testFilePath: arbitraryTestFilePath,
@@ -514,6 +515,10 @@ export const LITERAL_TEST_GENERATOR = {
   detectionResult: arbitraryDetectionResult,
   numericDetectionResult: arbitraryNumericDetectionResult,
 } as const;
+
+function arbitraryDomainLiteralPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral());
+}
 
 export function sampleLiteralTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });

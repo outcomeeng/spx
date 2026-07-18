@@ -39,6 +39,7 @@ import {
   tsconfigWithPaths,
 } from "@testing/generators/testing/changed-set-planning";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   defaultBaseRef,
@@ -324,6 +325,48 @@ export function registerChangedSetPlanningScenarioTests(): void {
       });
 
       expect(plan.targets).toEqual({ operands: [relatedTestPath], recursive: false });
+      expect(plan.unresolvedSourceFiles).toEqual([]);
+    });
+
+    it("selects only artifact-descriptor consumers for a changed packaged entrypoint", async () => {
+      const scenarios = TYPESCRIPT_RUNNER_TEST_GENERATOR.artifactRelatedTestMappings();
+      const firstScenario = scenarios[0];
+      const tsconfigContent = firstScenario.candidateContents.get(TYPESCRIPT_MARKER);
+      if (tsconfigContent === undefined) {
+        throw new Error("artifact related-test mappings carry no TypeScript config");
+      }
+      const candidateContents = new Map(
+        scenarios.flatMap((scenario) => [...scenario.candidateContents].filter(([path]) => path !== TYPESCRIPT_MARKER)),
+      );
+      const git = stagedSourceCandidatesGitRunner(
+        [firstScenario.changedSourcePath],
+        candidateContents,
+        tsconfigContent,
+      );
+
+      const plan = await planChangedTestSelection(
+        {
+          productDir: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath()),
+          staged: true,
+        },
+        {
+          git: git.git,
+          registry: registry([typescriptTestingLanguage]),
+          relatedDepsFor: () => relatedDeps(),
+        },
+      );
+
+      expect(plan.targets).toEqual({
+        operands: nativeStringOrder(scenarios.flatMap((scenario) => scenario.expectedTestPaths)),
+        recursive: false,
+      });
+      expect(plan.targets.operands).toEqual(
+        expect.not.arrayContaining(
+          scenarios
+            .filter((scenario) => scenario.expectedTestPaths.length === 0)
+            .map((scenario) => scenario.candidateTestPath),
+        ),
+      );
       expect(plan.unresolvedSourceFiles).toEqual([]);
     });
 

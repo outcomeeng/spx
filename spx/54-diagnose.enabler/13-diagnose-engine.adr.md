@@ -1,46 +1,49 @@
 # Diagnose Engine
 
-`spx diagnose` is a deterministic environment-diagnostics pipeline — gather each configured check's readings, classify each reading set against a fixed per-check verdict table, fold the per-check verdicts into one overall verdict, and emit a per-check and overall report in text or JSON — composed as the `diagnose` command domain per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md). The consumer-varying facts the pipeline judges against resolve by the precedence a supplied manifest, then the `spx.config` diagnose section, then per-check safe defaults, per [`spx/54-diagnose.enabler/11-invocation-modes.pdr.md`](11-invocation-modes.pdr.md); a check whose fact is absent under every source degrades against its safe default rather than failing. Every reading is obtained through a dependency-injected runner over a command, environment variable, or filesystem probe; no language model participates at any stage.
+`spx diagnose` is a deterministic environment-diagnostics pipeline — gather each selected provider's readings, classify each reading set against a fixed provider-owned verdict table, fold the per-check verdicts into one overall verdict, and project that report as concise human text, detailed human text, or complete JSON — composed as the `diagnose` command domain per `spx/14-cli-composition.adr.md`. Effective diagnose facts combine a supplied manifest's caller-overridable facts with product-owned `harnessEnvironment` configuration resolved from the addressed checkout; a manifest never carries or overrides agent marketplace, plugin, or skill intent.
 
-A manifest is the fully-instrumented contract a consumer supplies to `spx diagnose`, carrying exactly the facts the `spx` CLI cannot know on its own:
+The manifest contract carries the facts a caller can pin independently of product-owned harness configuration:
 
 ```json
 {
   "spx_floor": "<semver>",
-  "marketplace": { "name": "<string>", "source": "<owner/repo>" },
-  "expected_plugins": ["<string>", "..."],
+  "methodology": { "source": "<owner/repo>", "version": "installed | <version>" },
   "checks": ["<check-name>", "..."]
 }
 ```
 
-The `checks` array names the check set the pipeline runs, in order. Within a manifest, each consumer-fact field is required exactly when a check that reads it is selected: `spx_floor` when `spx-reachability` is selected, `marketplace` and `expected_plugins` when `marketplace-install` is selected. When the facts resolve from the `spx.config` diagnose section instead, the check set defaults to every check the build provides and an absent fact degrades its check against a safe default rather than being rejected. The overall verdict folds the per-check buckets by the fixed precedence broken > unknown > degraded > healthy, excluding not-applicable, and the process exit code maps the overall verdict: healthy to 0, degraded to 1, unknown to 2, broken to 3.
+The `checks` array names the provider set in execution order. `spx_floor` is required when `spx-reachability` is selected, and `methodology` is required when `methodology-context` is selected. Plugin-bootstrap and marketplace-install consume the resolved `harnessEnvironment` descriptor in every invocation mode. The plugin-bootstrap provider classifies whether every enabled agent declares the Outcome Engineering marketplace and `spec-tree` plugin, and reports per-agent plugin sets plus their symmetric differences as informational readings. The marketplace-install provider evaluates each enabled agent's own configured marketplace subset against that agent's present plugin CLI; marketplace offerings absent from the product configuration do not participate.
+
+The Commander descriptor selects concise text by default, detailed text with `--verbose`, and JSON with `--json`; the explicit output selectors are mutually exclusive. The overall verdict folds per-check buckets by broken > unknown > degraded > healthy, excluding not-applicable, and the process exit code maps healthy to 0, degraded to 1, unknown to 2, and broken to 3. Every external reading is obtained through a dependency-injected command, environment, git, or filesystem boundary; no language model participates.
 
 ## Rationale
 
-The classification is a lookup against fixed tables and a fixed precedence fold, so it is a deterministic function of its readings — verifiable by automated tests under the testing verdict mode rather than re-derived by a language model on every invocation. Running the classification as model prose makes each consumer re-pay a per-invocation token cost to reproduce a table the product already owns and yields no verifiable contract; the product-level rule that deterministic operations never use LLM inference governs here. The remediation judgment a model genuinely adds — reading a non-healthy report and proposing context-aware fixes — stays in the consuming skill, above the pipeline's verbatim output.
+Product plugin requirements vary by checkout and by enabled agent. Resolving them through the harness-environment descriptor preserves one product-owned source and prevents a marketplace catalog or plugin-shipped manifest from becoming an installation requirement. A separate declaration-health provider keeps malformed product intent distinct from live installation drift, while informational cross-agent differences preserve intentional agent-specific subsets.
 
-The consumer-varying facts — the version floor a product requires, the marketplace it depends on, the methodology plugins it expects, and the checks it runs — are the consumer's, not the `spx` CLI's. Resolving them from the consumer's own `spx.config` diagnose section, or from a manifest the consumer passes by path, keeps the CLI generic across the products a methodology marketplace installs into; binding any of them into the CLI would couple it to one consumer. Configuration resolution lets a user run `spx diagnose` with no arguments and still judge against the product's facts, while the manifest path fully instruments a diagnosis for a driver that holds facts the product config does not. The authoritative schema lives with the CLI because the CLI parses and validates it, and a floor rendered into either source from the consumer's single source of truth cannot drift from the floor the consumer enforces.
-
-Every reading reaches the pipeline through an injected runner so classification, the fold, and the report verify over controlled readings without a real process, filesystem, or repository, and without mocking. A check that shells out to a runtime surface — an `spx` subcommand, `git`, or a plugin CLI — reaches it through the same injected boundary, so a missing surface yields a controlled not-applicable reading rather than an unhandled error.
+Fixed verdict tables and precedence make classification deterministic. Dependency-injected probes keep runtime commands outside pure provider classification and allow each provider to verify controlled readings without replacing modules or mutating ambient agent state.
 
 ## Invariants
 
-- Classification is total and deterministic: every reading set maps to exactly one verdict in its check's table, and identical readings with an identical manifest always produce identical per-check verdicts and the same overall verdict.
-- The overall fold is total: it reduces any set of per-check buckets to one overall verdict by the fixed precedence, and yields healthy when every check is not-applicable.
-- The exit code is a total function of the overall verdict, independent of which checks ran.
-- Every consumer-varying fact the pipeline judges against originates from a supplied manifest, the `spx.config` diagnose section, or a per-check safe default — never baked into the CLI.
+- Identical effective facts and probe readings produce identical per-check records and the same overall verdict.
+- Product-owned harness-environment facts originate from the addressed checkout in every invocation mode.
+- Every enabled agent's marketplace-install expectation is exactly that agent's configured plugin subset for the configured marketplace.
+- Cross-agent plugin-set differences change informational readings only.
+- The exit code is a total function of the overall verdict and is independent of presentation mode.
+- JSON projection is complete for every report and independent of human verbosity.
 
 ## Verification
 
 ### Audit
 
-- ALWAYS: the `diagnose` command domain is composed per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) — pure classification and fold logic in `src/domains/diagnose/`, reading-gathering orchestration in `src/commands/diagnose/`, and the Commander descriptor carrying the exit-code mapping and `--manifest` / `--format` parsing in `src/interfaces/cli/diagnose.ts` ([audit])
-- ALWAYS: every reading — PATH resolution, a tool version, an environment variable, a `git` or `spx` subcommand result, a plugin-CLI result, a filesystem probe — is obtained through a dependency-injected runner parameter, so classification and the fold verify over controlled readings ([audit])
-- ALWAYS: each check is a pure verdict function from its gathered readings to a record carrying the verdict, its bucket, the readings verbatim, and a remediation hint, independently testable in isolation ([audit])
-- ALWAYS: a supplied manifest is parsed and validated at the boundary into a typed contract, and a manifest that selects a check without that check's required consumer facts is rejected ([audit])
-- ALWAYS: the spx-version floor, marketplace identity, expected plugin set, and check set the pipeline judges against resolve by the precedence supplied manifest, then `spx.config` diagnose section, then per-check safe defaults, per [`spx/54-diagnose.enabler/11-invocation-modes.pdr.md`](11-invocation-modes.pdr.md) ([audit])
-- ALWAYS: a check whose runtime surface is absent yields a not-applicable reading through the injected boundary rather than aborting the pipeline ([audit])
-- NEVER: any stage of the pipeline — gather, classify, fold, or emit — consults a language model; every verdict comes from a fixed table and the overall verdict from the fixed precedence broken > unknown > degraded > healthy ([audit])
-- NEVER: the `spx` CLI hard-codes a consumer's spx-version floor, marketplace identity, expected plugin set, or check set ([audit])
-- NEVER: a module under `src/domains/diagnose/` performs process, git, or filesystem access directly, or imports from `src/commands/` or `src/interfaces/cli/` — the dependency direction follows [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) ([audit])
-- NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for the process, git, or filesystem boundary — tests inject controlled runners and exercise the real classification, fold, and report code paths ([audit])
+- ALWAYS: the `diagnose` command domain follows `spx/14-cli-composition.adr.md` — pure provider classification and report projection in `src/domains/`, reading-gathering orchestration in `src/commands/`, and Commander wiring plus process I/O in `src/interfaces/cli/` ([audit])
+- ALWAYS: effective diagnose facts distinguish caller-overridable manifest facts from product-owned `harnessEnvironment` facts resolved through the static config registry ([audit])
+- ALWAYS: plugin-bootstrap declaration health is owned by `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler`, and `spx diagnose` includes that provider's record per `spx/54-diagnose.enabler/31-composable-diagnostics.pdr.md` ([audit])
+- ALWAYS: marketplace-install receives per-agent marketplace and plugin expectations derived from resolved harness configuration and probes live agent surfaces through injected dependencies ([audit])
+- ALWAYS: report projection receives typed output-mode input from the Commander descriptor and performs no process, argument, or environment reads ([audit])
+- ALWAYS: each provider is a pure verdict function from gathered readings to a record carrying verdict, bucket, readings, and remediation ([audit])
+- NEVER: a manifest carries or overrides agent marketplace, plugin, or skill intent ([audit])
+- NEVER: marketplace catalog contents determine a product's expected plugin set ([audit])
+- NEVER: cross-agent plugin-set differences alone produce a non-healthy verdict ([audit])
+- NEVER: any pipeline stage consults a language model ([audit])
+- NEVER: a module under `src/domains/` performs process, git, or filesystem access directly, or imports from `src/commands/` or `src/interfaces/cli/` ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, or `memfs` substitutes for process, git, or filesystem boundaries ([audit])

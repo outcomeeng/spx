@@ -1,6 +1,6 @@
 # CLI
 
-PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, and process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close
+PROVIDES the SPX command-line interface boundary — bounded sanitization of individual user-supplied argument echoes, complete terminal-safe Commander diagnostics, a package-script invocation contract that distinguishes development sources from published distributions, and process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close
 SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, and every long-running subprocess spawned during a CLI invocation
 CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits
 
@@ -42,4 +42,12 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 
 - ALWAYS: development scripts invoke `tsx src/cli.ts`; publish scripts invoke `node bin/spx.js` only after `pnpm run build` produces `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
-- ALWAYS: managed long-running subprocesses expose parent-piped stdout and stderr to their parent output adapters ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: `installLifecycle()` is the first call executed in `src/cli.ts` before any domain registration ([audit])
+- ALWAYS: every production async `ProcessRunner` default in the validation steps points at the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: managed long-running subprocesses use the process-lifecycle helper that owns parent-piped stdio rather than setting stdio at the domain call site ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: the foreground exec-handoff runner spawns its child through the lifecycle module's `spawn` with inherited stdio and leaves the lifecycle registry untouched, so a terminal-owning child is neither tracked nor killed by the parent's signal cleanup ([audit])
+- ALWAYS: a foreground exec-handoff ignores SIGINT and SIGTERM on the parent for the child's lifetime, then restores the parent's signal handling and exits with the child's status ([audit])
+- NEVER: pass raw user-supplied strings to `console.error`, `process.stderr.write`, or shell execution paths without `sanitizeCliArgument` in the chain ([audit])
+- ALWAYS: Commander diagnostics preserve trusted multiline layout and complete generated usage text while escaping terminal-control bytes without applying the individual-argument display-length bound to the complete diagnostic ([test](tests/commander-diagnostics.compliance.l1.test.ts))
+- NEVER: the packaged executable imports `src/cli.ts` when built output is absent; it exits with a build-required diagnostic instead ([audit])
+- NEVER: import `child_process.spawn` for asynchronous child processes outside `src/lib/process-lifecycle/`; synchronous `execSync`/`spawnSync` are exempt because they self-reap before parent exit ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))
