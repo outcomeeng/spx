@@ -19,6 +19,10 @@ describe("record store — atomic JSONL publication mappings", () => {
       ok: true,
       value: (await atomicJsonlPublicationObservation()).secondRecord,
     });
+    expect((await atomicJsonlPublicationObservation()).actual.afterPublicationResult).toEqual({
+      ok: true,
+      value: (await atomicJsonlPublicationObservation()).fixture.paths.postPublicationRecord,
+    });
     expect((await atomicJsonlPublicationObservation()).actual.guarded).toEqual({
       ok: false,
       error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,

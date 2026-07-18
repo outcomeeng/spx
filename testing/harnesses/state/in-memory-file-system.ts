@@ -12,6 +12,7 @@ import {
 const PATH_SEPARATOR = "/";
 const CURRENT_DIRECTORY = ".";
 const ROOT_DIRECTORY = "/";
+const IN_MEMORY_DEVICE_ID = 1;
 
 /**
  * A real in-memory `StateStoreFileSystem` for state tests: a Map-backed filesystem
@@ -23,8 +24,10 @@ const ROOT_DIRECTORY = "/";
 class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
   private readonly files = new Map<string, string>();
   private readonly fileBirthtimes = new Map<string, number>();
+  private readonly fileInodes = new Map<string, number>();
   private readonly directories = new Set<string>([CURRENT_DIRECTORY, ROOT_DIRECTORY]);
   private nextBirthtimeMs = 0;
+  private nextInode = 1;
 
   async mkdir(path: string, options?: { readonly recursive?: boolean }): Promise<void> {
     const directory = normalizeDirectoryPath(path);
@@ -53,6 +56,8 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     if (!this.files.has(path)) {
       this.fileBirthtimes.set(path, this.nextBirthtimeMs);
       this.nextBirthtimeMs += 1;
+      this.fileInodes.set(path, this.nextInode);
+      this.nextInode += 1;
     }
     this.files.set(path, data);
   }
@@ -64,6 +69,8 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     if (!this.files.has(path)) {
       this.fileBirthtimes.set(path, this.nextBirthtimeMs);
       this.nextBirthtimeMs += 1;
+      this.fileInodes.set(path, this.nextInode);
+      this.nextInode += 1;
     }
     this.files.set(path, (this.files.get(path) ?? "") + data);
   }
@@ -84,6 +91,7 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
       throw Object.assign(new Error(ERROR_CODE_FILE_EXISTS), { code: ERROR_CODE_FILE_EXISTS });
     }
     this.fileBirthtimes.set(newPath, this.fileBirthtimes.get(existingPath) ?? this.nextBirthtimeMs);
+    this.fileInodes.set(newPath, this.fileInodes.get(existingPath) ?? this.nextInode);
     this.files.set(newPath, content);
   }
 
@@ -95,16 +103,20 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     }
     this.files.delete(from);
     const birthtimeMs = this.fileBirthtimes.get(from);
+    const inode = this.fileInodes.get(from);
     this.fileBirthtimes.delete(from);
+    this.fileInodes.delete(from);
     if (birthtimeMs !== undefined) {
       this.fileBirthtimes.set(to, birthtimeMs);
     }
+    if (inode !== undefined) this.fileInodes.set(to, inode);
     this.files.set(to, content);
   }
 
   async rm(path: string, options?: { readonly force?: boolean }): Promise<void> {
     if (this.files.delete(path)) {
       this.fileBirthtimes.delete(path);
+      this.fileInodes.delete(path);
       return;
     }
 
@@ -120,6 +132,7 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
         if (filePath.startsWith(directoryChildPrefix(directory))) {
           this.files.delete(filePath);
           this.fileBirthtimes.delete(filePath);
+          this.fileInodes.delete(filePath);
         }
       }
       return;
@@ -133,6 +146,8 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
 
   async lstat(path: string): Promise<{
     readonly birthtimeMs: number;
+    readonly dev: number;
+    readonly ino: number;
     isDirectory(): boolean;
     isFile(): boolean;
     isSymbolicLink(): boolean;
@@ -140,13 +155,22 @@ class InMemoryStateStoreFileSystem implements StateStoreFileSystem {
     if (this.files.has(path)) {
       return {
         birthtimeMs: this.fileBirthtimes.get(path) ?? 0,
+        dev: IN_MEMORY_DEVICE_ID,
+        ino: this.fileInodes.get(path) ?? 0,
         isDirectory: () => false,
         isFile: () => true,
         isSymbolicLink: () => false,
       };
     }
     if (this.directories.has(normalizeDirectoryPath(path))) {
-      return { birthtimeMs: 0, isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false };
+      return {
+        birthtimeMs: 0,
+        dev: IN_MEMORY_DEVICE_ID,
+        ino: 0,
+        isDirectory: () => true,
+        isFile: () => false,
+        isSymbolicLink: () => false,
+      };
     }
     throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
   }
