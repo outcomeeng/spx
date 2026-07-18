@@ -17,4 +17,4 @@ CAN share one session identity across hook runtime state and SPX state
 
 ### Mappings
 
-- Pi native-session evidence maps to no session identity and no worktree claim with its source-owned diagnostic when the exact transcript path is absent, cannot be read, has a malformed Pi header, or identifies a cwd different from the payload product directory ([test](tests/session-id.mapping.l1.test.ts))
+- Pi native-session evidence maps to no session identity and no worktree claim with its source-owned diagnostic when the exact transcript path is absent, resolves outside the configured Pi session store, cannot be read, has a malformed Pi header, or identifies a cwd different from the payload product directory ([test](tests/session-id.mapping.l1.test.ts))

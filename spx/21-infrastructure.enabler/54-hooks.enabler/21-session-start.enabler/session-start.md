@@ -15,7 +15,7 @@ CAN establish session continuity through one lifecycle hook invocation
 
 ### Mappings
 
-- At the packaged CLI boundary, an absent Pi transcript path, unreadable exact path, malformed Pi header, or product-directory mismatch maps to degraded successful completion with the matching source-owned diagnostic, no exported session identity, and `free` worktree status ([test](tests/session-start-rejection.mapping.l2.test.ts))
+- At the packaged CLI boundary, an absent Pi transcript path, a path outside the configured Pi session store, an unreadable trusted path, malformed Pi header, or product-directory mismatch maps to degraded successful completion with the matching source-owned diagnostic, no exported session identity, and `free` worktree status ([test](tests/session-start-rejection.mapping.l2.test.ts))
 
 ### Compliance
 
