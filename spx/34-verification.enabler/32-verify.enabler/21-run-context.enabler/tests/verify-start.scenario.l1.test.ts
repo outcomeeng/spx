@@ -31,10 +31,10 @@ describe("verify start run context", () => {
   });
 
   it("persists the run journal at the reported run target", async () => {
-    await observePersistedRunJournal().then(({ command, report, persistedJournal }) => {
+    await observePersistedRunJournal().then(({ command, report, persistedEvents }) => {
       expect(command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
       expect(report.locator.runTarget).toContain(report.runToken);
-      expect(persistedJournal.length).toBeGreaterThan(0);
+      expect(persistedEvents.length).toBeGreaterThan(0);
     });
   });
 

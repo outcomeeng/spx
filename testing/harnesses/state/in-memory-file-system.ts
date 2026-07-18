@@ -200,9 +200,8 @@ function normalizeDirectoryPath(path: string): string {
 }
 
 function directoryChildPrefix(directory: string): string {
-  return directory === CURRENT_DIRECTORY || directory === ROOT_DIRECTORY
-    ? directory
-    : `${directory}${PATH_SEPARATOR}`;
+  if (directory === CURRENT_DIRECTORY) return "";
+  return directory === ROOT_DIRECTORY ? directory : `${directory}${PATH_SEPARATOR}`;
 }
 
 function collectDirectChildNames(paths: Iterable<string>, prefix: string): Set<string> {
