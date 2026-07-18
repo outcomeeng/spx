@@ -75,6 +75,87 @@ export const STATE_STORE_TEST_GENERATOR = {
       minLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
       maxLength: STATE_STORE_RUN_TOKEN.ID_BYTES,
     }).map((bytes) => Buffer.from(bytes)),
+  atomicPublicationFixture: (): fc.Arbitrary<{
+    readonly paths: {
+      readonly atomicRecord: string;
+      readonly prePublicationRecord: string;
+      readonly postPublicationRecord: string;
+      readonly blockedRecord: string;
+      readonly removedTemporaryRecord: string;
+      readonly cleanupDestinationPrefix: string;
+      readonly firstCleanupTemporary: string;
+      readonly secondCleanupTemporary: string;
+      readonly cleanupDestination: string;
+      readonly nonMatchingTemporary: string;
+    };
+    readonly content: {
+      readonly firstCleanup: string;
+      readonly secondCleanup: string;
+      readonly destination: string;
+      readonly nonMatching: string;
+    };
+  }> =>
+    fc.tuple(
+      fc.uniqueArray(
+        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 3, maxLength: 16 }),
+        { minLength: 14, maxLength: 14 },
+      ),
+      stringFromCharacters(HEX_ALPHABET, { minLength: 12, maxLength: 12 }),
+      stringFromCharacters(HEX_ALPHABET, { minLength: 12, maxLength: 12 }),
+    ).map(([tokens, firstTemporaryId, secondTemporaryId]) => {
+      const [
+        root,
+        atomic,
+        prePublication,
+        postPublication,
+        blocked,
+        removed,
+        cleanup,
+        firstCleanup,
+        secondCleanup,
+        destination,
+        nonMatching,
+        firstContent,
+        secondContent,
+        preservedContent,
+      ] = tokens as unknown as readonly [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      const cleanupDestinationPrefix = `${root}/${cleanup}-`;
+      return {
+        paths: {
+          atomicRecord: `${root}/${atomic}.jsonl`,
+          prePublicationRecord: `${root}/${prePublication}.jsonl`,
+          postPublicationRecord: `${root}/${postPublication}.jsonl`,
+          blockedRecord: `${root}/${blocked}.jsonl`,
+          removedTemporaryRecord: `${root}/${removed}.jsonl`,
+          cleanupDestinationPrefix,
+          firstCleanupTemporary: `${cleanupDestinationPrefix}${firstCleanup}.jsonl.${firstTemporaryId}.tmp`,
+          secondCleanupTemporary: `${cleanupDestinationPrefix}${secondCleanup}.jsonl.${secondTemporaryId}.tmp`,
+          cleanupDestination: `${cleanupDestinationPrefix}${destination}.jsonl`,
+          nonMatchingTemporary: `${root}/${nonMatching}.jsonl.invalid.tmp`,
+        },
+        content: {
+          firstCleanup: firstContent,
+          secondCleanup: secondContent,
+          destination: preservedContent,
+          nonMatching: nonMatching,
+        },
+      };
+    }),
   // A pair of run-id byte buffers whose hex encodings strictly descend (first greater
   // than second). Assigning the first to an earlier write and the second to a later
   // write makes run-token order disagree with write order, so only a true creation-order
@@ -113,6 +194,10 @@ export const STATE_STORE_TEST_GENERATOR = {
         ] as const
       ),
 } as const;
+
+export type AtomicJsonlPublicationFixture =
+  ReturnType<typeof STATE_STORE_TEST_GENERATOR.atomicPublicationFixture> extends fc.Arbitrary<infer Value> ? Value
+    : never;
 
 export function sampleStateStoreTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
