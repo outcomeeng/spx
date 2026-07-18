@@ -16,6 +16,7 @@ import {
   type HookSessionStartPayload,
   isPiHookSessionStartPayload,
   parseHookSessionStartPayload,
+  PI_SESSION_START_REJECTION_REGISTRY,
   renderHookSessionStartEnvFile,
   renderSessionStartStdout,
   resolveHookPiSessionId,
@@ -166,7 +167,7 @@ async function resolveSessionStartSessionId(options: {
     return resolveHookSessionStartSessionId(options.payload, options.env);
   }
   if (options.payload.transcriptPath === undefined) {
-    options.diagnostics.push(HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED);
+    options.diagnostics.push(PI_SESSION_START_REJECTION_REGISTRY.pathRequired.diagnostic);
     return undefined;
   }
 
@@ -176,7 +177,7 @@ async function resolveSessionStartSessionId(options: {
     options.transcriptFileSystem,
   );
   if (!trustedPath) {
-    options.diagnostics.push(HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED);
+    options.diagnostics.push(PI_SESSION_START_REJECTION_REGISTRY.pathUntrusted.diagnostic);
     return undefined;
   }
 
@@ -188,7 +189,7 @@ async function resolveSessionStartSessionId(options: {
     );
   } catch (error) {
     options.diagnostics.push(
-      `${HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED}${ERROR_DETAIL_SEPARATOR}${describeError(error)}`,
+      `${PI_SESSION_START_REJECTION_REGISTRY.readFailed.diagnostic}${ERROR_DETAIL_SEPARATOR}${describeError(error)}`,
     );
     return undefined;
   }
