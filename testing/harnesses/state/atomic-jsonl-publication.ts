@@ -8,7 +8,10 @@ import {
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+import {
+  createDelegatingStateStoreFileSystem,
+  createInMemoryStateStoreFileSystem,
+} from "@testing/harnesses/state/in-memory-file-system";
 
 const ATOMIC_RECORD_PATH = "record-store/atomic-record.jsonl";
 const PRE_PUBLICATION_RECORD_PATH = "record-store/pre-publication.jsonl";
@@ -27,10 +30,6 @@ const DESTINATION_CONTENT = "destination";
 const NON_MATCHING_CONTENT = "unowned";
 
 type PublicationInterruption = "before-link" | "after-link" | undefined;
-
-interface LinkCapableStateStoreFileSystem extends StateStoreFileSystem {
-  link(existingPath: string, newPath: string): Promise<void>;
-}
 
 interface AtomicJsonlPublicationResult {
   readonly first: unknown;
@@ -178,39 +177,23 @@ function createTemporaryCapturingFileSystem(
   delegate: StateStoreFileSystem,
   capture: (path: string) => void,
 ): StateStoreFileSystem {
-  return {
-    mkdir: (path, options) => delegate.mkdir(path, options),
+  return createDelegatingStateStoreFileSystem(delegate, {
     writeFile: async (path, data, options) => {
       await delegate.writeFile(path, data, options);
       if (options?.flag !== undefined) capture(path);
     },
-    appendFile: (path, data) => delegate.appendFile(path, data),
-    readFile: (path, encoding) => delegate.readFile(path, encoding),
-    readdir: (path, options) => delegate.readdir(path, options),
-    lstat: (path) => delegate.lstat(path),
-    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
-    rename: (from, to) => delegate.rename(from, to),
-    rm: (path, options) => delegate.rm(path, options),
-  };
+  });
 }
 
 function createLinkCapableFileSystem(
   interruption?: PublicationInterruption,
   delegate: StateStoreFileSystem = createInMemoryStateStoreFileSystem(),
-): LinkCapableStateStoreFileSystem {
-  return {
-    mkdir: (path, options) => delegate.mkdir(path, options),
-    writeFile: (path, data, options) => delegate.writeFile(path, data, options),
-    appendFile: (path, data) => delegate.appendFile(path, data),
-    readFile: (path, encoding) => delegate.readFile(path, encoding),
-    readdir: (path, options) => delegate.readdir(path, options),
-    lstat: (path) => delegate.lstat(path),
-    rename: (from, to) => delegate.rename(from, to),
-    rm: (path, options) => delegate.rm(path, options),
+): StateStoreFileSystem {
+  return createDelegatingStateStoreFileSystem(delegate, {
     link: async (existingPath, newPath) => {
       if (interruption === "before-link") throw new Error(INJECTED_INTERRUPTION);
       await delegate.link(existingPath, newPath);
       if (interruption === "after-link") throw new Error(INJECTED_INTERRUPTION);
     },
-  };
+  });
 }

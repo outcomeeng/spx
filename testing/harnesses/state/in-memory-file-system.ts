@@ -170,6 +170,24 @@ export function createInMemoryStateStoreFileSystem(): StateStoreFileSystem {
   return new InMemoryStateStoreFileSystem();
 }
 
+export function createDelegatingStateStoreFileSystem(
+  delegate: StateStoreFileSystem,
+  overrides: Partial<StateStoreFileSystem>,
+): StateStoreFileSystem {
+  return {
+    mkdir: (path, options) => delegate.mkdir(path, options),
+    writeFile: (path, data, options) => delegate.writeFile(path, data, options),
+    appendFile: (path, data) => delegate.appendFile(path, data),
+    readFile: (path, encoding) => delegate.readFile(path, encoding),
+    readdir: (path, options) => delegate.readdir(path, options),
+    lstat: (path) => delegate.lstat(path),
+    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
+    rename: (from, to) => delegate.rename(from, to),
+    rm: (path, options) => delegate.rm(path, options),
+    ...overrides,
+  };
+}
+
 function parentDirectory(path: string): string {
   return normalizeDirectoryPath(dirname(path));
 }
