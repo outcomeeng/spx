@@ -63,6 +63,10 @@ export interface PiSessionStartIdentityEvidence {
   readonly transcriptPathsRead: readonly string[];
 }
 
+export interface SessionStartCliAcceptanceEvidence {
+  readonly result: SpxCliResult;
+}
+
 export interface SessionStartCliClaimEvidence {
   readonly result: SpxCliResult;
   readonly sessionId: string;
@@ -325,6 +329,40 @@ export async function withPiSessionStartIdentityEvidence(
         transcriptPath,
         transcriptPathsRead: transcriptFileSystem.pathsRead,
         result,
+      });
+    },
+  );
+}
+
+export async function withSessionStartCliAcceptanceEvidence(
+  callback: (evidence: SessionStartCliAcceptanceEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withHookCliWorktreeEnv(
+    {
+      envFileName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()),
+      prefix: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()),
+      worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+    },
+    async (env) => {
+      await callback({
+        result: await runWorktreeCli(
+          [
+            HOOK_CLI.COMMAND,
+            HOOK_CLI.RUN,
+            HOOK_EVENT.SESSION_START,
+            HOOK_CLI.WORKTREES_DIR_FLAG,
+            env.worktreesDir,
+          ],
+          {
+            [CONTROLLING_PID_ENV]: String(process.pid),
+            [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
+          },
+          env.worktreePath,
+          JSON.stringify({
+            [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
+            [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          }),
+        ),
       });
     },
   );
