@@ -1,10 +1,8 @@
 import {
-  ERROR_CODE_NOT_FOUND,
   parseStateStoreError,
   publishJsonlRecordAtomically,
   readLatestJsonlRecord,
   removeAtomicJsonlTemporaryFiles,
-  STATE_STORE_ERROR,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -51,12 +49,22 @@ interface AtomicJsonlPublicationResult {
 
 export interface AtomicJsonlPublicationObservation {
   readonly actual: AtomicJsonlPublicationResult;
-  readonly expected: AtomicJsonlPublicationResult;
+  readonly firstRecord: unknown;
+  readonly secondRecord: unknown;
+  readonly paths: {
+    readonly atomicRecord: string;
+    readonly prePublicationRecord: string;
+    readonly postPublicationRecord: string;
+  };
+  readonly preservedContent: {
+    readonly destination: string;
+    readonly nonMatching: string;
+  };
 }
 
 let observationPromise: Promise<AtomicJsonlPublicationObservation> | undefined;
 
-/** Collect actual and independently constructed expected results for atomic publication compliance. */
+/** Exercise atomic publication boundaries and return observations plus fixture inputs. */
 export function atomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicationObservation> {
   observationPromise ??= collectAtomicJsonlPublicationObservation();
   return observationPromise;
@@ -135,22 +143,16 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       destinationContent: await fs.readFile(CLEANUP_DESTINATION_PATH, "utf8"),
       nonMatchingContent: await fs.readFile(NON_MATCHING_TEMPORARY_PATH, "utf8"),
     },
-    expected: {
-      first: { ok: true, value: ATOMIC_RECORD_PATH },
-      collision: { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS },
-      winnerContent: `${JSON.stringify(firstRecord)}\n`,
-      beforePublicationError: STATE_STORE_ERROR.RECORD_WRITE_FAILED,
-      beforePublicationDestinationError: ERROR_CODE_NOT_FOUND,
-      retry: { ok: true, value: PRE_PUBLICATION_RECORD_PATH },
-      afterPublicationRecord: { ok: true, value: secondRecord },
-      guarded: { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED },
-      guardedDestinationError: ERROR_CODE_NOT_FOUND,
-      removedTemporary: { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED },
-      cleanup: { ok: true, value: 2 },
-      firstCleanupError: ERROR_CODE_NOT_FOUND,
-      secondCleanupError: ERROR_CODE_NOT_FOUND,
-      destinationContent: DESTINATION_CONTENT,
-      nonMatchingContent: NON_MATCHING_CONTENT,
+    firstRecord,
+    secondRecord,
+    paths: {
+      atomicRecord: ATOMIC_RECORD_PATH,
+      prePublicationRecord: PRE_PUBLICATION_RECORD_PATH,
+      postPublicationRecord: POST_PUBLICATION_RECORD_PATH,
+    },
+    preservedContent: {
+      destination: DESTINATION_CONTENT,
+      nonMatching: NON_MATCHING_CONTENT,
     },
   };
 }
