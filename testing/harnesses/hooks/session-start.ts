@@ -547,85 +547,45 @@ async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId
   return transcriptPath;
 }
 
-export async function withAbsentPiTranscriptPathEvidence(
-  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartRejectionEvidence(
+export interface PiSessionStartRejectionCase {
+  readonly diagnostic: string;
+  readonly runHook: (
+    callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+  ) => Promise<void>;
+  readonly runCli: (
+    callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+  ) => Promise<void>;
+}
+
+function piSessionStartRejectionCase(
+  setup: PiTranscriptFixtureSetup,
+  diagnostic: string,
+): PiSessionStartRejectionCase {
+  return {
+    diagnostic,
+    runHook: async (callback) => withPiSessionStartRejectionEvidence(setup, diagnostic, callback),
+    runCli: async (callback) => withPiSessionStartCliRejectionEvidence(setup, diagnostic, callback),
+  };
+}
+
+export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionCase[] = [
+  piSessionStartRejectionCase(
     absentPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
-    callback,
-  );
-}
-
-export async function withUnreadablePiTranscriptPathEvidence(
-  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartRejectionEvidence(
+  ),
+  piSessionStartRejectionCase(
     unreadablePiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
-    callback,
-  );
-}
-
-export async function withMalformedPiTranscriptHeaderEvidence(
-  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartRejectionEvidence(
+  ),
+  piSessionStartRejectionCase(
     malformedPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
-    callback,
-  );
-}
-
-export async function withMismatchedPiTranscriptProductEvidence(
-  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartRejectionEvidence(
+  ),
+  piSessionStartRejectionCase(
     mismatchedPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
-    callback,
-  );
-}
-
-export async function withAbsentPiTranscriptPathCliEvidence(
-  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartCliRejectionEvidence(
-    absentPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
-    callback,
-  );
-}
-
-export async function withUnreadablePiTranscriptPathCliEvidence(
-  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartCliRejectionEvidence(
-    unreadablePiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
-    callback,
-  );
-}
-
-export async function withMalformedPiTranscriptHeaderCliEvidence(
-  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartCliRejectionEvidence(
-    malformedPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
-    callback,
-  );
-}
-
-export async function withMismatchedPiTranscriptProductCliEvidence(
-  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
-): Promise<void> {
-  await withPiSessionStartCliRejectionEvidence(
-    mismatchedPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
-    callback,
-  );
-}
+  ),
+];
 
 function orderedDistinctTimestamps(): readonly [string, string] {
   const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
