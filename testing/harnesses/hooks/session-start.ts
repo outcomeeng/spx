@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/status";
@@ -554,9 +554,11 @@ async function absentPiTranscriptPath(): Promise<undefined> {
 }
 
 async function untrustedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
-  const transcriptPath = join(env.untrustedDir, agentSessionJsonlName(sessionId));
+  const fileName = agentSessionJsonlName(sessionId);
+  const outsidePath = join(env.untrustedDir, fileName);
+  const transcriptPath = join(env.sessionStoreDir, fileName);
   await writeFile(
-    transcriptPath,
+    outsidePath,
     piTranscript({
       sessionId,
       cwd: env.productDir,
@@ -564,6 +566,7 @@ async function untrustedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId:
     }),
     AGENT_SESSION_STORE.TEXT_ENCODING,
   );
+  await symlink(outsidePath, transcriptPath);
   return transcriptPath;
 }
 
