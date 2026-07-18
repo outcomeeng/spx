@@ -4,6 +4,7 @@ import { execa } from "execa";
 
 import {
   createJournal,
+  JOURNAL_SEQ_BASE,
   type JournalEvent,
   type JournalEventInput,
   type JournalIdentity,
@@ -22,6 +23,7 @@ import {
   arbitraryJournalIdentity,
   arbitraryJournalPairInput,
   arbitraryMalformedJournalLines,
+  journalEventFromInput,
   journalRunFilePath,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
@@ -246,9 +248,14 @@ async function observeMalformedLine(
 ): Promise<MalformedReplayObservation> {
   const fs = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
+  const event = journalEventFromInput(input, identity, JOURNAL_SEQ_BASE);
+  await fs.mkdir(dirname(runFilePath), { recursive: true });
+  await fs.writeFile(runFilePath, `${serializeJsonlRecord({ ...event })}${malformedLine}`);
+  await fs.writeFile(
+    appendableJournalSealMarkerPath(runFilePath),
+    APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+  );
   const store = createAppendableJournalStore({ runFilePath, fs });
-  const event = await createJournal(store, identity).append(input);
-  await fs.appendFile(runFilePath, malformedLine);
   return { event, replay: await store.readAll() };
 }
 
