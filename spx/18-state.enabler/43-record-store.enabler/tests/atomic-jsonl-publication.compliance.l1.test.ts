@@ -16,5 +16,8 @@ describe("record store — atomic JSONL publication", () => {
     expect((await atomicJsonlPublicationObservation()).actual.nonMatchingContent).toBe(
       (await atomicJsonlPublicationObservation()).fixture.content.nonMatching,
     );
+    expect((await atomicJsonlPublicationObservation()).actual.prefixLookalikeContent).toBe(
+      (await atomicJsonlPublicationObservation()).fixture.content.nonMatching,
+    );
   });
 });
