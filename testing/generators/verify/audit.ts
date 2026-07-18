@@ -78,11 +78,13 @@ function arbitraryAuditProducerIdentity(): fc.Arbitrary<AuditProducerIdentity> {
 }
 
 export function arbitraryAuditProducerProvenance(): fc.Arbitrary<AuditProducerProvenance> {
-  return fc.record({
-    agentOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    skillOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    toolVersion: fc.option(STATE_STORE_TEST_GENERATOR.scopeToken(), { nil: undefined }),
-  });
+  return fc
+    .record({
+      agentOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      skillOwningPluginVersion: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      toolVersion: fc.option(STATE_STORE_TEST_GENERATOR.scopeToken(), { nil: undefined }),
+    })
+    .map(({ toolVersion, ...provenance }) => toolVersion === undefined ? provenance : { ...provenance, toolVersion });
 }
 
 interface AuditClassKind {
@@ -108,21 +110,23 @@ function arbitraryExecutedAuditClassKind(): fc.Arbitrary<AuditClassKind> {
 }
 
 function arbitraryAuditScopeFields(): fc.Arbitrary<Omit<AuditScopeUnit, keyof AuditClassKind>> {
-  return fc.record({
-    unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    parentUnitId: fc.option(STATE_STORE_TEST_GENERATOR.scopeToken(), { nil: undefined }),
-    subject: arbitrarySourceFilePath(),
-    coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
-    coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
-    priorContext: fc.record({
-      changedFilePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-      concernPartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-      languagePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    }),
-    expectedProducer: arbitraryAuditProducerIdentity(),
-    recordedByRunDriver: arbitraryAuditProducerIdentity(),
-    producerProvenance: arbitraryAuditProducerProvenance(),
-  });
+  return fc
+    .record({
+      unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      parentUnitId: fc.option(STATE_STORE_TEST_GENERATOR.scopeToken(), { nil: undefined }),
+      subject: arbitrarySourceFilePath(),
+      coverageRequirement: fc.constantFrom(...AUDIT_COVERAGE_REQUIREMENTS),
+      coverageStatus: fc.constantFrom(...AUDIT_COVERAGE_STATUSES),
+      priorContext: fc.record({
+        changedFilePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        concernPartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        languagePartition: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      }),
+      expectedProducer: arbitraryAuditProducerIdentity(),
+      recordedByRunDriver: arbitraryAuditProducerIdentity(),
+      producerProvenance: arbitraryAuditProducerProvenance(),
+    })
+    .map(({ parentUnitId, ...fields }) => parentUnitId === undefined ? fields : { ...fields, parentUnitId });
 }
 
 export function arbitraryAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
@@ -170,24 +174,23 @@ export function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
 }
 
 function auditScopePayload(unit: AuditScopeUnit): JsonValue {
-  return JSON.parse(JSON.stringify(unit)) as JsonValue;
+  return structuredClone(unit) as unknown as JsonValue;
 }
 
 export function arbitraryAuditScopePayload(): fc.Arbitrary<JsonValue> {
   return fc.oneof(
     arbitraryAuditScopeUnit().map(auditScopePayload),
     arbitraryAuditScopeUnit().map(({ producerProvenance: _producerProvenance, ...unit }) =>
-      JSON.parse(JSON.stringify(unit)) as JsonValue
+      structuredClone(unit) as unknown as JsonValue
     ),
-    arbitraryAuditScopeUnit().map((unit) =>
-      JSON.parse(JSON.stringify({
+    arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, ...unit }) =>
+      structuredClone({
         ...unit,
-        parentUnitId: undefined,
         priorContext: {
           changedFilePartition: unit.priorContext.changedFilePartition,
           concernPartition: unit.priorContext.concernPartition,
         },
-      })) as JsonValue
+      }) as unknown as JsonValue
     ),
   );
 }
@@ -305,7 +308,11 @@ export function arbitraryAuditFindingValidationScenario(): fc.Arbitrary<AuditFin
       scopeEvent: auditScopeEvent(scope),
       finding: { ...finding, unitId: scope.unitId },
       unknownUnitFinding: { ...finding, unitId: unknownUnitId },
-      emptyEvidenceFinding: JSON.parse(JSON.stringify({ ...finding, unitId: scope.unitId, evidence: {} })) as JsonValue,
+      emptyEvidenceFinding: structuredClone({
+        ...finding,
+        unitId: scope.unitId,
+        evidence: {},
+      }) as unknown as JsonValue,
     }));
 }
 
@@ -391,7 +398,7 @@ function auditFindingEvent(finding: AuditFinding, sequence: number): JournalEven
   return auditEvent(
     VERIFY_APPEND_EVENT_TYPE.FINDING,
     finding.unitId,
-    JSON.parse(JSON.stringify(finding)) as JsonValue,
+    structuredClone(finding) as unknown as JsonValue,
     sequence,
   );
 }
