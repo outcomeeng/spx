@@ -1,8 +1,8 @@
 # Atomic File Write
 
-PROVIDES a single atomic file-replacement primitive — serialize content to a uniquely named temporary sibling of the target file, then rename it over the target — built over an injected filesystem interface and an injected random-bytes source
-SO THAT the validation literal allowlist writer and the worktree occupancy-claim store
-CAN replace a file without a concurrent reader observing a partial write, without two concurrent writers of the same target colliding on the temporary path, and without a cross-device rename failure
+PROVIDES a single atomic file-replacement primitive — serialize content to a uniquely named temporary sibling of the target file, then rename it over the target — built over an injected filesystem interface, an injected random-bytes source, and optional injected temporary-path and exclusive-create retry policies
+SO THAT the validation literal allowlist writer, the worktree occupancy-claim store, and appendable-journal aggregate sealing
+CAN replace a file without a concurrent reader observing a partial write, without two concurrent writers of the same target overwriting or removing one another's temporary sibling, and without a cross-device rename failure
 
 ## Assertions
 
@@ -19,5 +19,6 @@ CAN replace a file without a concurrent reader observing a partial write, withou
 ### Compliance
 
 - ALWAYS: the target is replaced by renaming a fully written temporary sibling onto it, so a concurrent reader observes either the complete prior content or the complete new content, never a partial write ([test](tests/atomic-file-write.compliance.l1.test.ts))
+- ALWAYS: an exclusive temporary-creation collision leaves the colliding sibling unchanged and retries through a freshly generated sibling until replacement succeeds or the bounded attempt count is exhausted ([test](tests/atomic-file-write.compliance.l1.test.ts))
 - ALWAYS: the filesystem and the random-bytes source are reached only through injected dependencies — the primitive performs no direct filesystem or crypto module access ([audit])
 - NEVER: the temporary-path uniqueness suffix derives from `Math.random` — it derives from the injected `node:crypto` random-bytes source ([audit])
