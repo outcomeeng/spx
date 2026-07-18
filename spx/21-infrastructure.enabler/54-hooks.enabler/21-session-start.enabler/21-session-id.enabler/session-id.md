@@ -18,3 +18,7 @@ CAN share one session identity across hook runtime state and SPX state
 ### Mappings
 
 - Pi native-session evidence maps to no session identity and no worktree claim with its source-owned diagnostic when the exact transcript path is absent, resolves outside the configured Pi session store, cannot be read, has a malformed Pi header, or identifies a cwd different from the payload product directory ([test](tests/session-id.mapping.l1.test.ts))
+
+### Compliance
+
+- NEVER: `session-start` reads Pi transcript opening metadata when the exact payload path resolves outside the canonical configured Pi session-store root; the hook rejects that path before the bounded read and produces no session identity or worktree claim ([test](tests/session-id.compliance.l1.test.ts))
