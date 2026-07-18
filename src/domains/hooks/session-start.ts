@@ -5,12 +5,15 @@
  */
 
 import type { Result } from "@/config/types";
+import { type AgentSessionKind, isAgentSearchSessionKind } from "@/domains/agent/protocol";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 
 export const HOOK_SESSION_START_PAYLOAD = {
+  AGENT: "agent",
   CWD: "cwd",
   SESSION_ID: "session_id",
   SOURCE: "source",
+  TRANSCRIPT_PATH: "transcript_path",
 } as const;
 
 // Agent lifecycle sources reported on the `session-start` payload. `compact`
@@ -45,9 +48,11 @@ export const HOOK_SESSION_START_ERROR = {
 export type HookSessionStartEnv = { readonly [key: string]: string | undefined };
 
 export interface HookSessionStartPayload {
+  readonly agent?: AgentSessionKind;
   readonly cwd?: string;
   readonly sessionId?: string;
   readonly source?: string;
+  readonly transcriptPath?: string;
 }
 
 export interface HookSessionStartEnvRenderInput {
@@ -103,9 +108,11 @@ export function parseHookSessionStartPayload(content: string | undefined): Resul
   return {
     ok: true,
     value: {
+      agent: agentSessionKind(record[HOOK_SESSION_START_PAYLOAD.AGENT]),
       cwd: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.CWD]),
       sessionId: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.SESSION_ID]),
       source: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.SOURCE]),
+      transcriptPath: nonEmptyString(record[HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]),
     },
   };
 }
@@ -163,6 +170,10 @@ function renderExportLine(name: string, value: string): string {
 function shellQuote(value: string): string {
   if (SAFE_SHELL_VALUE_PATTERN.test(value)) return value;
   return `${SINGLE_QUOTE}${value.replaceAll(SINGLE_QUOTE, SHELL_SINGLE_QUOTE_ESCAPE)}${SINGLE_QUOTE}`;
+}
+
+function agentSessionKind(value: unknown): AgentSessionKind | undefined {
+  return typeof value === "string" && isAgentSearchSessionKind(value) ? value : undefined;
 }
 
 function nonEmptyString(value: unknown): string | undefined {
