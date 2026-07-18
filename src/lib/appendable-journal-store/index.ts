@@ -190,7 +190,7 @@ async function removeTemporaryPublications(
 }
 
 function isAppendableJournalDestination(path: string, runFilePath: string): boolean {
-  if (path === runFilePath) return true;
+  if (path === runFilePath || path === aggregateTemporaryPrefix(runFilePath)) return true;
   if (dirname(path) !== dirname(runFilePath)) return false;
   return sequenceFromRecordName(
     basename(path),
