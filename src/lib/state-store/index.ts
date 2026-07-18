@@ -79,6 +79,8 @@ export interface StateStoreFileEntry {
 
 export interface StateStorePathStats {
   readonly birthtimeMs: number;
+  readonly dev?: number;
+  readonly ino?: number;
   isDirectory(): boolean;
   isFile(): boolean;
   isSymbolicLink(): boolean;
@@ -116,6 +118,10 @@ export interface AtomicJsonlWriteOptions extends JsonlWriteOptions {
   readonly randomBytes?: (size: number) => Buffer;
   readonly maxAttempts?: number;
   readonly publicationGuard?: () => Promise<boolean>;
+}
+
+export interface AtomicJsonlTemporaryCleanupOptions extends JsonlWriteOptions {
+  readonly isDeterministicDestination: (path: string) => boolean;
 }
 
 export interface JsonlReadOptions {
@@ -597,7 +603,7 @@ export async function publishJsonlRecordAtomically(
 
 export async function removeAtomicJsonlTemporaryFiles(
   destinationPathPrefix: string,
-  options: JsonlWriteOptions = {},
+  options: AtomicJsonlTemporaryCleanupOptions,
 ): Promise<Result<number>> {
   const fs = options.fs ?? defaultFileSystem;
   const directory = dirname(destinationPathPrefix);
@@ -615,9 +621,14 @@ export async function removeAtomicJsonlTemporaryFiles(
 
   let removed = 0;
   for (const entry of entries) {
-    if (!entry.isFile() || !isOwnedAtomicJsonlTemporaryName(entry.name, namePrefix)) continue;
+    const path = join(directory, entry.name);
+    if (
+      !entry.isFile()
+      || options.isDeterministicDestination(path)
+      || !isOwnedAtomicJsonlTemporaryName(entry.name, namePrefix)
+    ) continue;
     try {
-      await fs.rm(join(directory, entry.name), { force: true });
+      await fs.rm(path, { force: true });
       removed += 1;
     } catch (error) {
       return {
@@ -673,10 +684,29 @@ async function publishAtomicJsonlTemporaryFile(
     if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
       return { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED };
     }
+    if (await pathsShareFileIdentity(fs, temporaryPath, filePath)) {
+      return { ok: true, value: filePath };
+    }
     return {
       ok: false,
       error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
     };
+  }
+}
+
+async function pathsShareFileIdentity(
+  fs: StateStoreFileSystem,
+  leftPath: string,
+  rightPath: string,
+): Promise<boolean> {
+  try {
+    const [left, right] = await Promise.all([fs.lstat(leftPath), fs.lstat(rightPath)]);
+    return left.dev !== undefined
+      && left.ino !== undefined
+      && left.dev === right.dev
+      && left.ino === right.ino;
+  } catch {
+    return false;
   }
 }
 
