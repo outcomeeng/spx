@@ -45,6 +45,9 @@ describe("hook CLI session-start boundary", () => {
           session: evidence.sessionId,
         }),
       );
+      expect(JSON.parse(evidence.statusResult.stdout)).not.toEqual(
+        expect.objectContaining({ session: evidence.decoySessionId }),
+      );
     });
   });
 });

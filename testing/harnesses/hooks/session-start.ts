@@ -33,6 +33,7 @@ import {
 } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { piTranscript } from "@testing/harnesses/agent/pi-resume";
+import { agentSessionJsonlName } from "@testing/harnesses/agent/resume";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import {
   runWorktreeCli,
@@ -52,6 +53,9 @@ export interface SessionStartIdentityEvidence {
 export interface PiSessionStartIdentityEvidence {
   readonly result: Result<SessionStartHookResult>;
   readonly sessionId: string;
+  readonly decoySessionId: string;
+  readonly transcriptPath: string;
+  readonly transcriptPathsRead: readonly string[];
 }
 
 export interface SessionStartCliClaimEvidence {
@@ -71,6 +75,7 @@ export interface PiSessionStartCliClaimEvidence {
   readonly hookResult: SpxCliResult;
   readonly statusResult: SpxCliResult;
   readonly sessionId: string;
+  readonly decoySessionId: string;
 }
 
 interface DirectIdentityInput {
@@ -81,6 +86,17 @@ interface DirectIdentityInput {
     readonly claudeSessionId?: string;
     readonly codexSessionId?: string;
   };
+}
+
+class RecordingHookTranscriptFileSystem implements HookTranscriptFileSystem {
+  readonly pathsRead: string[] = [];
+
+  constructor(private readonly delegate: HookTranscriptFileSystem) {}
+
+  async readHead(path: string, maxBytes: number): Promise<string> {
+    this.pathsRead.push(path);
+    return this.delegate.readHead(path, maxBytes);
+  }
 }
 
 const nodeHookTranscriptFileSystem: HookTranscriptFileSystem = {
@@ -121,6 +137,7 @@ async function runSessionStartIdentityScenario(
     readonly claimRandomBytes: RandomBytes;
     readonly content: string;
     readonly env: HookSessionStartEnv;
+    readonly transcriptFileSystem?: HookTranscriptFileSystem;
   },
 ): Promise<Result<SessionStartHookResult>> {
   return runSessionStartHook({
@@ -135,7 +152,7 @@ async function runSessionStartIdentityScenario(
     processTable: env.processTable,
     selfPid: env.holder.pid,
     env: input.env,
-    transcriptFileSystem: nodeHookTranscriptFileSystem,
+    transcriptFileSystem: input.transcriptFileSystem ?? nodeHookTranscriptFileSystem,
   });
 }
 
@@ -239,28 +256,36 @@ export async function withPiSessionStartIdentityEvidence(
       holder: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder()),
     },
     async (env) => {
-      const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-      const transcriptPath = join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
+      const [sessionId, decoySessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+      const [timestamp, decoyTimestamp] = orderedDistinctTimestamps();
+      const transcriptPath = join(env.container, agentSessionJsonlName(sessionId));
       await writeFile(
         transcriptPath,
-        piTranscript({
-          sessionId,
-          cwd: env.worktreePath,
-          timestamp: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime()),
-        }),
+        piTranscript({ sessionId, cwd: env.worktreePath, timestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
+      await writeFile(
+        join(env.container, agentSessionJsonlName(decoySessionId)),
+        piTranscript({ sessionId: decoySessionId, cwd: env.worktreePath, timestamp: decoyTimestamp }),
+        AGENT_SESSION_STORE.TEXT_ENCODING,
+      );
+      const transcriptFileSystem = new RecordingHookTranscriptFileSystem(nodeHookTranscriptFileSystem);
+      const result = await runSessionStartIdentityScenario(env, {
+        claimRandomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
+        content: JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath,
+        }),
+        env: { [CONTROLLING_PID_ENV]: String(env.holder.pid) },
+        transcriptFileSystem,
+      });
       await callback({
         sessionId,
-        result: await runSessionStartIdentityScenario(env, {
-          claimRandomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
-          content: JSON.stringify({
-            [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
-            [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-            [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath,
-          }),
-          env: { [CONTROLLING_PID_ENV]: String(env.holder.pid) },
-        }),
+        decoySessionId,
+        transcriptPath,
+        transcriptPathsRead: transcriptFileSystem.pathsRead,
+        result,
       });
     },
   );
@@ -329,15 +354,17 @@ export async function withPiSessionStartCliClaimEvidence(
       worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
     },
     async (env) => {
-      const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-      const transcriptPath = join(env.worktreesDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
+      const [sessionId, decoySessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+      const [timestamp, decoyTimestamp] = orderedDistinctTimestamps();
+      const transcriptPath = join(env.worktreesDir, agentSessionJsonlName(sessionId));
       await writeFile(
         transcriptPath,
-        piTranscript({
-          sessionId,
-          cwd: env.worktreePath,
-          timestamp: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime()),
-        }),
+        piTranscript({ sessionId, cwd: env.worktreePath, timestamp }),
+        AGENT_SESSION_STORE.TEXT_ENCODING,
+      );
+      await writeFile(
+        join(env.worktreesDir, agentSessionJsonlName(decoySessionId)),
+        piTranscript({ sessionId: decoySessionId, cwd: env.worktreePath, timestamp: decoyTimestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
       const hookResult = await runWorktreeCli(
@@ -371,9 +398,15 @@ export async function withPiSessionStartCliClaimEvidence(
           env.worktreePath,
         ),
         sessionId,
+        decoySessionId,
       });
     },
   );
+}
+
+function orderedDistinctTimestamps(): readonly [string, string] {
+  const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
+  return Date.parse(first) < Date.parse(second) ? [first, second] : [second, first];
 }
 
 export function normalizedSessionId(value: string | undefined): string {
