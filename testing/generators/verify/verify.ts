@@ -451,6 +451,8 @@ export function formatNameStatusZ(paths: readonly string[]): string {
 
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
+  inheritedObjectPropertyName: (): fc.Arbitrary<string> =>
+    fc.constantFrom(...Object.getOwnPropertyNames(Object.prototype)),
   changesetRef: (): fc.Arbitrary<string> =>
     STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith("-")),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
