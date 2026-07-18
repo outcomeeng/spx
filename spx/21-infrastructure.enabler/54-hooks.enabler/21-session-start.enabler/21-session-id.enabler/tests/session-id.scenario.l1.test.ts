@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { HOOK_ENV_FILE, HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
+import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import {
-  normalizedSessionId,
   withClaudePrecedenceSessionStartIdentityEvidence,
   withCodexSessionStartIdentityEvidence,
   withPayloadPrecedenceSessionStartIdentityEvidence,
@@ -28,11 +28,11 @@ describe("hook session-start session identity", () => {
     await withUnsafePayloadSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
-      expect(evidence.result.value.sessionId).toBe(normalizedSessionId(evidence.payloadSessionId));
+      expect(evidence.result.value.sessionId).toBe(normalizeAgentSessionToken(evidence.payloadSessionId));
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
         `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${
-          normalizedSessionId(
+          normalizeAgentSessionToken(
             evidence.payloadSessionId,
           )
         }`,
