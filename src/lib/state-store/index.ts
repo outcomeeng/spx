@@ -684,7 +684,10 @@ async function publishAtomicJsonlTemporaryFile(
     if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) {
       return { ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS };
     }
-    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) {
+    if (
+      hasErrorCode(error, ERROR_CODE_NOT_FOUND)
+      && await pathIsMissing(fs, temporaryPath)
+    ) {
       return { ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED };
     }
     if (await pathsShareFileIdentity(fs, temporaryPath, filePath)) {
@@ -694,6 +697,15 @@ async function publishAtomicJsonlTemporaryFile(
       ok: false,
       error: formatStateStoreError(STATE_STORE_ERROR.RECORD_WRITE_FAILED, toErrorMessage(error)),
     };
+  }
+}
+
+async function pathIsMissing(fs: StateStoreFileSystem, path: string): Promise<boolean> {
+  try {
+    await fs.lstat(path);
+    return false;
+  } catch (error) {
+    return hasErrorCode(error, ERROR_CODE_NOT_FOUND);
   }
 }
 
