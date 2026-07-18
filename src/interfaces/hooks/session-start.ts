@@ -4,16 +4,20 @@
  * @module interfaces/hooks/session-start
  */
 
-import { appendFile as nodeAppendFile } from "node:fs/promises";
+import { appendFile as nodeAppendFile, open as nodeOpen } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
+import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ERROR,
   type HookSessionStartEnv,
+  type HookSessionStartPayload,
+  isPiHookSessionStartPayload,
   parseHookSessionStartPayload,
   renderHookSessionStartEnvFile,
   renderSessionStartStdout,
+  resolveHookPiSessionId,
   resolveHookSessionStartProductDir,
   resolveHookSessionStartSessionId,
 } from "@/domains/hooks/session-start";
@@ -74,6 +78,19 @@ const defaultHookEnvFileSystem: HookEnvFileSystem = {
   },
 };
 
+const defaultHookTranscriptFileSystem: HookTranscriptFileSystem = {
+  async readHead(path, maxBytes) {
+    const handle = await nodeOpen(path, "r");
+    try {
+      const buffer = Buffer.alloc(maxBytes);
+      const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0);
+      return buffer.toString(AGENT_SESSION_STORE.TEXT_ENCODING, 0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  },
+};
+
 const ERROR_DETAIL_SEPARATOR = ": ";
 
 /** Runs the `session-start` hook event without blocking startup on degraded responsibilities. */
@@ -86,7 +103,13 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
 
   const payload = payloadResult.ok ? payloadResult.value : {};
   const productDir = resolveHookSessionStartProductDir(payload, options.cwd);
-  const sessionId = resolveHookSessionStartSessionId(payload, options.env);
+  const sessionId = await resolveSessionStartSessionId({
+    diagnostics,
+    env: options.env,
+    payload,
+    productDir,
+    transcriptFileSystem: options.transcriptFileSystem ?? defaultHookTranscriptFileSystem,
+  });
 
   let claimPath: string | undefined;
   if (sessionId !== undefined) {
@@ -128,6 +151,42 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
   };
 }
 
+async function resolveSessionStartSessionId(options: {
+  readonly diagnostics: string[];
+  readonly env: HookSessionStartEnv;
+  readonly payload: HookSessionStartPayload;
+  readonly productDir: string;
+  readonly transcriptFileSystem: HookTranscriptFileSystem;
+}): Promise<string | undefined> {
+  if (options.payload.sessionId !== undefined || !isPiHookSessionStartPayload(options.payload)) {
+    return resolveHookSessionStartSessionId(options.payload, options.env);
+  }
+  if (options.payload.transcriptPath === undefined) {
+    options.diagnostics.push(HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED);
+    return undefined;
+  }
+
+  let transcriptHead: string;
+  try {
+    transcriptHead = await options.transcriptFileSystem.readHead(
+      options.payload.transcriptPath,
+      AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES,
+    );
+  } catch (error) {
+    options.diagnostics.push(
+      `${HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED}${ERROR_DETAIL_SEPARATOR}${describeError(error)}`,
+    );
+    return undefined;
+  }
+
+  const result = resolveHookPiSessionId(options.payload, options.productDir, transcriptHead);
+  if (!result.ok) {
+    options.diagnostics.push(result.error);
+    return undefined;
+  }
+  return result.value;
+}
+
 async function writeEnvFileIfConfigured(options: {
   readonly claimPath: string | undefined;
   readonly envFile: string | undefined;
@@ -151,10 +210,12 @@ async function writeEnvFileIfConfigured(options: {
     return true;
   } catch (error) {
     options.diagnostics.push(
-      `${HOOK_SESSION_START_ERROR.ENV_FILE_WRITE_FAILED}${ERROR_DETAIL_SEPARATOR}${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `${HOOK_SESSION_START_ERROR.ENV_FILE_WRITE_FAILED}${ERROR_DETAIL_SEPARATOR}${describeError(error)}`,
     );
     return false;
   }
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

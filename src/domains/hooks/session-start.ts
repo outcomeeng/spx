@@ -4,8 +4,11 @@
  * @module domains/hooks/session-start
  */
 
+import { resolve } from "node:path";
+
 import type { Result } from "@/config/types";
-import { type AgentSessionKind, isAgentSearchSessionKind } from "@/domains/agent/protocol";
+import { AGENT_SESSION_KIND, type AgentSessionKind, isAgentSearchSessionKind } from "@/domains/agent/protocol";
+import { parsePiHead } from "@/domains/agent/resume";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 
 export const HOOK_SESSION_START_PAYLOAD = {
@@ -43,6 +46,10 @@ export const HOOK_ENV_FILE = {
 export const HOOK_SESSION_START_ERROR = {
   ENV_FILE_WRITE_FAILED: "hook session-start env file write failed",
   PAYLOAD_MALFORMED: "hook session-start payload must be a JSON object",
+  PI_TRANSCRIPT_HEADER_INVALID: "hook session-start Pi transcript header is invalid",
+  PI_TRANSCRIPT_PATH_REQUIRED: "hook session-start Pi transcript path is required",
+  PI_TRANSCRIPT_PRODUCT_MISMATCH: "hook session-start Pi transcript product directory does not match",
+  PI_TRANSCRIPT_READ_FAILED: "hook session-start Pi transcript read failed",
 } as const;
 
 export type HookSessionStartEnv = { readonly [key: string]: string | undefined };
@@ -126,6 +133,28 @@ export function resolveHookSessionStartSessionId(
 
 export function resolveHookSessionStartProductDir(payload: HookSessionStartPayload, cwd: string): string {
   return payload.cwd ?? cwd;
+}
+
+export function resolveHookPiSessionId(
+  payload: HookSessionStartPayload,
+  productDir: string,
+  transcriptHead: string,
+): Result<string> {
+  if (payload.transcriptPath === undefined) {
+    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED };
+  }
+  const head = parsePiHead(transcriptHead);
+  if (head === null) {
+    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID };
+  }
+  if (resolve(head.cwd) !== resolve(productDir)) {
+    return { ok: false, error: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH };
+  }
+  return { ok: true, value: normalizeAgentSessionToken(head.sessionId) };
+}
+
+export function isPiHookSessionStartPayload(payload: HookSessionStartPayload): boolean {
+  return payload.agent === AGENT_SESSION_KIND.PI;
 }
 
 /** Renders the model-visible stdout for the `session-start` hook event. */
