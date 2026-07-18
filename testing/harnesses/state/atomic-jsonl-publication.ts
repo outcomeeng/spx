@@ -1,3 +1,5 @@
+import { basename } from "node:path";
+
 import {
   type JsonRecord,
   parseStateStoreError,
@@ -38,6 +40,7 @@ interface AtomicJsonlPublicationResult {
   readonly destinationContent: string;
   readonly lookalikeDestinationContent: string;
   readonly nonMatchingContent: string;
+  readonly prefixLookalikeContent: string;
 }
 
 export interface AtomicJsonlPublicationObservation {
@@ -109,10 +112,17 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
   );
 
   const lookalikeDestination = await seedTemporaryCleanupFiles(fs, fixture, firstRecord, secondRecord);
+  const prefixLookalike = `${paths.cleanupDestinationPrefix}${basename(paths.nonMatchingFile)}${
+    lookalikeDestination.slice(paths.cleanupDestination.length)
+  }`;
+  await fs.writeFile(prefixLookalike, fixture.content.nonMatching);
   const cleanupOptions = {
     fs,
     isDeterministicDestination: (path: string): boolean =>
-      path === paths.cleanupDestination || path === lookalikeDestination,
+      path === paths.firstCleanupDestination
+      || path === paths.secondCleanupDestination
+      || path === paths.cleanupDestination
+      || path === lookalikeDestination,
   };
   const cleanup = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, cleanupOptions);
   const cleanupAfterRemoval = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, cleanupOptions);
@@ -135,6 +145,7 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       destinationContent: await fs.readFile(paths.cleanupDestination, "utf8"),
       lookalikeDestinationContent: await fs.readFile(lookalikeDestination, "utf8"),
       nonMatchingContent: await fs.readFile(paths.nonMatchingFile, "utf8"),
+      prefixLookalikeContent: await fs.readFile(prefixLookalike, "utf8"),
     },
     firstRecord,
     secondRecord,
