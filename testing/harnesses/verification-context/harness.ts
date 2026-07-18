@@ -73,6 +73,11 @@ class RecordingStateStoreFileSystem implements StateStoreFileSystem {
     return this.delegate.readFile(path, encoding);
   }
 
+  async link(existingPath: string, newPath: string): Promise<void> {
+    this.mutationCount += 1;
+    await this.delegate.link(existingPath, newPath);
+  }
+
   async rename(from: string, to: string): Promise<void> {
     this.mutationCount += 1;
     await this.delegate.rename(from, to);
