@@ -186,11 +186,18 @@ export const STATE_STORE_TEST_GENERATOR = {
   atomicPublicationCollision: (): fc.Arbitrary<{
     readonly destination: string;
     readonly records: readonly [{ readonly [key: string]: string }, { readonly [key: string]: string }];
+    readonly temporaryBytes: readonly [number, number];
   }> =>
     fc.tuple(
       STATE_STORE_TEST_GENERATOR.jsonRecordPair(),
       STATE_STORE_TEST_GENERATOR.atomicPublicationFixture(),
-    ).map(([records, fixture]) => ({ destination: fixture.paths.atomicRecord, records })),
+      fc.tuple(fc.integer({ min: 0, max: 255 }), fc.integer({ min: 0, max: 255 }))
+        .filter(([first, second]) => first !== second),
+    ).map(([records, fixture, temporaryBytes]) => ({
+      destination: fixture.paths.atomicRecord,
+      records,
+      temporaryBytes,
+    })),
 } as const;
 
 export type AtomicJsonlPublicationFixture =

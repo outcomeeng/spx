@@ -5,7 +5,6 @@ import {
   publishJsonlRecordAtomically,
   readLatestJsonlRecord,
   removeAtomicJsonlTemporaryFiles,
-  STATE_STORE_ERROR,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import {
@@ -13,12 +12,10 @@ import {
   sampleStateStoreTestValue,
   STATE_STORE_TEST_GENERATOR,
 } from "@testing/generators/state-store/state-store";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   createDelegatingStateStoreFileSystem,
   createInMemoryStateStoreFileSystem,
 } from "@testing/harnesses/state/in-memory-file-system";
-import { expect } from "vitest";
 
 const INJECTED_INTERRUPTION = "injected publication interruption";
 const FIRST_PUBLISHER_TEMPORARY_BYTE = 0x11;
@@ -54,65 +51,6 @@ let observationPromise: Promise<AtomicJsonlPublicationObservation> | undefined;
 export function atomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicationObservation> {
   observationPromise ??= collectAtomicJsonlPublicationObservation();
   return observationPromise;
-}
-
-export async function assertAtomicJsonlPublicationCollisionProperty(): Promise<void> {
-  await assertProperty(
-    STATE_STORE_TEST_GENERATOR.atomicPublicationCollision(),
-    async ({ destination, records: [firstRecord, secondRecord] }): Promise<boolean> => {
-      const fs = createInMemoryStateStoreFileSystem();
-      const [first, second] = await Promise.all([
-        publishJsonlRecordAtomically(destination, firstRecord, {
-          fs,
-          randomBytes: (size) => Buffer.alloc(size, FIRST_PUBLISHER_TEMPORARY_BYTE),
-        }),
-        publishJsonlRecordAtomically(destination, secondRecord, {
-          fs,
-          randomBytes: (size) => Buffer.alloc(size, SECOND_PUBLISHER_TEMPORARY_BYTE),
-        }),
-      ]);
-      const results = [first, second] as const;
-      const winnerCount = results.filter((result) => result.ok).length;
-      const collisionCount = results.filter(
-        (result) => !result.ok && result.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS,
-      ).length;
-      const winner = first.ok
-        ? { record: firstRecord, result: first }
-        : second.ok
-        ? { record: secondRecord, result: second }
-        : undefined;
-      if (winner === undefined) return false;
-      const destinationContent = await fs.readFile(destination, "utf8");
-      return winnerCount === 1
-        && collisionCount === 1
-        && winner.result.value === destination
-        && destinationContent === `${JSON.stringify(winner.record)}\n`;
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
-}
-
-export async function assertAtomicJsonlPublicationMapping(): Promise<void> {
-  const observation = await atomicJsonlPublicationObservation();
-  expect(observation.actual.beforePublicationError).toBe(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
-  expect(observation.actual.beforePublicationDestinationError).toBe(ERROR_CODE_NOT_FOUND);
-  expect(observation.actual.retry).toEqual({ ok: true, value: observation.fixture.paths.prePublicationRecord });
-  expect(observation.actual.afterPublicationRecord).toEqual({ ok: true, value: observation.secondRecord });
-  expect(observation.actual.guarded).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED });
-  expect(observation.actual.guardedDestinationError).toBe(ERROR_CODE_NOT_FOUND);
-  expect(observation.actual.removedTemporary).toEqual({
-    ok: false,
-    error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,
-  });
-  expect(observation.actual.removedTemporaryDestinationError).toBe(ERROR_CODE_NOT_FOUND);
-}
-
-export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
-  const observation = await atomicJsonlPublicationObservation();
-  expect(observation.actual.cleanup).toEqual({ ok: true, value: 2 });
-  expect(observation.actual.cleanupAfterRemoval).toEqual({ ok: true, value: 0 });
-  expect(observation.actual.destinationContent).toBe(observation.fixture.content.destination);
-  expect(observation.actual.nonMatchingContent).toBe(observation.fixture.content.nonMatching);
 }
 
 async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicationObservation> {
