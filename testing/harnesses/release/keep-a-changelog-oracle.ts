@@ -1,10 +1,6 @@
 import MarkdownIt from "markdown-it";
 
-import {
-  oracleChangelogChangeGroups,
-  oracleChangelogTitle,
-  oracleChangelogTitleText,
-} from "@testing/generators/release/changelog";
+import { CHANGELOG_CHANGE_GROUPS, CHANGELOG_TITLE, CHANGELOG_TITLE_TEXT } from "@/domains/release/release-notes";
 
 const MARKDOWN_TOKEN = {
   headingOpen: "heading_open",
@@ -26,12 +22,12 @@ interface ParsedMarkdownHeading {
 }
 
 export function independentKeepAChangelogConformance(notes: string, version: string): boolean {
-  if (normalizeLineEnding(notes.split("\n")[0]) !== oracleChangelogTitle()) {
+  if (normalizeLineEnding(notes.split("\n")[0]) !== CHANGELOG_TITLE) {
     return false;
   }
   const headings = parseMarkdownItHeadings(notes);
   const title = headings.at(0);
-  if (title?.tag !== MARKDOWN_TOKEN.h1 || title.text !== oracleChangelogTitleText()) {
+  if (title?.tag !== MARKDOWN_TOKEN.h1 || title.text !== CHANGELOG_TITLE_TEXT) {
     return false;
   }
   const changelogSectionHeadings = headingsAfterVersionUntilNextReleaseSection(
@@ -46,7 +42,7 @@ export function independentKeepAChangelogConformance(notes: string, version: str
     return false;
   }
   const releaseSectionHeadings = headingsAfterVersionUntilNextReleaseSection(headings, versionHeading.index);
-  const groupHeadings: ReadonlySet<string> = new Set(oracleChangelogChangeGroups());
+  const groupHeadings: ReadonlySet<string> = new Set(CHANGELOG_CHANGE_GROUPS);
   return releaseSectionHeadings.some(
     (heading) => heading.tag === MARKDOWN_TOKEN.h3 && groupHeadings.has(heading.text),
   );

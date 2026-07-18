@@ -270,13 +270,18 @@ export function changelogVersionHeading(version: string): string {
   return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}]`;
 }
 
-function changelogVersionHeadingText(version: string): string {
+export function changelogVersionHeadingText(version: string): string {
   return `[${version}]`;
 }
 
 /** The Keep a Changelog change-group heading for a group. */
 export function changelogGroupHeading(group: ChangelogChangeGroup): string {
   return `### ${group}`;
+}
+
+/** A Keep a Changelog list entry carrying one user-visible release change. */
+export function changelogEntry(change: string): string {
+  return `- ${change}`;
 }
 
 /**

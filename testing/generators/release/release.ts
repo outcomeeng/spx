@@ -5,6 +5,7 @@ import * as fc from "fast-check";
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
 import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 const VERSION_COMPONENT_MIN = 0;
 const VERSION_COMPONENT_MAX = 40;
@@ -16,6 +17,8 @@ const SOURCE_FILE_SUFFIX = ".ts";
 const FILE_CONTENT_PREFIX = "// ";
 const FILE_CONTENT_NEWLINE = "\n";
 const WINDOWS_EXTENDED_PATH_PREFIX = "\\\\?\\";
+const WINDOWS_UNC_PATH_PREFIX = "\\\\";
+const WINDOWS_EXTENDED_UNC_PATH_PREFIX = "\\\\?\\UNC\\";
 const WINDOWS_DRIVE_SEPARATOR = ":";
 const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Z]$/;
 
@@ -66,11 +69,15 @@ export const RELEASE_TEST_GENERATOR = {
   },
   semver: arbitrarySemver,
   distinctSemverFrom: arbitraryDistinctSemverFrom,
+  distinctWindowsDriveRoots: arbitraryDistinctWindowsDriveRoots,
+  distinctWindowsUncRoots: arbitraryDistinctWindowsUncRoots,
   distinctWindowsExtendedLengthDriveRoots: arbitraryDistinctWindowsExtendedLengthDriveRoots,
+  distinctWindowsExtendedLengthUncRoots: arbitraryDistinctWindowsExtendedLengthUncRoots,
   releaseTag: arbitraryReleaseTag,
   releaseTagPair: arbitraryReleaseTagPair,
   distinctReleaseTags: arbitraryDistinctReleaseTags,
   distinctPathSegmentTriple: arbitraryDistinctPathSegmentTriple,
+  distinctDomainLiteralPair: arbitraryDistinctDomainLiteralPair,
   commitSequence: arbitraryCommitSequence,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
@@ -121,15 +128,50 @@ function arbitraryDistinctSemverFrom(version: string): fc.Arbitrary<string> {
 }
 
 function arbitraryDistinctWindowsExtendedLengthDriveRoots(): fc.Arbitrary<readonly [string, string]> {
-  return fc
-    .tuple(fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN), fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN))
-    .filter(([first, second]) => first !== second)
+  return arbitraryDistinctWindowsDriveLetters()
     .map(([first, second]) =>
       [
         `${WINDOWS_EXTENDED_PATH_PREFIX}${first}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
         `${WINDOWS_EXTENDED_PATH_PREFIX}${second}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
       ] as const
     );
+}
+
+function arbitraryDistinctWindowsDriveRoots(): fc.Arbitrary<readonly [string, string]> {
+  return arbitraryDistinctWindowsDriveLetters().map(([first, second]) =>
+    [
+      `${first}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
+      `${second}${WINDOWS_DRIVE_SEPARATOR}${win32.sep}`,
+    ] as const
+  );
+}
+
+function arbitraryDistinctWindowsUncRoots(): fc.Arbitrary<readonly [string, string]> {
+  return arbitraryDistinctWindowsUncSegments().map(([firstHost, secondHost, share]) =>
+    [
+      `${WINDOWS_UNC_PATH_PREFIX}${firstHost}${win32.sep}${share}${win32.sep}`,
+      `${WINDOWS_UNC_PATH_PREFIX}${secondHost}${win32.sep}${share}${win32.sep}`,
+    ] as const
+  );
+}
+
+function arbitraryDistinctWindowsExtendedLengthUncRoots(): fc.Arbitrary<readonly [string, string]> {
+  return arbitraryDistinctWindowsUncSegments().map(([firstHost, secondHost, share]) =>
+    [
+      `${WINDOWS_EXTENDED_UNC_PATH_PREFIX}${firstHost}${win32.sep}${share}${win32.sep}`,
+      `${WINDOWS_EXTENDED_UNC_PATH_PREFIX}${secondHost}${win32.sep}${share}${win32.sep}`,
+    ] as const
+  );
+}
+
+function arbitraryDistinctWindowsDriveLetters(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN), fc.stringMatching(WINDOWS_DRIVE_LETTER_PATTERN))
+    .filter(([first, second]) => first !== second);
+}
+
+function arbitraryDistinctWindowsUncSegments(): fc.Arbitrary<readonly [string, string, string]> {
+  return arbitraryDistinctPathSegmentTriple();
 }
 
 function arbitraryReleaseTag(): fc.Arbitrary<string> {
@@ -155,6 +197,12 @@ function arbitraryDistinctPathSegmentTriple(): fc.Arbitrary<readonly [string, st
   return fc
     .tuple(arbitraryPathSegment(), arbitraryPathSegment(), arbitraryPathSegment())
     .filter((segments) => new Set(segments).size === segments.length);
+}
+
+function arbitraryDistinctDomainLiteralPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral())
+    .filter(([first, second]) => first !== second);
 }
 
 function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCommitFixture[]> {
