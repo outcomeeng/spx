@@ -132,7 +132,10 @@ import {
   verifyScopeMappingCases,
 } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+import {
+  createDelegatingStateStoreFileSystem,
+  createInMemoryStateStoreFileSystem,
+} from "@testing/harnesses/state/in-memory-file-system";
 import { expect } from "vitest";
 
 const GIT_UNEXPECTED_COMMAND: ExecResult = {
@@ -168,7 +171,6 @@ export interface VerifyCliRecording {
 export type VerifyStateStoreFileSystem = ReturnType<typeof createInMemoryStateStoreFileSystem>;
 
 export interface SealRetryFileSystem extends StateStoreFileSystem {
-  failDirectoryListings(): void;
   failFirstSealWriteAt(path: string): void;
   failSealMarkerReadsAt(path: string): void;
 }
@@ -655,14 +657,10 @@ export function observeMissingEvidenceRequiredOptionRejections(): Promise<readon
 export function createSealRetryFileSystem(): SealRetryFileSystem {
   const fs = createInMemoryStateStoreFileSystem();
   let blockedSealMarkerPath: string | undefined;
-  let directoryListingsRejected = false;
   let rejectedSealMarkerReadPath: string | undefined;
   let sealFailuresRemaining = 0;
   return {
     appendFile: (path, data) => fs.appendFile(path, data),
-    failDirectoryListings: () => {
-      directoryListingsRejected = true;
-    },
     failFirstSealWriteAt: (path: string) => {
       blockedSealMarkerPath = path;
       sealFailuresRemaining = 1;
@@ -679,12 +677,7 @@ export function createSealRetryFileSystem(): SealRetryFileSystem {
       }
       return fs.readFile(path, encoding);
     },
-    readdir: async (path, options) => {
-      if (directoryListingsRejected) {
-        throw new Error("verify harness: directory listing rejected");
-      }
-      return fs.readdir(path, options);
-    },
+    readdir: (path, options) => fs.readdir(path, options),
     rename: (from, to) => fs.rename(from, to),
     rm: (path, options) => fs.rm(path, options),
     writeFile: async (path, data, options) => {
@@ -1246,40 +1239,28 @@ function createJournalOpenFailureFileSystem(
   };
 }
 
-/** True for a run journal file — the JSONL the run-context event is appended to. */
-function isRunJournalFile(path: string): boolean {
+function isRunJournalSequenceRecord(path: string): boolean {
   const targetName = basename(path);
   return targetName.startsWith(STATE_STORE_PATH.RUN_FILE_PREFIX)
+    && targetName.includes(`${STATE_STORE_PATH.JSONL_EXTENSION}.seq-`)
     && targetName.endsWith(STATE_STORE_PATH.JSONL_EXTENSION);
 }
 
 /**
- * A filesystem that rejects the run-context event write while allowing the empty run-file create,
- * so `start` fails at recording drive mode after opening the run. Open writes the run file empty;
- * the run-context event is the first non-empty write to that file, whether appended or written.
+ * A filesystem that rejects atomic run-context publication while allowing the empty run-file create,
+ * so `start` fails at recording drive mode after opening the run.
  */
-function createRunContextAppendFailureFileSystem(
+function createRunContextPublicationFailureFileSystem(
   fs: StateStoreFileSystem = createInMemoryStateStoreFileSystem(),
 ): StateStoreFileSystem {
-  return {
-    appendFile: async (path, data) => {
-      if (isRunJournalFile(path)) throw new Error("verify harness: run-context event append rejected");
-      await fs.appendFile(path, data);
-    },
-    link: (existingPath, newPath) => fs.link(existingPath, newPath),
-    lstat: (path) => fs.lstat(path),
-    mkdir: (path, options) => fs.mkdir(path, options),
-    readFile: (path, encoding) => fs.readFile(path, encoding),
-    readdir: (path, options) => fs.readdir(path, options),
-    rename: (from, to) => fs.rename(from, to),
-    rm: (path, options) => fs.rm(path, options),
-    writeFile: async (path, data, options) => {
-      if (isRunJournalFile(path) && data.length > 0) {
-        throw new Error("verify harness: run-context event write rejected");
+  return createDelegatingStateStoreFileSystem(fs, {
+    link: async (existingPath, newPath) => {
+      if (isRunJournalSequenceRecord(newPath)) {
+        throw new Error("verify harness: run-context event publication rejected");
       }
-      await fs.writeFile(path, data, options);
+      await fs.link(existingPath, newPath);
     },
-  };
+  });
 }
 
 function scenarioRunsDir(scenario: VerifyRunContextScenario): string {
@@ -3018,7 +2999,7 @@ export async function observeLinkedWorktreeStart(): Promise<{
 export async function observePersistedRunJournal(): Promise<{
   readonly command: CliCommandResult;
   readonly report: VerifyStartReport;
-  readonly persistedJournal: string;
+  readonly persistedEvents: readonly JournalEvent[];
 }> {
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
@@ -3028,7 +3009,7 @@ export async function observePersistedRunJournal(): Promise<{
   return {
     command: started,
     report,
-    persistedJournal: await fs.readFile(report.locator.runTarget, STATE_STORE_TEXT_ENCODING),
+    persistedEvents: await readVerifyRunEvents(scenario, report.runToken, fs),
   };
 }
 
@@ -3330,7 +3311,7 @@ export async function observeStartRemovesOpenedRunArtifactsWhenRunContextFails()
   readonly contextExists: boolean;
 }> {
   const scenario = createVerifyRunContextScenario();
-  const fs = createRunContextAppendFailureFileSystem();
+  const fs = createRunContextPublicationFailureFileSystem();
   const started = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
   const runEntries = await fs.readdir(scenarioRunsDir(scenario), { withFileTypes: true });
   return {
@@ -3350,7 +3331,7 @@ export async function observeStartPreservesReusedVerificationContextWhenRunConte
   const created = await verifyStartCommand(verifyStartOptions(scenario), verifyDeps(scenario, fs));
   const started = await verifyStartCommand(
     verifyStartOptions(scenario),
-    verifyDeps(scenario, createRunContextAppendFailureFileSystem(fs)),
+    verifyDeps(scenario, createRunContextPublicationFailureFileSystem(fs)),
   );
   return { created, started, contextExists: await verifyPathExists(fs, scenarioContextFilePath(scenario)) };
 }
@@ -4059,7 +4040,6 @@ export async function assertRepeatedFinishRetriesPhysicalSeal(): Promise<void> {
   expect(first.output).toContain(VERIFY_CLI_ERROR.SEAL_FAILED);
   expect(findTerminalEvent(await readVerifyRunEvents(scenario, startReport.runToken, fs))).toBeDefined();
   await fs.rm(verifyInputRecordFilePath(scenario, startReport.runToken), { force: true });
-  fs.failDirectoryListings();
   const repeat = await verifyFinishCommand(
     verifyFinishOptions(scenario, { run: startReport.runToken, terminalStatus }),
     retryDeps,
