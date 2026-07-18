@@ -4,10 +4,14 @@ Hook handling is a peer interface layer under `src/interfaces/hooks/`, with an
 explicit event registry keyed by agent lifecycle event name. The CLI transport
 for `spx hook run <event>` dispatches into that hook interface, and hook adapters
 own the hook process contract: stdin payload reading, hook runtime environment
-interpretation, stdout context, stderr diagnostics, env-file writes, and
-nonblocking degraded completion. Hook adapters call shared domain services
-directly; they never depend on `src/commands/` handlers, and shared operations
-needed by both commands and hooks live below both interface layers.
+interpretation, bounded native-session metadata reads, stdout context, stderr
+diagnostics, env-file writes, and nonblocking degraded completion. Hook adapters
+call shared domain services directly; they never depend on `src/commands/`
+handlers, and shared operations needed by both commands and hooks live below both
+interface layers. The `session-start` adapter resolves an explicit payload
+session id first; a Pi payload without that id supplies the exact native
+transcript path, whose bounded opening metadata identifies the session only when
+it is a valid Pi header for the resolved product directory.
 
 ## Rationale
 
@@ -17,6 +21,15 @@ wrong dependency boundary and encourages command names such as
 `spx worktree session-start`; a peer hook interface keeps host lifecycle
 semantics separate while still sharing domain logic with command surfaces.
 
+An exact Pi transcript path is a native session fact available at Pi's
+`session_start` lifecycle boundary. Reading that path's bounded header preserves
+Pi's native identity without inventing a second identifier or guessing from
+store recency. Store scanning and latest-file selection are rejected because two
+Pi processes can start in the same product directory, making a recency winner an
+uncertain holder identity. Header validation and product-directory agreement
+bind the supplied path to the hook invocation; malformed or mismatched evidence
+degrades to no identity and therefore no worktree claim.
+
 ## Invariants
 
 - Hook event handlers depend on domain services and shared libraries, not on command handlers.
@@ -25,6 +38,9 @@ semantics separate while still sharing domain logic with command surfaces.
   operands accepted by `spx hook run <event>`.
 - Hook adapters are the only modules that interpret hook payload stdin, hook
   env-file paths, and hook-specific stdout semantics.
+- Pi native-session identity is accepted only from a valid bounded header at the
+  exact transcript path supplied by the Pi lifecycle adapter, with a cwd that
+  matches the hook's resolved product directory.
 
 ## Verification
 
@@ -42,9 +58,19 @@ semantics separate while still sharing domain logic with command surfaces.
 - ALWAYS: hook adapters own hook process I/O — stdin payload, hook runtime env,
   stdout context, stderr diagnostics, and env-file writes — because those are
   hook interface concerns rather than domain concerns ([audit])
-- ALWAYS: hook adapters isolate hook runtime reads, output writes, and env-file
-  writes behind typed boundary functions or injected dependencies so event logic
-  verifies without replacing modules through a mocking framework ([audit])
+- ALWAYS: hook adapters isolate hook runtime reads, bounded transcript reads,
+  output writes, and env-file writes behind typed boundary functions or injected
+  dependencies so event logic verifies without replacing modules through a
+  mocking framework ([audit])
+- ALWAYS: `session-start` gives a non-empty explicit payload session id
+  precedence over every inferred identity; when a Pi payload omits that id, the
+  adapter derives identity only from a valid Pi header at the exact supplied
+  transcript path whose cwd matches the resolved product directory ([audit])
+- ALWAYS: Pi transcript metadata reads are bounded independently of transcript
+  size and use a typed injected reader ([audit])
+- NEVER: `session-start` scans a Pi session store, selects a latest transcript,
+  or records a worktree claim from malformed, missing, or product-mismatched Pi
+  transcript metadata ([audit])
 - NEVER: hook tests use `vi.mock()` or `jest.mock()` to replace hook event
   modules, command handlers, or shared domain services; tests exercise real
   registry dispatch or typed injected boundary objects ([audit])
