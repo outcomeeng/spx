@@ -46,6 +46,8 @@ export interface DocumentationSyncScenario {
   readonly ambientState: readonly AmbientProductState[];
 }
 
+export type DocumentationUpdatedContent = DocumentationSyncScenario["updated"];
+
 export interface DocumentationVersionPreservationScenarios {
   readonly withPreviousTag: DocumentationSyncScenario;
   readonly withoutPreviousTag: DocumentationSyncScenario;

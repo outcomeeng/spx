@@ -12,7 +12,7 @@ import type { GitDependencies } from "@/lib/git/root";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 const PACKAGE_MANIFEST = "package.json";
-const RELEASE_NOTES_OUTPUT_PREFIX = "Generated release notes";
+export const RELEASE_NOTES_OUTPUT_PREFIX = "Generated release notes";
 
 export interface ReleaseNotesCommandOptions {
   readonly productDir: string;
