@@ -1,5 +1,4 @@
 import {
-  ERROR_CODE_NOT_FOUND,
   type JsonRecord,
   parseStateStoreError,
   publishJsonlRecordAtomically,
