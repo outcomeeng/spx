@@ -48,6 +48,7 @@ export const HOOK_SESSION_START_ERROR = {
   PAYLOAD_MALFORMED: "hook session-start payload must be a JSON object",
   PI_TRANSCRIPT_HEADER_INVALID: "hook session-start Pi transcript header is invalid",
   PI_TRANSCRIPT_PATH_REQUIRED: "hook session-start Pi transcript path is required",
+  PI_TRANSCRIPT_PATH_UNTRUSTED: "hook session-start Pi transcript path is outside the configured session store",
   PI_TRANSCRIPT_PRODUCT_MISMATCH: "hook session-start Pi transcript product directory does not match",
   PI_TRANSCRIPT_READ_FAILED: "hook session-start Pi transcript read failed",
 } as const;

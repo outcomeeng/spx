@@ -4,7 +4,7 @@
  * @module interfaces/hooks/session-start
  */
 
-import { appendFile as nodeAppendFile, open as nodeOpen } from "node:fs/promises";
+import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
@@ -33,6 +33,7 @@ export interface HookEnvFileSystem {
 }
 
 export interface HookTranscriptFileSystem {
+  realPath(path: string): Promise<string>;
   readHead(path: string, maxBytes: number): Promise<string>;
 }
 
@@ -79,6 +80,7 @@ const defaultHookEnvFileSystem: HookEnvFileSystem = {
 };
 
 const defaultHookTranscriptFileSystem: HookTranscriptFileSystem = {
+  realPath: nodeRealPath,
   async readHead(path, maxBytes) {
     const handle = await nodeOpen(path, "r");
     try {
