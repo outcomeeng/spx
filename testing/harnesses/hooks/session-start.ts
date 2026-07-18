@@ -11,8 +11,6 @@ import {
   HOOK_SESSION_START_PAYLOAD,
   type HookSessionStartEnv,
   PI_SESSION_START_REJECTION_KINDS,
-  PI_SESSION_START_REJECTION_REGISTRY,
-  type PiSessionStartRejection,
   type PiSessionStartRejectionKind,
 } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
@@ -89,15 +87,21 @@ export interface PiSessionStartCliClaimEvidence {
 
 export interface PiSessionStartRejectionEvidence {
   readonly result: Result<SessionStartHookResult>;
-  readonly diagnostic: string;
   readonly transcriptPathsRead: readonly string[];
+}
+
+export interface PiSessionStartRejectionMappingEvidence extends PiSessionStartRejectionEvidence {
+  readonly rejectionKind: PiSessionStartRejectionKind;
 }
 
 export interface PiSessionStartCliRejectionEvidence {
   readonly hookResult: SpxCliResult;
   readonly statusResult: SpxCliResult;
   readonly envContent: string;
-  readonly diagnostic: string;
+}
+
+export interface PiSessionStartCliRejectionMappingEvidence extends PiSessionStartCliRejectionEvidence {
+  readonly rejectionKind: PiSessionStartRejectionKind;
 }
 
 interface PiTranscriptFixtureEnv {
@@ -491,7 +495,6 @@ export async function withPiSessionStartCliClaimEvidence(
 
 async function withPiSessionStartRejectionEvidence(
   setup: PiTranscriptFixtureSetup,
-  diagnostic: string,
   callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
 ): Promise<void> {
   await withWorktreePool(
@@ -522,14 +525,13 @@ async function withPiSessionStartRejectionEvidence(
         },
         transcriptFileSystem,
       });
-      await callback({ diagnostic, result, transcriptPathsRead: transcriptFileSystem.pathsRead });
+      await callback({ result, transcriptPathsRead: transcriptFileSystem.pathsRead });
     },
   );
 }
 
 async function withPiSessionStartCliRejectionEvidence(
   setup: PiTranscriptFixtureSetup,
-  diagnostic: string,
   callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
 ): Promise<void> {
   await withHookCliWorktreeEnv(
@@ -570,7 +572,6 @@ async function withPiSessionStartCliRejectionEvidence(
         }),
       );
       await callback({
-        diagnostic,
         hookResult,
         statusResult: await runWorktreeCli(
           [
@@ -641,27 +642,6 @@ async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId
   return transcriptPath;
 }
 
-export interface PiSessionStartRejectionCase {
-  readonly rejection: PiSessionStartRejection;
-  readonly runHook: (
-    callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
-  ) => Promise<void>;
-  readonly runCli: (
-    callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
-  ) => Promise<void>;
-}
-
-function piSessionStartRejectionCase(
-  setup: PiTranscriptFixtureSetup,
-  rejection: PiSessionStartRejection,
-): PiSessionStartRejectionCase {
-  return {
-    rejection,
-    runHook: async (callback) => withPiSessionStartRejectionEvidence(setup, rejection.diagnostic, callback),
-    runCli: async (callback) => withPiSessionStartCliRejectionEvidence(setup, rejection.diagnostic, callback),
-  };
-}
-
 const PI_SESSION_START_REJECTION_SETUPS: Readonly<Record<PiSessionStartRejectionKind, PiTranscriptFixtureSetup>> = {
   pathRequired: absentPiTranscriptPath,
   pathUntrusted: untrustedPiTranscriptPath,
@@ -670,22 +650,32 @@ const PI_SESSION_START_REJECTION_SETUPS: Readonly<Record<PiSessionStartRejection
   productMismatch: mismatchedPiTranscriptPath,
 };
 
-export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionCase[] = PI_SESSION_START_REJECTION_KINDS
-  .map((kind) =>
-    piSessionStartRejectionCase(
-      PI_SESSION_START_REJECTION_SETUPS[kind],
-      PI_SESSION_START_REJECTION_REGISTRY[kind],
-    )
-  );
+export async function withPiSessionStartRejectionMappingEvidence(
+  callback: (evidence: PiSessionStartRejectionMappingEvidence) => void | Promise<void>,
+): Promise<void> {
+  for (const rejectionKind of PI_SESSION_START_REJECTION_KINDS) {
+    await withPiSessionStartRejectionEvidence(
+      PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
+      async (evidence) => callback({ ...evidence, rejectionKind }),
+    );
+  }
+}
+
+export async function withPiSessionStartCliRejectionMappingEvidence(
+  callback: (evidence: PiSessionStartCliRejectionMappingEvidence) => void | Promise<void>,
+): Promise<void> {
+  for (const rejectionKind of PI_SESSION_START_REJECTION_KINDS) {
+    await withPiSessionStartCliRejectionEvidence(
+      PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
+      async (evidence) => callback({ ...evidence, rejectionKind }),
+    );
+  }
+}
 
 export async function withUntrustedPiTranscriptPathEvidence(
   callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
 ): Promise<void> {
-  await withPiSessionStartRejectionEvidence(
-    untrustedPiTranscriptPath,
-    PI_SESSION_START_REJECTION_REGISTRY.pathUntrusted.diagnostic,
-    callback,
-  );
+  await withPiSessionStartRejectionEvidence(untrustedPiTranscriptPath, callback);
 }
 
 function orderedDistinctTimestamps(): readonly [string, string] {

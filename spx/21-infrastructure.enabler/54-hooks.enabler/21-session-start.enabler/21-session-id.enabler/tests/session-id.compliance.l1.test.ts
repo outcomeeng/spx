@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { PI_SESSION_START_REJECTION_REGISTRY } from "@/domains/hooks/session-start";
 import { withUntrustedPiTranscriptPathEvidence } from "@testing/harnesses/hooks/session-start";
 
 describe("hook session-start Pi transcript provenance", () => {
@@ -10,7 +11,9 @@ describe("hook session-start Pi transcript provenance", () => {
       expect(evidence.transcriptPathsRead).toHaveLength(0);
       expect(evidence.result.value.sessionId).toBeUndefined();
       expect(evidence.result.value.claimed).toBe(false);
-      expect(evidence.result.value.diagnostics).toContain(evidence.diagnostic);
+      expect(evidence.result.value.diagnostics).toContain(
+        PI_SESSION_START_REJECTION_REGISTRY.pathUntrusted.diagnostic,
+      );
     });
   });
 });
