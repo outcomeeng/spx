@@ -1,8 +1,9 @@
-import { open, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, realpath, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/status";
 import type { Result } from "@/config/types";
+import { AGENT_HOME_ENV } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   HOOK_ENV_FILE,
@@ -82,6 +83,7 @@ export interface PiSessionStartCliClaimEvidence {
 export interface PiSessionStartRejectionEvidence {
   readonly result: Result<SessionStartHookResult>;
   readonly diagnostic: string;
+  readonly transcriptPathsRead: readonly string[];
 }
 
 export interface PiSessionStartCliRejectionEvidence {
@@ -93,7 +95,8 @@ export interface PiSessionStartCliRejectionEvidence {
 
 interface PiTranscriptFixtureEnv {
   readonly productDir: string;
-  readonly transcriptDir: string;
+  readonly sessionStoreDir: string;
+  readonly untrustedDir: string;
 }
 
 type PiTranscriptFixtureSetup = (
@@ -116,6 +119,10 @@ class RecordingHookTranscriptFileSystem implements HookTranscriptFileSystem {
 
   constructor(private readonly delegate: HookTranscriptFileSystem) {}
 
+  async realPath(path: string): Promise<string> {
+    return this.delegate.realPath(path);
+  }
+
   async readHead(path: string, maxBytes: number): Promise<string> {
     this.pathsRead.push(path);
     return this.delegate.readHead(path, maxBytes);
@@ -123,6 +130,7 @@ class RecordingHookTranscriptFileSystem implements HookTranscriptFileSystem {
 }
 
 const nodeHookTranscriptFileSystem: HookTranscriptFileSystem = {
+  realPath: realpath,
   async readHead(path, maxBytes) {
     const handle = await open(path, "r");
     try {
@@ -281,14 +289,16 @@ export async function withPiSessionStartIdentityEvidence(
     async (env) => {
       const [sessionId, decoySessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
       const [timestamp, decoyTimestamp] = orderedDistinctTimestamps();
-      const transcriptPath = join(env.container, agentSessionJsonlName(sessionId));
+      const sessionStoreDir = join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
+      await mkdir(sessionStoreDir);
+      const transcriptPath = join(sessionStoreDir, agentSessionJsonlName(sessionId));
       await writeFile(
         transcriptPath,
         piTranscript({ sessionId, cwd: env.worktreePath, timestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
       await writeFile(
-        join(env.container, agentSessionJsonlName(decoySessionId)),
+        join(sessionStoreDir, agentSessionJsonlName(decoySessionId)),
         piTranscript({ sessionId: decoySessionId, cwd: env.worktreePath, timestamp: decoyTimestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
@@ -300,7 +310,10 @@ export async function withPiSessionStartIdentityEvidence(
           [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
           [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath,
         }),
-        env: { [CONTROLLING_PID_ENV]: String(env.holder.pid) },
+        env: {
+          [AGENT_HOME_ENV.PI_SESSIONS]: sessionStoreDir,
+          [CONTROLLING_PID_ENV]: String(env.holder.pid),
+        },
         transcriptFileSystem,
       });
       await callback({
@@ -379,14 +392,19 @@ export async function withPiSessionStartCliClaimEvidence(
     async (env) => {
       const [sessionId, decoySessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
       const [timestamp, decoyTimestamp] = orderedDistinctTimestamps();
-      const transcriptPath = join(env.worktreesDir, agentSessionJsonlName(sessionId));
+      const sessionStoreDir = join(
+        env.worktreesDir,
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      );
+      await mkdir(sessionStoreDir);
+      const transcriptPath = join(sessionStoreDir, agentSessionJsonlName(sessionId));
       await writeFile(
         transcriptPath,
         piTranscript({ sessionId, cwd: env.worktreePath, timestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
       await writeFile(
-        join(env.worktreesDir, agentSessionJsonlName(decoySessionId)),
+        join(sessionStoreDir, agentSessionJsonlName(decoySessionId)),
         piTranscript({ sessionId: decoySessionId, cwd: env.worktreePath, timestamp: decoyTimestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
@@ -398,7 +416,10 @@ export async function withPiSessionStartCliClaimEvidence(
           HOOK_CLI.WORKTREES_DIR_FLAG,
           env.worktreesDir,
         ],
-        { [CONTROLLING_PID_ENV]: String(process.pid) },
+        {
+          [AGENT_HOME_ENV.PI_SESSIONS]: sessionStoreDir,
+          [CONTROLLING_PID_ENV]: String(process.pid),
+        },
         env.worktreePath,
         JSON.stringify({
           [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
@@ -438,24 +459,29 @@ async function withPiSessionStartRejectionEvidence(
       holder: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder()),
     },
     async (env) => {
+      const sessionStoreDir = join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
+      await mkdir(sessionStoreDir);
       const transcriptPath = await setup(
-        { productDir: env.worktreePath, transcriptDir: env.container },
+        { productDir: env.worktreePath, sessionStoreDir, untrustedDir: env.container },
         sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
       );
-      await callback({
-        diagnostic,
-        result: await runSessionStartIdentityScenario(env, {
-          claimRandomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
-          content: JSON.stringify({
-            [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
-            [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-            ...(transcriptPath === undefined
-              ? {}
-              : { [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath }),
-          }),
-          env: { [CONTROLLING_PID_ENV]: String(env.holder.pid) },
+      const transcriptFileSystem = new RecordingHookTranscriptFileSystem(nodeHookTranscriptFileSystem);
+      const result = await runSessionStartIdentityScenario(env, {
+        claimRandomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
+        content: JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          ...(transcriptPath === undefined
+            ? {}
+            : { [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath }),
         }),
+        env: {
+          [AGENT_HOME_ENV.PI_SESSIONS]: sessionStoreDir,
+          [CONTROLLING_PID_ENV]: String(env.holder.pid),
+        },
+        transcriptFileSystem,
       });
+      await callback({ diagnostic, result, transcriptPathsRead: transcriptFileSystem.pathsRead });
     },
   );
 }
@@ -472,8 +498,13 @@ async function withPiSessionStartCliRejectionEvidence(
       worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
     },
     async (env) => {
+      const sessionStoreDir = join(
+        env.worktreesDir,
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      );
+      await mkdir(sessionStoreDir);
       const transcriptPath = await setup(
-        { productDir: env.worktreePath, transcriptDir: env.worktreesDir },
+        { productDir: env.worktreePath, sessionStoreDir, untrustedDir: env.worktreesDir },
         sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
       );
       const hookResult = await runWorktreeCli(
@@ -486,7 +517,10 @@ async function withPiSessionStartCliRejectionEvidence(
           HOOK_CLI.WORKTREES_DIR_FLAG,
           env.worktreesDir,
         ],
-        { [CONTROLLING_PID_ENV]: String(process.pid) },
+        {
+          [AGENT_HOME_ENV.PI_SESSIONS]: sessionStoreDir,
+          [CONTROLLING_PID_ENV]: String(process.pid),
+        },
         env.worktreePath,
         JSON.stringify({
           [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
@@ -519,12 +553,28 @@ async function absentPiTranscriptPath(): Promise<undefined> {
   return undefined;
 }
 
+async function untrustedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
+  const transcriptPath = join(env.untrustedDir, agentSessionJsonlName(sessionId));
+  await writeFile(
+    transcriptPath,
+    piTranscript({
+      sessionId,
+      cwd: env.productDir,
+      timestamp: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime()),
+    }),
+    AGENT_SESSION_STORE.TEXT_ENCODING,
+  );
+  return transcriptPath;
+}
+
 async function unreadablePiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
-  return join(env.transcriptDir, agentSessionJsonlName(sessionId));
+  const transcriptPath = join(env.sessionStoreDir, agentSessionJsonlName(sessionId));
+  await mkdir(transcriptPath);
+  return transcriptPath;
 }
 
 async function malformedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
-  const transcriptPath = join(env.transcriptDir, agentSessionJsonlName(sessionId));
+  const transcriptPath = join(env.sessionStoreDir, agentSessionJsonlName(sessionId));
   await writeFile(
     transcriptPath,
     JSON.stringify(samplePathUnsafeAgentSessionIdentity()),
@@ -534,7 +584,7 @@ async function malformedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId:
 }
 
 async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
-  const transcriptPath = join(env.transcriptDir, agentSessionJsonlName(sessionId));
+  const transcriptPath = join(env.sessionStoreDir, agentSessionJsonlName(sessionId));
   await writeFile(
     transcriptPath,
     piTranscript({
@@ -549,6 +599,7 @@ async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId
 
 export interface PiSessionStartRejectionCase {
   readonly diagnostic: string;
+  readonly readHeadExpected: boolean;
   readonly runHook: (
     callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
   ) => Promise<void>;
@@ -560,9 +611,11 @@ export interface PiSessionStartRejectionCase {
 function piSessionStartRejectionCase(
   setup: PiTranscriptFixtureSetup,
   diagnostic: string,
+  readHeadExpected: boolean,
 ): PiSessionStartRejectionCase {
   return {
     diagnostic,
+    readHeadExpected,
     runHook: async (callback) => withPiSessionStartRejectionEvidence(setup, diagnostic, callback),
     runCli: async (callback) => withPiSessionStartCliRejectionEvidence(setup, diagnostic, callback),
   };
@@ -572,18 +625,27 @@ export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionC
   piSessionStartRejectionCase(
     absentPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
+    false,
+  ),
+  piSessionStartRejectionCase(
+    untrustedPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED,
+    false,
   ),
   piSessionStartRejectionCase(
     unreadablePiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
+    true,
   ),
   piSessionStartRejectionCase(
     malformedPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
+    true,
   ),
   piSessionStartRejectionCase(
     mismatchedPiTranscriptPath,
     HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
+    true,
   ),
 ];
 
