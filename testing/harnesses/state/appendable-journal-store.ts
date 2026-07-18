@@ -17,11 +17,13 @@ import {
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
   appendableJournalSealMarkerPath,
+  appendableJournalSequenceRecordPath,
   createAppendableJournalStore,
 } from "@/lib/appendable-journal-store";
 import { serializeJsonlRecord, type StateStoreFileSystem } from "@/lib/state-store";
 import {
   arbitraryJournalEventInput,
+  arbitraryJournalEventInputs,
   arbitraryJournalIdentity,
   journalRunFilePath,
   sampleAgentRunJournalValue,
@@ -141,6 +143,43 @@ export async function assertAppendableJournalInterruptionCompliance(): Promise<v
   expect(observation.actual.staleBarrier.sealedAfterInterruption).toBe(false);
   expect(observation.actual.staleBarrier.appendError).toBe(JOURNAL_ERROR.SEALED);
   expect(observation.actual.staleBarrier.hydratedReplay).toEqual([first, next]);
+}
+
+export async function assertSequenceRecordReadReuseCompliance(): Promise<void> {
+  const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
+  const inputs = sampleAgentRunJournalValue(arbitraryJournalEventInputs());
+  const base = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const sequenceRecordPaths = new Set<string>();
+  let sequenceRecordReadCount = 0;
+  let sequenceRecordListCount = 0;
+  const fs = createDelegatingStateStoreFileSystem(base, {
+    readFile: async (path, encoding) => {
+      if (sequenceRecordPaths.has(path)) sequenceRecordReadCount += 1;
+      return base.readFile(path, encoding);
+    },
+    readdir: async (path, options) => {
+      sequenceRecordListCount += 1;
+      return base.readdir(path, options);
+    },
+  });
+  const store = createAppendableJournalStore({ runFilePath, fs });
+  const journal = createJournal(store, identity);
+
+  for (const input of inputs) {
+    const event = await journal.append(input);
+    sequenceRecordPaths.add(appendableJournalSequenceRecordPath(runFilePath, event.seq));
+  }
+  expect(sequenceRecordListCount).toBe(inputs.length);
+  await store.readAll();
+  expect(sequenceRecordListCount).toBe(inputs.length + 1);
+  expect(sequenceRecordReadCount).toBe(0);
+
+  const reopened = createAppendableJournalStore({ runFilePath, fs });
+  await reopened.readAll();
+  await reopened.readAll();
+  expect(sequenceRecordListCount).toBe(inputs.length + 3);
+  expect(sequenceRecordReadCount).toBe(inputs.length);
 }
 
 export interface PreparedSealingRace {

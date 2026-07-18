@@ -67,24 +67,33 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
   const { runFilePath } = options;
   const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
   const sealingMarkerPath = appendableJournalSealingMarkerPath(runFilePath);
+  const cachedSequenceEvents = new Map<number, JournalEvent>();
+  const inspectedSequenceRecordPaths = new Set<string>();
 
-  async function readSequenceEvents(): Promise<readonly JournalEvent[]> {
-    const sequenceRecords = await listSequenceRecords(fs, runFilePath);
-    const eventsBySequence = new Map<number, JournalEvent>();
+  async function readSequenceEvents(
+    sequenceRecords: readonly SequenceRecordAddress[],
+  ): Promise<readonly JournalEvent[]> {
     for (const sequenceRecord of sequenceRecords) {
+      if (inspectedSequenceRecordPaths.has(sequenceRecord.path)) continue;
       const content = await readFileOrUndefined(fs, sequenceRecord.path);
       for (const event of parseJournalEvents(content)) {
         if (event.seq === sequenceRecord.sequence) {
-          eventsBySequence.set(event.seq, event);
+          cachedSequenceEvents.set(event.seq, event);
         }
       }
+      if (content !== undefined) inspectedSequenceRecordPaths.add(sequenceRecord.path);
     }
-    return [...eventsBySequence.values()].sort((left, right) => left.seq - right.seq);
+    return sequenceRecords
+      .flatMap((record) => {
+        const event = cachedSequenceEvents.get(record.sequence);
+        return event === undefined ? [] : [event];
+      })
+      .sort((left, right) => left.seq - right.seq);
   }
 
   async function readAll(): Promise<readonly JournalEvent[]> {
     const sequenceRecords = await listSequenceRecords(fs, runFilePath);
-    if (sequenceRecords.length > 0) return readSequenceEvents();
+    if (sequenceRecords.length > 0) return readSequenceEvents(sequenceRecords);
     if ((await readFileOrUndefined(fs, sealMarkerPath)) === undefined) return [];
     return [...parseJournalEvents(await readFileOrUndefined(fs, runFilePath))]
       .sort((left, right) => left.seq - right.seq);
@@ -114,6 +123,9 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
         }
         throw new Error(result.error);
       }
+      const sequenceRecordPath = appendableJournalSequenceRecordPath(runFilePath, record.seq);
+      cachedSequenceEvents.set(record.seq, record);
+      inspectedSequenceRecordPaths.add(sequenceRecordPath);
     },
 
     readAll,
@@ -127,7 +139,7 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       await fs.writeFile(sealingMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
       await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`);
       await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath));
-      const events = await readSequenceEvents();
+      const events = await readSequenceEvents(await listSequenceRecords(fs, runFilePath));
       await replaceAggregateAtomically(
         fs,
         runFilePath,
