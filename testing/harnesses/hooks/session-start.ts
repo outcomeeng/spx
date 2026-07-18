@@ -7,6 +7,7 @@ import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protoco
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ENV,
+  HOOK_SESSION_START_ERROR,
   HOOK_SESSION_START_PAYLOAD,
   type HookSessionStartEnv,
 } from "@/domains/hooks/session-start";
@@ -77,6 +78,28 @@ export interface PiSessionStartCliClaimEvidence {
   readonly sessionId: string;
   readonly decoySessionId: string;
 }
+
+export interface PiSessionStartRejectionEvidence {
+  readonly result: Result<SessionStartHookResult>;
+  readonly diagnostic: string;
+}
+
+export interface PiSessionStartCliRejectionEvidence {
+  readonly hookResult: SpxCliResult;
+  readonly statusResult: SpxCliResult;
+  readonly envContent: string;
+  readonly diagnostic: string;
+}
+
+interface PiTranscriptFixtureEnv {
+  readonly productDir: string;
+  readonly transcriptDir: string;
+}
+
+type PiTranscriptFixtureSetup = (
+  env: PiTranscriptFixtureEnv,
+  sessionId: string,
+) => Promise<string | undefined>;
 
 interface DirectIdentityInput {
   readonly payloadSessionId?: string;
@@ -302,11 +325,11 @@ export async function withSessionStartCliClaimEvidence(
     },
     async (env) => {
       const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-      const originalEnvLine = `${HOOK_ENV_FILE.EXPORT_PREFIX}${
+      const originalEnvLine = `${HOOK_ENV_FILE.EXPORT_PREFIX}${CONTROLLING_PID_ENV}=${
         sampleWorktreeTestValue(
           WORKTREE_TEST_GENERATOR.sessionId(),
         )
-      }=${sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId())}\n`;
+      }\n`;
       await writeFile(env.envFile, originalEnvLine, HOOK_ENV_FILE.ENCODING);
       const result = await runWorktreeCli(
         [
@@ -401,6 +424,206 @@ export async function withPiSessionStartCliClaimEvidence(
         decoySessionId,
       });
     },
+  );
+}
+
+async function withPiSessionStartRejectionEvidence(
+  setup: PiTranscriptFixtureSetup,
+  diagnostic: string,
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withWorktreePool(
+    {
+      worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      holder: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder()),
+    },
+    async (env) => {
+      const transcriptPath = await setup(
+        { productDir: env.worktreePath, transcriptDir: env.container },
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
+      );
+      await callback({
+        diagnostic,
+        result: await runSessionStartIdentityScenario(env, {
+          claimRandomBytes: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes()),
+          content: JSON.stringify({
+            [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
+            [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+            ...(transcriptPath === undefined
+              ? {}
+              : { [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath }),
+          }),
+          env: { [CONTROLLING_PID_ENV]: String(env.holder.pid) },
+        }),
+      });
+    },
+  );
+}
+
+async function withPiSessionStartCliRejectionEvidence(
+  setup: PiTranscriptFixtureSetup,
+  diagnostic: string,
+  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withHookCliWorktreeEnv(
+    {
+      envFileName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()),
+      prefix: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix()),
+      worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+    },
+    async (env) => {
+      const transcriptPath = await setup(
+        { productDir: env.worktreePath, transcriptDir: env.worktreesDir },
+        sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
+      );
+      const hookResult = await runWorktreeCli(
+        [
+          HOOK_CLI.COMMAND,
+          HOOK_CLI.RUN,
+          HOOK_EVENT.SESSION_START,
+          HOOK_CLI.ENV_FILE_FLAG,
+          env.envFile,
+          HOOK_CLI.WORKTREES_DIR_FLAG,
+          env.worktreesDir,
+        ],
+        { [CONTROLLING_PID_ENV]: String(process.pid) },
+        env.worktreePath,
+        JSON.stringify({
+          [HOOK_SESSION_START_PAYLOAD.AGENT]: AGENT_SESSION_KIND.PI,
+          [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+          ...(transcriptPath === undefined ? {} : { [HOOK_SESSION_START_PAYLOAD.TRANSCRIPT_PATH]: transcriptPath }),
+        }),
+      );
+      await callback({
+        diagnostic,
+        hookResult,
+        statusResult: await runWorktreeCli(
+          [
+            WORKTREE_CLI.COMMAND,
+            WORKTREE_CLI.STATUS,
+            WORKTREE_CLI.FORMAT_FLAG,
+            WORKTREE_STATUS_FORMAT.JSON,
+            WORKTREE_CLI.WORKTREES_DIR_FLAG,
+            env.worktreesDir,
+          ],
+          {},
+          env.worktreePath,
+        ),
+        envContent: await readFile(env.envFile, HOOK_ENV_FILE.ENCODING),
+      });
+    },
+  );
+}
+
+async function absentPiTranscriptPath(): Promise<undefined> {
+  return undefined;
+}
+
+async function unreadablePiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
+  return join(env.transcriptDir, agentSessionJsonlName(sessionId));
+}
+
+async function malformedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
+  const transcriptPath = join(env.transcriptDir, agentSessionJsonlName(sessionId));
+  await writeFile(
+    transcriptPath,
+    JSON.stringify(samplePathUnsafeAgentSessionIdentity()),
+    AGENT_SESSION_STORE.TEXT_ENCODING,
+  );
+  return transcriptPath;
+}
+
+async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
+  const transcriptPath = join(env.transcriptDir, agentSessionJsonlName(sessionId));
+  await writeFile(
+    transcriptPath,
+    piTranscript({
+      sessionId,
+      cwd: join(env.productDir, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName())),
+      timestamp: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.startTime()),
+    }),
+    AGENT_SESSION_STORE.TEXT_ENCODING,
+  );
+  return transcriptPath;
+}
+
+export async function withAbsentPiTranscriptPathEvidence(
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartRejectionEvidence(
+    absentPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
+    callback,
+  );
+}
+
+export async function withUnreadablePiTranscriptPathEvidence(
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartRejectionEvidence(
+    unreadablePiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
+    callback,
+  );
+}
+
+export async function withMalformedPiTranscriptHeaderEvidence(
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartRejectionEvidence(
+    malformedPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
+    callback,
+  );
+}
+
+export async function withMismatchedPiTranscriptProductEvidence(
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartRejectionEvidence(
+    mismatchedPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
+    callback,
+  );
+}
+
+export async function withAbsentPiTranscriptPathCliEvidence(
+  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartCliRejectionEvidence(
+    absentPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
+    callback,
+  );
+}
+
+export async function withUnreadablePiTranscriptPathCliEvidence(
+  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartCliRejectionEvidence(
+    unreadablePiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
+    callback,
+  );
+}
+
+export async function withMalformedPiTranscriptHeaderCliEvidence(
+  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartCliRejectionEvidence(
+    malformedPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
+    callback,
+  );
+}
+
+export async function withMismatchedPiTranscriptProductCliEvidence(
+  callback: (evidence: PiSessionStartCliRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartCliRejectionEvidence(
+    mismatchedPiTranscriptPath,
+    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
+    callback,
   );
 }
 
