@@ -27,7 +27,10 @@ import {
 } from "@testing/generators/agent-run-journal";
 import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
 import { PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+import {
+  createDelegatingStateStoreFileSystem,
+  createInMemoryStateStoreFileSystem,
+} from "@testing/harnesses/state/in-memory-file-system";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH = [
@@ -110,6 +113,14 @@ export const APPENDABLE_JOURNAL_SEALING_RACE_PROPERTY = {
 interface ComparisonObservation<T> {
   readonly actual: T;
   readonly expected: T;
+}
+
+interface PreparedSealingRace {
+  readonly base: StateStoreFileSystem;
+  readonly runFilePath: string;
+  readonly first: JournalEvent;
+  readonly paused: PausedPublicationFileSystem;
+  readonly appendOutcomePromise: Promise<PromiseSettledResult<JournalEvent>>;
 }
 
 interface PrePublicationInterruptionResult {
@@ -258,33 +269,20 @@ async function sealingBarrierWins(
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
 ): Promise<boolean> {
-  const base = createInMemoryStateStoreFileSystem();
-  const runFilePath = journalRunFilePath(identity.streamid);
-  const seedJournal = createJournal(
-    createAppendableJournalStore({ runFilePath, fs: base }),
-    identity,
-  );
-  const first = await seedJournal.append(firstInput);
-  const paused = createPausedPublicationFileSystem(base);
-  const appendingJournal = createJournal(
-    createAppendableJournalStore({ runFilePath, fs: paused.fs }),
-    identity,
-  );
-  const appendOutcomePromise = settle(appendingJournal.append(secondInput));
-  await paused.linkStarted;
+  const race = await prepareSealingRace(identity, firstInput, secondInput);
 
   await createJournal(
-    createAppendableJournalStore({ runFilePath, fs: base }),
+    createAppendableJournalStore({ runFilePath: race.runFilePath, fs: race.base }),
     identity,
   ).seal();
-  paused.releaseLink();
-  const appendOutcome = await appendOutcomePromise;
-  const hydratedReplay = await readHydratedReplay(base, runFilePath);
+  race.paused.releaseLink();
+  const appendOutcome = await race.appendOutcomePromise;
+  const hydratedReplay = await readHydratedReplay(race.base, race.runFilePath);
 
   return appendOutcome.status === "fulfilled"
-    ? isDeepStrictEqual(hydratedReplay, [first, appendOutcome.value])
+    ? isDeepStrictEqual(hydratedReplay, [race.first, appendOutcome.value])
     : rejectionMessage(appendOutcome) === JOURNAL_ERROR.SEALED
-      && isDeepStrictEqual(hydratedReplay, [first]);
+      && isDeepStrictEqual(hydratedReplay, [race.first]);
 }
 
 async function appendPublicationWins(
@@ -292,6 +290,30 @@ async function appendPublicationWins(
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
 ): Promise<boolean> {
+  const race = await prepareSealingRace(identity, firstInput, secondInput);
+
+  const sealingFileSystem = createPublicationWinningSealFileSystem(
+    race.runFilePath,
+    race.base,
+    race.paused,
+  );
+  await createJournal(
+    createAppendableJournalStore({ runFilePath: race.runFilePath, fs: sealingFileSystem }),
+    identity,
+  ).seal();
+  const appendOutcome = await race.appendOutcomePromise;
+  return appendOutcome.status === "fulfilled"
+    && isDeepStrictEqual(
+      await readHydratedReplay(race.base, race.runFilePath),
+      [race.first, appendOutcome.value],
+    );
+}
+
+async function prepareSealingRace(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+  secondInput: JournalEventInput,
+): Promise<PreparedSealingRace> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
   const seedJournal = createJournal(
@@ -306,19 +328,7 @@ async function appendPublicationWins(
   );
   const appendOutcomePromise = settle(appendingJournal.append(secondInput));
   await paused.linkStarted;
-
-  const sealingFileSystem = createPublicationWinningSealFileSystem(
-    runFilePath,
-    base,
-    paused,
-  );
-  await createJournal(
-    createAppendableJournalStore({ runFilePath, fs: sealingFileSystem }),
-    identity,
-  ).seal();
-  const appendOutcome = await appendOutcomePromise;
-  return appendOutcome.status === "fulfilled"
-    && isDeepStrictEqual(await readHydratedReplay(base, runFilePath), [first, appendOutcome.value]);
+  return { base, runFilePath, first, paused, appendOutcomePromise };
 }
 
 async function observeInterruptedSealRecovery(
@@ -468,13 +478,7 @@ function createPausedPublicationFileSystem(
   const completed = deferred();
   const temporaryPath = deferredValue<string>();
   return {
-    fs: {
-      mkdir: (path, options) => delegate.mkdir(path, options),
-      writeFile: (path, data, options) => delegate.writeFile(path, data, options),
-      appendFile: (path, data) => delegate.appendFile(path, data),
-      readFile: (path, encoding) => delegate.readFile(path, encoding),
-      readdir: (path, options) => delegate.readdir(path, options),
-      lstat: (path) => delegate.lstat(path),
+    fs: createDelegatingStateStoreFileSystem(delegate, {
       link: async (existingPath, newPath) => {
         temporaryPath.resolve(existingPath);
         started.resolve();
@@ -485,9 +489,7 @@ function createPausedPublicationFileSystem(
           completed.resolve();
         }
       },
-      rename: (from, to) => delegate.rename(from, to),
-      rm: (path, options) => delegate.rm(path, options),
-    },
+    }),
     linkStarted: started.promise,
     linkCompleted: completed.promise,
     temporaryPath: temporaryPath.promise,
@@ -505,25 +507,18 @@ function createPublicationWinningSealFileSystem(
     await paused.linkCompleted;
   }
   const publicationTemporaryPath = paused.temporaryPath;
-  return {
-    mkdir: (path, options) => delegate.mkdir(path, options),
+  return createDelegatingStateStoreFileSystem(delegate, {
     writeFile: async (path, data, options) => {
       if (path === runFilePath) await releasePublication();
       await delegate.writeFile(path, data, options);
     },
-    appendFile: (path, data) => delegate.appendFile(path, data),
-    readFile: (path, encoding) => delegate.readFile(path, encoding),
-    readdir: (path, options) => delegate.readdir(path, options),
-    lstat: (path) => delegate.lstat(path),
-    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
-    rename: (from, to) => delegate.rename(from, to),
     rm: async (path, options) => {
       if (path === await publicationTemporaryPath) {
         await releasePublication();
       }
       await delegate.rm(path, options);
     },
-  };
+  });
 }
 
 function deferred(): {
@@ -629,14 +624,7 @@ function createInterruptedSealFileSystem(
   delegate: StateStoreFileSystem,
 ): StateStoreFileSystem {
   let interruptAggregateRename = true;
-  return {
-    mkdir: (path, options) => delegate.mkdir(path, options),
-    writeFile: (path, data, options) => delegate.writeFile(path, data, options),
-    appendFile: (path, data) => delegate.appendFile(path, data),
-    readFile: (path, encoding) => delegate.readFile(path, encoding),
-    readdir: (path, options) => delegate.readdir(path, options),
-    lstat: (path) => delegate.lstat(path),
-    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
+  return createDelegatingStateStoreFileSystem(delegate, {
     rename: async (from, to) => {
       if (to === runFilePath && interruptAggregateRename) {
         interruptAggregateRename = false;
@@ -644,16 +632,14 @@ function createInterruptedSealFileSystem(
       }
       await delegate.rename(from, to);
     },
-    rm: (path, options) => delegate.rm(path, options),
-  };
+  });
 }
 
 function createInterruptedSealingBarrierFileSystem(
   delegate: StateStoreFileSystem,
 ): StateStoreFileSystem {
   let interruptBarrierWrite = true;
-  return {
-    mkdir: (path, options) => delegate.mkdir(path, options),
+  return createDelegatingStateStoreFileSystem(delegate, {
     writeFile: async (path, data, options) => {
       await delegate.writeFile(path, data, options);
       if (data === APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT && interruptBarrierWrite) {
@@ -661,12 +647,5 @@ function createInterruptedSealingBarrierFileSystem(
         throw new Error(INJECTED_SEALING_BARRIER_INTERRUPTION);
       }
     },
-    appendFile: (path, data) => delegate.appendFile(path, data),
-    readFile: (path, encoding) => delegate.readFile(path, encoding),
-    readdir: (path, options) => delegate.readdir(path, options),
-    lstat: (path) => delegate.lstat(path),
-    link: (existingPath, newPath) => delegate.link(existingPath, newPath),
-    rename: (from, to) => delegate.rename(from, to),
-    rm: (path, options) => delegate.rm(path, options),
-  };
+  });
 }
