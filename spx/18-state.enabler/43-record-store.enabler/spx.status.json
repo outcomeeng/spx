@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/18-state.enabler/43-record-store.enabler/tests/atomic-jsonl-publication.compliance.l1.test.ts": "passed",
       "spx/18-state.enabler/43-record-store.enabler/tests/jsonl-records.scenario.l1.test.ts": "passed",
       "spx/18-state.enabler/43-record-store.enabler/tests/record-store.scenario.l1.test.ts": "passed",
       "spx/18-state.enabler/43-record-store.enabler/tests/run-file.compliance.l1.test.ts": "passed",
