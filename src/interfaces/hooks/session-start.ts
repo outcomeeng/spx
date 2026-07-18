@@ -7,6 +7,7 @@
 import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
 import type { Result } from "@/config/types";
+import { resolveAgentHomeDirs } from "@/domains/agent/home";
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   HOOK_ENV_FILE,
@@ -27,6 +28,7 @@ import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
@@ -168,6 +170,16 @@ async function resolveSessionStartSessionId(options: {
     return undefined;
   }
 
+  const trustedPath = await isTrustedPiTranscriptPath(
+    resolveAgentHomeDirs(options.env).piSessions,
+    options.payload.transcriptPath,
+    options.transcriptFileSystem,
+  );
+  if (!trustedPath) {
+    options.diagnostics.push(HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED);
+    return undefined;
+  }
+
   let transcriptHead: string;
   try {
     transcriptHead = await options.transcriptFileSystem.readHead(
@@ -187,6 +199,22 @@ async function resolveSessionStartSessionId(options: {
     return undefined;
   }
   return result.value;
+}
+
+async function isTrustedPiTranscriptPath(
+  sessionStoreDir: string,
+  transcriptPath: string,
+  fs: HookTranscriptFileSystem,
+): Promise<boolean> {
+  try {
+    const [canonicalStore, canonicalTranscript] = await Promise.all([
+      fs.realPath(sessionStoreDir),
+      fs.realPath(transcriptPath),
+    ]);
+    return isPathContained(canonicalStore, canonicalTranscript);
+  } catch {
+    return false;
+  }
 }
 
 async function writeEnvFileIfConfigured(options: {
