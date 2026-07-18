@@ -6,12 +6,12 @@ import { PI_SESSION_START_REJECTION_CASES } from "@testing/harnesses/hooks/sessi
 
 describe("packaged hook session-start Pi rejection mapping", () => {
   it.each(PI_SESSION_START_REJECTION_CASES)(
-    "maps $diagnostic to degraded success without identity or claim",
+    "maps $rejection.diagnostic to degraded success without identity or claim",
     async (testCase) => {
       await testCase.runCli((evidence) => {
         expect(evidence.hookResult.exitCode, evidence.hookResult.stderr).toBe(0);
         expect(evidence.hookResult.stdout).toHaveLength(0);
-        expect(evidence.hookResult.stderr).toContain(testCase.diagnostic);
+        expect(evidence.hookResult.stderr).toContain(testCase.rejection.diagnostic);
         expect(evidence.envContent).not.toContain(
           `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=`,
         );
