@@ -28,6 +28,10 @@ export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
 }
 
+export interface HookTranscriptFileSystem {
+  readHead(path: string, maxBytes: number): Promise<string>;
+}
+
 export interface HookEventResult {
   readonly diagnostics: readonly string[];
   readonly stdout: string;
@@ -60,6 +64,8 @@ export interface SessionStartHookOptions extends WorktreeScopeOptions {
   readonly fs: OccupancyFileSystem;
   /** Injected env-file filesystem. */
   readonly envFileSystem?: HookEnvFileSystem;
+  /** Injected bounded transcript reader for native session identity. */
+  readonly transcriptFileSystem?: HookTranscriptFileSystem;
 }
 
 const defaultHookEnvFileSystem: HookEnvFileSystem = {
