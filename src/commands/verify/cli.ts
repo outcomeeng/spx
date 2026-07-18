@@ -437,6 +437,7 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<
 };
 
 function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefined {
+  if (!Object.hasOwn(VERIFY_SCOPE_RESOLVERS, scopeType)) return undefined;
   return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver | undefined>>)[scopeType];
 }
 

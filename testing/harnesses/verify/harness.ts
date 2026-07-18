@@ -2833,10 +2833,10 @@ export async function runChangedPathsContextScenario(input: {
   };
 }
 
-export async function startWorkingTreeScope(): Promise<CliCommandResult> {
+export async function startWithScopeType(scopeType: string): Promise<CliCommandResult> {
   const scenario = createVerifyRunContextScenario();
   return verifyStartCommand(
-    { ...verifyStartOptions(scenario), scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE },
+    { ...verifyStartOptions(scenario), scopeType },
     verifyDeps(scenario, createInMemoryStateStoreFileSystem()),
   );
 }

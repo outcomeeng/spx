@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
-import { VERIFY_SCOPE_ERROR } from "@/domains/verify/verify";
+import { VERIFY_SCOPE_ERROR, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
@@ -16,7 +16,7 @@ import {
   observeStartRemovesVerificationContextWhenJournalOpenFails,
   observeStartReportsInputReadFailuresBeforeOpeningRun,
   startWithInputSource,
-  startWorkingTreeScope,
+  startWithScopeType,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify start compliance", () => {
@@ -130,9 +130,21 @@ describe("verify start compliance", () => {
   });
 
   it("rejects a working-tree scope type that the verification-context substrate cannot represent", async () => {
-    await startWorkingTreeScope().then((started) => {
+    await startWithScopeType(VERIFY_SCOPE_TYPE.WORKING_TREE).then((started) => {
       expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
       expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
     });
+  });
+
+  it("rejects unsupported scope types that name inherited Object properties", async () => {
+    await assertProperty(
+      VERIFY_TEST_GENERATOR.inheritedObjectPropertyName(),
+      async (scopeType) => {
+        const started = await startWithScopeType(scopeType);
+        expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
