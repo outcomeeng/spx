@@ -14,3 +14,7 @@ CAN share one session identity across hook runtime state and SPX state
 - Given the hook environment contains both `CLAUDE_SESSION_ID` and `CODEX_THREAD_ID`, when the `session-start` payload has no session id, then SPX uses `CLAUDE_SESSION_ID` as the session id and writes it to the hook env file ([test](tests/session-id.scenario.l1.test.ts))
 - Given the `session-start` payload contains a session id and the hook environment also contains `CLAUDE_SESSION_ID`, when the hook runs, then SPX uses the payload session id and writes it to the hook env file ([test](tests/session-id.scenario.l1.test.ts))
 - Given a Pi `session-start` payload contains the exact native transcript path but no session id, and that transcript opens with a valid Pi session header whose cwd matches the payload product directory, when the hook runs, then SPX uses the header session id as the hook session identity ([test](tests/session-id.scenario.l1.test.ts))
+
+### Mappings
+
+- Pi native-session evidence maps to no session identity and no worktree claim with its source-owned diagnostic when the exact transcript path is absent, cannot be read, has a malformed Pi header, or identifies a cwd different from the payload product directory ([test](tests/session-id.mapping.l1.test.ts))
