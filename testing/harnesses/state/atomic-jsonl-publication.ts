@@ -19,6 +19,7 @@ import {
 const INJECTED_INTERRUPTION = "injected publication interruption";
 const FIRST_PUBLISHER_TEMPORARY_BYTE = 0x11;
 const SECOND_PUBLISHER_TEMPORARY_BYTE = 0x22;
+const LOOKALIKE_DESTINATION_TEMPORARY_BYTE = 0x33;
 
 type PublicationInterruption = "before-link" | "after-link" | undefined;
 
@@ -26,6 +27,7 @@ interface AtomicJsonlPublicationResult {
   readonly beforePublicationError: string | undefined;
   readonly beforePublicationDestinationError: string | undefined;
   readonly retry: unknown;
+  readonly afterPublicationResult: unknown;
   readonly afterPublicationRecord: unknown;
   readonly guarded: unknown;
   readonly guardedDestinationError: string | undefined;
@@ -34,6 +36,7 @@ interface AtomicJsonlPublicationResult {
   readonly cleanup: unknown;
   readonly cleanupAfterRemoval: unknown;
   readonly destinationContent: string;
+  readonly lookalikeDestinationContent: string;
   readonly nonMatchingContent: string;
 }
 
@@ -73,7 +76,7 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
   });
 
   const interruptedAfter = createLinkCapableFileSystem("after-link");
-  await publishJsonlRecordAtomically(paths.postPublicationRecord, secondRecord, {
+  const afterPublicationResult = await publishJsonlRecordAtomically(paths.postPublicationRecord, secondRecord, {
     fs: interruptedAfter,
   });
   const afterPublicationRecord = await readLatestJsonlRecord(paths.postPublicationRecord, {
@@ -105,9 +108,14 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
     fs.readFile(paths.removedTemporaryRecord, "utf8"),
   );
 
-  await seedTemporaryCleanupFiles(fs, fixture, firstRecord, secondRecord);
-  const cleanup = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, { fs });
-  const cleanupAfterRemoval = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, { fs });
+  const lookalikeDestination = await seedTemporaryCleanupFiles(fs, fixture, firstRecord, secondRecord);
+  const cleanupOptions = {
+    fs,
+    isDeterministicDestination: (path: string): boolean =>
+      path === paths.cleanupDestination || path === lookalikeDestination,
+  };
+  const cleanup = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, cleanupOptions);
+  const cleanupAfterRemoval = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, cleanupOptions);
 
   return {
     actual: {
@@ -116,6 +124,7 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
         : undefined,
       beforePublicationDestinationError,
       retry,
+      afterPublicationResult,
       afterPublicationRecord,
       guarded,
       guardedDestinationError,
@@ -124,6 +133,7 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       cleanup,
       cleanupAfterRemoval,
       destinationContent: await fs.readFile(paths.cleanupDestination, "utf8"),
+      lookalikeDestinationContent: await fs.readFile(lookalikeDestination, "utf8"),
       nonMatchingContent: await fs.readFile(paths.nonMatchingFile, "utf8"),
     },
     firstRecord,
@@ -137,7 +147,8 @@ async function seedTemporaryCleanupFiles(
   fixture: AtomicJsonlPublicationFixture,
   firstRecord: JsonRecord,
   secondRecord: JsonRecord,
-): Promise<void> {
+): Promise<string> {
+  let lookalikeDestination: string | undefined;
   const preserveUnpublishedTemporary = createDelegatingStateStoreFileSystem(fs, {
     link: async () => {
       throw new Error(INJECTED_INTERRUPTION);
@@ -154,8 +165,18 @@ async function seedTemporaryCleanupFiles(
     fs: preserveUnpublishedTemporary,
     randomBytes: (size) => Buffer.alloc(size, SECOND_PUBLISHER_TEMPORARY_BYTE),
   });
+  await publishJsonlRecordAtomically(fixture.paths.cleanupDestination, firstRecord, {
+    fs: createTemporaryCapturingFileSystem(preserveUnpublishedTemporary, (path) => {
+      lookalikeDestination = path;
+    }),
+    randomBytes: (size) => Buffer.alloc(size, LOOKALIKE_DESTINATION_TEMPORARY_BYTE),
+  });
   await fs.writeFile(fixture.paths.cleanupDestination, fixture.content.destination);
   await fs.writeFile(fixture.paths.nonMatchingFile, fixture.content.nonMatching);
+  if (lookalikeDestination === undefined) {
+    throw new Error("Atomic JSONL cleanup fixture did not capture its lookalike destination");
+  }
+  return lookalikeDestination;
 }
 
 async function rejectedErrorCode(promise: Promise<unknown>): Promise<string | undefined> {
