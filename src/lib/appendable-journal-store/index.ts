@@ -8,11 +8,11 @@ import {
   JOURNAL_ERROR,
   type JournalEvent,
 } from "@/lib/agent-run-journal";
+import { type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 import {
   defaultStateStoreFileSystem,
   ERROR_CODE_FILE_EXISTS,
   ERROR_CODE_NOT_FOUND,
-  EXCLUSIVE_CREATE_FLAG,
   hasErrorCode,
   type JsonRecord,
   publishJsonlRecordAtomically,
@@ -189,31 +189,27 @@ async function replaceAggregateAtomically(
   fs: StateStoreFileSystem,
   runFilePath: string,
   content: string,
-  randomBytes: (size: number) => Buffer,
+  randomBytes: RandomBytes,
 ): Promise<void> {
-  for (let attempt = 0; attempt < AGGREGATE_TEMPORARY_CREATE_ATTEMPTS; attempt += 1) {
-    const temporaryPath = `${aggregateTemporaryPrefix(runFilePath)}.${
-      randomBytes(AGGREGATE_TEMPORARY_ID_BYTES).toString("hex")
-    }${ATOMIC_TEMPORARY_SUFFIX}`;
-    try {
-      await fs.writeFile(temporaryPath, content, { flag: EXCLUSIVE_CREATE_FLAG });
-    } catch (error) {
-      if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) continue;
-      throw error;
-    }
-    try {
-      await fs.rename(temporaryPath, runFilePath);
-      return;
-    } catch (error) {
-      await removeFileBestEffort(fs, temporaryPath);
-      throw error;
-    }
-  }
-  throw new Error(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
+  await writeFileAtomic(runFilePath, content, {
+    fs,
+    randomBytes,
+    temporaryPath: aggregateTemporaryPath,
+    exclusiveCreate: {
+      maxAttempts: AGGREGATE_TEMPORARY_CREATE_ATTEMPTS,
+      isCollision: (error) => hasErrorCode(error, ERROR_CODE_FILE_EXISTS),
+    },
+  });
 }
 
 function aggregateTemporaryPrefix(runFilePath: string): string {
   return `${runFilePath}${AGGREGATE_TEMPORARY_MARKER}`;
+}
+
+function aggregateTemporaryPath(runFilePath: string, randomBytes: RandomBytes): string {
+  return `${aggregateTemporaryPrefix(runFilePath)}.${
+    randomBytes(AGGREGATE_TEMPORARY_ID_BYTES).toString("hex")
+  }${ATOMIC_TEMPORARY_SUFFIX}`;
 }
 
 async function markerExists(fs: StateStoreFileSystem, path: string): Promise<boolean> {
