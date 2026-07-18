@@ -13,7 +13,6 @@ import {
   PI_SESSION_START_REJECTION_KINDS,
   type PiSessionStartRejectionKind,
 } from "@/domains/hooks/session-start";
-import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_CLAIM, readClaim, type WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
@@ -29,10 +28,11 @@ import type { RandomBytes } from "@/lib/atomic-file-write";
 import { defaultGitDependencies } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
+import { arbitraryUnknownHookEvent } from "@testing/generators/hooks/session-start";
+import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   samplePathUnsafeAgentSessionIdentity,
   sampleWhitespaceAgentSessionIdentity,
-  SESSION_GENERATOR_ERROR,
 } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { piTranscript } from "@testing/harnesses/agent/pi-resume";
@@ -53,6 +53,10 @@ export interface SessionStartIdentityEvidence {
   readonly codexSessionId?: string;
 }
 
+export interface UnsafePayloadSessionStartIdentityEvidence extends SessionStartIdentityEvidence {
+  readonly payloadSessionId: string;
+}
+
 export interface PiSessionStartIdentityEvidence {
   readonly result: Result<SessionStartHookResult>;
   readonly sessionId: string;
@@ -62,7 +66,8 @@ export interface PiSessionStartIdentityEvidence {
 }
 
 export interface SessionStartCliAcceptanceEvidence {
-  readonly result: SpxCliResult;
+  readonly acceptedResult: SpxCliResult;
+  readonly rejectedResult: SpxCliResult;
 }
 
 export interface SessionStartCliClaimEvidence {
@@ -237,10 +242,13 @@ export async function withCodexSessionStartIdentityEvidence(
 }
 
 export async function withUnsafePayloadSessionStartIdentityEvidence(
-  callback: (evidence: SessionStartIdentityEvidence) => void | Promise<void>,
+  callback: (evidence: UnsafePayloadSessionStartIdentityEvidence) => void | Promise<void>,
 ): Promise<void> {
   const payloadSessionId = samplePathUnsafeAgentSessionIdentity();
-  await withDirectIdentityEvidence({ payloadSessionId, envOverlay: {}, evidence: { payloadSessionId } }, callback);
+  await withDirectIdentityEvidence(
+    { payloadSessionId, envOverlay: {}, evidence: { payloadSessionId } },
+    async (evidence) => callback({ ...evidence, payloadSessionId }),
+  );
 }
 
 export async function withClaudePrecedenceSessionStartIdentityEvidence(
@@ -348,8 +356,12 @@ export async function withSessionStartCliAcceptanceEvidence(
       worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
     },
     async (env) => {
+      const cliEnv = {
+        [CONTROLLING_PID_ENV]: String(process.pid),
+        [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
+      };
       await callback({
-        result: await runWorktreeCli(
+        acceptedResult: await runWorktreeCli(
           [
             HOOK_CLI.COMMAND,
             HOOK_CLI.RUN,
@@ -357,15 +369,23 @@ export async function withSessionStartCliAcceptanceEvidence(
             HOOK_CLI.WORKTREES_DIR_FLAG,
             env.worktreesDir,
           ],
-          {
-            [CONTROLLING_PID_ENV]: String(process.pid),
-            [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
-          },
+          cliEnv,
           env.worktreePath,
           JSON.stringify({
             [HOOK_SESSION_START_PAYLOAD.SESSION_ID]: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId()),
             [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
           }),
+        ),
+        rejectedResult: await runWorktreeCli(
+          [
+            HOOK_CLI.COMMAND,
+            HOOK_CLI.RUN,
+            sampleLiteralTestValue(arbitraryUnknownHookEvent()),
+            HOOK_CLI.WORKTREES_DIR_FLAG,
+            env.worktreesDir,
+          ],
+          cliEnv,
+          env.worktreePath,
         ),
       });
     },
@@ -681,9 +701,4 @@ export async function withUntrustedPiTranscriptPathEvidence(
 function orderedDistinctTimestamps(): readonly [string, string] {
   const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
   return Date.parse(first) < Date.parse(second) ? [first, second] : [second, first];
-}
-
-export function normalizedSessionId(value: string | undefined): string {
-  if (value === undefined) throw new Error(SESSION_GENERATOR_ERROR.EMPTY_IDENTITY_SAMPLE);
-  return normalizeAgentSessionToken(value);
 }
