@@ -8,9 +8,12 @@ import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protoco
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ENV,
-  HOOK_SESSION_START_ERROR,
   HOOK_SESSION_START_PAYLOAD,
   type HookSessionStartEnv,
+  PI_SESSION_START_REJECTION_KINDS,
+  PI_SESSION_START_REJECTION_REGISTRY,
+  type PiSessionStartRejection,
+  type PiSessionStartRejectionKind,
 } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
@@ -601,8 +604,7 @@ async function mismatchedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId
 }
 
 export interface PiSessionStartRejectionCase {
-  readonly diagnostic: string;
-  readonly readHeadExpected: boolean;
+  readonly rejection: PiSessionStartRejection;
   readonly runHook: (
     callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
   ) => Promise<void>;
@@ -613,44 +615,30 @@ export interface PiSessionStartRejectionCase {
 
 function piSessionStartRejectionCase(
   setup: PiTranscriptFixtureSetup,
-  diagnostic: string,
-  readHeadExpected: boolean,
+  rejection: PiSessionStartRejection,
 ): PiSessionStartRejectionCase {
   return {
-    diagnostic,
-    readHeadExpected,
-    runHook: async (callback) => withPiSessionStartRejectionEvidence(setup, diagnostic, callback),
-    runCli: async (callback) => withPiSessionStartCliRejectionEvidence(setup, diagnostic, callback),
+    rejection,
+    runHook: async (callback) => withPiSessionStartRejectionEvidence(setup, rejection.diagnostic, callback),
+    runCli: async (callback) => withPiSessionStartCliRejectionEvidence(setup, rejection.diagnostic, callback),
   };
 }
 
-export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionCase[] = [
-  piSessionStartRejectionCase(
-    absentPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
-    false,
-  ),
-  piSessionStartRejectionCase(
-    untrustedPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED,
-    false,
-  ),
-  piSessionStartRejectionCase(
-    unreadablePiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
-    true,
-  ),
-  piSessionStartRejectionCase(
-    malformedPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
-    true,
-  ),
-  piSessionStartRejectionCase(
-    mismatchedPiTranscriptPath,
-    HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
-    true,
-  ),
-];
+const PI_SESSION_START_REJECTION_SETUPS: Readonly<Record<PiSessionStartRejectionKind, PiTranscriptFixtureSetup>> = {
+  pathRequired: absentPiTranscriptPath,
+  pathUntrusted: untrustedPiTranscriptPath,
+  readFailed: unreadablePiTranscriptPath,
+  headerInvalid: malformedPiTranscriptPath,
+  productMismatch: mismatchedPiTranscriptPath,
+};
+
+export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionCase[] = PI_SESSION_START_REJECTION_KINDS
+  .map((kind) =>
+    piSessionStartRejectionCase(
+      PI_SESSION_START_REJECTION_SETUPS[kind],
+      PI_SESSION_START_REJECTION_REGISTRY[kind],
+    )
+  );
 
 function orderedDistinctTimestamps(): readonly [string, string] {
   const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
