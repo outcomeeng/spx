@@ -14,7 +14,6 @@ describe("hook session-start Pi identity rejection mapping", () => {
         expect(evidence.result.value.diagnostics).toContainEqual(
           expect.stringContaining(testCase.rejection.diagnostic),
         );
-        expect(evidence.transcriptPathsRead).toHaveLength(testCase.rejection.readsTranscriptMetadata ? 1 : 0);
       });
     },
   );

@@ -640,6 +640,16 @@ export const PI_SESSION_START_REJECTION_CASES: readonly PiSessionStartRejectionC
     )
   );
 
+export async function withUntrustedPiTranscriptPathEvidence(
+  callback: (evidence: PiSessionStartRejectionEvidence) => void | Promise<void>,
+): Promise<void> {
+  await withPiSessionStartRejectionEvidence(
+    untrustedPiTranscriptPath,
+    PI_SESSION_START_REJECTION_REGISTRY.pathUntrusted.diagnostic,
+    callback,
+  );
+}
+
 function orderedDistinctTimestamps(): readonly [string, string] {
   const [first, second] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctStartTimes());
   return Date.parse(first) < Date.parse(second) ? [first, second] : [second, first];
