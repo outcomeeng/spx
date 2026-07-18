@@ -16,6 +16,7 @@ import {
 } from "@/lib/agent-run-journal";
 import {
   APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT,
+  appendableJournalCreationMarkerPath,
   appendableJournalSealMarkerPath,
   appendableJournalSequenceRecordPath,
   createAppendableJournalStore,
@@ -180,6 +181,25 @@ export async function assertSequenceRecordReadReuseCompliance(): Promise<void> {
   await reopened.readAll();
   expect(sequenceRecordListCount).toBe(inputs.length + 3);
   expect(sequenceRecordReadCount).toBe(inputs.length);
+}
+
+export async function assertAppendableJournalCreationMarkerScenario(): Promise<void> {
+  const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
+  const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+  const fs = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  await fs.mkdir(dirname(runFilePath), { recursive: true });
+  await fs.writeFile(runFilePath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
+  const openedStats = await fs.lstat(runFilePath);
+  const journal = createJournal(createAppendableJournalStore({ runFilePath, fs }), identity);
+
+  await journal.append(input);
+  await journal.seal();
+
+  const creationStats = await fs.lstat(appendableJournalCreationMarkerPath(runFilePath));
+  const aggregateStats = await fs.lstat(runFilePath);
+  expect(creationStats.birthtimeMs).toBe(openedStats.birthtimeMs);
+  expect(aggregateStats.birthtimeMs).toBeGreaterThan(creationStats.birthtimeMs);
 }
 
 export interface PreparedSealingRace {

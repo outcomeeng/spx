@@ -13,6 +13,7 @@
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.compliance.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.property.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-inspection.scenario.l1.test.ts": "passed",
+      "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-seal-ordering.scenario.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/journal-verbs.mapping.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/projection.property.l1.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/tests/run-scope.property.l1.test.ts": "passed",

@@ -25,6 +25,7 @@ import {
 
 const SEAL_MARKER_SUFFIX = ".sealed";
 const SEALING_MARKER_SUFFIX = ".sealing";
+const CREATION_MARKER_SUFFIX = ".created";
 const SEQUENCE_RECORD_MARKER = ".seq-";
 const SEQUENCE_RECORD_SUFFIX = ".jsonl";
 const SEQUENCE_TOKEN_PATTERN = /^[1-9]\d*$/;
@@ -53,6 +54,10 @@ export function appendableJournalSealMarkerPath(runFilePath: string): string {
   return `${runFilePath}${SEAL_MARKER_SUFFIX}`;
 }
 
+export function appendableJournalCreationMarkerPath(runFilePath: string): string {
+  return `${runFilePath}${CREATION_MARKER_SUFFIX}`;
+}
+
 export function appendableJournalSealingMarkerPath(runFilePath: string): string {
   return `${runFilePath}${SEALING_MARKER_SUFFIX}`;
 }
@@ -65,6 +70,7 @@ export function appendableJournalSequenceRecordPath(runFilePath: string, sequenc
 export function createAppendableJournalStore(options: AppendableJournalStoreOptions): AppendableBackend {
   const fs = options.fs ?? defaultStateStoreFileSystem;
   const { runFilePath } = options;
+  const creationMarkerPath = appendableJournalCreationMarkerPath(runFilePath);
   const sealMarkerPath = appendableJournalSealMarkerPath(runFilePath);
   const sealingMarkerPath = appendableJournalSealingMarkerPath(runFilePath);
   const cachedSequenceEvents = new Map<number, JournalEvent>();
@@ -137,6 +143,7 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
         return;
       }
       await fs.writeFile(sealingMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
+      await ensureCreationMarker(fs, runFilePath, creationMarkerPath);
       await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`);
       await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath));
       const events = await readSequenceEvents(await listSequenceRecords(fs, runFilePath));
@@ -154,6 +161,20 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       return (await readFileOrUndefined(fs, sealMarkerPath)) !== undefined;
     },
   };
+}
+
+async function ensureCreationMarker(
+  fs: StateStoreFileSystem,
+  runFilePath: string,
+  creationMarkerPath: string,
+): Promise<void> {
+  try {
+    await fs.link(runFilePath, creationMarkerPath);
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_FILE_EXISTS)) return;
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return;
+    throw error;
+  }
 }
 
 async function removeTemporaryPublications(

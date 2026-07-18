@@ -14,7 +14,7 @@ import {
   type SealedJournalRun,
 } from "@/domains/journal/run-scope";
 import { createJournal, type JournalEvent, type JournalEventInput, type Projection } from "@/lib/agent-run-journal";
-import { createAppendableJournalStore } from "@/lib/appendable-journal-store";
+import { appendableJournalCreationMarkerPath, createAppendableJournalStore } from "@/lib/appendable-journal-store";
 import { toMessage } from "@/lib/error-message";
 import {
   branchScopeDir,
@@ -182,7 +182,11 @@ async function readRunMetadata(
   if (!runFile.ok) return runFile;
   const store = createAppendableJournalStore({ runFilePath: runFile.value, fs });
   try {
-    const [events, sealed, stats] = await Promise.all([store.readAll(), store.isSealed(), fs.lstat(runFile.value)]);
+    const [events, sealed, stats] = await Promise.all([
+      store.readAll(),
+      store.isSealed(),
+      runCreationStats(fs, runFile.value),
+    ]);
     const metadata: JournalRunMetadata = {
       productDir,
       branchSlug,
@@ -199,6 +203,18 @@ async function readRunMetadata(
     return { ok: true, value: { metadata, events } };
   } catch (error) {
     return { ok: false, error: `${JOURNAL_RUNTIME_ERROR.READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
+async function runCreationStats(
+  fs: StateStoreFileSystem,
+  runFilePath: string,
+): Promise<{ readonly birthtimeMs: number }> {
+  try {
+    return await fs.lstat(appendableJournalCreationMarkerPath(runFilePath));
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return fs.lstat(runFilePath);
+    throw error;
   }
 }
 
