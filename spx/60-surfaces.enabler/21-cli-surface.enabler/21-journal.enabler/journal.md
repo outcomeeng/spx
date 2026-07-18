@@ -16,6 +16,7 @@ CAN open a changeset-scoped run, append one event per significant step, read the
 - Given a run selected from `spx journal list` whose branch slug differs from the current branch scope, when `spx journal read` or `spx journal render` receives that `--branch-slug`, then it reads or renders the selected run from its listed scope ([test](tests/journal-inspection.scenario.l1.test.ts))
 - Given a unique run token persisted under a branch scope that differs from the current branch scope, when `spx journal read` or `spx journal render` receives that run token without `--branch-slug`, then it resolves the run across branch scopes and reads or renders the persisted run from its stored scope ([test](tests/journal-inspection.scenario.l1.test.ts))
 - Given a `(branch-slug, type)` scope containing sealed and unsealed runs, when `spx journal read-set` runs for that scope with optional run and event limits, then it returns at most the requested number of sealed runs in deterministic oldest-first order with each run's token, metadata, and bounded event history, leaving cross-run resolved/reopened classification to the caller ([test](tests/journal-inspection.scenario.l1.test.ts))
+- Given two runs opened in the same millisecond and sealed in reverse creation order, when `spx journal list` and `spx journal read-set` inspect their scope, then both preserve run creation order ahead of the run-token tie-breaker ([test](tests/journal-seal-ordering.scenario.l1.test.ts))
 
 ### Mappings
 
