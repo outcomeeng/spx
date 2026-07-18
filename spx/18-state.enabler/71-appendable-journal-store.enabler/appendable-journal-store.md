@@ -6,6 +6,10 @@ CAN store and replay each run's event history through the journal interface with
 
 ## Assertions
 
+### Scenarios
+
+- Given an opened run file, when sealing atomically replaces that run-file inode with the aggregate, then a stable creation marker retains the opened file's inode and filesystem birthtime as the run's creation-order signal ([test](tests/appendable-journal-store-creation-marker.scenario.l1.test.ts))
+
 ### Properties
 
 - A journal bound to this backend assigns strictly increasing, contiguous sequence numbers and replays them identically when a fresh backend reopens the same run history ([test](tests/appendable-journal-store.property.l1.test.ts))
