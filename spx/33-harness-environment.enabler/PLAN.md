@@ -31,6 +31,30 @@ Define and implement deterministic management for agent instructions, agent conf
 - Deterministic instruction-file reconciliation remains under `spx/33-harness-environment.enabler/21-agent-instructions.enabler/`.
 - Plugin marketplace, plugin, and skill bootstrap status remains under `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/`.
 
+## Agent capability lifecycle packet
+
+The product needs one root product decision record (PDR), proposed at `spx/13-agent-capability-lifecycle.pdr.md`, that consumes the vocabulary in `spx/12-agent-harness.pdr.md` and governs methodology identity, compatible tooling updates, repository-local agent capability reconciliation, user-scope diagnostics, and methodology migration across the higher-index consumers.
+
+### Settled product behavior
+
+- `spx.config.{yaml,toml,json}` is the canonical human-authored declaration of one exact Spec Tree methodology version, enabled agents, capability sources, and exact Outcome Engineering package versions. Native agent files are deterministic projections.
+- An agent participates only when product configuration explicitly enables it and availability detection finds it. Detection never opts an agent in.
+- `spx update` updates only the SPX executable through a recognized installation owner. Local, linked, or ambiguous installations receive provenance and remediation without self-mutation.
+- `spx agent config status` is read-only. `spx agent config apply` reproduces committed versions. `spx agent config update` advances only package versions compatible with the declared methodology, persists those pins, and applies them.
+- Capability apply and update require network access and the newest SPX release compatible with the declared methodology. Interactive execution offers an owner-supported SPX update and aborts when declined; noninteractive execution fails without updating SPX.
+- SPX never mutates user-scope agent configuration. Outcome Engineering entries detected there are degraded hidden input. Product-over-user precedence is an external agent-platform assumption.
+- `spx methodology version show` reports the declared version, managed instruction markers, and installed compatibility without mutation or required network access.
+- `spx methodology version migrate <target>` resolves the target methodology package in isolated harness state and launches the target methodology's managed migration agent. SPX never infers or mechanically rewrites product truth.
+- Interrupted methodology migrations preserve their branch, working changes, run journal, and resumable agent session and remain incomplete.
+- Migration completion requires target-methodology verification plus SPX envelope checks: a successful sealed run, target version in product configuration, matching managed instruction markers, a compatible installed Spec Tree package, and migration-session closure.
+
+### Continuation order
+
+1. Reinvoke `/author` for the proposed root PDR and dispatch a PDR auditor that has live `/understand`, `/contextualize`, and repository read capabilities. The two Pi auditor configurations tried during planning lacked those capabilities; do not bypass the gate.
+2. Invoke `/align` over the approved PDR to identify and rewrite the first affected declarations under `spx/16-config.enabler/43-methodology-config.enabler`, this harness-environment node, instruction reconciliation, agent config, plugin bootstrap, diagnostics, and agent-session coordination.
+3. Invoke `/decompose` only where alignment proves new node boundaries are required. Do not preselect child names, indices, or dependency edges from this packet.
+4. Select implementation slices through `/slice`, then run `/apply` for each slice with the required TypeScript test and implementation audits.
+
 ## Evidence required
 
 - Tests or review evidence prove generated instruction files are deterministic.
