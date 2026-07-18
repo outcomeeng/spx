@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 
 import {
+  ERROR_CODE_NOT_FOUND,
   type JsonRecord,
   parseStateStoreError,
   publishJsonlRecordAtomically,
@@ -23,11 +24,12 @@ const FIRST_PUBLISHER_TEMPORARY_BYTE = 0x11;
 const SECOND_PUBLISHER_TEMPORARY_BYTE = 0x22;
 const LOOKALIKE_DESTINATION_TEMPORARY_BYTE = 0x33;
 
-type PublicationInterruption = "before-link" | "after-link" | undefined;
+type PublicationInterruption = "before-link" | "after-link" | "not-found-with-temporary" | undefined;
 
 interface AtomicJsonlPublicationResult {
   readonly beforePublicationError: string | undefined;
   readonly beforePublicationDestinationError: string | undefined;
+  readonly unrelatedNotFound: unknown;
   readonly retry: unknown;
   readonly afterPublicationResult: unknown;
   readonly afterPublicationRecord: unknown;
@@ -76,6 +78,9 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
   );
   const retry = await publishJsonlRecordAtomically(paths.prePublicationRecord, firstRecord, {
     fs: createLinkCapableFileSystem(undefined, beforeDelegate),
+  });
+  const unrelatedNotFound = await publishJsonlRecordAtomically(paths.blockedRecord, firstRecord, {
+    fs: createLinkCapableFileSystem("not-found-with-temporary"),
   });
 
   const interruptedAfter = createLinkCapableFileSystem("after-link");
@@ -133,6 +138,7 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
         ? parseStateStoreError(beforeResult.error)?.code
         : undefined,
       beforePublicationDestinationError,
+      unrelatedNotFound,
       retry,
       afterPublicationResult,
       afterPublicationRecord,
@@ -220,6 +226,9 @@ function createLinkCapableFileSystem(
   return createDelegatingStateStoreFileSystem(delegate, {
     link: async (existingPath, newPath) => {
       if (interruption === "before-link") throw new Error(INJECTED_INTERRUPTION);
+      if (interruption === "not-found-with-temporary") {
+        throw Object.assign(new Error(ERROR_CODE_NOT_FOUND), { code: ERROR_CODE_NOT_FOUND });
+      }
       await delegate.link(existingPath, newPath);
       if (interruption === "after-link") throw new Error(INJECTED_INTERRUPTION);
     },

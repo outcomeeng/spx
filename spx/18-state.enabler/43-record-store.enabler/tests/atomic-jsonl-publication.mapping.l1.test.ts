@@ -15,6 +15,10 @@ describe("record store — atomic JSONL publication mappings", () => {
       ok: true,
       value: (await atomicJsonlPublicationObservation()).fixture.paths.prePublicationRecord,
     });
+    expect((await atomicJsonlPublicationObservation()).actual.unrelatedNotFound).toEqual({
+      ok: false,
+      error: expect.stringContaining(STATE_STORE_ERROR.RECORD_WRITE_FAILED),
+    });
     expect((await atomicJsonlPublicationObservation()).actual.afterPublicationRecord).toEqual({
       ok: true,
       value: (await atomicJsonlPublicationObservation()).secondRecord,
