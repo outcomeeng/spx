@@ -9,6 +9,9 @@ CAN explore meaningful release cases without assertion files or harnesses recons
 ### Properties
 
 - Every generated Keep a Changelog case agrees with the independent Markdown oracle for its generated release version and changelog structure ([test](tests/release-test-generators.property.l1.test.ts))
+- Every generated distinct path-segment triple contains three non-empty, pairwise-distinct path segments ([test](tests/release-test-generators.property.l1.test.ts))
+- Every generated semantic version that excludes another version differs from the excluded version ([test](tests/release-test-generators.property.l1.test.ts))
+- Every generated Windows extended-length drive-root pair contains two structurally valid roots on distinct drives ([test](tests/release-test-generators.property.l1.test.ts))
 
 ### Compliance
 
