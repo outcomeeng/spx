@@ -1,5 +1,6 @@
 import {
   ERROR_CODE_NOT_FOUND,
+  type JsonRecord,
   parseStateStoreError,
   publishJsonlRecordAtomically,
   readLatestJsonlRecord,
@@ -12,6 +13,7 @@ import {
   sampleStateStoreTestValue,
   STATE_STORE_TEST_GENERATOR,
 } from "@testing/generators/state-store/state-store";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   createDelegatingStateStoreFileSystem,
   createInMemoryStateStoreFileSystem,
@@ -19,13 +21,12 @@ import {
 import { expect } from "vitest";
 
 const INJECTED_INTERRUPTION = "injected publication interruption";
+const FIRST_PUBLISHER_TEMPORARY_BYTE = 0x11;
+const SECOND_PUBLISHER_TEMPORARY_BYTE = 0x22;
 
 type PublicationInterruption = "before-link" | "after-link" | undefined;
 
 interface AtomicJsonlPublicationResult {
-  readonly first: unknown;
-  readonly collision: unknown;
-  readonly winnerContent: string;
   readonly beforePublicationError: string | undefined;
   readonly beforePublicationDestinationError: string | undefined;
   readonly retry: unknown;
@@ -33,17 +34,17 @@ interface AtomicJsonlPublicationResult {
   readonly guarded: unknown;
   readonly guardedDestinationError: string | undefined;
   readonly removedTemporary: unknown;
+  readonly removedTemporaryDestinationError: string | undefined;
   readonly cleanup: unknown;
-  readonly firstCleanupError: string | undefined;
-  readonly secondCleanupError: string | undefined;
+  readonly cleanupAfterRemoval: unknown;
   readonly destinationContent: string;
   readonly nonMatchingContent: string;
 }
 
 export interface AtomicJsonlPublicationObservation {
   readonly actual: AtomicJsonlPublicationResult;
-  readonly firstRecord: unknown;
-  readonly secondRecord: unknown;
+  readonly firstRecord: JsonRecord;
+  readonly secondRecord: JsonRecord;
   readonly fixture: AtomicJsonlPublicationFixture;
 }
 
@@ -55,11 +56,44 @@ export function atomicJsonlPublicationObservation(): Promise<AtomicJsonlPublicat
   return observationPromise;
 }
 
-export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
+export async function assertAtomicJsonlPublicationCollisionProperty(): Promise<void> {
+  await assertProperty(
+    STATE_STORE_TEST_GENERATOR.atomicPublicationCollision(),
+    async ({ destination, records: [firstRecord, secondRecord] }): Promise<boolean> => {
+      const fs = createInMemoryStateStoreFileSystem();
+      const [first, second] = await Promise.all([
+        publishJsonlRecordAtomically(destination, firstRecord, {
+          fs,
+          randomBytes: (size) => Buffer.alloc(size, FIRST_PUBLISHER_TEMPORARY_BYTE),
+        }),
+        publishJsonlRecordAtomically(destination, secondRecord, {
+          fs,
+          randomBytes: (size) => Buffer.alloc(size, SECOND_PUBLISHER_TEMPORARY_BYTE),
+        }),
+      ]);
+      const results = [first, second] as const;
+      const winnerCount = results.filter((result) => result.ok).length;
+      const collisionCount = results.filter(
+        (result) => !result.ok && result.error === STATE_STORE_ERROR.RECORD_ALREADY_EXISTS,
+      ).length;
+      const winner = first.ok
+        ? { record: firstRecord, result: first }
+        : second.ok
+        ? { record: secondRecord, result: second }
+        : undefined;
+      if (winner === undefined) return false;
+      const destinationContent = await fs.readFile(destination, "utf8");
+      return winnerCount === 1
+        && collisionCount === 1
+        && winner.result.value === destination
+        && destinationContent === `${JSON.stringify(winner.record)}\n`;
+    },
+    { level: PROPERTY_LEVEL.L1 },
+  );
+}
+
+export async function assertAtomicJsonlPublicationMapping(): Promise<void> {
   const observation = await atomicJsonlPublicationObservation();
-  expect(observation.actual.first).toEqual({ ok: true, value: observation.fixture.paths.atomicRecord });
-  expect(observation.actual.collision).toEqual({ ok: false, error: STATE_STORE_ERROR.RECORD_ALREADY_EXISTS });
-  expect(observation.actual.winnerContent).toBe(`${JSON.stringify(observation.firstRecord)}\n`);
   expect(observation.actual.beforePublicationError).toBe(STATE_STORE_ERROR.RECORD_WRITE_FAILED);
   expect(observation.actual.beforePublicationDestinationError).toBe(ERROR_CODE_NOT_FOUND);
   expect(observation.actual.retry).toEqual({ ok: true, value: observation.fixture.paths.prePublicationRecord });
@@ -70,9 +104,13 @@ export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
     ok: false,
     error: STATE_STORE_ERROR.RECORD_PUBLICATION_BLOCKED,
   });
+  expect(observation.actual.removedTemporaryDestinationError).toBe(ERROR_CODE_NOT_FOUND);
+}
+
+export async function assertAtomicJsonlPublicationCompliance(): Promise<void> {
+  const observation = await atomicJsonlPublicationObservation();
   expect(observation.actual.cleanup).toEqual({ ok: true, value: 2 });
-  expect(observation.actual.firstCleanupError).toBe(ERROR_CODE_NOT_FOUND);
-  expect(observation.actual.secondCleanupError).toBe(ERROR_CODE_NOT_FOUND);
+  expect(observation.actual.cleanupAfterRemoval).toEqual({ ok: true, value: 0 });
   expect(observation.actual.destinationContent).toBe(observation.fixture.content.destination);
   expect(observation.actual.nonMatchingContent).toBe(observation.fixture.content.nonMatching);
 }
@@ -84,8 +122,6 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
   const fixture = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.atomicPublicationFixture());
   const { paths } = fixture;
   const fs = createLinkCapableFileSystem();
-  const first = await publishJsonlRecordAtomically(paths.atomicRecord, firstRecord, { fs });
-  const collision = await publishJsonlRecordAtomically(paths.atomicRecord, secondRecord, { fs });
 
   const beforeDelegate = createInMemoryStateStoreFileSystem();
   const interruptedBefore = createLinkCapableFileSystem("before-link", beforeDelegate);
@@ -128,15 +164,16 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       },
     },
   );
+  const removedTemporaryDestinationError = await rejectedErrorCode(
+    fs.readFile(paths.removedTemporaryRecord, "utf8"),
+  );
 
-  await seedTemporaryCleanupFiles(fs, fixture);
+  await seedTemporaryCleanupFiles(fs, fixture, firstRecord, secondRecord);
   const cleanup = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, { fs });
+  const cleanupAfterRemoval = await removeAtomicJsonlTemporaryFiles(paths.cleanupDestinationPrefix, { fs });
 
   return {
     actual: {
-      first,
-      collision,
-      winnerContent: await fs.readFile(paths.atomicRecord, "utf8"),
       beforePublicationError: !beforeResult.ok
         ? parseStateStoreError(beforeResult.error)?.code
         : undefined,
@@ -146,11 +183,11 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
       guarded,
       guardedDestinationError,
       removedTemporary,
+      removedTemporaryDestinationError,
       cleanup,
-      firstCleanupError: await rejectedErrorCode(fs.readFile(paths.firstCleanupTemporary, "utf8")),
-      secondCleanupError: await rejectedErrorCode(fs.readFile(paths.secondCleanupTemporary, "utf8")),
+      cleanupAfterRemoval,
       destinationContent: await fs.readFile(paths.cleanupDestination, "utf8"),
-      nonMatchingContent: await fs.readFile(paths.nonMatchingTemporary, "utf8"),
+      nonMatchingContent: await fs.readFile(paths.nonMatchingFile, "utf8"),
     },
     firstRecord,
     secondRecord,
@@ -161,11 +198,27 @@ async function collectAtomicJsonlPublicationObservation(): Promise<AtomicJsonlPu
 async function seedTemporaryCleanupFiles(
   fs: StateStoreFileSystem,
   fixture: AtomicJsonlPublicationFixture,
+  firstRecord: JsonRecord,
+  secondRecord: JsonRecord,
 ): Promise<void> {
-  await fs.writeFile(fixture.paths.firstCleanupTemporary, fixture.content.firstCleanup);
-  await fs.writeFile(fixture.paths.secondCleanupTemporary, fixture.content.secondCleanup);
+  const preserveUnpublishedTemporary = createDelegatingStateStoreFileSystem(fs, {
+    link: async () => {
+      throw new Error(INJECTED_INTERRUPTION);
+    },
+    rm: async () => {
+      throw new Error(INJECTED_INTERRUPTION);
+    },
+  });
+  await publishJsonlRecordAtomically(fixture.paths.firstCleanupDestination, firstRecord, {
+    fs: preserveUnpublishedTemporary,
+    randomBytes: (size) => Buffer.alloc(size, FIRST_PUBLISHER_TEMPORARY_BYTE),
+  });
+  await publishJsonlRecordAtomically(fixture.paths.secondCleanupDestination, secondRecord, {
+    fs: preserveUnpublishedTemporary,
+    randomBytes: (size) => Buffer.alloc(size, SECOND_PUBLISHER_TEMPORARY_BYTE),
+  });
   await fs.writeFile(fixture.paths.cleanupDestination, fixture.content.destination);
-  await fs.writeFile(fixture.paths.nonMatchingTemporary, fixture.content.nonMatching);
+  await fs.writeFile(fixture.paths.nonMatchingFile, fixture.content.nonMatching);
 }
 
 async function rejectedErrorCode(promise: Promise<unknown>): Promise<string | undefined> {

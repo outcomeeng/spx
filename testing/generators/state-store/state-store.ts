@@ -83,26 +83,20 @@ export const STATE_STORE_TEST_GENERATOR = {
       readonly blockedRecord: string;
       readonly removedTemporaryRecord: string;
       readonly cleanupDestinationPrefix: string;
-      readonly firstCleanupTemporary: string;
-      readonly secondCleanupTemporary: string;
+      readonly firstCleanupDestination: string;
+      readonly secondCleanupDestination: string;
       readonly cleanupDestination: string;
-      readonly nonMatchingTemporary: string;
+      readonly nonMatchingFile: string;
     };
     readonly content: {
-      readonly firstCleanup: string;
-      readonly secondCleanup: string;
       readonly destination: string;
       readonly nonMatching: string;
     };
   }> =>
-    fc.tuple(
-      fc.uniqueArray(
-        stringFromCharacters(TOKEN_CHARACTERS, { minLength: 3, maxLength: 16 }),
-        { minLength: 14, maxLength: 14 },
-      ),
-      stringFromCharacters(HEX_ALPHABET, { minLength: 12, maxLength: 12 }),
-      stringFromCharacters(HEX_ALPHABET, { minLength: 12, maxLength: 12 }),
-    ).map(([tokens, firstTemporaryId, secondTemporaryId]) => {
+    fc.uniqueArray(
+      stringFromCharacters(TOKEN_CHARACTERS, { minLength: 3, maxLength: 16 }),
+      { minLength: 13, maxLength: 13 },
+    ).map((tokens) => {
       const [
         root,
         atomic,
@@ -115,11 +109,9 @@ export const STATE_STORE_TEST_GENERATOR = {
         secondCleanup,
         destination,
         nonMatching,
-        firstContent,
-        secondContent,
         preservedContent,
+        nonMatchingContent,
       ] = tokens as unknown as readonly [
-        string,
         string,
         string,
         string,
@@ -143,16 +135,14 @@ export const STATE_STORE_TEST_GENERATOR = {
           blockedRecord: `${root}/${blocked}.jsonl`,
           removedTemporaryRecord: `${root}/${removed}.jsonl`,
           cleanupDestinationPrefix,
-          firstCleanupTemporary: `${cleanupDestinationPrefix}${firstCleanup}.jsonl.${firstTemporaryId}.tmp`,
-          secondCleanupTemporary: `${cleanupDestinationPrefix}${secondCleanup}.jsonl.${secondTemporaryId}.tmp`,
+          firstCleanupDestination: `${cleanupDestinationPrefix}${firstCleanup}.jsonl`,
+          secondCleanupDestination: `${cleanupDestinationPrefix}${secondCleanup}.jsonl`,
           cleanupDestination: `${cleanupDestinationPrefix}${destination}.jsonl`,
-          nonMatchingTemporary: `${root}/${nonMatching}.jsonl.invalid.tmp`,
+          nonMatchingFile: `${root}/${nonMatching}.txt`,
         },
         content: {
-          firstCleanup: firstContent,
-          secondCleanup: secondContent,
           destination: preservedContent,
-          nonMatching: nonMatching,
+          nonMatching: nonMatchingContent,
         },
       };
     }),
@@ -193,6 +183,14 @@ export const STATE_STORE_TEST_GENERATOR = {
           { [secondKey]: secondValue },
         ] as const
       ),
+  atomicPublicationCollision: (): fc.Arbitrary<{
+    readonly destination: string;
+    readonly records: readonly [{ readonly [key: string]: string }, { readonly [key: string]: string }];
+  }> =>
+    fc.tuple(
+      STATE_STORE_TEST_GENERATOR.jsonRecordPair(),
+      STATE_STORE_TEST_GENERATOR.atomicPublicationFixture(),
+    ).map(([records, fixture]) => ({ destination: fixture.paths.atomicRecord, records })),
 } as const;
 
 export type AtomicJsonlPublicationFixture =

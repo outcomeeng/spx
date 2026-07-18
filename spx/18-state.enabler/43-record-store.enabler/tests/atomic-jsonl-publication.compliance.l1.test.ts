@@ -3,5 +3,5 @@ import { describe, it } from "vitest";
 import { assertAtomicJsonlPublicationCompliance } from "@testing/harnesses/state/atomic-jsonl-publication";
 
 describe("record store — atomic JSONL publication", () => {
-  it("publishes one complete record without overwriting the winner", assertAtomicJsonlPublicationCompliance);
+  it("removes only publication-owned temporary siblings", assertAtomicJsonlPublicationCompliance);
 });
