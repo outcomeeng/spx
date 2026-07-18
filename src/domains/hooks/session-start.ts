@@ -53,6 +53,35 @@ export const HOOK_SESSION_START_ERROR = {
   PI_TRANSCRIPT_READ_FAILED: "hook session-start Pi transcript read failed",
 } as const;
 
+export const PI_SESSION_START_REJECTION_REGISTRY = {
+  pathRequired: {
+    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_REQUIRED,
+    readsTranscriptMetadata: false,
+  },
+  pathUntrusted: {
+    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PATH_UNTRUSTED,
+    readsTranscriptMetadata: false,
+  },
+  readFailed: {
+    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_READ_FAILED,
+    readsTranscriptMetadata: true,
+  },
+  headerInvalid: {
+    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_HEADER_INVALID,
+    readsTranscriptMetadata: true,
+  },
+  productMismatch: {
+    diagnostic: HOOK_SESSION_START_ERROR.PI_TRANSCRIPT_PRODUCT_MISMATCH,
+    readsTranscriptMetadata: true,
+  },
+} as const;
+
+export type PiSessionStartRejectionKind = keyof typeof PI_SESSION_START_REJECTION_REGISTRY;
+export type PiSessionStartRejection = (typeof PI_SESSION_START_REJECTION_REGISTRY)[PiSessionStartRejectionKind];
+export const PI_SESSION_START_REJECTION_KINDS = Object.keys(
+  PI_SESSION_START_REJECTION_REGISTRY,
+) as PiSessionStartRejectionKind[];
+
 export type HookSessionStartEnv = { readonly [key: string]: string | undefined };
 
 export interface HookSessionStartPayload {
