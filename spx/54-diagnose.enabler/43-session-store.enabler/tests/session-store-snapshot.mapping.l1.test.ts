@@ -5,7 +5,7 @@ import {
   assertSessionStoreSnapshotMapping,
 } from "@testing/harnesses/diagnose/worktree-snapshot-consumers";
 
-describe("the session-store snapshot mapping joins doing sessions to live worktree claims", () => {
-  it("maps live claims to orphaned doing-session counts", assertSessionStoreSnapshotMapping);
+describe("the session-store snapshot mapping retains informational orphan counts", () => {
+  it("maps live claims to informational orphan counts without degrading health", assertSessionStoreSnapshotMapping);
   it("joins an exported live claim to its doing session", assertExportedClaimBacksDoingSession);
 });
