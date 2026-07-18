@@ -8,8 +8,17 @@
  * @module testing/harnesses/atomic-file-write
  */
 
-import { type AtomicWriteFileSystem, type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
-import { type AtomicWriteCollisionInput, sampleAtomicWriteCollisionInput } from "@testing/generators/atomic-file-write";
+import {
+  type AtomicWriteFileSystem,
+  atomicWriteTempPath,
+  type RandomBytes,
+  writeFileAtomic,
+} from "@/lib/atomic-file-write";
+import {
+  type AtomicWriteCollisionInput,
+  sampleAtomicWriteCollisionInput,
+  sampleAtomicWriteInput,
+} from "@testing/generators/atomic-file-write";
 
 interface RecordingAtomicWriteOptions {
   readonly collisionError?: Error;
@@ -61,6 +70,9 @@ export function createRecordingAtomicWriteFs(options: RecordingAtomicWriteOption
 }
 
 export interface AtomicWriteCollisionObservation {
+  readonly collisionError: Error;
+  readonly input: AtomicWriteCollisionInput;
+  readonly temporaryPaths: readonly [string, string];
   readonly files: readonly (readonly [string, string])[];
   readonly writeAttempts: readonly string[];
   readonly written: readonly string[];
@@ -69,20 +81,68 @@ export interface AtomicWriteCollisionObservation {
   readonly error: Error | undefined;
 }
 
+export interface AtomicWriteScenarioObservation {
+  readonly content: string;
+  readonly error: Error | undefined;
+  readonly files: readonly (readonly [string, string])[];
+  readonly removed: readonly string[];
+  readonly targetPath: string;
+  readonly temporaryPath: string;
+  readonly thrown: Error | undefined;
+}
+
+export function fixedAtomicWriteRandomBytes(bytes: Uint8Array): RandomBytes {
+  return () => Buffer.from(bytes);
+}
+
+export async function observeAtomicWriteSuccess(): Promise<AtomicWriteScenarioObservation> {
+  const input = sampleAtomicWriteInput();
+  const randomBytes = fixedAtomicWriteRandomBytes(input.temporaryBytes);
+  const temporaryPath = atomicWriteTempPath(input.targetPath, randomBytes);
+  const fs = createRecordingAtomicWriteFs();
+  let thrown: Error | undefined;
+  try {
+    await writeFileAtomic(input.targetPath, input.content, { fs, randomBytes });
+  } catch (cause) {
+    thrown = cause instanceof Error ? cause : new Error(String(cause));
+  }
+  return scenarioObservation(input.targetPath, input.content, temporaryPath, fs, undefined, thrown);
+}
+
+export async function observeAtomicWriteRenameFailure(): Promise<AtomicWriteScenarioObservation> {
+  const input = sampleAtomicWriteInput();
+  const error = new Error(input.failureMessage);
+  const randomBytes = fixedAtomicWriteRandomBytes(input.temporaryBytes);
+  const temporaryPath = atomicWriteTempPath(input.targetPath, randomBytes);
+  const fs: RecordingAtomicWriteFs = {
+    ...createRecordingAtomicWriteFs(),
+    rename: () => Promise.reject(error),
+  };
+  return observeAtomicWriteFailure(input.targetPath, input.content, temporaryPath, randomBytes, fs, error);
+}
+
+export async function observeAtomicWriteWriteFailure(): Promise<AtomicWriteScenarioObservation> {
+  const input = sampleAtomicWriteInput();
+  const error = new Error(input.failureMessage);
+  const randomBytes = fixedAtomicWriteRandomBytes(input.temporaryBytes);
+  const temporaryPath = atomicWriteTempPath(input.targetPath, randomBytes);
+  const base = createRecordingAtomicWriteFs();
+  const fs: RecordingAtomicWriteFs = {
+    ...base,
+    writeFile: (path, data) => {
+      base.files.set(path, data);
+      return Promise.reject(error);
+    },
+  };
+  return observeAtomicWriteFailure(input.targetPath, input.content, temporaryPath, randomBytes, fs, error);
+}
+
 export async function observeAtomicWriteCollisionRetry(): Promise<AtomicWriteCollisionObservation> {
   return observeCollisionRetry(sampleAtomicWriteCollisionInput());
 }
 
-export function expectedAtomicWriteCollisionRetry(): AtomicWriteCollisionObservation {
-  return expectedCollisionRetry(sampleAtomicWriteCollisionInput());
-}
-
 export async function observeAtomicWriteCollisionExhaustion(): Promise<AtomicWriteCollisionObservation> {
   return observeCollisionExhaustion(sampleAtomicWriteCollisionInput());
-}
-
-export function expectedAtomicWriteCollisionExhaustion(): AtomicWriteCollisionObservation {
-  return expectedCollisionExhaustion(sampleAtomicWriteCollisionInput());
 }
 
 async function observeCollisionRetry(input: AtomicWriteCollisionInput): Promise<AtomicWriteCollisionObservation> {
@@ -98,19 +158,7 @@ async function observeCollisionRetry(input: AtomicWriteCollisionInput): Promise<
     temporaryPath: markedTemporaryPath(input.temporaryMarker),
     exclusiveCreate: { maxAttempts: input.temporaryBytes.length, isCollision: (error) => error === collisionError },
   });
-  return observationFrom(fs);
-}
-
-function expectedCollisionRetry(input: AtomicWriteCollisionInput): AtomicWriteCollisionObservation {
-  const temporaryPaths = temporaryPathsFor(input);
-  return {
-    files: [[temporaryPaths[0], input.collidingContent[0]], [input.targetPath, input.content]],
-    writeAttempts: temporaryPaths,
-    written: [temporaryPaths[1]],
-    renamed: [{ from: temporaryPaths[1], to: input.targetPath }],
-    removed: [],
-    error: undefined,
-  };
+  return collisionObservation(input, temporaryPaths, collisionError, fs, undefined);
 }
 
 async function observeCollisionExhaustion(input: AtomicWriteCollisionInput): Promise<AtomicWriteCollisionObservation> {
@@ -134,33 +182,55 @@ async function observeCollisionExhaustion(input: AtomicWriteCollisionInput): Pro
   } catch (cause) {
     error = cause instanceof Error ? cause : new Error(String(cause));
   }
-  return { ...observationFrom(fs), error };
+  return collisionObservation(input, temporaryPaths, collisionError, fs, error);
 }
 
-function expectedCollisionExhaustion(input: AtomicWriteCollisionInput): AtomicWriteCollisionObservation {
-  const temporaryPaths = temporaryPathsFor(input);
+function collisionObservation(
+  input: AtomicWriteCollisionInput,
+  temporaryPaths: readonly [string, string],
+  collisionError: Error,
+  fs: RecordingAtomicWriteFs,
+  error: Error | undefined,
+): AtomicWriteCollisionObservation {
   return {
-    files: [
-      [temporaryPaths[0], input.collidingContent[0]],
-      [temporaryPaths[1], input.collidingContent[1]],
-    ],
-    writeAttempts: temporaryPaths,
-    written: [],
-    renamed: [],
-    removed: [],
-    error: new Error("atomic write temporary collision"),
-  };
-}
-
-function observationFrom(fs: RecordingAtomicWriteFs): AtomicWriteCollisionObservation {
-  return {
+    collisionError,
+    input,
+    temporaryPaths,
     files: [...fs.files],
     writeAttempts: fs.writeAttempts,
     written: fs.written,
     renamed: fs.renamed,
     removed: fs.removed,
-    error: undefined,
+    error,
   };
+}
+
+async function observeAtomicWriteFailure(
+  targetPath: string,
+  content: string,
+  temporaryPath: string,
+  randomBytes: RandomBytes,
+  fs: RecordingAtomicWriteFs,
+  error: Error,
+): Promise<AtomicWriteScenarioObservation> {
+  let thrown: Error | undefined;
+  try {
+    await writeFileAtomic(targetPath, content, { fs, randomBytes });
+  } catch (cause) {
+    thrown = cause instanceof Error ? cause : new Error(String(cause));
+  }
+  return scenarioObservation(targetPath, content, temporaryPath, fs, error, thrown);
+}
+
+function scenarioObservation(
+  targetPath: string,
+  content: string,
+  temporaryPath: string,
+  fs: RecordingAtomicWriteFs,
+  error: Error | undefined,
+  thrown: Error | undefined,
+): AtomicWriteScenarioObservation {
+  return { targetPath, content, temporaryPath, files: [...fs.files], removed: fs.removed, error, thrown };
 }
 
 function temporaryPathsFor(input: AtomicWriteCollisionInput): readonly [string, string] {
