@@ -265,8 +265,6 @@ export interface PreparedSealingRace {
   readonly first: JournalEvent;
   readonly appendOutcomePromise: Promise<PromiseSettledResult<JournalEvent>>;
   releaseAppendPublication(): void;
-  readonly appendPublicationCompleted: Promise<void>;
-  readonly appendTemporaryPath: Promise<string>;
 }
 
 export interface SealingRaceBranchObservation {
@@ -279,6 +277,14 @@ export interface SealingRaceBranchObservation {
 export interface AppendableJournalSealingRaceObservation {
   readonly sealingBarrier: SealingRaceBranchObservation;
   readonly appendPublication: SealingRaceBranchObservation;
+}
+
+export interface OverlappingSealObservation {
+  readonly first: JournalEvent;
+  readonly second: JournalEvent;
+  readonly fulfilledCount: number;
+  readonly replayAfterSecondSeal: readonly JournalEvent[];
+  readonly replayAfterFirstSeal: readonly JournalEvent[];
 }
 
 export async function observeAppendableJournalSealingRace(
@@ -419,12 +425,12 @@ async function observeAppendPublicationWinner(
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
 ): Promise<SealingRaceBranchObservation> {
-  const race = await prepareSealingRace(identity, firstInput, secondInput);
-  const sealingFileSystem = createPublicationWinningSealFileSystem(race);
+  const race = await prepareSealingRace(identity, firstInput, secondInput, true);
   await createJournal(
-    createAppendableJournalStore({ runFilePath: race.runFilePath, fs: sealingFileSystem }),
+    createAppendableJournalStore({ runFilePath: race.runFilePath, fs: race.base }),
     identity,
   ).seal();
+  race.releaseAppendPublication();
   const appendOutcome = await race.appendOutcomePromise;
   return sealingRaceBranchObservation(
     race.first,
@@ -450,6 +456,7 @@ async function prepareSealingRace(
   identity: JournalIdentity,
   firstInput: JournalEventInput,
   secondInput: JournalEventInput,
+  publishBeforePause = false,
 ): Promise<PreparedSealingRace> {
   const base = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
@@ -458,7 +465,7 @@ async function prepareSealingRace(
     identity,
   );
   const first = await seedJournal.append(firstInput);
-  const paused = createPausedPublicationFileSystem(base);
+  const paused = createPausedPublicationFileSystem(base, publishBeforePause);
   const appendingJournal = createJournal(
     createAppendableJournalStore({ runFilePath, fs: paused.fs }),
     identity,
@@ -471,8 +478,33 @@ async function prepareSealingRace(
     first,
     appendOutcomePromise,
     releaseAppendPublication: paused.releaseLink,
-    appendPublicationCompleted: paused.linkCompleted,
-    appendTemporaryPath: paused.temporaryPath,
+  };
+}
+
+export async function observeOverlappingSeals(
+  identity: JournalIdentity,
+  firstInput: JournalEventInput,
+  secondInput: JournalEventInput,
+): Promise<OverlappingSealObservation> {
+  const base = createInMemoryStateStoreFileSystem();
+  const runFilePath = journalRunFilePath(identity.streamid);
+  const journal = createJournal(createAppendableJournalStore({ runFilePath, fs: base }), identity);
+  const first = await journal.append(firstInput);
+  const second = await journal.append(secondInput);
+  const paused = createPausedAggregateRenameFileSystem(base, runFilePath);
+  const firstSeal = settle(createAppendableJournalStore({ runFilePath, fs: paused.fs }).seal());
+  await paused.renameStarted;
+  const secondSeal = settle(createAppendableJournalStore({ runFilePath, fs: base }).seal());
+  const secondOutcome = await secondSeal;
+  const replayAfterSecondSeal = await readHydratedReplay(base, runFilePath);
+  paused.releaseRename();
+  const firstOutcome = await firstSeal;
+  return {
+    first,
+    second,
+    fulfilledCount: [firstOutcome, secondOutcome].filter(isFulfilledOutcome).length,
+    replayAfterSecondSeal,
+    replayAfterFirstSeal: await readHydratedReplay(base, runFilePath),
   };
 }
 
@@ -591,57 +623,56 @@ function settle<T>(promise: Promise<T>): Promise<PromiseSettledResult<T>> {
 interface PausedPublicationFileSystem {
   readonly fs: StateStoreFileSystem;
   readonly linkStarted: Promise<void>;
-  readonly linkCompleted: Promise<void>;
-  readonly temporaryPath: Promise<string>;
   releaseLink(): void;
 }
 
 function createPausedPublicationFileSystem(
   delegate: StateStoreFileSystem,
+  publishBeforePause: boolean,
 ): PausedPublicationFileSystem {
   const started = deferred();
   const released = deferred();
-  const completed = deferred();
-  const temporaryPath = deferredValue<string>();
   return {
     fs: createDelegatingStateStoreFileSystem(delegate, {
       link: async (existingPath, newPath) => {
-        temporaryPath.resolve(existingPath);
+        if (publishBeforePause) await delegate.link(existingPath, newPath);
         started.resolve();
         await released.promise;
-        try {
-          await delegate.link(existingPath, newPath);
-        } finally {
-          completed.resolve();
-        }
+        if (!publishBeforePause) await delegate.link(existingPath, newPath);
       },
     }),
     linkStarted: started.promise,
-    linkCompleted: completed.promise,
-    temporaryPath: temporaryPath.promise,
     releaseLink: released.resolve,
   };
 }
 
-function createPublicationWinningSealFileSystem(
-  race: PreparedSealingRace,
-): StateStoreFileSystem {
-  async function releasePublication(): Promise<void> {
-    race.releaseAppendPublication();
-    await race.appendPublicationCompleted;
-  }
-  return createDelegatingStateStoreFileSystem(race.base, {
-    writeFile: async (path, data, options) => {
-      if (path === race.runFilePath) await releasePublication();
-      await race.base.writeFile(path, data, options);
-    },
-    rm: async (path, options) => {
-      if (path === await race.appendTemporaryPath) {
-        await releasePublication();
-      }
-      await race.base.rm(path, options);
-    },
-  });
+interface PausedAggregateRenameFileSystem {
+  readonly fs: StateStoreFileSystem;
+  readonly renameStarted: Promise<void>;
+  releaseRename(): void;
+}
+
+function createPausedAggregateRenameFileSystem(
+  delegate: StateStoreFileSystem,
+  runFilePath: string,
+): PausedAggregateRenameFileSystem {
+  const started = deferred();
+  const released = deferred();
+  let pauseNextAggregateRename = true;
+  return {
+    fs: createDelegatingStateStoreFileSystem(delegate, {
+      rename: async (from, to) => {
+        if (to === runFilePath && pauseNextAggregateRename) {
+          pauseNextAggregateRename = false;
+          started.resolve();
+          await released.promise;
+        }
+        await delegate.rename(from, to);
+      },
+    }),
+    renameStarted: started.promise,
+    releaseRename: released.resolve,
+  };
 }
 
 function deferred(): {
@@ -650,17 +681,6 @@ function deferred(): {
 } {
   let resolvePromise = (): void => undefined;
   const promise = new Promise<void>((resolve) => {
-    resolvePromise = resolve;
-  });
-  return { promise, resolve: resolvePromise };
-}
-
-function deferredValue<T>(): {
-  readonly promise: Promise<T>;
-  readonly resolve: (value: T) => void;
-} {
-  let resolvePromise = (_value: T): void => undefined;
-  const promise = new Promise<T>((resolve) => {
     resolvePromise = resolve;
   });
   return { promise, resolve: resolvePromise };
