@@ -145,7 +145,6 @@ export function createAppendableJournalStore(options: AppendableJournalStoreOpti
       await fs.writeFile(sealingMarkerPath, APPENDABLE_JOURNAL_SEAL_MARKER_CONTENT);
       await ensureCreationMarker(fs, runFilePath, creationMarkerPath);
       await removeTemporaryPublications(fs, `${runFilePath}${SEQUENCE_RECORD_MARKER}`, runFilePath);
-      await removeTemporaryPublications(fs, aggregateTemporaryPrefix(runFilePath), runFilePath);
       const events = await readSequenceEvents(await listSequenceRecords(fs, runFilePath));
       await replaceAggregateAtomically(
         fs,
@@ -190,7 +189,6 @@ async function removeTemporaryPublications(
 }
 
 function isAppendableJournalDestination(path: string, runFilePath: string): boolean {
-  if (path === runFilePath || path === aggregateTemporaryPrefix(runFilePath)) return true;
   if (dirname(path) !== dirname(runFilePath)) return false;
   return sequenceFromRecordName(
     basename(path),
