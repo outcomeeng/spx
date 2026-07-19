@@ -1,13 +1,5 @@
 # Issues: Journal
 
-## FOLLOW-UP — review-run journal projection emitted duplicate sequence numbers
-
-The changes reviewer run `2026-06-30_14-39-57-855-318491581ca8` reported a sealed approved terminal projection with a journal prefix defect: two scope-advanced events both carried `seq: 2`. The terminal event was present, but duplicate sequence numbers contradict the append-only journal contract from `spx/15-agent-run-journal.enabler/agent-run-journal.md`.
-
-Evidence: the `changes-reviewer` rendered result said, "The rendered prefix contains a sequence-number defect: both scope-advanced events have `seq: 2`."
-
-Resolution: reproduce the duplicate-sequence projection for a changes-reviewer journal run, identify whether the defect is in event appending, projection rendering, or subagent result transport, then add focused journal evidence before changing the implementation.
-
 ## FOLLOW-UP — an invalid SPX_VERIFY_BACKEND fails read/seal/render with a backend error
 
 `resolveJournalRunContext` resolves the backend up front for every verb, so a
