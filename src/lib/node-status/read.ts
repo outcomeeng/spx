@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -17,7 +19,7 @@ import {
 } from "./classify";
 
 /** Filename of the co-located per-node verification projection. */
-export const NODE_STATUS_FILENAME = "spx.status.json";
+export const NODE_STATUS_FILENAME = SPEC_TREE_GRAMMAR.STATUS_FILENAME;
 
 const NODE_STATUS_MECHANISMS: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_VERIFICATION_MECHANISM));
 const NODE_STATUS_EVIDENCE_OUTCOMES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_EVIDENCE_OUTCOME));

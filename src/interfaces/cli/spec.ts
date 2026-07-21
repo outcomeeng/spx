@@ -9,11 +9,11 @@ import {
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 
 export const SPEC_DOMAIN_CLI = {
@@ -21,9 +21,11 @@ export const SPEC_DOMAIN_CLI = {
   STATUS_COMMAND: "status",
   NEXT_COMMAND: "next",
   CONTEXT_COMMAND: "context",
+  CONTEXT_SHOW_COMMAND: "show",
   RETIRED_APPLY_COMMAND: "apply",
   JSON_OPTION: "--json",
   CONTENT_OPTION: "--content",
+  UNDERSTAND_OPTION: "--understand",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
   UPDATE_OPTION: "--update",
@@ -141,14 +143,20 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
 
   specCmd
     .command(SPEC_DOMAIN_CLI.CONTEXT_COMMAND)
-    .description("Load deterministic context for a spec-tree node")
-    .argument("<target>", "Spec-tree node path")
+    .description("Deterministic context bundles for spec-tree nodes")
+    .command(SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND)
+    .description("Load one deduplicated context bundle for one or more spec-tree nodes")
+    .argument("<targets...>", "Spec-tree node paths")
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .option(
       SPEC_DOMAIN_CLI.CONTENT_OPTION,
       `Include each read document's exact content, digest, and byte count (requires ${SPEC_DOMAIN_CLI.JSON_OPTION})`,
     )
-    .action(async (target: string, options: { json?: boolean; content?: boolean }) => {
+    .option(
+      SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
+      "Include the foundation methodology payload from the installed methodology package",
+    )
+    .action(async (targets: string[], options: { json?: boolean; content?: boolean; understand?: boolean }) => {
       try {
         if (options.content === true && options.json !== true) {
           throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
@@ -157,9 +165,10 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
           ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
           : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
         const output = await contextOutputForFormat(format, {
-          target,
+          targets,
           cwd: productDir(),
           content: options.content === true,
+          understand: options.understand === true,
           onWarning,
         });
         writeOutput(invocation.io, output);

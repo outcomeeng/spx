@@ -1,4 +1,4 @@
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailureKind } from "@/domains/spec/context-target";
+import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailureKind } from "@/lib/spec-tree";
 
 export const SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX = {
   [SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT]: "Ambiguous spec context target segment",

@@ -5,6 +5,7 @@ export const METHODOLOGY_SECTION = "methodology";
 export const METHODOLOGY_CONFIG_FIELDS = {
   SOURCE: "source",
   VERSION: "version",
+  PACKAGE_DIR: "packageDir",
 } as const;
 
 export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/spec-tree";
@@ -13,9 +14,14 @@ export const DEFAULT_METHODOLOGY_VERSION = "installed";
 export interface MethodologyConfig {
   readonly source: string;
   readonly version: string;
+  /** Installed methodology package root the foundation-resource reader resolves; absent when unconfigured. */
+  readonly packageDir?: string;
 }
 
-export type MethodologyIdentity = MethodologyConfig;
+export interface MethodologyIdentity {
+  readonly source: string;
+  readonly version: string;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -80,11 +86,21 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
     : validateNonEmptyString(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`, versionRaw);
   if (!version.ok) return version;
 
-  return { ok: true, value: { source: source.value, version: version.value } };
+  const packageDirRaw = value[METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR];
+  if (packageDirRaw === undefined) {
+    return { ok: true, value: { source: source.value, version: version.value } };
+  }
+  const packageDir = validateNonEmptyString(
+    `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR}`,
+    packageDirRaw,
+  );
+  if (!packageDir.ok) return packageDir;
+
+  return { ok: true, value: { source: source.value, version: version.value, packageDir: packageDir.value } };
 }
 
 export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
-  return config;
+  return { source: config.source, version: config.version };
 }
 
 export const methodologyConfigDescriptor: ConfigDescriptor<MethodologyConfig> = {

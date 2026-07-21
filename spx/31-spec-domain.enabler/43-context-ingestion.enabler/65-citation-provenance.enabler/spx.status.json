@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-citation-provenance.enabler/tests/cited-decisions.scenario.l1.test.ts": "passed"
+    }
+  }
+}

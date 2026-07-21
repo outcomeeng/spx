@@ -1,30 +1,8 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { resolveMethodologyIdentity } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
-import {
-  compareSpecContextOrdinal,
-  decodeContextDocumentUtf8,
-  extractDecisionCitations,
-  formatInvalidContextDocumentError,
-  formatMissingCitedDecisionError,
-  formatUnreadableContextDocumentError,
-  isLocalOverlayPath,
-  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-  SPEC_CONTEXT_LISTED_ROLE,
-  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
-  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_READ_ROLE,
-  specContextBootstrap,
-  specContextDigest,
-  type SpecContextListedEntry,
-  type SpecContextListedRole,
-  type SpecContextManifest,
-  type SpecContextReadDocument,
-  type SpecContextReadRole,
-} from "@/domains/spec/context-manifest";
-import { resolveSpecContextTarget, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { defaultGitDependencies } from "@/lib/git/root";
@@ -35,11 +13,42 @@ import {
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
 import {
+  formatFoundationManifestInvalidError,
+  formatFoundationManifestUnreadableError,
+  formatFoundationPackageUnconfiguredError,
+  formatFoundationResourceUnreadableError,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
+  foundationCatalogPaths,
+  parseFoundationResourceManifest,
+} from "@/lib/methodology/foundation-manifest";
+import {
+  compareSpecContextOrdinal,
+  composeSpecContextBundle,
   createFilesystemSpecTreeSource,
+  decodeContextDocumentUtf8,
+  extractDecisionCitations,
+  formatInvalidContextDocumentError,
+  formatMissingCitedDecisionError,
+  formatUnreadableContextDocumentError,
+  isLocalOverlayPath,
   readSpecTree,
+  resolveSpecContextTarget,
+  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_LISTED_ROLE,
+  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
+  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+  SPEC_CONTEXT_READ_ROLE,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
+  specContextBootstrap,
+  specContextDigest,
+  type SpecContextManifest,
+  type SpecContextReadDocument,
+  type SpecContextTargetFailure,
+  type SpecContextTargetListedEntry,
+  type SpecContextTargetReadDocument,
+  type SpecContextTargetReadSet,
   type SpecTreeDecision,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
@@ -53,10 +62,12 @@ export type SpecContextManifestResolution =
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
 export interface ContextOptions {
-  readonly target: string;
+  readonly targets: readonly string[];
   readonly cwd?: string;
   /** When true, every read-class entry carries the document's exact content, digest, and byte count. */
   readonly content?: boolean;
+  /** When true, the manifest carries the foundation methodology payload from the installed package. */
+  readonly understand?: boolean;
   readonly gitDependencies?: GitDependencies;
   readonly onWarning?: SpecProductDirWarningHandler;
 }
@@ -65,13 +76,14 @@ const JSON_INDENTATION = 2;
 const SPEC_TREE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
 
 export const SPEC_CONTEXT_TEXT_LABEL = {
-  TARGET: "Target",
+  TARGETS: "Targets",
   PRODUCT_ROOT: "Product root",
   METHODOLOGY: "Methodology",
   SCHEMA_VERSION: "Schema version",
   BOOTSTRAP: "Bootstrap",
   READ: "Read",
   LISTED: "Listed",
+  METHODOLOGY_DOCUMENT: "Methodology document",
 } as const;
 
 const TEXT_LIST_INDENT = "  - ";
@@ -95,8 +107,8 @@ function childSpecPath(parent: string, child: string): string {
 }
 
 async function pushExistingReadDocument(
-  read: SpecContextReadDocument[],
-  role: SpecContextReadRole,
+  read: SpecContextTargetReadDocument[],
+  role: SpecContextTargetReadDocument["role"],
   productDir: string,
   path: string | undefined,
   includePath: PathInclusion,
@@ -108,8 +120,8 @@ async function pushExistingReadDocument(
 }
 
 async function pushExistingListedEntry(
-  listed: SpecContextListedEntry[],
-  role: SpecContextListedRole,
+  listed: SpecContextTargetListedEntry[],
+  role: SpecContextTargetListedEntry["role"],
   productDir: string,
   path: string | undefined,
   includePath: PathInclusion,
@@ -212,7 +224,7 @@ async function optionalSpecTreeFile(
 }
 
 async function pushCoordinationDocuments(
-  read: SpecContextReadDocument[],
+  read: SpecContextTargetReadDocument[],
   productDir: string,
   contextNodes: readonly SpecTreeNode[],
   includePath: PathInclusion,
@@ -234,8 +246,8 @@ async function pushCoordinationDocuments(
   }
 }
 
-async function pushGuideDocuments(
-  read: SpecContextReadDocument[],
+async function pushGuideEntries(
+  listed: SpecContextTargetListedEntry[],
   productDir: string,
   contextNodes: readonly SpecTreeNode[],
   includePath: PathInclusion,
@@ -243,9 +255,9 @@ async function pushGuideDocuments(
   const directories = ["", ...contextNodes.map((node) => fullSpecPath(node.id))];
   for (const directory of directories) {
     for (const filename of SPEC_TREE_GRAMMAR.GUIDE_FILES) {
-      await pushExistingReadDocument(
-        read,
-        SPEC_CONTEXT_READ_ROLE.GUIDE,
+      await pushExistingListedEntry(
+        listed,
+        SPEC_CONTEXT_LISTED_ROLE.GUIDE,
         productDir,
         directory === "" ? filename : childSpecPath(directory, filename),
         includePath,
@@ -287,16 +299,18 @@ type ScannedDocuments = Map<string, { readonly rawBytes: Buffer; readonly conten
  */
 async function citedDecisionDocuments(
   productDir: string,
-  sources: readonly SpecContextReadDocument[],
+  sources: readonly SpecContextTargetReadDocument[],
   knownPaths: ReadonlySet<string>,
   includePath: PathInclusion,
   contentRequested: boolean,
   scannedDocuments: ScannedDocuments,
-): Promise<readonly SpecContextReadDocument[]> {
+): Promise<readonly SpecContextTargetReadDocument[]> {
   // Content mode promises atomic exact-path failure on the first unreadable
   // or invalid document; the path-only projection carries no such contract,
   // so there an unscannable document simply contributes no citations.
   const scanText = async (path: string): Promise<string | undefined> => {
+    const scanned = scannedDocuments.get(path);
+    if (scanned !== undefined) return scanned.content;
     let rawBytes: Buffer;
     try {
       rawBytes = await readContextDocumentBytes(productDir, path);
@@ -367,40 +381,16 @@ async function localOverlayPaths(
     .map((name) => childSpecPath(SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY, name));
 }
 
-/**
- * Attaches each read document's exact UTF-8 content, raw-byte digest, and byte
- * count, reusing bytes the citation scan already read so each document is read
- * once per projection. The digest hashes the raw bytes before decoding; the
- * first unreadable or non-UTF-8 document aborts the whole projection naming
- * its exact path.
- */
-async function withDocumentContent(
-  productDir: string,
-  read: readonly SpecContextReadDocument[],
-  scannedDocuments: ScannedDocuments,
-): Promise<readonly SpecContextReadDocument[]> {
-  const enriched: SpecContextReadDocument[] = [];
-  for (const document of read) {
-    const scanned = scannedDocuments.get(document.path);
-    const rawBytes = scanned?.rawBytes ?? await readContextDocumentBytes(productDir, document.path);
-    enriched.push({
-      ...document,
-      content: scanned?.content ?? decodeContextDocumentOrThrow(document.path, rawBytes),
-      digest: specContextDigest(rawBytes),
-      bytes: rawBytes.byteLength,
-    });
-  }
-  return enriched;
-}
-
-async function buildManifest(
+/** One resolved target's complete read and listed sequences in that target's group order. */
+async function buildTargetReadSet(
   productDir: string,
   snapshot: SpecTreeSnapshot,
   target: SpecTreeNode,
   includePath: PathInclusion,
   trackedPaths: ReadonlySet<string> | undefined,
   contentRequested: boolean,
-): Promise<SpecContextManifest> {
+  scannedDocuments: ScannedDocuments,
+): Promise<SpecContextTargetReadSet> {
   const ancestors = ancestorsFor(snapshot, target);
   const contextNodes = [...ancestors, target];
   const siblings = siblingsFor(snapshot, target);
@@ -411,13 +401,8 @@ async function buildManifest(
   const higherIndex = sortPaths(
     siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
   );
-  const methodologyConfig = await resolveMethodologyConfig(productDir);
-  if (!methodologyConfig.ok) {
-    throw new Error(methodologyConfig.error);
-  }
-  const methodology = resolveMethodologyIdentity(methodologyConfig.value);
 
-  const read: SpecContextReadDocument[] = [];
+  const read: SpecContextTargetReadDocument[] = [];
   await pushExistingReadDocument(
     read,
     SPEC_CONTEXT_READ_ROLE.PRODUCT,
@@ -461,9 +446,7 @@ async function buildManifest(
   }
   const structuralDocuments = [...read];
   await pushCoordinationDocuments(read, productDir, contextNodes, includePath);
-  await pushGuideDocuments(read, productDir, contextNodes, includePath);
   const knownPaths = new Set(read.map((document) => document.path));
-  const scannedDocuments: ScannedDocuments = new Map();
   read.push(
     ...await citedDecisionDocuments(
       productDir,
@@ -483,7 +466,7 @@ async function buildManifest(
     includePath,
   );
 
-  const listed: SpecContextListedEntry[] = [];
+  const listed: SpecContextTargetListedEntry[] = [];
   for (const evidence of evidenceFor(snapshot, target)) {
     await pushExistingListedEntry(
       listed,
@@ -493,6 +476,7 @@ async function buildManifest(
       includePath,
     );
   }
+  await pushGuideEntries(listed, productDir, contextNodes, includePath);
   for (const overlayPath of overlayPaths) {
     if (overlayPath === SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH) continue;
     await pushExistingListedEntry(
@@ -510,14 +494,89 @@ async function buildManifest(
     listed.push({ role: SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING, path: sibling });
   }
 
+  return { target: fullSpecPath(target.id), read, listed };
+}
+
+/**
+ * Attaches each read document's exact UTF-8 content, raw-byte digest, and byte
+ * count, reusing bytes the citation scan already read so each document is read
+ * once per projection. The digest hashes the raw bytes before decoding; the
+ * first unreadable or non-UTF-8 document aborts the whole projection naming
+ * its exact path. Methodology entries already carry their bodies and pass
+ * through unchanged.
+ */
+async function withDocumentContent(
+  productDir: string,
+  read: readonly SpecContextReadDocument[],
+  scannedDocuments: ScannedDocuments,
+): Promise<readonly SpecContextReadDocument[]> {
+  const enriched: SpecContextReadDocument[] = [];
+  for (const document of read) {
+    if (document.content !== undefined) {
+      enriched.push(document);
+      continue;
+    }
+    const scanned = scannedDocuments.get(document.path);
+    const rawBytes = scanned?.rawBytes ?? await readContextDocumentBytes(productDir, document.path);
+    enriched.push({
+      ...document,
+      content: scanned?.content ?? decodeContextDocumentOrThrow(document.path, rawBytes),
+      digest: specContextDigest(rawBytes),
+      bytes: rawBytes.byteLength,
+    });
+  }
+  return enriched;
+}
+
+/** The methodology payload read from the installed package: the core body plus the catalog paths. */
+interface MethodologyPayload {
+  readonly core: SpecContextReadDocument;
+  readonly catalog: readonly string[];
+}
+
+/**
+ * Reads the foundation-resource manifest and the core foundation body from the
+ * configured installed methodology package. An unconfigured location, an
+ * absent or invalid manifest, an unrecognized schema version, or an unreadable
+ * named resource fails the whole projection naming the resolved path.
+ */
+async function readMethodologyPayload(
+  productDir: string,
+  packageDir: string | undefined,
+  targets: readonly string[],
+): Promise<MethodologyPayload> {
+  if (packageDir === undefined) {
+    throw new Error(
+      formatFoundationPackageUnconfiguredError(METHODOLOGY_SECTION, METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR),
+    );
+  }
+  const resolvedPackageDir = resolve(productDir, packageDir);
+  const manifestPath = join(resolvedPackageDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
+  let manifestText: string;
+  try {
+    manifestText = await readFile(manifestPath, "utf8");
+  } catch {
+    throw new Error(formatFoundationManifestUnreadableError(manifestPath));
+  }
+  const manifest = parseFoundationResourceManifest(manifestText);
+  if (!manifest.ok) {
+    throw new Error(formatFoundationManifestInvalidError(manifestPath, manifest.error));
+  }
+  let coreBytes: Buffer;
+  try {
+    coreBytes = await readFile(join(resolvedPackageDir, manifest.value.core));
+  } catch {
+    throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
+  }
   return {
-    schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-    methodology,
-    productDir,
-    target: fullSpecPath(target.id),
-    bootstrap: specContextBootstrap(snapshot.allNodes.length),
-    read: contentRequested ? await withDocumentContent(productDir, read, scannedDocuments) : read,
-    listed,
+    core: {
+      path: manifest.value.core,
+      roles: targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
+      content: decodeContextDocumentOrThrow(manifest.value.core, coreBytes),
+      digest: specContextDigest(coreBytes),
+      bytes: coreBytes.byteLength,
+    },
+    catalog: foundationCatalogPaths(manifest.value),
   };
 }
 
@@ -536,17 +595,70 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
       includePath,
     }),
   });
-  const resolution = resolveSpecContextTarget(snapshot, options.target);
-  if (!resolution.ok) return resolution;
+  const resolvedTargets: SpecTreeNode[] = [];
+  for (const target of options.targets) {
+    const resolution = resolveSpecContextTarget(snapshot, target);
+    if (!resolution.ok) return resolution;
+    resolvedTargets.push(resolution.node);
+  }
+  const methodologyConfig = await resolveMethodologyConfig(productDir);
+  if (!methodologyConfig.ok) {
+    throw new Error(methodologyConfig.error);
+  }
+  const methodology = resolveMethodologyIdentity(methodologyConfig.value);
+  const contentRequested = options.content === true;
+  const scannedDocuments: ScannedDocuments = new Map();
+  const uniqueTargets = new Map<string, SpecTreeNode>(
+    resolvedTargets.map((node) => [fullSpecPath(node.id), node]),
+  );
+  const sets: SpecContextTargetReadSet[] = [];
+  for (const node of uniqueTargets.values()) {
+    sets.push(
+      await buildTargetReadSet(
+        productDir,
+        snapshot,
+        node,
+        includePath,
+        trackedPaths,
+        contentRequested,
+        scannedDocuments,
+      ),
+    );
+  }
+  const bundle = composeSpecContextBundle(sets);
+  let read: readonly SpecContextReadDocument[] = bundle.read;
+  let listed = bundle.listed;
+  let coverage = bundle.coverage;
+  if (options.understand === true) {
+    const payload = await readMethodologyPayload(productDir, methodologyConfig.value.packageDir, bundle.targets);
+    read = [...read, payload.core];
+    listed = [
+      ...listed,
+      ...payload.catalog.map((path) => ({
+        path,
+        roles: bundle.targets.map((target) => ({
+          target,
+          role: SPEC_CONTEXT_LISTED_ROLE.METHODOLOGY_CATALOG,
+        })),
+      })),
+    ];
+    coverage = coverage.map((targetCoverage) => ({
+      target: targetCoverage.target,
+      read: [...targetCoverage.read, payload.core.path],
+      listed: [...targetCoverage.listed, ...payload.catalog],
+    }));
+  }
   return {
-    manifest: await buildManifest(
+    manifest: {
+      schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+      methodology,
       productDir,
-      snapshot,
-      resolution.node,
-      includePath,
-      trackedPaths,
-      options.content === true,
-    ),
+      targets: bundle.targets,
+      bootstrap: specContextBootstrap(snapshot.allNodes.length),
+      read: contentRequested ? await withDocumentContent(productDir, read, scannedDocuments) : read,
+      listed,
+      coverage,
+    },
     ok: true,
   };
 }
@@ -558,14 +670,18 @@ function appendList(lines: string[], label: string, values: readonly string[]): 
   }
 }
 
+function renderRoleBindings(roles: readonly { readonly target: string; readonly role: string }[]): string {
+  return roles.map((binding) => `${binding.role}@${binding.target}`).join(", ");
+}
+
 function renderReadDocument(document: SpecContextReadDocument): string {
   const provenance = document.citedBy === undefined ? "" : ` (cited by ${document.citedBy.join(", ")})`;
-  return `${document.role}: ${document.path}${provenance}`;
+  return `${renderRoleBindings(document.roles)}: ${document.path}${provenance}`;
 }
 
 export function renderSpecContextText(manifest: SpecContextManifest): string {
   const lines = [
-    `${SPEC_CONTEXT_TEXT_LABEL.TARGET}: ${manifest.target}`,
+    `${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${manifest.targets.join(", ")}`,
     `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
     `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
     `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
@@ -575,8 +691,17 @@ export function renderSpecContextText(manifest: SpecContextManifest): string {
   appendList(
     lines,
     SPEC_CONTEXT_TEXT_LABEL.LISTED,
-    manifest.listed.map((entry) => `${entry.role}: ${entry.path}`),
+    manifest.listed.map((entry) => `${renderRoleBindings(entry.roles)}: ${entry.path}`),
   );
+  for (const document of manifest.read) {
+    if (
+      document.content === undefined
+      || !document.roles.some((binding) => binding.role === SPEC_CONTEXT_READ_ROLE.METHODOLOGY)
+    ) {
+      continue;
+    }
+    lines.push(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY_DOCUMENT}: ${document.path}`, document.content);
+  }
   return lines.join("\n");
 }
 
