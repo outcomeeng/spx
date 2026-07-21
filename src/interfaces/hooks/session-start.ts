@@ -176,7 +176,13 @@ async function resolveSessionStartSessionId(options: {
     options.payload.transcriptPath,
     options.transcriptFileSystem,
   );
-  if (!trustedPath) {
+  if (!trustedPath.ok) {
+    options.diagnostics.push(
+      `${PI_SESSION_START_REJECTION_REGISTRY.readFailed.diagnostic}${ERROR_DETAIL_SEPARATOR}${trustedPath.error}`,
+    );
+    return undefined;
+  }
+  if (!trustedPath.value) {
     options.diagnostics.push(PI_SESSION_START_REJECTION_REGISTRY.pathUntrusted.diagnostic);
     return undefined;
   }
@@ -206,15 +212,15 @@ async function isTrustedPiTranscriptPath(
   sessionStoreDir: string,
   transcriptPath: string,
   fs: HookTranscriptFileSystem,
-): Promise<boolean> {
+): Promise<Result<boolean>> {
   try {
     const [canonicalStore, canonicalTranscript] = await Promise.all([
       fs.realPath(sessionStoreDir),
       fs.realPath(transcriptPath),
     ]);
-    return isPathContained(canonicalStore, canonicalTranscript);
-  } catch {
-    return false;
+    return { ok: true, value: isPathContained(canonicalStore, canonicalTranscript) };
+  } catch (error) {
+    return { ok: false, error: describeError(error) };
   }
 }
 
