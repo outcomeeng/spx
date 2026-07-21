@@ -6,6 +6,7 @@ export const SENTINEL_NULL = "<null>";
 export const SENTINEL_EMPTY = "<empty>";
 
 export const CONTROL_CHAR_UPPER_BOUND = 0x1f;
+export const ESCAPE_CONTROL_CHAR_CODE = 0x1b;
 export const DEL_CHAR_CODE = 0x7f;
 export const FIRST_PRINTABLE_CHAR_CODE = 0x20;
 
