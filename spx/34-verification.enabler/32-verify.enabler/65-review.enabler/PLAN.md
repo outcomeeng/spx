@@ -8,7 +8,7 @@ This node materializes `review` as a verification type-specific aggregate bounda
 
 ## Child work
 
-- Review evidence schema and validation: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/PLAN.md`.
+- Review evidence schema and validation: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler` is passing with co-located payload evidence; the review-producer migration onto `spx verification run` is queued in the plugins repository's own session queue.
 - Review envelope, reviewed-unit, comment, and run-set projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/PLAN.md`.
 
 ## Ordering evidence
