@@ -12,14 +12,14 @@
 ## Remaining lifecycle work
 
 1. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering before a verification type can register only part of the evidence-action surface.
-2. Keep run-set context projection out of the individual-run lifecycle until `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md` is implemented.
-3. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection once the run-set node provides it.
+2. Keep run-set context projection out of the individual-run lifecycle; `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` owns it as the separate run-set layer.
+3. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` provides.
 
 ## Expansion structure
 
 The next expansion has two independent product dimensions:
 
-1. Run-set envelope and orchestration: `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md`.
+1. Run-set envelope and orchestration: `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler`.
 2. Verification-type payload semantics:
    - `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/PLAN.md`.
    - `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/PLAN.md`.

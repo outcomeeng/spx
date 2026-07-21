@@ -4,4 +4,4 @@
 
 ## Pending work
 
-1. Migrate audit run drivers and leaf skill producer callers to `spx verification run` for individual audit runs; prior-run context waits for `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/PLAN.md`.
+1. Migrate audit run drivers and leaf skill producer callers to `spx verification run` for individual audit runs; prior-run context consumes `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler`.
