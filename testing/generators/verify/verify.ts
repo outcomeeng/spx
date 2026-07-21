@@ -829,6 +829,13 @@ export const VERIFY_TEST_GENERATOR = {
         url: fc.constant(EMPTY_REVIEW_BODY),
       }),
     ),
+  reviewTerminalMetadataVariants: (): fc.Arbitrary<readonly ReviewTerminalMetadata[]> =>
+    fc.tuple(
+      arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.APPROVED),
+      arbitraryReviewTerminalMetadataWithProvider(REVIEW_TERMINAL_STATE.APPROVED),
+      arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.CHANGES_REQUESTED),
+      arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.COMMENTED),
+    ),
   reviewApprovedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
     arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.APPROVED),
   reviewApprovedTerminalMetadataWithProvider: (): fc.Arbitrary<ReviewTerminalMetadata> =>

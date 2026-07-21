@@ -1,4 +1,10 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.conformance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.property.l1.test.ts": "passed"
+    }
+  }
 }
