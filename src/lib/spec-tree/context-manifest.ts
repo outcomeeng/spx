@@ -156,18 +156,8 @@ type MergedReadDocument = {
   citedBy: string[] | undefined;
 };
 
-/**
- * Composes per-target read sets into one deduplicated bundle. The resolved
- * target set is canonically ordered by ordinal identity comparison before
- * composition, so every permutation of the same operands yields byte-identical
- * output. Each shared document appears exactly once, carrying every
- * target-role pair it holds and the union of its citing paths in
- * first-appearance order; per-target coverage keeps each target's own ordered
- * sequences reconstructible by path reference.
- */
 function mergeReadDocument(
   merged: Map<string, MergedReadDocument>,
-  order: string[],
   target: string,
   document: SpecContextTargetReadDocument,
 ): void {
@@ -177,7 +167,6 @@ function mergeReadDocument(
       roles: [{ target, role: document.role }],
       citedBy: document.citedBy === undefined ? undefined : [...document.citedBy],
     });
-    order.push(document.path);
     return;
   }
   if (!existing.roles.some((binding) => binding.target === target && binding.role === document.role)) {
@@ -191,14 +180,12 @@ function mergeReadDocument(
 
 function mergeListedEntry(
   merged: Map<string, SpecContextListedRoleBinding[]>,
-  order: string[],
   target: string,
   entry: SpecContextTargetListedEntry,
 ): void {
   const existing = merged.get(entry.path);
   if (existing === undefined) {
     merged.set(entry.path, [{ target, role: entry.role }]);
-    order.push(entry.path);
     return;
   }
   if (!existing.some((binding) => binding.target === target && binding.role === entry.role)) {
@@ -206,34 +193,37 @@ function mergeListedEntry(
   }
 }
 
+/**
+ * Composes per-target read sets into one deduplicated bundle. The resolved
+ * target set is canonically ordered by ordinal identity comparison before
+ * composition, so every permutation of the same operands yields byte-identical
+ * output. Each shared document appears exactly once, carrying every
+ * target-role pair it holds and the union of its citing paths in
+ * first-appearance order; per-target coverage keeps each target's own ordered
+ * sequences reconstructible by path reference.
+ */
 export function composeSpecContextBundle(sets: readonly SpecContextTargetReadSet[]): SpecContextBundle {
   const orderedSets = [...sets].sort((left, right) => compareSpecContextOrdinal(left.target, right.target));
+  // Map insertion order is the first-appearance composition order, so the
+  // deduplicated arrays project straight from the merge maps.
   const readByPath = new Map<string, MergedReadDocument>();
-  const readOrder: string[] = [];
   const listedByPath = new Map<string, SpecContextListedRoleBinding[]>();
-  const listedOrder: string[] = [];
   for (const set of orderedSets) {
     for (const document of set.read) {
-      mergeReadDocument(readByPath, readOrder, set.target, document);
+      mergeReadDocument(readByPath, set.target, document);
     }
     for (const entry of set.listed) {
-      mergeListedEntry(listedByPath, listedOrder, set.target, entry);
+      mergeListedEntry(listedByPath, set.target, entry);
     }
   }
   return {
     targets: orderedSets.map((set) => set.target),
-    read: readOrder.map((path) => {
-      const merged = readByPath.get(path) as MergedReadDocument;
-      return {
-        path,
-        roles: merged.roles,
-        ...(merged.citedBy === undefined ? {} : { citedBy: merged.citedBy }),
-      };
-    }),
-    listed: listedOrder.map((path) => ({
+    read: [...readByPath.entries()].map(([path, merged]) => ({
       path,
-      roles: listedByPath.get(path) as SpecContextListedRoleBinding[],
+      roles: merged.roles,
+      ...(merged.citedBy === undefined ? {} : { citedBy: merged.citedBy }),
     })),
+    listed: [...listedByPath.entries()].map(([path, roles]) => ({ path, roles })),
     coverage: orderedSets.map((set) => ({
       target: set.target,
       read: set.read.map((document) => document.path),
