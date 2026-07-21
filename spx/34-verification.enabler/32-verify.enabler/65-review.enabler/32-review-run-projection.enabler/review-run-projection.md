@@ -15,9 +15,10 @@ CAN render formal-review-shaped evidence from individual verification runs and r
 - Review terminal metadata maps provider identity when present, actor, state, body, submitted time, commit identity, and URL when present into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
 - Review terminal metadata state maps `approved` to terminal status `approved`, maps `changes_requested` to terminal status `rejected`, and lets `commented` preserve the caller-supplied terminal status unless review evidence already determines rejection ([test](tests/review-envelope.mapping.l1.test.ts))
 - Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL when present, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
-- Review run evidence maps through the review finding-identity extractor and reviewed-unit scope key into the run-set projection's active, resolved, reopened, and coverage-gap groups ([test](tests/review-run-set.mapping.l1.test.ts))
 
 ### Properties
+
+- For every review run set, run evidence projects through the review finding-identity extractor and reviewed-unit scope key into active, resolved, reopened, and coverage-gap groups ([test](tests/review-run-set.property.l1.test.ts))
 
 - Review finding identity composes the review verification type, the anchor side and path, and the SPX finding summary, and is invariant under changes to line, position, URL, provider identity, diff hunk, comment body, original commit, and finding disposition ([test](tests/review-run-set-identity.property.l1.test.ts))
 - The reviewed-unit scope key composes the anchor side and path and is invariant under changes to commit, coverage state, line, position, URL, and provider identity ([test](tests/review-run-set-identity.property.l1.test.ts))
