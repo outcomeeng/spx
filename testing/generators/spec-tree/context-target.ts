@@ -1,3 +1,5 @@
+import * as fc from "fast-check";
+
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
@@ -192,6 +194,18 @@ export type SpecContextArtifactTargetFixture = {
       (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES];
   };
 };
+
+/**
+ * Byte sequences a strict WHATWG UTF-8 decode rejects: a lone continuation
+ * byte, an invalid starter byte, or a truncated multi-byte sequence.
+ */
+export function arbitrarySpecContextInvalidUtf8Bytes(): fc.Arbitrary<Uint8Array> {
+  return fc.oneof(
+    fc.integer({ min: 0x80, max: 0xbf }).map((continuation) => Uint8Array.of(continuation)),
+    fc.constantFrom(0xc0, 0xc1, 0xf5, 0xfe, 0xff).map((starter) => Uint8Array.of(starter)),
+    fc.integer({ min: 0xe0, max: 0xef }).map((truncated) => Uint8Array.of(truncated, 0x20)),
+  );
+}
 
 /** Citation-shaped paths that must bind nothing: relative segment, suffix-extended, and embedded-root shapes. */
 export type SpecContextTraversalCitationShapes = {

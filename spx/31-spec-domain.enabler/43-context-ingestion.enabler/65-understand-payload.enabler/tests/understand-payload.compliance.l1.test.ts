@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
-import { specContextDigest } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -32,7 +34,11 @@ describe("spec context understand payload sourcing", () => {
         );
         const entry = manifest.read.find((document) => document.path === fixture.corePath);
         expect(entry?.content).toBe(coreText);
-        expect(entry?.digest).toBe(specContextDigest(Buffer.from(coreText)));
+        expect(entry?.digest).toBe(
+          `${SPEC_CONTEXT_DIGEST_ALGORITHM}:${
+            createHash(SPEC_CONTEXT_DIGEST_ALGORITHM).update(coreText).digest("hex")
+          }`,
+        );
         expect(entry?.bytes).toBe(Buffer.byteLength(coreText));
         expect(manifest.methodology).toEqual({
           source: identity[METHODOLOGY_CONFIG_FIELDS.SOURCE],

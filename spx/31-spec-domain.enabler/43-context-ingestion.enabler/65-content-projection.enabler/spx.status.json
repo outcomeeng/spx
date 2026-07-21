@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-content-projection.enabler/tests/content.compliance.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-content-projection.enabler/tests/content.scenario.l1.test.ts": "passed"
     }
   }
