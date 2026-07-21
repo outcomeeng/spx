@@ -4,19 +4,11 @@ import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
 import { build } from "tsup";
-import { expect } from "vitest";
 
 import { type ContextOptions } from "@/commands/spec/context";
-import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
-import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import {
-  contextOutputForFormat,
-  SPEC_CONTEXT_CONTENT_MESSAGE,
-  SPEC_CONTEXT_OUTPUT_FORMAT,
-  SPEC_DOMAIN_CLI,
-} from "@/interfaces/cli/spec";
+import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
@@ -28,7 +20,6 @@ import {
 import {
   KIND_REGISTRY,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-  SPEC_CONTEXT_READ_ROLE,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_GRAMMAR,
@@ -36,19 +27,11 @@ import {
   type SpecContextManifest,
   type SpecContextReadRole,
 } from "@/lib/spec-tree";
-import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
   specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
 import {
-  specCliApplyProtectionFixture,
-  specCliContextTargetFixture,
-  specCliDeclaredStatusRows,
-  specCliUnsupportedStatusFormatFixture,
-} from "@testing/generators/spec-tree/spec-cli";
-import {
-  RETIRED_SPEC_APPLY_FIXTURE,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
@@ -117,7 +100,7 @@ async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
   return pathToFileURL(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE)).href;
 }
 
-async function runSpecCli(productDir: string, ...args: readonly string[]) {
+export async function runSpecCli(productDir: string, ...args: readonly string[]) {
   return (await runSpecCliWithIsolation(productDir, ...args)).result;
 }
 
@@ -175,7 +158,6 @@ export async function runSpecCliWithIsolation(productDir: string, ...args: reado
     },
   );
   const networkAttempts = JSON.parse(await readFile(networkAttemptsFile, "utf8")) as readonly unknown[];
-  expect(networkAttempts).toEqual([]);
   return {
     mutableStateDirectories: await Promise.all(mutableStateDirectories.map((path) => realpath(path))),
     networkAttempts,
@@ -187,206 +169,12 @@ export async function runSpecCliWithIsolation(productDir: string, ...args: reado
   };
 }
 
-function isWithinProductDirectory(productDir: string, candidate: string): boolean {
+export function isWithinProductDirectory(productDir: string, candidate: string): boolean {
   const relativePath = relative(productDir, candidate);
   return relativePath.length > 0
     && relativePath !== ".."
     && !relativePath.startsWith(`..${sep}`)
     && !isAbsolute(relativePath);
-}
-
-function assertDeclaredStatusRows(
-  output: string,
-  fixture: Parameters<typeof specCliDeclaredStatusRows>[0],
-): void {
-  const expectedRows = specCliDeclaredStatusRows(fixture);
-  expect(output.split("\n")).toEqual(expectedRows.map((row) => row.output));
-  for (const row of expectedRows) {
-    expect(output).toContain(row.nodeId);
-    expect(output).toContain(`[${row.state}]`);
-  }
-}
-
-export async function assertSpecStatusCliRendersCurrentTree(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND);
-    expect(result.exitCode).toBe(0);
-    assertDeclaredStatusRows(result.stdout, env.fixture);
-  });
-}
-
-export async function assertSpecStatusCliUpdatesDeclaredNodes(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.STATUS_COMMAND,
-      SPEC_DOMAIN_CLI.UPDATE_OPTION,
-    );
-    expect(result.exitCode, result.stderr).toBe(0);
-    assertDeclaredStatusRows(result.stdout, env.fixture);
-  });
-}
-
-export async function assertSpecNextCliRendersSelection(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.NEXT_COMMAND);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(SPEC_NEXT_MESSAGE.HEADING);
-    expect(result.stdout).toContain(env.fixture.root.slug);
-  });
-}
-
-export async function assertSpecContextCliRendersTarget(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-      target,
-      SPEC_DOMAIN_CLI.JSON_OPTION,
-    );
-    expect(result.exitCode, result.stderr).toBe(0);
-    const manifest = parseContextManifest(result.stdout);
-    expect(manifest.targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target}`]);
-    expect(
-      manifest.read.some((document) =>
-        document.roles.some((binding) => binding.role === SPEC_CONTEXT_READ_ROLE.PRODUCT)
-      ),
-    ).toBe(true);
-  });
-}
-
-export async function assertSpecStatusCliRejectsUnsupportedFormat(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const fixture = specCliUnsupportedStatusFormatFixture(env.fixture);
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.STATUS_COMMAND,
-      SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
-      fixture.format,
-    );
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toBe(fixture.expectedDiagnostic);
-  });
-}
-
-export async function assertSpecStatusCliAcceptsLocalJsonFormat(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.STATUS_COMMAND,
-      SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
-      OUTPUT_FORMAT.JSON,
-    );
-    expect(result.exitCode).toBe(0);
-    expect(() => JSON.parse(result.stdout)).not.toThrow();
-  });
-}
-
-export async function assertSpecStatusCliConfinesMutableState(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const execution = await runSpecCliWithIsolation(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.STATUS_COMMAND,
-      SPEC_DOMAIN_CLI.FORMAT_OPTION_FLAG,
-      OUTPUT_FORMAT.JSON,
-    );
-    expect(execution.result.exitCode, execution.result.stderr).toBe(0);
-    expect(
-      execution.mutableStateDirectories.every((path) => isWithinProductDirectory(execution.productDirectory, path)),
-    )
-      .toBe(true);
-    expect(execution.writableDirectories.every((path) => path === execution.productDirectory))
-      .toBe(true);
-  });
-}
-
-export async function assertSpecApplyCliRejectsConfigurationWrites(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const fixture = specCliApplyProtectionFixture(env.fixture);
-    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, fixture.excludeContent);
-    await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, fixture.pythonConfigContent);
-    const before = await Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)));
-    const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
-    expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
-    await expect(Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)))).resolves.toEqual(before);
-  });
-}
-
-export async function assertSpecContextCliResolvesAbbreviatedTarget(): Promise<void> {
-  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-    await env.materialize();
-    const snapshot = await env.readFilesystemSnapshot();
-    const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
-    const fixture = specCliContextTargetFixture(snapshot, target);
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-      fixture.invocationTarget,
-      SPEC_DOMAIN_CLI.JSON_OPTION,
-    );
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseContextManifest(result.stdout).targets).toEqual([fixture.expectedTarget]);
-  });
-}
-
-export async function assertSpecContextCliEmitsContent(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-      target,
-      SPEC_DOMAIN_CLI.JSON_OPTION,
-      SPEC_DOMAIN_CLI.CONTENT_OPTION,
-    );
-    expect(result.exitCode, result.stderr).toBe(0);
-    const manifest = parseContextManifest(result.stdout);
-    expect(manifest.read.length).toBeGreaterThan(0);
-    for (const document of manifest.read) {
-      expect(document.content).toBeDefined();
-      expect(document.digest).toBeDefined();
-      expect(document.bytes).toBeDefined();
-    }
-  });
-}
-
-export async function assertSpecContextCliRejectsContentWithoutJson(): Promise<void> {
-  await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-    await env.materialize();
-    const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-    const result = await runSpecCli(
-      env.productDir,
-      SPEC_DOMAIN_CLI.COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-      SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-      target,
-      SPEC_DOMAIN_CLI.CONTENT_OPTION,
-    );
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
-  });
 }
 
 export function specTreeKindsConfig(): Config {
