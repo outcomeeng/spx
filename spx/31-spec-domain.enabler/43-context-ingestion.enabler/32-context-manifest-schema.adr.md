@@ -35,12 +35,10 @@ Per `spx/14-cli-composition.adr.md` and `spx/23-spec-tree.enabler/spec-tree.md`,
 - ALWAYS: pure projection computation lives in the spec-tree library behind `src/lib/spec-tree/index.ts`, and the command handler performs only product-root resolution, snapshot construction, and byte reads through injected dependencies
 - NEVER: a guide file binds a read obligation or carries content, a digest, or a byte count
 - NEVER: any target's resolution failure or required document failure yields a partial bundle
-
-### Testing
-
-- ALWAYS: content mode decodes documents as strict UTF-8, and the first read or decode failure aborts the entire projection with a diagnostic naming the exact failing path ([scenario])
-- NEVER: content mode truncates, elides, or substitutes any read-class document's bytes ([scenario])
-- NEVER: a listed-class entry carries document content, a digest, or a byte count ([scenario])
+- ALWAYS: content mode decodes every read-class document as strict UTF-8
+- ALWAYS: the first read or decode failure in content mode aborts the entire projection with a diagnostic naming the exact failing path
+- NEVER: content mode truncates, elides, or substitutes any read-class document's bytes
+- NEVER: a listed-class entry carries document content, a digest, or a byte count
 
 ### Audit
 
