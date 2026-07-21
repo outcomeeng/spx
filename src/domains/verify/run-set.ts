@@ -178,11 +178,14 @@ export interface RunSetProjectionInput<TScope, TFinding> {
   readonly priorContext?: RunSetPriorContextSelector<TScope, TFinding>;
 }
 
-function firstOccurrences<T>(items: readonly T[], keyOf: (item: T) => string): ReadonlyMap<string, T> {
+/**
+ * Deduplicate items by key: key order follows first appearance, and each key's representative is
+ * its most recent occurrence, so evolving display metadata resolves to the latest recorded values.
+ */
+function occurrencesByKey<T>(items: readonly T[], keyOf: (item: T) => string): ReadonlyMap<string, T> {
   const byKey = new Map<string, T>();
   for (const item of items) {
-    const key = keyOf(item);
-    if (!byKey.has(key)) byKey.set(key, item);
+    byKey.set(keyOf(item), item);
   }
   return byKey;
 }
@@ -191,6 +194,8 @@ function firstOccurrences<T>(items: readonly T[], keyOf: (item: T) => string): R
  * Project one run set into producer context: prior runs filtered through the type-provided
  * selector, the current scope, active/resolved/reopened finding groups classified by stable
  * finding identity, and the coverage gaps prior runs covered that the current scope does not.
+ * Resolved findings and coverage gaps keep first-appearance order while each identity's
+ * representative object is its most recent prior occurrence.
  */
 export function projectRunSet<TScope, TFinding>(
   input: RunSetProjectionInput<TScope, TFinding>,
@@ -204,7 +209,7 @@ export function projectRunSet<TScope, TFinding>(
   const currentFindings = selection.currentRun?.findings ?? [];
   const currentKeys = new Set(currentFindings.map(keyOf));
   const priorFindings = priorRuns.flatMap((run) => run.findings);
-  const priorByKey = firstOccurrences(priorFindings, keyOf);
+  const priorByKey = occurrencesByKey(priorFindings, keyOf);
   const latestPriorKeys = new Set((priorRuns.at(-1)?.findings ?? []).map(keyOf));
 
   const reopenedFindings = currentFindings.filter((finding) => {
@@ -219,7 +224,7 @@ export function projectRunSet<TScope, TFinding>(
 
   const currentScopeKeys = new Set(selection.currentScope.map(input.scopeUnitKey));
   const priorUnits = priorRuns.flatMap((run) => run.scopeUnits);
-  const coverageGaps = [...firstOccurrences(priorUnits, input.scopeUnitKey).entries()]
+  const coverageGaps = [...occurrencesByKey(priorUnits, input.scopeUnitKey).entries()]
     .filter(([key]) => !currentScopeKeys.has(key))
     .map(([, unit]) => unit);
 
@@ -254,11 +259,12 @@ function validatedPayloads(
 ): readonly JsonValue[] {
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return [];
-  return events.flatMap((event) => {
+  return events.flatMap((event, index) => {
     if (event.type !== eventType || !isJsonRecord(event.data)) return [];
     const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
-    if (payload === undefined) return [];
-    return validator({ payload, events, selector }) === undefined ? [] : [payload];
+    // Validate against the events recorded strictly before this one — the same prefix the
+    // append-time validation saw — so order-dependent validators accept what they accepted then.
+    return validator({ payload, events: events.slice(0, index), selector }) === undefined ? [] : [payload];
   });
 }
 

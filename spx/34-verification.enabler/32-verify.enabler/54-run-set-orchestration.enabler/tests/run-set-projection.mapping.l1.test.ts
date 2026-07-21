@@ -25,6 +25,20 @@ describe("run-set projection mapping", () => {
   );
 
   it.each(runSetProjectionCases())(
+    "maps a $label finding recurring across prior runs to its most recent occurrence",
+    (mapping) => {
+      const projection = projectRunSet({
+        runs: mapping.runs,
+        selector: mapping.selector,
+        findingIdentity: probeFindingIdentity,
+        scopeUnitKey: probeScopeUnitKey,
+      });
+      expect(projection.resolvedFindings).toEqual(mapping.expectedResolved);
+      expect(projection.coverageGaps).toEqual(mapping.expectedGapUnits);
+    },
+  );
+
+  it.each(runSetProjectionCases())(
     "maps $label prior and current scope evidence to coverage gaps through the shared merge-period envelope",
     (mapping) => {
       const projection = projectRunSet({
@@ -33,7 +47,7 @@ describe("run-set projection mapping", () => {
         findingIdentity: probeFindingIdentity,
         scopeUnitKey: probeScopeUnitKey,
       });
-      expect(projection.coverageGaps.map(probeScopeUnitKey)).toEqual(mapping.expectedGapKeys);
+      expect(projection.coverageGaps).toEqual(mapping.expectedGapUnits);
       expect(projection.currentScope.map(probeScopeUnitKey)).toEqual(mapping.expectedCurrentScopeKeys);
     },
   );

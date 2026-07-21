@@ -5,6 +5,7 @@ import { foldRunSetRunEvidence, MERGE_PERIOD_BACKEND } from "@/domains/verify/ru
 import {
   jsonScopeUnitKey,
   reviewPayloadProbeIdentity,
+  sampleRunSetAuditBoundaryScenario,
   sampleRunSetBoundaryScenario,
 } from "@testing/generators/verify/run-set";
 
@@ -26,6 +27,17 @@ describe("run-set prior-context boundary compliance", () => {
     expect(restored.scopeUnits).toEqual(scenario.expectedScopePayloads);
     expect(restored.findings).toEqual(scenario.expectedFindingPayloads);
     expect(JSON.stringify(restored)).not.toContain(scenario.renderedNoiseMarker);
+  });
+
+  it("restores an audit run's root scope, child scope, and finding exactly as recorded", () => {
+    const scenario = sampleRunSetAuditBoundaryScenario();
+    const restored = foldRunSetRunEvidence({
+      verificationType: scenario.verificationType,
+      selector: scenario.runSelector,
+      events: scenario.events,
+    });
+    expect(restored.scopeUnits).toEqual(scenario.expectedScopePayloads);
+    expect(restored.findings).toEqual(scenario.expectedFindingPayloads);
   });
 
   it("restores the same typed prior-run evidence when raw journal-event envelope fields differ", () => {
