@@ -16,8 +16,13 @@ Location resolution is configuration-driven through the `methodology` descriptor
 
 ## Verification
 
-- ALWAYS: foundation bodies and the extended methodology catalog come from the foundation-resource manifest of the installed methodology package resolved from the top-level `methodology` config descriptor
-- ALWAYS: manifest consumption validates the manifest's schema version and fails on an unrecognized version, naming the resolved manifest path
-- ALWAYS: manifest parsing, schema validation, and catalog mapping are pure functions over supplied bytes, and the installed-package read enters through an injected reader
-- NEVER: a foundation snapshot is embedded in the executable or this repository as a source or fallback for the understand payload
-- NEVER: methodology resource resolution reaches the network or reads outside the configured installed package location
+### Testing
+
+- ALWAYS: foundation bodies and the extended methodology catalog come from the foundation-resource manifest of the installed methodology package resolved from the top-level `methodology` config descriptor ([compliance])
+- ALWAYS: manifest consumption validates the manifest's schema version and fails on an unrecognized version, naming the resolved manifest path ([compliance])
+
+### Audit
+
+- ALWAYS: manifest parsing, schema validation, and catalog mapping are pure functions over supplied bytes, and the installed-package read enters through an injected reader ([audit])
+- NEVER: a foundation snapshot is embedded in the executable or this repository as a source or fallback for the understand payload ([audit])
+- NEVER: methodology resource resolution reaches the network or reads outside the configured installed package location ([audit])

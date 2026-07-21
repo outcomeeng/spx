@@ -18,10 +18,10 @@ The CLI-interface layer is the descriptor's home because the descriptor's whole 
 
 ## Verification
 
-- ALWAYS: pure computation owned by a shared product capability lives in that capability's `src/lib/` library behind its public surface, and command domains, handlers, and descriptors consume it through that surface
-- NEVER: a module under `src/domains/{domain}/` or `src/commands/{domain}/` re-implements or re-homes computation a shared capability library owns
-
 ### Audit
+
+- ALWAYS: pure computation owned by a shared product capability lives in that capability's `src/lib/` library behind its public surface, and command domains, handlers, and descriptors consume it through that surface ([audit])
+- NEVER: a module under `src/domains/{domain}/` or `src/commands/{domain}/` re-implements or re-homes computation a shared capability library owns ([audit])
 
 - ALWAYS: each command domain's command-local pure computation lives under `src/domains/{domain}/` and accepts all external state as parameters, with no filesystem or process access, so domain logic verifies in isolation ([audit])
 - ALWAYS: each command domain's I/O orchestration lives under `src/commands/{domain}/` as handlers that perform filesystem operations and return results, with no Commander binding and no process exit, so handlers verify against temporary fixtures and compose outside the CLI ([audit])
