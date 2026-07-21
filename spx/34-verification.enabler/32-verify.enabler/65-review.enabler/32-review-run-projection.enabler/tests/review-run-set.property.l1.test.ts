@@ -5,8 +5,8 @@ import { projectRunSet } from "@/domains/verify/run-set";
 import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
-describe("review run-set projection mapping", () => {
-  it("maps review run evidence into active, resolved, reopened, and coverage-gap groups", () => {
+describe("review run-set projection properties", () => {
+  it("projects review run evidence into active, resolved, reopened, and coverage-gap groups", () => {
     assertProperty(
       VERIFY_TEST_GENERATOR.reviewRunSetScenario(),
       (scenario) => {
