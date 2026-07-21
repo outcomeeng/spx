@@ -84,4 +84,35 @@ describe("run-set prior-context boundary compliance", () => {
     expect(fromTypedEvidence.coverageGaps).toEqual(scenario.expectedScopePayloads);
     expect(JSON.stringify(fromTypedEvidence)).not.toContain(scenario.renderedNoiseMarker);
   });
+
+  it("excludes a run whose run-set address does not resolve from restored prior context", async () => {
+    const scenario = sampleRunSetBoundaryScenario();
+    const projection = await readRunSetContext({
+      readRuns: () => Promise.resolve([scenario.priorRun, scenario.currentRun]),
+      selector: {
+        mergePeriod: { backend: MERGE_PERIOD_BACKEND.LOCAL, branch: scenario.priorRun.metadata.branchSlug },
+        verificationType: scenario.verificationType,
+        scopeType: scenario.runSelector.scopeType,
+        runSetScopeKey: scenario.priorRun.metadata.branchSlug,
+      },
+      runAddress: (run) =>
+        run.runToken === scenario.priorRun.runToken ? undefined : {
+          mergePeriod: { backend: MERGE_PERIOD_BACKEND.LOCAL, branch: run.metadata.branchSlug },
+          verificationType: run.metadata.type,
+          scopeType: scenario.runSelector.scopeType,
+          runSetScopeKey: run.metadata.branchSlug,
+          scopeIdentity: scenario.scopeIdentityByToken[run.runToken] ?? run.runToken,
+        },
+      findingIdentity: reviewPayloadProbeIdentity,
+      scopeUnitKey: jsonScopeUnitKey,
+    });
+    expect(projection.priorRuns).toEqual([]);
+    expect(projection.activeFindings).toEqual([]);
+    expect(projection.resolvedFindings).toEqual([]);
+    expect(projection.reopenedFindings).toEqual([]);
+    expect(projection.coverageGaps).toEqual([]);
+    for (const excluded of [...scenario.expectedFindingPayloads, ...scenario.expectedScopePayloads]) {
+      expect(JSON.stringify(projection)).not.toContain(JSON.stringify(excluded));
+    }
+  });
 });
