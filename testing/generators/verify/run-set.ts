@@ -11,6 +11,8 @@ import {
   type RunSetSelector,
 } from "@/domains/verify/run-set";
 import {
+  type AuditFinding,
+  type AuditScopeUnit,
   buildAppendEvent,
   buildRunContextEvent,
   buildTerminalEvent,
@@ -31,6 +33,7 @@ import {
   type JsonValue,
 } from "@/lib/agent-run-journal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { arbitraryAuditFinding, arbitraryAuditScopeUnit } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 
 const MERGE_PERIOD_BACKENDS = Object.values(MERGE_PERIOD_BACKEND);
@@ -49,9 +52,10 @@ export interface RunSetProbeFinding {
   readonly producerRelease?: string;
 }
 
-/** A generator-owned probe scope unit for the generic run-set projection. */
+/** A generator-owned probe scope unit: a coverage key plus display-only detail metadata. */
 export interface RunSetProbeScopeUnit {
   readonly unitKey: string;
+  readonly detail?: string;
 }
 
 /** The probe finding's identity extractor: the identity fields carried on the probe. */
@@ -225,9 +229,6 @@ function arbitrarySelectorMappingCase(backend: MergePeriodBackend): fc.Arbitrary
     .chain((draw) =>
       probeFindings(draw.identities).map((findings) => {
         const [runSetScopeKey, foreignScopeKey] = draw.scopeKeys;
-        if (runSetScopeKey === undefined || foreignScopeKey === undefined) {
-          throw new Error("Run-set generator drew too few scope keys");
-        }
         const address: RunSetAddress = {
           mergePeriod: draw.mergePeriod,
           verificationType: draw.verificationType,
@@ -241,8 +242,8 @@ function arbitrarySelectorMappingCase(backend: MergePeriodBackend): fc.Arbitrary
           evidenceRun(
             address,
             runToken,
-            memberIdentities[index] ?? runToken,
-            memberTimes[index] ?? runToken,
+            memberIdentities[index],
+            memberTimes[index],
             index === memberTokens.length - 1 ? probeUnits(draw.unitKeys) : probeUnits(draw.unitKeys.slice(0, 2)),
             index === memberTokens.length - 1 ? findings : [],
           )
@@ -250,39 +251,38 @@ function arbitrarySelectorMappingCase(backend: MergePeriodBackend): fc.Arbitrary
         const nonMembers = [
           evidenceRun(
             { ...address, runSetScopeKey: foreignScopeKey },
-            draw.runTokens[3] ?? "",
-            draw.scopeIdentities[3] ?? "",
-            draw.recordedAts[3] ?? "",
+            draw.runTokens[3],
+            draw.scopeIdentities[3],
+            draw.recordedAts[3],
             probeUnits(draw.unitKeys.slice(0, 1)),
             [],
           ),
           evidenceRun(
             { ...address, verificationType: otherMember(VERIFY_VERIFICATION_TYPES, draw.verificationType) },
-            draw.runTokens[4] ?? "",
-            draw.scopeIdentities[4] ?? "",
-            draw.recordedAts[4] ?? "",
+            draw.runTokens[4],
+            draw.scopeIdentities[4],
+            draw.recordedAts[4],
             probeUnits(draw.unitKeys.slice(0, 1)),
             [],
           ),
           evidenceRun(
             { ...address, scopeType: otherMember(VERIFY_SCOPE_TYPES, draw.scopeType) as VerifyScopeType },
-            draw.runTokens[5] ?? "",
-            draw.scopeIdentities[5] ?? "",
-            draw.recordedAts[5] ?? "",
+            draw.runTokens[5],
+            draw.scopeIdentities[5],
+            draw.recordedAts[5],
             probeUnits(draw.unitKeys.slice(0, 1)),
             [],
           ),
           evidenceRun(
             { ...address, mergePeriod: otherMergePeriod(draw.mergePeriod) },
-            draw.runTokens[6] ?? "",
-            draw.scopeIdentities[6] ?? "",
-            draw.recordedAts[6] ?? "",
+            draw.runTokens[6],
+            draw.scopeIdentities[6],
+            draw.recordedAts[6],
             probeUnits(draw.unitKeys.slice(0, 1)),
             [],
           ),
         ];
         const current = members[members.length - 1];
-        if (current === undefined) throw new Error("Run-set generator built no member runs");
         const shuffled = [
           members[1],
           nonMembers[0],
@@ -291,7 +291,7 @@ function arbitrarySelectorMappingCase(backend: MergePeriodBackend): fc.Arbitrary
           members[0],
           nonMembers[2],
           nonMembers[3],
-        ].filter((run): run is RunSetRunEvidence<RunSetProbeScopeUnit, RunSetProbeFinding> => run !== undefined);
+        ];
         return {
           backend,
           selector: address,
@@ -320,7 +320,7 @@ export interface RunSetProjectionCase {
   readonly expectedActive: readonly RunSetProbeFinding[];
   readonly expectedResolved: readonly RunSetProbeFinding[];
   readonly expectedReopened: readonly RunSetProbeFinding[];
-  readonly expectedGapKeys: readonly string[];
+  readonly expectedGapUnits: readonly RunSetProbeScopeUnit[];
   readonly expectedCurrentScopeKeys: readonly string[];
 }
 
@@ -337,26 +337,21 @@ function arbitraryProjectionCase(backend: MergePeriodBackend): fc.Arbitrary<RunS
       identities: distinctIdentityFields(4),
       unitKeys: distinctTokens(6),
       poisonIdentity: distinctIdentityFields(1),
+      resolvedDisplays: distinctTokens(2),
+      gapDetails: distinctTokens(2),
     })
     .chain((draw) => {
       const [newIdentity, continuingIdentity, resolvedIdentity, reopenedIdentity] = draw.identities;
-      if (
-        newIdentity === undefined
-        || continuingIdentity === undefined
-        || resolvedIdentity === undefined
-        || reopenedIdentity === undefined
-      ) {
-        throw new Error("Run-set generator drew too few finding identities");
-      }
       return fc
         .record({
           newCurrent: probeFinding(newIdentity),
           continuingPrior: probeFinding(continuingIdentity),
           continuingCurrent: probeFinding(continuingIdentity),
           resolvedPrior: probeFinding(resolvedIdentity),
+          resolvedLatest: probeFinding(resolvedIdentity),
           reopenedEarlier: probeFinding(reopenedIdentity),
           reopenedCurrent: probeFinding(reopenedIdentity),
-          poison: probeFinding(draw.poisonIdentity[0] ?? newIdentity),
+          poison: probeFinding(draw.poisonIdentity[0]),
         })
         .map((findings) => {
           const address: RunSetAddress = {
@@ -365,38 +360,44 @@ function arbitraryProjectionCase(backend: MergePeriodBackend): fc.Arbitrary<RunS
             scopeType: draw.scopeType,
             runSetScopeKey: draw.runSetScopeKey,
           };
-          const gapKeys = draw.unitKeys.slice(0, 2);
+          const [gapKeyRecurring, gapKeyLatestOnly] = draw.unitKeys;
+          const [earlyGapDetail, latestGapDetail] = draw.gapDetails;
+          const [earlyResolvedDisplay, latestResolvedDisplay] = draw.resolvedDisplays;
           const keptKeys = draw.unitKeys.slice(2, 4);
           const freshKeys = draw.unitKeys.slice(4, 6);
+          const resolvedEarly = { ...findings.resolvedPrior, providerRecordIdentifier: earlyResolvedDisplay };
+          const resolvedLatest = { ...findings.resolvedLatest, providerRecordIdentifier: latestResolvedDisplay };
+          const gapUnitEarly = { unitKey: gapKeyRecurring, detail: earlyGapDetail };
+          const gapUnitLatest = { unitKey: gapKeyRecurring, detail: latestGapDetail };
           const earlierPrior = evidenceRun(
             address,
-            draw.runTokens[0] ?? "",
-            draw.scopeIdentities[0] ?? "",
-            draw.recordedAts[0] ?? "",
-            probeUnits([...gapKeys.slice(0, 1), ...keptKeys]),
-            [findings.reopenedEarlier, findings.resolvedPrior, findings.continuingPrior],
+            draw.runTokens[0],
+            draw.scopeIdentities[0],
+            draw.recordedAts[0],
+            [gapUnitEarly, ...probeUnits(keptKeys)],
+            [findings.reopenedEarlier, resolvedEarly, findings.continuingPrior],
           );
           const latestPrior = evidenceRun(
             address,
-            draw.runTokens[1] ?? "",
-            draw.scopeIdentities[1] ?? "",
-            draw.recordedAts[1] ?? "",
-            probeUnits([...gapKeys.slice(1, 2), ...keptKeys]),
-            [findings.continuingPrior],
+            draw.runTokens[1],
+            draw.scopeIdentities[1],
+            draw.recordedAts[1],
+            [gapUnitLatest, { unitKey: gapKeyLatestOnly }, ...probeUnits(keptKeys)],
+            [findings.continuingPrior, resolvedLatest],
           );
           const current = evidenceRun(
             address,
-            draw.runTokens[2] ?? "",
-            draw.scopeIdentities[2] ?? "",
-            draw.recordedAts[2] ?? "",
+            draw.runTokens[2],
+            draw.scopeIdentities[2],
+            draw.recordedAts[2],
             probeUnits([...keptKeys, ...freshKeys]),
             [findings.newCurrent, findings.continuingCurrent, findings.reopenedCurrent],
           );
           const foreign = evidenceRun(
             { ...address, runSetScopeKey: `${draw.runSetScopeKey}${draw.runSetScopeKey.length}` },
-            draw.runTokens[3] ?? "",
-            draw.scopeIdentities[3] ?? "",
-            draw.recordedAts[3] ?? "",
+            draw.runTokens[3],
+            draw.scopeIdentities[3],
+            draw.recordedAts[3],
             probeUnits(draw.unitKeys.slice(0, 1)),
             [findings.poison],
           );
@@ -405,9 +406,9 @@ function arbitraryProjectionCase(backend: MergePeriodBackend): fc.Arbitrary<RunS
             selector: address,
             runs: [latestPrior, foreign, current, earlierPrior],
             expectedActive: [findings.newCurrent, findings.continuingCurrent],
-            expectedResolved: [findings.resolvedPrior],
+            expectedResolved: [resolvedLatest],
             expectedReopened: [findings.reopenedCurrent],
-            expectedGapKeys: gapKeys,
+            expectedGapUnits: [gapUnitLatest, { unitKey: gapKeyLatestOnly }],
             expectedCurrentScopeKeys: [...keptKeys, ...freshKeys],
           };
         });
@@ -446,17 +447,11 @@ function arbitraryPriorContextFilterCase(backend: MergePeriodBackend): fc.Arbitr
     })
     .chain((draw) => {
       const [keepRule, dropRule] = draw.rules;
-      if (keepRule === undefined || dropRule === undefined) {
-        throw new Error("Run-set generator drew too few rules");
-      }
-      const withRule = (index: number, rule: string): FindingIdentityFields => {
-        const fields = draw.identities[index];
-        const fingerprint = draw.fingerprints[index];
-        if (fields === undefined || fingerprint === undefined) {
-          throw new Error("Run-set generator drew too few finding identities");
-        }
-        return { ...fields, rule, fingerprint };
-      };
+      const withRule = (index: number, rule: string): FindingIdentityFields => ({
+        ...draw.identities[index],
+        rule,
+        fingerprint: draw.fingerprints[index],
+      });
       return fc
         .record({
           keptSurviving: probeFinding(withRule(0, keepRule)),
@@ -473,25 +468,25 @@ function arbitraryPriorContextFilterCase(backend: MergePeriodBackend): fc.Arbitr
           };
           const survivingPrior = evidenceRun(
             address,
-            draw.runTokens[0] ?? "",
-            draw.scopeIdentities[0] ?? "",
-            draw.recordedAts[0] ?? "",
+            draw.runTokens[0],
+            draw.scopeIdentities[0],
+            draw.recordedAts[0],
             [],
             [findings.keptSurviving, findings.droppedByRule],
           );
           const droppedPrior = evidenceRun(
             address,
-            draw.runTokens[1] ?? "",
-            draw.scopeIdentities[1] ?? "",
-            draw.recordedAts[1] ?? "",
+            draw.runTokens[1],
+            draw.scopeIdentities[1],
+            draw.recordedAts[1],
             [],
             [findings.keptOnDroppedRun, findings.droppedByRuleOnDroppedRun],
           );
           const current = evidenceRun(
             address,
-            draw.runTokens[2] ?? "",
-            draw.scopeIdentities[2] ?? "",
-            draw.recordedAts[2] ?? "",
+            draw.runTokens[2],
+            draw.scopeIdentities[2],
+            draw.recordedAts[2],
             [],
             [],
           );
@@ -645,11 +640,6 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
     .map((draw) => {
       const [priorToken, currentToken] = draw.runTokens;
       const [scopeKey, findingKey] = draw.idempotencyKeys;
-      if (
-        priorToken === undefined || currentToken === undefined || scopeKey === undefined || findingKey === undefined
-      ) {
-        throw new Error("Run-set generator drew too few run tokens");
-      }
       const at = new Date(draw.epochMs);
       const scopePayload = reviewScopePayload(draw.scopeUnit);
       const findingPayload = reviewFindingPayload(draw.finding);
@@ -675,17 +665,17 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
       ];
       const noiseInputs: readonly JournalEventInput[] = [
         {
-          id: `${draw.envelopeTokens[0] ?? "noise"}-comment`,
-          source: `/${draw.envelopeTokens[1] ?? "noise"}/rendered`,
-          type: `com.${draw.envelopeTokens[2] ?? "noise"}.pull-request.comment.rendered`,
+          id: `${draw.envelopeTokens[0]}-comment`,
+          source: `/${draw.envelopeTokens[1]}/rendered`,
+          type: `com.${draw.envelopeTokens[2]}.pull-request.comment.rendered`,
           time: at.toISOString(),
           attempt: 1,
           data: { markdown: `### ${draw.noiseMarker}\n\n- ${draw.noiseMarker}` },
         },
         {
-          id: `${draw.envelopeTokens[0] ?? "noise"}-terminal-output`,
-          source: `/${draw.envelopeTokens[1] ?? "noise"}/terminal`,
-          type: `com.${draw.envelopeTokens[2] ?? "noise"}.terminal-output`,
+          id: `${draw.envelopeTokens[0]}-terminal-output`,
+          source: `/${draw.envelopeTokens[1]}/terminal`,
+          type: `com.${draw.envelopeTokens[2]}.terminal-output`,
           time: at.toISOString(),
           attempt: 1,
           data: { text: `[31m${draw.noiseMarker}[0m` },
@@ -698,15 +688,15 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
         noiseInputs[1],
         evidenceInputs[2],
         evidenceInputs[3],
-      ].filter((input): input is JournalEventInput => input !== undefined);
+      ];
       const baseEvents = stampEvents(
         evidenceInputs,
-        draw.envelopeTokens[3] ?? "stream",
+        draw.envelopeTokens[3],
         priorToken,
       );
       const envelopeVariantEvents = stampEvents(
-        evidenceInputs.map((input, index) => ({ ...input, id: `${draw.envelopeTokens[4] ?? "variant"}-${index}` })),
-        draw.envelopeTokens[5] ?? "variant-stream",
+        evidenceInputs.map((input, index) => ({ ...input, id: `${draw.envelopeTokens[4]}-${index}` })),
+        draw.envelopeTokens[5],
         `${priorToken}-republished`,
       );
       const currentEvents = stampEvents(
@@ -718,7 +708,7 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
             at,
           }),
         ],
-        draw.envelopeTokens[3] ?? "stream",
+        draw.envelopeTokens[3],
         currentToken,
       );
       const metadataFor = (runToken: string, eventCount: number, startedAtMs: number): JournalRunMetadata =>
@@ -734,7 +724,7 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
       const [priorScopeIdentity, currentScopeIdentity] = draw.scopeIdentities;
       return {
         verificationType: VERIFY_VERIFICATION_TYPE.REVIEW,
-        runSelector: { scopeType: draw.scopeType, scopeIdentity: priorScopeIdentity ?? priorToken },
+        runSelector: { scopeType: draw.scopeType, scopeIdentity: priorScopeIdentity },
         priorRun: {
           runToken: priorToken,
           metadata: metadataFor(priorToken, baseEvents.length, draw.epochMs),
@@ -743,7 +733,7 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
         noisyPriorRun: {
           runToken: priorToken,
           metadata: metadataFor(priorToken, noisyInputs.length, draw.epochMs),
-          events: stampEvents(noisyInputs, draw.envelopeTokens[3] ?? "stream", priorToken),
+          events: stampEvents(noisyInputs, draw.envelopeTokens[3], priorToken),
         },
         envelopeVariantPriorRun: {
           runToken: priorToken,
@@ -759,8 +749,8 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
         expectedFindingPayloads: [findingPayload],
         renderedNoiseMarker: draw.noiseMarker,
         scopeIdentityByToken: {
-          [priorToken]: priorScopeIdentity ?? priorToken,
-          [currentToken]: currentScopeIdentity ?? currentToken,
+          [priorToken]: priorScopeIdentity,
+          [currentToken]: currentScopeIdentity,
         },
       };
     })
@@ -770,6 +760,82 @@ function arbitraryBoundaryScenario(): fc.Arbitrary<RunSetBoundaryScenario> {
 /** One boundary scenario, sampled deterministically. */
 export function sampleRunSetBoundaryScenario(): RunSetBoundaryScenario {
   return sampleVerifyTestValue(arbitraryBoundaryScenario());
+}
+
+/** An audit-run boundary scenario: a root scope, a child scope, and a finding, restored in order. */
+export interface RunSetAuditBoundaryScenario {
+  readonly verificationType: string;
+  readonly runSelector: VerifyRunSelector;
+  readonly events: readonly JournalEvent[];
+  readonly expectedScopePayloads: readonly JsonValue[];
+  readonly expectedFindingPayloads: readonly JsonValue[];
+}
+
+function auditPayload(value: AuditFinding | AuditScopeUnit): JsonValue {
+  return structuredClone(value) as unknown as JsonValue;
+}
+
+function arbitraryAuditBoundaryScenario(): fc.Arbitrary<RunSetAuditBoundaryScenario> {
+  return fc
+    .record({
+      rootDraw: arbitraryAuditScopeUnit(),
+      childDraw: arbitraryAuditScopeUnit(),
+      findingDraw: arbitraryAuditFinding(),
+      runToken: token(),
+      scopeIdentity: token(),
+      idempotencyKeys: distinctTokens(3),
+      streamToken: token(),
+      epochMs: fc.integer({ min: 0, max: 4_000_000_000_000 }),
+    })
+    .filter((draw) => draw.rootDraw.unitId !== draw.childDraw.unitId)
+    .map((draw) => {
+      const { parentUnitId: _rootParent, ...root } = draw.rootDraw;
+      const child: AuditScopeUnit = { ...draw.childDraw, parentUnitId: root.unitId };
+      const finding: AuditFinding = { ...draw.findingDraw, unitId: child.unitId };
+      const [rootKey, childKey, findingKey] = draw.idempotencyKeys;
+      const at = new Date(draw.epochMs);
+      const rootPayload = auditPayload(root);
+      const childPayload = auditPayload(child);
+      const findingPayload = auditPayload(finding);
+      const inputs: readonly JournalEventInput[] = [
+        buildRunContextEvent({ runToken: draw.runToken, driveMode: VERIFY_DRIVE_MODE.CALLER, at }),
+        buildAppendEvent({
+          eventType: VERIFY_APPEND_EVENT_TYPE.SCOPE,
+          idempotencyKey: rootKey,
+          payload: rootPayload,
+          at,
+        }),
+        buildAppendEvent({
+          eventType: VERIFY_APPEND_EVENT_TYPE.SCOPE,
+          idempotencyKey: childKey,
+          payload: childPayload,
+          at,
+        }),
+        buildAppendEvent({
+          eventType: VERIFY_APPEND_EVENT_TYPE.FINDING,
+          idempotencyKey: findingKey,
+          payload: findingPayload,
+          at,
+        }),
+        buildTerminalEvent({
+          runToken: draw.runToken,
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          at,
+        }),
+      ];
+      return {
+        verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+        runSelector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: draw.scopeIdentity },
+        events: stampEvents(inputs, draw.streamToken, draw.runToken),
+        expectedScopePayloads: [rootPayload, childPayload],
+        expectedFindingPayloads: [findingPayload],
+      };
+    });
+}
+
+/** One audit-run boundary scenario, sampled deterministically. */
+export function sampleRunSetAuditBoundaryScenario(): RunSetAuditBoundaryScenario {
+  return sampleVerifyTestValue(arbitraryAuditBoundaryScenario());
 }
 
 /** The run-set generator surface for run-set orchestration tests. */
