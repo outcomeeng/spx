@@ -1,13 +1,6 @@
-import { NODE_STATUS_FILENAME } from "@/lib/node-status";
-
-import {
-  SPEC_TREE_ENTRY_TYPE,
-  type SpecTreeNode,
-  type SpecTreeSnapshot,
-  type SpecTreeSourceEntry,
-} from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_ENTRY_TYPE, SPEC_TREE_GRAMMAR } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
+import type { SpecTreeNode, SpecTreeSnapshot, SpecTreeSourceEntry } from "./index";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS_SEGMENT: "ambiguous-segment",
@@ -61,7 +54,7 @@ const SPEC_TREE_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES = [
   ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
   ...SPEC_TREE_GRAMMAR.GUIDE_FILES,
-  NODE_STATUS_FILENAME,
+  SPEC_TREE_GRAMMAR.STATUS_FILENAME,
 ] as const;
 
 function trimTrailingSeparators(target: string): string {
@@ -124,11 +117,24 @@ function nonSnapshotNodeArtifactOwnerId(snapshot: SpecTreeSnapshot, normalized: 
   })?.id;
 }
 
+/**
+ * A product-root coordination note is a syntactic classification — a
+ * normalized target equal to a coordination-note filename with no separator —
+ * so root notes route to root-artifact guidance without a filesystem probe.
+ */
+function isRootCoordinationNoteTarget(normalized: string): boolean {
+  return !normalized.includes(TARGET_SEPARATOR)
+    && SPEC_TREE_GRAMMAR.COORDINATION_NOTES.some((filename) => filename === normalized);
+}
+
 function resolveArtifact(
   snapshot: SpecTreeSnapshot,
   input: string,
   normalized: string,
 ): SpecContextTargetFailure | undefined {
+  if (isRootCoordinationNoteTarget(normalized)) {
+    return { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH };
+  }
   const nonSnapshotArtifactOwnerId = nonSnapshotNodeArtifactOwnerId(snapshot, normalized);
   if (nonSnapshotArtifactOwnerId !== undefined) {
     return {

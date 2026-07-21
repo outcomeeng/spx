@@ -1,4 +1,3 @@
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/domains/spec/context-target";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
@@ -7,11 +6,13 @@ import {
   type DecisionKind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+  type SpecContextTargetFailure,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
@@ -46,6 +47,7 @@ const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
   NODE_STATUS: NODE_STATUS_FILENAME,
   PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
   PRODUCT_SPEC: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+  ROOT_COORDINATION_NOTE: "root-coordination-note",
   ROOT_DECISION: "root-decision",
   RUNTIME_GUIDE: SPEC_TREE_GRAMMAR.GUIDE_FILES[0],
   TEST_EVIDENCE: "test-evidence",
@@ -110,6 +112,12 @@ export type SpecContextArtifactMappingCase =
   | {
     readonly artifactKind: typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE;
     readonly evalArtifactName: SpecContextEvalArtifactName;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly title: string;
+  }
+  | {
+    readonly artifactKind: typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ROOT_COORDINATION_NOTE;
+    readonly noteFilename: (typeof SPEC_TREE_GRAMMAR.COORDINATION_NOTES)[number];
     readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
     readonly title: string;
   }
@@ -184,6 +192,31 @@ export type SpecContextArtifactTargetFixture = {
       (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES];
   };
 };
+
+/** Citation-shaped paths that must bind nothing: relative segment, suffix-extended, and embedded-root shapes. */
+export type SpecContextTraversalCitationShapes = {
+  /** Prose shapes written into a spec body; none may bind a read entry or reach a filesystem probe. */
+  readonly proseShapes: readonly string[];
+  /** The decision path a suffix-extended or embedded shape would truncate or expose if the pattern overmatched. */
+  readonly unboundDecisionPath: string;
+};
+
+export function specContextTraversalCitationShapes(): SpecContextTraversalCitationShapes {
+  const decisionSuffix = KIND_REGISTRY[DECISION_KINDS[0]].suffix;
+  const unboundDecisionPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/99-shape${decisionSuffix}`;
+  return {
+    proseShapes: [
+      `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/../../outside-product${decisionSuffix}`,
+      `${unboundDecisionPath}x`,
+      `${unboundDecisionPath}.bak`,
+      `dist/${unboundDecisionPath}`,
+    ],
+    unboundDecisionPath,
+  };
+}
+
+/** The vitest `it.each` title token that renders each mapping case's own title. */
+export const SPEC_CONTEXT_CASE_TITLE = "$title";
 
 export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
 export const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND = SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES;
@@ -354,6 +387,11 @@ export function specContextAbbreviatedTarget(snapshot: SpecTreeSnapshot, target:
   }).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
 }
 
+/** A target no sibling segment matches or prefixes, derived from the fixture root's directory name. */
+export function specContextUnknownTarget(fixture: RepresentativeSpecTreeFixture): string {
+  return `${specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root)}-unknown`;
+}
+
 export function specContextAmbiguousTargetFixture(
   fixture: RepresentativeSpecTreeFixture,
 ): SpecContextAmbiguousTargetFixture {
@@ -505,6 +543,19 @@ export function specContextArtifactTargetFixture(
         SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.FILE,
       );
     }
+    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_COORDINATION_NOTE: {
+      // A product-root coordination note classifies syntactically, so the
+      // fixture needs no filesystem artifact and no snapshot mutation.
+      const target = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${mappingCase.noteFilename}`;
+      return {
+        failure: {
+          input: target,
+          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
+        },
+        sourceFixture: fixture,
+        target,
+      };
+    }
     case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION: {
       const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
       const target = `spx/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
@@ -615,6 +666,12 @@ export function specContextTargetMappingCases(): readonly SpecContextTargetMappi
       title: "maps a node status path to its owning node",
     },
     ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION),
+    ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((noteFilename): SpecContextArtifactMappingCase => ({
+      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_COORDINATION_NOTE,
+      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
+      noteFilename,
+      title: `maps the product-root ${noteFilename} coordination note to node-selection guidance`,
+    })),
     {
       kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY,
       title: "maps an invalid node-directory path to an unresolved-input diagnostic",

@@ -98,6 +98,7 @@ export const SPEC_TREE_GRAMMAR = {
   PATH_SEPARATOR: "/",
   COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
   GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
+  STATUS_FILENAME: "spx.status.json",
   LOCAL_OVERLAYS: {
     DIRECTORY_NAME: "local",
     LIFECYCLE_FILENAME: "merging.md",
@@ -243,6 +244,17 @@ export const SPEC_TREE_NAMING_VERSION: string = canonicalNamingSchemaVersion(SPE
 export const SPEC_TREE_SUPERSEDED_NODE_SUFFIXES: readonly string[] = supersededNodeSuffixes(
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 );
+
+export const SPEC_TREE_ENTRY_TYPE = {
+  PRODUCT: "product",
+  NODE: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+  DECISION: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
+  EVIDENCE: "evidence",
+  SUPERSEDED: "superseded",
+  INVALID: "invalid",
+} as const;
+
+export type SpecTreeEntryType = (typeof SPEC_TREE_ENTRY_TYPE)[keyof typeof SPEC_TREE_ENTRY_TYPE];
 
 export const SPEC_TREE_NODE_STATE = {
   DECLARED: "declared",

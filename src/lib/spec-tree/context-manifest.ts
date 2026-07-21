@@ -1,22 +1,23 @@
 /**
  * Pure vocabulary and computation for the spec context manifest: entry-class
- * role registries, the read-class group order, the manifest shape, citation
- * extraction from document text, content digest and decoding primitives, and
- * the exact-path diagnostics.
+ * role registries, the read-class group order, the schema-version-2 bundle
+ * shape, per-target read-set composition into one deduplicated bundle,
+ * citation extraction from document text, content digest and decoding
+ * primitives, and the exact-path diagnostics.
  *
  * Filesystem and git reads stay in the command handler; every function here is
  * a pure function over supplied inputs.
  *
- * @module domains/spec/context-manifest
+ * @module lib/spec-tree/context-manifest
  */
 
 import { createHash } from "node:crypto";
 
 import type { MethodologyIdentity } from "@/config/methodology";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 
 /** Manifest schema version; changes exactly when the manifest shape changes incompatibly. */
-export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 1;
+export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 2;
 
 /** Roles whose entries a consumer reads; the read class. */
 export const SPEC_CONTEXT_READ_ROLE = {
@@ -26,14 +27,14 @@ export const SPEC_CONTEXT_READ_ROLE = {
   DECISION: "decision",
   LOWER_INDEX_SIBLING: "lower-index-sibling",
   COORDINATION: "coordination",
-  GUIDE: "guide",
   CITED_DECISION: "cited-decision",
   LIFECYCLE_OVERLAY: "lifecycle-overlay",
+  METHODOLOGY: "methodology",
 } as const;
 
 export type SpecContextReadRole = (typeof SPEC_CONTEXT_READ_ROLE)[keyof typeof SPEC_CONTEXT_READ_ROLE];
 
-/** Total group order of the read class; the manifest's read array is ordered by these groups. */
+/** Total group order of the read class; each target's read sequence is ordered by these groups. */
 export const SPEC_CONTEXT_READ_ROLE_ORDER: readonly SpecContextReadRole[] = [
   SPEC_CONTEXT_READ_ROLE.PRODUCT,
   SPEC_CONTEXT_READ_ROLE.ANCESTOR,
@@ -41,17 +42,19 @@ export const SPEC_CONTEXT_READ_ROLE_ORDER: readonly SpecContextReadRole[] = [
   SPEC_CONTEXT_READ_ROLE.DECISION,
   SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING,
   SPEC_CONTEXT_READ_ROLE.COORDINATION,
-  SPEC_CONTEXT_READ_ROLE.GUIDE,
   SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
   SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY,
-];
+  SPEC_CONTEXT_READ_ROLE.METHODOLOGY,
+] as const;
 
 /** Roles whose entries the manifest names without a read obligation; the listed class. */
 export const SPEC_CONTEXT_LISTED_ROLE = {
   EVIDENCE: "evidence",
+  GUIDE: "guide",
   OVERLAY: "overlay",
   SAME_INDEX_SIBLING: "same-index-sibling",
   HIGHER_INDEX_SIBLING: "higher-index-sibling",
+  METHODOLOGY_CATALOG: "methodology-catalog",
 } as const;
 
 export type SpecContextListedRole = (typeof SPEC_CONTEXT_LISTED_ROLE)[keyof typeof SPEC_CONTEXT_LISTED_ROLE];
@@ -71,32 +74,172 @@ export function isLocalOverlayPath(path: string): boolean {
   return !path.slice(prefix.length).includes(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 }
 
-export interface SpecContextReadDocument {
+/** One target's role claim on a read document. */
+export interface SpecContextRoleBinding {
+  readonly target: string;
   readonly role: SpecContextReadRole;
+}
+
+/** One target's role claim on a listed entry. */
+export interface SpecContextListedRoleBinding {
+  readonly target: string;
+  readonly role: SpecContextListedRole;
+}
+
+export interface SpecContextReadDocument {
   readonly path: string;
+  /** Every target-role pair this document holds across the requested target set. */
+  readonly roles: readonly SpecContextRoleBinding[];
   /** Present only on cited-decision entries: the read-class documents citing this decision, in read order. */
   readonly citedBy?: readonly string[];
-  /** Present only when document content is requested: the document's exact UTF-8 text. */
+  /** The document's exact UTF-8 text: always on methodology entries, otherwise only when content is requested. */
   readonly content?: string;
-  /** Present only when document content is requested: the raw-byte digest, prefixed with its algorithm. */
+  /** The raw-byte digest, prefixed with its algorithm: always on methodology entries, otherwise only when content is requested. */
   readonly digest?: string;
-  /** Present only when document content is requested: the document's raw byte count. */
+  /** The document's raw byte count: always on methodology entries, otherwise only when content is requested. */
   readonly bytes?: number;
 }
 
 export interface SpecContextListedEntry {
-  readonly role: SpecContextListedRole;
   readonly path: string;
+  /** Every target-role pair this entry holds across the requested target set. */
+  readonly roles: readonly SpecContextListedRoleBinding[];
+}
+
+/** One target's ordered read and listed sequences as path references into the deduplicated entry lists. */
+export interface SpecContextTargetCoverage {
+  readonly target: string;
+  readonly read: readonly string[];
+  readonly listed: readonly string[];
 }
 
 export interface SpecContextManifest {
   readonly schemaVersion: number;
   readonly methodology: MethodologyIdentity;
   readonly productDir: string;
-  readonly target: string;
+  readonly targets: readonly string[];
   readonly bootstrap: boolean;
   readonly read: readonly SpecContextReadDocument[];
   readonly listed: readonly SpecContextListedEntry[];
+  readonly coverage: readonly SpecContextTargetCoverage[];
+}
+
+/** One document in a single target's ordered read sequence, before bundle composition. */
+export interface SpecContextTargetReadDocument {
+  readonly role: SpecContextReadRole;
+  readonly path: string;
+  readonly citedBy?: readonly string[];
+}
+
+/** One entry in a single target's listed sequence, before bundle composition. */
+export interface SpecContextTargetListedEntry {
+  readonly role: SpecContextListedRole;
+  readonly path: string;
+}
+
+/** One resolved target's complete read and listed sequences in that target's group order. */
+export interface SpecContextTargetReadSet {
+  readonly target: string;
+  readonly read: readonly SpecContextTargetReadDocument[];
+  readonly listed: readonly SpecContextTargetListedEntry[];
+}
+
+export interface SpecContextBundle {
+  readonly targets: readonly string[];
+  readonly read: readonly SpecContextReadDocument[];
+  readonly listed: readonly SpecContextListedEntry[];
+  readonly coverage: readonly SpecContextTargetCoverage[];
+}
+
+type MergedReadDocument = {
+  readonly roles: SpecContextRoleBinding[];
+  citedBy: string[] | undefined;
+};
+
+/**
+ * Composes per-target read sets into one deduplicated bundle. The resolved
+ * target set is canonically ordered by ordinal identity comparison before
+ * composition, so every permutation of the same operands yields byte-identical
+ * output. Each shared document appears exactly once, carrying every
+ * target-role pair it holds and the union of its citing paths in
+ * first-appearance order; per-target coverage keeps each target's own ordered
+ * sequences reconstructible by path reference.
+ */
+function mergeReadDocument(
+  merged: Map<string, MergedReadDocument>,
+  order: string[],
+  target: string,
+  document: SpecContextTargetReadDocument,
+): void {
+  const existing = merged.get(document.path);
+  if (existing === undefined) {
+    merged.set(document.path, {
+      roles: [{ target, role: document.role }],
+      citedBy: document.citedBy === undefined ? undefined : [...document.citedBy],
+    });
+    order.push(document.path);
+    return;
+  }
+  if (!existing.roles.some((binding) => binding.target === target && binding.role === document.role)) {
+    existing.roles.push({ target, role: document.role });
+  }
+  for (const citer of document.citedBy ?? []) {
+    existing.citedBy = existing.citedBy ?? [];
+    if (!existing.citedBy.includes(citer)) existing.citedBy.push(citer);
+  }
+}
+
+function mergeListedEntry(
+  merged: Map<string, SpecContextListedRoleBinding[]>,
+  order: string[],
+  target: string,
+  entry: SpecContextTargetListedEntry,
+): void {
+  const existing = merged.get(entry.path);
+  if (existing === undefined) {
+    merged.set(entry.path, [{ target, role: entry.role }]);
+    order.push(entry.path);
+    return;
+  }
+  if (!existing.some((binding) => binding.target === target && binding.role === entry.role)) {
+    existing.push({ target, role: entry.role });
+  }
+}
+
+export function composeSpecContextBundle(sets: readonly SpecContextTargetReadSet[]): SpecContextBundle {
+  const orderedSets = [...sets].sort((left, right) => compareSpecContextOrdinal(left.target, right.target));
+  const readByPath = new Map<string, MergedReadDocument>();
+  const readOrder: string[] = [];
+  const listedByPath = new Map<string, SpecContextListedRoleBinding[]>();
+  const listedOrder: string[] = [];
+  for (const set of orderedSets) {
+    for (const document of set.read) {
+      mergeReadDocument(readByPath, readOrder, set.target, document);
+    }
+    for (const entry of set.listed) {
+      mergeListedEntry(listedByPath, listedOrder, set.target, entry);
+    }
+  }
+  return {
+    targets: orderedSets.map((set) => set.target),
+    read: readOrder.map((path) => {
+      const merged = readByPath.get(path) as MergedReadDocument;
+      return {
+        path,
+        roles: merged.roles,
+        ...(merged.citedBy === undefined ? {} : { citedBy: merged.citedBy }),
+      };
+    }),
+    listed: listedOrder.map((path) => ({
+      path,
+      roles: listedByPath.get(path) as SpecContextListedRoleBinding[],
+    })),
+    coverage: orderedSets.map((set) => ({
+      target: set.target,
+      read: set.read.map((document) => document.path),
+      listed: set.listed.map((entry) => entry.path),
+    })),
+  };
 }
 
 /**
@@ -147,6 +290,13 @@ export function specContextBootstrap(nodeCount: number): boolean {
 export function compareSpecContextOrdinal(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
+
+/** Field names of the opt-in content attachment on read documents; schema vocabulary consumers key on. */
+export const SPEC_CONTEXT_CONTENT_FIELDS = {
+  CONTENT: "content",
+  DIGEST: "digest",
+  BYTES: "bytes",
+} as const;
 
 /** Hash algorithm that names every content digest. */
 export const SPEC_CONTEXT_DIGEST_ALGORITHM = "sha256";

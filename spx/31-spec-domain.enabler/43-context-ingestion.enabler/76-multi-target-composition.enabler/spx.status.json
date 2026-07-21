@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/tests/multi-target-composition.compliance.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/tests/multi-target-composition.mapping.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/tests/multi-target-composition.property.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/tests/multi-target-composition.scenario.l1.test.ts": "passed"
+    }
+  }
+}

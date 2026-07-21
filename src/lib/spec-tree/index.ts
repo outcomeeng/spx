@@ -16,6 +16,7 @@ import {
   compareNamingSchemaVersions,
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
@@ -33,6 +34,7 @@ export {
   SPEC_TREE_ADR_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
@@ -51,10 +53,51 @@ export type {
   NamingSchemaVersion,
   NodeKind,
   SpecTreeConfig,
+  SpecTreeEntryType,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
   SpecTreeNodeState,
 } from "./config";
+export {
+  compareSpecContextOrdinal,
+  composeSpecContextBundle,
+  decodeContextDocumentUtf8,
+  extractDecisionCitations,
+  formatInvalidContextDocumentError,
+  formatMissingCitedDecisionError,
+  formatUnreadableContextDocumentError,
+  isLocalOverlayPath,
+  SPEC_CONTEXT_CONTENT_FIELDS,
+  SPEC_CONTEXT_DIGEST_ALGORITHM,
+  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_LISTED_ROLE,
+  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
+  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+  SPEC_CONTEXT_READ_ROLE,
+  SPEC_CONTEXT_READ_ROLE_ORDER,
+  specContextBootstrap,
+  specContextDigest,
+} from "./context-manifest";
+export type {
+  SpecContextBundle,
+  SpecContextListedEntry,
+  SpecContextListedRole,
+  SpecContextListedRoleBinding,
+  SpecContextManifest,
+  SpecContextReadDocument,
+  SpecContextReadRole,
+  SpecContextRoleBinding,
+  SpecContextTargetCoverage,
+  SpecContextTargetListedEntry,
+  SpecContextTargetReadDocument,
+  SpecContextTargetReadSet,
+} from "./context-manifest";
+export { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "./context-target";
+export type {
+  SpecContextTargetFailure,
+  SpecContextTargetFailureKind,
+  SpecContextTargetResolution,
+} from "./context-target";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",
@@ -69,17 +112,6 @@ const SPEC_TREE_FIELD_KEY = {
   SLUG: "slug",
   STATE: "state",
 } as const;
-
-export const SPEC_TREE_ENTRY_TYPE = {
-  PRODUCT: SPEC_TREE_FIELD_KEY.PRODUCT,
-  NODE: SPEC_TREE_KIND_CATEGORY.NODE,
-  DECISION: SPEC_TREE_KIND_CATEGORY.DECISION,
-  EVIDENCE: "evidence",
-  SUPERSEDED: "superseded",
-  INVALID: "invalid",
-} as const;
-
-export type SpecTreeEntryType = (typeof SPEC_TREE_ENTRY_TYPE)[keyof typeof SPEC_TREE_ENTRY_TYPE];
 
 export const SPEC_TREE_FILESYSTEM_RECORD_TYPE = {
   DIRECTORY: "directory",
