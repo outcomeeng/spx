@@ -92,6 +92,13 @@ export type {
   SpecContextTargetReadDocument,
   SpecContextTargetReadSet,
 } from "./context-manifest";
+export {
+  specContextAncestors,
+  specContextDecisions,
+  specContextEvidence,
+  specContextLowerIndexSiblings,
+  specContextSiblings,
+} from "./context-read-set";
 export { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "./context-target";
 export type {
   SpecContextTargetFailure,
