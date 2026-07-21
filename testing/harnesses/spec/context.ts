@@ -1,5 +1,5 @@
 import { mkdir, readFile, realpath } from "node:fs/promises";
-import { isAbsolute, join, parse, relative, sep } from "node:path";
+import { join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { execa } from "execa";
@@ -104,7 +104,14 @@ export async function runSpecCli(productDir: string, ...args: readonly string[])
   return (await runSpecCliWithIsolation(productDir, ...args)).result;
 }
 
-export async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
+type SpecCliIsolation = {
+  readonly env: Record<string, string>;
+  readonly nodeArgs: readonly string[];
+  readonly networkAttemptsFile: string;
+  readonly writableProductDir: string;
+};
+
+async function createSpecCliIsolation(productDir: string): Promise<SpecCliIsolation> {
   const isolationDir = join(productDir, SPEC_CLI_ISOLATION.DIRECTORY);
   const homeDir = join(isolationDir, SPEC_CLI_ISOLATION.HOME_DIRECTORY);
   const tempDir = join(isolationDir, SPEC_CLI_ISOLATION.TEMP_DIRECTORY);
@@ -119,9 +126,25 @@ export async function runSpecCliWithIsolation(productDir: string, ...args: reado
   );
   const networkGuardModule = await buildSpecCliNetworkGuard(isolationDir);
   const writableProductDir = await realpath(productDir);
-  const result = await execa(
-    NODE_EXECUTABLE,
-    [
+  return {
+    env: {
+      HOME: homeDir,
+      PATH: process.env.PATH as string,
+      [SPEC_CLI_ISOLATION.GIT_EXECUTABLE_ENV]: GIT_ROOT_COMMAND.EXECUTABLE,
+      [SPEC_CLI_ISOLATION.GIT_READ_SUBCOMMANDS_ENV]: JSON.stringify([
+        GIT_ROOT_COMMAND.REV_PARSE,
+        GIT_LS_FILES_COMMAND,
+      ]),
+      [SPEC_CLI_ISOLATION.NETWORK_ATTEMPTS_ENV]: networkAttemptsFile,
+      TEMP: tempDir,
+      TMP: tempDir,
+      TMPDIR: tempDir,
+      XDG_CACHE_HOME: xdgCacheDir,
+      XDG_CONFIG_HOME: xdgConfigDir,
+      XDG_DATA_HOME: xdgDataDir,
+      XDG_STATE_HOME: xdgStateDir,
+    },
+    nodeArgs: [
       "--no-warnings",
       "--permission",
       "--allow-fs-read=*",
@@ -131,50 +154,77 @@ export async function runSpecCliWithIsolation(productDir: string, ...args: reado
       "--allow-worker",
       "--import",
       networkGuardModule,
-      CLI_PATH,
-      ...args,
     ],
+    networkAttemptsFile,
+    writableProductDir,
+  };
+}
+
+async function runIsolatedNodeEntry(
+  productDir: string,
+  isolation: SpecCliIsolation,
+  entryArgs: readonly string[],
+  extraEnv?: Record<string, string>,
+) {
+  return execa(
+    NODE_EXECUTABLE,
+    [...isolation.nodeArgs, ...entryArgs],
     {
       cwd: productDir,
-      env: {
-        HOME: homeDir,
-        PATH: process.env.PATH,
-        [SPEC_CLI_ISOLATION.GIT_EXECUTABLE_ENV]: GIT_ROOT_COMMAND.EXECUTABLE,
-        [SPEC_CLI_ISOLATION.GIT_READ_SUBCOMMANDS_ENV]: JSON.stringify([
-          GIT_ROOT_COMMAND.REV_PARSE,
-          GIT_LS_FILES_COMMAND,
-        ]),
-        [SPEC_CLI_ISOLATION.NETWORK_ATTEMPTS_ENV]: networkAttemptsFile,
-        TEMP: tempDir,
-        TMP: tempDir,
-        TMPDIR: tempDir,
-        XDG_CACHE_HOME: xdgCacheDir,
-        XDG_CONFIG_HOME: xdgConfigDir,
-        XDG_DATA_HOME: xdgDataDir,
-        XDG_STATE_HOME: xdgStateDir,
-      },
+      env: { ...isolation.env, ...extraEnv },
       extendEnv: false,
       reject: false,
     },
   );
-  const networkAttempts = JSON.parse(await readFile(networkAttemptsFile, "utf8")) as readonly unknown[];
+}
+
+export async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
+  const isolation = await createSpecCliIsolation(productDir);
+  const result = await runIsolatedNodeEntry(productDir, isolation, [CLI_PATH, ...args]);
+  const networkAttempts = JSON.parse(await readFile(isolation.networkAttemptsFile, "utf8")) as readonly unknown[];
   return {
-    mutableStateDirectories: await Promise.all(mutableStateDirectories.map((path) => realpath(path))),
     networkAttempts,
-    productDirectory: writableProductDir,
+    productDirectory: isolation.writableProductDir,
     result,
-    writableDirectories: [
-      ...new Set(await Promise.all([productDir, writableProductDir].map((path) => realpath(path)))),
-    ],
   };
 }
 
-export function isWithinProductDirectory(productDir: string, candidate: string): boolean {
-  const relativePath = relative(productDir, candidate);
-  return relativePath.length > 0
-    && relativePath !== ".."
-    && !relativePath.startsWith(`..${sep}`)
-    && !isAbsolute(relativePath);
+const NETWORK_ATTEMPT_PROBE_SCRIPT = "require(\"node:http\").get(\"http://127.0.0.1:1/\");";
+const ESCAPE_WRITE_PROBE_SCRIPT =
+  `require("node:fs").writeFileSync(process.env.${SPEC_CLI_ISOLATION.ESCAPE_PROBE_PATH_ENV}, "escape");`;
+
+/**
+ * Violating fixture for the network-isolation boundary: an isolated
+ * subprocess that attempts one outbound HTTP request under the same guard,
+ * environment, and permission flags the CLI runs with. The recorded attempts
+ * and exit result are observations for the executed test to judge.
+ */
+export async function runIsolatedNetworkAttemptProbe(productDir: string) {
+  const isolation = await createSpecCliIsolation(productDir);
+  const result = await runIsolatedNodeEntry(productDir, isolation, ["-e", NETWORK_ATTEMPT_PROBE_SCRIPT]);
+  const networkAttempts = JSON.parse(await readFile(isolation.networkAttemptsFile, "utf8")) as readonly unknown[];
+  return { networkAttempts, result };
+}
+
+/**
+ * Violating fixture for the mutable-state boundary: an isolated subprocess
+ * that attempts one write to a sibling of the product directory — a path
+ * outside every allow-fs-write grant. The exit result and the escape file's
+ * existence are observations for the executed test to judge.
+ */
+export async function runIsolatedEscapeWriteProbe(productDir: string) {
+  const isolation = await createSpecCliIsolation(productDir);
+  const escapeFilePath = `${isolation.writableProductDir}-escape.txt`;
+  const result = await runIsolatedNodeEntry(productDir, isolation, ["-e", ESCAPE_WRITE_PROBE_SCRIPT], {
+    [SPEC_CLI_ISOLATION.ESCAPE_PROBE_PATH_ENV]: escapeFilePath,
+  });
+  let escapeFileExists = true;
+  try {
+    await readFile(escapeFilePath);
+  } catch {
+    escapeFileExists = false;
+  }
+  return { escapeFileExists, escapeFilePath, result };
 }
 
 export function specTreeKindsConfig(): Config {
