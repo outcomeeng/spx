@@ -39,18 +39,20 @@ import {
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_READ_ROLE,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
+  specContextAncestors,
   specContextBootstrap,
+  specContextDecisions,
   specContextDigest,
+  specContextEvidence,
+  specContextLowerIndexSiblings,
   type SpecContextManifest,
   type SpecContextReadDocument,
+  specContextSiblings,
   type SpecContextTargetFailure,
   type SpecContextTargetListedEntry,
   type SpecContextTargetReadDocument,
   type SpecContextTargetReadSet,
-  type SpecTreeDecision,
-  type SpecTreeEvidenceSourceEntry,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
@@ -130,69 +132,6 @@ async function pushExistingListedEntry(
     return;
   }
   listed.push({ role, path });
-}
-
-function ancestorsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
-  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
-  const ancestors: SpecTreeNode[] = [];
-  let currentParent = target.parentId;
-  while (currentParent !== undefined) {
-    const parent = byId.get(currentParent);
-    if (parent === undefined) break;
-    ancestors.unshift(parent);
-    currentParent = parent.parentId;
-  }
-  return ancestors;
-}
-
-function siblingsFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
-  return snapshot.allNodes
-    .filter((node) => node.parentId === target.parentId && node.id !== target.id);
-}
-
-function lowerIndexSiblingsForContextNodes(
-  snapshot: SpecTreeSnapshot,
-  contextNodes: readonly SpecTreeNode[],
-): readonly SpecTreeNode[] {
-  const seen = new Set<string>();
-  const lowerSiblings: SpecTreeNode[] = [];
-  for (const contextNode of contextNodes) {
-    for (const sibling of siblingsFor(snapshot, contextNode)) {
-      if (sibling.order >= contextNode.order || seen.has(sibling.id)) continue;
-      lowerSiblings.push(sibling);
-      seen.add(sibling.id);
-    }
-  }
-  lowerSiblings.sort((left, right) => {
-    const parentComparison = compareSpecContextOrdinal(left.parentId ?? "", right.parentId ?? "");
-    if (parentComparison !== 0) return parentComparison;
-    const orderComparison = left.order - right.order;
-    if (orderComparison !== 0) return orderComparison;
-    return compareSpecContextOrdinal(left.id, right.id);
-  });
-  return lowerSiblings;
-}
-
-function decisionsFor(
-  snapshot: SpecTreeSnapshot,
-  contextNodes: readonly SpecTreeNode[],
-): readonly SpecTreeDecision[] {
-  const constrainingOrderByParentId = new Map(
-    contextNodes.map((node) => [node.parentId, node.order] as const),
-  );
-  const targetId = contextNodes.at(-1)?.id;
-  return snapshot.decisions.filter((decision) => {
-    if (decision.parentId === targetId) return true;
-    const constrainingOrder = constrainingOrderByParentId.get(decision.parentId);
-    return constrainingOrder !== undefined && decision.order < constrainingOrder;
-  });
-}
-
-function evidenceFor(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeEvidenceSourceEntry[] {
-  return snapshot.entries.filter(
-    (entry): entry is SpecTreeEvidenceSourceEntry =>
-      entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE && entry.parentId === target.id,
-  );
 }
 
 /**
@@ -391,10 +330,10 @@ async function buildTargetReadSet(
   contentRequested: boolean,
   scannedDocuments: ScannedDocuments,
 ): Promise<SpecContextTargetReadSet> {
-  const ancestors = ancestorsFor(snapshot, target);
+  const ancestors = specContextAncestors(snapshot, target);
   const contextNodes = [...ancestors, target];
-  const siblings = siblingsFor(snapshot, target);
-  const lowerSiblings = lowerIndexSiblingsForContextNodes(snapshot, contextNodes);
+  const siblings = specContextSiblings(snapshot, target);
+  const lowerSiblings = specContextLowerIndexSiblings(snapshot, contextNodes);
   const sameIndex = sortPaths(
     siblings.filter((node) => node.order === target.order).map((node) => fullSpecPath(node.id)),
   );
@@ -426,7 +365,7 @@ async function buildTargetReadSet(
     refPath(target.ref),
     includePath,
   );
-  for (const decision of decisionsFor(snapshot, contextNodes)) {
+  for (const decision of specContextDecisions(snapshot, contextNodes)) {
     await pushExistingReadDocument(
       read,
       SPEC_CONTEXT_READ_ROLE.DECISION,
@@ -467,7 +406,7 @@ async function buildTargetReadSet(
   );
 
   const listed: SpecContextTargetListedEntry[] = [];
-  for (const evidence of evidenceFor(snapshot, target)) {
+  for (const evidence of specContextEvidence(snapshot, target)) {
     await pushExistingListedEntry(
       listed,
       SPEC_CONTEXT_LISTED_ROLE.EVIDENCE,
