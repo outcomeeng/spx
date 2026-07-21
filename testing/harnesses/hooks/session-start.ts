@@ -633,9 +633,7 @@ async function untrustedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId:
 }
 
 async function unreadablePiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
-  const transcriptPath = join(env.sessionStoreDir, agentSessionJsonlName(sessionId));
-  await mkdir(transcriptPath);
-  return transcriptPath;
+  return join(env.sessionStoreDir, agentSessionJsonlName(sessionId));
 }
 
 async function malformedPiTranscriptPath(env: PiTranscriptFixtureEnv, sessionId: string): Promise<string> {
