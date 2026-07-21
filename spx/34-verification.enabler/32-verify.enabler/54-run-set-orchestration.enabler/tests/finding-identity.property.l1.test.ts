@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { findingIdentityKey } from "@/domains/verify/run-set";
-import { probeFindingIdentity, RUN_SET_TEST_GENERATOR } from "@testing/generators/verify/run-set";
+import { RUN_SET_TEST_GENERATOR } from "@testing/generators/verify/run-set";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("finding identity properties", () => {
@@ -9,9 +9,7 @@ describe("finding identity properties", () => {
     assertProperty(
       RUN_SET_TEST_GENERATOR.findingIdentityStabilityScenario(),
       (scenario) => {
-        expect(findingIdentityKey(probeFindingIdentity(scenario.first))).toBe(
-          findingIdentityKey(probeFindingIdentity(scenario.second)),
-        );
+        expect(findingIdentityKey(scenario.first)).toBe(findingIdentityKey(scenario.second));
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -21,9 +19,7 @@ describe("finding identity properties", () => {
     assertProperty(
       RUN_SET_TEST_GENERATOR.findingIdentityStabilityScenario(),
       (scenario) => {
-        expect(findingIdentityKey(scenario.mutated)).not.toBe(
-          findingIdentityKey(probeFindingIdentity(scenario.first)),
-        );
+        expect(findingIdentityKey(scenario.mutated)).not.toBe(findingIdentityKey(scenario.first));
       },
       { level: PROPERTY_LEVEL.L1 },
     );
