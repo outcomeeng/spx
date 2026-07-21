@@ -8,7 +8,7 @@ CAN receive the complete read set for one or more nodes — methodology identity
 
 ### Properties
 
-- The projection is deterministic: identical tracked tree content produces byte-identical machine output across repeated runs, with and without document content ([test](tests/determinism.property.l1.test.ts))
+- The projection is deterministic: identical tracked tree content and identical installed methodology resources produce byte-identical machine output across repeated runs, with and without document content ([test](tests/determinism.property.l1.test.ts))
 
 ### Compliance
 

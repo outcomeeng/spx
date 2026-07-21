@@ -10,11 +10,14 @@ is reserved.
    (one breaking change, no alias), guide entries reclassified to the listed
    class, the `methodology` read-role group, and multi-target bundle shape with
    per-target coverage references.
-2. Author the build-time baking ADR in
+2. Author the methodology-source ADR in
    `spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/`:
-   snapshot source location in this repository, embed mechanism for `tsx` and
-   `dist` execution paths, methodology-identity stamping, and the update path
-   from the plugins repository as methodology authority.
+   consumption of the installed methodology package's foundation-resource
+   manifest (`skills/understand/manifest.json`, schema version 1), the
+   installed-location resolution rule, the schema-version acceptance gate,
+   atomic failure semantics, and identity stamping from the top-level
+   `methodology` config descriptor — the methodology repository remains the
+   sole foundation authority, and spx embeds no snapshot.
 
 ## Pending evidence work
 
