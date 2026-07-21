@@ -10,7 +10,6 @@ import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   type HookSessionStartEnv,
-  PI_SESSION_START_REJECTION_KINDS,
   type PiSessionStartRejectionKind,
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
@@ -669,25 +668,23 @@ const PI_SESSION_START_REJECTION_SETUPS: Readonly<Record<PiSessionStartRejection
 };
 
 export async function withPiSessionStartRejectionMappingEvidence(
+  rejectionKind: PiSessionStartRejectionKind,
   callback: (evidence: PiSessionStartRejectionMappingEvidence) => void | Promise<void>,
 ): Promise<void> {
-  for (const rejectionKind of PI_SESSION_START_REJECTION_KINDS) {
-    await withPiSessionStartRejectionEvidence(
-      PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
-      async (evidence) => callback({ ...evidence, rejectionKind }),
-    );
-  }
+  await withPiSessionStartRejectionEvidence(
+    PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
+    async (evidence) => callback({ ...evidence, rejectionKind }),
+  );
 }
 
 export async function withPiSessionStartCliRejectionMappingEvidence(
+  rejectionKind: PiSessionStartRejectionKind,
   callback: (evidence: PiSessionStartCliRejectionMappingEvidence) => void | Promise<void>,
 ): Promise<void> {
-  for (const rejectionKind of PI_SESSION_START_REJECTION_KINDS) {
-    await withPiSessionStartCliRejectionEvidence(
-      PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
-      async (evidence) => callback({ ...evidence, rejectionKind }),
-    );
-  }
+  await withPiSessionStartCliRejectionEvidence(
+    PI_SESSION_START_REJECTION_SETUPS[rejectionKind],
+    async (evidence) => callback({ ...evidence, rejectionKind }),
+  );
 }
 
 export async function withUntrustedPiTranscriptPathEvidence(
