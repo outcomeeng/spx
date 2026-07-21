@@ -11,7 +11,6 @@
 41-validation.enabler/32-python-validation.enabler/32-type-check.enabler
 26-release.enabler/43-publish-dispatch.enabler
 34-verification.enabler/32-verify.enabler/65-review.enabler
-34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler
 34-verification.enabler/32-verify.enabler/65-audit.enabler
 60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler
 23-spec-tree.enabler/48-skill-conformance-oracle.enabler
