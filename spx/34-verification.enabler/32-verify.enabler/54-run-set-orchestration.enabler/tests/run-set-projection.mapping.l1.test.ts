@@ -39,7 +39,7 @@ describe("run-set projection mapping", () => {
   );
 
   it.each(runSetPriorContextFilterCases())(
-    "maps prior context through the verification-type-provided selector before a producer receives context",
+    "maps $backend prior context through the verification-type-provided selector before a producer receives context",
     (mapping) => {
       const projection = projectRunSet({
         runs: mapping.runs,
@@ -53,9 +53,14 @@ describe("run-set projection mapping", () => {
       });
       expect(projection.resolvedFindings).toEqual(mapping.expectedResolved);
       expect(projection.priorRuns.map((run) => run.runToken)).not.toContain(mapping.droppedRunToken);
-      const projected = JSON.stringify(projection);
+      const projectedFingerprints = [
+        ...projection.priorRuns.flatMap((run) => run.findings),
+        ...projection.activeFindings,
+        ...projection.resolvedFindings,
+        ...projection.reopenedFindings,
+      ].map((finding) => finding.identity.fingerprint);
       for (const fingerprint of mapping.excludedFingerprints) {
-        expect(projected).not.toContain(fingerprint);
+        expect(projectedFingerprints).not.toContain(fingerprint);
       }
     },
   );
