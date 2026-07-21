@@ -111,7 +111,10 @@ describe("spec context ingestion compliance", () => {
       expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(specContextBootstrap(0)).toBe(true);
       expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
-      expect(manifest.bootstrap).toBe(specContextBootstrap(snapshot.allNodes.length));
+      // Literal oracle: the materialized fixture holds nodes by construction,
+      // and a resolvable target implies a non-empty tree, so the emitted flag
+      // is false without re-running the production derivation.
+      expect(manifest.bootstrap).toBe(false);
     });
   });
 

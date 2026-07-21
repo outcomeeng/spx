@@ -18,4 +18,4 @@ CAN satisfy the foundation contract from one deterministic command without LLM i
 
 ### Compliance
 
-- ALWAYS: foundation bodies and the extended-resource catalog come from the foundation-resource manifest of the installed methodology source named by the top-level `methodology` config descriptor, and every `methodology` entry is stamped with that configured identity — no embedded snapshot, keyword search, or network source participates ([test](tests/understand-payload.compliance.l1.test.ts))
+- ALWAYS: foundation bodies and the extended-resource catalog come from the foundation-resource manifest of the installed methodology source named by the top-level `methodology` config descriptor, and every `methodology` entry is stamped with that configured identity — no embedded snapshot, keyword search, or network source participates ([test](tests/understand-payload.compliance.l1.test.ts), [test](tests/understand-payload.compliance.l2.test.ts))

@@ -121,7 +121,7 @@ async function runSpecCli(productDir: string, ...args: readonly string[]) {
   return (await runSpecCliWithIsolation(productDir, ...args)).result;
 }
 
-async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
+export async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
   const isolationDir = join(productDir, SPEC_CLI_ISOLATION.DIRECTORY);
   const homeDir = join(isolationDir, SPEC_CLI_ISOLATION.HOME_DIRECTORY);
   const tempDir = join(isolationDir, SPEC_CLI_ISOLATION.TEMP_DIRECTORY);
@@ -174,9 +174,11 @@ async function runSpecCliWithIsolation(productDir: string, ...args: readonly str
       reject: false,
     },
   );
-  expect(JSON.parse(await readFile(networkAttemptsFile, "utf8"))).toEqual([]);
+  const networkAttempts = JSON.parse(await readFile(networkAttemptsFile, "utf8")) as readonly unknown[];
+  expect(networkAttempts).toEqual([]);
   return {
     mutableStateDirectories: await Promise.all(mutableStateDirectories.map((path) => realpath(path))),
+    networkAttempts,
     productDirectory: writableProductDir,
     result,
     writableDirectories: [
