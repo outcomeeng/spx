@@ -86,6 +86,7 @@ import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
 import {
+  EXECUTE_RUN_CLI_SURFACE,
   registerVerifyCommands,
   VERIFICATION_RUN_CLI_SURFACE,
   VERIFY_CLI,
@@ -435,6 +436,33 @@ export function inspectVerificationRunCommandNames(): {
     : collectCommandTokens(verificationCommand);
 
   return { rootCommandNames: commandNames, verificationCommandNames };
+}
+
+export function inspectVerificationExecuteRunPath(): {
+  readonly verificationChildNames: readonly string[];
+  readonly typeNounPresent: boolean;
+  readonly runVerbPresent: boolean;
+  readonly runVerbVariadicOperandName: string | undefined;
+  readonly runVerbOptionFlags: readonly string[];
+} {
+  const program = createCliProgram();
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+  const typeNounCommand = verificationCommand?.commands.find(
+    (command) => command.name() === VERIFY_VERIFICATION_TYPE.TEST,
+  );
+  const runVerbCommand = typeNounCommand?.commands.find(
+    (command) => command.name() === EXECUTE_RUN_CLI_SURFACE.runVerbName,
+  );
+  const variadicArgument = runVerbCommand?.registeredArguments.find((argument) => argument.variadic);
+  return {
+    verificationChildNames: verificationCommand?.commands.map((command) => command.name()) ?? [],
+    typeNounPresent: typeNounCommand !== undefined,
+    runVerbPresent: runVerbCommand !== undefined,
+    runVerbVariadicOperandName: variadicArgument?.name(),
+    runVerbOptionFlags: runVerbCommand?.options.map((option) => option.flags) ?? [],
+  };
 }
 
 export function inspectVerificationStartScopeGrammar(): {

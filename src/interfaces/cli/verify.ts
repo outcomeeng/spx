@@ -37,6 +37,19 @@ export const VERIFICATION_RUN_CLI_SURFACE = {
   scopeResourceCommandName: "scope",
 } as const;
 
+// The spx-driven `spx verification <type> run [paths…]` command surface. Each verification type is a
+// noun command carrying the `run` verb; positional path operands narrow the run per
+// `spx/29-verification-path-scope.pdr.md`. The verb forms a type is never exposed as, and the
+// path-scope flags that vocabulary forbids, are named so the surface's boundary is source-owned.
+export const EXECUTE_RUN_CLI_SURFACE = {
+  runVerbName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
+  runVerbDescription: "Execute an spx-driven verification of this type and record the run it drives",
+  pathOperand: "[paths...]",
+  pathOperandDescription: "Product path operands narrowing the spx-driven run's scope",
+  forbiddenTypeVerbNames: ["validate", "eval"],
+  forbiddenPathScopeFlags: ["--files", "--tests", "--nodes"],
+} as const;
+
 export const VERIFY_CLI = {
   addCommandName: VERIFICATION_RUN_CLI_SURFACE.addCommandName,
   commandName: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
