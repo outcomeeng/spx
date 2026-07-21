@@ -7,6 +7,7 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
+import { MERGE_PERIOD_BACKEND, type RunSetRunEvidence, type RunSetSelector } from "@/domains/verify/run-set";
 import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
@@ -26,14 +27,18 @@ import {
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   VERIFY_SCOPE_SEPARATOR,
+  VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
+import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
+const VERIFY_SCOPE_TYPES = Object.values(VERIFY_SCOPE_TYPE);
+const REVIEW_RUN_SET_RUN_INTERVAL_MS = 60_000;
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
 const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
@@ -150,6 +155,186 @@ function arbitraryReviewTerminalMetadataWithProvider(state: string): fc.Arbitrar
     providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
     url: STATE_STORE_TEST_GENERATOR.scopeToken(),
   }) as fc.Arbitrary<ReviewTerminalMetadata>;
+}
+
+/** One review finding beside a display variant sharing its anchor side, path, and SPX summary. */
+function arbitraryReviewFindingDisplayVariantPair(): fc.Arbitrary<{
+  readonly base: ReviewFinding;
+  readonly variant: ReviewFinding;
+}> {
+  return fc.tuple(arbitraryReviewFinding(), arbitraryReviewFinding()).map(([base, shell]) => ({
+    base,
+    variant: {
+      ...shell,
+      side: base.side,
+      path: base.path,
+      finding: { ...shell.finding, summary: base.finding.summary },
+    },
+  }));
+}
+
+/** Two review findings differing in anchor side, path, or SPX summary. */
+function arbitraryReviewFindingIdentityDivergentPair(): fc.Arbitrary<{
+  readonly base: ReviewFinding;
+  readonly divergent: ReviewFinding;
+}> {
+  return fc
+    .tuple(arbitraryReviewFinding(), arbitraryReviewFinding())
+    .filter(([base, divergent]) =>
+      base.side !== divergent.side
+      || base.path !== divergent.path
+      || base.finding.summary !== divergent.finding.summary
+    )
+    .map(([base, divergent]) => ({ base, divergent }));
+}
+
+/** One reviewed unit beside a display variant sharing its anchor side and path. */
+function arbitraryReviewScopeUnitDisplayVariantPair(): fc.Arbitrary<{
+  readonly base: ReviewScopeUnit;
+  readonly variant: ReviewScopeUnit;
+}> {
+  return fc.tuple(arbitraryReviewScopeUnit(), arbitraryReviewScopeUnit()).map(([base, shell]) => ({
+    base,
+    variant: { ...shell, side: base.side, path: base.path },
+  }));
+}
+
+/** Two reviewed units differing in anchor side or path. */
+function arbitraryReviewScopeUnitKeyDivergentPair(): fc.Arbitrary<{
+  readonly base: ReviewScopeUnit;
+  readonly divergent: ReviewScopeUnit;
+}> {
+  return fc
+    .tuple(arbitraryReviewScopeUnit(), arbitraryReviewScopeUnit())
+    .filter(([base, divergent]) => base.side !== divergent.side || base.path !== divergent.path)
+    .map(([base, divergent]) => ({ base, divergent }));
+}
+
+/** A review run set with prior and current runs plus the construction-derived expected groups. */
+export interface ReviewRunSetScenario {
+  readonly runs: readonly RunSetRunEvidence<JsonValue, JsonValue>[];
+  readonly selector: RunSetSelector;
+  readonly expectedActive: readonly JsonValue[];
+  readonly expectedResolved: readonly JsonValue[];
+  readonly expectedReopened: readonly JsonValue[];
+  readonly expectedCoverageGaps: readonly JsonValue[];
+}
+
+function reviewRunSetRun(args: {
+  readonly selector: RunSetSelector;
+  readonly runToken: string;
+  readonly scopeIdentity: string;
+  readonly recordedAt: string;
+  readonly scopeUnits: readonly ReviewScopeUnit[];
+  readonly findings: readonly ReviewFinding[];
+}): RunSetRunEvidence<JsonValue, JsonValue> {
+  return {
+    mergePeriod: args.selector.mergePeriod,
+    verificationType: args.selector.verificationType,
+    scopeType: args.selector.scopeType,
+    runSetScopeKey: args.selector.runSetScopeKey,
+    runToken: args.runToken,
+    scopeIdentity: args.scopeIdentity,
+    recordedAt: args.recordedAt,
+    scopeUnits: args.scopeUnits as unknown as readonly JsonValue[],
+    findings: args.findings as unknown as readonly JsonValue[],
+  };
+}
+
+/**
+ * One coherent review run set: two prior runs and a current run whose findings cover every
+ * placement class — fresh, carried from the latest prior run, resolved before the current run,
+ * and reopened after skipping the latest prior run — plus a reviewed unit prior runs cover that
+ * the current run does not. Expected groups derive from that construction, independent of the
+ * projection under test.
+ */
+function arbitraryReviewRunSetScenario(): fc.Arbitrary<ReviewRunSetScenario> {
+  return fc
+    .record({
+      identities: fc.tuple(
+        arbitraryReviewFinding(),
+        arbitraryReviewFinding(),
+        arbitraryReviewFinding(),
+        arbitraryReviewFinding(),
+      ),
+      shells: fc.tuple(arbitraryReviewFinding(), arbitraryReviewFinding()),
+      units: fc.tuple(arbitraryReviewScopeUnit(), arbitraryReviewScopeUnit()),
+      branch: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      runSetScopeKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      runToken: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      scopeIdentities: fc.tuple(
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+        STATE_STORE_TEST_GENERATOR.scopeToken(),
+      ),
+      scopeType: fc.constantFrom(...VERIFY_SCOPE_TYPES),
+      launchedAt: VERIFY_TEST_GENERATOR.launchedAt(),
+    })
+    .map(({ identities, shells, units, branch, runSetScopeKey, runToken, scopeIdentities, scopeType, launchedAt }) => {
+      const distinct = (finding: ReviewFinding, index: number): ReviewFinding => ({
+        ...finding,
+        finding: { ...finding.finding, summary: `${finding.finding.summary}-f${index}` },
+      });
+      const variantOf = (identity: ReviewFinding, shell: ReviewFinding): ReviewFinding => ({
+        ...shell,
+        side: identity.side,
+        path: identity.path,
+        finding: { ...shell.finding, summary: identity.finding.summary },
+      });
+      const [active0, carried0, resolved0, reopened0] = identities;
+      const findingActive = distinct(active0, 0);
+      const findingCarriedPrior = distinct(carried0, 1);
+      const findingResolved = distinct(resolved0, 2);
+      const findingReopenedPrior = distinct(reopened0, 3);
+      const [carriedShell, reopenedShell] = shells;
+      const findingCarriedCurrent = variantOf(findingCarriedPrior, carriedShell);
+      const findingReopenedCurrent = variantOf(findingReopenedPrior, reopenedShell);
+      const [shared0, gap0] = units;
+      const unitShared = { ...shared0, path: `${shared0.path}-shared` };
+      const unitGap = { ...gap0, path: `${gap0.path}-gap` };
+      const selector: RunSetSelector = {
+        mergePeriod: { backend: MERGE_PERIOD_BACKEND.LOCAL, branch },
+        verificationType: VERIFY_VERIFICATION_TYPE.REVIEW,
+        scopeType,
+        runSetScopeKey,
+      };
+      const recordedAt = (index: number): string =>
+        new Date(launchedAt.getTime() + index * REVIEW_RUN_SET_RUN_INTERVAL_MS).toISOString();
+      const [scopeIdentityA, scopeIdentityB, scopeIdentityC] = scopeIdentities;
+      return {
+        runs: [
+          reviewRunSetRun({
+            selector,
+            runToken: `${runToken}-r0`,
+            scopeIdentity: scopeIdentityA,
+            recordedAt: recordedAt(0),
+            scopeUnits: [unitShared, unitGap],
+            findings: [findingResolved, findingReopenedPrior],
+          }),
+          reviewRunSetRun({
+            selector,
+            runToken: `${runToken}-r1`,
+            scopeIdentity: scopeIdentityB,
+            recordedAt: recordedAt(1),
+            scopeUnits: [unitShared, unitGap],
+            findings: [findingCarriedPrior, findingResolved],
+          }),
+          reviewRunSetRun({
+            selector,
+            runToken: `${runToken}-r2`,
+            scopeIdentity: scopeIdentityC,
+            recordedAt: recordedAt(2),
+            scopeUnits: [unitShared],
+            findings: [findingActive, findingCarriedCurrent, findingReopenedCurrent],
+          }),
+        ],
+        selector,
+        expectedActive: [findingActive, findingCarriedCurrent] as unknown as readonly JsonValue[],
+        expectedResolved: [findingResolved] as unknown as readonly JsonValue[],
+        expectedReopened: [findingReopenedCurrent] as unknown as readonly JsonValue[],
+        expectedCoverageGaps: [unitGap],
+      };
+    });
 }
 
 function arbitraryAuditProducerIdentity(): fc.Arbitrary<AuditProducerIdentity> {
@@ -587,6 +772,23 @@ export const VERIFY_TEST_GENERATOR = {
       arbitraryProviderPositionReviewFinding(),
       arbitraryProviderLineAndPositionReviewFinding(),
     ),
+  reviewFindingDisplayVariantPair: (): fc.Arbitrary<{
+    readonly base: ReviewFinding;
+    readonly variant: ReviewFinding;
+  }> => arbitraryReviewFindingDisplayVariantPair(),
+  reviewFindingIdentityDivergentPair: (): fc.Arbitrary<{
+    readonly base: ReviewFinding;
+    readonly divergent: ReviewFinding;
+  }> => arbitraryReviewFindingIdentityDivergentPair(),
+  reviewScopeUnitDisplayVariantPair: (): fc.Arbitrary<{
+    readonly base: ReviewScopeUnit;
+    readonly variant: ReviewScopeUnit;
+  }> => arbitraryReviewScopeUnitDisplayVariantPair(),
+  reviewScopeUnitKeyDivergentPair: (): fc.Arbitrary<{
+    readonly base: ReviewScopeUnit;
+    readonly divergent: ReviewScopeUnit;
+  }> => arbitraryReviewScopeUnitKeyDivergentPair(),
+  reviewRunSetScenario: (): fc.Arbitrary<ReviewRunSetScenario> => arbitraryReviewRunSetScenario(),
   invalidReviewFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
