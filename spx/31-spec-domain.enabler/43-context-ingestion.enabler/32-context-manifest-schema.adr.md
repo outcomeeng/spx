@@ -29,19 +29,21 @@ Per `spx/14-cli-composition.adr.md` and `spx/23-spec-tree.enabler/spec-tree.md`,
 
 ## Verification
 
-- ALWAYS: the context command registers exactly one form, `show`, accepting one or more target operands, and a single-target invocation preserves the documented single-target contract
-- ALWAYS: the bundle deduplicates entries by document path, carries every target-role pair on each entry, and maps each target to its ordered read sequence by reference
-- ALWAYS: resolved targets are canonically ordered before composition, so operand permutations produce byte-identical structured output
-- ALWAYS: pure projection computation lives in the spec-tree library behind `src/lib/spec-tree/index.ts`, and the command handler performs only product-root resolution, snapshot construction, and byte reads through injected dependencies
-- NEVER: a guide file binds a read obligation or carries content, a digest, or a byte count
-- NEVER: any target's resolution failure or required document failure yields a partial bundle
-- ALWAYS: content mode decodes every read-class document as strict UTF-8
-- ALWAYS: the first read or decode failure in content mode aborts the entire projection with a diagnostic naming the exact failing path
-- NEVER: content mode truncates, elides, or substitutes any read-class document's bytes
-- NEVER: a listed-class entry carries document content, a digest, or a byte count
+### Testing
+
+- ALWAYS: the context command registers exactly one form, `show`, accepting one or more target operands, and a single-target invocation preserves the documented single-target contract ([compliance])
+- ALWAYS: the bundle deduplicates entries by document path, carries every target-role pair on each entry, and maps each target to its ordered read sequence by reference ([mapping])
+- ALWAYS: resolved targets are canonically ordered before composition, so operand permutations produce byte-identical structured output ([property])
+- NEVER: a guide file binds a read obligation or carries content, a digest, or a byte count ([compliance])
+- NEVER: any target's resolution failure or required document failure yields a partial bundle ([compliance])
+- ALWAYS: content mode decodes every read-class document as strict UTF-8 ([compliance])
+- ALWAYS: the first read or decode failure in content mode aborts the entire projection with a diagnostic naming the exact failing path ([scenario])
+- NEVER: content mode truncates, elides, or substitutes any read-class document's bytes ([property])
+- NEVER: a listed-class entry carries document content, a digest, or a byte count ([compliance])
 
 ### Audit
 
+- ALWAYS: pure projection computation lives in the spec-tree library behind `src/lib/spec-tree/index.ts`, and the command handler performs only product-root resolution, snapshot construction, and byte reads through injected dependencies ([audit])
 - ALWAYS: role classification, read-order construction, citation extraction, digest computation, and bundle composition are pure functions accepting all external state as parameters, with filesystem and git reads confined to the command handler per `spx/14-cli-composition.adr.md` ([audit])
 - ALWAYS: the command handler reaches git through injected dependencies and reads documents only from the resolved worktree-local product directory, so tests exercise the real projection code paths over temp-directory fixtures ([audit])
 - ALWAYS: the content-mode digest is computed over raw file bytes before text decoding, and the digest value names its algorithm ([audit])
