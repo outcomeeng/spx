@@ -43,3 +43,4 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - ALWAYS: development scripts invoke `tsx src/cli.ts`; publish scripts invoke `node bin/spx.js` only after `pnpm run build` produces `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
 - ALWAYS: managed long-running subprocesses expose parent-piped stdout and stderr to their parent output adapters ([test](tests/lifecycle.compliance.l1.test.ts))
+- ALWAYS: Commander error diagnostics escape terminal-control bytes in the user-supplied portion — the unknown option and command text echoed to stderr — while preserving Commander's own multi-line usage and help structure ([test](tests/commander-diagnostics.compliance.l1.test.ts))
