@@ -421,6 +421,7 @@ export function runSetProjectionCases(): readonly RunSetProjectionCase[] {
 
 /** A prior-context filter scenario: a type-provided selector narrows and drops prior context. */
 export interface RunSetPriorContextFilterCase {
+  readonly backend: MergePeriodBackend;
   readonly selector: RunSetSelector;
   readonly runs: readonly RunSetRunEvidence<RunSetProbeScopeUnit, RunSetProbeFinding>[];
   readonly keepRule: string;
@@ -429,10 +430,10 @@ export interface RunSetPriorContextFilterCase {
   readonly excludedFingerprints: readonly string[];
 }
 
-function arbitraryPriorContextFilterCase(): fc.Arbitrary<RunSetPriorContextFilterCase> {
+function arbitraryPriorContextFilterCase(backend: MergePeriodBackend): fc.Arbitrary<RunSetPriorContextFilterCase> {
   return fc
     .record({
-      mergePeriod: arbitraryMergePeriodIdentity(MERGE_PERIOD_BACKEND.LOCAL),
+      mergePeriod: arbitraryMergePeriodIdentity(backend),
       verificationType: fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
       scopeType: fc.constantFrom(...VERIFY_SCOPE_TYPES),
       runSetScopeKey: token(),
@@ -441,22 +442,27 @@ function arbitraryPriorContextFilterCase(): fc.Arbitrary<RunSetPriorContextFilte
       scopeIdentities: distinctTokens(3),
       recordedAts: arbitraryIsoTimes(3),
       identities: distinctIdentityFields(4),
+      fingerprints: distinctTokens(4),
     })
     .chain((draw) => {
       const [keepRule, dropRule] = draw.rules;
       if (keepRule === undefined || dropRule === undefined) {
         throw new Error("Run-set generator drew too few rules");
       }
-      const withRule = (fields: FindingIdentityFields | undefined, rule: string): FindingIdentityFields => {
-        if (fields === undefined) throw new Error("Run-set generator drew too few finding identities");
-        return { ...fields, rule };
+      const withRule = (index: number, rule: string): FindingIdentityFields => {
+        const fields = draw.identities[index];
+        const fingerprint = draw.fingerprints[index];
+        if (fields === undefined || fingerprint === undefined) {
+          throw new Error("Run-set generator drew too few finding identities");
+        }
+        return { ...fields, rule, fingerprint };
       };
       return fc
         .record({
-          keptSurviving: probeFinding(withRule(draw.identities[0], keepRule)),
-          droppedByRule: probeFinding(withRule(draw.identities[1], dropRule)),
-          keptOnDroppedRun: probeFinding(withRule(draw.identities[2], keepRule)),
-          droppedByRuleOnDroppedRun: probeFinding(withRule(draw.identities[3], dropRule)),
+          keptSurviving: probeFinding(withRule(0, keepRule)),
+          droppedByRule: probeFinding(withRule(1, dropRule)),
+          keptOnDroppedRun: probeFinding(withRule(2, keepRule)),
+          droppedByRuleOnDroppedRun: probeFinding(withRule(3, dropRule)),
         })
         .map((findings) => {
           const address: RunSetAddress = {
@@ -490,6 +496,7 @@ function arbitraryPriorContextFilterCase(): fc.Arbitrary<RunSetPriorContextFilte
             [],
           );
           return {
+            backend,
             selector: address,
             runs: [survivingPrior, droppedPrior, current],
             keepRule,
@@ -505,9 +512,9 @@ function arbitraryPriorContextFilterCase(): fc.Arbitrary<RunSetPriorContextFilte
     });
 }
 
-/** One prior-context filter case, sampled deterministically. */
+/** One prior-context filter case per merge-period backend, sampled deterministically. */
 export function runSetPriorContextFilterCases(): readonly RunSetPriorContextFilterCase[] {
-  return [sampleVerifyTestValue(arbitraryPriorContextFilterCase())];
+  return MERGE_PERIOD_BACKENDS.map((backend) => sampleVerifyTestValue(arbitraryPriorContextFilterCase(backend)));
 }
 
 /** An identity-stability scenario: one identity under display-only mutation and one identity-field mutation. */
