@@ -512,34 +512,57 @@ export function runSetPriorContextFilterCases(): readonly RunSetPriorContextFilt
   return MERGE_PERIOD_BACKENDS.map((backend) => sampleVerifyTestValue(arbitraryPriorContextFilterCase(backend)));
 }
 
-/** An identity-stability scenario: one identity under display-only mutation and one identity-field mutation. */
+/** Identity fields carrying display-metadata properties the identity key must never read. */
+export interface FindingIdentityFieldsWithDisplay extends FindingIdentityFields {
+  readonly line: number;
+  readonly providerRecordIdentifier: string;
+  readonly producerRelease: string;
+}
+
+/** An identity-stability scenario: one identity under display-only variation and one identity-field mutation. */
 export interface FindingIdentityStabilityScenario {
-  readonly first: RunSetProbeFinding;
-  readonly second: RunSetProbeFinding;
+  readonly first: FindingIdentityFieldsWithDisplay;
+  readonly second: FindingIdentityFieldsWithDisplay;
   readonly mutated: FindingIdentityFields;
 }
 
 const IDENTITY_FIELD_NAMES = ["verificationType", "stableActor", "normalizedSubject", "rule", "fingerprint"] as const;
 
-/** Identity scenarios pairing display-only variants with a single mutated identity field. */
+/**
+ * Identity scenarios pairing display-carrying variants with a single mutated identity field. The
+ * paired records share every identity field while their display properties differ, so they reach
+ * the identity key unstripped and the key must ignore them.
+ */
 export function arbitraryFindingIdentityStabilityScenario(): fc.Arbitrary<FindingIdentityStabilityScenario> {
   return fc
     .record({
       identity: arbitraryIdentityFields(),
       mutatedField: fc.constantFrom(...IDENTITY_FIELD_NAMES),
       replacement: token(),
+      displayTokens: distinctTokens(4),
+      lines: fc.uniqueArray(fc.integer({ min: 1 }), { minLength: 2, maxLength: 2 }),
     })
-    .chain((draw) =>
-      fc.record({ first: probeFinding(draw.identity), second: probeFinding(draw.identity) }).map((pair) => {
-        const currentValue = draw.identity[draw.mutatedField];
-        const replacement = currentValue === draw.replacement ? `${draw.replacement}-mutated` : draw.replacement;
-        return {
-          first: pair.first,
-          second: pair.second,
-          mutated: { ...draw.identity, [draw.mutatedField]: replacement },
-        };
-      })
-    );
+    .map((draw) => {
+      const [firstProvider, secondProvider, firstRelease, secondRelease] = draw.displayTokens;
+      const [firstLine, secondLine] = draw.lines;
+      const currentValue = draw.identity[draw.mutatedField];
+      const replacement = currentValue === draw.replacement ? `${draw.replacement}-mutated` : draw.replacement;
+      return {
+        first: {
+          ...draw.identity,
+          line: firstLine,
+          providerRecordIdentifier: firstProvider,
+          producerRelease: firstRelease,
+        },
+        second: {
+          ...draw.identity,
+          line: secondLine,
+          providerRecordIdentifier: secondProvider,
+          producerRelease: secondRelease,
+        },
+        mutated: { ...draw.identity, [draw.mutatedField]: replacement },
+      };
+    });
 }
 
 function stampEvents(
