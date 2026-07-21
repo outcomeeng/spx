@@ -1,0 +1,34 @@
+# Run Set Architecture
+
+Run-set orchestration is split across the two lower verify layers of `spx/14-cli-composition.adr.md`: pure run-set semantics — merge-period identity, the run-set selector, finding identity, finding-group classification, coverage-gap mapping, and type-specific prior-context filtering — live in `src/domains/verify/run-set.ts` as pure functions over typed evidence parameters, and the internal read projection that assembles prior-run evidence from persisted verification runs lives in `src/commands/verify/run-set.ts`, composing injected journal read capabilities. No Commander surface is added: `src/interfaces/cli/verify.ts` remains the family's sole descriptor per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`, and public run-set command exposure is governed by `spx/60-surfaces.enabler/21-cli-surface.enabler`.
+
+Merge-period identity is a closed discriminated union over backend kinds — a local merge period keyed by branch identity, and a pull-request merge period keyed by provider, repository identity, and pull-request number — and a run set is addressed by merge-period identity, verification type, scope type, and a caller-supplied merge-period-stable run-set scope key that the domain validates as data. Finding identity is a deterministic key over a normalized identity-field record — verification type, the verification-type-provided stable actor or producer component when defined, normalized subject, rule, and a message-or-evidence fingerprint — produced by a per-verification-type extractor the consumer supplies as a typed parameter; the same parameter channel carries the type's prior-context selector, applied by the pure projection before producer context is returned.
+
+## Rationale
+
+The split follows the verify module structure: the run-set projection is product semantics with no I/O of its own, so it verifies in isolation over constructed run evidence, while everything that touches persisted state — enumerating a merge period's sealed runs and reading their events — is orchestration over the journal substrate, which `src/commands/verify/` already reaches through injected ports. Reading raw journal files or rendered backend output inside the domain would reverse the layering and violate the node's own boundary compliance rule; a caller-facing Commander surface here would create the second descriptor `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md` forbids.
+
+Merge-period identity is data, not derivation: the command layer resolves which merge period an invocation addresses (from injected git and environment capabilities), and the domain validates and consumes the resolved identity. Deriving git topology inside the run-set domain would duplicate the state module's ownership under `spx/17-state.adr.md`. The run-set scope key is separate from each run's scope identity because a changeset run's `base..head` moves as the merge period advances; partitioning prior runs by run scope identity would make every prior run its own singleton set and destroy the prior-context value the node exists to provide, so run scope identity stays run evidence inside the projection.
+
+Per-type extractors and selectors arrive as typed parameters rather than a new registry: the evidence-validator registry of `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md` exists so the shared lifecycle can dispatch over a closed vocabulary without type-name branching, but run-set consumers invoke the projection directly and hold their own type's contracts, so a parameter is the narrower coupling. A registry keyed by verification type is rejected while the projection has direct consumers only; the parameter shape leaves that migration open without forbidding it. Excluding line numbers, provider record identifiers, and producer provenance from the identity key is what makes the key stable across display-only movement, backend re-publication, and producer releases — those fields remain display metadata on the classified finding.
+
+## Invariants
+
+- Every run-set projection output is a deterministic function of its typed inputs: the same prior-run evidence, current-run evidence, extractor, and selector produce the identical projection.
+- A finding-identity key is equal across two findings exactly when their normalized identity-field records are equal; no field outside the identity-field record participates.
+- The run-set address never varies within one merge period: for a fixed merge-period identity, verification type, scope type, and run-set scope key, every run recorded during that merge period resolves to the same run set, whatever each run's own scope identity.
+- Prior-context filtering happens inside the pure projection before its result is returned; no consumer receives unfiltered prior context and filters it downstream.
+
+## Verification
+
+### Audit
+
+- ALWAYS: run-set selector, merge-period identity, finding identity, finding-group classification, coverage-gap mapping, and prior-context filtering are pure functions in `src/domains/verify/run-set.ts` with no filesystem, git, process, journal-storage, or command-layer imports ([audit])
+- ALWAYS: the internal run-set read projection in `src/commands/verify/run-set.ts` obtains persisted run evidence through injected journal read capabilities and passes typed evidence to the pure domain functions ([audit])
+- ALWAYS: merge-period identity is a closed discriminated union over backend kinds, and the union's members are source-owned in `src/domains/verify/run-set.ts` so every consumer shares one identity vocabulary ([audit])
+- ALWAYS: verification-type-specific identity extraction and prior-context selection enter the projection as typed function parameters supplied by the consumer ([audit])
+- NEVER: the run-set domain derives merge-period identity or the run-set scope key from git topology, environment reads, or `.spx/` layout — the command layer resolves them through injected capabilities and the domain validates them as data ([audit])
+- NEVER: the finding-identity key reads line numbers, byte positions, provider record identifiers, or producer provenance fields ([audit])
+- NEVER: run-set modules parse rendered pull-request comments, terminal output, or raw journal-event envelope internals beyond the typed evidence contracts the verify domain owns ([audit])
+- NEVER: a Commander command path, standard-stream read, or process-boundary concern appears in the run-set domain or command modules ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or module interception stands in for run evidence or journal reads under test — tests construct typed run evidence through the domain's public constructors and inject controlled journal read implementations through the command layer's ports ([audit])
