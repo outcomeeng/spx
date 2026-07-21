@@ -3,21 +3,29 @@
 Full composition: the six children cover every known concern; no index horizon
 is reserved.
 
-## Pending declaration work
+## Pending implementation work (for `/apply`)
 
-1. Amend `spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.adr.md`
-   for schema v2: the `spx spec context show <targets...>` replacement contract
-   (one breaking change, no alias), guide entries reclassified to the listed
-   class, the `methodology` read-role group, and multi-target bundle shape with
-   per-target coverage references.
-2. Author the methodology-source ADR in
-   `spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/`:
-   consumption of the installed methodology package's foundation-resource
-   manifest (`skills/understand/manifest.json`, schema version 1), the
-   installed-location resolution rule, the schema-version acceptance gate,
-   atomic failure semantics, and identity stamping from the top-level
-   `methodology` config descriptor — the methodology repository remains the
-   sole foundation authority, and spx embeds no snapshot.
+1. Move the projection's pure computation into the spec-tree library behind
+   `src/lib/spec-tree/index.ts` per the amended
+   `spx/14-cli-composition.adr.md` and
+   `spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.adr.md`:
+   `src/domains/spec/context-target.ts` and
+   `src/domains/spec/context-manifest.ts` move in and are removed at their old
+   paths with all imports updated — no re-exports, no aliases. New pure
+   modules for read-set planning and bundle composition join them there.
+2. Methodology-manifest validation and catalog mapping are methodology
+   capability computation per
+   `spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md`
+   — pure functions over supplied bytes, outside the spec-tree library, with
+   the installed-package read entering the command handler through an
+   injected reader port.
+3. Extend the top-level `methodology` config descriptor
+   (`src/config/methodology.ts`) with the installed methodology package
+   location the reader resolves, per the same decision.
+4. Replace the `spec context` registration in `src/interfaces/cli/spec.ts`
+   with the `show <targets...>` form — no legacy single-target registration,
+   no alias — and shrink `src/commands/spec/context.ts` to root resolution,
+   snapshot construction, and byte reads through injected dependencies.
 
 ## Pending evidence work
 
