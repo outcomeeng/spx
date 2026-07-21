@@ -1,4 +1,12 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/tests/finding-identity.property.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/tests/run-set-boundary.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/tests/run-set-projection.mapping.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler/tests/run-set-selector.mapping.l1.test.ts": "passed"
+    }
+  }
 }
