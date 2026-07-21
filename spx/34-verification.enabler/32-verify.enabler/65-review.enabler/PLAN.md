@@ -9,7 +9,7 @@ This node materializes `review` as a verification type-specific aggregate bounda
 ## Child work
 
 - Review evidence schema and validation: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler` is passing with co-located payload evidence; the review-producer migration onto `spx verification run` is queued in the plugins repository's own session queue.
-- Review envelope, reviewed-unit, comment, and run-set projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler` is passing with co-located run-set connection evidence — review prior-run context consumes the run-set projection's merge-period and finding identity through review-owned extractors.
+- Review envelope, reviewed-unit, comment, and run-set projection: `spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler` is passing with co-located run-set connection evidence — the review-owned extractors for the run-set projection's finding identity and coverage keys are in place, and producer wiring onto `readRunSetContext` belongs to the review-producer migration queued in the plugins repository's own session queue.
 
 ## Ordering evidence
 
