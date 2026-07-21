@@ -18,13 +18,10 @@ import { SESSION_OUTPUT_MARKER, SESSION_PRIORITY, SESSION_STATUSES } from "@/dom
 import { sampleDistinctSessionIds, sampleSessionId } from "@testing/generators/session/session";
 import type { SessionHarness } from "@testing/harnesses/session/harness";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
+import { isFulfilledOutcome } from "@testing/harnesses/state/appendable-journal-store";
 
 const [TODO, DOING] = SESSION_STATUSES;
 const concurrentAgents = 5;
-
-function isFulfilled<T>(result: PromiseSettledResult<T>): result is PromiseFulfilledResult<T> {
-  return result.status === "fulfilled";
-}
 
 describe("concurrent pickup atomicity (P1)", () => {
   let harness: SessionHarness;
@@ -49,8 +46,8 @@ describe("concurrent pickup atomicity (P1)", () => {
       ),
     );
 
-    const successes = results.filter(isFulfilled);
-    const failures = results.filter((result) => !isFulfilled(result));
+    const successes = results.filter(isFulfilledOutcome);
+    const failures = results.filter((result) => !isFulfilledOutcome(result));
 
     // Exactly one agent wins
     expect(successes).toHaveLength(1);
@@ -75,7 +72,7 @@ describe("concurrent pickup atomicity (P1)", () => {
       ),
     );
 
-    const successes = results.filter(isFulfilled);
+    const successes = results.filter(isFulfilledOutcome);
 
     // At most as many successes as sessions
     expect(successes.length).toBeLessThanOrEqual(sessionCount);
