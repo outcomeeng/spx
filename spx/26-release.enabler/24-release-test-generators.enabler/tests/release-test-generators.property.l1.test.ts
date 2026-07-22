@@ -107,9 +107,15 @@ describe("release test generator contracts", () => {
     assertProperty(
       RELEASE_TEST_GENERATOR.distinctWindowsExtendedLengthDriveRoots(),
       ([first, second]) => {
+        const firstDrive = first.at(-3);
+        const secondDrive = second.at(-3);
+
         expect(first).not.toBe(second);
         expect(win32.parse(first).root).toBe(first);
         expect(win32.parse(second).root).toBe(second);
+        expect(firstDrive).toBeDefined();
+        expect(secondDrive).toBeDefined();
+        expect(firstDrive).not.toBe(secondDrive);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
@@ -119,9 +125,15 @@ describe("release test generator contracts", () => {
     assertProperty(
       RELEASE_TEST_GENERATOR.distinctWindowsDriveRoots(),
       ([first, second]) => {
+        const firstDrive = first.at(-3);
+        const secondDrive = second.at(-3);
+
         expect(first).not.toBe(second);
         expect(win32.parse(first).root).toBe(first);
         expect(win32.parse(second).root).toBe(second);
+        expect(firstDrive).toBeDefined();
+        expect(secondDrive).toBeDefined();
+        expect(firstDrive).not.toBe(secondDrive);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
