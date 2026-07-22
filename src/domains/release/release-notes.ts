@@ -572,7 +572,7 @@ export function buildReleaseNotesPrompt(
     `Write the notes to the changelog path in this ${COMMIT_SUBJECTS_DATA_ENCODING} data block:`,
     formatChangelogPathDataBlock(changelogPath),
     `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
-      encodeReleasePromptData(changelogVersionHeading(releaseData.version)).slice(1, -1)
+      changelogVersionHeading(releaseData.version)
     }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
     `Follow the Keep a Changelog format: open the file with "${CHANGELOG_TITLE}", add a version section using the release-version JSON data, and group its entries under headings drawn from ${
       CHANGELOG_CHANGE_GROUPS.join(
