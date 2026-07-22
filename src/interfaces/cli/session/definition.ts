@@ -42,6 +42,7 @@ export interface SessionCliDefinition {
     readonly todo: SessionSubcommandDefinition;
     readonly show: SessionSubcommandDefinition;
     readonly pickup: SessionSubcommandDefinition;
+    readonly reconcile: SessionSubcommandDefinition;
     readonly release: SessionSubcommandDefinition;
     readonly handoff: SessionSubcommandDefinition;
     readonly delete: SessionSubcommandDefinition;
@@ -91,6 +92,11 @@ export const sessionCliDefinition: SessionCliDefinition = {
       commandName: "pickup",
       operand: "[ids...]",
       description: "Claim one or more sessions (move from todo to doing)",
+    },
+    reconcile: {
+      commandName: "reconcile",
+      operand: "<id>",
+      description: "Reconcile a session's recorded references against current repository state (JSON verdicts)",
     },
     release: {
       commandName: "release",
@@ -202,6 +208,10 @@ export const sessionSubcommandOptions = [
       sessionCliDefinition.options.noInject,
       sessionCliDefinition.options.sessionsDir,
     ],
+  },
+  {
+    subcommand: sessionCliDefinition.subcommands.reconcile,
+    options: [sessionCliDefinition.options.sessionsDir],
   },
   {
     subcommand: sessionCliDefinition.subcommands.release,
