@@ -310,6 +310,9 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
       .description(sessionCliDefinition.subcommands.reconcile.description),
     sessionOptionsForSubcommand(sessionCliDefinition.subcommands.reconcile),
   )
+    // Reconciliation reports one session per invocation; a silently dropped
+    // second ID would read as reconciled, so excess operands are rejected.
+    .allowExcessArguments(false)
     .action(async (id: string, options: { sessionsDir?: string }) => {
       try {
         const output = await reconcileCommand({
