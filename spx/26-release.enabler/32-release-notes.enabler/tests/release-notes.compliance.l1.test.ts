@@ -69,15 +69,17 @@ it("instructs the producer to describe user-visible release behavior", () => {
 });
 
 it("carries the exact unquoted release section heading", () => {
-  const fixture = sampleReleaseNotesCompositionFixture();
+  const input = sampleReleaseNotesPromptInput(
+    RELEASE_NOTES_PROMPT_CASE.DELIMITER_VERSION,
+  );
   const prompt = buildReleaseNotesPrompt(
-    fixture.releaseData,
+    input.fixture.releaseData,
     DEFAULT_CHANGELOG_PATH,
   );
 
   expect(prompt).toContain(
     `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
-      changelogVersionHeading(fixture.releaseData.version)
+      changelogVersionHeading(input.fixture.releaseData.version)
     }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
   );
 });
