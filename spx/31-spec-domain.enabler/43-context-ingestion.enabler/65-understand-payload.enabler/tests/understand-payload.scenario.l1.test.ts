@@ -8,7 +8,7 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
-import { SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
@@ -51,6 +51,13 @@ describe("spec context understand payload", () => {
       expect(
         contentManifest.read.find((document) => document.path === fixture.corePath)?.content,
       ).toBe(fixture.coreText);
+      for (const catalogPath of fixture.catalogPaths) {
+        const catalogEntry = contentManifest.listed.find((entry) => entry.path === catalogPath);
+        expect(catalogEntry).toBeDefined();
+        for (const field of Object.values(SPEC_CONTEXT_CONTENT_FIELDS)) {
+          expect(catalogEntry).not.toHaveProperty(field);
+        }
+      }
 
       const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir, understand: true });
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY_DOCUMENT}: ${fixture.corePath}`);
