@@ -16,6 +16,7 @@ import {
   SESSION_HANDOFF_BASE_ERROR_NAME,
 } from "@/domains/session/handoff-base-checklist";
 import { FIELD_SELECTION_SEPARATOR, parseSessionMetadata, SESSION_RECORD_FIELD } from "@/domains/session/list";
+import { RECONCILE_REFERENCE_KIND, RECONCILE_VERDICT, type ReconcileFinding } from "@/domains/session/reconcile";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import {
   formatSessionOutputMarker,
@@ -44,6 +45,7 @@ import {
   FORBIDDEN_HANDOFF_BASE_ORIGIN_PLACEHOLDER,
   FORBIDDEN_HANDOFF_BASE_STASH_REMEDY,
 } from "@testing/generators/session/handoff-base";
+import { arbitraryDistinctReconcileEntryPaths } from "@testing/generators/session/reconcile";
 import {
   arbitraryHandoffHeader,
   sampleDistinctSessionIds,
@@ -65,6 +67,7 @@ import {
   type SessionHarness,
   withCommittedGitCwd,
 } from "@testing/harnesses/session/harness";
+import { withReconcileStore, writeReadableEntry } from "@testing/harnesses/session/reconcile";
 import { extractSessionFile } from "@testing/harnesses/session/session-store";
 import { ANSI_ESCAPE } from "@testing/harnesses/styled-output/ansi";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
@@ -599,6 +602,7 @@ describe("session CLI non-git warning", () => {
     { subcommand: sessionSubcommand.show.commandName, seed: TODO },
     { subcommand: sessionSubcommand.delete.commandName, seed: TODO },
     { subcommand: sessionSubcommand.pickup.commandName, seed: TODO },
+    { subcommand: sessionSubcommand.reconcile.commandName, seed: TODO },
     { subcommand: sessionSubcommand.release.commandName, seed: DOING },
     { subcommand: sessionSubcommand.archive.commandName, seed: TODO },
   ];
@@ -925,5 +929,65 @@ describe("session CLI list color compliance", () => {
     } else {
       expect(stdout).not.toContain(ANSI_ESCAPE);
     }
+  });
+});
+describe("session CLI reconcile", () => {
+  it("ALWAYS: reconcile writes one JSON verdict per recorded reference and exits 0", async () => {
+    await withReconcileStore(async ({ harness: reconcileStore, cwd }) => {
+      const [readablePath, absentPath] = sampleLiteralTestValue(arbitraryDistinctReconcileEntryPaths(2));
+      const id = sampleSessionId();
+      await writeReadableEntry(cwd, readablePath);
+      await reconcileStore.writeSession(TODO, id, {
+        git_ref: "",
+        specs: [readablePath],
+        files: [absentPath],
+      });
+
+      const result = await runSessionCli(
+        [
+          sessionDomain,
+          sessionSubcommand.reconcile.commandName,
+          id,
+          sessionOption.sessionsDir.flag,
+          reconcileStore.sessionsDir,
+        ],
+        undefined,
+        cwd,
+      );
+
+      expect(result.exitCode).toBe(0);
+      const findings = JSON.parse(result.stdout) as ReconcileFinding[];
+      expect(findings).toHaveLength(2);
+      expect(findings[0].kind).toBe(RECONCILE_REFERENCE_KIND.SPEC);
+      expect(findings[0].reference).toBe(readablePath);
+      expect(findings[0].verdict).toBe(RECONCILE_VERDICT.CONFIRMED);
+      expect(findings[1].kind).toBe(RECONCILE_REFERENCE_KIND.FILE);
+      expect(findings[1].reference).toBe(absentPath);
+      expect(findings[1].verdict).toBe(RECONCILE_VERDICT.DISCREPANCY);
+    });
+  });
+  it("NEVER: reconcile accepts more than one session ID operand", async () => {
+    await withReconcileStore(async ({ harness: reconcileStore, cwd }) => {
+      const ids = [...sampleDistinctSessionIds(2)];
+      for (const id of ids) {
+        await reconcileStore.writeSession(TODO, id, { git_ref: "", specs: [], files: [] });
+      }
+
+      const result = await runSessionCli(
+        [
+          sessionDomain,
+          sessionSubcommand.reconcile.commandName,
+          ...ids,
+          sessionOption.sessionsDir.flag,
+          reconcileStore.sessionsDir,
+        ],
+        undefined,
+        cwd,
+      );
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stdout.trim()).toHaveLength(0);
+      expect(result.stderr.trim()).not.toHaveLength(0);
+    });
   });
 });
