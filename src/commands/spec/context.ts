@@ -501,9 +501,17 @@ async function readMethodologyPayload(
   if (!manifest.ok) {
     throw new Error(formatFoundationManifestInvalidError(manifestPath, manifest.error));
   }
+  // The manifest is validated data, not a trusted read authority: the core
+  // path binds a read only when it resolves — through any symbolic link —
+  // inside the installed package location, the same containment every
+  // product-document read gets from the product root.
+  const corePath = await containedDocumentPath(resolvedPackageDir, manifest.value.core);
+  if (corePath === undefined) {
+    throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
+  }
   let coreBytes: Buffer;
   try {
-    coreBytes = await readFile(join(resolvedPackageDir, manifest.value.core));
+    coreBytes = await readFile(corePath);
   } catch {
     throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
   }

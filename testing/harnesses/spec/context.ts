@@ -409,6 +409,9 @@ export async function withRichContextEnv(
   });
 }
 
+/** Filename of the escape-target fixture a containment scenario writes outside the probed boundary. */
+export const SPEC_CONTEXT_ESCAPE_TARGET_FILENAME = "outside-secret.md";
+
 /** The materialized installed-methodology-package fixture: locations and exact resource text. */
 export interface MethodologyPackageFixture {
   /** Product-relative package root, the value the `methodology` config descriptor carries. */
