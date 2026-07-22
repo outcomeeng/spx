@@ -12,7 +12,14 @@ import {
   sampleH1BoundaryReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
 } from "@testing/generators/release/changelog";
-import { MARKDOWN_HEADING_TAG, observeIndependentMarkdown } from "@testing/harnesses/release/keep-a-changelog-oracle";
+import {
+  KEEP_A_CHANGELOG_CHANGE_GROUPS,
+  KEEP_A_CHANGELOG_TITLE,
+  KEEP_A_CHANGELOG_TITLE_TEXT,
+  keepAChangelogVersionHeadingText,
+  MARKDOWN_HEADING_TAG,
+  observeIndependentMarkdown,
+} from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   composeEveryReleaseNotesCase,
   composeReleaseNotesCase,
@@ -27,9 +34,15 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
     );
     for (const observation of observations) {
       const markdown = observeIndependentMarkdown(observation.content);
-      expect(markdown.firstLine).toBe(CHANGELOG_TITLE);
+      expect(CHANGELOG_TITLE).toBe(KEEP_A_CHANGELOG_TITLE);
+      expect(CHANGELOG_TITLE_TEXT).toBe(KEEP_A_CHANGELOG_TITLE_TEXT);
+      expect(CHANGELOG_CHANGE_GROUPS).toEqual(KEEP_A_CHANGELOG_CHANGE_GROUPS);
+      expect(changelogVersionHeadingText(observation.version)).toBe(
+        keepAChangelogVersionHeadingText(observation.version),
+      );
+      expect(markdown.firstLine).toBe(KEEP_A_CHANGELOG_TITLE);
       const title = markdown.headings.at(0);
-      expect(title).toMatchObject({ tag: MARKDOWN_HEADING_TAG.H1, text: CHANGELOG_TITLE_TEXT });
+      expect(title).toMatchObject({ tag: MARKDOWN_HEADING_TAG.H1, text: KEEP_A_CHANGELOG_TITLE_TEXT });
       if (title === undefined) continue;
       const nextTitle = markdown.headings.find(
         (heading) => heading.index > title.index && heading.tag === MARKDOWN_HEADING_TAG.H1,
@@ -39,7 +52,7 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
           heading.index > title.index
           && (nextTitle === undefined || heading.index < nextTitle.index)
           && heading.tag === MARKDOWN_HEADING_TAG.H2
-          && heading.text === changelogVersionHeadingText(observation.version),
+          && heading.text === keepAChangelogVersionHeadingText(observation.version),
       );
       expect(versionHeading).toBeDefined();
       if (versionHeading === undefined) continue;
@@ -54,7 +67,7 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
             heading.index > versionHeading.index
             && (nextRelease === undefined || heading.index < nextRelease.index)
             && heading.tag === MARKDOWN_HEADING_TAG.H3
-            && new Set<string>(CHANGELOG_CHANGE_GROUPS).has(heading.text),
+            && new Set<string>(KEEP_A_CHANGELOG_CHANGE_GROUPS).has(heading.text),
         ),
       ).toBe(true);
     }
