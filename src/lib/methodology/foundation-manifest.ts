@@ -50,8 +50,17 @@ function isPackageRelativePath(value: string): boolean {
 }
 
 function validatePathArray(field: string, value: unknown): Result<readonly string[]> {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || !isPackageRelativePath(entry))) {
+  if (!Array.isArray(value)) {
     return { ok: false, error: `${field} must be an array of non-empty package-relative paths` };
+  }
+  const offenderIndex = value.findIndex((entry) => typeof entry !== "string" || !isPackageRelativePath(entry));
+  if (offenderIndex !== -1) {
+    return {
+      ok: false,
+      error: `${field} must be an array of non-empty package-relative paths; rejected ${
+        JSON.stringify(value[offenderIndex])
+      }`,
+    };
   }
   return { ok: true, value: value as readonly string[] };
 }
@@ -83,7 +92,12 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
   }
   const core = parsed[FOUNDATION_MANIFEST_FIELDS.CORE];
   if (typeof core !== "string" || !isPackageRelativePath(core)) {
-    return { ok: false, error: `${FOUNDATION_MANIFEST_FIELDS.CORE} must be a non-empty package-relative path` };
+    return {
+      ok: false,
+      error: `${FOUNDATION_MANIFEST_FIELDS.CORE} must be a non-empty package-relative path; rejected ${
+        JSON.stringify(core)
+      }`,
+    };
   }
   const references = validatePathArray(
     FOUNDATION_MANIFEST_FIELDS.REFERENCES,
