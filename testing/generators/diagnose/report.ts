@@ -13,7 +13,8 @@ import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachabi
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
-import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
+
+import { arbitraryTerminalUnsafeCodePoint } from "@testing/generators/terminal-text/terminal-text";
 
 import { arbitraryCheckName, arbitraryNameToken } from "./manifest";
 
@@ -34,8 +35,8 @@ export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
  */
 export const arbitraryUnsafeReadingValue = (): fc.Arbitrary<string> =>
   fc
-    .tuple(arbitraryNameToken(), fc.integer({ min: 0, max: CONTROL_CHAR_UPPER_BOUND }), arbitraryNameToken())
-    .map(([head, controlCode, tail]) => `${head}${String.fromCodePoint(controlCode)}${tail}`);
+    .tuple(arbitraryNameToken(), arbitraryTerminalUnsafeCodePoint(), arbitraryNameToken())
+    .map(([head, unsafeCode, tail]) => `${head}${String.fromCodePoint(unsafeCode)}${tail}`);
 
 /**
  * A reachable-spx report whose version and path readings each carry a
