@@ -1,3 +1,4 @@
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -64,6 +65,20 @@ it("instructs the producer to describe user-visible release behavior", () => {
   for (const requiredTerms of RELEASE_NOTES_USER_VISIBLE_TERM_GROUPS) {
     expect(requiredTerms.every((term) => observation.terms.has(term))).toBe(true);
   }
+});
+
+it("carries the exact release section heading as encoded prompt data", () => {
+  const fixture = sampleReleaseNotesCompositionFixture();
+  const prompt = buildReleaseNotesPrompt(
+    fixture.releaseData,
+    DEFAULT_CHANGELOG_PATH,
+  );
+
+  expect(prompt).toContain(
+    encodeReleasePromptData(
+      changelogVersionHeading(fixture.releaseData.version),
+    ),
+  );
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
