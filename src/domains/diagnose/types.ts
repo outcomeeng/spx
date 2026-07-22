@@ -43,8 +43,12 @@ export interface CheckRecord {
   readonly verdict: string;
   /** The bucket the verdict folds into. */
   readonly bucket: VerdictBucket;
-  /** The gathered readings verbatim, keyed by reading name. */
-  readonly readings: Readonly<Record<string, string>>;
+  /**
+   * The gathered readings verbatim, keyed by reading name. A check gathers only
+   * the readings its verdict needed, so a reading name it did not gather is
+   * absent rather than empty.
+   */
+  readonly readings: Readonly<Partial<Record<string, string>>>;
   /** A remediation hint paired with the verdict. */
   readonly remediation: string;
 }

@@ -9,8 +9,11 @@
 
 import fc from "fast-check";
 
+import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
+import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 
 import { arbitraryCheckName, arbitraryNameToken } from "./manifest";
 
@@ -23,6 +26,35 @@ export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
     readings: fc.dictionary(arbitraryNameToken(), arbitraryNameToken(), { maxKeys: 4 }),
     remediation: arbitraryNameToken(),
   });
+
+/**
+ * A reading value carrying one terminal-control byte between two tokens — the
+ * shape a resolved path, a subprocess version reading, or a configured source
+ * takes when the environment that produced it embedded a control sequence.
+ */
+export const arbitraryUnsafeReadingValue = (): fc.Arbitrary<string> =>
+  fc
+    .tuple(arbitraryNameToken(), fc.integer({ min: 0, max: CONTROL_CHAR_UPPER_BOUND }), arbitraryNameToken())
+    .map(([head, controlCode, tail]) => `${head}${String.fromCodePoint(controlCode)}${tail}`);
+
+/**
+ * A reachable-spx report whose version and path readings each carry a
+ * terminal-control byte, so both the text and JSON renderings of the same
+ * record can be compared.
+ */
+export const arbitraryUnsafeReadingReport = (): fc.Arbitrary<DiagnoseReport> =>
+  fc
+    .tuple(arbitraryUnsafeReadingValue(), arbitraryUnsafeReadingValue(), arbitraryNameToken())
+    .map(([version, path, remediation]) => ({
+      checks: [{
+        name: CHECK_NAME.SPX_REACHABILITY,
+        verdict: SPX_REACHABILITY_VERDICT.REACHABLE,
+        bucket: VERDICT_BUCKET.HEALTHY,
+        readings: { version, path },
+        remediation,
+      }],
+      overall: foldOverallVerdict([VERDICT_BUCKET.HEALTHY]),
+    }));
 
 /** A coherent report whose overall verdict is the fold of its check buckets. */
 export const arbitraryReport = (): fc.Arbitrary<DiagnoseReport> =>
