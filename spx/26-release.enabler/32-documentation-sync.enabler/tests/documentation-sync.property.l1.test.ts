@@ -1,23 +1,23 @@
+import { AGENT_PERMISSION_MODES, AGENT_TOOL_PERMISSION_BEHAVIOR } from "@/agent/agent-runner";
+import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
 import { releaseVersionFromTag } from "@/domains/release/release-data";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
-import { documentationContentEntries } from "@testing/generators/release/documentation";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
-  AGENT_PERMISSION_MODES,
-  AGENT_TOOL_PERMISSION_BEHAVIOR,
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDocumentationAgentFileToolBoundaryScenario,
   arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
   arbitrarySparseDocumentationPathSet,
   arbitraryUnrelatedVersionRewriteScenario,
-  isPathContained,
+  documentationContentEntries,
+} from "@testing/generators/release/documentation";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import {
   observeConfiguredDocumentationPathSet,
   observeDocumentationAgentFileToolBoundary,
   observeDocumentationVersionPreservation,
   observeUnrelatedVersionRewrite,
-  RELEASE_CONFIG_FIELDS,
-  releaseConfigDescriptor,
 } from "@testing/harnesses/release/documentation-sync";
 import { describe, expect, it } from "vitest";
 

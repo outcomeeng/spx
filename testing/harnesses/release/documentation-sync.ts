@@ -7,8 +7,6 @@ import { Command } from "commander";
 import { execa } from "execa";
 
 import {
-  AGENT_PERMISSION_MODES,
-  AGENT_TOOL_PERMISSION_BEHAVIOR,
   type AgentAuditor,
   type AgentAuditRequest,
   type AgentRunner,
@@ -34,18 +32,12 @@ import {
 } from "@/commands/release/documentation-sync-filesystem";
 import { CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILENAME, serializeConfigFileSections } from "@/config/index";
 import { DIAGNOSE_SECTION } from "@/domains/diagnose/config";
-import {
-  DEFAULT_RELEASE_DOCUMENTATION_PATHS,
-  RELEASE_CONFIG_FIELDS,
-  RELEASE_SECTION,
-  releaseConfigDescriptor,
-} from "@/domains/release/config";
+import { RELEASE_CONFIG_FIELDS, RELEASE_SECTION } from "@/domains/release/config";
 import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
   createDocumentationFaithfulnessAuditor,
   DOCUMENTATION_SYNC_AUDIT_APPROVED,
-  DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -64,36 +56,17 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import type { AtomicWriteFileSystem } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
-  arbitraryConfiguredDocumentationSyncScenario,
-  arbitraryDefaultDocumentationSyncScenario,
-  arbitraryDocumentationAgentFileToolBoundaryScenario,
-  arbitraryDocumentationPathAliasCases,
-  arbitraryDocumentationVersionPreservationScenarios,
-  arbitraryDuplicateDocumentationPathSet,
-  arbitraryFirstReleaseDocumentationSyncScenario,
-  arbitraryMultiDocumentSyncScenario,
-  arbitraryNestedDocumentationSyncScenario,
-  arbitraryPromptBoundaryDocumentationSyncScenario,
-  arbitraryReleaseVersionVariantOnlyScenario,
-  arbitrarySingleDocumentSyncScenario,
-  arbitrarySparseDocumentationPathSet,
-  arbitraryUnrelatedVersionRewriteScenario,
-  arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario,
   DOCUMENTATION_PATH_FAILURE_KIND,
   type DocumentationAgentFileToolBoundaryScenario,
+  type DocumentationConfigIndependenceScenario,
   type DocumentationPathAliasCase,
   type DocumentationPathFailureCase,
-  documentationPathFailureCases,
   type DocumentationPathMappingCase,
-  documentationPathMappingCases,
   type DocumentationSyncScenario,
   type DocumentationUnrelatedVersionRewriteScenario,
-  type DocumentationUpdatedContent,
   type DocumentationVersionPreservationScenarios,
 } from "@testing/generators/release/documentation";
-import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -455,14 +428,7 @@ class InterveningDocumentationIdentityPromoter {
   };
 }
 
-interface DocumentationFailureControls {
-  readonly agentRunner?: AgentRunner;
-  readonly readDocument?: StagedDocumentationReader;
-}
-
 type ProductDocumentationReader = (path: string) => Promise<string>;
-
-type DocumentationReadRaceTarget = typeof DOCUMENTATION_READ_RACE_TARGET[keyof typeof DOCUMENTATION_READ_RACE_TARGET];
 
 interface PrimaryDocumentation {
   readonly path: string;
@@ -693,31 +659,31 @@ interface DocumentationContentObservation extends DocumentationObservedContent {
 interface VersionlessDocumentationSyncObservation extends DocumentationContentObservation {
   readonly permissionMode: AgentRunRequest["permissionMode"];
   readonly auditRequestCount: number;
-  readonly auditInstruction: string;
 }
 
-async function observeDefaultDocumentationSync(): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(
-    sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario()),
-  );
+async function observeDefaultDocumentationSync(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(scenario);
 }
 
-async function observeConfiguredDocumentationSync(): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(
-    sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
-  );
+async function observeConfiguredDocumentationSync(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(scenario);
 }
 
-async function observeFirstReleaseDocumentationSync(): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(
-    sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
-  );
+async function observeFirstReleaseDocumentationSync(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationContentObservation> {
+  return await observeDocumentationSync(scenario);
 }
 
-async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
+async function observeVersionlessSubsequentReleaseDocumentationSync(
+  scenario: DocumentationSyncScenario,
+): Promise<
   VersionlessDocumentationSyncObservation
 > {
-  const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
   const auditor = new RecordingDocumentationAuditor();
   const producer = new PromptDrivenDocumentationAgent();
   let observation: VersionlessDocumentationSyncObservation | undefined;
@@ -728,7 +694,6 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
       faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
     });
     const producerRequest = requiredAgentRequest(producer.requests, "producer");
-    const auditRequest = requiredAgentRequest(auditor.requests, "audit");
     observation = {
       ...await observeDocumentationContent(scenario, readProductDocument),
       producerInput: parseDocumentationSyncPromptInput(producerRequest.prompt),
@@ -736,7 +701,6 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
       encodedVersion: JSON.stringify(scenario.releaseData.version),
       permissionMode: producerRequest.permissionMode,
       auditRequestCount: auditor.requests.length,
-      auditInstruction: documentationSyncPromptInstruction(auditRequest.prompt),
     };
   });
   if (observation === undefined) {
@@ -819,9 +783,11 @@ interface DocumentationConfigObservation {
   >;
 }
 
-async function observeDocumentationPathMappings(): Promise<readonly DocumentationPathMappingObservation[]> {
+async function observeDocumentationPathMappings(
+  mappingCases: readonly DocumentationPathMappingCase[],
+): Promise<readonly DocumentationPathMappingObservation[]> {
   const observations: DocumentationPathMappingObservation[] = [];
-  for (const mappingCase of documentationPathMappingCases()) {
+  for (const mappingCase of mappingCases) {
     const { scenario } = mappingCase;
     await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
       await runDocumentationSyncCli(options);
@@ -835,9 +801,10 @@ async function observeDocumentationPathMappings(): Promise<readonly Documentatio
   return observations;
 }
 
-function observeDocumentationPathSemantics(): readonly DocumentationPathSemanticsObservation[] {
+function observeDocumentationPathSemantics(
+  scenario: DocumentationSyncScenario,
+): readonly DocumentationPathSemanticsObservation[] {
   return DOCUMENTATION_PATH_SEMANTICS.map(({ join: joinPath, operations }) => {
-    const scenario = sampleReleaseTestValue(arbitraryNestedDocumentationSyncScenario());
     const sourcePath = scenario.paths.at(0);
     if (sourcePath === undefined) {
       throw new Error("Generated nested documentation scenario has no source path");
@@ -852,9 +819,11 @@ function observeDocumentationPathSemantics(): readonly DocumentationPathSemantic
   });
 }
 
-async function observeDocumentationPathAliases(): Promise<readonly DocumentationPathAliasObservation[]> {
+async function observeDocumentationPathAliases(
+  aliasCases: readonly DocumentationPathAliasCase[],
+): Promise<readonly DocumentationPathAliasObservation[]> {
   const observations: DocumentationPathAliasObservation[] = [];
-  for (const aliasCase of sampleReleaseTestValue(arbitraryDocumentationPathAliasCases())) {
+  for (const aliasCase of aliasCases) {
     await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
       const canonicalPath = join(productDir, aliasCase.canonicalPath);
       await mkdir(dirname(canonicalPath), { recursive: true });
@@ -884,8 +853,10 @@ async function observeDocumentationPathAliases(): Promise<readonly Documentation
   return observations;
 }
 
-async function observeIndependentDocumentationConfigResolution(): Promise<DocumentationConfigObservation> {
-  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+async function observeIndependentDocumentationConfigResolution(
+  input: DocumentationConfigIndependenceScenario,
+): Promise<DocumentationConfigObservation> {
+  const { scenario } = input;
   return await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
     await writeFile(
       join(productDir, DEFAULT_CONFIG_FILENAME),
@@ -895,7 +866,7 @@ async function observeIndependentDocumentationConfigResolution(): Promise<Docume
             [RELEASE_CONFIG_FIELDS.PATHS]: scenario.paths,
           },
         },
-        [DIAGNOSE_SECTION]: sampleReleaseTestValue(arbitraryDomainLiteral()),
+        [DIAGNOSE_SECTION]: input.unrelatedSection,
       }).value,
     );
     return {
@@ -995,7 +966,7 @@ async function observeUnrelatedVersionRewrite(
 async function observeDocumentationAgentFileToolBoundary(
   scenario: DocumentationAgentFileToolBoundaryScenario,
 ): Promise<DocumentationAgentFileToolBoundaryObservation> {
-  const documentationScenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  const documentationScenario = scenario.documentationScenario;
   const agent = new DocumentationWritingAgent(documentationScenario.updated);
   let observation: DocumentationAgentFileToolBoundaryObservation | undefined;
   await withDocumentationScenario(documentationScenario, async (options) => {
@@ -1177,13 +1148,14 @@ interface DocumentationPromptObservation {
   readonly encodedVersion: string;
   readonly auditRequestCount: number;
   readonly actualAuditInput: unknown;
-  readonly auditInstruction: string;
   readonly producerPrompt: string;
 }
 
-async function observeDocumentationPathFailures(): Promise<readonly DocumentationPathFailureObservation[]> {
+async function observeDocumentationPathFailures(
+  failureCases: readonly DocumentationPathFailureCase[],
+): Promise<readonly DocumentationPathFailureObservation[]> {
   return await Promise.all(
-    documentationPathFailureCases().map(async (failureCase) =>
+    failureCases.map(async (failureCase) =>
       await withTempDir(
         PRODUCT_DIRECTORY_PREFIX,
         async (productDir) =>
@@ -1233,12 +1205,8 @@ async function observeDocumentationPathFailures(): Promise<readonly Documentatio
 
 async function observeDocumentationFailure(
   failureCase: DocumentationFailureCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationRejectionObservation> {
-  const scenario = sampleReleaseTestValue(
-    failureCase === DOCUMENTATION_FAILURE_CASE.INCOMPLETE_SET
-      ? arbitraryMultiDocumentSyncScenario()
-      : arbitraryConfiguredDocumentationSyncScenario(),
-  );
   const promoter = new RecordingDocumentationPromoter();
   const agent = failureCase === DOCUMENTATION_FAILURE_CASE.GENERATION
     ? new FailingDocumentationAgent()
@@ -1277,12 +1245,8 @@ async function observeDocumentationFailure(
 
 async function observeDocumentationVersionValidation(
   validationCase: DocumentationVersionValidationCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationRejectionObservation> {
-  const scenario = sampleReleaseTestValue(
-    validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT
-      ? arbitraryReleaseVersionVariantOnlyScenario()
-      : arbitraryConfiguredDocumentationSyncScenario(),
-  );
   const agent = validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT
     ? new DocumentationWritingAgent(scenario.updated)
     : validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.PARTIAL_REWRITE
@@ -1318,13 +1282,8 @@ async function observeDocumentationVersionValidation(
 
 async function observeDocumentationIdentityRejection(
   identityCase: DocumentationIdentityCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationRejectionObservation> {
-  const scenario = sampleReleaseTestValue(
-    identityCase === DOCUMENTATION_IDENTITY_CASE.DUPLICATE_FILE
-      || identityCase === DOCUMENTATION_IDENTITY_CASE.STAGED_REPLACEMENT
-      ? arbitraryMultiDocumentSyncScenario()
-      : arbitrarySingleDocumentSyncScenario(),
-  );
   return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
     let observation: DocumentationRejectionObservation | undefined;
     await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
@@ -1440,8 +1399,9 @@ async function observeDocumentationIdentityRejection(
   });
 }
 
-async function observeDocumentationFifoRejection(): Promise<DocumentationFifoObservation> {
-  const scenario = sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario());
+async function observeDocumentationFifoRejection(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationFifoObservation> {
   const primary = primaryDocumentation(scenario);
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationFifoObservation | undefined;
@@ -1470,8 +1430,9 @@ async function observeDocumentationFifoRejection(): Promise<DocumentationFifoObs
   return observation;
 }
 
-async function observeAtomicDocumentationPromotion(): Promise<DocumentationAtomicPromotionObservation> {
-  const scenario = sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario());
+async function observeAtomicDocumentationPromotion(
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationAtomicPromotionObservation> {
   const opener = new TrackingDocumentationFileOpener();
   const writer = createDocumentationAtomicWriter({
     writeFile: async (path, content) => await writeFile(path, content),
@@ -1509,8 +1470,8 @@ async function observeAtomicDocumentationPromotion(): Promise<DocumentationAtomi
 
 async function observeDocumentationRollback(
   rollbackCase: DocumentationRollbackCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationRollbackObservation> {
-  const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
   const primary = primaryDocumentation(scenario);
   return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
     let observation: DocumentationRollbackObservation | undefined;
@@ -1552,8 +1513,8 @@ async function observeDocumentationRollback(
 
 async function observeDocumentationPromotionFailure(
   failureCase: DocumentationPromotionFailureCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationPromotionFailureObservation> {
-  const scenario = sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario());
   let observation: DocumentationPromotionFailureObservation | undefined;
   await withDocumentationScenario(scenario, async (options, readProductDocument) => {
     let error: unknown;
@@ -1615,8 +1576,10 @@ async function observeDocumentationPromotionFailure(
   return observation;
 }
 
-async function observeDocumentationAudit(auditCase: DocumentationAuditCase): Promise<DocumentationAuditObservation> {
-  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+async function observeDocumentationAudit(
+  auditCase: DocumentationAuditCase,
+  scenario: DocumentationSyncScenario,
+): Promise<DocumentationAuditObservation> {
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationAuditObservation | undefined;
   await withDocumentationScenario(scenario, async (options, readProductDocument) => {
@@ -1656,12 +1619,8 @@ async function observeDocumentationAudit(auditCase: DocumentationAuditCase): Pro
 
 async function observeDocumentationPrompt(
   promptCase: DocumentationPromptCase,
+  scenario: DocumentationSyncScenario,
 ): Promise<DocumentationPromptObservation> {
-  const scenario = sampleReleaseTestValue(
-    promptCase === DOCUMENTATION_PROMPT_CASE.DATA_BOUNDARY
-      ? arbitraryPromptBoundaryDocumentationSyncScenario()
-      : arbitraryConfiguredDocumentationSyncScenario(),
-  );
   const auditor = new RecordingDocumentationAuditor();
   let observation: DocumentationPromptObservation | undefined;
   await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
@@ -1680,7 +1639,6 @@ async function observeDocumentationPrompt(
       encodedVersion: encodeReleasePromptData(scenario.releaseData.version),
       auditRequestCount: auditor.requests.length,
       actualAuditInput: parseDocumentationPromptDataBlock(auditRequest.prompt),
-      auditInstruction: documentationSyncPromptInstruction(auditRequest.prompt),
       producerPrompt: producerRequest.prompt,
     };
   });
@@ -1767,86 +1725,14 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
 }
 
 export {
-  AGENT_FILE_TOOL_PATH_INPUT_FIELD,
-  AGENT_PERMISSION_MODES,
-  AGENT_PRE_TOOL_USE_HOOK_EVENT,
-  AGENT_TOOL_PERMISSION_BEHAVIOR,
-  type AgentRunner,
-  type AgentRunRequest,
-  approvingDocumentationAuditor,
-  arbitraryConfiguredDocumentationSyncScenario,
-  arbitraryDefaultDocumentationSyncScenario,
-  arbitraryDocumentationAgentFileToolBoundaryScenario,
-  arbitraryDocumentationPathAliasCases,
-  arbitraryDocumentationVersionPreservationScenarios,
-  arbitraryDomainLiteral,
-  arbitraryDuplicateDocumentationPathSet,
-  arbitraryFirstReleaseDocumentationSyncScenario,
-  arbitraryMultiDocumentSyncScenario,
-  arbitraryNestedDocumentationSyncScenario,
-  arbitraryPromptBoundaryDocumentationSyncScenario,
-  arbitraryReleaseVersionVariantOnlyScenario,
-  arbitrarySingleDocumentSyncScenario,
-  arbitrarySparseDocumentationPathSet,
-  arbitraryUnrelatedVersionRewriteScenario,
-  arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario,
-  composeDocumentationSync,
-  composeWithDocumentationFilesystem,
-  CONFIG_FILE_FORMAT,
-  createDocumentationAtomicWriter,
-  createDocumentationFaithfulnessAuditor,
-  createDocumentationSyncFilesystem,
-  DEFAULT_CONFIG_FILENAME,
-  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
-  DEFAULT_RELEASE_DOCUMENTATION_PATHS,
-  delay,
-  DIAGNOSE_SECTION,
-  dirname,
   DOCUMENTATION_AUDIT_CASE,
   DOCUMENTATION_FAILURE_CASE,
-  DOCUMENTATION_FIFO_BLOCK_DETECTION_MS,
-  DOCUMENTATION_FIFO_COMMAND,
   DOCUMENTATION_FIFO_STAGE_OUTCOME,
   DOCUMENTATION_IDENTITY_CASE,
-  DOCUMENTATION_PATH_FAILURE_KIND,
-  DOCUMENTATION_PATH_SEMANTICS,
   DOCUMENTATION_PROMOTION_FAILURE_CASE,
   DOCUMENTATION_PROMPT_CASE,
-  DOCUMENTATION_READ_RACE_TARGET,
   DOCUMENTATION_ROLLBACK_CASE,
-  DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
-  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
-  DOCUMENTATION_TEXT_ENCODING,
   DOCUMENTATION_VERSION_VALIDATION_CASE,
-  type DocumentationAgentFileToolBoundaryScenario,
-  type DocumentationFailureControls,
-  type DocumentationPathAliasCase,
-  type DocumentationPathFailureCase,
-  documentationPathFailureCases,
-  documentationPathMappingCases,
-  type DocumentationReadRaceTarget,
-  documentationSyncPromptInstruction,
-  type DocumentationSyncScenario,
-  type DocumentationUnrelatedVersionRewriteScenario,
-  type DocumentationUpdatedContent,
-  DocumentationWritingAgent,
-  encodeReleasePromptData,
-  execa,
-  EXTERNAL_DIRECTORY_PREFIX,
-  FailingDocumentationAgent,
-  failingDocumentationReader,
-  FailingSecondDocumentationAtomicWriter,
-  FirstDocumentationWritingAgent,
-  IdentityReplacingDocumentationAtomicWriter,
-  InterveningDocumentationEditPromoter,
-  InterveningDocumentationIdentityPromoter,
-  InterveningDuringPromotionAtomicWriter,
-  isPathContained,
-  join,
-  lastDocumentationPath,
-  link,
-  materializeDocumentationPathFailure,
-  mkdir,
   observeAtomicDocumentationPromotion,
   observeConfiguredDocumentationPathSet,
   observeConfiguredDocumentationSync,
@@ -1869,38 +1755,5 @@ export {
   observeIndependentDocumentationConfigResolution,
   observeUnrelatedVersionRewrite,
   observeVersionlessSubsequentReleaseDocumentationSync,
-  open,
-  parseDocumentationPromptDataBlock,
-  parseDocumentationSyncPromptInput,
-  PartiallyUpdatingDocumentationAgent,
-  PassiveDocumentationAgent,
-  posix,
-  PostPromotionEditFailingAtomicWriter,
-  PostRenameIdentityReplacingAtomicFileSystem,
-  primaryDocumentation,
-  PRODUCT_DIRECTORY_PREFIX,
-  type ProductDocumentationReader,
-  readFile,
-  realpath,
-  RecordingDocumentationAtomicWriter,
-  RecordingDocumentationAuditor,
-  RecordingDocumentationPromoter,
   REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
-  rejectingDocumentationAuditor,
-  RELEASE_CONFIG_FIELDS,
-  RELEASE_SECTION,
-  releaseConfigDescriptor,
-  rename,
-  resolveCanonicalDocumentationTarget,
-  RetargetingDocumentationCanonicalPathResolver,
-  RetargetingDocumentationFileOpener,
-  rm,
-  runDocumentationSyncCli,
-  sampleReleaseTestValue,
-  serializeConfigFileSections,
-  StagedSymlinkReplacingAgent,
-  TrackingDocumentationFileOpener,
-  withDocumentationScenario,
-  withTempDir,
-  writeFile,
 };
