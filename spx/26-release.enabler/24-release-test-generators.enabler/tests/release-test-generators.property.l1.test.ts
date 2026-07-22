@@ -7,6 +7,7 @@ import {
   changelogVersionHeadingText,
   releaseNotesConformsToKeepAChangelog,
 } from "@/domains/release/release-notes";
+import { usesWindowsPathSemantics } from "@/lib/file-system/pathContainment";
 import { arbitraryKeepAChangelogConformanceCase } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -130,9 +131,18 @@ describe("release test generator contracts", () => {
     assertProperty(
       RELEASE_TEST_GENERATOR.distinctWindowsUncRoots(),
       ([first, second]) => {
-        expect(first).not.toBe(second);
+        const firstHost = first.split(win32.sep).filter(Boolean).at(-2);
+        const secondHost = second.split(win32.sep).filter(Boolean).at(-2);
+
+        expect(usesWindowsPathSemantics(first)).toBe(true);
+        expect(usesWindowsPathSemantics(second)).toBe(true);
         expect(win32.parse(first).root).toBe(first);
         expect(win32.parse(second).root).toBe(second);
+        expect(win32.toNamespacedPath(first)).not.toBe(first);
+        expect(win32.toNamespacedPath(second)).not.toBe(second);
+        expect(firstHost).toBeDefined();
+        expect(secondHost).toBeDefined();
+        expect(firstHost).not.toBe(secondHost);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
@@ -142,11 +152,29 @@ describe("release test generator contracts", () => {
     assertProperty(
       RELEASE_TEST_GENERATOR.distinctWindowsExtendedLengthUncRoots(),
       ([first, second]) => {
-        expect(first).not.toBe(second);
+        const firstNamespaceRoot = win32.parse(first).root;
+        const secondNamespaceRoot = win32.parse(second).root;
+        const [firstHost, firstShare, ...firstRemainder] = first.slice(firstNamespaceRoot.length).split(win32.sep)
+          .filter(Boolean);
+        const [secondHost, secondShare, ...secondRemainder] = second.slice(secondNamespaceRoot.length).split(
+          win32.sep,
+        ).filter(Boolean);
+
+        expect(usesWindowsPathSemantics(first)).toBe(true);
+        expect(usesWindowsPathSemantics(second)).toBe(true);
         expect(win32.isAbsolute(first)).toBe(true);
         expect(win32.isAbsolute(second)).toBe(true);
         expect(first.endsWith(win32.sep)).toBe(true);
         expect(second.endsWith(win32.sep)).toBe(true);
+        expect(win32.toNamespacedPath(first)).toBe(first.slice(0, -win32.sep.length));
+        expect(win32.toNamespacedPath(second)).toBe(second.slice(0, -win32.sep.length));
+        expect(firstHost).toBeDefined();
+        expect(firstShare).toBeDefined();
+        expect(firstRemainder).toEqual([]);
+        expect(secondHost).toBeDefined();
+        expect(secondShare).toBeDefined();
+        expect(secondRemainder).toEqual([]);
+        expect(firstHost).not.toBe(secondHost);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

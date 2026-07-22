@@ -82,7 +82,8 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
     await expect(composeEveryReleaseNotesCase(sampleNonConformantReleaseNotesChangelogCases())).resolves.toSatisfy(
       (results) =>
         results.every(
-          (result: ReleaseNotesConformanceFailureObservation) => result.error instanceof ReleaseNotesError,
+          (result: ReleaseNotesConformanceFailureObservation) =>
+            result.error instanceof ReleaseNotesError && !result.finalPathIsFile,
         ),
     );
   });
