@@ -7,7 +7,6 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_USER_FACING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -49,15 +48,22 @@ import {
   composeEveryReleaseNotesCase,
   type ReleaseNotesConformanceFailureObservation,
 } from "@testing/harnesses/release/release-notes-conformance";
+import {
+  observeReleaseNotesPromptLanguage,
+  RELEASE_NOTES_USER_VISIBLE_TERM_GROUPS,
+} from "@testing/harnesses/release/release-notes-prompt-oracle";
 import { describe, expect, it } from "vitest";
 
 it("instructs the producer to describe user-visible release behavior", () => {
-  expect(
+  const observation = observeReleaseNotesPromptLanguage(
     buildReleaseNotesPrompt(
       sampleReleaseNotesCompositionFixture().releaseData,
       DEFAULT_CHANGELOG_PATH,
     ),
-  ).toContain(RELEASE_NOTES_USER_FACING_INSTRUCTION);
+  );
+  for (const requiredTerms of RELEASE_NOTES_USER_VISIBLE_TERM_GROUPS) {
+    expect(requiredTerms.every((term) => observation.terms.has(term))).toBe(true);
+  }
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {

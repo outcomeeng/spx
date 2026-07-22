@@ -88,9 +88,15 @@ export interface DocumentationUnrelatedVersionRewriteScenario {
 }
 
 export interface DocumentationAgentFileToolBoundaryScenario {
+  readonly documentationScenario: DocumentationSyncScenario;
   readonly tool: AgentRunTool;
   readonly containedPath: string;
   readonly escapedPaths: readonly string[];
+}
+
+export interface DocumentationConfigIndependenceScenario {
+  readonly scenario: DocumentationSyncScenario;
+  readonly unrelatedSection: string;
 }
 
 interface DocumentationSyncScenarioWithUnrelatedVersion {
@@ -261,14 +267,16 @@ export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitr
 > {
   return fc
     .tuple(
+      arbitraryConfiguredDocumentationSyncScenario(),
       arbitraryPathSegment(),
       arbitraryPathSegment(),
       arbitraryPathSegment(),
       fc.constantFrom(...AGENT_FILE_TOOLS),
     )
-    .map(([rootSegment, containedSegment, escapedSegment, tool]) => {
+    .map(([documentationScenario, rootSegment, containedSegment, escapedSegment, tool]) => {
       const rootPath = posix.resolve(posix.sep, rootSegment);
       return {
+        documentationScenario,
         tool,
         containedPath: posix.join(rootPath, containedSegment),
         escapedPaths: [
@@ -277,6 +285,14 @@ export function arbitraryDocumentationAgentFileToolBoundaryScenario(): fc.Arbitr
         ],
       };
     });
+}
+
+export function arbitraryDocumentationConfigIndependenceScenario(): fc.Arbitrary<
+  DocumentationConfigIndependenceScenario
+> {
+  return fc
+    .tuple(arbitraryConfiguredDocumentationSyncScenario(), arbitraryPathSegment())
+    .map(([scenario, unrelatedSection]) => ({ scenario, unrelatedSection }));
 }
 
 export function arbitraryReleaseVersionVariantOnlyScenario(): fc.Arbitrary<DocumentationSyncScenario> {
