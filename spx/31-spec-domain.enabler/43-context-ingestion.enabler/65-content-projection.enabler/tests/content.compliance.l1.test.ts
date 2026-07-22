@@ -10,7 +10,14 @@ import {
   SPEC_CONTEXT_DIGEST_ALGORITHM,
   specContextDigest,
 } from "@/lib/spec-tree";
-import { contextCommand, parseContextManifest, withRichContextEnv } from "@testing/harnesses/spec/context";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import {
+  contextCommand,
+  methodologyPackageConfig,
+  parseContextManifest,
+  withRichContextEnv,
+  writeMethodologyPackage,
+} from "@testing/harnesses/spec/context";
 
 describe("spec context content-field boundary", () => {
   it("always carries exact content, an algorithm-named raw-byte digest, and a byte count on every read entry and never on a listed entry when content is requested", async () => {
@@ -52,6 +59,33 @@ describe("spec context content-field boundary", () => {
       for (const document of [...manifest.read, ...manifest.listed]) {
         for (const field of Object.values(SPEC_CONTEXT_CONTENT_FIELDS)) {
           expect(document).not.toHaveProperty(field);
+        }
+      }
+    });
+  });
+
+  it("never carries content, digest, or byte count on an entry outside the methodology group when the methodology payload is present and content is not requested", async () => {
+    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+      await env.materialize();
+      const fixture = await writeMethodologyPackage(env);
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const manifest = parseContextManifest(
+        await contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+      );
+      // The boundary is only proven when the methodology group is actually
+      // present and body-bearing in the same response.
+      expect(manifest.read.find((document) => document.path === fixture.corePath)?.content)
+        .toBe(fixture.coreText);
+      for (const document of manifest.read) {
+        if (document.path === fixture.corePath) continue;
+        for (const field of Object.values(SPEC_CONTEXT_CONTENT_FIELDS)) {
+          expect(document).not.toHaveProperty(field);
+        }
+      }
+      for (const entry of manifest.listed) {
+        for (const field of Object.values(SPEC_CONTEXT_CONTENT_FIELDS)) {
+          expect(entry).not.toHaveProperty(field);
         }
       }
     });
