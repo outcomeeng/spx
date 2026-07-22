@@ -225,7 +225,12 @@ function decodeContextDocumentOrThrow(path: string, rawBytes: Buffer): string {
   }
 }
 
-/** Bytes and decoded text the citation scan already read, keyed by tree path, reused for content attachment. */
+/**
+ * Bytes and decoded text the citation scan already read, keyed by tree path.
+ * The cache spans the whole invocation so a document shared across targets is
+ * read from disk once, and in content mode the attachment step reuses the
+ * strictly decoded entries instead of reading each document twice.
+ */
 type ScannedDocuments = Map<string, { readonly rawBytes: Buffer; readonly content: string }>;
 
 /**
@@ -257,8 +262,9 @@ async function citedDecisionDocuments(
       if (contentRequested) throw error;
       return undefined;
     }
-    if (!contentRequested) return rawBytes.toString("utf8");
-    const content = decodeContextDocumentOrThrow(path, rawBytes);
+    const content = contentRequested
+      ? decodeContextDocumentOrThrow(path, rawBytes)
+      : rawBytes.toString("utf8");
     scannedDocuments.set(path, { rawBytes, content });
     return content;
   };
