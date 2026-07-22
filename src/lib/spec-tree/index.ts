@@ -93,12 +93,14 @@ export type {
   SpecContextTargetReadSet,
 } from "./context-manifest";
 export {
+  assembleSpecContextTargetReadSet,
   specContextAncestors,
   specContextDecisions,
   specContextEvidence,
   specContextLowerIndexSiblings,
   specContextSiblings,
 } from "./context-read-set";
+export type { SpecContextReadSetCandidates } from "./context-read-set";
 export { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "./context-target";
 export type {
   SpecContextTargetFailure,
