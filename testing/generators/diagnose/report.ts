@@ -9,6 +9,7 @@
 
 import fc from "fast-check";
 
+import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
@@ -52,6 +53,25 @@ export const arbitraryUnsafeReadingReport = (): fc.Arbitrary<DiagnoseReport> =>
         verdict: SPX_REACHABILITY_VERDICT.REACHABLE,
         bucket: VERDICT_BUCKET.HEALTHY,
         readings: { version, path },
+        remediation,
+      }],
+      overall: foldOverallVerdict([VERDICT_BUCKET.HEALTHY]),
+    }));
+
+/**
+ * A methodology-context report whose `configuredSource` reading is absent
+ * rather than empty — the case the partial readings record admits and the text
+ * renderer resolves to the source-owned undefined sentinel.
+ */
+export const arbitraryAbsentReadingReport = (): fc.Arbitrary<DiagnoseReport> =>
+  fc
+    .tuple(arbitraryNameToken(), arbitraryNameToken())
+    .map(([observedVersion, remediation]) => ({
+      checks: [{
+        name: CHECK_NAME.METHODOLOGY_CONTEXT,
+        verdict: METHODOLOGY_CONTEXT_VERDICT.RESOLVED,
+        bucket: VERDICT_BUCKET.HEALTHY,
+        readings: { observedVersion },
         remediation,
       }],
       overall: foldOverallVerdict([VERDICT_BUCKET.HEALTHY]),
