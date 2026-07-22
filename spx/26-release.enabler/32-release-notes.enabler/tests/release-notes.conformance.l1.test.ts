@@ -1,21 +1,18 @@
-import { ReleaseNotesError } from "@/domains/release/release-notes";
 import {
-  sampleAtxClosingHashesReleaseNotesChangelogCase,
-  sampleCdataReleaseNotesChangelogCase,
-  sampleConformantReleaseNotesChangelogCase,
-  sampleCustomInlineHtmlReleaseNotesChangelogCase,
+  CHANGELOG_CHANGE_GROUPS,
+  CHANGELOG_TITLE,
+  CHANGELOG_TITLE_TEXT,
+  changelogVersionHeadingText,
+  ReleaseNotesError,
+} from "@/domains/release/release-notes";
+import {
+  sampleConformantReleaseNotesChangelogCases,
   sampleDuplicateCurrentVersionReleaseNotesChangelogCase,
   sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase,
   sampleH1BoundaryReleaseNotesChangelogCase,
-  sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase,
-  sampleIndentedFenceReleaseNotesChangelogCase,
   sampleNonConformantReleaseNotesChangelogCases,
-  sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase,
-  sampleStandaloneInlineHtmlReleaseNotesChangelogCase,
-  sampleTabbedHeadingReleaseNotesChangelogCase,
-  sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase,
 } from "@testing/generators/release/changelog";
-import { independentKeepAChangelogConformance } from "@testing/harnesses/release/keep-a-changelog-oracle";
+import { MARKDOWN_HEADING_TAG, observeIndependentMarkdown } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   composeEveryReleaseNotesCase,
   composeReleaseNotesCase,
@@ -24,67 +21,43 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("composeReleaseNotes validates the read-back changelog against Keep a Changelog", () => {
-  it("accepts a changelog that conforms to Keep a Changelog with a section for the version", async () => {
-    await expect(composeReleaseNotesCase(sampleConformantReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
+  it("accepts every independently parsed conformant changelog shape", async () => {
+    const observations = await Promise.all(
+      sampleConformantReleaseNotesChangelogCases().map(async (testCase) => await composeReleaseNotesCase(testCase)),
     );
-  });
-
-  it("accepts literal fence text indented as code inside a conformant release section", async () => {
-    await expect(composeReleaseNotesCase(sampleIndentedFenceReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
-  });
-
-  it("accepts legal ATX closing hashes on release and change-group headings", async () => {
-    await expect(composeReleaseNotesCase(sampleAtxClosingHashesReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
-  });
-
-  it("accepts tab-separated release and change-group headings", async () => {
-    await expect(composeReleaseNotesCase(sampleTabbedHeadingReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
-  });
-
-  it("accepts a change-group heading after a tab-padded list item", async () => {
-    await expect(composeReleaseNotesCase(sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase())).resolves
-      .toSatisfy(
-        (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
+    for (const observation of observations) {
+      const markdown = observeIndependentMarkdown(observation.content);
+      expect(markdown.firstLine).toBe(CHANGELOG_TITLE);
+      const title = markdown.headings.at(0);
+      expect(title).toMatchObject({ tag: MARKDOWN_HEADING_TAG.H1, text: CHANGELOG_TITLE_TEXT });
+      if (title === undefined) continue;
+      const nextTitle = markdown.headings.find(
+        (heading) => heading.index > title.index && heading.tag === MARKDOWN_HEADING_TAG.H1,
       );
-  });
-
-  it("accepts literal CDATA text inside a conformant release section", async () => {
-    await expect(composeReleaseNotesCase(sampleCdataReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
-  });
-
-  it("accepts a raw HTML block terminated by a blank line before the release section", async () => {
-    await expect(composeReleaseNotesCase(sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase())).resolves
-      .toSatisfy(
-        (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
+      const versionHeading = markdown.headings.find(
+        (heading) =>
+          heading.index > title.index
+          && (nextTitle === undefined || heading.index < nextTitle.index)
+          && heading.tag === MARKDOWN_HEADING_TAG.H2
+          && heading.text === changelogVersionHeadingText(observation.version),
       );
-  });
-
-  it("accepts a same-line explicit HTML block before the release section", async () => {
-    await expect(composeReleaseNotesCase(sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase())).resolves
-      .toSatisfy(
-        (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
+      expect(versionHeading).toBeDefined();
+      if (versionHeading === undefined) continue;
+      const nextRelease = markdown.headings.find(
+        (heading) =>
+          heading.index > versionHeading.index
+          && (heading.tag === MARKDOWN_HEADING_TAG.H1 || heading.tag === MARKDOWN_HEADING_TAG.H2),
       );
-  });
-
-  it("accepts a standalone inline HTML tag before the release section", async () => {
-    await expect(composeReleaseNotesCase(sampleStandaloneInlineHtmlReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
-  });
-
-  it("accepts a non-standalone custom HTML tag before the release section", async () => {
-    await expect(composeReleaseNotesCase(sampleCustomInlineHtmlReleaseNotesChangelogCase())).resolves.toSatisfy(
-      (observation) => independentKeepAChangelogConformance(observation.content, observation.version),
-    );
+      expect(
+        markdown.headings.some(
+          (heading) =>
+            heading.index > versionHeading.index
+            && (nextRelease === undefined || heading.index < nextRelease.index)
+            && heading.tag === MARKDOWN_HEADING_TAG.H3
+            && new Set<string>(CHANGELOG_CHANGE_GROUPS).has(heading.text),
+        ),
+      ).toBe(true);
+    }
   });
 
   it("rejects a changelog whose change group is in a later H1 section", async () => {

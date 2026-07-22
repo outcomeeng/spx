@@ -1,7 +1,5 @@
 import MarkdownIt from "markdown-it";
 
-import { CHANGELOG_CHANGE_GROUPS, CHANGELOG_TITLE, CHANGELOG_TITLE_TEXT } from "@/domains/release/release-notes";
-
 const MARKDOWN_TOKEN = {
   headingOpen: "heading_open",
   inline: "inline",
@@ -13,39 +11,29 @@ const MARKDOWN_TOKEN = {
   h2: "h2",
   h3: "h3",
 } as const;
+export const MARKDOWN_HEADING_TAG = {
+  H1: MARKDOWN_TOKEN.h1,
+  H2: MARKDOWN_TOKEN.h2,
+  H3: MARKDOWN_TOKEN.h3,
+} as const;
 const CARRIAGE_RETURN = "\r";
 
-interface ParsedMarkdownHeading {
+export interface ParsedMarkdownHeading {
   readonly tag: string;
   readonly text: string;
   readonly index: number;
 }
 
-export function independentKeepAChangelogConformance(notes: string, version: string): boolean {
-  if (normalizeLineEnding(notes.split("\n")[0]) !== CHANGELOG_TITLE) {
-    return false;
-  }
-  const headings = parseMarkdownItHeadings(notes);
-  const title = headings.at(0);
-  if (title?.tag !== MARKDOWN_TOKEN.h1 || title.text !== CHANGELOG_TITLE_TEXT) {
-    return false;
-  }
-  const changelogSectionHeadings = headingsAfterVersionUntilNextReleaseSection(
-    headings,
-    title.index,
-    MARKDOWN_TOKEN.h1,
-  );
-  const versionHeading = changelogSectionHeadings.find(
-    (heading) => heading.tag === MARKDOWN_TOKEN.h2 && heading.text === `[${version}]`,
-  );
-  if (versionHeading === undefined) {
-    return false;
-  }
-  const releaseSectionHeadings = headingsAfterVersionUntilNextReleaseSection(headings, versionHeading.index);
-  const groupHeadings: ReadonlySet<string> = new Set(CHANGELOG_CHANGE_GROUPS);
-  return releaseSectionHeadings.some(
-    (heading) => heading.tag === MARKDOWN_TOKEN.h3 && groupHeadings.has(heading.text),
-  );
+export interface IndependentMarkdownObservation {
+  readonly firstLine: string | undefined;
+  readonly headings: readonly ParsedMarkdownHeading[];
+}
+
+export function observeIndependentMarkdown(notes: string): IndependentMarkdownObservation {
+  return {
+    firstLine: normalizeLineEnding(notes.split("\n")[0]),
+    headings: parseMarkdownItHeadings(notes),
+  };
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
@@ -92,16 +80,4 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
     headings.push({ tag: token.tag, text: inline.content, index });
   });
   return headings;
-}
-
-function headingsAfterVersionUntilNextReleaseSection(
-  headings: readonly ParsedMarkdownHeading[],
-  versionHeadingIndex: number,
-  boundaryTag: string = MARKDOWN_TOKEN.h2,
-): readonly ParsedMarkdownHeading[] {
-  const afterVersion = headings.filter((heading) => heading.index > versionHeadingIndex);
-  const nextReleaseSectionOffset = afterVersion.findIndex(
-    (heading) => heading.tag === MARKDOWN_TOKEN.h1 || heading.tag === boundaryTag,
-  );
-  return nextReleaseSectionOffset === -1 ? afterVersion : afterVersion.slice(0, nextReleaseSectionOffset);
 }

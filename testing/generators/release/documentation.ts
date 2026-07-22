@@ -48,6 +48,35 @@ export interface DocumentationSyncScenario {
 
 export type DocumentationUpdatedContent = DocumentationSyncScenario["updated"];
 
+export interface DocumentationContentEntry {
+  readonly path: string;
+  readonly content: string | undefined;
+}
+
+export interface DocumentationTransformationEntry {
+  readonly path: string;
+  readonly originalContent: string | undefined;
+  readonly updatedContent: string | undefined;
+}
+
+export function documentationContentEntries(
+  scenario: DocumentationSyncScenario,
+  contentByPath: Readonly<Partial<Record<string, string>>>,
+): readonly DocumentationContentEntry[] {
+  return scenario.paths.map((path) => ({ path, content: contentByPath[path] }));
+}
+
+export function documentationTransformationEntries(
+  scenario: DocumentationSyncScenario,
+  updatedByPath: Readonly<Partial<Record<string, string>>> = scenario.updated,
+): readonly DocumentationTransformationEntry[] {
+  return scenario.paths.map((path) => ({
+    path,
+    originalContent: scenario.original[path],
+    updatedContent: updatedByPath[path],
+  }));
+}
+
 export interface DocumentationVersionPreservationScenarios {
   readonly withPreviousTag: DocumentationSyncScenario;
   readonly withoutPreviousTag: DocumentationSyncScenario;

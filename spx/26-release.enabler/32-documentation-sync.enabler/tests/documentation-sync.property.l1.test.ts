@@ -1,3 +1,4 @@
+import { documentationContentEntries } from "@testing/generators/release/documentation";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   AGENT_PERMISSION_MODES,
@@ -24,7 +25,7 @@ describe("documentation sync path properties", () => {
       arbitraryConfiguredDocumentationSyncScenario(),
       async (scenario) => {
         const observation = await observeConfiguredDocumentationPathSet(scenario);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(scenario.paths);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
@@ -67,7 +68,9 @@ describe("documentation sync path properties", () => {
       arbitraryDocumentationVersionPreservationScenarios(),
       async (scenarios) => {
         for (const observation of await observeDocumentationVersionPreservation(scenarios)) {
-          expect(observation.actual).toEqual(observation.expected);
+          expect(observation.actual).toEqual(
+            documentationContentEntries(observation.scenario, observation.scenario.updated),
+          );
         }
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -80,9 +83,16 @@ describe("documentation sync path properties", () => {
       async (testCase) => {
         const observation = await observeUnrelatedVersionRewrite(testCase);
         expect(observation.error).toBeDefined();
-        expect(observation.actualAuditDocuments).toEqual(observation.expectedAuditDocuments);
+        expect(observation.actualAuditDocuments).toEqual(
+          testCase.scenario.paths.map((path) => ({
+            path,
+            updatedContent: testCase.rewritten[path],
+          })),
+        );
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(testCase.scenario, testCase.scenario.original),
+        );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

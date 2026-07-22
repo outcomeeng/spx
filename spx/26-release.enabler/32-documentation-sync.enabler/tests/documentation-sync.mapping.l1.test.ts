@@ -9,14 +9,20 @@ import { describe, expect, it } from "vitest";
 describe("documentation sync path mapping", () => {
   it("maps generated documentation path sets", async () => {
     await expect(observeDocumentationPathMappings()).resolves.toSatisfy((observations) => {
-      for (const observation of observations) expect(observation.actual).toEqual(observation.expected);
+      for (const observation of observations) {
+        expect(observation.actual).toEqual(observation.mappingCase.expected);
+      }
       return true;
     });
   });
 
   it("resolves nested slash-separated paths under every supported path semantics", () => {
     expect(observeDocumentationPathSemantics()).toSatisfy((observations) => {
-      for (const observation of observations) expect(observation.actual).toBe(observation.expected);
+      for (const observation of observations) {
+        expect(observation.actual).toBe(
+          observation.resolve(observation.productDir, observation.sourcePath),
+        );
+      }
       return true;
     });
   });
@@ -25,10 +31,12 @@ describe("documentation sync path mapping", () => {
     await expect(observeDocumentationPathAliases()).resolves.toSatisfy((observations) => {
       for (const observation of observations) {
         expect(observation.actualDocumentCount).toBe(1);
-        expect(observation.actualSourcePath).toBe(observation.expectedSourcePath);
-        expect(observation.actualTargetPath).toBe(observation.expectedTargetPath);
-        expect(observation.actualStagedPath).toBe(observation.expectedStagedPath);
-        expect(observation.actualContent).toBe(observation.expectedContent);
+        expect(observation.actualSourcePath).toBe(observation.aliasCase.configuredPath);
+        expect(observation.actualTargetPath).toBe(observation.canonicalTargetPath);
+        expect(observation.actualStagedPath).toBe(
+          join(observation.stageWorkingDirectory, observation.aliasCase.canonicalPath),
+        );
+        expect(observation.actualContent).toBe(observation.aliasCase.content);
       }
       return true;
     });
@@ -36,10 +44,11 @@ describe("documentation sync path mapping", () => {
 
   it("resolves release documentation config independently of unrelated sections", async () => {
     await expect(observeIndependentDocumentationConfigResolution()).resolves.toSatisfy(
-      ({ actual, expected }) => {
-        expect(actual).toEqual(expected);
+      ({ actual, scenario }) => {
+        expect(actual).toEqual(scenario.config);
         return true;
       },
     );
   });
 });
+import { join } from "node:path";
