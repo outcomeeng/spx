@@ -114,9 +114,12 @@ describe("spec context understand payload", () => {
         [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
       };
       await writeFile(join(env.productDir, fixture.manifestPath), JSON.stringify(manifest));
+      // The rejection must name the offending value itself, not merely the
+      // failing field, so a traversal defect is distinguishable from any
+      // other core-field defect.
       await expect(
         contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
-      ).rejects.toThrow(FOUNDATION_MANIFEST_FIELDS.CORE);
+      ).rejects.toThrow(`../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`);
     });
   });
 
