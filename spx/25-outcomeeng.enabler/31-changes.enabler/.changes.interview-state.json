@@ -1,0 +1,327 @@
+{
+  "name": "backend-neutral-delta-lifecycle",
+  "updated_at": "2026-07-15T05:56:01Z",
+  "status": "complete",
+  "target": "spx/25-outcomeeng.enabler/31-changes.enabler",
+  "related_nodes": [
+    "spx/36-session.enabler",
+    "spx/46-agent.enabler"
+  ],
+  "analysis": {
+    "summary": "The target coordination model has three SPX concepts. Delta is the future product movement: globally addressed, refined, split, reconciled, and updated as planning changes; it replaces PLAN.md. A delta Claim is fenced global ownership and liveness for work on one Delta. Handoff is a persisted yet transient carrier of operational continuation context and branch metadata formerly carried by legacy session files. Provider rollout, transcript, and JSONL state belongs exclusively to Codex, Claude, Pi, or another provider and is excluded from SPX domain vocabulary. The current Change model, .spx/sessions queue, legacy session files, spx session CLI, and PLAN.md are migration sources or retirement targets. ISSUES.md survives only for Evidence, Impact, and Settlement observations that contain no planning or Delta reference.",
+    "evidence": [
+      "The changes spec already separates handle, backend-local id, backend status, claimability, blockers, and product-qualified node anchors.",
+      "The committed change-store PDR preserves the three-value maturity model: intent carries useful perspective, planning carries enough product-tree context for durable coordination, and implementation is ready for governed execution.",
+      "The active legacy session file, provider transcript, and all reachable revisions of the changes node use Change because Delta belongs to the pinned Next methodology rather than current committed product truth.",
+      "The pinned Next coordination model defines Delta as a planned node-addressed displacement, renames maturity to refinement while preserving intent, planning, and implementation values, permits refinement regression, and adds split, coalesce, archival disposition, successor, and blocker-reanchoring semantics.",
+      "The state module exposes .spx/changes only as Git-common-dir local state; no change domain or backend implementation exists.",
+      "The legacy session subsystem derives status from todo/doing/archive rename operations and carries agent_session_id as session-file metadata; this subsystem and the spx session CLI will be retired.",
+      "Legacy session files refer to node-local PLAN.md coordination distributed through spx/, while the future handoff reference is the globally identified Delta.",
+      "Provider rollout, transcript, and JSONL persistence is provider-owned and outside the SPX coordination model.",
+      "Delta replaces PLAN.md because plans stale as dependencies and tree state change; Delta is expected to be refined, split, reconciled, and updated repeatedly.",
+      "Handoff is persisted but transient and carries operational continuation facts and branch metadata formerly carried by legacy session files, including degraded hosts, expired credentials, misleading skills, suspect commits, blockers, and next action.",
+      "Agent resume and search parse native transcript metadata for discovery and branch association; they provide no durable ownership authority.",
+      "Worktree occupancy is host-local process-liveness state and cannot establish global change ownership.",
+      "The related plugin workflow treats session files as operational continuation pointers and requires origin-published work for cold recovery.",
+      "The related CraftFinal product contains no established durable change-backend or cross-machine claim model to reuse.",
+      "Git supports an explicit expected-ref lease, allowing a mutation commit to update the default branch only when its remote tip still equals the observed commit.",
+      "The current base now has a dedicated spx/36-session.enabler/65-session-claim.enabler whose filesystem-rename semantics are the lower-layer behavior this decision would replace.",
+      "Cloudflare Durable Objects provide globally addressed coordination with private transactional strongly consistent storage, persistent storage across eviction or restart, and at-least-once alarms suitable for lease expiry.",
+      "GitHub reference creation returns 201 when created and 409 or 422 for conflicts or validation failures; a failed create must be followed by an exact-ref read before classifying the claim as taken.",
+      "GitHub documents conditional requests for unsafe REST methods as unsupported unless an endpoint explicitly opts in, and the pull-request body update endpoint exposes no expected-version precondition.",
+      "GitHub issue comments have update and delete endpoints, so PR comments are mutable provider logs rather than an immutable audit store.",
+      "Methodology Next PR #26 adopted the backend-neutral Delta, delta Claim, and Handoff contracts and merged as 4be02ae5883cc6fbbab64f328daa842566180abe.",
+      "Methodology reconciliation corrected Handoff removal: acknowledgement is recorded proof of reading, while replacement by the successor's own Handoff or Delta terminalization controls removal; Claim death and takeover preserve the prior Handoff.",
+      "Methodology keeps concrete GitHub branch, pull-request, heartbeat, and fence mechanics in SPX while carrying only backend-neutral coordination contracts.",
+      "Methodology qualifies Claim as delta claim or status claim in mixed-scope chapters; bare Claim is permitted only where chapter scope is unambiguous."
+    ],
+    "preliminary_calls": [
+      "Adopt Delta as the target coordination concept replacing the current Change model and PLAN.md planning.",
+      "Reserve provider rollout, transcript, and JSONL state to the provider; introduce no SPX coordination artifact or command using that provider-owned concept name.",
+      "Retire PLAN.md into globally addressed Deltas while evaluating ISSUES.md separately for durable non-staling defects, contradictions, and gaps.",
+      "Define Handoff as a persisted yet transient operational-continuation carrier associated with the active Delta and execution context.",
+      "Persist Handoff with its claim in the coordination backend, referencing the active Delta; each backend maps the carrier to a native primitive.",
+      "Give Handoff a typed core for Delta, claim, git ref, and next action plus extensible typed observations for completed work, evidence, decisions, blockers, and hazards.",
+      "Record successor acknowledgement as proof that Handoff continuation was read; retain the Handoff until the successor's own Handoff supersedes it or the Delta terminalizes, and preserve it across Claim death or takeover.",
+      "For the first GitHub backend, persist the typed Handoff blob in a fenced claim-branch commit, record acknowledgement through a compare-and-set mutation without removing the blob, replace it when the successor writes its own Handoff, and project operator-readable context into the PR body.",
+      "Allow Handoff observations to carry sensitive-system identifiers, status, and remediation context while rejecting secret values, tokens, private keys, and credential payloads.",
+      "Migrate legacy coordination by semantic role: still-valid planned movement becomes Delta content, live operational continuation becomes Handoff observations, strict defects and gaps remain issues, and stale text is discarded with an audited migration record.",
+      "Perform one governed cutover: inventory and migrate first, then remove .spx/sessions, PLAN.md, the spx session CLI, and all old readers and writers in the same release without aliases, bridges, or dual writes.",
+      "Retain ISSUES.md with exactly Evidence, Impact, and Settlement fields; prohibit plans, actions, priority, ownership, status, sequencing, next steps, and Delta references.",
+      "Use a declared and validated intent, planning, and implementation refinement ladder: the refiner declares a level, while deterministic validation lowers stale readiness when anchors, blockers, or governing context invalidate it.",
+      "When Deltas split or coalesce, archive every original as carried-forward with named successor identities and re-anchor dependents through the successor mapping.",
+      "Require every writable Delta backend to provide revision-checked create, update, claim, and archive mutations; adapters without that floor are read-only.",
+      "Use a product-minted immutable opaque Delta identity that survives backend and locator changes; keep backend-local id, locator, and human handle separate.",
+      "Represent every ownership transition as a structured backend operation; native transcript content remains discovery evidence only.",
+      "Implement each Git backend mutation as one commit derived from an observed default-branch tip and publish with an explicit expected-tip compare-and-set; retry only after re-reading and reapplying the semantic mutation.",
+      "Keep worktree occupancy as an independent host-local safety mechanism.",
+      "Put the active claim identifier in the merge vehicle description so an operator can map provider activity to ownership without inspecting SPX storage.",
+      "Treat Durable Objects as a hosted claim-authority backend option; keep durable Delta and claim history portable rather than making Cloudflare storage the sole product record.",
+      "Use the GitHub merge branch as the first backend's claim ref and create it at an empty claim commit carrying the claim id, epoch, and observed base so a draft PR has a commit to compare.",
+      "Use a fast-forward fence commit on the claim branch as takeover CAS; concurrent contenders based on the same prior tip cannot both advance the ref.",
+      "Treat the PR-body heartbeat as a liveness projection whose epoch and owner identity are valid only when they match the latest branch fence; retain the operator-selected 24-hour inactivity threshold.",
+      "Require every destructive or history-rewriting push to use an explicit expected remote OID rather than an implicit force-with-lease guess.",
+      "Post lifecycle comments after successful claim transitions as human-readable provider logs; committed records remain the durable history."
+    ]
+  },
+  "coverage": {
+    "domain_naming": "done",
+    "maturity_model": "done",
+    "delta_composition_and_disposition": "done",
+    "delta_identity": "done",
+    "backend_capabilities": "done",
+    "git_transactions": "done",
+    "provider_transcript_boundary": "done",
+    "handoff_delta_reference": "done",
+    "handoff_concept": "done",
+    "handoff_storage_and_retention": "done",
+    "plan_retirement": "done",
+    "issues_retention": "done",
+    "execution_claims": "done",
+    "migration_and_compatibility": "done",
+    "risks_and_constraints": "done"
+  },
+  "qa": [
+    {
+      "question": "How does the first GitHub backend persist Handoff?",
+      "answer": "As a typed blob in a fenced claim-branch commit. A compare-and-set mutation records acknowledgement without removing the blob; the successor's own Handoff replaces it, while the PR body projects operator-readable context.",
+      "status": "resolved"
+    },
+    {
+      "question": "May an unacknowledged Handoff expire while its Delta remains non-terminal?",
+      "answer": "No. It remains until the successor's own Handoff supersedes it or the Delta terminalizes; acknowledgement alone does not remove it, and backend TTLs must renew or migrate it.",
+      "status": "resolved"
+    },
+    {
+      "question": "What sensitive information may Handoff observations contain?",
+      "answer": "Sensitive-system references, expiry or degradation status, and remediation context are allowed. Secret values, tokens, private keys, and credential payloads are rejected.",
+      "status": "resolved"
+    },
+    {
+      "question": "What restrictive shape governs retained ISSUES.md entries?",
+      "answer": "Exactly Evidence, Impact, and Settlement. Plans, actions, priority, ownership, status, sequencing, next steps, and Delta references are excluded.",
+      "status": "resolved"
+    },
+    {
+      "question": "How is legacy PLAN.md and session-file content partitioned?",
+      "answer": "Semantically: still-valid planned movement becomes Delta content, live operational continuation becomes Handoff observations, strict defects and gaps remain issues, and stale text is discarded with an audited migration record.",
+      "status": "resolved"
+    },
+    {
+      "question": "How are the old queue, CLI, formats, and PLAN.md writers removed?",
+      "answer": "One governed cutover inventories and migrates first, then removes all old readers and writers in the same release without compatibility aliases, read bridges, or dual writes.",
+      "status": "resolved"
+    },
+    {
+      "question": "Where does a persisted Handoff live?",
+      "answer": "With its claim in the coordination backend, referencing the active Delta; each backend maps the carrier to a native primitive.",
+      "status": "resolved"
+    },
+    {
+      "question": "How structured is Handoff content?",
+      "answer": "A typed core requires Delta identity, claim identity, git ref, and next action; completed work, evidence, decisions, blockers, and hazards use extensible typed observations.",
+      "status": "resolved"
+    },
+    {
+      "question": "When is the current Handoff removed?",
+      "answer": "When the successor's own Handoff supersedes it or the Delta terminalizes. Acknowledgement records proof of reading without removal, and Claim death or takeover preserves it.",
+      "status": "resolved"
+    },
+    {
+      "question": "How is Delta refinement established and invalidated?",
+      "answer": "Declared and validated: a refiner declares intent, planning, or implementation, and deterministic validation lowers stale readiness when anchors, blockers, or governing context invalidate it.",
+      "status": "resolved"
+    },
+    {
+      "question": "How do Delta identity and dependencies behave across split or coalesce?",
+      "answer": "Archive every original as carried-forward with named successors; dependent Deltas re-anchor through the successor mapping.",
+      "status": "resolved"
+    },
+    {
+      "question": "What capability floor applies to writable Delta backends?",
+      "answer": "Revision-checked create, update, claim, and archive mutations are mandatory. An adapter without that compare-and-set floor is read-only.",
+      "status": "resolved"
+    },
+    {
+      "question": "Which domain name and readiness model govern the durable work item?",
+      "answer": "Superseded by source reconciliation: Change is current product truth; Delta is the pinned Next model under consideration for early adoption.",
+      "status": "superseded"
+    },
+    {
+      "question": "What role should .spx/sessions retain after durable change-backed claims and handoff checkpoints exist?",
+      "answer": "Rejected: the question conflated the retiring .spx/sessions subsystem with provider-owned rollout/transcript state and the future Handoff carrier.",
+      "status": "invalid_question"
+    },
+    {
+      "question": "Which lifecycle should the distinct handoff concept use?",
+      "answer": "Handoff is a persisted yet transient carrier of operational continuation context associated with the active Delta. It lives with the Claim in the coordination backend, survives acknowledgement and Claim death, and is removed through successor replacement or Delta terminalization.",
+      "status": "resolved"
+    },
+    {
+      "question": "What should establish and expose execution-claim liveness?",
+      "answer": "Use the GitHub merge provider for the first backend: branch-ref creation claims, the draft PR body projects the current lease and identifiers, branch or valid owner heartbeat activity renews the 24-hour window, branch fence commits serialize takeover, and PR comments log lifecycle events. Keep Durable Objects behind a future LeaseStore-style hosted capability.",
+      "status": "resolved"
+    },
+    {
+      "question": "Which GitHub events should renew the 24-hour claim window?",
+      "answer": "Owner + head: a heartbeat whose epoch and owner identity match the current branch fence, or a branch-head advance descended from that fence. Comments, reviews, labels, checks, and bot activity do not renew the claim.",
+      "status": "resolved"
+    },
+    {
+      "question": "What happens to the existing .spx/sessions subsystem?",
+      "answer": "Retire it completely: .spx/sessions, legacy session files, and the spx session CLI disappear. Planning moves from PLAN.md into Deltas, while transient operational continuation moves into Handoffs.",
+      "status": "resolved"
+    },
+    {
+      "question": "How should the simulated parent Delta split?",
+      "answer": "Five successor movements: adopt the coordination model, persist Deltas in Git, claim Deltas through GitHub, persist Claim Handoffs, and cut over legacy coordination.",
+      "status": "resolved"
+    },
+    {
+      "question": "What does the Delta schema stress test establish?",
+      "answer": "Each Delta is one independently addressable record. Stored coordination fields, backend revision metadata, derived lifecycle and claimability, archived disposition fields, and separate Claim and Handoff artifacts remain distinct.",
+      "status": "resolved"
+    }
+  ],
+  "decisions_log": [
+    {
+      "topic": "GitHub Handoff representation",
+      "tradeoff": "PR-body-only storage lacks compare-and-set; default-branch storage makes transient operational context permanent.",
+      "disposition": "Store the typed carrier in fenced claim-branch commits, record acknowledgement through a later CAS commit without removal, replace it with the successor's own Handoff, and use the PR body only as an operator projection."
+    },
+    {
+      "topic": "unacknowledged Handoff retention",
+      "tradeoff": "A wall-clock expiry bounds storage but can erase the only continuation context for a long-idle non-terminal Delta.",
+      "disposition": "Forbid expiry while the Delta remains non-terminal; acknowledgement does not remove the Handoff, and backend TTLs must renew or migrate it until successor replacement or Delta terminalization."
+    },
+    {
+      "topic": "Handoff sensitive-data boundary",
+      "tradeoff": "Embedding credentials improves immediate recovery but creates a secret-distribution and retention system inside coordination storage.",
+      "disposition": "Allow references, status, and remediation context; reject all secret values and credential payloads."
+    },
+    {
+      "topic": "ISSUES.md retention boundary",
+      "tradeoff": "A Delta reference improves navigation but becomes stale after composition; free-form entries permit planning to leak back into nodes.",
+      "disposition": "Retain ISSUES.md with exactly Evidence, Impact, and Settlement fields and no action or Delta-reference fields."
+    },
+    {
+      "topic": "legacy content partition",
+      "tradeoff": "Whole-file conversion preserves text but carries mixed and stale responsibilities into Delta; manual opt-in can omit live work.",
+      "disposition": "Classify each legacy fact by meaning, migrate planning to Delta and live continuation to Handoff, retain strict issues, and audit discarded stale text."
+    },
+    {
+      "topic": "legacy cutover",
+      "tradeoff": "Compatibility bridges and dual writes prolong two authorities and create reconciliation risk.",
+      "disposition": "Use one governed cutover with inventory and migration preceding same-release removal of legacy writers, readers, formats, and commands."
+    },
+    {
+      "topic": "Handoff storage authority",
+      "tradeoff": "A separate store adds a consistency boundary; merge-vehicle-only storage couples the model to one provider.",
+      "disposition": "Persist Handoff with its claim in the coordination backend and require its Delta reference."
+    },
+    {
+      "topic": "Handoff schema",
+      "tradeoff": "Free-form prose weakens tooling; a closed schema cannot absorb unforeseen operational hazards.",
+      "disposition": "Require a typed Delta/claim/git-ref/next-action core and permit extensible typed observations for continuation context."
+    },
+    {
+      "topic": "Handoff retention",
+      "tradeoff": "Deletion at acknowledgement can lose the only continuation context when the acknowledging successor dies before producing its own Handoff; TTL-only retention can erase live continuation.",
+      "disposition": "Acknowledgement records proof of reading without removal. Preserve the Handoff until the successor's own Handoff supersedes it or the Delta terminalizes, including across Claim death and takeover."
+    },
+    {
+      "topic": "Delta refinement authority",
+      "tradeoff": "Pure declaration permits stale readiness, while full derivation cannot encode all refinement judgment across heterogeneous backends.",
+      "disposition": "Store the refiner's declared level and deterministically lower it when current anchors, blockers, or governing context invalidate readiness."
+    },
+    {
+      "topic": "Delta composition identity",
+      "tradeoff": "Mutating an original hides composition history; leaving originals open makes actionability ambiguous.",
+      "disposition": "Archive split or coalesced originals as carried-forward, name successors, and re-anchor dependent blockers through that mapping."
+    },
+    {
+      "topic": "writable backend capability floor",
+      "tradeoff": "Optional atomic claim permits lost updates and double ownership; mandatory multi-record transactions exclude common issue trackers.",
+      "disposition": "Require revision-checked per-Delta create, update, claim, and archive mutations. Classify adapters below that floor as read-only."
+    },
+    {
+      "topic": "Delta adoption",
+      "pushback": "Delta was remembered as current terminology, then traced to the pinned Next coordination model.",
+      "disposition": "Adopt Delta as the target domain term and migrate the current Change model and PLAN.md planning into it."
+    },
+    {
+      "topic": "Delta maturity",
+      "tradeoff": "The current maturity field has the same three values as Next refinement, while Next adds dependency-driven regression and stronger implementation-readiness semantics.",
+      "disposition": "Preserve the three-value ladder and decide whether to adopt the full refinement semantics with Delta."
+    },
+    {
+      "topic": "handoff concept boundary",
+      "pushback": "Provider rollout/transcript state, legacy session files, and future Handoff were repeatedly collapsed into one concept.",
+      "disposition": "Exclude provider rollout, transcript, and JSONL state from the SPX domain. Handoff is the persisted yet transient carrier for operational continuation context and branch metadata formerly carried by legacy session files, associated with the active global Delta."
+    },
+    {
+      "topic": "handoff lifecycle",
+      "tradeoff": "A durable carrier risks becoming another permanent work store, while an ephemeral carrier can disappear before continuation succeeds.",
+      "disposition": "Persist Handoff through acknowledgement and Claim death until the successor's own Handoff supersedes it or the Delta terminalizes; forbid expiry while the Delta remains non-terminal."
+    },
+    {
+      "topic": "operator-visible claim correlation",
+      "tradeoff": "Provider activity is easy to inspect only when the merge vehicle exposes the owning identity directly.",
+      "disposition": "Every agent-created merge vehicle description carries its active claim id."
+    },
+    {
+      "topic": "hosted coordination authority",
+      "tradeoff": "Merge-provider activity reuses existing infrastructure and gives the operator a native view; Durable Objects add serialized strongly consistent claims and scheduled expiry while introducing a hosted network dependency and separate operational state.",
+      "disposition": "Use GitHub as the first claim backend and preserve a backend capability boundary for a later Durable Objects implementation."
+    },
+    {
+      "topic": "GitHub claim and takeover serialization",
+      "tradeoff": "A comment election adds a delay and depends on mutable comments; a fast-forward fence commit advances the same ref that already serializes work and rejects concurrent children of the prior tip.",
+      "disposition": "Create the claim branch at an empty claim commit and serialize takeover through a fast-forward fence commit."
+    },
+    {
+      "topic": "PR heartbeat correctness",
+      "tradeoff": "PR body updates are last-write-wins and expose no documented conditional PATCH; a paused former owner can overwrite the body after a takeover.",
+      "disposition": "Treat body data as valid only when its epoch and owner identity match the latest branch fence; branch ref transitions remain the correctness boundary."
+    },
+    {
+      "topic": "PR comment durability",
+      "tradeoff": "Comments carry server ids and timestamps but GitHub permits edits and deletion.",
+      "disposition": "Use comments as operator-facing lifecycle logs, keep durable Delta and delta Claim history in committed records, and persist Handoff on the fenced Claim branch until successor replacement or Delta terminalization."
+    },
+    {
+      "topic": "claim renewal signals",
+      "tradeoff": "Broad PR activity is easy to inspect but allows review and automation to keep an inactive owner live; branch-only renewal expires active design and review work without commits.",
+      "disposition": "Renew only from a valid current-owner heartbeat or a branch-head advance under the current fence."
+    },
+    {
+      "topic": "session queue boundary",
+      "tradeoff": "Retaining the legacy queue would preserve mixed planning and continuation responsibilities alongside globally addressed Deltas and transient Handoffs.",
+      "disposition": "Retire .spx/sessions, legacy session files, and the spx session CLI completely. Move mutable planning from PLAN.md into Deltas and operational continuation context into Handoffs."
+    },
+    {
+      "topic": "simulated Delta split",
+      "tradeoff": "Three larger successors reduce coordination records but combine semantic adoption, persistence, Claim authority, and Handoff retention into implementation units with different evidence and dependencies; a backend-first split mixes shared semantics into provider-specific work.",
+      "disposition": "Archive the parent as carried-forward into five independently identified successor Deltas ordered by semantic adoption, Git persistence, GitHub Claim authority, Handoff persistence, and legacy cutover."
+    },
+    {
+      "topic": "Delta record schema",
+      "tradeoff": "Embedding backend metadata, lifecycle projections, Claim state, and terminal fields in one flat always-present shape obscures which values are authoritative, derived, backend-owned, or lifecycle-specific.",
+      "disposition": "Use one physical record per Delta. Separate the stored Delta core, backend revision metadata, derived lifecycle and claimability, archived disposition extension, and related delta Claim and Handoff records."
+    }
+  ],
+  "open_decisions": [],
+  "reconciliation": {
+    "methodology_pr": "https://github.com/outcomeeng/methodology/pull/26",
+    "reviewed_head": "328e2315cb3a45ca5d9125c6ee9821c599028549",
+    "merge_commit": "4be02ae5883cc6fbbab64f328daa842566180abe",
+    "result": "adopted_with_handoff_replacement_correction",
+    "spx_boundary": "Methodology owns backend-neutral Delta, delta Claim, and Handoff contracts. SPX owns concrete GitHub claim branches, draft PR projections, heartbeat qualification, takeover fences, and expected-OID push mechanics."
+  },
+  "output": {
+    "status": "delta_simulation_schema_refined",
+    "generated_paths": [
+      "spx/25-outcomeeng.enabler/31-changes.enabler/PLAN.md"
+    ]
+  }
+}
