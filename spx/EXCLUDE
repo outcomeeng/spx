@@ -5,7 +5,6 @@
 #
 # Remove entries when implementation begins.
 
-36-session.enabler/54-session-reconciliation.enabler
 41-validation.enabler/32-python-validation.enabler
 41-validation.enabler/32-python-validation.enabler/32-ast-enforcement.enabler
 41-validation.enabler/32-python-validation.enabler/32-lint.enabler
