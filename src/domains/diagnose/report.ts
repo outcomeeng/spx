@@ -35,6 +35,7 @@ import {
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
@@ -97,6 +98,8 @@ export const DIAGNOSE_TEXT_HEADER = {
 export const DIAGNOSE_TEXT_DETAIL = {
   AGENT_SESSION_ACTIVE: "Agent session identity and worktree claim are both present.",
   AGENT_SESSION_SKIPPED: "No agent session is active in this shell.",
+  AGENT_SESSION_UNLINKED_PROBLEM: "this shell has an agent session identity, but the current worktree is not claimed.",
+  AGENT_SESSION_UNLINKED_FIX: "re-run the SessionStart hook or claim a live worktree before relying on session state.",
   MARKETPLACE_CLI_UNAVAILABLE_FIX: "Install or enable the Claude or Codex plugin CLI, then rerun `spx diagnose`.",
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
@@ -108,6 +111,7 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_INFORMATIONAL: "This count is informational and requires no session action.",
+  SPX_BELOW_FLOOR_FIX: "update spx to at least the required version.",
   SESSION_START_NO_OP_PROBLEM:
     "SPX_WORKTREE_CLAIM_PATH is present, but no agent session identity or running worktree claim was found.",
   SESSION_START_NO_OP_FIX:
@@ -120,6 +124,9 @@ export const DIAGNOSE_TEXT_DETAIL = {
   UNKNOWN_RETRY: "Re-run `spx diagnose`; inspect the relevant command output if this repeats.",
   UNREGISTERED_MARKETPLACE_FIX: "Register the configured plugin marketplace.",
   WORKTREE_POOL_VALID: "Layout is valid for shared session work.",
+  WORKTREE_POOL_NON_COMPLIANT_PROBLEM: "linked worktrees are attached to a non-bare repository.",
+  WORKTREE_POOL_NON_COMPLIANT_FIX: "convert to a bare-repository worktree pool or remove the linked worktrees.",
+  MARKETPLACE_DRIFT_FIX: "install or enable the expected plugins.",
 } as const;
 
 /** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
@@ -150,40 +157,55 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED,
         details: [
           DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED,
-          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
-          `${DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION}: ${observedVersion}`,
+          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
+          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:
       return {
         header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${configuredVersion}`,
-          `${DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION}: ${observedVersion}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX}`,
+          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
+          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
       return {
         header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}: ${configuredSource}`,
-          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${configuredVersion}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX}`,
+          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
+          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)],
       };
     default:
       return fallbackText(check);
   }
 }
 
-function reading(check: CheckRecord, key: string): string | undefined {
-  return check.readings[key];
+/**
+ * A check reading is external — a resolved PATH entry, a `spx --version`
+ * stdout, a configured source, a plugin-CLI response. Returning it already
+ * composed means every detail line built from a reading is escaped by
+ * construction rather than by remembering to escape at each use.
+ */
+function reading(check: CheckRecord, key: string): TerminalText | undefined {
+  const value = check.readings[key];
+  return value === undefined ? undefined : terminal`${value}`;
+}
+
+/**
+ * Builds one `label: value` detail line. The label is product-authored and
+ * keeps its bytes; the value is escaped unless it arrives already composed.
+ */
+function detail(label: string, value: TerminalText | string | undefined): string {
+  return renderTerminalText(terminal`${authoredText(label)}: ${value}`);
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
@@ -196,32 +218,32 @@ function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.VERSION}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
-          `${DIAGNOSE_TEXT_LABEL.PATH}: ${path ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH}`,
+          detail(DIAGNOSE_TEXT_LABEL.VERSION, version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          detail(DIAGNOSE_TEXT_LABEL.PATH, path ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH),
         ],
       };
     case SPX_REACHABILITY_VERDICT.BELOW_FLOOR:
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
-          `${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: update spx to at least the required version.`,
+          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          detail(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION, floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.SPX_BELOW_FLOOR_FIX),
         ],
       };
     case SPX_REACHABILITY_VERDICT.UNREACHABLE:
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX)],
       };
     case SPX_REACHABILITY_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM}`,
-          `${DIAGNOSE_TEXT_LABEL.INSTALLED}: ${version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION}`,
-          `${DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION}: ${floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          detail(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION, floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX),
         ],
       };
     default:
@@ -240,16 +262,16 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: this shell has an agent session identity, but the current worktree is not claimed.`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: re-run the SessionStart hook or claim a live worktree before relying on session state.`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_FIX),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP:
       return {
         header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:
@@ -261,8 +283,8 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY),
         ],
       };
     default:
@@ -278,7 +300,7 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.WORKTREES}: ${running} active, ${free} free`,
+          detail(DIAGNOSE_TEXT_LABEL.WORKTREES, terminal`${running} active, ${free} free`),
           DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_VALID,
         ],
       };
@@ -286,40 +308,41 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: linked worktrees are attached to a non-bare repository.`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: convert to a bare-repository worktree pool or remove the linked worktrees.`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_FIX),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, check.remediation),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, check.remediation),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${
-            CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH]
-          }`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`,
+          detail(
+            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH],
+          ),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, check.remediation),
         ],
       };
     case WORKTREE_POOL_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)],
       };
     default:
       return fallbackText(check);
@@ -333,14 +356,14 @@ function sessionStoreText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS}: ${orphaned}`,
+          detail(DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS, orphaned),
           DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL,
         ],
       };
     case SESSION_STORE_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)],
       };
     default:
       return fallbackText(check);
@@ -357,20 +380,20 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
     case MARKETPLACE_INSTALL_VERDICT.DRIFTED:
       return {
         header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: install or enable the expected plugins.`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.MARKETPLACE_DRIFT_FIX)],
       };
     case MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE:
       return {
         header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
         details: [
-          `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM}`,
-          `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX}`,
+          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX),
         ],
       };
     case MARKETPLACE_INSTALL_VERDICT.UNREGISTERED:
       return {
         header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX)],
       };
     case MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE:
       return {
@@ -380,7 +403,7 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
     case MARKETPLACE_INSTALL_VERDICT.UNKNOWN:
       return {
         header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN,
-        details: [`${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`],
+        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)],
       };
     default:
       return fallbackText(check);
@@ -391,8 +414,8 @@ function fallbackText(_check: CheckRecord): DiagnoseHumanText {
   return {
     header: DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE,
     details: [
-      `${DIAGNOSE_TEXT_LABEL.PROBLEM}: ${DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE}`,
-      `${DIAGNOSE_TEXT_LABEL.FIX}: ${DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY}`,
+      detail(DIAGNOSE_TEXT_LABEL.PROBLEM, DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE),
+      detail(DIAGNOSE_TEXT_LABEL.FIX, DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY),
     ],
   };
 }

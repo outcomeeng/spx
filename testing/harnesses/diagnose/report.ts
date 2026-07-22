@@ -439,3 +439,12 @@ export function assertOverallColorFollowsVerdict(): void {
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
 }
+
+/**
+ * Renders a report with ANSI styling off, so an assertion about which bytes
+ * reach the terminal observes the report's own content rather than the styling
+ * the product deliberately emits when color is on.
+ */
+export function renderPlainReport(report: DiagnoseReport): string {
+  return renderReportText(report, { color: false });
+}
