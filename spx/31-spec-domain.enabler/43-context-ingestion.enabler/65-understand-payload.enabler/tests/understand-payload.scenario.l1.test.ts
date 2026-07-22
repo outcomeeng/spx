@@ -1,10 +1,11 @@
-import { rm } from "node:fs/promises";
+import { rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import {
+  FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
@@ -18,6 +19,7 @@ import {
   parseContextManifest,
   readPathsForRole,
   rootedSpecPath,
+  SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   writeMethodologyPackage,
 } from "@testing/harnesses/spec/context";
 
@@ -91,6 +93,47 @@ describe("spec context understand payload", () => {
       await expect(
         contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
       ).rejects.toThrow(FOUNDATION_MANIFEST_RELATIVE_PATH);
+    });
+  });
+
+  it("fails naming the offending path when the manifest names a core outside the package", async () => {
+    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const fixture = await writeMethodologyPackage(env);
+      // The escape target exists and is readable, so only the containment
+      // rule stands between the traversal path and its bytes.
+      const escapeText = "# Outside the package\n";
+      await writeFile(join(env.productDir, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME), escapeText);
+      const manifest = {
+        [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
+        [FOUNDATION_MANIFEST_FIELDS.CORE]: `../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`,
+        [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [],
+        [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
+        [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
+      };
+      await writeFile(join(env.productDir, fixture.manifestPath), JSON.stringify(manifest));
+      await expect(
+        contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+      ).rejects.toThrow(FOUNDATION_MANIFEST_FIELDS.CORE);
+    });
+  });
+
+  it("fails naming the resource when the core resolves through a symbolic link outside the package", async () => {
+    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const fixture = await writeMethodologyPackage(env);
+      const escapePath = join(env.productDir, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
+      await writeFile(escapePath, "# Outside the package\n");
+      const corePath = join(env.productDir, fixture.packageDir, fixture.corePath);
+      await rm(corePath);
+      await symlink(escapePath, corePath);
+      await expect(
+        contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+      ).rejects.toThrow(fixture.corePath);
     });
   });
 

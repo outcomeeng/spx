@@ -23,6 +23,7 @@ import {
   readPaths,
   readPathsForRole,
   rootedSpecPath,
+  SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specTreeKindsConfig,
   trackedSpecContextGitDependencies,
   withRichContextEnv,
@@ -179,7 +180,7 @@ describe("spec context read set", () => {
       const target = snapshot.allNodes[0];
       const outsideParent = await createTempDir("spx-context-outside-");
       try {
-        const outsideSecretPath = join(outsideParent, "outside-secret.md");
+        const outsideSecretPath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
         // The marker carries no newline or JSON-escapable character, so it
         // appears verbatim inside a JSON-encoded content field — a leak is
         // observable in the raw output regardless of JSON string escaping.

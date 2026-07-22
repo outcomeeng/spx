@@ -38,8 +38,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * A package-relative resource path stays inside the installed package by
+ * construction: no absolute form, no backslash semantics, and no empty,
+ * current-directory, or parent-directory segment that could traverse above
+ * the package root.
+ */
+function isPackageRelativePath(value: string): boolean {
+  if (value.length === 0 || value.startsWith("/") || value.includes("\\")) return false;
+  return value.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 function validatePathArray(field: string, value: unknown): Result<readonly string[]> {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || !isPackageRelativePath(entry))) {
     return { ok: false, error: `${field} must be an array of non-empty package-relative paths` };
   }
   return { ok: true, value: value as readonly string[] };
@@ -71,7 +82,7 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
     };
   }
   const core = parsed[FOUNDATION_MANIFEST_FIELDS.CORE];
-  if (typeof core !== "string" || core.length === 0) {
+  if (typeof core !== "string" || !isPackageRelativePath(core)) {
     return { ok: false, error: `${FOUNDATION_MANIFEST_FIELDS.CORE} must be a non-empty package-relative path` };
   }
   const references = validatePathArray(
