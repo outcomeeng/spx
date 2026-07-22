@@ -584,10 +584,6 @@ export interface ReleaseNotesChangelogCase {
   readonly content: string;
 }
 
-export interface GeneratedKeepAChangelogConformanceCase extends ReleaseNotesChangelogCase {
-  readonly conforms: boolean;
-}
-
 export interface NonConformantReleaseNotesChangelogCase extends NonConformantChangelogCase {
   readonly releaseData: ReleaseData;
 }
@@ -599,7 +595,7 @@ interface GeneratedChangelogShape {
   readonly groupMode: GeneratedChangelogGroupMode;
 }
 
-export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<GeneratedKeepAChangelogConformanceCase> {
+export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<ReleaseNotesChangelogCase> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) => {
     const subjects = releaseData.commits.map((commit) => commit.subject);
     return fc
@@ -612,9 +608,6 @@ export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<Generated
       .map((shape) => ({
         releaseData,
         content: generatedChangelog(shape, releaseData.version, subjects),
-        conforms: shape.titleMode === "exact"
-          && shape.versionMode === "top-level"
-          && shape.groupMode === "top-level",
       }));
   });
 }
