@@ -10,9 +10,12 @@ import {
 } from "@testing/generators/session/reconcile";
 import { arbitrarySessionId } from "@testing/generators/session/session";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { createSessionHarness } from "@testing/harnesses/session/harness";
-import { createFatalGitDeps, createReconcileDeps, snapshotDirectory } from "@testing/harnesses/session/reconcile";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+import {
+  createFatalGitDeps,
+  createReconcileDeps,
+  snapshotDirectory,
+  withReconcileStore,
+} from "@testing/harnesses/session/reconcile";
 
 const [TODO] = SESSION_STATUSES;
 
@@ -37,9 +40,7 @@ describe("session-reconciliation non-mutation", () => {
     await assertProperty(
       arbitraryReconcileStoreScenario(),
       async (scenario) => {
-        const harness = await createSessionHarness();
-        const cwd = await createTempDir("spx-reconcile-mutation-");
-        try {
+        await withReconcileStore(async ({ harness, cwd }) => {
           const sessionId = sampleLiteralTestValue(arbitrarySessionId());
           await harness.writeSession(TODO, sessionId, {
             git_ref: scenario.gitRef,
@@ -59,10 +60,7 @@ describe("session-reconciliation non-mutation", () => {
 
           expect(await snapshotDirectory(harness.sessionsDir)).toStrictEqual(storeBefore);
           expect(await snapshotDirectory(cwd)).toStrictEqual(cwdBefore);
-        } finally {
-          await removeTempDir(cwd);
-          await harness.cleanup();
-        }
+        });
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

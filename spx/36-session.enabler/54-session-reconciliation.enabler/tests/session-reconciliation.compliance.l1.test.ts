@@ -6,17 +6,13 @@ import { SESSION_STATUSES } from "@/domains/session/types";
 import { sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { arbitraryReconcileBranchName, arbitraryReconcileEntryPath } from "@testing/generators/session/reconcile";
 import { arbitrarySessionId } from "@testing/generators/session/session";
-import { createSessionHarness } from "@testing/harnesses/session/harness";
-import { createFatalGitDeps, createReconcileDeps } from "@testing/harnesses/session/reconcile";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { createFatalGitDeps, createReconcileDeps, withReconcileStore } from "@testing/harnesses/session/reconcile";
 
 const [TODO] = SESSION_STATUSES;
 
 describe("session-reconciliation verdict distinguishability", () => {
   it("keeps an unverifiable verdict distinguishable from a discrepancy verdict in one emitted result", async () => {
-    const harness = await createSessionHarness();
-    const cwd = await createTempDir("spx-reconcile-distinct-");
-    try {
+    await withReconcileStore(async ({ harness, cwd }) => {
       const branch = sampleLiteralTestValue(arbitraryReconcileBranchName());
       const absentPath = sampleLiteralTestValue(arbitraryReconcileEntryPath());
       const sessionId = sampleLiteralTestValue(arbitrarySessionId());
@@ -44,9 +40,6 @@ describe("session-reconciliation verdict distinguishability", () => {
       expect(gitFinding?.verdict).toBe(RECONCILE_VERDICT.UNVERIFIABLE);
       expect(entryFinding?.verdict).toBe(RECONCILE_VERDICT.DISCREPANCY);
       expect(gitFinding?.verdict).not.toBe(entryFinding?.verdict);
-    } finally {
-      await removeTempDir(cwd);
-      await harness.cleanup();
-    }
+    });
   });
 });

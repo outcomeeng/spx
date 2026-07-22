@@ -17,6 +17,8 @@ import { join, relative, resolve } from "node:path";
 import type { ReconcileDependencies } from "@/commands/session/reconcile";
 import { SESSION_FILE_ENCODING } from "@/domains/session/types";
 import type { GitDependencies } from "@/lib/git/root";
+import { withTempDir } from "../with-temp-dir";
+import { createSessionHarness, type SessionHarness } from "./harness";
 
 /** Git's documented fatal exit status — a lookup git cannot answer. */
 export const GIT_FATAL_EXIT_CODE = 128;
@@ -70,6 +72,28 @@ export function createUnreadableEntryReconcileDeps(
 /** Reconcile read boundaries over the real filesystem with the supplied git runner. */
 export function createReconcileDeps(git: GitDependencies): ReconcileDependencies {
   return { git, readFile };
+}
+
+/** The session store and working directory one reconcile case runs against. */
+export interface ReconcileStoreContext {
+  readonly harness: SessionHarness;
+  readonly cwd: string;
+}
+
+/**
+ * Runs `callback` against a fresh session store and a fresh temp working
+ * directory, removing both on the return and throw paths — the shared
+ * arrangement lifecycle for every reconcile case.
+ */
+export async function withReconcileStore<T>(
+  callback: (context: ReconcileStoreContext) => Promise<T>,
+): Promise<T> {
+  const harness = await createSessionHarness();
+  try {
+    return await withTempDir("spx-reconcile-", (cwd) => callback({ harness, cwd }));
+  } finally {
+    await harness.cleanup();
+  }
 }
 
 /**
