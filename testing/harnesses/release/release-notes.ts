@@ -7,19 +7,11 @@ import {
   type PathCanonicalizer,
   type ReleaseNotesConfig,
 } from "@/domains/release/release-notes";
-import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
-import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
 import type { ReleaseNotesEnv } from "@testing/harnesses/release/release-notes-env";
 
 type ReleaseNotesAgentRunner = Parameters<typeof composeReleaseNotes>[0]["agentRunner"];
 type ReleaseNotesFaithfulnessAuditor = Parameters<typeof composeReleaseNotes>[0]["faithfulnessAuditor"];
-
-export interface ReleaseNotesCompositionFixture {
-  readonly releaseData: ReleaseData;
-  readonly subjects: readonly string[];
-  readonly conformant: string;
-}
 
 interface ComposeReleaseNotesInEnvOptions {
   readonly releaseData: ReleaseData;
@@ -31,19 +23,6 @@ interface ComposeReleaseNotesInEnvOptions {
   readonly createArtifactStage?: ReleaseNotesEnv["createArtifactStage"];
   readonly promoteArtifact?: ReleaseNotesEnv["promoteArtifact"];
   readonly faithfulnessAuditor?: ReleaseNotesFaithfulnessAuditor;
-}
-
-export function sampleReleaseNotesCompositionFixture(
-  releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData()),
-): ReleaseNotesCompositionFixture {
-  const subjects = releaseData.commits.map((commit) => commit.subject);
-  return {
-    releaseData,
-    subjects,
-    conformant: sampleReleaseTestValue(
-      arbitraryConformantChangelog(releaseData.version, subjects),
-    ),
-  };
 }
 
 export async function composeReleaseNotesInEnv(
@@ -85,7 +64,7 @@ export function recordingReleaseNotesAgent(
   return new RecordingWritingAgentRunner(workingDirectory, targetPath, content);
 }
 
-export async function expectedCanonicalRelativeChangelogPath(
+export async function canonicalRelativeChangelogPath(
   workingDirectory: string,
   configuredPath: string,
   canonicalizePath: PathCanonicalizer,
