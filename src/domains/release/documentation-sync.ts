@@ -9,8 +9,10 @@ export const DOCUMENTATION_SYNC_PROMPT_INSTRUCTION =
   "Edit every staged documentation file so its version references and behavior descriptions match the supplied release data.";
 const DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION =
   "The exact released version every staged document must contain is";
-const DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION =
-  "Replace every standalone previous product release-version reference. When a staged document has no such reference, add a concise current-release reference using the exact released version above.";
+export const DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION =
+  "Replace every standalone previous product release-version reference.";
+export const DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION =
+  "When a staged document has no such reference, add a concise current-release reference using the exact released version above.";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN = "<documentation-sync-input>";
 export const DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE = "</documentation-sync-input>";
 export const DOCUMENTATION_SYNC_AGENT_TOOLS = [
@@ -58,7 +60,7 @@ export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
   const encodedVersion = encodeReleasePromptData(input.releaseData.version).slice(1, -1);
-  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
+  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION}\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
     encodeReleasePromptData(input)
   }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
 }

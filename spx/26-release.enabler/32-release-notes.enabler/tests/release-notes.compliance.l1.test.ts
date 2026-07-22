@@ -355,7 +355,7 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     await expect(
       observeReleaseNotesPath(sampleReleaseNotesPathInput(RELEASE_NOTES_PATH_CASE.CONFIGURED_INSIDE)),
     ).resolves.toSatisfy((observation) => {
-      expect(observation.resolvedPathContained).toBe(true);
+      expect(isPathContained(observation.workingDirectory, observation.resolvedPath)).toBe(true);
       expect(observation.agentRequestCount).toBe(1);
       return true;
     });

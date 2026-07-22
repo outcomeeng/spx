@@ -19,7 +19,7 @@ import {
   ReleaseNotesError,
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
-import { isPathContained, PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
+import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
 import {
   type AbsoluteReleaseNotesPathInput,
   type PartialWriteReleaseNotesInput,
@@ -168,7 +168,6 @@ export interface ReleaseNotesPathObservation {
   readonly agentRequestCount: number;
   readonly workingDirectory: string;
   readonly resolvedPath: string;
-  readonly resolvedPathContained: boolean;
   readonly finalContent: string | undefined;
   readonly readBackPath: string | undefined;
   readonly canonicalReadBackPath: string | undefined;
@@ -905,7 +904,6 @@ function releaseNotesPathObservation(
     agentRequestCount,
     workingDirectory: env.workingDirectory,
     resolvedPath,
-    resolvedPathContained: isPathContained(env.workingDirectory, resolvedPath),
     finalContent: undefined,
     readBackPath: undefined,
     canonicalReadBackPath: undefined,

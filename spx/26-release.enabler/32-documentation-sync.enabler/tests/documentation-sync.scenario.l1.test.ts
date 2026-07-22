@@ -1,4 +1,8 @@
-import type { DocumentationSyncPromptInput } from "@/domains/release/documentation-sync";
+import {
+  DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION,
+  DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION,
+  type DocumentationSyncPromptInput,
+} from "@/domains/release/documentation-sync";
 import { documentationContentEntries } from "@testing/generators/release/documentation";
 import {
   AGENT_PERMISSION_MODES,
@@ -23,13 +27,15 @@ describe("documentation sync scenarios", () => {
 
   it("updates every configured documentation path to the released version", async () => {
     await expect(observeConfiguredDocumentationSync()).resolves.toSatisfy(
-      ({ actual, producerInput, scenario }) => {
+      (observation) => {
+        const { actual, producerInput, scenario } = observation;
         expect(producerInput.releaseData).toEqual(scenario.releaseData);
         expect(
           producerInput.documents.map(
             ({ sourcePath }: DocumentationSyncPromptInput["documents"][number]) => sourcePath,
           ),
         ).toEqual(scenario.paths);
+        expect(observation.producerInstruction).toContain(DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION);
         expect(actual).toEqual(documentationContentEntries(scenario, scenario.updated));
         return true;
       },
@@ -57,6 +63,7 @@ describe("documentation sync scenarios", () => {
     await expect(observeVersionlessSubsequentReleaseDocumentationSync()).resolves.toSatisfy(
       (observation) => {
         expect(observation.producerInput.releaseData).toEqual(observation.scenario.releaseData);
+        expect(observation.producerInstruction).toContain(DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION);
         expect(observation.producerInstruction).toContain(observation.encodedVersion.slice(1, -1));
         expect(observation.producerInstruction).not.toContain(observation.encodedVersion);
         expect(observation.permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);

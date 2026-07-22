@@ -17,7 +17,8 @@ import {
 import {
   AGENT_FILE_TOOL_PATH_INPUT_FIELD,
   AGENT_PRE_TOOL_USE_HOOK_EVENT,
-  createAgentRunOptions,
+  ClaudeAgentRunner,
+  type ClaudeQueryExecutor,
 } from "@/agent/claude-agent-runner";
 import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
 import {
@@ -48,6 +49,8 @@ import {
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
+  DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION,
+  DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
   type DocumentationFileIdentity,
   type DocumentationPromoter,
@@ -147,7 +150,11 @@ class PromptDrivenDocumentationAgent implements AgentRunner {
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writePromptDrivenDocumentation(input.releaseData, input.documents);
+    await writePromptDrivenDocumentation(
+      documentationSyncPromptInstruction(request.prompt),
+      input.releaseData,
+      input.documents,
+    );
   }
 }
 
@@ -582,6 +589,7 @@ async function writeGeneratedDocumentation(
 }
 
 async function writePromptDrivenDocumentation(
+  instruction: string,
   releaseData: ReleaseData,
   documents: readonly { readonly stagedPath: string }[],
 ): Promise<void> {
@@ -596,16 +604,18 @@ async function writePromptDrivenDocumentation(
       }(?!\S)`,
       "gu",
     );
+  const replacementEnabled = instruction.includes(DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION);
+  const additionEnabled = instruction.includes(DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION);
   for (const document of documents) {
     const content = await readFile(document.stagedPath, "utf8");
     let replacementCount = 0;
-    const rewritten = previousReferencePattern === undefined
+    const rewritten = previousReferencePattern === undefined || !replacementEnabled
       ? content
       : content.replace(previousReferencePattern, () => {
         replacementCount += 1;
         return releaseData.version;
       });
-    const updated = replacementCount === 0
+    const updated = replacementCount === 0 && additionEnabled
       ? `${content.trimEnd()}\n${releaseData.version}\n`
       : rewritten;
     await writeFile(document.stagedPath, updated);
@@ -991,7 +1001,13 @@ async function observeDocumentationAgentFileToolBoundary(
   await withDocumentationScenario(documentationScenario, async (options) => {
     await composeDocumentationSync({ ...options, agentRunner: agent });
     const request = requiredAgentRequest(agent.requests, "producer");
-    const agentOptions = createAgentRunOptions(request);
+    let recordedOptions: Parameters<ClaudeQueryExecutor>[1] | undefined;
+    const queryExecutor: ClaudeQueryExecutor = (prompt, options) => {
+      recordedOptions = options;
+      return Promise.resolve({ result: prompt });
+    };
+    await new ClaudeAgentRunner(queryExecutor).run(request);
+    const agentOptions = requiredAgentRunOptions(recordedOptions);
     const preToolUseHook = agentOptions.hooks?.PreToolUse?.at(0)?.hooks.at(0);
     if (preToolUseHook === undefined) {
       throw new Error("Agent run options do not enforce pre-tool-use containment");
@@ -1030,6 +1046,15 @@ async function observeDocumentationAgentFileToolBoundary(
   });
   if (observation === undefined) throw new Error("Agent file-tool boundary produced no observation");
   return observation;
+}
+
+function requiredAgentRunOptions(
+  options: Parameters<ClaudeQueryExecutor>[1] | undefined,
+): Parameters<ClaudeQueryExecutor>[1] {
+  if (options === undefined) {
+    throw new Error("Claude agent runner did not invoke its query executor");
+  }
+  return options;
 }
 
 const DOCUMENTATION_FAILURE_CASE = {
@@ -1768,7 +1793,6 @@ export {
   composeDocumentationSync,
   composeWithDocumentationFilesystem,
   CONFIG_FILE_FORMAT,
-  createAgentRunOptions,
   createDocumentationAtomicWriter,
   createDocumentationFaithfulnessAuditor,
   createDocumentationSyncFilesystem,

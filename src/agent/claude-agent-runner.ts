@@ -24,16 +24,23 @@ export const AGENT_FILE_TOOL_PATH_INPUT_FIELD = "file_path";
 export const AGENT_PRE_TOOL_USE_HOOK_EVENT = "PreToolUse";
 const AGENT_FILE_TOOL_PERMISSION_DENIED_MESSAGE = "Agent file tool target is outside its working directory";
 
+export type ClaudeQueryExecutor = (
+  prompt: string,
+  options: Options,
+) => Promise<Pick<SDKResultSuccess, "result">>;
+
 export class ClaudeAgentRunner implements AgentRunner, AgentAuditor {
+  constructor(private readonly executeQuery: ClaudeQueryExecutor = runClaudeQuery) {}
+
   async run(request: AgentRunRequest): Promise<void> {
-    await runClaudeQuery(
+    await this.executeQuery(
       request.prompt,
       createAgentRunOptions(request),
     );
   }
 
   async audit(request: AgentAuditRequest): Promise<string> {
-    const result = await runClaudeQuery(
+    const result = await this.executeQuery(
       request.prompt,
       {
         cwd: request.workingDirectory,
