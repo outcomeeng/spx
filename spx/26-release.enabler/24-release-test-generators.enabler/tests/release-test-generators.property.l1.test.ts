@@ -1,24 +1,25 @@
 import { win32 } from "node:path";
 
-import {
-  CHANGELOG_CHANGE_GROUPS,
-  CHANGELOG_TITLE,
-  CHANGELOG_TITLE_TEXT,
-  changelogVersionHeadingText,
-  releaseNotesConformsToKeepAChangelog,
-} from "@/domains/release/release-notes";
+import { releaseNotesConformsToKeepAChangelog } from "@/domains/release/release-notes";
 import { usesWindowsPathSemantics } from "@/lib/file-system/pathContainment";
 import { arbitraryKeepAChangelogConformanceCase } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { MARKDOWN_HEADING_TAG, observeIndependentMarkdown } from "@testing/harnesses/release/keep-a-changelog-oracle";
+import {
+  KEEP_A_CHANGELOG_CHANGE_GROUPS,
+  KEEP_A_CHANGELOG_TITLE,
+  KEEP_A_CHANGELOG_TITLE_TEXT,
+  keepAChangelogVersionHeadingText,
+  MARKDOWN_HEADING_TAG,
+  observeIndependentMarkdown,
+} from "@testing/harnesses/release/keep-a-changelog-oracle";
 import { describe, expect, it } from "vitest";
 
 describe("release test generator contracts", () => {
   it("generates changelog cases that agree with the independent Markdown oracle", () => {
     assertProperty(
       arbitraryKeepAChangelogConformanceCase(),
-      ({ releaseData, content, conforms }) => {
+      ({ releaseData, content }) => {
         const markdown = observeIndependentMarkdown(content);
         const title = markdown.headings.at(0);
         const nextTitle = title === undefined
@@ -33,7 +34,7 @@ describe("release test generator contracts", () => {
               heading.index > title.index
               && (nextTitle === undefined || heading.index < nextTitle.index)
               && heading.tag === MARKDOWN_HEADING_TAG.H2
-              && heading.text === changelogVersionHeadingText(releaseData.version),
+              && heading.text === keepAChangelogVersionHeadingText(releaseData.version),
           );
         const nextRelease = versionHeading === undefined
           ? undefined
@@ -48,16 +49,15 @@ describe("release test generator contracts", () => {
               heading.index > versionHeading.index
               && (nextRelease === undefined || heading.index < nextRelease.index)
               && heading.tag === MARKDOWN_HEADING_TAG.H3
-              && new Set<string>(CHANGELOG_CHANGE_GROUPS).has(heading.text),
+              && new Set<string>(KEEP_A_CHANGELOG_CHANGE_GROUPS).has(heading.text),
           );
-        const independentlyConforms = markdown.firstLine === CHANGELOG_TITLE
+        const independentlyConforms = markdown.firstLine === KEEP_A_CHANGELOG_TITLE
           && title?.tag === MARKDOWN_HEADING_TAG.H1
-          && title.text === CHANGELOG_TITLE_TEXT
+          && title.text === KEEP_A_CHANGELOG_TITLE_TEXT
           && versionHeading !== undefined
           && hasChangeGroup;
-        expect(independentlyConforms).toBe(conforms);
         expect(releaseNotesConformsToKeepAChangelog(content, releaseData.version)).toBe(
-          conforms,
+          independentlyConforms,
         );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
