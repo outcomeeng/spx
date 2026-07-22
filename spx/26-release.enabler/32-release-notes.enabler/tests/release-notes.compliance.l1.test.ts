@@ -1,4 +1,3 @@
-import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -8,6 +7,8 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
+  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX,
+  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -67,7 +68,7 @@ it("instructs the producer to describe user-visible release behavior", () => {
   }
 });
 
-it("carries the exact release section heading as encoded prompt data", () => {
+it("carries the exact unquoted release section heading", () => {
   const fixture = sampleReleaseNotesCompositionFixture();
   const prompt = buildReleaseNotesPrompt(
     fixture.releaseData,
@@ -75,9 +76,9 @@ it("carries the exact release section heading as encoded prompt data", () => {
   );
 
   expect(prompt).toContain(
-    encodeReleasePromptData(
-      changelogVersionHeading(fixture.releaseData.version),
-    ),
+    `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
+      changelogVersionHeading(fixture.releaseData.version)
+    }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
   );
 });
 

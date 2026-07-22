@@ -119,6 +119,8 @@ export const CHANGELOG_PATH_DATA_BLOCK_CLOSE = "</changelog-path>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN = "<release-notes-section>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE = "</release-notes-section>";
 export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
+export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX = "Use exactly ";
+export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX = " as the release section's H2 heading.";
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
@@ -569,9 +571,9 @@ export function buildReleaseNotesPrompt(
     formatReleaseVersionDataBlock(releaseData.version),
     `Write the notes to the changelog path in this ${COMMIT_SUBJECTS_DATA_ENCODING} data block:`,
     formatChangelogPathDataBlock(changelogPath),
-    `Use exactly ${
-      encodeReleasePromptData(changelogVersionHeading(releaseData.version))
-    } as the release section's H2 heading.`,
+    `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
+      encodeReleasePromptData(changelogVersionHeading(releaseData.version)).slice(1, -1)
+    }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
     `Follow the Keep a Changelog format: open the file with "${CHANGELOG_TITLE}", add a version section using the release-version JSON data, and group its entries under headings drawn from ${
       CHANGELOG_CHANGE_GROUPS.join(
         ", ",
