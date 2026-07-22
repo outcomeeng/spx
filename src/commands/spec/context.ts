@@ -22,6 +22,7 @@ import {
   parseFoundationResourceManifest,
 } from "@/lib/methodology/foundation-manifest";
 import {
+  assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
   composeSpecContextBundle,
   createFilesystemSpecTreeSource,
@@ -50,7 +51,6 @@ import {
   type SpecContextReadDocument,
   specContextSiblings,
   type SpecContextTargetFailure,
-  type SpecContextTargetListedEntry,
   type SpecContextTargetReadDocument,
   type SpecContextTargetReadSet,
   type SpecTreeNode,
@@ -108,30 +108,19 @@ function childSpecPath(parent: string, child: string): string {
   return `${parent}${TRACKED_PATH_DIRECTORY_SEPARATOR}${child}`;
 }
 
-async function pushExistingReadDocument(
-  read: SpecContextTargetReadDocument[],
-  role: SpecContextTargetReadDocument["role"],
+async function existingSpecTreeFiles(
   productDir: string,
-  path: string | undefined,
+  paths: readonly (string | undefined)[],
   includePath: PathInclusion,
-): Promise<void> {
-  if (path === undefined || !await optionalSpecTreeFile(productDir, path, includePath)) {
-    return;
+): Promise<readonly string[]> {
+  const existing: string[] = [];
+  for (const path of paths) {
+    if (path === undefined) continue;
+    if (await optionalSpecTreeFile(productDir, path, includePath) !== undefined) {
+      existing.push(path);
+    }
   }
-  read.push({ role, path });
-}
-
-async function pushExistingListedEntry(
-  listed: SpecContextTargetListedEntry[],
-  role: SpecContextTargetListedEntry["role"],
-  productDir: string,
-  path: string | undefined,
-  includePath: PathInclusion,
-): Promise<void> {
-  if (path === undefined || !await optionalSpecTreeFile(productDir, path, includePath)) {
-    return;
-  }
-  listed.push({ role, path });
+  return existing;
 }
 
 /**
@@ -162,47 +151,23 @@ async function optionalSpecTreeFile(
   return await containedDocumentPath(productDir, specTreePath) === undefined ? undefined : specTreePath;
 }
 
-async function pushCoordinationDocuments(
-  read: SpecContextTargetReadDocument[],
-  productDir: string,
-  contextNodes: readonly SpecTreeNode[],
-  includePath: PathInclusion,
-): Promise<void> {
+/** Coordination-note candidate paths in walk order: product root, then each context node. */
+function coordinationCandidatePaths(contextNodes: readonly SpecTreeNode[]): readonly string[] {
   const directories = [
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     ...contextNodes.map((node) => fullSpecPath(node.id)),
   ];
-  for (const directory of directories) {
-    for (const filename of SPEC_TREE_GRAMMAR.COORDINATION_NOTES) {
-      await pushExistingReadDocument(
-        read,
-        SPEC_CONTEXT_READ_ROLE.COORDINATION,
-        productDir,
-        childSpecPath(directory, filename),
-        includePath,
-      );
-    }
-  }
+  return directories.flatMap((directory) =>
+    SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((filename) => childSpecPath(directory, filename))
+  );
 }
 
-async function pushGuideEntries(
-  listed: SpecContextTargetListedEntry[],
-  productDir: string,
-  contextNodes: readonly SpecTreeNode[],
-  includePath: PathInclusion,
-): Promise<void> {
+/** Runtime-guide candidate paths in walk order: product root, then each context node. */
+function guideCandidatePaths(contextNodes: readonly SpecTreeNode[]): readonly string[] {
   const directories = ["", ...contextNodes.map((node) => fullSpecPath(node.id))];
-  for (const directory of directories) {
-    for (const filename of SPEC_TREE_GRAMMAR.GUIDE_FILES) {
-      await pushExistingListedEntry(
-        listed,
-        SPEC_CONTEXT_LISTED_ROLE.GUIDE,
-        productDir,
-        directory === "" ? filename : childSpecPath(directory, filename),
-        includePath,
-      );
-    }
-  }
+  return directories.flatMap((directory) =>
+    SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => directory === "" ? filename : childSpecPath(directory, filename))
+  );
 }
 
 async function readContextDocumentBytes(productDir: string, path: string): Promise<Buffer> {
@@ -243,7 +208,7 @@ type ScannedDocuments = Map<string, { readonly rawBytes: Buffer; readonly conten
  */
 async function citedDecisionDocuments(
   productDir: string,
-  sources: readonly SpecContextTargetReadDocument[],
+  sourcePaths: readonly string[],
   knownPaths: ReadonlySet<string>,
   includePath: PathInclusion,
   contentRequested: boolean,
@@ -282,9 +247,9 @@ async function citedDecisionDocuments(
       queue.push(citedPath);
     }
   };
-  for (const source of sources) {
-    const text = await scanText(source.path);
-    if (text !== undefined) collectCitations(source.path, text);
+  for (const sourcePath of sourcePaths) {
+    const text = await scanText(sourcePath);
+    if (text !== undefined) collectCitations(sourcePath, text);
   }
   const resolutionOrder: string[] = [];
   for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
@@ -326,7 +291,12 @@ async function localOverlayPaths(
     .map((name) => childSpecPath(SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY, name));
 }
 
-/** One resolved target's complete read and listed sequences in that target's group order. */
+/**
+ * One resolved target's complete read and listed sequences. The handler's
+ * part is filesystem-bound candidate verification and citation-scan byte
+ * reads; the ordered assembly is the spec-tree library's
+ * `assembleSpecContextTargetReadSet`.
+ */
 async function buildTargetReadSet(
   productDir: string,
   snapshot: SpecTreeSnapshot,
@@ -340,106 +310,76 @@ async function buildTargetReadSet(
   const contextNodes = [...ancestors, target];
   const siblings = specContextSiblings(snapshot, target);
   const lowerSiblings = specContextLowerIndexSiblings(snapshot, contextNodes);
-  const sameIndex = sortPaths(
-    siblings.filter((node) => node.order === target.order).map((node) => fullSpecPath(node.id)),
-  );
-  const higherIndex = sortPaths(
-    siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
-  );
 
-  const read: SpecContextTargetReadDocument[] = [];
-  await pushExistingReadDocument(
-    read,
-    SPEC_CONTEXT_READ_ROLE.PRODUCT,
+  const product = await existingSpecTreeFiles(productDir, [refPath(snapshot.product?.ref)], includePath);
+  const ancestorPaths = await existingSpecTreeFiles(
     productDir,
-    refPath(snapshot.product?.ref),
+    ancestors.map((ancestor) => refPath(ancestor.ref)),
     includePath,
   );
-  for (const ancestor of ancestors) {
-    await pushExistingReadDocument(
-      read,
-      SPEC_CONTEXT_READ_ROLE.ANCESTOR,
-      productDir,
-      refPath(ancestor.ref),
-      includePath,
-    );
-  }
-  await pushExistingReadDocument(
-    read,
-    SPEC_CONTEXT_READ_ROLE.TARGET,
+  const targetPaths = await existingSpecTreeFiles(productDir, [refPath(target.ref)], includePath);
+  const decisionPaths = await existingSpecTreeFiles(
     productDir,
-    refPath(target.ref),
+    specContextDecisions(snapshot, contextNodes).map((decision) => refPath(decision.ref)),
     includePath,
   );
-  for (const decision of specContextDecisions(snapshot, contextNodes)) {
-    await pushExistingReadDocument(
-      read,
-      SPEC_CONTEXT_READ_ROLE.DECISION,
-      productDir,
-      refPath(decision.ref),
-      includePath,
-    );
-  }
-  for (const sibling of lowerSiblings) {
-    await pushExistingReadDocument(
-      read,
-      SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING,
-      productDir,
-      refPath(sibling.ref),
-      includePath,
-    );
-  }
-  const structuralDocuments = [...read];
-  await pushCoordinationDocuments(read, productDir, contextNodes, includePath);
-  const knownPaths = new Set(read.map((document) => document.path));
-  read.push(
-    ...await citedDecisionDocuments(
-      productDir,
-      structuralDocuments,
-      knownPaths,
-      includePath,
-      contentRequested,
-      scannedDocuments,
-    ),
+  const lowerSiblingPaths = await existingSpecTreeFiles(
+    productDir,
+    lowerSiblings.map((sibling) => refPath(sibling.ref)),
+    includePath,
+  );
+  const coordinationPaths = await existingSpecTreeFiles(
+    productDir,
+    coordinationCandidatePaths(contextNodes),
+    includePath,
+  );
+  const structuralPaths = [...product, ...ancestorPaths, ...targetPaths, ...decisionPaths, ...lowerSiblingPaths];
+  const knownPaths = new Set([...structuralPaths, ...coordinationPaths]);
+  const citedDecisions = await citedDecisionDocuments(
+    productDir,
+    structuralPaths,
+    knownPaths,
+    includePath,
+    contentRequested,
+    scannedDocuments,
   );
   const overlayPaths = await localOverlayPaths(productDir, trackedPaths);
-  await pushExistingReadDocument(
-    read,
-    SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY,
+  const lifecycleOverlay = await existingSpecTreeFiles(
     productDir,
-    overlayPaths.includes(SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH) ? SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH : undefined,
+    overlayPaths.includes(SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH) ? [SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH] : [],
+    includePath,
+  );
+  const evidencePaths = await existingSpecTreeFiles(
+    productDir,
+    specContextEvidence(snapshot, target).map((evidence) => refPath(evidence.ref)),
+    includePath,
+  );
+  const guidePaths = await existingSpecTreeFiles(productDir, guideCandidatePaths(contextNodes), includePath);
+  const listedOverlayPaths = await existingSpecTreeFiles(
+    productDir,
+    overlayPaths.filter((path) => path !== SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH),
     includePath,
   );
 
-  const listed: SpecContextTargetListedEntry[] = [];
-  for (const evidence of specContextEvidence(snapshot, target)) {
-    await pushExistingListedEntry(
-      listed,
-      SPEC_CONTEXT_LISTED_ROLE.EVIDENCE,
-      productDir,
-      refPath(evidence.ref),
-      includePath,
-    );
-  }
-  await pushGuideEntries(listed, productDir, contextNodes, includePath);
-  for (const overlayPath of overlayPaths) {
-    if (overlayPath === SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH) continue;
-    await pushExistingListedEntry(
-      listed,
-      SPEC_CONTEXT_LISTED_ROLE.OVERLAY,
-      productDir,
-      overlayPath,
-      includePath,
-    );
-  }
-  for (const sibling of sameIndex) {
-    listed.push({ role: SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING, path: sibling });
-  }
-  for (const sibling of higherIndex) {
-    listed.push({ role: SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING, path: sibling });
-  }
-
-  return { target: fullSpecPath(target.id), read, listed };
+  return assembleSpecContextTargetReadSet(fullSpecPath(target.id), {
+    product,
+    ancestors: ancestorPaths,
+    target: targetPaths,
+    decisions: decisionPaths,
+    lowerIndexSiblings: lowerSiblingPaths,
+    coordination: coordinationPaths,
+    citedDecisions,
+    lifecycleOverlay,
+    evidence: evidencePaths,
+    guides: guidePaths,
+    overlays: listedOverlayPaths,
+    sameIndexSiblings: sortPaths(
+      siblings.filter((node) => node.order === target.order).map((node) => fullSpecPath(node.id)),
+    ),
+    higherIndexSiblings: sortPaths(
+      siblings.filter((node) => node.order > target.order).map((node) => fullSpecPath(node.id)),
+    ),
+  });
 }
 
 /**
