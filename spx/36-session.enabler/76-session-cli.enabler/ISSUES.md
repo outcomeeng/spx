@@ -19,13 +19,3 @@ The session list resolves the `--color`/`--no-color` → `NO_COLOR` → TTY prec
 **Impact:** None to correctness today; the drift risk is a future override input (for example `FORCE_COLOR`) added to one derivation but not the other, leaving the two color decisions inconsistent.
 
 **Resolution:** Migrate the session path to the shared `resolveColorChoice` primitive in `src/lib/styled-output/`, removing `resolveListColor` as a second derivation. Deferred from the styled-output slice, which scoped the primitive so session output can adopt it later without refactoring session output in that slice.
-
-## Status projection fails the pickup no-inject assertion
-
-Running the status projection with `pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json` exits 0 but reports the session CLI compliance assertion `ALWAYS: pickup --no-inject suppresses CLI auto-injection` as failing.
-
-**Evidence:** The projection reports an expected exit code of 0 and an actual exit code of 1 for [`tests/session-cli.compliance.l2.test.ts`](tests/session-cli.compliance.l2.test.ts), exposed at line 281 in the assertion `ALWAYS: pickup --no-inject suppresses CLI auto-injection`.
-
-**Impact:** The test-status projection records stale or failing evidence for the session CLI node even though the projection command itself exits successfully, weakening confidence in status-derived readiness views for this node.
-
-**Resolution:** Diagnose the `pickup --no-inject` fixture and CLI path under `/apply` for the session CLI node, then refresh the node status after the assertion passes.
