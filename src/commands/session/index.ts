@@ -15,6 +15,8 @@ export { pickupCommand } from "./pickup";
 export type { PickupOptions } from "./pickup";
 export { pruneCommand, PruneValidationError } from "./prune";
 export type { PruneOptions } from "./prune";
+export { reconcileCommand } from "./reconcile";
+export type { ReconcileOptions } from "./reconcile";
 export { releaseCommand } from "./release";
 export type { ReleaseOptions } from "./release";
 export { showCommand } from "./show";

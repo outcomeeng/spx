@@ -19,6 +19,7 @@ import {
   pickupCommand,
   pruneCommand,
   PruneValidationError,
+  reconcileCommand,
   releaseCommand,
   SessionAlreadyArchivedError,
   showCommand,
@@ -292,6 +293,27 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
           sessionIds: ids,
           auto: options.auto,
           noInject: options.inject === false,
+          sessionsDir: options.sessionsDir,
+          cwd: effectiveInvocationDir(),
+          onWarning: (warning) => writeInvocationWarning(invocation, warning),
+        });
+        writeOutput(invocation, output);
+      } catch (error) {
+        handleError(invocation, error);
+      }
+    });
+
+  // reconcile command
+  addSessionOptions(
+    sessionCmd
+      .command(sessionCommandToken(sessionCliDefinition.subcommands.reconcile))
+      .description(sessionCliDefinition.subcommands.reconcile.description),
+    sessionOptionsForSubcommand(sessionCliDefinition.subcommands.reconcile),
+  )
+    .action(async (id: string, options: { sessionsDir?: string }) => {
+      try {
+        const output = await reconcileCommand({
+          sessionId: id,
           sessionsDir: options.sessionsDir,
           cwd: effectiveInvocationDir(),
           onWarning: (warning) => writeInvocationWarning(invocation, warning),

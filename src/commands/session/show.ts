@@ -57,7 +57,7 @@ async function findExistingPath(
  *
  * @throws {SessionNotFoundError} When no status directory holds the session
  */
-async function resolveSession(
+export async function resolveSession(
   sessionId: string,
   config: SessionDirectoryConfig,
 ): Promise<{ status: SessionStatus; path: string; content: string }> {
