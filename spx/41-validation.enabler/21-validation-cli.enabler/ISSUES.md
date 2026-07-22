@@ -1,6 +1,4 @@
-# Worktree CLI Issues
-
-No open issues.
+# Known Issues
 
 ## External values reach the terminal without control-byte escaping
 
@@ -8,7 +6,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Unescaped sites:**
 
-- `src/interfaces/cli/worktree.ts` — `writeOutput`, `writeError`, and `handleError` — `git worktree` subprocess output, worktree paths, and occupancy file content
+- `src/interfaces/cli/validation.ts` — the stage result output, the per-stage completion output, and the streamed stdout and stderr chunks — tool subprocess output from tsc, eslint, knip, dprint, and markdownlint, and the paths that output names
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 

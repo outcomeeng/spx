@@ -37,3 +37,15 @@ before using it as a template for a new TypeScript validation decision record.
 
 **Skills:** `spec-tree:contextualize`, `spec-tree:author`,
 `spec-tree:audit-adr`, and `typescript:architect-typescript`.
+
+## No enforcement rule keeps terminal text composed rather than concatenated
+
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) requires every externally-originated value to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` primitive. Nothing enforces it. A new command descriptor that interpolates a subprocess reading into a template literal and hands the result to `writeStdout` compiles, passes lint, and ships — which is how the current spread of unescaped sites accumulated across seventeen nodes.
+
+**Impact:** the invariant holds only where someone remembered it. Each escape gap is found by inspection rather than by a gate, so closing one boundary leaves its siblings open and the class regenerates as new surfaces are added.
+
+**Resolution:** add an AST rule that reports a process-stream write, or a `CliIo` write, whose argument is a template literal or concatenation carrying a non-literal expression, and require composition through `src/lib/terminal-text/` instead. Give the rule `[test]` evidence against violating fixtures, following the `no-async-spawn-outside-lifecycle` shape this node already carries. Existing unmigrated nodes need the warning-downgrade manifest treatment the product uses for staged migrations until their own `ISSUES.md` entries are cleared.
+
+**Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
+
+**Revisit condition:** once a majority of the nodes listed in the terminal-escaping issues have migrated, so the rule can land at error severity for the remainder.
