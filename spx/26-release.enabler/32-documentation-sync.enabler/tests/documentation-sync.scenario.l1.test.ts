@@ -1,3 +1,4 @@
+import { documentationContentEntries } from "@testing/generators/release/documentation";
 import {
   AGENT_PERMISSION_MODES,
   DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
@@ -11,8 +12,8 @@ import { describe, expect, it } from "vitest";
 describe("documentation sync scenarios", () => {
   it("updates the default product README to the released version", async () => {
     await expect(observeDefaultDocumentationSync()).resolves.toSatisfy(
-      ({ actual, expected }) => {
-        expect(actual).toEqual(expected);
+      ({ actual, scenario }) => {
+        expect(actual).toEqual(documentationContentEntries(scenario, scenario.updated));
         return true;
       },
     );
@@ -20,8 +21,8 @@ describe("documentation sync scenarios", () => {
 
   it("updates every configured documentation path to the released version", async () => {
     await expect(observeConfiguredDocumentationSync()).resolves.toSatisfy(
-      ({ actual, expected }) => {
-        expect(actual).toEqual(expected);
+      ({ actual, scenario }) => {
+        expect(actual).toEqual(documentationContentEntries(scenario, scenario.updated));
         return true;
       },
     );
@@ -29,8 +30,8 @@ describe("documentation sync scenarios", () => {
 
   it("adds the released version to first-release documentation", async () => {
     await expect(observeFirstReleaseDocumentationSync()).resolves.toSatisfy(
-      ({ actual, expected }) => {
-        expect(actual).toEqual(expected);
+      ({ actual, scenario }) => {
+        expect(actual).toEqual(documentationContentEntries(scenario, scenario.updated));
         return true;
       },
     );
@@ -44,7 +45,9 @@ describe("documentation sync scenarios", () => {
         expect(observation.permissionMode).toBe(AGENT_PERMISSION_MODES.DONT_ASK);
         expect(observation.auditRequestCount).toBe(1);
         expect(observation.auditInstruction).toContain(DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.updated),
+        );
         return true;
       },
     );

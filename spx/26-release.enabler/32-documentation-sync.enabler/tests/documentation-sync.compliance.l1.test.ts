@@ -1,3 +1,9 @@
+import { join } from "node:path";
+
+import {
+  documentationContentEntries,
+  documentationTransformationEntries,
+} from "@testing/generators/release/documentation";
 import {
   DOCUMENTATION_AUDIT_CASE,
   DOCUMENTATION_FAILURE_CASE,
@@ -29,8 +35,8 @@ describe("documentation sync compliance", () => {
         expect(observation.error).toBeDefined();
         expect(observation.agentRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
-        for (const backingFile of observation.backingFiles) {
-          expect(backingFile.actual).toBe(backingFile.expected);
+        for (const backingFileContent of observation.backingFileContents) {
+          expect(backingFileContent).toBe(observation.failureCase.backingContent);
         }
       }
       return true;
@@ -42,7 +48,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -53,7 +61,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -66,7 +76,9 @@ describe("documentation sync compliance", () => {
           expect(observation.error).toBeDefined();
           expect(observation.auditRequestCount).toBe(0);
           expect(observation.promotionCallCount).toBe(0);
-          expect(observation.actual).toEqual(observation.expected);
+          expect(observation.actual).toEqual(
+            documentationContentEntries(observation.scenario, observation.scenario.original),
+          );
           return true;
         },
       );
@@ -79,7 +91,9 @@ describe("documentation sync compliance", () => {
           expect(observation.error).toBeDefined();
           expect(observation.agentRequestCount).toBe(0);
           expect(observation.atomicWriteCount).toBe(0);
-          expect(observation.actual).toEqual(observation.expected);
+          expect(observation.actual).toEqual(
+            documentationContentEntries(observation.scenario, observation.scenario.original),
+          );
           return true;
         },
       );
@@ -93,7 +107,9 @@ describe("documentation sync compliance", () => {
         expect(observation.error).toBeDefined();
         expect(observation.agentRequestCount).toBe(0);
         expect(observation.atomicWriteCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -104,7 +120,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.atomicWriteCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -117,7 +135,9 @@ describe("documentation sync compliance", () => {
           expect(observation.error).toBeDefined();
           expect(observation.agentRequestCount).toBe(0);
           expect(observation.promotionCallCount).toBe(0);
-          expect(observation.actual).toEqual(observation.expected);
+          expect(observation.actual).toEqual(
+            documentationContentEntries(observation.scenario, observation.scenario.original),
+          );
           return true;
         },
       );
@@ -142,7 +162,9 @@ describe("documentation sync compliance", () => {
         expect(observation.error).toBeDefined();
         expect(observation.auditRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -156,7 +178,9 @@ describe("documentation sync compliance", () => {
         expect(observation.error).toBeDefined();
         expect(observation.auditRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -170,7 +194,9 @@ describe("documentation sync compliance", () => {
         expect(observation.error).toBeDefined();
         expect(observation.auditRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -181,7 +207,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -194,7 +222,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.atomicFailureCount).toBe(1);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -207,7 +237,14 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.atomicWriteCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          observation.scenario.paths.map((path: string) => ({
+            path,
+            content: path === observation.interveningPath
+              ? observation.scenario.intervening[path]
+              : observation.scenario.original[path],
+          })),
+        );
         return true;
       },
     );
@@ -220,7 +257,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.atomicWriteCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -232,7 +271,14 @@ describe("documentation sync compliance", () => {
     ).resolves.toSatisfy(
       (observation) => {
         expect(observation.error).toBeDefined();
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          observation.scenario.paths.map((path: string) => ({
+            path,
+            content: path === observation.interveningPath
+              ? observation.scenario.intervening[path]
+              : observation.scenario.original[path],
+          })),
+        );
         return true;
       },
     );
@@ -245,7 +291,9 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeDefined();
         expect(observation.atomicWriteCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -255,9 +303,11 @@ describe("documentation sync compliance", () => {
     await expect(observeAtomicDocumentationPromotion()).resolves.toSatisfy(
       (observation) => {
         expect(observation.error).toBeUndefined();
-        expect(observation.result).toEqual({ paths: observation.expectedPaths });
+        expect(observation.result).toEqual({ paths: observation.scenario.paths });
         expect(observation.openHandleCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.updated),
+        );
         return true;
       },
     );
@@ -268,7 +318,14 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeInstanceOf(AggregateError);
         expect(observation.failureCount).toBe(1);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          observation.scenario.paths.map((path: string) => ({
+            path,
+            content: path === observation.primary.path
+              ? observation.primary.interveningContent
+              : observation.scenario.original[path],
+          })),
+        );
         return true;
       },
     );
@@ -280,7 +337,14 @@ describe("documentation sync compliance", () => {
         (observation) => {
           expect(observation.error).toBeInstanceOf(AggregateError);
           expect(observation.failureCount).toBe(1);
-          expect(observation.actual).toEqual(observation.expected);
+          expect(observation.actual).toEqual(
+            observation.scenario.paths.map((path: string) => ({
+              path,
+              content: path === observation.primary.path
+                ? observation.primary.updatedContent
+                : observation.scenario.original[path],
+            })),
+          );
           return true;
         },
       );
@@ -291,10 +355,12 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.error).toBeInstanceOf(Error);
         expect((observation.error as Error).message).toBe(REJECTING_DOCUMENTATION_AUDIT_MESSAGE);
-        expect(observation.actualReleaseData).toBe(observation.expectedReleaseData);
-        expect(observation.actualDocuments).toEqual(observation.expectedDocuments);
+        expect(observation.actualReleaseData).toBe(observation.scenario.releaseData);
+        expect(observation.actualDocuments).toEqual(observation.scenario.paths);
         expect(observation.promotionCallCount).toBe(0);
-        expect(observation.actual).toEqual(observation.expected);
+        expect(observation.actual).toEqual(
+          documentationContentEntries(observation.scenario, observation.scenario.original),
+        );
         return true;
       },
     );
@@ -304,8 +370,10 @@ describe("documentation sync compliance", () => {
     await expect(observeDocumentationAudit(DOCUMENTATION_AUDIT_CASE.TRANSFORMATION)).resolves.toSatisfy(
       (observation) => {
         expect(observation.error).toBeUndefined();
-        expect(observation.actualReleaseData).toBe(observation.expectedReleaseData);
-        expect(observation.actualDocuments).toEqual(observation.expectedDocuments);
+        expect(observation.actualReleaseData).toBe(observation.scenario.releaseData);
+        expect(observation.actualDocuments).toEqual(
+          documentationTransformationEntries(observation.scenario),
+        );
         return true;
       },
     );
@@ -315,7 +383,13 @@ describe("documentation sync compliance", () => {
     await expect(observeDocumentationPrompt(DOCUMENTATION_PROMPT_CASE.PRODUCER_INPUT)).resolves.toSatisfy(
       (observation) => {
         expect(observation.producerRequestCount).toBe(1);
-        expect(observation.actualProducerInput).toEqual(observation.expectedProducerInput);
+        expect(observation.actualProducerInput).toEqual({
+          releaseData: observation.scenario.releaseData,
+          documents: observation.scenario.paths.map((sourcePath: string) => ({
+            sourcePath,
+            stagedPath: join(observation.producerWorkingDirectory, sourcePath),
+          })),
+        });
         return true;
       },
     );
@@ -324,11 +398,20 @@ describe("documentation sync compliance", () => {
   it("keeps delimiter-shaped release data inside producer and audit data blocks", async () => {
     await expect(observeDocumentationPrompt(DOCUMENTATION_PROMPT_CASE.DATA_BOUNDARY)).resolves.toSatisfy(
       (observation) => {
-        expect(observation.actualProducerInput).toEqual(observation.expectedProducerInput);
+        expect(observation.actualProducerInput).toEqual({
+          releaseData: observation.scenario.releaseData,
+          documents: observation.scenario.paths.map((sourcePath: string) => ({
+            sourcePath,
+            stagedPath: join(observation.producerWorkingDirectory, sourcePath),
+          })),
+        });
         expect(observation.producerInstruction).not.toContain(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE);
         expect(observation.producerInstruction).toContain(observation.encodedVersion.slice(1, -1));
         expect(observation.auditRequestCount).toBe(1);
-        expect(observation.actualAuditInput).toEqual(observation.expectedAuditInput);
+        expect(observation.actualAuditInput).toEqual({
+          releaseData: observation.scenario.releaseData,
+          documents: documentationTransformationEntries(observation.scenario),
+        });
         return true;
       },
     );
@@ -338,7 +421,7 @@ describe("documentation sync compliance", () => {
     await expect(observeDocumentationPrompt(DOCUMENTATION_PROMPT_CASE.AMBIENT_EXCLUSION)).resolves.toSatisfy(
       (observation) => {
         expect(observation.producerRequestCount).toBe(1);
-        for (const { path, content } of observation.ambientState) {
+        for (const { path, content } of observation.scenario.ambientState) {
           expect(observation.producerPrompt).not.toContain(path);
           expect(observation.producerPrompt).not.toContain(content);
         }

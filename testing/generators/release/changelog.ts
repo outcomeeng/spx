@@ -584,6 +584,10 @@ export interface ReleaseNotesChangelogCase {
   readonly content: string;
 }
 
+export interface GeneratedKeepAChangelogConformanceCase extends ReleaseNotesChangelogCase {
+  readonly conforms: boolean;
+}
+
 export interface NonConformantReleaseNotesChangelogCase extends NonConformantChangelogCase {
   readonly releaseData: ReleaseData;
 }
@@ -595,7 +599,7 @@ interface GeneratedChangelogShape {
   readonly groupMode: GeneratedChangelogGroupMode;
 }
 
-export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<ReleaseNotesChangelogCase> {
+export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<GeneratedKeepAChangelogConformanceCase> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) => {
     const subjects = releaseData.commits.map((commit) => commit.subject);
     return fc
@@ -608,6 +612,9 @@ export function arbitraryKeepAChangelogConformanceCase(): fc.Arbitrary<ReleaseNo
       .map((shape) => ({
         releaseData,
         content: generatedChangelog(shape, releaseData.version, subjects),
+        conforms: shape.titleMode === "exact"
+          && shape.versionMode === "top-level"
+          && shape.groupMode === "top-level",
       }));
   });
 }
@@ -763,6 +770,21 @@ export function sampleConformantReleaseNotesChangelogCase(): ReleaseNotesChangel
     releaseData,
     content: sampleReleaseTestValue(arbitraryConformantChangelog(releaseData.version, subjects)),
   };
+}
+
+export function sampleConformantReleaseNotesChangelogCases(): readonly ReleaseNotesChangelogCase[] {
+  return [
+    sampleConformantReleaseNotesChangelogCase(),
+    sampleIndentedFenceReleaseNotesChangelogCase(),
+    sampleAtxClosingHashesReleaseNotesChangelogCase(),
+    sampleTabbedHeadingReleaseNotesChangelogCase(),
+    sampleTabPaddedListBeforeChangeGroupReleaseNotesChangelogCase(),
+    sampleCdataReleaseNotesChangelogCase(),
+    sampleHtmlBlockTerminatedByBlankLineReleaseNotesChangelogCase(),
+    sampleSameLineExplicitHtmlBlockReleaseNotesChangelogCase(),
+    sampleStandaloneInlineHtmlReleaseNotesChangelogCase(),
+    sampleCustomInlineHtmlReleaseNotesChangelogCase(),
+  ];
 }
 
 export function sampleIndentedFenceReleaseNotesChangelogCase(): ReleaseNotesChangelogCase {
