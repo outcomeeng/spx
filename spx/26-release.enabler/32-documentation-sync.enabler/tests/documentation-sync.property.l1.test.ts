@@ -1,3 +1,5 @@
+import { releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { documentationContentEntries } from "@testing/generators/release/documentation";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
@@ -68,9 +70,26 @@ describe("documentation sync path properties", () => {
       arbitraryDocumentationVersionPreservationScenarios(),
       async (scenarios) => {
         for (const observation of await observeDocumentationVersionPreservation(scenarios)) {
-          expect(observation.actual).toEqual(
-            documentationContentEntries(observation.scenario, observation.scenario.updated),
-          );
+          const previousVersion = observation.scenario.releaseData.previousTag === null
+            ? undefined
+            : releaseVersionFromTag(observation.scenario.releaseData.previousTag);
+          for (const document of observation.actual) {
+            const originalContent = observation.scenario.original[document.path];
+            expect(originalContent).toBeDefined();
+            if (originalContent === undefined) continue;
+            expect(document.content).toContain(observation.scenario.releaseData.version);
+            for (
+              const token of originalContent.split(/\s+/u).filter(Boolean).filter((candidate) =>
+                previousVersion === undefined
+                || (
+                  candidate !== previousVersion
+                  && candidate !== `${RELEASE_TAG_PREFIX}${previousVersion}`
+                )
+              )
+            ) {
+              expect(document.content).toContain(token);
+            }
+          }
         }
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

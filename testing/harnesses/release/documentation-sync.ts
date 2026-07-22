@@ -51,6 +51,7 @@ import {
   type DocumentationFaithfulnessAuditor,
   type DocumentationFileIdentity,
   type DocumentationPromoter,
+  type DocumentationSyncPromptInput,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
@@ -59,6 +60,7 @@ import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import type { AtomicWriteFileSystem } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
@@ -136,6 +138,16 @@ class DocumentationWritingAgent implements AgentRunner {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
     await writeGeneratedDocumentation(this.updated, input.documents);
+  }
+}
+
+class PromptDrivenDocumentationAgent implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    const input = parseDocumentationSyncPromptInput(request.prompt);
+    await writePromptDrivenDocumentation(input.releaseData, input.documents);
   }
 }
 
@@ -569,6 +581,37 @@ async function writeGeneratedDocumentation(
   }
 }
 
+async function writePromptDrivenDocumentation(
+  releaseData: ReleaseData,
+  documents: readonly { readonly stagedPath: string }[],
+): Promise<void> {
+  const previousVersion = releaseData.previousTag === null
+    ? undefined
+    : releaseVersionFromTag(releaseData.previousTag);
+  const previousReferencePattern = previousVersion === undefined
+    ? undefined
+    : new RegExp(
+      String.raw`(?<!\S)${RELEASE_TAG_PREFIX}?${
+        previousVersion.replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)
+      }(?!\S)`,
+      "gu",
+    );
+  for (const document of documents) {
+    const content = await readFile(document.stagedPath, "utf8");
+    let replacementCount = 0;
+    const rewritten = previousReferencePattern === undefined
+      ? content
+      : content.replace(previousReferencePattern, () => {
+        replacementCount += 1;
+        return releaseData.version;
+      });
+    const updated = replacementCount === 0
+      ? `${content.trimEnd()}\n${releaseData.version}\n`
+      : rewritten;
+    await writeFile(document.stagedPath, updated);
+  }
+}
+
 async function writeFirstReleasedVersionReference(
   releaseData: ReleaseData,
   documents: readonly { readonly sourcePath: string; readonly stagedPath: string }[],
@@ -626,14 +669,18 @@ function lastDocumentationPath(scenario: DocumentationSyncScenario): string {
   return path;
 }
 
-interface DocumentationContentObservation {
+interface DocumentationObservedContent {
   readonly scenario: DocumentationSyncScenario;
   readonly actual: readonly { readonly path: string; readonly content: string }[];
 }
 
-interface VersionlessDocumentationSyncObservation extends DocumentationContentObservation {
+interface DocumentationContentObservation extends DocumentationObservedContent {
+  readonly producerInput: DocumentationSyncPromptInput;
   readonly producerInstruction: string;
   readonly encodedVersion: string;
+}
+
+interface VersionlessDocumentationSyncObservation extends DocumentationContentObservation {
   readonly permissionMode: AgentRunRequest["permissionMode"];
   readonly auditRequestCount: number;
   readonly auditInstruction: string;
@@ -662,16 +709,19 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
 > {
   const scenario = sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario());
   const auditor = new RecordingDocumentationAuditor();
+  const producer = new PromptDrivenDocumentationAgent();
   let observation: VersionlessDocumentationSyncObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
     await runDocumentationSyncCli({
       ...options,
+      agentRunner: producer,
       faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
     });
-    const producerRequest = requiredAgentRequest(agent.requests, "producer");
+    const producerRequest = requiredAgentRequest(producer.requests, "producer");
     const auditRequest = requiredAgentRequest(auditor.requests, "audit");
     observation = {
       ...await observeDocumentationContent(scenario, readProductDocument),
+      producerInput: parseDocumentationSyncPromptInput(producerRequest.prompt),
       producerInstruction: documentationSyncPromptInstruction(producerRequest.prompt),
       encodedVersion: JSON.stringify(scenario.releaseData.version),
       permissionMode: producerRequest.permissionMode,
@@ -688,10 +738,17 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(): Promise<
 async function observeDocumentationSync(
   scenario: DocumentationSyncScenario,
 ): Promise<DocumentationContentObservation> {
+  const producer = new PromptDrivenDocumentationAgent();
   let observation: DocumentationContentObservation | undefined;
   await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    await runDocumentationSyncCli(options);
-    observation = await observeDocumentationContent(scenario, readProductDocument);
+    await runDocumentationSyncCli({ ...options, agentRunner: producer });
+    const producerRequest = requiredAgentRequest(producer.requests, "producer");
+    observation = {
+      ...await observeDocumentationContent(scenario, readProductDocument),
+      producerInput: parseDocumentationSyncPromptInput(producerRequest.prompt),
+      producerInstruction: documentationSyncPromptInstruction(producerRequest.prompt),
+      encodedVersion: JSON.stringify(scenario.releaseData.version),
+    };
   });
   if (observation === undefined) {
     throw new Error("Documentation sync produced no content observation");
@@ -702,7 +759,7 @@ async function observeDocumentationSync(
 async function observeDocumentationContent(
   scenario: DocumentationSyncScenario,
   readProductDocument: ProductDocumentationReader,
-): Promise<DocumentationContentObservation> {
+): Promise<DocumentationObservedContent> {
   return {
     scenario,
     actual: await Promise.all(
@@ -845,7 +902,7 @@ interface DocumentationPathSetObservation {
 
 type DocumentationVersionPreservationObservation = DocumentationContentObservation;
 
-interface DocumentationUnrelatedVersionRewriteObservation extends DocumentationContentObservation {
+interface DocumentationUnrelatedVersionRewriteObservation extends DocumentationObservedContent {
   readonly testCase: DocumentationUnrelatedVersionRewriteScenario;
   readonly error: unknown;
   readonly actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[];
@@ -1035,7 +1092,7 @@ const DOCUMENTATION_PROMPT_CASE = {
 
 type DocumentationPromptCase = (typeof DOCUMENTATION_PROMPT_CASE)[keyof typeof DOCUMENTATION_PROMPT_CASE];
 
-interface DocumentationRejectionObservation extends DocumentationContentObservation {
+interface DocumentationRejectionObservation extends DocumentationObservedContent {
   readonly error: unknown;
   readonly agentRequestCount: number;
   readonly auditRequestCount: number;
@@ -1057,20 +1114,20 @@ interface DocumentationFifoObservation {
   readonly promotionCallCount: number;
 }
 
-interface DocumentationAtomicPromotionObservation extends DocumentationContentObservation {
+interface DocumentationAtomicPromotionObservation extends DocumentationObservedContent {
   readonly error: unknown;
   readonly result: { readonly paths: readonly string[] } | undefined;
   readonly openHandleCount: number;
 }
 
-interface DocumentationRollbackObservation extends DocumentationContentObservation {
+interface DocumentationRollbackObservation extends DocumentationObservedContent {
   readonly primary: PrimaryDocumentation;
   readonly rollbackCase: DocumentationRollbackCase;
   readonly error: unknown;
   readonly failureCount: number;
 }
 
-interface DocumentationPromotionFailureObservation extends DocumentationContentObservation {
+interface DocumentationPromotionFailureObservation extends DocumentationObservedContent {
   readonly failureCase: DocumentationPromotionFailureCase;
   readonly interveningPath: string | undefined;
   readonly error: unknown;
@@ -1078,7 +1135,7 @@ interface DocumentationPromotionFailureObservation extends DocumentationContentO
   readonly atomicFailureCount: number;
 }
 
-interface DocumentationAuditObservation extends DocumentationContentObservation {
+interface DocumentationAuditObservation extends DocumentationObservedContent {
   readonly auditCase: DocumentationAuditCase;
   readonly error: unknown;
   readonly actualReleaseData: ReleaseData | undefined;

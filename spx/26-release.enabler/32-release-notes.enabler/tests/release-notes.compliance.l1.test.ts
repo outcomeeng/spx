@@ -12,6 +12,7 @@ import {
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
@@ -44,6 +45,10 @@ import {
   observeReleaseNotesPrompt,
   observeReleaseNotesSymlinkToRootPath,
 } from "@testing/harnesses/release/release-notes-compliance";
+import {
+  composeEveryReleaseNotesCase,
+  type ReleaseNotesConformanceFailureObservation,
+} from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
 it("instructs the producer to describe user-visible release behavior", () => {
@@ -149,6 +154,16 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(observation.finalContent).toBe(scenario.finalContent);
       return true;
     });
+  });
+
+  it("rejects structurally nonconformant staged notes before promotion", async () => {
+    await expect(composeEveryReleaseNotesCase(sampleNonConformantReleaseNotesChangelogCases())).resolves.toSatisfy(
+      (results) =>
+        results.every(
+          (result: ReleaseNotesConformanceFailureObservation) =>
+            result.error instanceof ReleaseNotesError && !result.finalPathIsFile,
+        ),
+    );
   });
 
   it("rejects generated notes that copy an existing version section into a code fence", async () => {
