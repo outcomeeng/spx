@@ -11,8 +11,8 @@
  * @module testing/harnesses/session/reconcile
  */
 
-import { readdir, readFile } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 
 import type { ReconcileDependencies } from "@/commands/session/reconcile";
 import { SESSION_FILE_ENCODING } from "@/domains/session/types";
@@ -72,6 +72,13 @@ export function createUnreadableEntryReconcileDeps(
 /** Reconcile read boundaries over the real filesystem with the supplied git runner. */
 export function createReconcileDeps(git: GitDependencies): ReconcileDependencies {
   return { git, readFile };
+}
+
+/** Materializes `entryPath` under `root` as a readable file, creating its parent directories. */
+export async function writeReadableEntry(root: string, entryPath: string): Promise<void> {
+  const absolute = join(root, entryPath);
+  await mkdir(dirname(absolute), { recursive: true });
+  await writeFile(absolute, `content of ${entryPath}`);
 }
 
 /** The session store and working directory one reconcile case runs against. */

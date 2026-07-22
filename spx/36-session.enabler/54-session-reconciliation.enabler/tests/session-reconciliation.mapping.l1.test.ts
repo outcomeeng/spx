@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { reconcileCommand } from "@/commands/session/reconcile";
@@ -17,6 +17,7 @@ import {
   createReconcileDeps,
   createUnreadableEntryReconcileDeps,
   withReconcileStore,
+  writeReadableEntry,
 } from "@testing/harnesses/session/reconcile";
 
 const [TODO] = SESSION_STATUSES;
@@ -77,8 +78,7 @@ describe("session-reconciliation entry mapping", () => {
       );
       const sessionId = sampleLiteralTestValue(arbitrarySessionId());
 
-      await mkdir(dirname(join(cwd, readablePath)), { recursive: true });
-      await writeFile(join(cwd, readablePath), `content of ${readablePath}`);
+      await writeReadableEntry(cwd, readablePath);
       await mkdir(join(cwd, directoryPath), { recursive: true });
 
       await harness.writeSession(TODO, sessionId, {
