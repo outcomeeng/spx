@@ -16,6 +16,16 @@ export const MARKDOWN_HEADING_TAG = {
   H2: MARKDOWN_TOKEN.h2,
   H3: MARKDOWN_TOKEN.h3,
 } as const;
+export const KEEP_A_CHANGELOG_TITLE = "# Changelog";
+export const KEEP_A_CHANGELOG_TITLE_TEXT = "Changelog";
+export const KEEP_A_CHANGELOG_CHANGE_GROUPS = [
+  "Added",
+  "Changed",
+  "Deprecated",
+  "Removed",
+  "Fixed",
+  "Security",
+] as const;
 const CARRIAGE_RETURN = "\r";
 
 export interface ParsedMarkdownHeading {
@@ -34,6 +44,10 @@ export function observeIndependentMarkdown(notes: string): IndependentMarkdownOb
     firstLine: normalizeLineEnding(notes.split("\n")[0]),
     headings: parseMarkdownItHeadings(notes),
   };
+}
+
+export function keepAChangelogVersionHeadingText(version: string): string {
+  return `[${version}]`;
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
