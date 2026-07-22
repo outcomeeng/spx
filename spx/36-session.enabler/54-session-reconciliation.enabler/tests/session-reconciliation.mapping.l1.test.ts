@@ -11,21 +11,19 @@ import {
   arbitraryReconcileBranchName,
 } from "@testing/generators/session/reconcile";
 import { arbitrarySessionId } from "@testing/generators/session/session";
-import { createSessionGitDeps, createSessionHarness } from "@testing/harnesses/session/harness";
+import { createSessionGitDeps } from "@testing/harnesses/session/harness";
 import {
   createFatalGitDeps,
   createReconcileDeps,
   createUnreadableEntryReconcileDeps,
+  withReconcileStore,
 } from "@testing/harnesses/session/reconcile";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 const [TODO] = SESSION_STATUSES;
 
 describe("session-reconciliation git_ref mapping", () => {
   it("maps each recorded git_ref state to its verdict", async () => {
-    const harness = await createSessionHarness();
-    const cwd = await createTempDir("spx-reconcile-gitref-");
-    try {
+    await withReconcileStore(async ({ harness, cwd }) => {
       const branch = sampleLiteralTestValue(arbitraryReconcileBranchName());
       const sessionId = sampleLiteralTestValue(arbitrarySessionId());
       await harness.writeSession(TODO, sessionId, { git_ref: branch, specs: [], files: [] });
@@ -67,18 +65,13 @@ describe("session-reconciliation git_ref mapping", () => {
       ) as ReconcileFinding[];
       expect(fatalFindings).toHaveLength(1);
       expect(fatalFindings[0].verdict).toBe(RECONCILE_VERDICT.UNVERIFIABLE);
-    } finally {
-      await removeTempDir(cwd);
-      await harness.cleanup();
-    }
+    });
   });
 });
 
 describe("session-reconciliation entry mapping", () => {
   it("maps each recorded specs and files entry state to its verdict", async () => {
-    const harness = await createSessionHarness();
-    const cwd = await createTempDir("spx-reconcile-entries-");
-    try {
+    await withReconcileStore(async ({ harness, cwd }) => {
       const [readablePath, absentPath, directoryPath, unreadablePath] = sampleLiteralTestValue(
         arbitraryDistinctReconcileEntryPaths(4),
       );
@@ -123,9 +116,6 @@ describe("session-reconciliation entry mapping", () => {
 
       // The empty recorded git_ref contributes no finding.
       expect(findings).toHaveLength(4);
-    } finally {
-      await removeTempDir(cwd);
-      await harness.cleanup();
-    }
+    });
   });
 });
