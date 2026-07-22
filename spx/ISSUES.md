@@ -2,7 +2,7 @@
 
 ## Locale-dependent ordering remains in projection and listing paths
 
-`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/commands/spec/context.ts`, `src/domains/spec/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
+`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
 
 - `src/lib/spec-tree/index.ts` — sibling and entry ordering inside snapshot assembly, which feeds every spec-tree projection including the context manifest, so the manifest's byte-identity is fully host-independent only once this site is ordinal too. Owned by [`spx/23-spec-tree.enabler`](23-spec-tree.enabler/spec-tree.md).
 - `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` — session listing tie-breakers.
