@@ -70,11 +70,6 @@ export function terminal(strings: TemplateStringsArray, ...values: readonly unkn
   return make(composed);
 }
 
-/** Joins composed parts, preserving the trust each part already established. */
-export function joinTerminalText(parts: readonly TerminalText[], separator: TerminalText): TerminalText {
-  return make(parts.map((part) => part.value).join(separator.value));
-}
-
 /** Unwraps composed text for a process-stream write at the CLI boundary. */
 export function renderTerminalText(text: TerminalText): string {
   return text.value;
