@@ -25,15 +25,13 @@ import { SESSION_FILE_ENCODING, SESSION_FILE_ERROR_CODE } from "@/domains/sessio
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   defaultGitDependencies,
-  GIT_ROOT_COMMAND,
   type GitDependencies,
-  REMOTE_ORIGIN_REF_PREFIX,
+  ORIGIN_BRANCH_PROBE_OUTCOME,
+  type OriginBranchProbeOutcome,
+  probeOriginBranch,
 } from "@/lib/git/root";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 import { resolveSession } from "./show";
-
-/** `show-ref --verify --quiet` reports a missing ref with this exit code; any other non-zero exit is a git failure. */
-const GIT_SHOW_REF_ABSENT_EXIT_CODE = 1;
 
 /** The filesystem error code a directory read reports. */
 const ENTRY_DIRECTORY_ERROR_CODE = "EISDIR";
@@ -66,29 +64,20 @@ export interface ReconcileOptions {
   deps?: ReconcileDependencies;
 }
 
+const GIT_REF_OUTCOME_BY_ORIGIN_PROBE: Readonly<Record<OriginBranchProbeOutcome, GitRefProbeOutcome>> = {
+  [ORIGIN_BRANCH_PROBE_OUTCOME.PRESENT]: GIT_REF_PROBE_OUTCOME.PRESENT_ON_ORIGIN,
+  [ORIGIN_BRANCH_PROBE_OUTCOME.ABSENT]: GIT_REF_PROBE_OUTCOME.ABSENT_FROM_ORIGIN,
+  [ORIGIN_BRANCH_PROBE_OUTCOME.UNANSWERABLE]: GIT_REF_PROBE_OUTCOME.UNANSWERABLE,
+};
+
 /**
  * Probes whether the recorded ref exists as an exact `origin` remote-tracking
- * branch. Exit 0 is present; the ref-missing exit is absent; any other exit or
- * a failed invocation means git could not answer.
+ * branch through the git module's owning probe — the one owner of the
+ * remote-branch lookup — and renames its outcome into the reconcile domain's
+ * probe vocabulary.
  */
 async function probeGitRef(ref: string, cwd: string, git: GitDependencies): Promise<GitRefProbeOutcome> {
-  try {
-    const result = await git.execa(
-      GIT_ROOT_COMMAND.EXECUTABLE,
-      [
-        GIT_ROOT_COMMAND.SHOW_REF,
-        GIT_ROOT_COMMAND.VERIFY,
-        GIT_ROOT_COMMAND.QUIET,
-        `${REMOTE_ORIGIN_REF_PREFIX}${ref}`,
-      ],
-      { cwd, reject: false },
-    );
-    if (result.exitCode === 0) return GIT_REF_PROBE_OUTCOME.PRESENT_ON_ORIGIN;
-    if (result.exitCode === GIT_SHOW_REF_ABSENT_EXIT_CODE) return GIT_REF_PROBE_OUTCOME.ABSENT_FROM_ORIGIN;
-    return GIT_REF_PROBE_OUTCOME.UNANSWERABLE;
-  } catch {
-    return GIT_REF_PROBE_OUTCOME.UNANSWERABLE;
-  }
+  return GIT_REF_OUTCOME_BY_ORIGIN_PROBE[await probeOriginBranch(ref, cwd, git)];
 }
 
 /**

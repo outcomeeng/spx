@@ -407,9 +407,23 @@ export async function resolveRefSha(
   return sha.length === 0 ? null : sha;
 }
 
+/** `show-ref --verify --quiet` reports a missing ref with this exit code; any other non-zero exit is a git failure. */
+export const GIT_SHOW_REF_MISSING_REF_EXIT_CODE = 1;
+
+/** Outcomes of probing whether a name is an exact `origin` remote-tracking branch. */
+export const ORIGIN_BRANCH_PROBE_OUTCOME = {
+  PRESENT: "present",
+  ABSENT: "absent",
+  UNANSWERABLE: "unanswerable",
+} as const;
+
+export type OriginBranchProbeOutcome = (typeof ORIGIN_BRANCH_PROBE_OUTCOME)[keyof typeof ORIGIN_BRANCH_PROBE_OUTCOME];
+
 /**
- * Whether `branch` names an exact remote-tracking branch on `origin` —
- * `git show-ref --verify --quiet refs/remotes/origin/<branch>` exits zero.
+ * Probes whether `branch` names an exact remote-tracking branch on `origin` —
+ * `git show-ref --verify --quiet refs/remotes/origin/<branch>`. Exit zero is
+ * present, the missing-ref exit is absent, and any other exit or a failed
+ * invocation means git could not answer.
  *
  * `show-ref --verify` matches the full ref path literally and applies no
  * revision-expression syntax, so a revision expression like `main~1` or
@@ -421,23 +435,42 @@ export async function resolveRefSha(
  * namespace, so a literal `HEAD` (which a detached worktree's
  * `rev-parse --abbrev-ref HEAD` yields) is not a work branch.
  */
+export async function probeOriginBranch(
+  branch: string,
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<OriginBranchProbeOutcome> {
+  if (branch === GIT_ROOT_COMMAND.HEAD) return ORIGIN_BRANCH_PROBE_OUTCOME.ABSENT;
+  try {
+    const result = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [
+        GIT_ROOT_COMMAND.SHOW_REF,
+        GIT_ROOT_COMMAND.VERIFY,
+        GIT_ROOT_COMMAND.QUIET,
+        `${REMOTE_ORIGIN_REF_PREFIX}${branch}`,
+      ],
+      { cwd, reject: false },
+    );
+    if (result.exitCode === 0) return ORIGIN_BRANCH_PROBE_OUTCOME.PRESENT;
+    if (result.exitCode === GIT_SHOW_REF_MISSING_REF_EXIT_CODE) return ORIGIN_BRANCH_PROBE_OUTCOME.ABSENT;
+    return ORIGIN_BRANCH_PROBE_OUTCOME.UNANSWERABLE;
+  } catch {
+    return ORIGIN_BRANCH_PROBE_OUTCOME.UNANSWERABLE;
+  }
+}
+
+/**
+ * Whether `branch` names an exact remote-tracking branch on `origin` — the
+ * boolean projection of {@link probeOriginBranch}: only a present branch is
+ * true; an absent branch and an unanswerable lookup are both false.
+ */
 export async function originBranchExists(
   branch: string,
   cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
 ): Promise<boolean> {
-  if (branch === GIT_ROOT_COMMAND.HEAD) return false;
-  const result = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [
-      GIT_ROOT_COMMAND.SHOW_REF,
-      GIT_ROOT_COMMAND.VERIFY,
-      GIT_ROOT_COMMAND.QUIET,
-      `${REMOTE_ORIGIN_REF_PREFIX}${branch}`,
-    ],
-    { cwd, reject: false },
-  );
-  return result.exitCode === 0;
+  return (await probeOriginBranch(branch, cwd, deps)) === ORIGIN_BRANCH_PROBE_OUTCOME.PRESENT;
 }
 
 /**
