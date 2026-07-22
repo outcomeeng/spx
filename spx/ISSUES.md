@@ -65,9 +65,9 @@ The root `renovate.json` — declared by [`spx/21-infrastructure.enabler/32-depe
 
 ## GitHub dependency vulnerability alerts remain open
 
-The pre-push hook for `feat/snapshot-adapter-impl` reported: "GitHub found 2 vulnerabilities on outcomeeng/spx's default branch (2 moderate)" and linked `https://github.com/outcomeeng/spx/security/dependabot`.
+GitHub code scanning reports four open Dependabot alerts on the default branch at `https://github.com/outcomeeng/spx/security/dependabot`: `js-yaml` (high, runtime dependency, alert 31 — YAML merge-key chains can force quadratic CPU consumption; patched in 3.15.0 / 4.3.0), `fast-uri` (high, alerts 33 and 34), and `@hono/node-server` (medium, alert 32), all via `pnpm-lock.yaml`.
 
-**Impact:** The default branch carries unresolved dependency vulnerability alerts. The snapshot-adapter PR does not modify dependencies, so remediation belongs in a separate dependency-security changeset.
+**Impact:** The default branch carries unresolved dependency vulnerability alerts, including a high-severity runtime dependency. Remediation belongs in a dedicated dependency-security changeset.
 
 **Skills:** GitHub security triage and the dependency-update implementation workflow for any manifest or lockfile changes.
 
