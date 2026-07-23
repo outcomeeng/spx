@@ -33,13 +33,14 @@ export type InvocationRootObservation = {
   readonly context: ReturnType<ReturnType<typeof createCliInvocation>["resolveProductContext"]>;
   readonly expectedInvocationDir: string;
   readonly observedInvocationDir: string;
-  readonly writtenWarning?: string;
+  readonly writtenWarning: string | undefined;
 };
 
-type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
+type SyncObservationConsumer<T> = (observation: T) => void;
+type AsyncObservationConsumer<T> = (observation: T) => void | Promise<void>;
 
 export async function withProductDirectoryRootObservation(
-  consume: ObservationConsumer<ProductRootObservation>,
+  consume: AsyncObservationConsumer<ProductRootObservation>,
 ): Promise<void> {
   await withGitProduct(async (productDir) => {
     const resolved = resolveProductDir(productDir);
@@ -52,7 +53,7 @@ export async function withProductDirectoryRootObservation(
 }
 
 export async function withSubdirectoryRootObservation(
-  consume: ObservationConsumer<ProductRootObservation>,
+  consume: AsyncObservationConsumer<ProductRootObservation>,
 ): Promise<void> {
   await withGitProduct(async (productDir) => {
     const subdirectory = resolve(productDir, "nested", "deep");
@@ -66,7 +67,7 @@ export async function withSubdirectoryRootObservation(
   });
 }
 
-export function withDirectoryOptionObservation(consume: ObservationConsumer<InvocationRootObservation>): void {
+export function withDirectoryOptionObservation(consume: SyncObservationConsumer<InvocationRootObservation>): void {
   const invocationDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const directoryOption = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
   const expected = resolve(invocationDirectory, directoryOption);
@@ -82,14 +83,17 @@ export function withDirectoryOptionObservation(consume: ObservationConsumer<Invo
     io: TEST_IO,
   });
 
-  void consume({
+  consume({
     context: invocation.resolveProductContext(),
     expectedInvocationDir: expected,
     observedInvocationDir: observed,
+    writtenWarning: undefined,
   });
 }
 
-export function withInvocationDirectoryObservation(consume: ObservationConsumer<InvocationRootObservation>): void {
+export function withInvocationDirectoryObservation(
+  consume: SyncObservationConsumer<InvocationRootObservation>,
+): void {
   const invocationDirectory = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   let observed = "";
   const invocation = createCliInvocation({
@@ -103,15 +107,16 @@ export function withInvocationDirectoryObservation(consume: ObservationConsumer<
     io: TEST_IO,
   });
 
-  void consume({
+  consume({
     context: invocation.resolveProductContext(),
     expectedInvocationDir: invocationDirectory,
     observedInvocationDir: observed,
+    writtenWarning: undefined,
   });
 }
 
 export async function withNonWorktreeRootObservation(
-  consume: ObservationConsumer<InvocationRootObservation>,
+  consume: AsyncObservationConsumer<InvocationRootObservation>,
 ): Promise<void> {
   await withTempDir(sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix()), async (invocationDirectory) => {
     let writtenWarning: string | undefined;

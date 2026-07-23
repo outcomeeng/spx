@@ -19,7 +19,7 @@ import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   CONFIG_TEST_GENERATOR,
-  type GeneratedResolutionScope,
+  type GeneratedDirectoryScope,
   sampleConfigTestValue,
   sampleConfigTestValues,
 } from "@testing/generators/config/descriptors";
@@ -38,7 +38,7 @@ const tempDirs = new ProductContextTempDirs();
 const cleanupTasks: Array<() => Promise<void>> = [];
 const PRODUCT_CONTEXT_MAPPING_CASE_COUNT = 3;
 const resolutionScopes = sampleConfigTestValues(
-  CONFIG_TEST_GENERATOR.resolutionScope(),
+  CONFIG_TEST_GENERATOR.directoryScope(),
   PRODUCT_CONTEXT_MAPPING_CASE_COUNT,
 );
 
@@ -85,7 +85,7 @@ export function registerProductContextMappingEvidence(): void {
   });
 }
 
-async function assertRedirectedConfigMatchesDirectInvocation(scope: GeneratedResolutionScope): Promise<void> {
+async function assertRedirectedConfigMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
   const callerDir = await tempDirs.makeTempDir();
 
@@ -111,7 +111,7 @@ async function assertRedirectedConfigMatchesDirectInvocation(scope: GeneratedRes
   });
 }
 
-async function assertRedirectedValidationMatchesDirectInvocation(scope: GeneratedResolutionScope): Promise<void> {
+async function assertRedirectedValidationMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
   const callerDir = await tempDirs.makeTempDir();
   const productDir = await tempDirs.makeTempDir();
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
@@ -143,7 +143,7 @@ async function assertRedirectedValidationMatchesDirectInvocation(scope: Generate
   expect(redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
 }
 
-async function assertRedirectedSessionListMatchesDirectInvocation(scope: GeneratedResolutionScope): Promise<void> {
+async function assertRedirectedSessionListMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
   const sessionEnv = await createSessionHarness();
   cleanupTasks.push(sessionEnv.cleanup);
   const productDir = await tempDirs.makeTempDir();
@@ -174,7 +174,7 @@ async function assertRedirectedSessionListMatchesDirectInvocation(scope: Generat
   expect(redirected.stderr).not.toContain(NOT_GIT_REPO_WARNING);
 }
 
-async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedResolutionScope): Promise<void> {
+async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedDirectoryScope): Promise<void> {
   const processRoot = await tempDirs.makeTempDir();
   const processDir = join(processRoot, scope.nestedDirectory);
   await mkdir(processDir, { recursive: true });

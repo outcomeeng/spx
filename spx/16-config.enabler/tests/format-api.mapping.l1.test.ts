@@ -13,14 +13,19 @@ describe("config format API mapping", () => {
       expect(read.value.kind).toBe("ok");
       if (read.value.kind !== "ok") return;
       expect(read.value.file.format).toBe(format);
-      expect(parsed?.ok).toBe(true);
-      if (parsed?.ok !== true) return;
+      expect(parsed).not.toBeNull();
+      if (parsed === null) return;
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) return;
       expect(specTreeConfigDescriptor.validate(parsed.value[specTreeConfigDescriptor.section])).toEqual(
         specTreeConfigDescriptor.validate(expectedConfig[specTreeConfigDescriptor.section]),
       );
-      expect(serialized?.ok).toBe(true);
-      expect(reparsed?.ok).toBe(true);
-      if (reparsed?.ok === true) expect(reparsed.value).toEqual(parsed.value);
+      expect(serialized).not.toBeNull();
+      expect(reparsed).not.toBeNull();
+      if (serialized === null || reparsed === null) return;
+      expect(serialized.ok).toBe(true);
+      expect(reparsed.ok).toBe(true);
+      if (reparsed.ok) expect(reparsed.value).toEqual(parsed.value);
     });
   });
 });

@@ -1,11 +1,12 @@
 import * as fc from "fast-check";
+import { join } from "node:path";
 
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
-import type { ConfigDescriptor, Result } from "@/config/types";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
@@ -13,7 +14,14 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_SECTION,
+  specTreeConfigDescriptor,
+  type SpecTreeKindCategory,
+} from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {
@@ -71,9 +79,24 @@ export type GeneratedKindOverride = {
   };
 };
 
-export type GeneratedResolutionScope = {
+export type GeneratedResolutionScopeScenario = {
   readonly productDirectory: string;
   readonly nestedDirectory: string;
+  readonly parentConfig: Config;
+  readonly rootConfig: Config;
+  readonly nestedConfig: Config;
+  readonly unrecognizedRelativePath: string;
+  readonly expectedDefaultKinds: readonly string[];
+  readonly expectedRootKinds: readonly string[];
+};
+
+export type GeneratedDirectoryScope = {
+  readonly productDirectory: string;
+  readonly nestedDirectory: string;
+};
+
+export type GeneratedConfigFormatScenario = {
+  readonly config: Config;
 };
 
 export type GeneratedConfigCliDeterminismCase = {
@@ -123,7 +146,9 @@ export const CONFIG_TEST_GENERATOR = {
   prefixCohort: arbitraryPrefixCohort,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
-  resolutionScope: arbitraryResolutionScope,
+  directoryScope: arbitraryDirectoryScope,
+  resolutionScopeScenario: arbitraryResolutionScopeScenario,
+  configFormatScenario: arbitraryConfigFormatScenario,
 } as const;
 
 export type GeneratedSpecTreeArrayKindsConfig = {
@@ -564,16 +589,59 @@ function arbitraryKindOverride(category: SpecTreeKindCategory): fc.Arbitrary<Gen
     }));
 }
 
-function arbitraryResolutionScope(): fc.Arbitrary<GeneratedResolutionScope> {
+type ConfigKindDefinition = {
+  readonly category: SpecTreeKindCategory;
+  readonly suffix: string;
+};
+
+function buildSpecTreeConfig(kind: string, definition: ConfigKindDefinition): Config {
+  return {
+    [specTreeConfigDescriptor.section]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: {
+        [kind]: definition,
+      },
+    },
+  };
+}
+
+function firstRegisteredKind(category: SpecTreeKindCategory): readonly [string, ConfigKindDefinition] {
+  const entry = Object.entries(KIND_REGISTRY).find(([, definition]) => definition.category === category);
+  if (entry === undefined) throw new Error(`Missing registered ${category} kind for config scenario generation`);
+  return entry;
+}
+
+function arbitraryResolutionScopeScenario(): fc.Arbitrary<GeneratedResolutionScopeScenario> {
+  const [rootKind, rootDefinition] = firstRegisteredKind(SPEC_TREE_KIND_CATEGORY.NODE);
   return fc
     .record({
       productDirectory: arbitraryConfigKey(),
       nestedDirectory: arbitraryConfigKey(),
+      parentOnly: arbitraryKindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
+      nestedOnly: arbitraryKindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
     })
-    .map(({ productDirectory, nestedDirectory }) => ({
+    .filter(({ parentOnly, nestedOnly }) => parentOnly.kind !== nestedOnly.kind)
+    .map(({ productDirectory, nestedDirectory, parentOnly, nestedOnly }) => ({
       productDirectory,
       nestedDirectory,
+      parentConfig: buildSpecTreeConfig(parentOnly.kind, parentOnly.definition),
+      rootConfig: buildSpecTreeConfig(rootKind, rootDefinition),
+      nestedConfig: buildSpecTreeConfig(nestedOnly.kind, nestedOnly.definition),
+      unrecognizedRelativePath: join(productDirectory, nestedOnly.kind),
+      expectedDefaultKinds: Object.keys(specTreeConfigDescriptor.defaults.kinds),
+      expectedRootKinds: [rootKind],
     }));
+}
+
+function arbitraryDirectoryScope(): fc.Arbitrary<GeneratedDirectoryScope> {
+  return fc.record({
+    productDirectory: arbitraryConfigKey(),
+    nestedDirectory: arbitraryConfigKey(),
+  });
+}
+
+function arbitraryConfigFormatScenario(): fc.Arbitrary<GeneratedConfigFormatScenario> {
+  const [kind, definition] = firstRegisteredKind(SPEC_TREE_KIND_CATEGORY.DECISION);
+  return fc.constant({ config: buildSpecTreeConfig(kind, definition) });
 }
 
 function buildTokenDescriptor(section: string, tokenDefault: string): GeneratedTokenDescriptor {

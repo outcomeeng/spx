@@ -50,11 +50,11 @@ describe("invariants — config source scope", () => {
 describe("invariants — handlers do not throw, even on rejection", () => {
   it("every handler resolves to a CliResult for both ok and error inputs — no thrown exceptions", async () => {
     await withConfigHandlerResultsObservation(({ defaults, show, showAgain, validate, validateAgain }) => {
-      expect(defaults?.exitCode).toBe(0);
-      expect(show?.exitCode).toBe(0);
-      expect(showAgain?.exitCode).toEqual(expect.any(Number));
-      expect(validate?.exitCode).toBe(0);
-      expect(validateAgain?.exitCode).toEqual(expect.any(Number));
+      expect(defaults.exitCode).toBe(0);
+      expect(show.exitCode).toBe(0);
+      expect(showAgain.exitCode).toEqual(expect.any(Number));
+      expect(validate.exitCode).toBe(0);
+      expect(validateAgain.exitCode).toEqual(expect.any(Number));
     });
   });
 });
@@ -62,29 +62,29 @@ describe("invariants — handlers do not throw, even on rejection", () => {
 describe("invariants — stream discipline (C2)", () => {
   it("successful show/defaults route the resolved Config to stdout; stderr is empty", async () => {
     await withSuccessfulOutputObservation(({ defaults, show }) => {
-      expect(show?.stdout.length).toBeGreaterThan(0);
-      expect(show?.stderr).toHaveLength(0);
-      expect(defaults?.stdout.length).toBeGreaterThan(0);
-      expect(defaults?.stderr).toHaveLength(0);
+      expect(show.stdout.length).toBeGreaterThan(0);
+      expect(show.stderr).toHaveLength(0);
+      expect(defaults.stdout.length).toBeGreaterThan(0);
+      expect(defaults.stderr).toHaveLength(0);
     });
   });
 
   it("failed resolution in show/validate routes diagnostics to stderr and leaves stdout empty", async () => {
     await withFailedResolutionOutputObservation(({ show, validate }) => {
-      expect(show?.stdout).toHaveLength(0);
-      expect(show?.stderr.length).toBeGreaterThan(0);
-      expect(validate?.stdout).toHaveLength(0);
-      expect(validate?.stderr.length).toBeGreaterThan(0);
+      expect(show.stdout).toHaveLength(0);
+      expect(show.stderr.length).toBeGreaterThan(0);
+      expect(validate.stdout).toHaveLength(0);
+      expect(validate.stderr.length).toBeGreaterThan(0);
     });
   });
 
   it("successful validate emits the success line on stdout, not stderr", async () => {
     await withSuccessfulValidateOutputObservation(({ productDir, result }) => {
-      expect(result?.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX);
-      expect(result?.stdout).toContain(productDir);
-      expect(result?.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT);
-      expect(result?.stdout).toContain(VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX);
-      expect(result?.stderr).toHaveLength(0);
+      expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_PREFIX);
+      expect(result.stdout).toContain(productDir);
+      expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.ABSENT_SUBJECT);
+      expect(result.stdout).toContain(VALIDATE_SUCCESS_TOKENS.PASSES_SUFFIX);
+      expect(result.stderr).toHaveLength(0);
     });
   });
 });

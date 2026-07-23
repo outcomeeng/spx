@@ -31,32 +31,15 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 const EFFECT_SENTINEL_SUCCESS = "CONFIG_EFFECT_SENTINEL_OK";
 
 type ConfigCliResult = Awaited<ReturnType<typeof showCommand>>;
-
-export type ConfigCliObservation = {
-  readonly config?: Config;
-  readonly defaultParsed?: ReturnType<typeof parseConfigFileSections>;
-  readonly defaults?: ConfigCliResult;
-  readonly defaultsAgain?: ConfigCliResult;
-  readonly effects?: readonly string[];
-  readonly expectedReadResult?: ConfigFileReadResult;
-  readonly generatedDefaults?: unknown;
-  readonly generatedSection?: string;
-  readonly jsonParsed?: ReturnType<typeof parseConfigFileSections>;
-  readonly observedProductDir?: string;
-  readonly observedReadResult?: ConfigFileReadResult;
-  readonly offendingKind?: string;
-  readonly optionFlags?: readonly string[];
-  readonly productDir?: string;
-  readonly result?: ConfigCliResult;
-  readonly sentinelResult?: Awaited<ReturnType<typeof execa>>;
-  readonly sentinelSuccess?: string;
-  readonly show?: ConfigCliResult;
-  readonly showAgain?: ConfigCliResult;
-  readonly validate?: ConfigCliResult;
-  readonly validateAgain?: ConfigCliResult;
+type ConfigParseResult = ReturnType<typeof parseConfigFileSections>;
+type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
+type SyncObservationConsumer<T> = (observation: T) => void;
+type ResultObservation = { readonly result: ConfigCliResult };
+type ProcessEffectsObservation = { readonly effects: readonly string[] };
+type ParsedFormatsObservation = {
+  readonly defaultParsed: ConfigParseResult;
+  readonly jsonParsed: ConfigParseResult;
 };
-
-type ObservationConsumer = (observation: ConfigCliObservation) => void | Promise<void>;
 
 type ProcessOverrides = {
   restore: () => void;
@@ -152,7 +135,16 @@ export function configCliDefaults(): Config {
   return resolved.value;
 }
 
-export async function forEachConfigHandlerDeterminismObservation(consume: ObservationConsumer): Promise<void> {
+export async function forEachConfigHandlerDeterminismObservation(
+  consume: ObservationConsumer<{
+    readonly defaults: ConfigCliResult;
+    readonly defaultsAgain: ConfigCliResult;
+    readonly show: ConfigCliResult;
+    readonly showAgain: ConfigCliResult;
+    readonly validate: ConfigCliResult;
+    readonly validateAgain: ConfigCliResult;
+  }>,
+): Promise<void> {
   await assertProperty(
     CONFIG_TEST_GENERATOR.configCliDeterminismCase(),
     async (generated) => {
@@ -170,7 +162,9 @@ export async function forEachConfigHandlerDeterminismObservation(consume: Observ
   );
 }
 
-export async function withShowProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowProcessEffectsObservation(
+  consume: ObservationConsumer<ProcessEffectsObservation>,
+): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
   await consume({
     effects: await observeProcessSideEffects(async () => {
@@ -180,12 +174,16 @@ export async function withShowProcessEffectsObservation(consume: ObservationCons
   });
 }
 
-export async function withValidateSuccessProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateSuccessProcessEffectsObservation(
+  consume: ObservationConsumer<ProcessEffectsObservation>,
+): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
   await consume({ effects: await observeProcessSideEffects(async () => validateCommand({}, deps)) });
 }
 
-export async function withValidateRejectionProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateRejectionProcessEffectsObservation(
+  consume: ObservationConsumer<ProcessEffectsObservation>,
+): Promise<void> {
   const deps = configCliDeps({
     ok: false,
     error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
@@ -193,7 +191,9 @@ export async function withValidateRejectionProcessEffectsObservation(consume: Ob
   await consume({ effects: await observeProcessSideEffects(async () => validateCommand({}, deps)) });
 }
 
-export async function withDefaultsProcessEffectsObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsProcessEffectsObservation(
+  consume: ObservationConsumer<ProcessEffectsObservation>,
+): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configCliDefaults() });
   await consume({
     effects: await observeProcessSideEffects(async () => {
@@ -203,7 +203,12 @@ export async function withDefaultsProcessEffectsObservation(consume: Observation
   });
 }
 
-export async function withHandlerEffectSentinelObservation(consume: ObservationConsumer): Promise<void> {
+export async function withHandlerEffectSentinelObservation(
+  consume: ObservationConsumer<{
+    readonly sentinelResult: Awaited<ReturnType<typeof execa>>;
+    readonly sentinelSuccess: string;
+  }>,
+): Promise<void> {
   const sentinelPath = join(dirname(fileURLToPath(import.meta.url)), "effect-sentinel.ts");
   const result = await execa(
     NODE_EXECUTABLE,
@@ -213,17 +218,27 @@ export async function withHandlerEffectSentinelObservation(consume: ObservationC
   await consume({ sentinelResult: result, sentinelSuccess: EFFECT_SENTINEL_SUCCESS });
 }
 
-export function withConfigCommandOptionsObservation(consume: ObservationConsumer): void {
+export function withConfigCommandOptionsObservation(
+  consume: SyncObservationConsumer<{ readonly optionFlags: readonly string[] }>,
+): void {
   const configCommand = createCliProgram({ domains: [configDomain] }).commands
     .find((command) => command.name() === CONFIG_CLI.commandName);
-  void consume({
+  consume({
     optionFlags: [configCommand, ...(configCommand?.commands ?? [])]
       .flatMap((command) => command?.options.map((option) => option.long) ?? [])
       .filter((flag): flag is string => flag !== undefined),
   });
 }
 
-export async function withConfigHandlerResultsObservation(consume: ObservationConsumer): Promise<void> {
+export async function withConfigHandlerResultsObservation(
+  consume: ObservationConsumer<{
+    readonly defaults: ConfigCliResult;
+    readonly show: ConfigCliResult;
+    readonly showAgain: ConfigCliResult;
+    readonly validate: ConfigCliResult;
+    readonly validateAgain: ConfigCliResult;
+  }>,
+): Promise<void> {
   const okDeps = configCliDeps({ ok: true, value: configCliDefaults() });
   const failDeps = configCliDeps({
     ok: false,
@@ -239,7 +254,9 @@ export async function withConfigHandlerResultsObservation(consume: ObservationCo
   });
 }
 
-export async function withSuccessfulOutputObservation(consume: ObservationConsumer): Promise<void> {
+export async function withSuccessfulOutputObservation(
+  consume: ObservationConsumer<{ readonly defaults: ConfigCliResult; readonly show: ConfigCliResult }>,
+): Promise<void> {
   const defaults = configCliDefaults();
   const deps = configCliDeps({ ok: true, value: defaults });
   const show = await showCommand({}, deps);
@@ -247,7 +264,9 @@ export async function withSuccessfulOutputObservation(consume: ObservationConsum
   await consume({ defaults: listedDefaults, show });
 }
 
-export async function withFailedResolutionOutputObservation(consume: ObservationConsumer): Promise<void> {
+export async function withFailedResolutionOutputObservation(
+  consume: ObservationConsumer<{ readonly show: ConfigCliResult; readonly validate: ConfigCliResult }>,
+): Promise<void> {
   const deps = configCliDeps({
     ok: false,
     error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
@@ -257,7 +276,9 @@ export async function withFailedResolutionOutputObservation(consume: Observation
   await consume({ show, validate });
 }
 
-export async function withSuccessfulValidateOutputObservation(consume: ObservationConsumer): Promise<void> {
+export async function withSuccessfulValidateOutputObservation(
+  consume: ObservationConsumer<ResultObservation & { readonly productDir: string }>,
+): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const result = await validateCommand(
     {},
@@ -292,7 +313,15 @@ function defaultsOnlyDeps(descriptors: readonly ConfigDescriptor<unknown>[]): Cl
   };
 }
 
-export async function withDefaultsOutputObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsOutputObservation(
+  consume: ObservationConsumer<
+    ResultObservation & {
+      readonly defaultParsed: ConfigParseResult;
+      readonly generatedDefaults: unknown;
+      readonly generatedSection: string;
+    }
+  >,
+): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
   const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]));
   await consume({
@@ -303,12 +332,22 @@ export async function withDefaultsOutputObservation(consume: ObservationConsumer
   });
 }
 
-export async function withDefaultsIndependenceObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsIndependenceObservation(
+  consume: ObservationConsumer<ResultObservation & { readonly defaultParsed: ConfigParseResult }>,
+): Promise<void> {
   const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor]));
   await consume({ defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
 }
 
-export async function withDefaultsJsonObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsJsonObservation(
+  consume: ObservationConsumer<
+    ResultObservation & {
+      readonly generatedDefaults: unknown;
+      readonly generatedSection: string;
+      readonly jsonParsed: ConfigParseResult;
+    }
+  >,
+): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
   const result = await defaultsCommand(
     { json: true },
@@ -322,7 +361,9 @@ export async function withDefaultsJsonObservation(consume: ObservationConsumer):
   });
 }
 
-export async function withDefaultsFormatEquivalenceObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsFormatEquivalenceObservation(
+  consume: ObservationConsumer<ParsedFormatsObservation>,
+): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
   const deps = defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]);
   await consume({
@@ -331,7 +372,9 @@ export async function withDefaultsFormatEquivalenceObservation(consume: Observat
   });
 }
 
-export async function withDefaultsRegistryObservation(consume: ObservationConsumer): Promise<void> {
+export async function withDefaultsRegistryObservation(
+  consume: ObservationConsumer<{ readonly defaultParsed: ConfigParseResult; readonly generatedSection: string }>,
+): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.modeDescriptor());
   const result = await defaultsCommand({}, defaultsOnlyDeps([specTreeConfigDescriptor, generated.descriptor]));
   await consume({
@@ -340,25 +383,37 @@ export async function withDefaultsRegistryObservation(consume: ObservationConsum
   });
 }
 
-export async function withShowDefaultConfigObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowDefaultConfigObservation(
+  consume: ObservationConsumer<
+    ResultObservation & { readonly config: Config; readonly defaultParsed: ConfigParseResult }
+  >,
+): Promise<void> {
   const config = configCliDefaults();
   const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
   await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
 }
 
-export async function withShowOverrideObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowOverrideObservation(
+  consume: ObservationConsumer<
+    ResultObservation & { readonly config: Config; readonly defaultParsed: ConfigParseResult }
+  >,
+): Promise<void> {
   const config = configSubset();
   const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
   await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
 }
 
-export async function withShowJsonConfigObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowJsonConfigObservation(
+  consume: ObservationConsumer<ResultObservation & { readonly config: Config; readonly jsonParsed: ConfigParseResult }>,
+): Promise<void> {
   const config = configCliDefaults();
   const result = await showCommand({ json: true }, configCliDeps({ ok: true, value: config }));
   await consume({ config, jsonParsed: parseConfigOutput(CONFIG_FILE_FORMAT.JSON, result.stdout), result });
 }
 
-export async function withShowFormatEquivalenceObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowFormatEquivalenceObservation(
+  consume: ObservationConsumer<ParsedFormatsObservation>,
+): Promise<void> {
   const deps = configCliDeps({ ok: true, value: configSubset() });
   const defaultResult = await showCommand({}, deps);
   const jsonResult = await showCommand({ json: true }, deps);
@@ -368,7 +423,9 @@ export async function withShowFormatEquivalenceObservation(consume: ObservationC
   });
 }
 
-export async function withShowResolutionFailureObservation(consume: ObservationConsumer): Promise<void> {
+export async function withShowResolutionFailureObservation(
+  consume: ObservationConsumer<ResultObservation>,
+): Promise<void> {
   const result = await showCommand(
     {},
     configCliDeps({
@@ -379,7 +436,9 @@ export async function withShowResolutionFailureObservation(consume: ObservationC
   await consume({ result });
 }
 
-export async function withValidateDefaultsSuccessObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateDefaultsSuccessObservation(
+  consume: ObservationConsumer<ResultObservation & { readonly productDir: string }>,
+): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const result = await validateCommand(
     {},
@@ -388,7 +447,9 @@ export async function withValidateDefaultsSuccessObservation(consume: Observatio
   await consume({ productDir, result });
 }
 
-export async function withValidatePresentConfigObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidatePresentConfigObservation(
+  consume: ObservationConsumer<ResultObservation>,
+): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,
@@ -404,7 +465,9 @@ export async function withValidatePresentConfigObservation(consume: ObservationC
   await consume({ result });
 }
 
-export async function withValidateResolutionErrorObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateResolutionErrorObservation(
+  consume: ObservationConsumer<ResultObservation>,
+): Promise<void> {
   const result = await validateCommand(
     {},
     configCliDeps({
@@ -415,13 +478,17 @@ export async function withValidateResolutionErrorObservation(consume: Observatio
   await consume({ result });
 }
 
-export async function withValidateDescriptorErrorObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateDescriptorErrorObservation(
+  consume: ObservationConsumer<ResultObservation & { readonly offendingKind: string }>,
+): Promise<void> {
   const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
   const result = await validateCommand({}, configCliDeps({ ok: false, error: generated.error }));
   await consume({ offendingKind: generated.offendingKind, result });
 }
 
-export async function withValidateRejectionCodeObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateRejectionCodeObservation(
+  consume: ObservationConsumer<ResultObservation>,
+): Promise<void> {
   const result = await validateCommand(
     {},
     configCliDeps({
@@ -432,7 +499,12 @@ export async function withValidateRejectionCodeObservation(consume: ObservationC
   await consume({ result });
 }
 
-export async function withValidateProductDirectoryObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateProductDirectoryObservation(
+  consume: ObservationConsumer<{
+    readonly observedProductDir: string | undefined;
+    readonly productDir: string;
+  }>,
+): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   let observedProductDir: string | undefined;
   const deps: CliDeps = {
@@ -451,7 +523,13 @@ export async function withValidateProductDirectoryObservation(consume: Observati
   await consume({ observedProductDir, productDir });
 }
 
-export async function withValidateReadResultObservation(consume: ObservationConsumer): Promise<void> {
+export async function withValidateReadResultObservation(
+  consume: ObservationConsumer<{
+    readonly expectedReadResult: ConfigFileReadResult;
+    readonly observedReadResult: ConfigFileReadResult | undefined;
+    readonly result: ConfigCliResult;
+  }>,
+): Promise<void> {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,

@@ -25,7 +25,7 @@ describe("compact CLI", () => {
       expect(firstStored).toMatchObject({ exitCode: 0, stderr: "", stdout: "" });
       expect(latestStored).toMatchObject({ exitCode: 0, stderr: "", stdout: "" });
       expect(retrieved).toMatchObject({ exitCode: 0, stderr: "" });
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
       expect(stashLineCount).toBe(2);
     });
   });
@@ -40,9 +40,9 @@ describe("compact CLI", () => {
   it("stores and retrieves records when Codex provides a path-unsafe thread identity", async () => {
     await withCodexUnsafeIdentityObservation(({ expectedRecord, retrieved, stashText, stored }) => {
       expect(stored).toMatchObject({ exitCode: 0, stdout: "" });
-      expect(retrieved?.exitCode).toBe(0);
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
-      expect(stashText).toContain(expectedRecord?.[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
+      expect(stashText).toContain(expectedRecord[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
     });
   });
 
@@ -60,28 +60,28 @@ describe("compact CLI", () => {
       retrieved,
       stashLineCount,
     }) => {
-      expect(firstStored?.exitCode).toBe(0);
-      expect(latestStored?.exitCode).toBe(0);
-      expect(retrieved?.exitCode).toBe(0);
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
+      expect(firstStored.exitCode).toBe(0);
+      expect(latestStored.exitCode).toBe(0);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
       expect(stashLineCount).toBe(2);
     });
   });
 
   it("stores and retrieves under an unsafe --session-id value", async () => {
     await withUnsafeExplicitSessionObservation(({ expectedRecord, retrieved, stored }) => {
-      expect(stored?.exitCode).toBe(0);
-      expect(retrieved?.exitCode).toBe(0);
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
+      expect(stored.exitCode).toBe(0);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
     });
   });
 
   it("falls through to the agent-session environment when --session-id is empty", async () => {
     await withEmptySessionIdObservation(({ expectedRecord, retrieved, stashText, stored }) => {
-      expect(stored?.exitCode).toBe(0);
-      expect(retrieved?.exitCode).toBe(0);
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
-      expect(stashText).toContain(expectedRecord?.[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
+      expect(stored.exitCode).toBe(0);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
+      expect(stashText).toContain(expectedRecord[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
     });
   });
 
@@ -93,12 +93,11 @@ describe("compact CLI", () => {
       stashText,
       stored,
     }) => {
-      expect(stored?.exitCode).toBe(0);
-      expect(retrieved?.exitCode).toBe(0);
-      expect(JSON.parse(retrieved?.stdout ?? "")).toEqual(expectedRecord);
-      expect(stashText).toContain(expectedRecord?.[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
-      expect(readEnvironmentStash).toBeDefined();
-      if (readEnvironmentStash !== undefined) return expect(readEnvironmentStash()).rejects.toThrow();
+      expect(stored.exitCode).toBe(0);
+      expect(retrieved.exitCode).toBe(0);
+      expect(JSON.parse(retrieved.stdout)).toEqual(expectedRecord);
+      expect(stashText).toContain(expectedRecord[COMPACT_RECORD_FIELDS.ACTIVE_NODE]);
+      return expect(readEnvironmentStash()).rejects.toThrow();
     });
   });
 
@@ -106,8 +105,7 @@ describe("compact CLI", () => {
     await withMissingSessionIdentityObservation(({ readScope, retrieved, stored }) => {
       expect(stored).toMatchObject({ exitCode: 1, stderr: "", stdout: "" });
       expect(retrieved).toMatchObject({ exitCode: 1, stderr: "", stdout: "" });
-      expect(readScope).toBeDefined();
-      if (readScope !== undefined) return expect(readScope()).rejects.toThrow();
+      return expect(readScope()).rejects.toThrow();
     });
   });
 });

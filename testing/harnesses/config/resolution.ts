@@ -10,46 +10,10 @@ import {
   resolveConfig,
   serializeConfigFileSections,
 } from "@/config/index";
-import {
-  KIND_REGISTRY,
-  SPEC_TREE_KIND_CATEGORY,
-  specTreeConfigDescriptor,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree";
+import type { Config } from "@/config/types";
+import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-type ConfigKindDefinition = {
-  readonly category: SpecTreeKindCategory;
-  readonly suffix: string;
-};
-
-function buildSpecTreeConfig(kind: string, definition: ConfigKindDefinition): Config {
-  return {
-    [specTreeConfigDescriptor.section]: {
-      kinds: {
-        [kind]: definition,
-      },
-    },
-  };
-}
-
-function readFirstKind(category: SpecTreeKindCategory): readonly [string, ConfigKindDefinition] {
-  const entry = Object.entries(KIND_REGISTRY).find(([, definition]) => definition.category === category);
-  if (entry === undefined) {
-    throw new Error(`Missing registered ${category} kind for resolution-scope fixture`);
-  }
-  return entry;
-}
-
-function readResolvedSpecTree(config: Config): typeof specTreeConfigDescriptor.defaults {
-  const validated = specTreeConfigDescriptor.validate(config[specTreeConfigDescriptor.section]);
-  if (!validated.ok) {
-    throw new Error(validated.error);
-  }
-  return validated.value;
-}
 
 function serializeConfig(format: ConfigFileFormat, config: Config): string {
   const serialized = serializeConfigFileSections(format, config);
@@ -71,10 +35,10 @@ export type ResolutionScopeObservation = {
 export type ConfigFormatObservation = {
   readonly expectedConfig: Config;
   readonly format: ConfigFileFormat;
-  readonly parsed: ReturnType<typeof parseConfigFileSections> | undefined;
+  readonly parsed: ReturnType<typeof parseConfigFileSections> | null;
   readonly read: Awaited<ReturnType<typeof readProductConfigFile>>;
-  readonly reparsed: ReturnType<typeof parseConfigFileSections> | undefined;
-  readonly serialized: ReturnType<typeof serializeConfigFileSections> | undefined;
+  readonly reparsed: ReturnType<typeof parseConfigFileSections> | null;
+  readonly serialized: ReturnType<typeof serializeConfigFileSections> | null;
 };
 
 type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
@@ -82,36 +46,33 @@ type ObservationConsumer<T> = (observation: T) => void | Promise<void>;
 export async function forEachResolutionScopeObservation(
   consume: ObservationConsumer<ResolutionScopeObservation>,
 ): Promise<void> {
-  const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
-  const parentOnly = sampleConfigTestValue(CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE));
-  const nestedOnly = sampleConfigTestValue(CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE));
-  const [rootKind, rootDefinition] = readFirstKind(SPEC_TREE_KIND_CATEGORY.NODE);
-  const rootConfig = buildSpecTreeConfig(rootKind, rootDefinition);
-  const parentConfig = buildSpecTreeConfig(parentOnly.kind, parentOnly.definition);
-  const nestedConfig = buildSpecTreeConfig(nestedOnly.kind, nestedOnly.definition);
+  const scenario = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScopeScenario());
 
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
-    await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
-      await writeRaw(join(scope.productDirectory, nestedOnly.kind), serializeConfig(format, nestedConfig));
+    await withTestEnv(scenario.parentConfig, async ({ productDir, writeRaw }) => {
+      await writeRaw(scenario.unrecognizedRelativePath, serializeConfig(format, scenario.nestedConfig));
       await writeRaw(
-        writeConfigPath(join(scope.productDirectory, scope.nestedDirectory), format),
-        serializeConfig(format, nestedConfig),
+        writeConfigPath(join(scenario.productDirectory, scenario.nestedDirectory), format),
+        serializeConfig(format, scenario.nestedConfig),
       );
 
-      const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
-      await consume({ result, expectedKinds: Object.keys(specTreeConfigDescriptor.defaults.kinds) });
+      const result = await resolveConfig(join(productDir, scenario.productDirectory), [specTreeConfigDescriptor]);
+      await consume({ result, expectedKinds: scenario.expectedDefaultKinds });
     });
 
-    await withTestEnv(parentConfig, async ({ productDir, writeRaw }) => {
-      await writeRaw(writeConfigPath(scope.productDirectory, format), serializeConfig(format, rootConfig));
-      await writeRaw(join(scope.productDirectory, nestedOnly.kind), serializeConfig(format, nestedConfig));
+    await withTestEnv(scenario.parentConfig, async ({ productDir, writeRaw }) => {
       await writeRaw(
-        writeConfigPath(join(scope.productDirectory, scope.nestedDirectory), format),
-        serializeConfig(format, nestedConfig),
+        writeConfigPath(scenario.productDirectory, format),
+        serializeConfig(format, scenario.rootConfig),
+      );
+      await writeRaw(scenario.unrecognizedRelativePath, serializeConfig(format, scenario.nestedConfig));
+      await writeRaw(
+        writeConfigPath(join(scenario.productDirectory, scenario.nestedDirectory), format),
+        serializeConfig(format, scenario.nestedConfig),
       );
 
-      const result = await resolveConfig(join(productDir, scope.productDirectory), [specTreeConfigDescriptor]);
-      await consume({ result, expectedKinds: Object.keys(readResolvedSpecTree(rootConfig).kinds) });
+      const result = await resolveConfig(join(productDir, scenario.productDirectory), [specTreeConfigDescriptor]);
+      await consume({ result, expectedKinds: scenario.expectedRootKinds });
     });
   }
 }
@@ -119,25 +80,24 @@ export async function forEachResolutionScopeObservation(
 export async function forEachConfigFormatObservation(
   consume: ObservationConsumer<ConfigFormatObservation>,
 ): Promise<void> {
-  const [kind, definition] = readFirstKind(SPEC_TREE_KIND_CATEGORY.DECISION);
-  const config = buildSpecTreeConfig(kind, definition);
+  const scenario = sampleConfigTestValue(CONFIG_TEST_GENERATOR.configFormatScenario());
 
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
       for (const registeredFormat of CONFIG_FILE_FORMAT_ORDER) {
         await rm(join(productDir, CONFIG_FILE_DEFINITIONS[registeredFormat].filename), { force: true });
       }
-      await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, config));
+      await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, scenario.config));
 
       const read = await readProductConfigFile(productDir);
-      const parsed = read.ok && read.value.kind === "ok" ? parseConfigFileSections(read.value.file) : undefined;
+      const parsed = read.ok && read.value.kind === "ok" ? parseConfigFileSections(read.value.file) : null;
       const serialized = parsed?.ok === true && read.ok && read.value.kind === "ok"
         ? serializeConfigFileSections(read.value.file.format, parsed.value)
-        : undefined;
+        : null;
       const reparsed = serialized?.ok === true && read.ok && read.value.kind === "ok"
         ? parseConfigFileSections({ ...read.value.file, raw: serialized.value })
-        : undefined;
-      await consume({ expectedConfig: config, format, parsed, read, reparsed, serialized });
+        : null;
+      await consume({ expectedConfig: scenario.config, format, parsed, read, reparsed, serialized });
     });
   }
 }
