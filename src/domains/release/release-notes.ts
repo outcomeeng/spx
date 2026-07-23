@@ -96,6 +96,7 @@ export const CHANGELOG_TITLE_TEXT = "Changelog";
 
 /** The Keep a Changelog version-section prefix that every per-release heading opens with. */
 export const CHANGELOG_VERSION_SECTION_PREFIX = "## [";
+export const CHANGELOG_VERSION_SECTION_SUFFIX = "]";
 
 /** The Keep a Changelog change-group headings, the closed set a release section groups its entries under. */
 export const CHANGELOG_CHANGE_GROUPS = [
@@ -119,8 +120,11 @@ export const CHANGELOG_PATH_DATA_BLOCK_CLOSE = "</changelog-path>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN = "<release-notes-section>";
 export const RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE = "</release-notes-section>";
 export const COMMIT_SUBJECTS_DATA_ENCODING = "json";
-export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX = "Use exactly ";
-export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX = " as the release section's H2 heading.";
+export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION = `Construct the release section's H2 heading by concatenating ${
+  encodeReleasePromptData(CHANGELOG_VERSION_SECTION_PREFIX)
+}, the decoded string from the release-version JSON data block, and ${
+  encodeReleasePromptData(CHANGELOG_VERSION_SECTION_SUFFIX)
+}; write no quotes, escapes, or other text on that heading line.`;
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
@@ -269,7 +273,7 @@ interface MarkdownHeadingScan {
 
 /** The Keep a Changelog per-release section heading for a version. */
 export function changelogVersionHeading(version: string): string {
-  return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}]`;
+  return `${CHANGELOG_VERSION_SECTION_PREFIX}${version}${CHANGELOG_VERSION_SECTION_SUFFIX}`;
 }
 
 export function changelogVersionHeadingText(version: string): string {
@@ -571,9 +575,7 @@ export function buildReleaseNotesPrompt(
     formatReleaseVersionDataBlock(releaseData.version),
     `Write the notes to the changelog path in this ${COMMIT_SUBJECTS_DATA_ENCODING} data block:`,
     formatChangelogPathDataBlock(changelogPath),
-    `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
-      changelogVersionHeading(releaseData.version)
-    }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
+    RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
     `Follow the Keep a Changelog format: open the file with "${CHANGELOG_TITLE}", add a version section using the release-version JSON data, and group its entries under headings drawn from ${
       CHANGELOG_CHANGE_GROUPS.join(
         ", ",
