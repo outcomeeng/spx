@@ -6,6 +6,13 @@
 
 - Generated release notes now focus on user-visible behavior and omit spec-only, test-only, release-mechanics, and internal implementation changes.
 
+## [0.6.25]
+
+### Fixed
+
+- `spx diagnose` now labels every detail line with the provenance of its value.
+- CLI output now escapes external values at every point they enter terminal text, so unescaped input can no longer reach the terminal.
+
 ## [0.6.23] - 2026-07-22
 
 ### Added
