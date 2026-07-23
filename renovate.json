@@ -7,6 +7,8 @@
     ":dependencyDashboard"
   ],
   "schedule": ["at any time"],
+  "timezone": "Europe/Zurich",
+  "automergeSchedule": ["after 5:00 before 9:00 every day"],
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
@@ -49,6 +51,7 @@
   "vulnerabilityAlerts": {
     "labels": ["security"],
     "schedule": ["at any time"],
+    "automergeSchedule": ["at any time"],
     "minimumReleaseAge": "0 days",
     "packageRules": [
       {
