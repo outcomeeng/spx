@@ -2,7 +2,6 @@ import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { resolveProductDir } from "@/domains/config/root";
 import { SESSION_STATUSES } from "@/domains/session/types";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
@@ -50,7 +49,6 @@ export type SessionContextMappingObservation = CliContextMappingObservation & {
 };
 
 export type AbsentContextMappingObservation = {
-  readonly expectedWarning: string;
   readonly processDir: string;
   readonly result: ProductContextCliRun;
   readonly scope: GeneratedResolutionScope;
@@ -187,10 +185,7 @@ export async function observeAbsentContextMappings(): Promise<readonly AbsentCon
       const processRoot = await tempDirs.makeTempDir();
       const processDir = join(processRoot, scope.nestedDirectory);
       await mkdir(processDir, { recursive: true });
-      const expectedWarning = resolveProductDir(processDir, { readGitToplevel: () => undefined }).warning;
-      if (expectedWarning === undefined) throw new Error("non-git product directory must produce a warning");
       observations.push({
-        expectedWarning,
         processDir,
         result: await runProductContextCli(
           [CONFIG_CLI.commandName, CONFIG_CLI.commands.validate],

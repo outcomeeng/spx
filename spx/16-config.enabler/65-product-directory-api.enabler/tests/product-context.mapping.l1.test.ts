@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
+import { PRODUCT_DIR_NOT_GIT_WARNING } from "@/domains/config/root";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import {
   observeAbsentContextMappings,
@@ -43,7 +44,7 @@ describe("product context mapping", () => {
     for (const observation of await observeAbsentContextMappings()) {
       expect(observation.result.stdout).toContain(observation.processDir);
       expect(observation.result.stderr).toContain(observation.processDir);
-      expect(observation.result.stderr).toContain(observation.expectedWarning);
+      expect(observation.result.stderr).toContain(PRODUCT_DIR_NOT_GIT_WARNING);
     }
   });
 });
