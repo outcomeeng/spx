@@ -1,4 +1,4 @@
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, realpath } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
@@ -8,7 +8,6 @@ import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { sessionsScopeDir } from "@/lib/state-store";
-import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   CONFIG_TEST_GENERATOR,
@@ -39,6 +38,10 @@ export type CliContextMappingObservation = {
   readonly direct: ProductContextCliRun;
   readonly redirected: ProductContextCliRun;
   readonly scope: GeneratedResolutionScope;
+};
+
+export type ValidationContextMappingObservation = CliContextMappingObservation & {
+  readonly productDir: string;
 };
 
 export type SessionContextMappingObservation = CliContextMappingObservation & {
@@ -96,17 +99,12 @@ export async function observeConfigContextMapping(
 
 export async function observeValidationContextMapping(
   scope: GeneratedResolutionScope,
-): Promise<CliContextMappingObservation> {
+): Promise<ValidationContextMappingObservation> {
   return withProductContextTempDirs(async (tempDirs) => {
     const callerDir = await tempDirs.makeTempDir();
     const productDir = await tempDirs.makeTempDir();
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-    await mkdir(join(productDir, "src"), { recursive: true });
-    await writeFile(
-      join(productDir, TSCONFIG_FILES.full),
-      JSON.stringify({ compilerOptions: { noEmit: true, strict: true }, include: ["src/**/*.ts"] }),
-    );
-    await writeFile(join(productDir, "src/index.ts"), "export const productContextValue: string = 'valid';\n");
+    const canonicalProductDir = await realpath(productDir);
     const nestedProductDir = join(productDir, scope.nestedDirectory);
     await mkdir(nestedProductDir, { recursive: true });
     const validationArgs = [
@@ -115,11 +113,25 @@ export async function observeValidationContextMapping(
       validationCommonCliOptions.scope.flag,
       VALIDATION_SCOPES.FULL,
     ] as const;
+    const { createValidationDomain } = await import("@/interfaces/cli/validation");
+    const validationDomain = createValidationDomain({
+      commandHandlers: {
+        typescript: async ({ cwd }) => ({
+          durationMs: 0,
+          exitCode: 0,
+          output: cwd,
+        }),
+      },
+    });
     return {
-      direct: await runProductContextCli(validationArgs, { processCwd: nestedProductDir }),
+      direct: await runProductContextCli(validationArgs, {
+        domains: [validationDomain],
+        processCwd: nestedProductDir,
+      }),
+      productDir: canonicalProductDir,
       redirected: await runProductContextCli(
         [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...validationArgs],
-        { processCwd: callerDir },
+        { domains: [validationDomain], processCwd: callerDir },
       ),
       scope,
     };

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { PRODUCT_DIR_NOT_GIT_WARNING } from "@/domains/config/root";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
@@ -37,7 +36,7 @@ describe("product context properties", () => {
       async (scope) => {
         const observation = await observeValidationContextMapping(scope);
         expect(observation.redirected).toEqual(observation.direct);
-        expect(observation.redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
+        expect(observation.redirected.stdout.trim()).toBe(observation.productDir);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
