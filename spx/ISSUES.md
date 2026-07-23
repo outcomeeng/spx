@@ -51,28 +51,6 @@ Observed while verifying the spec-tree boundary correction on May 1, 2026: `pnpm
 
 **Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance, then remove the owning node from `eslint.test-owned-constant-debt-nodes.json`.
 
-## GitHub Scorecard code-scanning alerts remain open
-
-The root `renovate.json` — declared by [`spx/21-infrastructure.enabler/32-dependency-updates.enabler/dependency-updates.md`](21-infrastructure.enabler/32-dependency-updates.enabler/dependency-updates.md) — satisfies the Scorecard Dependency-Update-Tool check, which clears on the next Scorecard run. GitHub code scanning reports the remaining open Scorecard alerts:
-
-- High: Branch-Protection and Code-Review (repository-policy alerts, no associated file)
-- Medium: Security-Policy and SAST (repository-policy alerts), and two Pinned-Dependencies alerts in `.github/workflows/spec-tree.yml` and `.github/workflows/agentic-verification.yml`
-- Low: CII-Best-Practices (repository-policy alert)
-
-**Skills:** `github:github`, GitHub security triage, and the workflow-specific implementation skill for any `.github/workflows/` edits.
-
-**Resolution:** Triage the repository-policy alerts (Branch-Protection, Code-Review, Security-Policy, SAST, CII-Best-Practices) separately from the workflow-file alerts. For the two Pinned-Dependencies alerts, pin the external actions in `.github/workflows/spec-tree.yml` and `.github/workflows/agentic-verification.yml` to commit digests before changing the automation.
-
-## GitHub dependency vulnerability alerts remain open
-
-GitHub code scanning reports four open Dependabot alerts on the default branch at `https://github.com/outcomeeng/spx/security/dependabot`: `js-yaml` (high, runtime dependency, alert 31 — YAML merge-key chains can force quadratic CPU consumption; patched in 3.15.0 / 4.3.0), `fast-uri` (high, alerts 33 and 34), and `@hono/node-server` (medium, alert 32), all via `pnpm-lock.yaml`.
-
-**Impact:** The default branch carries unresolved dependency vulnerability alerts, including a high-severity runtime dependency. Remediation belongs in a dedicated dependency-security changeset.
-
-**Skills:** GitHub security triage and the dependency-update implementation workflow for any manifest or lockfile changes.
-
-**Resolution:** Inspect the Dependabot security alerts, identify affected packages and patched ranges, update dependencies through `pnpm add` / `pnpm remove` so `package.json` and `pnpm-lock.yaml` stay synchronized, then run `pnpm run validate`, `pnpm test`, and the security alert closure check.
-
 ## Literal-reuse and test-owned literal cleanup remains
 
 Literal-reuse cleanup spans product config, CLI help text, value allowlist tests, and enabled spec-tree test files. Current [spx.config.yaml](../spx.config.yaml) uses the `validation` section and no longer carries the retired literal allowlist structure. The `--allowlist-existing` CLI description and value-allowlist test titles now name `validation.literal.values.include`.
