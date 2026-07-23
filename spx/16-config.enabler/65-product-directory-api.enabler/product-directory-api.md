@@ -6,12 +6,12 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 
 ## Assertions
 
-### Mappings
+### Properties
 
-- `spx -C <path> config show --json` maps to the same resolved Config as `spx config show --json` invoked from `<path>` ([test](tests/product-context.mapping.l1.test.ts))
-- `spx -C <path> validation typescript --scope full` maps to the same validation result as `spx validation typescript --scope full` invoked from `<path>` ([test](tests/product-context.mapping.l1.test.ts))
-- `spx -C <path> session list --json` maps to the same session-store result as `spx session list --json` invoked from `<path>` ([test](tests/product-context.mapping.l1.test.ts))
-- Absent `-C`, config CLI product context maps from the invoking process directory and preserves the non-git fallback warning ([test](tests/product-context.mapping.l1.test.ts))
+- `spx -C <path> config show --json` maps to the same resolved Config as `spx config show --json` invoked from `<path>` ([test](tests/product-context.property.l1.test.ts))
+- `spx -C <path> validation typescript --scope full` maps to the same validation result as `spx validation typescript --scope full` invoked from `<path>` ([test](tests/product-context.property.l1.test.ts))
+- `spx -C <path> session list --json` maps to the same session-store result as `spx session list --json` invoked from `<path>` ([test](tests/product-context.property.l1.test.ts))
+- Absent `-C`, config CLI product context maps from the invoking process directory and preserves the non-git fallback warning ([test](tests/product-context.property.l1.test.ts))
 
 ### Compliance
 
