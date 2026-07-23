@@ -10,8 +10,9 @@ import {
   observeSessionContextMapping,
   observeValidationContextMapping,
   parseObservedProductContextConfig,
+  PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
 } from "@testing/harnesses/product-context/mapping";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { assertProperty } from "@testing/harnesses/property/property";
 
 describe("product context properties", () => {
   it("maps -C to the same resolved config from generated nested product directories", async () => {
@@ -26,7 +27,7 @@ describe("product context properties", () => {
         expect(parsed.redirected).toEqual(parsed.direct);
         expect(observedTestingConfig(parsed.redirected)).toEqual(observation.expectedTestingConfig);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );
   });
 
@@ -38,7 +39,7 @@ describe("product context properties", () => {
         expect(observation.redirected).toEqual(observation.direct);
         expect(observation.redirected.stdout.trim()).toBe(observation.productDir);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );
   });
 
@@ -52,7 +53,7 @@ describe("product context properties", () => {
         expect(observation.redirected.stdout).toContain(observation.sessionId);
         expect(observation.redirected.stderr).not.toContain(NOT_GIT_REPO_WARNING);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );
   });
 
@@ -66,7 +67,7 @@ describe("product context properties", () => {
         expect(observation.result.stderr).toContain(observation.processDir);
         expect(observation.result.stderr).toContain(PRODUCT_DIR_NOT_GIT_WARNING);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );
   });
 });

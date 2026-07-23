@@ -23,8 +23,14 @@ import {
   productContextTestingConfig,
   runProductContextCli,
 } from "@testing/harnesses/product-context/cli";
+import { PROPERTY_LEVEL, PROPERTY_SIZE, type PropertyClassification } from "@testing/harnesses/property/property";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+
+export const PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION: PropertyClassification = {
+  level: PROPERTY_LEVEL.L1,
+  size: PROPERTY_SIZE.SMALL,
+};
 
 export type ConfigContextMappingObservation = {
   readonly direct: ProductContextCliRun;
