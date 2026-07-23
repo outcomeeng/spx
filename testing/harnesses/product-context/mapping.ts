@@ -14,7 +14,6 @@ import {
   CONFIG_TEST_GENERATOR,
   type GeneratedResolutionScope,
   sampleConfigTestValue,
-  sampleConfigTestValues,
 } from "@testing/generators/config/descriptors";
 import { sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -27,8 +26,6 @@ import {
 } from "@testing/harnesses/product-context/cli";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-const PRODUCT_CONTEXT_MAPPING_CASE_COUNT = 3;
 
 export type ConfigContextMappingObservation = {
   readonly direct: ProductContextCliRun;
@@ -54,13 +51,6 @@ export type AbsentContextMappingObservation = {
   readonly scope: GeneratedResolutionScope;
 };
 
-function resolutionScopes(): readonly GeneratedResolutionScope[] {
-  return sampleConfigTestValues(
-    CONFIG_TEST_GENERATOR.resolutionScope(),
-    PRODUCT_CONTEXT_MAPPING_CASE_COUNT,
-  );
-}
-
 function configShowJsonArgs(): readonly string[] {
   return [CONFIG_CLI.commandName, CONFIG_CLI.commands.show, CONFIG_CLI.flags.json];
 }
@@ -80,121 +70,113 @@ async function withProductContextTempDirs<T>(
   }
 }
 
-export async function observeConfigContextMappings(): Promise<readonly ConfigContextMappingObservation[]> {
+export async function observeConfigContextMapping(
+  scope: GeneratedResolutionScope,
+): Promise<ConfigContextMappingObservation> {
   return withProductContextTempDirs(async (tempDirs) => {
-    const observations: ConfigContextMappingObservation[] = [];
-    for (const scope of resolutionScopes()) {
-      const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
-      const callerDir = await tempDirs.makeTempDir();
-      await withTestEnv(generated.config, async ({ productDir }) => {
-        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-        const nestedProductDir = join(productDir, scope.nestedDirectory);
-        await mkdir(nestedProductDir, { recursive: true });
-        observations.push({
-          direct: await runProductContextCli(configShowJsonArgs(), { processCwd: nestedProductDir }),
-          expectedTestingConfig: generated.expected,
-          productDir,
-          redirected: await runProductContextCli(
-            [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...configShowJsonArgs()],
-            { processCwd: callerDir },
-          ),
-          scope,
-        });
-      });
-    }
-    return observations;
-  });
-}
-
-export async function observeValidationContextMappings(): Promise<readonly CliContextMappingObservation[]> {
-  return withProductContextTempDirs(async (tempDirs) => {
-    const observations: CliContextMappingObservation[] = [];
-    for (const scope of resolutionScopes()) {
-      const callerDir = await tempDirs.makeTempDir();
-      const productDir = await tempDirs.makeTempDir();
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
+    const callerDir = await tempDirs.makeTempDir();
+    return withTestEnv(generated.config, async ({ productDir }) => {
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-      await mkdir(join(productDir, "src"), { recursive: true });
-      await writeFile(
-        join(productDir, TSCONFIG_FILES.full),
-        JSON.stringify({ compilerOptions: { noEmit: true, strict: true }, include: ["src/**/*.ts"] }),
-      );
-      await writeFile(join(productDir, "src/index.ts"), "export const productContextValue: string = 'valid';\n");
       const nestedProductDir = join(productDir, scope.nestedDirectory);
       await mkdir(nestedProductDir, { recursive: true });
-      const validationArgs = [
-        validationCliDefinition.domain.commandName,
-        validationCliDefinition.subcommands.typescript.commandName,
-        validationCommonCliOptions.scope.flag,
-        VALIDATION_SCOPES.FULL,
-      ] as const;
-      observations.push({
-        direct: await runProductContextCli(validationArgs, { processCwd: nestedProductDir }),
+      return {
+        direct: await runProductContextCli(configShowJsonArgs(), { processCwd: nestedProductDir }),
+        expectedTestingConfig: generated.expected,
+        productDir,
         redirected: await runProductContextCli(
-          [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...validationArgs],
+          [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...configShowJsonArgs()],
           { processCwd: callerDir },
         ),
         scope,
-      });
-    }
-    return observations;
+      };
+    });
   });
 }
 
-export async function observeSessionContextMappings(): Promise<readonly SessionContextMappingObservation[]> {
+export async function observeValidationContextMapping(
+  scope: GeneratedResolutionScope,
+): Promise<CliContextMappingObservation> {
   return withProductContextTempDirs(async (tempDirs) => {
-    const observations: SessionContextMappingObservation[] = [];
-    for (const scope of resolutionScopes()) {
-      const sessionEnv = await createSessionHarness();
-      try {
-        const productDir = await tempDirs.makeTempDir();
-        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-        const nestedProductDir = join(productDir, scope.nestedDirectory);
-        await mkdir(nestedProductDir, { recursive: true });
-        const callerRoot = await tempDirs.makeTempDir();
-        const callerDir = join(callerRoot, scope.nestedDirectory);
-        await mkdir(callerDir, { recursive: true });
-        const sessionId = sampleSessionId();
-        const sessionFile = await sessionEnv.writeSession(SESSION_STATUSES[0], sessionId);
-        const sharedStatusDir = join(
-          sessionsScopeDir(productDir),
-          DEFAULT_CONFIG.sessions.statusDirs[SESSION_STATUSES[0]],
-        );
-        await mkdir(sharedStatusDir, { recursive: true });
-        await copyFile(sessionFile, join(sharedStatusDir, basename(sessionFile)));
-        observations.push({
-          direct: await runProductContextCli(sessionListJsonArgs(), { processCwd: nestedProductDir }),
-          redirected: await runProductContextCli(
-            [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...sessionListJsonArgs()],
-            { processCwd: callerDir },
-          ),
-          scope,
-          sessionId,
-        });
-      } finally {
-        await sessionEnv.cleanup();
-      }
-    }
-    return observations;
+    const callerDir = await tempDirs.makeTempDir();
+    const productDir = await tempDirs.makeTempDir();
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    await mkdir(join(productDir, "src"), { recursive: true });
+    await writeFile(
+      join(productDir, TSCONFIG_FILES.full),
+      JSON.stringify({ compilerOptions: { noEmit: true, strict: true }, include: ["src/**/*.ts"] }),
+    );
+    await writeFile(join(productDir, "src/index.ts"), "export const productContextValue: string = 'valid';\n");
+    const nestedProductDir = join(productDir, scope.nestedDirectory);
+    await mkdir(nestedProductDir, { recursive: true });
+    const validationArgs = [
+      validationCliDefinition.domain.commandName,
+      validationCliDefinition.subcommands.typescript.commandName,
+      validationCommonCliOptions.scope.flag,
+      VALIDATION_SCOPES.FULL,
+    ] as const;
+    return {
+      direct: await runProductContextCli(validationArgs, { processCwd: nestedProductDir }),
+      redirected: await runProductContextCli(
+        [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...validationArgs],
+        { processCwd: callerDir },
+      ),
+      scope,
+    };
   });
 }
 
-export async function observeAbsentContextMappings(): Promise<readonly AbsentContextMappingObservation[]> {
+export async function observeSessionContextMapping(
+  scope: GeneratedResolutionScope,
+): Promise<SessionContextMappingObservation> {
   return withProductContextTempDirs(async (tempDirs) => {
-    const observations: AbsentContextMappingObservation[] = [];
-    for (const scope of resolutionScopes()) {
-      const processRoot = await tempDirs.makeTempDir();
-      const processDir = join(processRoot, scope.nestedDirectory);
-      await mkdir(processDir, { recursive: true });
-      observations.push({
-        processDir,
-        result: await runProductContextCli(
-          [CONFIG_CLI.commandName, CONFIG_CLI.commands.validate],
-          { processCwd: processDir },
+    const sessionEnv = await createSessionHarness();
+    try {
+      const productDir = await tempDirs.makeTempDir();
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+      const nestedProductDir = join(productDir, scope.nestedDirectory);
+      await mkdir(nestedProductDir, { recursive: true });
+      const callerRoot = await tempDirs.makeTempDir();
+      const callerDir = join(callerRoot, scope.nestedDirectory);
+      await mkdir(callerDir, { recursive: true });
+      const sessionId = sampleSessionId();
+      const sessionFile = await sessionEnv.writeSession(SESSION_STATUSES[0], sessionId);
+      const sharedStatusDir = join(
+        sessionsScopeDir(productDir),
+        DEFAULT_CONFIG.sessions.statusDirs[SESSION_STATUSES[0]],
+      );
+      await mkdir(sharedStatusDir, { recursive: true });
+      await copyFile(sessionFile, join(sharedStatusDir, basename(sessionFile)));
+      return {
+        direct: await runProductContextCli(sessionListJsonArgs(), { processCwd: nestedProductDir }),
+        redirected: await runProductContextCli(
+          [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...sessionListJsonArgs()],
+          { processCwd: callerDir },
         ),
         scope,
-      });
+        sessionId,
+      };
+    } finally {
+      await sessionEnv.cleanup();
     }
-    return observations;
+  });
+}
+
+export async function observeAbsentContextMapping(
+  scope: GeneratedResolutionScope,
+): Promise<AbsentContextMappingObservation> {
+  return withProductContextTempDirs(async (tempDirs) => {
+    const processRoot = await tempDirs.makeTempDir();
+    const processDir = join(processRoot, scope.nestedDirectory);
+    await mkdir(processDir, { recursive: true });
+    return {
+      processDir,
+      result: await runProductContextCli(
+        [CONFIG_CLI.commandName, CONFIG_CLI.commands.validate],
+        { processCwd: processDir },
+      ),
+      scope,
+    };
   });
 }
 
