@@ -10,9 +10,12 @@
 - Define isolated target-package resolution and migration launch without sharing invoking coding-agent state.
 - Define migration attempt identity and persistence so sealed verification evidence reconstructs the exact target, branch and head changeset, resolved configuration, and coding-agent session.
 
+## Consumed providers
+
+- `spx/46-agent.enabler` provides the exact native coding-agent session identity this node binds migration resume, verification evidence, and closure to.
+
 ## Aligned consumers
 
-- `spx/46-agent.enabler` declares exact native coding-agent session binding for migration resume, verification evidence, and closure.
 - `spx/60-surfaces.enabler/21-cli-surface.enabler` declares the methodology version show and migrate command family as a binding over this node.
 
 ## Remaining work
