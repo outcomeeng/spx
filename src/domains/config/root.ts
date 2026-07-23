@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { PRODUCT_DIR_NOT_GIT_WARNING } from "./product-directory-contract";
+
 const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
-const PRODUCT_DIR_NOT_GIT_WARNING = "not a git repository";
-
 function formatProductDirNotGitWarning(productDir: string): string {
-  return `warning: ${productDir} is not inside a git worktree — falling back to the current working directory. ${PRODUCT_DIR_NOT_GIT_WARNING}.`;
+  return `${PRODUCT_DIR_NOT_GIT_WARNING.prefix}${productDir}${PRODUCT_DIR_NOT_GIT_WARNING.suffix}`;
 }
 
 export type ResolvedProductDir = {
