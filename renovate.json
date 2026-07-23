@@ -8,7 +8,7 @@
   ],
   "schedule": ["at any time"],
   "timezone": "Europe/Zurich",
-  "automergeSchedule": ["after 5:00 before 9:00 every day"],
+  "automergeSchedule": ["after 3:00 before 7:00 every day"],
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
