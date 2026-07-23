@@ -129,6 +129,34 @@ export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
   "Write for product users. Translate implementation-shaped commit subjects into externally observable capabilities and effects when they change product behavior, and consolidate related commits into one user-facing entry. Omit only spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
+/** Semantic fragments every release-notes producer prompt must carry. */
+export const RELEASE_NOTES_PROMPT_CONTRACT = {
+  PRESERVATION_REQUIRED_FRAGMENTS: [
+    "read it first",
+    "preserve existing version sections",
+    "replace only this release version's section",
+    "otherwise insert this release section",
+    "without deleting older sections",
+  ],
+  USER_FACING_REQUIRED_FRAGMENTS: [
+    "product users",
+    "externally observable capabilities and effects",
+    "consolidate related commits",
+    "user-facing entry",
+    "Omit only",
+    "spec-only",
+    "test-only",
+    "release-mechanics",
+    "internal implementation changes",
+    "no observable effect",
+  ],
+  VERSION_HEADING_REQUIRED_FRAGMENTS: [
+    "H2 heading",
+    "concatenating",
+    "decoded string from the release-version JSON data block",
+    "write no quotes, escapes, or other text on that heading line",
+  ],
+} as const;
 export const RELEASE_NOTES_AUDIT_USER_FACING_INSTRUCTION =
   "Judge each commit by its observable effect rather than its technical label. Approve only when the release section represents every user-visible change and omits spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
 export const RELEASE_NOTES_AGENT_TOOLS = [
