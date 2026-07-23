@@ -7,3 +7,4 @@ Pi session coordination continues through independently governed consumers after
 3. Extend `spx/38-worktree.enabler` controlling-process recognition and lifecycle binding so a live Pi process holds the worktree claim for its full lifetime.
 4. Extend `spx/33-harness-environment.enabler` with Pi instruction, plugin, skill, hook, and runtime-configuration reconciliation.
 5. Extend `spx/54-diagnose.enabler` with Pi installation and configured-environment readings.
+6. Implement the `spx/57-methodology-lifecycle.enabler` contract that binds migration resume, verification evidence, and closure to one exact native coding-agent session identity.
