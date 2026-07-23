@@ -15,7 +15,6 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 
 ### Compliance
 
-- ALWAYS: config APIs, test harnesses, and descriptor tests name the tracked product root `productDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
-- ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
+- ALWAYS: `resolveProductDir` exposes the resolved tracked or fallback root through `productDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
 - ALWAYS: a config command invoked from a dirty unrelated worktree with `-C <target>` resolves config from `<target>` rather than the caller's worktree ([test](tests/product-context.compliance.l1.test.ts))
-- NEVER: add compatibility aliases for non-product root-directory names ([test](tests/product-directory-api.compliance.l1.test.ts))
+- NEVER: `resolveProductDir` results expose `projectRoot` or `projectDir` compatibility aliases ([test](tests/product-directory-api.compliance.l1.test.ts))
