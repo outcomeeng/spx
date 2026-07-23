@@ -4,7 +4,6 @@ import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_CHANGE_GROUPS,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
-  CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_TITLE,
   changelogEntry,
   changelogGroupHeading,
@@ -127,7 +126,6 @@ export interface ReleaseNotesExistingSectionInput {
 export interface ReleaseNotesExistingSectionScenario {
   readonly input: ReleaseNotesExistingSectionInput;
   readonly finalContent: string;
-  readonly preservationInstruction: string;
 }
 
 export interface ReleaseNotesConfiguredPathRejectionInput {
@@ -273,7 +271,6 @@ export function sampleReleaseNotesExistingSectionScenario(
       generatedNotes,
     },
     finalContent: accepted ? generatedNotes : existingNotes,
-    preservationInstruction: CHANGELOG_PRESERVATION_INSTRUCTION,
   };
 }
 

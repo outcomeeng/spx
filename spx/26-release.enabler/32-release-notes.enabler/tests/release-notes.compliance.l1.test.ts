@@ -1,14 +1,15 @@
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+  CHANGELOG_VERSION_SECTION_PREFIX,
+  CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
   COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_USER_FACING_INSTRUCTION,
-  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
+  RELEASE_NOTES_PROMPT_CONTRACT,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -58,7 +59,9 @@ it("instructs the producer to describe user-visible release behavior", () => {
     DEFAULT_CHANGELOG_PATH,
   );
 
-  expect(prompt).toContain(RELEASE_NOTES_USER_FACING_INSTRUCTION);
+  for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.USER_FACING_REQUIRED_FRAGMENTS) {
+    expect(prompt).toContain(fragment);
+  }
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -133,9 +136,9 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           observation.stagedPromptPath,
         ),
       ).toBe(true);
-      expect(observation.prompt).toContain(
-        scenario.preservationInstruction,
-      );
+      for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.PRESERVATION_REQUIRED_FRAGMENTS) {
+        expect(observation.prompt).toContain(fragment);
+      }
       return true;
     });
   });
@@ -277,8 +280,14 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
       );
+      for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.VERSION_HEADING_REQUIRED_FRAGMENTS) {
+        expect(observation.prompt).toContain(fragment);
+      }
       expect(observation.prompt).toContain(
-        RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
+        JSON.stringify(CHANGELOG_VERSION_SECTION_PREFIX),
+      );
+      expect(observation.prompt).toContain(
+        JSON.stringify(CHANGELOG_VERSION_SECTION_SUFFIX),
       );
       expect(observation.prompt).not.toContain(
         changelogVersionHeading(input.fixture.releaseData.version),
