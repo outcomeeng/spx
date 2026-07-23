@@ -88,6 +88,10 @@ export type GeneratedTestingConfig = {
   readonly expected: TestingConfig;
 };
 
+export type GeneratedProductContextConfigCase = GeneratedTestingConfig & {
+  readonly scope: GeneratedResolutionScope;
+};
+
 export type GeneratedHarnessEnvironmentConfig = {
   readonly config: Record<string, unknown>;
   readonly expected: HarnessEnvironmentConfig;
@@ -117,6 +121,7 @@ export const CONFIG_TEST_GENERATOR = {
   prefixCohort: arbitraryPrefixCohort,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
+  productContextConfigCase: arbitraryProductContextConfigCase,
   resolutionScope: arbitraryResolutionScope,
 } as const;
 
@@ -151,6 +156,12 @@ function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
 
 function arbitraryProductDir(): fc.Arbitrary<string> {
   return fc.uuid().map((id) => `/${id}`);
+}
+
+function arbitraryProductContextConfigCase(): fc.Arbitrary<GeneratedProductContextConfigCase> {
+  return fc
+    .tuple(arbitraryResolutionScope(), arbitraryTestingConfig())
+    .map(([scope, generated]) => ({ ...generated, scope }));
 }
 
 function arbitraryPathPattern(): fc.Arbitrary<string> {

@@ -9,11 +9,7 @@ import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { VALIDATION_SCOPES } from "@/validation/types";
-import {
-  CONFIG_TEST_GENERATOR,
-  type GeneratedResolutionScope,
-  sampleConfigTestValue,
-} from "@testing/generators/config/descriptors";
+import type { GeneratedResolutionScope } from "@testing/generators/config/descriptors";
 import { sampleSessionId } from "@testing/generators/session/session";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import {
@@ -34,7 +30,6 @@ export const PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION: PropertyClassification = {
 
 export type ConfigContextMappingObservation = {
   readonly direct: ProductContextCliRun;
-  readonly expectedTestingConfig: unknown;
   readonly productDir: string;
   readonly redirected: ProductContextCliRun;
   readonly scope: GeneratedResolutionScope;
@@ -81,17 +76,16 @@ async function withProductContextTempDirs<T>(
 
 export async function observeConfigContextMapping(
   scope: GeneratedResolutionScope,
+  config: Record<string, unknown>,
 ): Promise<ConfigContextMappingObservation> {
   return withProductContextTempDirs(async (tempDirs) => {
-    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
     const callerDir = await tempDirs.makeTempDir();
-    return withTestEnv(generated.config, async ({ productDir }) => {
+    return withTestEnv(config, async ({ productDir }) => {
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
       const nestedProductDir = join(productDir, scope.nestedDirectory);
       await mkdir(nestedProductDir, { recursive: true });
       return {
         direct: await runProductContextCli(configShowJsonArgs(), { processCwd: nestedProductDir }),
-        expectedTestingConfig: generated.expected,
         productDir,
         redirected: await runProductContextCli(
           [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...configShowJsonArgs()],

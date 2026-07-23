@@ -17,15 +17,15 @@ import { assertProperty } from "@testing/harnesses/property/property";
 describe("product context properties", () => {
   it("maps -C to the same resolved config from generated nested product directories", async () => {
     await assertProperty(
-      CONFIG_TEST_GENERATOR.resolutionScope(),
-      async (scope) => {
-        const observation = await observeConfigContextMapping(scope);
+      CONFIG_TEST_GENERATOR.productContextConfigCase(),
+      async ({ config, expected, scope }) => {
+        const observation = await observeConfigContextMapping(scope, config);
         const parsed = parseObservedProductContextConfig(observation);
 
         expect(observation.redirected.exitCodes).toEqual(observation.direct.exitCodes);
         expect(observation.redirected.stderr).toBe(observation.direct.stderr);
         expect(parsed.redirected).toEqual(parsed.direct);
-        expect(observedTestingConfig(parsed.redirected)).toEqual(observation.expectedTestingConfig);
+        expect(observedTestingConfig(parsed.redirected)).toEqual(expected);
       },
       PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );
