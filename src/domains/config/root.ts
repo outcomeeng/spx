@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 
 const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
-export const PRODUCT_DIR_NOT_GIT_WARNING = "not a git repository";
+const PRODUCT_DIR_NOT_GIT_WARNING = "not a git repository";
 
-export function formatProductDirNotGitWarning(productDir: string): string {
+function formatProductDirNotGitWarning(productDir: string): string {
   return `warning: ${productDir} is not inside a git worktree — falling back to the current working directory. ${PRODUCT_DIR_NOT_GIT_WARNING}.`;
 }
 
@@ -17,8 +17,6 @@ export type ResolvedProductDir = {
 export type ProductDirResolverDeps = {
   readonly readGitToplevel: (cwd: string) => string | undefined;
 };
-
-export const LEGACY_PRODUCT_ROOT_FIELD_NAMES = ["projectRoot", "projectDir"] as const;
 
 export function resolveProductDir(
   cwd: string,

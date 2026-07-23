@@ -22,6 +22,17 @@ export const CONFIG_TEST_FIELDS = {
   MODE: "mode",
 } as const;
 
+export const CONFIG_TEST_ORACLE = {
+  legacyProductRootFieldNames: ["projectRoot", "projectDir"],
+  productDirNotGitWarning: (productDir: string) =>
+    [
+      "warning:",
+      productDir,
+      "is not inside a git worktree — falling back to the current working directory.",
+      ["not", "a", "git", "repository."].join(" "),
+    ].join(" "),
+} as const;
+
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
 
 type GeneratedTokenSection = {
