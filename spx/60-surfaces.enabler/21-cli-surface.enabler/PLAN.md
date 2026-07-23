@@ -27,6 +27,16 @@ Remaining implementation-bearing work:
 4. Remove legacy command paths without compatibility aliases.
 5. Run the CLI-surface release sequence after merge because this changes public CLI command vocabulary.
 
+## Methodology lifecycle cascade
+
+The public command family binds `spx methodology version show` and `spx methodology version migrate <target>` to `spx/57-methodology-lifecycle.enabler`. A future `/decompose` pass may materialize a dedicated CLI child when command-specific help, option grammar, output modes, and diagnostics are ready to declare; the lower lifecycle node remains the owner of identity inspection and migration semantics.
+
+Remaining implementation-bearing work:
+
+1. Define command help, target-version operand grammar, text and JSON output, exit diagnostics, and noninteractive behavior.
+2. Wire CLI handlers to the lower methodology lifecycle domain without reimplementing compatibility, migration, session, or verification semantics.
+3. Add L2 command-surface evidence and run the CLI-surface release sequence after merge.
+
 ## Plugin-skill follow-up
 
 SPX owns the CLI command contract and deterministic enforcement. The Outcome Engineering plugin repository owns agent skills that teach or audit against that contract, including `spx-command-standards`, `author-spx-command`, and `audit-spx-command` if those skills are created. Do not create SPX product nodes for those skills unless SPX later ships or manages their installation/status through harness-environment plugin bootstrap.
