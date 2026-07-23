@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PRODUCT_DIR_NOT_GIT_WARNING } from "@/domains/config/root";
+import { formatProductDirNotGitWarning } from "@/domains/config/root";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import {
@@ -64,8 +64,9 @@ describe("product context properties", () => {
         const observation = await observeAbsentContextMapping(scope);
         expect(observation.result.exitCodes).toEqual([0]);
         expect(observation.result.stdout).toContain(observation.processDir);
-        expect(observation.result.stderr).toContain(observation.processDir);
-        expect(observation.result.stderr).toContain(PRODUCT_DIR_NOT_GIT_WARNING);
+        expect(observation.result.stderr.trimEnd()).toBe(
+          formatProductDirNotGitWarning(observation.processDir),
+        );
       },
       PRODUCT_CONTEXT_PROPERTY_CLASSIFICATION,
     );

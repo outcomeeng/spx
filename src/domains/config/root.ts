@@ -5,6 +5,10 @@ const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 export const PRODUCT_DIR_NOT_GIT_WARNING = "not a git repository";
 
+export function formatProductDirNotGitWarning(productDir: string): string {
+  return `warning: ${productDir} is not inside a git worktree — falling back to the current working directory. ${PRODUCT_DIR_NOT_GIT_WARNING}.`;
+}
+
 export type ResolvedProductDir = {
   readonly productDir: string;
   readonly warning?: string;
@@ -28,8 +32,7 @@ export function resolveProductDir(
 
   return {
     productDir: resolvedCwd,
-    warning:
-      `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${PRODUCT_DIR_NOT_GIT_WARNING}.`,
+    warning: formatProductDirNotGitWarning(resolvedCwd),
   };
 }
 
