@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  forEachCompactPathObservation,
+  withCompactPathObservation,
   withEscapedTranscriptObservation,
   withMissingFoundationObservation,
   withNestedTranscriptObservation,
@@ -31,7 +31,7 @@ describe("compact transcript extraction", () => {
   });
 
   it("stores compact state under the local worktree session scope", async () => {
-    await forEachCompactPathObservation(({ actual, expected }) => {
+    await withCompactPathObservation(({ actual, expected }) => {
       expect(actual.ok).toBe(true);
       if (actual.ok) expect(actual.value).toBe(expected);
     });

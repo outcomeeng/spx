@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -30,6 +31,14 @@ export const CONFIG_TEST_FIELDS = {
 } as const;
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
+const MIN_DEFAULT_VALIDATION_DESCRIPTORS = 1;
+const MAX_DEFAULT_VALIDATION_DESCRIPTORS = 4;
+const DEFAULT_RESOLUTION_DESCRIPTORS = 3;
+const COMPLETE_RESOLUTION_DESCRIPTORS = 4;
+const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
+const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
+const STRAY_HARNESS_FIELD = "strayHarnessField";
 
 type GeneratedTokenSection = {
   readonly [CONFIG_TEST_FIELDS.TOKEN]: string;
@@ -47,6 +56,11 @@ type GeneratedDescriptorOptions = {
 export type GeneratedEnvironmentSentinel = {
   readonly key: string;
   readonly value: string;
+};
+
+export type GeneratedConfigEnvironmentCase = {
+  readonly config: Config;
+  readonly sentinel: GeneratedEnvironmentSentinel;
 };
 
 export type GeneratedInvalidSpecTreeConfig = {
@@ -123,8 +137,18 @@ export type GeneratedHarnessEnvironmentConfig = {
   readonly expected: HarnessEnvironmentConfig;
 };
 
+export type GeneratedInvalidMethodologyConfig = {
+  readonly config: Config;
+  readonly field: string;
+};
+
 export const CONFIG_TEST_GENERATOR = {
   configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
+  configEnvironmentCase: arbitraryConfigEnvironmentCase,
+  configShape: arbitraryConfigShape,
+  defaultValidationDescriptors: arbitraryDefaultValidationDescriptors,
+  defaultResolutionDescriptors: arbitraryDefaultResolutionDescriptors,
+  completeResolutionDescriptors: arbitraryCompleteResolutionDescriptors,
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
@@ -168,6 +192,67 @@ export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: n
   return fc.sample(arbitrary, { numRuns });
 }
 
+export function generatedMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  };
+}
+
+export function generatedMethodologySource(): string {
+  return [
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  ].join("/");
+}
+
+export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
+  return [
+    ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
+    })),
+    ...INVALID_METHODOLOGY_VERSIONS.map((version) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`,
+    })),
+  ];
+}
+
+export function generatedHarnessMethodologyConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+    },
+  };
+}
+
+export function generatedHarnessMethodologyWithUnknownFieldsConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+      [STRAY_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  };
+}
+
+export function generatedSimilarHarnessMethodologyFieldConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [SIMILAR_HARNESS_METHODOLOGY_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  };
+}
+
 function arbitraryConfigKey(): fc.Arbitrary<string> {
   return fc.stringMatching(/^[a-z][a-z0-9]{5,16}$/).filter((key) => key !== SPEC_TREE_SECTION);
 }
@@ -178,6 +263,38 @@ function arbitraryConfigScalar(): fc.Arbitrary<string> {
 
 function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
   return fc.constant({});
+}
+
+function arbitraryConfigShape(): fc.Arbitrary<Config> {
+  return fc.oneof(arbitraryEmptyConfig(), arbitrarySpecTreeSubsetConfig());
+}
+
+function arbitraryConfigEnvironmentCase(): fc.Arbitrary<GeneratedConfigEnvironmentCase> {
+  return fc.record({
+    config: arbitraryConfigShape(),
+    sentinel: arbitraryEnvironmentSentinel(),
+  });
+}
+
+function arbitraryDefaultValidationDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: MIN_DEFAULT_VALIDATION_DESCRIPTORS,
+    maxLength: MAX_DEFAULT_VALIDATION_DESCRIPTORS,
+  });
+}
+
+function arbitraryDefaultResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: DEFAULT_RESOLUTION_DESCRIPTORS,
+    maxLength: DEFAULT_RESOLUTION_DESCRIPTORS,
+  });
+}
+
+function arbitraryCompleteResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: COMPLETE_RESOLUTION_DESCRIPTORS,
+    maxLength: COMPLETE_RESOLUTION_DESCRIPTORS,
+  });
 }
 
 function arbitraryProductDir(): fc.Arbitrary<string> {

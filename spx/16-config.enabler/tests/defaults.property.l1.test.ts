@@ -1,16 +1,17 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — defaults are type-complete", () => {
   it("every registered descriptor's declared defaults round-trip through its own validator", () => {
-    fc.assert(
-      fc.property(CONFIG_TEST_GENERATOR.tokenDescriptors({ minLength: 1, maxLength: 4 }), (generated) => {
+    assertProperty(
+      CONFIG_TEST_GENERATOR.defaultValidationDescriptors(),
+      (generated) => {
         for (const { descriptor } of generated) {
           const roundTrip = descriptor.validate(descriptor.defaults);
           expect(roundTrip.ok).toBe(true);
@@ -18,14 +19,14 @@ describe("resolveConfig — defaults are type-complete", () => {
             expect(roundTrip.value).toEqual(descriptor.defaults);
           }
         }
-      }),
-      { numRuns: 20 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("resolveConfig returns each descriptor's declared defaults when no config overrides apply", async () => {
     const descriptors = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.tokenDescriptors({ minLength: 3, maxLength: 3 }),
+      CONFIG_TEST_GENERATOR.defaultResolutionDescriptors(),
     ).map(({ descriptor }) => descriptor);
 
     await withTestEnv({}, async ({ productDir }) => {
@@ -42,7 +43,7 @@ describe("resolveConfig — defaults are type-complete", () => {
 
   it("the resolved Config has one key per registered descriptor — no stray sections", async () => {
     const descriptors = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.tokenDescriptors({ minLength: 4, maxLength: 4 }),
+      CONFIG_TEST_GENERATOR.completeResolutionDescriptors(),
     ).map(({ descriptor }) => descriptor);
 
     await withTestEnv({}, async ({ productDir }) => {

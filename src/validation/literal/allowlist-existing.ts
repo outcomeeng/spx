@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { rename, rm, writeFile } from "node:fs/promises";
 
 import {
+  CONFIG_FILE_READ_KIND,
   type ConfigFile,
   configFileForFormat,
   type ConfigFileReadResult,
@@ -87,7 +88,7 @@ export async function allowlistExisting(
   }
 
   const configRead = readResult.value;
-  if (configRead.kind === "ambiguous") {
+  if (configRead.kind === CONFIG_FILE_READ_KIND.AMBIGUOUS) {
     return { exitCode: EXIT_ERROR, output: formatConfigFileAmbiguityError(configRead.detected) };
   }
 
@@ -112,7 +113,7 @@ export async function allowlistExisting(
     findingValues,
   );
 
-  const target: ConfigFile = configRead.kind === "ok"
+  const target: ConfigFile = configRead.kind === CONFIG_FILE_READ_KIND.OK
     ? configRead.file
     : configFileForFormat(options.productDir, DEFAULT_CONFIG_FILE_FORMAT);
 

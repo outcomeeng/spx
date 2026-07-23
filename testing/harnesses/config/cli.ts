@@ -9,11 +9,14 @@ import { validateCommand } from "@/commands/config/validate";
 import {
   absentConfigFileReadResult,
   CONFIG_FILE_FORMAT,
+  CONFIG_FILE_READ_KIND,
   configFileForFormat,
   type ConfigFileFormat,
   type ConfigFileReadResult,
   DEFAULT_CONFIG_FILE_FORMAT,
   parseConfigFileSections,
+  readProductConfigFile,
+  resolveConfig,
   resolveConfigFromReadResult,
 } from "@/config/index";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
@@ -26,9 +29,21 @@ import {
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
 import { NODE_EXECUTABLE } from "@testing/harnesses/constants";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const EFFECT_SENTINEL_SUCCESS = "CONFIG_EFFECT_SENTINEL_OK";
+export const CONFIG_EFFECT_SENTINEL_PROBE_EFFECTS = [
+  "node:fs/promises.writeFile",
+  "node:child_process.spawnSync",
+] as const;
+
+export type ConfigEffectSentinelObservation = {
+  readonly changedEnvironmentKeys: readonly string[];
+  readonly cwdAfter: string;
+  readonly cwdBefore: string;
+  readonly handlerAttemptedEffects: readonly string[];
+  readonly handlerErrors: readonly string[];
+  readonly probeAttemptedEffects: readonly string[];
+};
 
 type ConfigCliResult = Awaited<ReturnType<typeof showCommand>>;
 type ConfigParseResult = ReturnType<typeof parseConfigFileSections>;
@@ -135,31 +150,25 @@ export function configCliDefaults(): Config {
   return resolved.value;
 }
 
-export async function forEachConfigHandlerDeterminismObservation(
-  consume: ObservationConsumer<{
-    readonly defaults: ConfigCliResult;
-    readonly defaultsAgain: ConfigCliResult;
-    readonly show: ConfigCliResult;
-    readonly showAgain: ConfigCliResult;
-    readonly validate: ConfigCliResult;
-    readonly validateAgain: ConfigCliResult;
-  }>,
-): Promise<void> {
-  await assertProperty(
-    CONFIG_TEST_GENERATOR.configCliDeterminismCase(),
-    async (generated) => {
-      const deps = configCliPropertyDeps(generated);
-      await consume({
-        defaults: await defaultsCommand({ json: generated.asJson }, deps),
-        defaultsAgain: await defaultsCommand({ json: generated.asJson }, deps),
-        show: await showCommand({ json: generated.asJson }, deps),
-        showAgain: await showCommand({ json: generated.asJson }, deps),
-        validate: await validateCommand({}, deps),
-        validateAgain: await validateCommand({}, deps),
-      });
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-  );
+export async function observeConfigHandlerDeterminism(
+  generated: GeneratedConfigCliDeterminismCase,
+): Promise<{
+  readonly defaults: ConfigCliResult;
+  readonly defaultsAgain: ConfigCliResult;
+  readonly show: ConfigCliResult;
+  readonly showAgain: ConfigCliResult;
+  readonly validate: ConfigCliResult;
+  readonly validateAgain: ConfigCliResult;
+}> {
+  const deps = configCliPropertyDeps(generated);
+  return {
+    defaults: await defaultsCommand({ json: generated.asJson }, deps),
+    defaultsAgain: await defaultsCommand({ json: generated.asJson }, deps),
+    show: await showCommand({ json: generated.asJson }, deps),
+    showAgain: await showCommand({ json: generated.asJson }, deps),
+    validate: await validateCommand({}, deps),
+    validateAgain: await validateCommand({}, deps),
+  };
 }
 
 export async function withShowProcessEffectsObservation(
@@ -205,8 +214,8 @@ export async function withDefaultsProcessEffectsObservation(
 
 export async function withHandlerEffectSentinelObservation(
   consume: ObservationConsumer<{
+    readonly observation: ConfigEffectSentinelObservation;
     readonly sentinelResult: Awaited<ReturnType<typeof execa>>;
-    readonly sentinelSuccess: string;
   }>,
 ): Promise<void> {
   const sentinelPath = join(dirname(fileURLToPath(import.meta.url)), "effect-sentinel.ts");
@@ -215,7 +224,10 @@ export async function withHandlerEffectSentinelObservation(
     ["--no-warnings", "--permission", "--allow-fs-read=*", "--allow-worker", "--import", "tsx", sentinelPath],
     { env: { TSX_DISABLE_CACHE: "1" }, reject: false },
   );
-  await consume({ sentinelResult: result, sentinelSuccess: EFFECT_SENTINEL_SUCCESS });
+  await consume({
+    observation: JSON.parse(result.stdout) as ConfigEffectSentinelObservation,
+    sentinelResult: result,
+  });
 }
 
 export function withConfigCommandOptionsObservation(
@@ -399,8 +411,17 @@ export async function withShowOverrideObservation(
   >,
 ): Promise<void> {
   const config = configSubset();
-  const result = await showCommand({}, configCliDeps({ ok: true, value: config }));
-  await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+  await withTestEnv(config, async ({ productDir }) => {
+    const deps: CliDeps = {
+      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, [specTreeConfigDescriptor]),
+      readProductConfigFile,
+      resolveConfigFromReadResult,
+      resolveProductDir: () => productDir,
+      descriptors: [specTreeConfigDescriptor],
+    };
+    const result = await showCommand({}, deps);
+    await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+  });
 }
 
 export async function withShowJsonConfigObservation(
@@ -454,7 +475,7 @@ export async function withValidatePresentConfigObservation(
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,
     value: {
-      kind: "ok",
+      kind: CONFIG_FILE_READ_KIND.OK,
       file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.TOML),
     },
   };
@@ -534,7 +555,7 @@ export async function withValidateReadResultObservation(
   const fileResult: Result<ConfigFileReadResult> = {
     ok: true,
     value: {
-      kind: "ok",
+      kind: CONFIG_FILE_READ_KIND.OK,
       file: configFileForFormat(productDir, CONFIG_FILE_FORMAT.JSON),
     },
   };

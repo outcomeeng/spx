@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import * as fc from "fast-check";
-
+import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { arbitraryDecisionPath, arbitraryNodePath, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
   contextTextCommand,
@@ -16,11 +15,8 @@ import {
 describe("spec context determinism", () => {
   it("produces byte-identical machine output across repeated runs on identical tree content and methodology resources", async () => {
     await assertProperty(
-      fc.tuple(
-        arbitraryNodePath(specTreeKindsConfig()),
-        arbitraryDecisionPath(specTreeKindsConfig()),
-      ),
-      async ([extraNodeDirectory, extraDecisionFile]) => {
+      TEST_ENVIRONMENT_GENERATOR.contextDeterminismCase(specTreeKindsConfig()),
+      async ({ extraNodeDirectory, extraDecisionFile }) => {
         await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
           await env.materialize();
           await writeMethodologyPackage(env);

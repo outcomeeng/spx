@@ -6,7 +6,7 @@ import { AGENT_SESSION_ENV, resolveAgentSessionId } from "@/domains/session/agen
 import { COMPACT_CLI, compactDomain } from "@/interfaces/cli/compact";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
-import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { ERROR_CODE_NOT_FOUND, hasErrorCode, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
@@ -150,7 +150,11 @@ export async function withAgentSessionLatestRecordObservation(
 }
 
 export async function withMissingFoundationStoreObservation(
-  consume: ObservationConsumer<{ readonly retrieved: SpxRun; readonly stored: SpxRun }>,
+  consume: ObservationConsumer<{
+    readonly retrieved: SpxRun;
+    readonly stashContents: string | undefined;
+    readonly stored: SpxRun;
+  }>,
 ): Promise<void> {
   const scenario = sampleCompactTestValue(COMPACT_TEST_GENERATOR.missingFoundationStoreScenario());
 
@@ -168,7 +172,16 @@ export async function withMissingFoundationStoreObservation(
       gitEnv.productDir,
       agentSessionEnv(scenario.sessionToken),
     );
-    await consume({ retrieved, stored });
+    let stashContents: string | undefined;
+    try {
+      stashContents = await readFile(
+        COMPACT_TEST_GENERATOR.compactStashFilePath(gitEnv.productDir, scenario.sessionToken),
+        "utf8",
+      );
+    } catch (error) {
+      if (!hasErrorCode(error, ERROR_CODE_NOT_FOUND)) throw error;
+    }
+    await consume({ retrieved, stashContents, stored });
   });
 }
 

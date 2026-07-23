@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VALIDATE_SUCCESS_TOKENS } from "@/commands/config/validate";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import {
+  CONFIG_EFFECT_SENTINEL_PROBE_EFFECTS,
   withConfigCommandOptionsObservation,
   withConfigHandlerResultsObservation,
   withDefaultsProcessEffectsObservation,
@@ -33,8 +34,13 @@ describe("invariants — handlers trigger no process side effects (P1)", () => {
   });
 
   it("handlers cannot write files or spawn subprocesses and preserve process.env", async () => {
-    await withHandlerEffectSentinelObservation(({ sentinelResult, sentinelSuccess }) => {
-      expect(sentinelResult).toMatchObject({ exitCode: 0, stderr: "", stdout: sentinelSuccess });
+    await withHandlerEffectSentinelObservation(({ observation, sentinelResult }) => {
+      expect(sentinelResult).toMatchObject({ exitCode: 0, stderr: "" });
+      expect(observation.probeAttemptedEffects).toEqual(CONFIG_EFFECT_SENTINEL_PROBE_EFFECTS);
+      expect(observation.handlerAttemptedEffects).toEqual([]);
+      expect(observation.handlerErrors).toEqual([]);
+      expect(observation.cwdAfter).toBe(observation.cwdBefore);
+      expect(observation.changedEnvironmentKeys).toEqual([]);
     });
   });
 });

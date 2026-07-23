@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { createRequire, syncBuiltinESMExports } from "node:module";
-import { isDeepStrictEqual } from "node:util";
 
-const EFFECT_SENTINEL_SUCCESS = "CONFIG_EFFECT_SENTINEL_OK";
+import { compareAsciiStrings } from "@/lib/state-store";
+
 const CANARY_PATH = "/config-handler-effect-sentinel-canary";
 const CHILD_PROCESS_METHODS = ["exec", "execFile", "fork", "spawn", "execSync", "execFileSync", "spawnSync"] as const;
 const FILESYSTEM_METHODS = [
@@ -78,9 +78,9 @@ function restoreEffectTraps(): void {
   syncBuiltinESMExports();
 }
 
-async function proveCaughtAttemptsRemainObservable(): Promise<void> {
+async function observeCaughtAttempts(): Promise<readonly string[]> {
   try {
-    await writeFile(CANARY_PATH, EFFECT_SENTINEL_SUCCESS);
+    await writeFile(CANARY_PATH, CANARY_PATH);
   } catch {
     // The trap records the attempt before the simulated denial is caught.
   }
@@ -89,17 +89,22 @@ async function proveCaughtAttemptsRemainObservable(): Promise<void> {
   } catch {
     // The trap records the attempt before the simulated denial is caught.
   }
-  expectAttempts([
-    "node:fs/promises.writeFile",
-    "node:child_process.spawnSync",
-  ]);
+  const observed = [...attemptedEffects];
   attemptedEffects.length = 0;
+  return observed;
 }
 
-function expectAttempts(expected: readonly string[]): void {
-  if (!isDeepStrictEqual(attemptedEffects, expected)) {
-    throw new Error(`Expected effects ${JSON.stringify(expected)}, observed ${JSON.stringify(attemptedEffects)}`);
-  }
+function changedEnvironmentKeys(
+  before: Readonly<Record<string, string | undefined>>,
+  after: Readonly<Record<string, string | undefined>>,
+): readonly string[] {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((key) => before[key] !== after[key])
+    .sort(compareAsciiStrings);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 const { defaultsCommand } = await import("@/commands/config/defaults");
@@ -110,36 +115,59 @@ const { CONFIG_TEST_GENERATOR, sampleConfigTestValue } = await import(
 );
 const { configCliDefaults, configCliDeps } = await import("@testing/harnesses/config/cli");
 
-installEffectTraps();
+type ConfigEffectSentinelObservation = {
+  readonly changedEnvironmentKeys: readonly string[];
+  readonly cwdAfter: string;
+  readonly cwdBefore: string;
+  readonly handlerAttemptedEffects: readonly string[];
+  readonly handlerErrors: readonly string[];
+  readonly probeAttemptedEffects: readonly string[];
+};
 
-try {
-  await proveCaughtAttemptsRemainObservable();
+async function observeConfigHandlerEffects(): Promise<ConfigEffectSentinelObservation> {
+  installEffectTraps();
+  try {
+    const probeAttemptedEffects = await observeCaughtAttempts();
 
-  const initialCwd = process.cwd();
-  const initialEnvironment = { ...process.env };
-  const successfulDeps = configCliDeps({ ok: true, value: configCliDefaults() });
-  const rejectedDeps = configCliDeps({
-    ok: false,
-    error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
-  });
+    const cwdBefore = process.cwd();
+    const environmentBefore = { ...process.env };
+    const successfulDeps = configCliDeps({ ok: true, value: configCliDefaults() });
+    const rejectedDeps = configCliDeps({
+      ok: false,
+      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    });
 
-  await showCommand({}, successfulDeps);
-  await showCommand({ json: true }, successfulDeps);
-  await showCommand({}, rejectedDeps);
-  await validateCommand({}, successfulDeps);
-  await validateCommand({}, rejectedDeps);
-  await defaultsCommand({}, successfulDeps);
-  await defaultsCommand({ json: true }, successfulDeps);
+    const handlerErrors: string[] = [];
+    for (
+      const operation of [
+        () => showCommand({}, successfulDeps),
+        () => showCommand({ json: true }, successfulDeps),
+        () => showCommand({}, rejectedDeps),
+        () => validateCommand({}, successfulDeps),
+        () => validateCommand({}, rejectedDeps),
+        () => defaultsCommand({}, successfulDeps),
+        () => defaultsCommand({ json: true }, successfulDeps),
+      ]
+    ) {
+      try {
+        await operation();
+      } catch (error) {
+        handlerErrors.push(errorMessage(error));
+      }
+    }
 
-  expectAttempts([]);
-  if (process.cwd() !== initialCwd) {
-    throw new Error("config handler changed the process working directory");
+    const environmentAfter = { ...process.env };
+    return {
+      changedEnvironmentKeys: changedEnvironmentKeys(environmentBefore, environmentAfter),
+      cwdAfter: process.cwd(),
+      cwdBefore,
+      handlerAttemptedEffects: [...attemptedEffects],
+      handlerErrors,
+      probeAttemptedEffects,
+    };
+  } finally {
+    restoreEffectTraps();
   }
-  if (!isDeepStrictEqual({ ...process.env }, initialEnvironment)) {
-    throw new Error("config handler mutated the process environment");
-  }
-} finally {
-  restoreEffectTraps();
 }
 
-console.log(EFFECT_SENTINEL_SUCCESS);
+console.log(JSON.stringify(await observeConfigHandlerEffects()));

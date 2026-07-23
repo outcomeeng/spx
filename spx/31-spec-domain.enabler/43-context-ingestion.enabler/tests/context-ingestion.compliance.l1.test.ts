@@ -15,6 +15,7 @@ import {
   SPEC_TREE_CONFIG,
   specContextBootstrap,
 } from "@/lib/spec-tree";
+import { generatedMethodologySection } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   specContextAmbiguousTargetFixture,
@@ -27,7 +28,6 @@ import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
-import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {

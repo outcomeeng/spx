@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILE_READ_KIND,
   type ConfigFileFormat,
   parseConfigFileSections,
   readProductConfigFile,
@@ -90,11 +91,13 @@ export async function forEachConfigFormatObservation(
       await writeRaw(CONFIG_FILE_DEFINITIONS[format].filename, serializeConfig(format, scenario.config));
 
       const read = await readProductConfigFile(productDir);
-      const parsed = read.ok && read.value.kind === "ok" ? parseConfigFileSections(read.value.file) : null;
-      const serialized = parsed?.ok === true && read.ok && read.value.kind === "ok"
+      const parsed = read.ok && read.value.kind === CONFIG_FILE_READ_KIND.OK
+        ? parseConfigFileSections(read.value.file)
+        : null;
+      const serialized = parsed?.ok === true && read.ok && read.value.kind === CONFIG_FILE_READ_KIND.OK
         ? serializeConfigFileSections(read.value.file.format, parsed.value)
         : null;
-      const reparsed = serialized?.ok === true && read.ok && read.value.kind === "ok"
+      const reparsed = serialized?.ok === true && read.ok && read.value.kind === CONFIG_FILE_READ_KIND.OK
         ? parseConfigFileSections({ ...read.value.file, raw: serialized.value })
         : null;
       await consume({ expectedConfig: scenario.config, format, parsed, read, reparsed, serialized });

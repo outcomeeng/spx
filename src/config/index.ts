@@ -33,13 +33,19 @@ export type ConfigFile = {
   readonly raw: string;
 };
 
+export const CONFIG_FILE_READ_KIND = {
+  OK: "ok",
+  AMBIGUOUS: "ambiguous",
+  ABSENT: "absent",
+} as const;
+
 export type ConfigFileReadResult =
-  | { readonly kind: "ok"; readonly file: ConfigFile }
-  | { readonly kind: "ambiguous"; readonly detected: readonly ConfigFilename[] }
-  | { readonly kind: "absent" };
+  | { readonly kind: typeof CONFIG_FILE_READ_KIND.OK; readonly file: ConfigFile }
+  | { readonly kind: typeof CONFIG_FILE_READ_KIND.AMBIGUOUS; readonly detected: readonly ConfigFilename[] }
+  | { readonly kind: typeof CONFIG_FILE_READ_KIND.ABSENT };
 
 export function absentConfigFileReadResult(): { readonly ok: true; readonly value: ConfigFileReadResult } {
-  return { ok: true, value: { kind: "absent" } };
+  return { ok: true, value: { kind: CONFIG_FILE_READ_KIND.ABSENT } };
 }
 
 const JSON_INDENT = 2;
@@ -58,11 +64,11 @@ export function resolveConfigFromReadResult(
   detected: ConfigFileReadResult,
   descriptors: readonly ConfigDescriptor<unknown>[] = productionRegistry,
 ): Result<Config> {
-  if (detected.kind === "ambiguous") {
+  if (detected.kind === CONFIG_FILE_READ_KIND.AMBIGUOUS) {
     return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
   }
 
-  const sectionsResult = detected.kind === "absent"
+  const sectionsResult = detected.kind === CONFIG_FILE_READ_KIND.ABSENT
     ? ({ ok: true as const, value: {} as Record<string, unknown> })
     : parseConfigFileSections(detected.file);
   if (!sectionsResult.ok) {
@@ -91,11 +97,11 @@ export function readConfigSectionFromReadResult(
   detected: ConfigFileReadResult,
   section: string,
 ): Result<unknown> {
-  if (detected.kind === "ambiguous") {
+  if (detected.kind === CONFIG_FILE_READ_KIND.AMBIGUOUS) {
     return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
   }
 
-  if (detected.kind === "absent") {
+  if (detected.kind === CONFIG_FILE_READ_KIND.ABSENT) {
     return { ok: true, value: undefined };
   }
 
@@ -123,12 +129,12 @@ export async function readProductConfigFile(productDir: string): Promise<Result<
     return {
       ok: true,
       value: {
-        kind: "ambiguous",
+        kind: CONFIG_FILE_READ_KIND.AMBIGUOUS,
         detected: detected.map((file) => file.filename),
       },
     };
   }
-  return { ok: true, value: { kind: "ok", file: detected[0] } };
+  return { ok: true, value: { kind: CONFIG_FILE_READ_KIND.OK, file: detected[0] } };
 }
 
 export function configFileForFormat(

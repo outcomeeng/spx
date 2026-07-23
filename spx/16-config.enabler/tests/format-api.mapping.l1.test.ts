@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CONFIG_FILE_READ_KIND } from "@/config";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { forEachConfigFormatObservation } from "@testing/harnesses/config/resolution";
 
@@ -8,10 +9,8 @@ describe("config format API mapping", () => {
     await forEachConfigFormatObservation(({ expectedConfig, format, parsed, read, reparsed, serialized }) => {
       expect(read.ok).toBe(true);
       if (!read.ok) return;
-      // ConfigFileReadResult owns this typed protocol member.
-      // eslint-disable-next-line no-restricted-syntax
-      expect(read.value.kind).toBe("ok");
-      if (read.value.kind !== "ok") return;
+      expect(read.value.kind).toBe(CONFIG_FILE_READ_KIND.OK);
+      if (read.value.kind !== CONFIG_FILE_READ_KIND.OK) return;
       expect(read.value.file.format).toBe(format);
       expect(parsed).not.toBeNull();
       if (parsed === null) return;

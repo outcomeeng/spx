@@ -1,4 +1,5 @@
 import type { RuleTester } from "eslint";
+import * as fc from "fast-check";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { SESSION_FRONT_MATTER } from "@/domains/session/types";
@@ -123,6 +124,16 @@ export interface ValidationLintDebtManifestEntries {
   readonly testOwnedConstantDebtNodes: readonly string[];
 }
 
+export interface ValidationGeneratedNumericArrayRuleConfig {
+  readonly config: readonly unknown[];
+  readonly severity: number;
+}
+
+export interface ValidationGeneratedBuiltinRuleResolutionScenario {
+  readonly registeredRuleName: string;
+  readonly unregisteredRuleName: string;
+}
+
 export interface ValidationGeneratedTypeScriptExclusionsScenario {
   readonly missingConfigFile: string;
   readonly baseConfigFile: string;
@@ -209,6 +220,33 @@ export function validationEslintRuleTesterLanguageOptions(): {
   return {
     ecmaVersion: RULE_TESTER_ECMA_VERSION,
     sourceType: MODULE_SOURCE_TYPE,
+  };
+}
+
+export function validationNumericRuleConfig(): fc.Arbitrary<number> {
+  return fc.integer();
+}
+
+export function validationNumericArrayRuleConfig(): fc.Arbitrary<ValidationGeneratedNumericArrayRuleConfig> {
+  return fc.tuple(fc.integer(), fc.array(fc.anything())).map(([severity, options]) => ({
+    config: [severity, ...options],
+    severity,
+  }));
+}
+
+export function validationNonnumericRuleConfig(): fc.Arbitrary<unknown> {
+  return fc.anything().filter((value) =>
+    typeof value !== "number"
+    && !(Array.isArray(value) && typeof value[0] === "number")
+  );
+}
+
+export function validationBuiltinRuleResolutionScenario(): ValidationGeneratedBuiltinRuleResolutionScenario {
+  const firstRun = astRestrictedSyntaxRuns().at(0);
+  if (firstRun === undefined) throw new Error("restricted syntax runs are empty");
+  return {
+    registeredRuleName: firstRun.ruleName,
+    unregisteredRuleName: `${firstRun.ruleName}.unregistered`,
   };
 }
 

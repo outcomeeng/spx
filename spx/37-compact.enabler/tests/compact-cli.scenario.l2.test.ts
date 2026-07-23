@@ -31,9 +31,10 @@ describe("compact CLI", () => {
   });
 
   it("stores nothing and exits successfully when the transcript has no foundation marker", async () => {
-    await withMissingFoundationStoreObservation(({ retrieved, stored }) => {
+    await withMissingFoundationStoreObservation(({ retrieved, stashContents, stored }) => {
       expect(stored).toMatchObject({ exitCode: 0, stderr: "", stdout: "" });
       expect(retrieved).toMatchObject({ exitCode: 1, stderr: "", stdout: "" });
+      expect(stashContents).toBeUndefined();
     });
   });
 

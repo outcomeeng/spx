@@ -1,7 +1,8 @@
 import { compactStashPath, extractCompactRecord } from "@/domains/compact";
+import { GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
 import { resolveWorktreeScopeDir } from "@/lib/state-store";
 import { COMPACT_TEST_GENERATOR, sampleCompactTestValue } from "@testing/generators/compact/compact";
-import { createSessionGitDeps, WORKTREE_KIND } from "@testing/harnesses/session/harness";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 export type CompactRecordObservation = {
   readonly actual: ReturnType<typeof extractCompactRecord>;
@@ -43,20 +44,16 @@ export function withMissingFoundationObservation(consume: SyncObservationConsume
   consume({ actual: extractCompactRecord(scenario.transcript), expected: scenario.expectedRecord });
 }
 
-export async function forEachCompactPathObservation(
+export async function withCompactPathObservation(
   consume: AsyncObservationConsumer<CompactPathObservation>,
 ): Promise<void> {
-  const mainCheckoutScope = await resolveWorktreeScopeDir({
-    deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
-  });
-  const nonMainScope = await resolveWorktreeScopeDir({
-    deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
-  });
-  const scenario = sampleCompactTestValue(COMPACT_TEST_GENERATOR.pathScenario([mainCheckoutScope, nonMainScope]));
-  for (const path of scenario.paths) {
+  const sessionToken = sampleCompactTestValue(COMPACT_TEST_GENERATOR.sessionToken());
+  await withGitWorktreeEnv(async ({ productDir, runGit }) => {
+    const scopeDir = await resolveWorktreeScopeDir({ cwd: productDir });
+    const worktreeRoot = await runGit(GIT_SHOW_TOPLEVEL_ARGS);
     await consume({
-      actual: compactStashPath(path.scopeDir, scenario.sessionToken),
-      expected: path.expectedPath,
+      actual: compactStashPath(scopeDir, sessionToken),
+      expected: COMPACT_TEST_GENERATOR.compactStashFilePath(worktreeRoot, sessionToken),
     });
-  }
+  });
 }

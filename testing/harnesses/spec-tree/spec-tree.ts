@@ -1,7 +1,7 @@
 import { mkdir, readFile as readNodeFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 
-import * as fc from "fast-check";
+import type { Arbitrary } from "fast-check";
 
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
@@ -9,15 +9,11 @@ import type { SpecTreeEnvFixtureWriterMethod } from "@/domains/spec/fixture-writ
 import {
   createFilesystemSpecTreeSource,
   getKindDefinition,
-  type Kind,
   KIND_REGISTRY,
-  type KindDefinition,
   projectSpecTree,
   readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
-  type SpecTreeConfig,
-  type SpecTreeKindCategory,
   type SpecTreeProjection,
   type SpecTreeRegistry,
   type SpecTreeSnapshot,
@@ -28,6 +24,12 @@ import {
   createSource,
   type RepresentativeSpecTreeFixture,
 } from "@testing/generators/spec-tree/spec-tree";
+import {
+  arbitraryDecisionPath,
+  arbitraryNodePath,
+  arbitrarySpecTree,
+  type SpecTreeFixture,
+} from "@testing/generators/test-environment/test-environment";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
@@ -36,19 +38,6 @@ export type { Config } from "@/config/types";
 
 const TEMP_PREFIX = "spx-test-env-";
 const RESIDUAL_PLACEHOLDER_FILE = "placeholder.md";
-const MIN_SPEC_ORDER_INDEX = 10;
-const MAX_SPEC_ORDER_INDEX = 99;
-const SLUG_POOL = ["foo", "bar", "baz", "widget", "gizmo", "spec", "stub", "sample", "probe", "fixture"];
-const MAX_FIXTURE_ENTRIES = 5;
-
-export type SpecTreeFixtureEntry = {
-  readonly kind: string;
-  readonly path: string;
-};
-
-export type SpecTreeFixture = {
-  readonly entries: readonly SpecTreeFixtureEntry[];
-};
 
 type SpecTreeEnvFixtureWriter = (relativePath: string, contents: string) => Promise<void>;
 
@@ -61,9 +50,9 @@ export type SpecTreeEnv =
   & {
     readonly productDir: string;
     readFile(relativePath: string): Promise<string>;
-    readonly arbitraryNodePath: fc.Arbitrary<string>;
-    readonly arbitraryDecisionPath: fc.Arbitrary<string>;
-    readonly arbitrarySpecTree: fc.Arbitrary<SpecTreeFixture>;
+    readonly arbitraryNodePath: Arbitrary<string>;
+    readonly arbitraryDecisionPath: Arbitrary<string>;
+    readonly arbitrarySpecTree: Arbitrary<SpecTreeFixture>;
   }
   & {
     readonly [method in SpecTreeEnvFixtureWriterMethod]: SpecTreeEnvFixtureWriter;
@@ -166,37 +155,6 @@ export async function withSpecTreeEnv(
   });
 }
 
-export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
-  if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryNodePath has no node kinds registered");
-  }
-  return arbitraryPathFromKinds(entries);
-}
-
-export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION);
-  if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryDecisionPath has no decision kinds registered");
-  }
-  return arbitraryPathFromKinds(entries);
-}
-
-export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
-  const all = [
-    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE),
-    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION),
-  ];
-  if (all.length === 0) {
-    throw new Error("Config supplied to arbitrarySpecTree has no kinds registered");
-  }
-  return fc
-    .array(arbitraryEntryFromKinds(all), { minLength: 0, maxLength: MAX_FIXTURE_ENTRIES })
-    .map((entries) => ({ entries }));
-}
-
-type KindEntry = { readonly kind: string; readonly suffix: string };
-
 function valueDescriptor<T>(value: T): PropertyDescriptor {
   return {
     value,
@@ -204,40 +162,6 @@ function valueDescriptor<T>(value: T): PropertyDescriptor {
     writable: false,
     configurable: false,
   };
-}
-
-function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const rawSpecTree = config[SPEC_TREE_CONFIG.SECTION];
-  if (rawSpecTree === undefined || rawSpecTree === null || typeof rawSpecTree !== "object") {
-    throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_CONFIG.SECTION} section`);
-  }
-  const specTree = rawSpecTree as SpecTreeConfig;
-  const kinds = specTree.kinds;
-  return Object.entries(kinds)
-    .filter((entry): entry is [string, KindDefinition<Kind>] => {
-      const value = entry[1];
-      return (value as KindDefinition<Kind>).category === category;
-    })
-    .map(([key, value]) => ({ kind: key, suffix: value.suffix }));
-}
-
-function arbitraryPathFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<string> {
-  return arbitraryEntryFromKinds(entries).map((entry) => entry.path);
-}
-
-function arbitraryEntryFromKinds(
-  entries: readonly KindEntry[],
-): fc.Arbitrary<SpecTreeFixtureEntry> {
-  return fc
-    .tuple(
-      fc.integer({ min: MIN_SPEC_ORDER_INDEX, max: MAX_SPEC_ORDER_INDEX }),
-      fc.constantFrom(...SLUG_POOL),
-      fc.constantFrom(...entries),
-    )
-    .map(([index, slug, entry]) => ({
-      kind: entry.kind,
-      path: `${index}-${slug}${entry.suffix}`,
-    }));
 }
 
 async function writeAt(productDir: string, relativePath: string, contents: string): Promise<void> {

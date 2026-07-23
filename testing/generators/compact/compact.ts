@@ -53,14 +53,6 @@ export type GeneratedCompactOverrideScenario = GeneratedCompactRecordScenario & 
   readonly environmentSessionToken: string;
 };
 
-export type GeneratedCompactPathScenario = {
-  readonly sessionToken: string;
-  readonly paths: readonly {
-    readonly scopeDir: string;
-    readonly expectedPath: string;
-  }[];
-};
-
 function escapedMarker(node: string): string {
   return `${COMPACT_MARKER.CONTEXT} ${COMPACT_MARKER.TARGET_ATTRIBUTE}=${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}${node}${COMPACT_MARKER.ESCAPED_TARGET_QUOTE}`;
 }
@@ -180,16 +172,6 @@ function overrideScenario(): fc.Arbitrary<GeneratedCompactOverrideScenario> {
     }));
 }
 
-function pathScenario(scopeDirs: readonly string[]): fc.Arbitrary<GeneratedCompactPathScenario> {
-  return scopeToken().map((sessionToken) => ({
-    sessionToken,
-    paths: scopeDirs.map((scopeDir) => ({
-      scopeDir,
-      expectedPath: join(scopeDir, sessionToken, STATE_STORE_DOMAIN.COMPACT, COMPACT_STORE_PATH.STASH_FILE),
-    })),
-  }));
-}
-
 function compactStashFilePath(productDir: string, sessionToken: string): string {
   return join(
     productDir,
@@ -235,7 +217,6 @@ export const COMPACT_TEST_GENERATOR = {
     recordScenario(STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker()),
   latestRecordScenario,
   overrideScenario,
-  pathScenario,
   compactStashFilePath,
 } as const;
 

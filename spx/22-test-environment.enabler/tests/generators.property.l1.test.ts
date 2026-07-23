@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,112 +7,105 @@ import {
   NODE_SUFFIXES,
   readSpecTree,
   recognizeSpecTreeFilesystemEntry,
-  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
+  SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   arbitraryDecisionPath,
   arbitraryNodePath,
   arbitrarySpecTree,
-  withTestEnv,
-} from "@testing/harnesses/spec-tree/spec-tree";
-
-const nodeKindValues: ReadonlySet<string> = new Set(NODE_KINDS);
-
-function hasRegisteredNodeSuffix(path: string): boolean {
-  return NODE_SUFFIXES.some((suffix) => path.endsWith(suffix));
-}
-
-function hasRegisteredDecisionSuffix(path: string): boolean {
-  return DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix));
-}
-
-function hasRegisteredNodeKind(kind: string): boolean {
-  return nodeKindValues.has(kind);
-}
+} from "@testing/generators/test-environment/test-environment";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("arbitraryNodePath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's node suffixes", () => {
-    fc.assert(
-      fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
-        expect(path.endsWith("/")).toBe(false);
-        expect(hasRegisteredNodeSuffix(path)).toBe(true);
-      }),
-      { numRuns: 50 },
+    assertProperty(
+      arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
+      (path) => {
+        expect(path.endsWith(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)).toBe(false);
+        expect(NODE_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
 
 describe("arbitraryDecisionPath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's decision suffixes", () => {
-    fc.assert(
-      fc.property(arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
-        expect(hasRegisteredDecisionSuffix(path)).toBe(true);
-      }),
-      { numRuns: 50 },
+    assertProperty(
+      arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG),
+      (path) => {
+        expect(DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
 
 describe("arbitrarySpecTree — free-function form", () => {
   it("generates tree descriptors whose entries have kind-appropriate paths", () => {
-    fc.assert(
-      fc.property(arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG), (tree) => {
+    assertProperty(
+      arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG),
+      (tree) => {
         for (const entry of tree.entries) {
-          if (hasRegisteredNodeKind(entry.kind)) {
-            expect(hasRegisteredNodeSuffix(entry.path)).toBe(true);
+          if (NODE_KINDS.some((kind) => kind === entry.kind)) {
+            expect(NODE_SUFFIXES.some((suffix) => entry.path.endsWith(suffix))).toBe(true);
           } else {
-            expect(hasRegisteredDecisionSuffix(entry.path)).toBe(true);
+            expect(DECISION_SUFFIXES.some((suffix) => entry.path.endsWith(suffix))).toBe(true);
           }
         }
-      }),
-      { numRuns: 25 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
 
 describe("generated paths parse through the filesystem read operation", () => {
   it("recognizes every arbitraryNodePath sample as a node source entry", () => {
-    fc.assert(
-      fc.property(arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
+    assertProperty(
+      arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
+      (path) => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
           relativePath: path,
         });
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
         expect(entry?.id).toBe(path);
-      }),
-      { numRuns: 50 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("recognizes every arbitraryDecisionPath sample as a decision source entry", () => {
-    fc.assert(
-      fc.property(arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG), (path) => {
+    assertProperty(
+      arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG),
+      (path) => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
           relativePath: path,
         });
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
         expect(entry?.id).toBe(path);
-      }),
-      { numRuns: 50 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
 
 describe("generated spec trees parse through readSpecTree", () => {
   it("materializes every arbitrarySpecTree fixture into a tree readSpecTree recognizes entry-for-entry", async () => {
-    await fc.assert(
-      fc.asyncProperty(arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG), async (fixture) => {
+    await assertProperty(
+      arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG),
+      async (fixture) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           for (const entry of fixture.entries) {
-            if (hasRegisteredNodeKind(entry.kind)) {
-              await env.writeNode(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${entry.path}/node.md`, "# generated fixture\n");
+            if (NODE_KINDS.some((kind) => kind === entry.kind)) {
+              await env.writeNode(entry.fixturePath, entry.contents);
             } else {
-              await env.writeDecision(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${entry.path}`, "# generated fixture\n");
+              await env.writeDecision(entry.fixturePath, entry.contents);
             }
           }
 
@@ -126,8 +118,8 @@ describe("generated spec trees parse through readSpecTree", () => {
             expect(recognizedIds.has(entry.path)).toBe(true);
           }
         });
-      }),
-      { numRuns: 10 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });
