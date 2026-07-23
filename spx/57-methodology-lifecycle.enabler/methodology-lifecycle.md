@@ -19,5 +19,6 @@ CAN understand compatibility and migrate product truth without routine tooling u
 
 - ALWAYS: an interrupted methodology migration preserves its branch, working changes, append-only run journal, and resumable coding-agent session while remaining incomplete ([test](tests/migration-interruption.compliance.l1.test.ts))
 - NEVER: SPX executable updates or coding-agent capability status, apply, or update operations change methodology identity or managed instruction markers ([test](tests/methodology-command-boundary.compliance.l1.test.ts))
+- NEVER: an SPX handoff session substitutes for the native coding-agent session identity a methodology migration resumes or closes ([audit])
 - ALWAYS: the target methodology owns semantic migration decisions and semantic verification of the resulting product truth ([audit])
 - NEVER: SPX infers or mechanically rewrites product truth under `spx/` as a substitute for the target methodology's migration workflow ([audit])
