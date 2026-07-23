@@ -9,10 +9,10 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_PROMPT_CONTRACT,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
+import { RELEASE_NOTES_PROMPT_CONTRACT } from "@/domains/release/release-notes-prompt-contract";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
