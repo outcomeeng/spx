@@ -7,8 +7,8 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX,
-  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX,
+  RELEASE_NOTES_USER_FACING_INSTRUCTION,
+  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -50,38 +50,15 @@ import {
   composeEveryReleaseNotesCase,
   type ReleaseNotesConformanceFailureObservation,
 } from "@testing/harnesses/release/release-notes-conformance";
-import {
-  observeReleaseNotesPromptLanguage,
-  RELEASE_NOTES_USER_VISIBLE_TERM_GROUPS,
-} from "@testing/harnesses/release/release-notes-prompt-oracle";
 import { describe, expect, it } from "vitest";
 
 it("instructs the producer to describe user-visible release behavior", () => {
-  const observation = observeReleaseNotesPromptLanguage(
-    buildReleaseNotesPrompt(
-      sampleReleaseNotesCompositionFixture().releaseData,
-      DEFAULT_CHANGELOG_PATH,
-    ),
-  );
-  for (const requiredTerms of RELEASE_NOTES_USER_VISIBLE_TERM_GROUPS) {
-    expect(requiredTerms.every((term) => observation.terms.has(term))).toBe(true);
-  }
-});
-
-it("carries the exact unquoted release section heading", () => {
-  const input = sampleReleaseNotesPromptInput(
-    RELEASE_NOTES_PROMPT_CASE.DELIMITER_VERSION,
-  );
   const prompt = buildReleaseNotesPrompt(
-    input.fixture.releaseData,
+    sampleReleaseNotesCompositionFixture().releaseData,
     DEFAULT_CHANGELOG_PATH,
   );
 
-  expect(prompt).toContain(
-    `${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_PREFIX}${
-      changelogVersionHeading(input.fixture.releaseData.version)
-    }${RELEASE_NOTES_VERSION_HEADING_INSTRUCTION_SUFFIX}`,
-  );
+  expect(prompt).toContain(RELEASE_NOTES_USER_FACING_INSTRUCTION);
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -299,6 +276,12 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       );
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
+      );
+      expect(observation.prompt).toContain(
+        RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
+      );
+      expect(observation.prompt).not.toContain(
+        changelogVersionHeading(input.fixture.releaseData.version),
       );
       expect(observation.prompt).not.toContain(
         releaseNotesPromptVersionProse(input.fixture.releaseData.version),
