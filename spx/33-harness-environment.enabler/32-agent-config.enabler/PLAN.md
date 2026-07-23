@@ -13,10 +13,16 @@ Reconcile Claude Code and Codex configuration from configured harness environmen
 - `spx/33-harness-environment.enabler/harness-environment.md`
 - `spx/33-harness-environment.enabler/21-agent-instructions.enabler/agent-instructions.md`
 
+## Governing decision
+
+`spx/13-agent-capability-lifecycle.pdr.md` requires native projections for explicitly enabled and available Claude Code, Codex, and Pi coding agents while keeping version selection, methodology identity, and user-scope configuration outside this writer.
+
 ## Implementation notes
 
 - Reuse useful behavior from the Claude settings subtree only after revalidating it against current product truth.
-- Separate agent-specific serializers from shared policy resolution.
+- Add Pi through a native serializer and projection contract rather than a Claude artifact adapter.
+- Separate coding-agent-specific serializers from shared policy resolution.
+- Derive status observation and apply writes from one resolved native projection.
 - Keep dry-run or preview behavior deterministic if exposed.
 - Do not add compatibility names for command paths without a current spec.
 
@@ -31,5 +37,11 @@ Can proceed in parallel with instruction management, but review/audit execution 
 
 ## Settled work
 
-- Agent config reconciliation is settled on `origin/main`.
+- Baseline Claude Code and Codex agent config reconciliation is settled on `origin/main`.
 - Follow-up agent state boundary notes are recorded in the parent harness-environment plan and owning consumer packets.
+
+## Pending lifecycle expansion
+
+- Add Pi-native projection without translating Claude Code artifacts.
+- Reconcile only agents that are both explicitly enabled and detected as available.
+- Keep exact package selection, methodology identity, and user-scope observation outside this writer.

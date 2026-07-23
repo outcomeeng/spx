@@ -13,12 +13,18 @@ Manage `AGENTS.md` and agent-specific instruction files through deterministic ge
 - `spx/33-harness-environment.enabler/harness-environment.md`
 - `spx/spx.product.md`
 
+## Governing decision
+
+`spx/13-agent-capability-lifecycle.pdr.md` requires exact methodology markers, explicit-enabled-plus-available participation, and routine reconciliation that never advances methodology identity.
+
 ## Implementation notes
 
 - Define managed-section markers before writing any files.
 - Preserve unmanaged content exactly.
 - Emit stable ordering for configured instruction fragments.
 - Include product language rules such as `productDir` where configured.
+- Project instruction files only for participating coding agents.
+- Reject routine reconciliation that would advance managed instruction markers beyond the declared methodology version.
 
 ## Evidence required
 

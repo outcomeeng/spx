@@ -13,12 +13,18 @@ Bootstrap configured plugin marketplaces, plugins, and skills for supported agen
 - `spx/33-harness-environment.enabler/harness-environment.md`
 - `spx/33-harness-environment.enabler/32-agent-config.enabler/agent-config.md`
 
+## Governing decision
+
+`spx/13-agent-capability-lifecycle.pdr.md` separates read-only capability status, exact apply, methodology-compatible update, and methodology migration while prohibiting user-scope mutation and cross-agent artifact translation.
+
 ## Implementation notes
 
 - Define config shape before adding network-capable installation behavior.
-- Separate local status reporting from installation or update actions.
-- Keep core status and reconciliation commands offline-capable.
-- Record exact installed versions or digests when the underlying agent exposes them.
+- Separate local status reporting from apply and update actions.
+- Keep status offline-capable; apply and update resolve declared network sources.
+- Persist exact compatible package pins through the config owner before update applies them.
+- Record exact installed versions or digests when the coding agent exposes them.
+- Consume coding-agent-native packages from declared sources without translating another coding agent's artifacts.
 
 ## Evidence required
 
