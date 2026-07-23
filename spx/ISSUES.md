@@ -90,3 +90,9 @@ Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shi
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
 **Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+
+## Product author command is undeclared
+
+`AGENTS.md` states that a product author command appears later in the file and must run after spec, test, or implementation mutations, but the file declares no author command. The workflow can invoke `/author` and repository formatting and validation commands, yet it cannot execute the promised product-specific regeneration command.
+
+**Revisit condition:** Before a workflow depends on generated author artifacts, define the product author command in the product-owned instruction section or remove the unsupported command claim from the managed router.
