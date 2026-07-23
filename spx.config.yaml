@@ -1,3 +1,7 @@
+methodology:
+  source: outcomeeng/spec-tree
+  version: 0.24.0
+
 validation:
   paths:
     exclude:
