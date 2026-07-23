@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH } from "@/domains/compact";
+import { COMPACT_MARKER, COMPACT_RECORD_FIELDS, COMPACT_STORE_PATH, type CompactRecord } from "@/domains/compact";
 import { STATE_STORE_DOMAIN, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -25,18 +25,16 @@ function nodePath(): fc.Arbitrary<string> {
   return fc.array(nodeSegment(), { minLength: 1, maxLength: 4 }).map((segments) => `spx/${segments.join("/")}`);
 }
 
-type CompactExpectedRecord = Readonly<Record<string, unknown>>;
-
 export type GeneratedCompactTranscriptScenario = {
   readonly transcript: string;
-  readonly expectedRecord: CompactExpectedRecord | undefined;
+  readonly expectedRecord: CompactRecord | undefined;
 };
 
 export type GeneratedCompactRecordScenario = {
   readonly sessionToken: string;
   readonly transcriptFileName: string;
   readonly transcript: string;
-  readonly expectedRecord: CompactExpectedRecord;
+  readonly expectedRecord: CompactRecord;
 };
 
 export type GeneratedCompactMissingFoundationStoreScenario = {
@@ -83,7 +81,7 @@ function transcriptJsonl(lines: readonly string[]): string {
   return lines.map(jsonlStringRecord).join("\n");
 }
 
-function expectedRecord(node: string): CompactExpectedRecord {
+function expectedRecord(node: string): CompactRecord {
   return {
     [COMPACT_RECORD_FIELDS.ACTIVE_NODE]: node,
     [COMPACT_RECORD_FIELDS.HAS_FOUNDATION]: true,
