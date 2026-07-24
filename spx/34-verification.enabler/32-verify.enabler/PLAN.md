@@ -6,14 +6,18 @@
 
 1. `spx verification run` owns the individual verification-run lifecycle: `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render`.
 2. Scope, finding, and terminal metadata validation dispatch through the shared evidence-validator registry keyed by verification type and evidence kind.
-3. Registered verification types are `review` and `audit`; both validate scope and finding payloads, and both participate in terminal-status validation.
+3. Registered verification types are `review`, `audit`, and `test`; each validates scope and finding payloads, and each participates in terminal-status validation.
 4. CLI command vocabulary stays under `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler`; this node owns the library and command-layer lifecycle behavior behind that surface.
 
 ## Remaining lifecycle work
 
-1. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering before a verification type can register only part of the evidence-action surface.
-2. Keep run-set context projection out of the individual-run lifecycle; `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` owns it as the separate run-set layer.
-3. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` provides.
+1. Make scope and finding evidence validation reasoned, per `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`. `EvidenceValidator` in `src/domains/verify/verify.ts` still returns `unknown | undefined`, so a rejection carries no reason; `TerminalMetadataValidator` already returns the reasoned `TerminalMetadataValidationResult` the scope and finding validators mirror. The change replaces that return type, keeps one validation implementation per payload schema from which the reasoned and value-narrowing views derive, updates the registered `review`, `audit`, and `test` validators, and reports the reason through the evidence rejection the command layer emits. Declared and awaiting evidence in:
+   - `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler` — the append boundary reports the verification-type validation reason (`tests/verify-finding.compliance.l1.test.ts`).
+   - `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler` — the audit validator names the failing field path or unmet structural requirement (`tests/audit-evidence-validation.compliance.l1.test.ts`).
+   - `spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler` — the test validator names the same (`tests/test-evidence-validation.compliance.l1.test.ts`).
+2. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering before a verification type can register only part of the evidence-action surface.
+3. Keep run-set context projection out of the individual-run lifecycle; `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` owns it as the separate run-set layer.
+4. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` provides.
 
 ## Expansion structure
 
