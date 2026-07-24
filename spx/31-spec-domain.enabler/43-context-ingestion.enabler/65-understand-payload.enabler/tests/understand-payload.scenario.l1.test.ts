@@ -1,26 +1,33 @@
-import { rm, symlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import {
-  FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
-import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_CONTENT_FIELDS,
+  SPEC_CONTEXT_DIGEST_ALGORITHM,
+  SPEC_CONTEXT_LISTED_ROLE,
+  SPEC_CONTEXT_READ_ROLE,
+} from "@/lib/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
   contextTextCommand,
   listedPathsForRole,
+  makeMethodologyManifestUnreadable,
   methodologyPackageConfig,
   parseContextManifest,
   readPathsForRole,
+  removeMethodologyManifest,
   rootedSpecPath,
-  SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
+  writeEscapingCoreMethodologyManifest,
   writeMethodologyPackage,
+  writeSymlinkEscapingCoreMethodologyPackage,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload", () => {
@@ -41,8 +48,12 @@ describe("spec context understand payload", () => {
       // Bodies appear in the machine mode even without content mode — the
       // consumers of the payload have no other access to the foundation.
       expect(methodologyEntry?.content).toBe(fixture.coreText);
-      expect(methodologyEntry?.digest).toBeDefined();
-      expect(methodologyEntry?.bytes).toBeDefined();
+      expect(methodologyEntry?.digest).toBe(
+        `${SPEC_CONTEXT_DIGEST_ALGORITHM}:${
+          createHash(SPEC_CONTEXT_DIGEST_ALGORITHM).update(fixture.coreText).digest("hex")
+        }`,
+      );
+      expect(methodologyEntry?.bytes).toBe(Buffer.byteLength(fixture.coreText));
       // The methodology group is ordered after every other read entry.
       expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
       expect(manifest.coverage.at(0)?.read.at(-1)).toBe(fixture.corePath);
@@ -89,7 +100,23 @@ describe("spec context understand payload", () => {
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const fixture = await writeMethodologyPackage(env);
-      await rm(join(env.productDir, fixture.packageDir, FOUNDATION_MANIFEST_RELATIVE_PATH));
+      await removeMethodologyManifest(env, fixture);
+      await expect(
+        contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+      ).rejects.toThrow(FOUNDATION_MANIFEST_RELATIVE_PATH);
+    });
+  });
+
+  it("fails naming the resolved manifest path and expected contract when the manifest is unreadable", async () => {
+    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const fixture = await writeMethodologyPackage(env);
+      await makeMethodologyManifestUnreadable(env, fixture);
+      await expect(
+        contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+      ).rejects.toThrow(join(env.productDir, fixture.manifestPath));
       await expect(
         contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
       ).rejects.toThrow(FOUNDATION_MANIFEST_RELATIVE_PATH);
@@ -102,24 +129,10 @@ describe("spec context understand payload", () => {
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const fixture = await writeMethodologyPackage(env);
-      // The escape target exists and is readable, so only the containment
-      // rule stands between the traversal path and its bytes.
-      const escapeText = "# Outside the package\n";
-      await writeFile(join(env.productDir, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME), escapeText);
-      const manifest = {
-        [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
-        [FOUNDATION_MANIFEST_FIELDS.CORE]: `../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`,
-        [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [],
-        [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
-        [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
-      };
-      await writeFile(join(env.productDir, fixture.manifestPath), JSON.stringify(manifest));
-      // The rejection must name the offending value itself, not merely the
-      // failing field, so a traversal defect is distinguishable from any
-      // other core-field defect.
+      const escaping = await writeEscapingCoreMethodologyManifest(env, fixture);
       await expect(
         contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
-      ).rejects.toThrow(`../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`);
+      ).rejects.toThrow(escaping.offendingPath);
     });
   });
 
@@ -129,14 +142,10 @@ describe("spec context understand payload", () => {
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const fixture = await writeMethodologyPackage(env);
-      const escapePath = join(env.productDir, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
-      await writeFile(escapePath, "# Outside the package\n");
-      const corePath = join(env.productDir, fixture.packageDir, fixture.corePath);
-      await rm(corePath);
-      await symlink(escapePath, corePath);
+      const escaping = await writeSymlinkEscapingCoreMethodologyPackage(env, fixture);
       await expect(
         contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
-      ).rejects.toThrow(fixture.corePath);
+      ).rejects.toThrow(escaping.offendingPath);
     });
   });
 

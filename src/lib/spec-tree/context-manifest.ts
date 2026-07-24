@@ -124,6 +124,10 @@ export interface SpecContextManifest {
   readonly coverage: readonly SpecContextTargetCoverage[];
 }
 
+export type SpecContextManifestProjection = Omit<SpecContextManifest, "bootstrap"> & {
+  readonly nodeCount: number;
+};
+
 /** One document in a single target's ordered read sequence, before bundle composition. */
 export interface SpecContextTargetReadDocument {
   readonly role: SpecContextReadRole;
@@ -270,6 +274,14 @@ export function formatMissingCitedDecisionError(citedPath: string, citingPath: s
 /** Snapshot-derived bootstrap state: a tree with no nodes is in bootstrap. */
 export function specContextBootstrap(nodeCount: number): boolean {
   return nodeCount === 0;
+}
+
+/** Projects the emitted manifest shape from snapshot cardinality and the assembled context fields. */
+export function projectSpecContextManifest(
+  projection: SpecContextManifestProjection,
+): SpecContextManifest {
+  const { nodeCount, ...manifest } = projection;
+  return { ...manifest, bootstrap: specContextBootstrap(nodeCount) };
 }
 
 /**

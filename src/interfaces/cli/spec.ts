@@ -46,6 +46,11 @@ export const SPEC_CONTEXT_OUTPUT_FORMAT = {
   JSON: "json",
 } as const;
 
+export const SPEC_CONTEXT_OUTPUT_FORMAT_MESSAGE = {
+  INVALID_PREFIX: "Invalid spec context output format",
+  VALID_OPTIONS_PREFIX: "Must be one of",
+} as const;
+
 export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
 
 export const SPEC_STATUS_OUTPUT_FORMATS: readonly OutputFormat[] = [
@@ -110,6 +115,15 @@ export async function contextOutputForFormat(
   format: SpecContextOutputFormat,
   options: ContextOptions,
 ): Promise<string> {
+  if (!Object.values(SPEC_CONTEXT_OUTPUT_FORMAT).includes(format)) {
+    throw new Error(
+      `${SPEC_CONTEXT_OUTPUT_FORMAT_MESSAGE.INVALID_PREFIX} ${
+        quotedCliArgument(format)
+      }. ${SPEC_CONTEXT_OUTPUT_FORMAT_MESSAGE.VALID_OPTIONS_PREFIX}: ${
+        Object.values(SPEC_CONTEXT_OUTPUT_FORMAT).join(", ")
+      }`,
+    );
+  }
   const resolution = await resolveContextManifest(options);
   if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
   return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON

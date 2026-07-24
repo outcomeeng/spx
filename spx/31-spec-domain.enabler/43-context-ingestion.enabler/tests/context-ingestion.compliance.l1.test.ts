@@ -6,18 +6,24 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
+import {
+  contextOutputForFormat,
+  SPEC_CONTEXT_OUTPUT_FORMAT_MESSAGE,
+  type SpecContextOutputFormat,
+} from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import {
   KIND_REGISTRY,
+  projectSpecContextManifest,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
-  specContextBootstrap,
 } from "@/lib/spec-tree";
 import { generatedMethodologySection } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
+  arbitraryInvalidSpecContextOutputFormat,
   specContextAmbiguousTargetFixture,
   specContextExactPrefixTargetFixture,
   specContextLowerSiblingDirectoryName,
@@ -109,12 +115,11 @@ describe("spec context ingestion compliance", () => {
       const target = snapshot.allNodes[0];
       const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
       expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
-      expect(specContextBootstrap(0)).toBe(true);
-      expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
-      // Literal oracle: the materialized fixture holds nodes by construction,
-      // and a resolvable target implies a non-empty tree, so the emitted flag
-      // is false without re-running the production derivation.
       expect(manifest.bootstrap).toBe(false);
+      expect(projectSpecContextManifest({ ...manifest, nodeCount: 0 }).bootstrap).toBe(true);
+      expect(
+        projectSpecContextManifest({ ...manifest, nodeCount: snapshot.allNodes.length }).bootstrap,
+      ).toBe(false);
     });
   });
 
@@ -233,6 +238,13 @@ describe("spec context ingestion compliance", () => {
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
       expect(parseContextManifest(jsonOutput).targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target.id}`]);
     });
+  });
+
+  it("rejects an output mode outside the source-owned text and JSON vocabulary", async () => {
+    const invalidFormat = sampleSpecTreeTestValue(arbitraryInvalidSpecContextOutputFormat());
+    await expect(
+      contextOutputForFormat(invalidFormat as SpecContextOutputFormat, { targets: [], cwd: process.cwd() }),
+    ).rejects.toThrow(SPEC_CONTEXT_OUTPUT_FORMAT_MESSAGE.INVALID_PREFIX);
   });
 
   it("rejects malformed methodology config before manifest output", async () => {

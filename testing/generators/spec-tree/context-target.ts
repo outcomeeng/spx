@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
@@ -70,6 +71,12 @@ const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES = {
   REPRESENTATIVE: "representative",
   SINGLE_ROOT: "single-root",
 } as const;
+
+export function arbitraryInvalidSpecContextOutputFormat(): fc.Arbitrary<string> {
+  return fc.string({ minLength: 1 }).filter(
+    (candidate) => !Object.values(SPEC_CONTEXT_OUTPUT_FORMAT).includes(candidate as never),
+  );
+}
 
 export type SpecContextTargetMappingCaseKind =
   (typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES];

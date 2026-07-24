@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, symlink } from "node:fs/promises";
 import { join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -16,6 +16,7 @@ import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
+  type FoundationManifestCatalogField,
 } from "@/lib/methodology/foundation-manifest";
 import {
   KIND_REGISTRY,
@@ -424,6 +425,10 @@ export interface MethodologyPackageFixture {
   readonly coreText: string;
   /** Package-relative catalog paths in manifest order: references, templates, examples. */
   readonly catalogPaths: readonly string[];
+  readonly catalogEntries: readonly {
+    readonly field: FoundationManifestCatalogField;
+    readonly path: string;
+  }[];
 }
 
 const METHODOLOGY_PACKAGE_DIRECTORY = "methodology-package";
@@ -447,7 +452,11 @@ export function methodologyPackageConfig(identity?: Record<string, unknown>): Co
  */
 export async function writeMethodologyPackage(
   env: CurrentSpecTreeEnv,
-  overrides?: { readonly coreText?: string; readonly schemaVersion?: number },
+  overrides?: {
+    readonly catalogField?: FoundationManifestCatalogField;
+    readonly coreText?: string;
+    readonly schemaVersion?: number;
+  },
 ): Promise<MethodologyPackageFixture> {
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
   const corePath = `skills/${slug}/SKILL.md`;
@@ -455,12 +464,26 @@ export async function writeMethodologyPackage(
   const templatePath = `skills/${slug}/templates/${slug}-template.md`;
   const examplePath = `skills/${slug}/examples/${slug}-example.md`;
   const coreText = overrides?.coreText ?? `# Foundation — Grundlagen ✓ 基盤 ${slug}\n`;
+  const catalogEntries = [
+    { field: FOUNDATION_MANIFEST_FIELDS.REFERENCES, path: referencePath },
+    { field: FOUNDATION_MANIFEST_FIELDS.TEMPLATES, path: templatePath },
+    { field: FOUNDATION_MANIFEST_FIELDS.EXAMPLES, path: examplePath },
+  ] as const;
   const manifest = {
     [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: overrides?.schemaVersion ?? FOUNDATION_MANIFEST_SCHEMA_VERSION,
     [FOUNDATION_MANIFEST_FIELDS.CORE]: corePath,
-    [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [referencePath],
-    [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [templatePath],
-    [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [examplePath],
+    [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: catalogEntries
+      .filter((entry) => overrides?.catalogField === undefined || entry.field === overrides.catalogField)
+      .filter((entry) => entry.field === FOUNDATION_MANIFEST_FIELDS.REFERENCES)
+      .map((entry) => entry.path),
+    [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: catalogEntries
+      .filter((entry) => overrides?.catalogField === undefined || entry.field === overrides.catalogField)
+      .filter((entry) => entry.field === FOUNDATION_MANIFEST_FIELDS.TEMPLATES)
+      .map((entry) => entry.path),
+    [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: catalogEntries
+      .filter((entry) => overrides?.catalogField === undefined || entry.field === overrides.catalogField)
+      .filter((entry) => entry.field === FOUNDATION_MANIFEST_FIELDS.EXAMPLES)
+      .map((entry) => entry.path),
   };
   const manifestPath = `${METHODOLOGY_PACKAGE_DIRECTORY}/${FOUNDATION_MANIFEST_RELATIVE_PATH}`;
   await env.writeRaw(manifestPath, JSON.stringify(manifest));
@@ -474,5 +497,72 @@ export async function writeMethodologyPackage(
     corePath,
     coreText,
     catalogPaths: [referencePath, templatePath, examplePath],
+    catalogEntries,
   };
+}
+
+export async function removeMethodologyManifest(
+  env: CurrentSpecTreeEnv,
+  fixture: MethodologyPackageFixture,
+): Promise<void> {
+  await rm(join(env.productDir, fixture.manifestPath));
+}
+
+export async function makeMethodologyManifestUnreadable(
+  env: CurrentSpecTreeEnv,
+  fixture: MethodologyPackageFixture,
+): Promise<void> {
+  const manifestPath = join(env.productDir, fixture.manifestPath);
+  await rm(manifestPath);
+  await mkdir(manifestPath);
+}
+
+export async function writeEscapingCoreMethodologyManifest(
+  env: CurrentSpecTreeEnv,
+  fixture: MethodologyPackageFixture,
+): Promise<{ readonly offendingPath: string }> {
+  const offendingPath = `../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`;
+  await env.writeRaw(SPEC_CONTEXT_ESCAPE_TARGET_FILENAME, "# Outside the package\n");
+  await env.writeRaw(
+    fixture.manifestPath,
+    JSON.stringify({
+      [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
+      [FOUNDATION_MANIFEST_FIELDS.CORE]: offendingPath,
+      [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [],
+      [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
+      [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
+    }),
+  );
+  return { offendingPath };
+}
+
+export async function writeSymlinkEscapingCoreMethodologyPackage(
+  env: CurrentSpecTreeEnv,
+  fixture: MethodologyPackageFixture,
+): Promise<{ readonly offendingPath: string }> {
+  const escapePath = join(env.productDir, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
+  await env.writeRaw(SPEC_CONTEXT_ESCAPE_TARGET_FILENAME, "# Outside the package\n");
+  const corePath = join(env.productDir, fixture.packageDir, fixture.corePath);
+  await rm(corePath);
+  await symlink(escapePath, corePath);
+  return { offendingPath: fixture.corePath };
+}
+
+export async function writeAbsentCatalogMethodologyManifest(
+  env: CurrentSpecTreeEnv,
+  fixture: MethodologyPackageFixture,
+  field: FoundationManifestCatalogField,
+): Promise<{ readonly absentPath: string }> {
+  const absentPath = `${fixture.corePath}-absent.md`;
+  await env.writeRaw(
+    fixture.manifestPath,
+    JSON.stringify({
+      [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
+      [FOUNDATION_MANIFEST_FIELDS.CORE]: fixture.corePath,
+      [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: field === FOUNDATION_MANIFEST_FIELDS.REFERENCES ? [absentPath] : [],
+      [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: field === FOUNDATION_MANIFEST_FIELDS.TEMPLATES ? [absentPath] : [],
+      [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: field === FOUNDATION_MANIFEST_FIELDS.EXAMPLES ? [absentPath] : [],
+    }),
+  );
+  return { absentPath };
 }

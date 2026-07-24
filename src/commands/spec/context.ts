@@ -32,6 +32,7 @@ import {
   formatMissingCitedDecisionError,
   formatUnreadableContextDocumentError,
   isLocalOverlayPath,
+  projectSpecContextManifest,
   readSpecTree,
   resolveSpecContextTarget,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -42,7 +43,6 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   specContextAncestors,
-  specContextBootstrap,
   specContextDecisions,
   specContextDigest,
   specContextEvidence,
@@ -542,16 +542,16 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
     }));
   }
   return {
-    manifest: {
+    manifest: projectSpecContextManifest({
       schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
       methodology,
       productDir,
       targets: bundle.targets,
-      bootstrap: specContextBootstrap(snapshot.allNodes.length),
+      nodeCount: snapshot.allNodes.length,
       read: contentRequested ? await withDocumentContent(productDir, read, scannedDocuments) : read,
       listed,
       coverage,
-    },
+    }),
     ok: true,
   };
 }

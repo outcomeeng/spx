@@ -25,6 +25,14 @@ export const FOUNDATION_MANIFEST_FIELDS = {
   EXAMPLES: "examples",
 } as const;
 
+export const FOUNDATION_MANIFEST_CATALOG_FIELDS = [
+  FOUNDATION_MANIFEST_FIELDS.REFERENCES,
+  FOUNDATION_MANIFEST_FIELDS.TEMPLATES,
+  FOUNDATION_MANIFEST_FIELDS.EXAMPLES,
+] as const;
+
+export type FoundationManifestCatalogField = (typeof FOUNDATION_MANIFEST_CATALOG_FIELDS)[number];
+
 /** The validated foundation-resource manifest: one core foundation document plus ordered resource catalogs. */
 export interface FoundationResourceManifest {
   readonly schemaVersion: number;
