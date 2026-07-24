@@ -21,6 +21,7 @@ import { NO_REGISTRY_POSITION_ACCESS_RULE_ID } from "./eslint-rules/no-registry-
 import { NO_SPEC_REFERENCES_RULE_ID } from "./eslint-rules/no-spec-references";
 import { NO_TASK_MARKER_COMMENTS_RULE_ID } from "./eslint-rules/no-task-marker-comments";
 import { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_ID } from "./eslint-rules/no-test-owned-domain-constants";
+import { NO_UNESCAPED_TERMINAL_TEXT_RULE_ID } from "./eslint-rules/no-unescaped-terminal-text";
 import {
   MIRROR_RULES,
   TASK_MARKER_COMMENT_FALLBACK_FILES,
@@ -298,6 +299,7 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
       },
       rules: {
         [NO_PROCESS_CWD_FOR_PRODUCT_ROOTS_RULE_ID]: "error",
+        [NO_UNESCAPED_TERMINAL_TEXT_RULE_ID]: "error",
       },
     },
     {
