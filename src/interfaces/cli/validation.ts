@@ -39,6 +39,7 @@ import {
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";

@@ -25,7 +25,7 @@ import {
   codexTranscript,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
 const PI_CONFIGURED_AGENT_HOME_SAMPLE = {
