@@ -11,6 +11,7 @@ import {
 import { AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import { claudeProjectDirName, worktreeResumeScope } from "@/domains/agent/resume";
 import { agentSearchQueryFromOptions } from "@/domains/agent/search";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryAgentResumeNowMs,
   arbitraryAgentSessionCwd,
@@ -25,7 +26,6 @@ import {
   codexTranscript,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
 const PI_CONFIGURED_AGENT_HOME_SAMPLE = {
@@ -452,12 +452,14 @@ async function discoverResume(
   cwd: string,
   nowMs: number,
 ): Promise<string> {
-  return renderTerminalText(await listAgentResumeSessions({
-    cwd,
-    fallbackWorktreeRoot: worktreeRoot,
-    scope: worktreeResumeScope(),
-    deps: { fs, agentHomeDirs, nowMs: () => nowMs, resolveWorktreeRoot: async () => worktreeRoot },
-  }));
+  return renderTerminalText(
+    await listAgentResumeSessions({
+      cwd,
+      fallbackWorktreeRoot: worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: { fs, agentHomeDirs, nowMs: () => nowMs, resolveWorktreeRoot: async () => worktreeRoot },
+    }),
+  );
 }
 
 interface SearchDiscoveryFixture {
@@ -471,21 +473,23 @@ async function discoverSearch(
   fixture: SearchDiscoveryFixture,
   agentHomeDirs: () => AgentHomeDirs,
 ): Promise<string> {
-  return renderTerminalText(await jsonAgentSearchSessions({
-    cwd: fixture.codexCwd,
-    fallbackProductScopeRoot: fixture.worktreeRoot,
-    query: agentSearchQueryFromOptions({}),
-    deps: {
-      fs: fixture.fs,
-      agentHomeDirs,
-      nowMs: () => fixture.nowMs,
-      resolveProductScopeRoot: async () => ({
-        productScopeRoot: fixture.worktreeRoot,
-        worktreeRoot: fixture.worktreeRoot,
-      }),
-      resolveBranchAssociatedWorktreeRoots: async () => [],
-    },
-  }));
+  return renderTerminalText(
+    await jsonAgentSearchSessions({
+      cwd: fixture.codexCwd,
+      fallbackProductScopeRoot: fixture.worktreeRoot,
+      query: agentSearchQueryFromOptions({}),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveProductScopeRoot: async () => ({
+          productScopeRoot: fixture.worktreeRoot,
+          worktreeRoot: fixture.worktreeRoot,
+        }),
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }),
+  );
 }
 
 function agentHomeEnvironment(agentHomeDirs: AgentHomeDirs): Record<string, string> {

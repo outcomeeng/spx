@@ -13,9 +13,10 @@ import {
   findSessionForArchive,
   SESSION_FILE_EXTENSION,
 } from "@/domains/session/archive";
-import { processBatch } from "@/domains/session/batch";
+import { processComposedBatch } from "@/domains/session/batch";
 import { SessionNotFoundError } from "@/domains/session/errors";
 import { SessionDirectoryConfig } from "@/domains/session/show";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_ARCHIVE_OUTPUT = {
@@ -123,12 +124,14 @@ export async function resolveArchivePaths(
 async function archiveSingle(
   sessionId: string,
   config: SessionDirectoryConfig,
-): Promise<string> {
+): Promise<TerminalText> {
   const { source, target } = await resolveArchivePaths(sessionId, config);
 
   await mkdir(dirname(target), { recursive: true });
   await rename(source, target);
-  return `${SESSION_ARCHIVE_OUTPUT.ARCHIVED}: ${sessionId}\n${SESSION_ARCHIVE_OUTPUT.ARCHIVE_LOCATION}: ${target}`;
+  return terminal`${authoredText(SESSION_ARCHIVE_OUTPUT.ARCHIVED)}: ${externalValue(sessionId)}\n${
+    authoredText(SESSION_ARCHIVE_OUTPUT.ARCHIVE_LOCATION)
+  }: ${externalValue(target)}`;
 }
 
 /**
@@ -140,8 +143,8 @@ async function archiveSingle(
  * @throws {SessionNotFoundError} When session not found (single ID)
  * @throws {SessionAlreadyArchivedError} When session already archived (single ID)
  */
-export async function archiveCommand(options: ArchiveOptions): Promise<string> {
+export async function archiveCommand(options: ArchiveOptions): Promise<TerminalText> {
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
-  return processBatch(options.sessionIds, (id) => archiveSingle(id, config));
+  return processComposedBatch(options.sessionIds, (id) => archiveSingle(id, config));
 }

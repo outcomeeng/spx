@@ -27,7 +27,11 @@ import {
   SESSION_STATUSES,
   SessionStatus,
 } from "@/domains/session/types";
+import { authoredText, joinTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
+
+/** The product's own line structure between status groups. */
+const LIST_OUTPUT_SEPARATOR = "\n";
 
 export const SESSION_LIST_FORMAT = {
   TEXT: "text",
@@ -126,7 +130,7 @@ function validateStatus(input: string): SessionStatus {
   );
 }
 
-export async function listCommand(options: ListOptions): Promise<string> {
+export async function listCommand(options: ListOptions): Promise<TerminalText> {
   // Parse the field selection first so an unknown field fails fast, before any
   // filesystem work. A field selection implies JSON output.
   const fieldSelection: SessionRecordField[] | undefined = options.fields === undefined
@@ -159,7 +163,9 @@ export async function listCommand(options: ListOptions): Promise<string> {
         return fieldSelection === undefined ? record : projectSessionRecord(record, fieldSelection);
       });
     }
-    return JSON.stringify(recordsByStatus, null, 2);
+    // Machine-destined: JSON.stringify escapes control bytes inside string values, which is that
+    // channel's safety contract, so the document is authored rather than escaped a second time.
+    return authoredText(JSON.stringify(recordsByStatus, null, 2));
   }
 
   // Text format. The descriptor resolves the color decision and terminal width
@@ -167,13 +173,15 @@ export async function listCommand(options: ListOptions): Promise<string> {
   // its inputs and never reads `process.stdout` or the environment.
   const color = options.color ?? false;
   const width = options.width ?? DEFAULT_LIST_WIDTH;
-  const lines: string[] = [];
+  const lines: TerminalText[] = [];
 
   for (const status of statuses) {
     const group = sessionsByStatus[status] ?? [];
-    const body = group.length === 0 ? `  ${SESSION_LIST_EMPTY_TEXT}` : formatSessionListText(group, { color, width });
-    lines.push(formatStatusHeader(status, color), body, "");
+    const body = group.length === 0
+      ? authoredText(`  ${SESSION_LIST_EMPTY_TEXT}`)
+      : formatSessionListText(group, { color, width });
+    lines.push(formatStatusHeader(status, color), body, authoredText(""));
   }
 
-  return lines.join("\n").trim();
+  return authoredText(joinTerminalText(LIST_OUTPUT_SEPARATOR, lines).trim());
 }

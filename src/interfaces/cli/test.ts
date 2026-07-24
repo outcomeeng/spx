@@ -1,6 +1,5 @@
 import type { Command } from "commander";
 
-import { type TerminalText, authoredText, externalValue, joinTerminalText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
@@ -8,6 +7,14 @@ import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { testingRegistry } from "@/test/registry";
 
 import {
@@ -76,7 +83,9 @@ async function runTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`));
+    io.writeStderr(
+      renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`),
+    );
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
@@ -98,7 +107,9 @@ async function runAgentTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`));
+    io.writeStderr(
+      renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`),
+    );
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }

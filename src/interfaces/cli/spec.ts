@@ -6,7 +6,6 @@ import {
   renderSpecContextText,
   resolveContextManifest,
 } from "@/commands/spec/context";
-import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -15,6 +14,13 @@ import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { testingRegistry } from "@/test/registry";
 
 export const SPEC_DOMAIN_CLI = {
@@ -57,9 +63,20 @@ export const SPEC_STATUS_OUTPUT_FORMATS: readonly OutputFormat[] = [
 ];
 
 const UNPRINTABLE_ERROR_MESSAGE = "unprintable error";
+/** The line terminator the spec descriptor appends to each written report. */
+const SPEC_LINE_TERMINATOR = authoredText("\n");
 
-function writeOutput(io: CliIo, output: string): void {
-  io.writeStdout(`${output}\n`);
+function writeOutput(io: CliIo, output: TerminalText): void {
+  io.writeStdout(renderTerminalText(terminal`${output}${SPEC_LINE_TERMINATOR}`));
+}
+
+/**
+ * Writes a context bundle, whose payload is the read documents themselves rather than a report
+ * the product composed about them. With `--content` the bundle carries each document's exact
+ * bytes, so this is the relay channel, not composed spx output.
+ */
+function writeDocument(io: CliIo, document: string): void {
+  io.writePassThrough(`${document}\n`);
 }
 
 function writeInvocationWarning(io: CliIo, warning: TerminalText | undefined): void {
@@ -81,7 +98,9 @@ function handleCommandError(io: CliIo, error: unknown): never {
       message = UNPRINTABLE_ERROR_MESSAGE;
     }
   }
-  io.writeStderr(renderTerminalText(terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${externalValue(message)}\n`));
+  io.writeStderr(
+    renderTerminalText(terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${externalValue(message)}\n`),
+  );
   return io.exit(1);
 }
 
@@ -172,7 +191,7 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
           understand: options.understand === true,
           onWarning,
         });
-        writeOutput(invocation.io, output);
+        writeDocument(invocation.io, output);
       } catch (error) {
         handleCommandError(invocation.io, error);
       }

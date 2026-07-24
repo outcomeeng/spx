@@ -1,10 +1,10 @@
 import { Command, type ErrorOptions } from "commander";
 
-import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
+import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -45,6 +45,10 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
   const io: CliIo = {
     writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
     writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
+    // Pass-through and composed output share one stream, so a caller that redirects standard
+    // output receives both unless it redirects the relay separately. The two stay distinct in the
+    // type — one claims control-byte safety and the other does not — not in their destination.
+    writePassThrough: options.writePassThrough ?? options.writeStdout ?? DEFAULT_CLI_IO.writePassThrough,
     setExitCode: options.setExitCode ?? DEFAULT_CLI_IO.setExitCode,
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };

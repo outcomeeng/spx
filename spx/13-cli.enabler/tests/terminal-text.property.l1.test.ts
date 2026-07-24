@@ -42,7 +42,9 @@ describe("terminal text composition invariants", () => {
 
   it("does not escape an external value twice when composed text is composed again", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
-      expect(renderTerminalText(terminal`${terminal`${externalValue(input)}`}`)).toBe(renderTerminalText(terminal`${externalValue(input)}`));
+      expect(renderTerminalText(terminal`${terminal`${externalValue(input)}`}`)).toBe(
+        renderTerminalText(terminal`${externalValue(input)}`),
+      );
     }, { level: PROPERTY_LEVEL.L1 });
   });
 });

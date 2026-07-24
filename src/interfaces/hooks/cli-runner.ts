@@ -11,7 +11,13 @@ import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import type { GitDependencies } from "@/lib/git/root";
-import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { HOOK_ERROR, isHookEvent, runHookEvent, type RunHookEventOptions } from "./registry";
 
@@ -66,7 +72,11 @@ export const HOOK_CONFIG_ERROR_PREFIX = "hook agent environment config read fail
 /** Runs a hook event from a CLI transport, including hook-owned process I/O. */
 export async function runHookCli(options: HookCliRunOptions): Promise<Result<void>> {
   if (!isHookEvent(options.event)) {
-    options.io.writeStderr(terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(options.event)}`);
+    options.io.writeStderr(
+      terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${
+        externalValue(options.event)
+      }`,
+    );
     return { ok: false, error: HOOK_ERROR.UNKNOWN_EVENT };
   }
 
@@ -139,7 +149,9 @@ export function createProcessHookIo(streams: HookProcessIoStreams): HookProcessI
 
 function formatStdinReadError(error: unknown): string {
   return renderTerminalText(
-    terminal`${authoredText(STDIN_READ_ERROR)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(describeStdinReadError(error))}`,
+    terminal`${authoredText(STDIN_READ_ERROR)}${authoredText(ERROR_DETAIL_SEPARATOR)}${
+      externalValue(describeStdinReadError(error))
+    }`,
   );
 }
 

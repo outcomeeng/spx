@@ -11,7 +11,6 @@ import {
   classifySessionEnvironment,
   type SessionEnvironmentReading,
 } from "@/domains/diagnose/checks/session-environment";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
 import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
 import {
@@ -44,6 +43,7 @@ import {
 } from "@/domains/diagnose/types";
 import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
@@ -377,7 +377,9 @@ export function assertTextReportHidesMachineFields(): void {
 export function assertUnknownTranslationHidesMachineFields(): void {
   const report = sampleReport();
   const fallbackRecord = { ...report.checks[0], verdict: report.checks[0].verdict.toUpperCase() };
-  const text = renderTerminalText(renderReportText({ checks: [fallbackRecord], overall: report.overall }, { color: false }));
+  const text = renderTerminalText(
+    renderReportText({ checks: [fallbackRecord], overall: report.overall }, { color: false }),
+  );
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE);
   expect(text).toContain(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE);
   expect(text).not.toContain(fallbackRecord.name);
@@ -416,9 +418,9 @@ export function assertHeadingGlyphsFollowBuckets(): void {
   assertProperty(
     arbitraryReport(),
     (report) => {
-      const headingLines = renderTerminalText(renderReportText(report, { color: false })).split("\n").filter((line: string) =>
-        !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL)
-      );
+      const headingLines = renderTerminalText(renderReportText(report, { color: false })).split("\n").filter((
+        line: string,
+      ) => !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL));
       expect(headingLines).toHaveLength(report.checks.length);
       report.checks.forEach((check, index) => {
         expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} `)).toBe(

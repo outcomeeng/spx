@@ -34,7 +34,13 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
@@ -126,7 +132,9 @@ function writeError(invocation: CliInvocation, output: TerminalText): void {
 }
 
 function handleError(invocation: CliInvocation, error: unknown): never {
-  const message = error instanceof Error ? terminal`${externalValue(error.name)}: ${externalValue(error.message)}` : terminal`${externalValue(inspect(error))}`;
+  const message = error instanceof Error
+    ? terminal`${externalValue(error.name)}: ${externalValue(error.message)}`
+    : terminal`${externalValue(inspect(error))}`;
   writeError(invocation, terminal`Error: ${message}`);
   return invocation.io.exit(AGENT_CLI_EXIT.FAILURE);
 }

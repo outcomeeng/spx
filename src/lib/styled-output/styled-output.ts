@@ -11,7 +11,13 @@
 
 import { Chalk } from "chalk";
 
-import { type TerminalText, authoredText, externalValue, joinTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 /** The severity vocabulary a styled report keys its glyphs and colors on. */
 export const SEVERITY = {
@@ -139,9 +145,9 @@ export function renderPlainTree(model: PlainTreeModel): TerminalText {
       return [
         terminal`${externalValue(section.header)}`,
         ...section.children.map((child, index) =>
-          terminal`${authoredText(DETAIL_INDENT)}${
-            authoredText(index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE)
-          }${authoredText(DETAIL_BRANCH_SEPARATOR)}${externalValue(child)}`
+          terminal`${authoredText(DETAIL_INDENT)}${authoredText(index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE)}${
+            authoredText(DETAIL_BRANCH_SEPARATOR)
+          }${externalValue(child)}`
         ),
       ];
     }),

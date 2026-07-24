@@ -30,6 +30,7 @@ import {
   type OriginBranchProbeOutcome,
   probeOriginBranch,
 } from "@/lib/git/root";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 import { resolveSession } from "./show";
 
@@ -107,7 +108,7 @@ async function probeEntry(
  *
  * @throws {SessionNotFoundError} When no status directory holds the session
  */
-export async function reconcileCommand(options: ReconcileOptions): Promise<string> {
+export async function reconcileCommand(options: ReconcileOptions): Promise<TerminalText> {
   const deps = options.deps ?? RECONCILE_DEPS;
   const cwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, cwd);
@@ -120,7 +121,9 @@ export async function reconcileCommand(options: ReconcileOptions): Promise<strin
   const files = await probeEntries(metadata.files, cwd, deps);
 
   const findings: ReconcileFinding[] = reconcileReferences(metadata, { gitRef, specs, files });
-  return JSON.stringify(findings, null, RECONCILE_JSON_INDENT);
+  // The findings document is machine-destined: JSON.stringify escapes control bytes inside string
+  // values, which is that channel's safety contract, so it is authored rather than escaped again.
+  return authoredText(JSON.stringify(findings, null, RECONCILE_JSON_INDENT));
 }
 
 async function probeEntries(

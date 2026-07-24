@@ -882,19 +882,21 @@ export async function withAgentSearchBranchWorktreeEvidence(
     },
   };
 
-  const output = renderTerminalText(await jsonAgentSearchSessions({
-    cwd: unassociatedRoot,
-    fallbackProductScopeRoot: productScopeRoot,
-    query: agentSearchQueryFromOptions({ branch: targetBranch }),
-    deps: {
-      fs,
-      agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
-      nowMs: () => nowMs,
-      resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
-      resolveBranchAssociatedWorktreeRoots: async (cwd, branch) =>
-        resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git),
-    },
-  }));
+  const output = renderTerminalText(
+    await jsonAgentSearchSessions({
+      cwd: unassociatedRoot,
+      fallbackProductScopeRoot: productScopeRoot,
+      query: agentSearchQueryFromOptions({ branch: targetBranch }),
+      deps: {
+        fs,
+        agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+        nowMs: () => nowMs,
+        resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
+        resolveBranchAssociatedWorktreeRoots: async (cwd, branch) =>
+          resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git),
+      },
+    }),
+  );
   const results = JSON.parse(output) as readonly {
     readonly sessionId: string;
     readonly matches: readonly string[];
@@ -947,18 +949,20 @@ export async function withAgentSearchBranchCommandEvidence(
     modifiedAtMs: nowMs - 1,
   });
 
-  const output = renderTerminalText(await jsonAgentSearchSessions({
-    cwd: productScopeRoot,
-    fallbackProductScopeRoot: productScopeRoot,
-    query: agentSearchQueryFromOptions({ branch: targetBranch }),
-    deps: {
-      fs,
-      agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
-      nowMs: () => nowMs,
-      resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
-      resolveBranchAssociatedWorktreeRoots: async () => [],
-    },
-  }));
+  const output = renderTerminalText(
+    await jsonAgentSearchSessions({
+      cwd: productScopeRoot,
+      fallbackProductScopeRoot: productScopeRoot,
+      query: agentSearchQueryFromOptions({ branch: targetBranch }),
+      deps: {
+        fs,
+        agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+        nowMs: () => nowMs,
+        resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
+        resolveBranchAssociatedWorktreeRoots: async () => [],
+      },
+    }),
+  );
   const results = JSON.parse(output) as readonly {
     readonly sessionId: string;
     readonly matches: readonly string[];

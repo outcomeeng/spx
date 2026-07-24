@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
@@ -38,6 +37,7 @@ import {
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { testingRegistry } from "@/test/registry";
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
@@ -217,7 +217,10 @@ export function registerSpecCliCommandScenarioEvidence(): void {
           cwd: nestedCwd,
           onWarning: (warning) => statusWarnings.push(renderTerminalText(warning)),
         });
-        const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(renderTerminalText(warning)) });
+        const nextOutput = await nextCommand({
+          cwd: nestedCwd,
+          onWarning: (warning) => nextWarnings.push(renderTerminalText(warning)),
+        });
 
         expect(statusOutput).toContain(rootPath);
         expect(nextOutput).toContain(rootPath);

@@ -7,6 +7,13 @@
 import { Chalk, type ChalkInstance } from "chalk";
 import { parse as parseYaml } from "yaml";
 
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  renderTerminalText,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { takeVisibleColumns, visibleWidth } from "./display-width";
 import { SessionInvalidFieldError } from "./errors";
 import { parseSessionId } from "./timestamp";
@@ -352,6 +359,8 @@ export const LIST_TEXT_MIN_WIDTH = 8;
 export const DEFAULT_LIST_WIDTH = 80;
 /** Indent every rendered session line carries. */
 const LIST_INDENT = "  ";
+/** The product's own line structure between session lines. */
+const LIST_LINE_SEPARATOR = "\n";
 /** Joins a session's goal and next step in the summary segment. */
 export const LIST_SUMMARY_SEPARATOR = " -> ";
 
@@ -379,22 +388,32 @@ const PRIORITY_STYLE: Record<SessionPriority, (chalk: ChalkInstance, text: strin
  * is budgeted against the remaining width before styling, so the styled line's
  * display width equals the budgeted plain width.
  */
-function formatSessionLine(session: Session, width: number, chalk: ChalkInstance): string {
+function formatSessionLine(session: Session, width: number, chalk: ChalkInstance): TerminalText {
   const { id, metadata } = session;
-  const badge = metadata.priority === DEFAULT_PRIORITY ? "" : ` [${metadata.priority}]`;
+  // The id, priority, goal, and next step are read from the session file, so each is escaped
+  // before it is measured. Escaping first keeps the width bound honest: a control byte becomes
+  // four visible columns, and truncating afterwards is what holds the line inside `width`.
+  const escapedId = renderTerminalText(externalValue(id));
+  const badge = metadata.priority === DEFAULT_PRIORITY
+    ? ""
+    : ` [${renderTerminalText(externalValue(metadata.priority))}]`;
   const summary = metadata.goal.length > 0 && metadata.next_step.length > 0
-    ? ` ${metadata.goal}${LIST_SUMMARY_SEPARATOR}${metadata.next_step}`
+    ? ` ${renderTerminalText(externalValue(metadata.goal))}${LIST_SUMMARY_SEPARATOR}${
+      renderTerminalText(externalValue(metadata.next_step))
+    }`
     : "";
 
   let remaining = Math.max(0, width - visibleWidth(LIST_INDENT));
-  const idShown = takeVisibleColumns(id, remaining);
+  const idShown = takeVisibleColumns(escapedId, remaining);
   remaining -= visibleWidth(idShown);
   const badgeShown = takeVisibleColumns(badge, remaining);
   remaining -= visibleWidth(badgeShown);
   const summaryShown = takeVisibleColumns(summary, remaining);
 
   const styledBadge = visibleWidth(badgeShown) > 0 ? PRIORITY_STYLE[metadata.priority](chalk, badgeShown) : "";
-  return `${LIST_INDENT}${chalk.dim(idShown)}${styledBadge}${chalk.dim(summaryShown)}`;
+  // Every embedded reading is already escaped above, and the remaining bytes are the indent and
+  // chalk's own styling escapes, which the product intends to reach the terminal.
+  return authoredText(`${LIST_INDENT}${chalk.dim(idShown)}${styledBadge}${chalk.dim(summaryShown)}`);
 }
 
 /**
@@ -407,9 +426,12 @@ function formatSessionLine(session: Session, width: number, chalk: ChalkInstance
  * @param opts - Whether to style and the maximum display width per line.
  * @returns The group's session lines joined by newlines.
  */
-export function formatSessionListText(sessions: Session[], opts: ListTextOptions): string {
+export function formatSessionListText(sessions: Session[], opts: ListTextOptions): TerminalText {
   const chalk = new Chalk({ level: opts.color ? 1 : 0 });
-  return sessions.map((session) => formatSessionLine(session, opts.width, chalk)).join("\n");
+  return joinTerminalText(
+    LIST_LINE_SEPARATOR,
+    sessions.map((session) => formatSessionLine(session, opts.width, chalk)),
+  );
 }
 
 /**
@@ -421,7 +443,9 @@ export function formatSessionListText(sessions: Session[], opts: ListTextOptions
  * @param color - Whether to emit ANSI styling escapes.
  * @returns The styled header line.
  */
-export function formatStatusHeader(status: SessionStatus, color: boolean): string {
+export function formatStatusHeader(status: SessionStatus, color: boolean): TerminalText {
   const chalk = new Chalk({ level: color ? 1 : 0 });
-  return chalk.bold(`${status.toUpperCase()}:`);
+  // The status is product-owned vocabulary and the styling is the product's own, so the header
+  // keeps its bytes through composition.
+  return authoredText(chalk.bold(`${status.toUpperCase()}:`));
 }

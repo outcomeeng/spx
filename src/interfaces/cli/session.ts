@@ -24,7 +24,6 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "@/commands/session/index";
-import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
@@ -42,6 +41,20 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { toMessage } from "@/lib/error-message";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+
+/** The line terminator the session descriptor appends to each written diagnostic. */
+const SESSION_LINE_TERMINATOR = authoredText("\n");
+/** The product's own prefix on a caught-error diagnostic. */
+const SESSION_ERROR_PREFIX = authoredText("Error: ");
+/** Refusal when `session pickup` names neither a session id nor `--auto`. */
+const SESSION_PICKUP_SELECTOR_REQUIRED_MESSAGE = "Error: Either session ID or --auto flag is required";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
@@ -84,29 +97,43 @@ async function readStdin(): Promise<string | undefined> {
 /**
  * Handles command errors with consistent formatting.
  */
-function writeOutput(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStdout(`${output}\n`);
+function writeOutput(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStdout(renderTerminalText(terminal`${output}${SESSION_LINE_TERMINATOR}`));
 }
 
-function writeError(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStderr(`${output}\n`);
+/**
+ * Writes a session document — the session file's own content, plus whatever files its frontmatter
+ * asked to inject. The payload is the stored artifact rather than a report the product composed
+ * about it, so it relays unchanged.
+ */
+function writeDocument(invocation: CliInvocation, document: string): void {
+  invocation.io.writePassThrough(`${document}\n`);
+}
+
+function writeError(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStderr(renderTerminalText(terminal`${output}${SESSION_LINE_TERMINATOR}`));
 }
 
 function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
-    writeError(invocation, renderTerminalText(warning));
+    writeError(invocation, warning);
   }
 }
 
-function formatError(error: unknown): string {
+/**
+ * Composes a caught error for standard error. The message and error name arrive from a thrown
+ * value — a filesystem failure, a git failure, a foreign library — so they are external readings,
+ * while the `Error:` prefix is the product's own.
+ */
+function formatError(error: unknown): TerminalText {
   if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
+    return terminal`${externalValue(error.name)}: ${externalValue(error.message)}`;
   }
-  return toMessage(error);
+  return externalValue(toMessage(error));
 }
 
 function handleError(invocation: CliInvocation, error: unknown): never {
-  writeError(invocation, `Error: ${formatError(error)}`);
+  writeError(invocation, terminal`${SESSION_ERROR_PREFIX}${formatError(error)}`);
   return invocation.io.exit(1);
 }
 
@@ -205,7 +232,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
         // The picker needs a real terminal; refuse a non-interactive context
         // rather than render to a non-TTY stream.
         if (!process.stdin.isTTY || !process.stdout.isTTY) {
-          writeError(invocation, PICK_NON_TTY_MESSAGE);
+          writeError(invocation, authoredText(PICK_NON_TTY_MESSAGE));
           invocation.io.exit(1);
         }
         const sessions = await loadPickCandidates({
@@ -270,7 +297,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
           cwd: effectiveInvocationDir(),
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        writeOutput(invocation, output);
+        writeDocument(invocation, output);
       } catch (error) {
         handleError(invocation, error);
       }
@@ -287,7 +314,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
     .action(async (ids: string[], options: { auto?: boolean; inject?: boolean; sessionsDir?: string }) => {
       try {
         if (ids.length === 0 && !options.auto) {
-          writeError(invocation, "Error: Either session ID or --auto flag is required");
+          writeError(invocation, authoredText(SESSION_PICKUP_SELECTOR_REQUIRED_MESSAGE));
           invocation.io.exit(1);
         }
         const output = await pickupCommand({
@@ -298,7 +325,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
           cwd: effectiveInvocationDir(),
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        writeOutput(invocation, output);
+        writeDocument(invocation, output);
       } catch (error) {
         handleError(invocation, error);
       }
@@ -379,7 +406,10 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
           if (error.checklist !== null) {
             writeError(invocation, renderHandoffBaseChecklist(error.checklist));
           } else if (!error.silent) {
-            writeError(invocation, `Error: ${error.name}: ${error.message}`);
+            writeError(
+              invocation,
+              terminal`${SESSION_ERROR_PREFIX}${externalValue(error.name)}: ${externalValue(error.message)}`,
+            );
           }
           invocation.io.exit(1);
         }
@@ -428,7 +458,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
         writeOutput(invocation, output);
       } catch (error) {
         if (error instanceof PruneValidationError) {
-          writeError(invocation, `Error: ${error.message}`);
+          writeError(invocation, terminal`${SESSION_ERROR_PREFIX}${externalValue(error.message)}`);
           invocation.io.exit(1);
         }
         handleError(invocation, error);
@@ -453,7 +483,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
         writeOutput(invocation, output);
       } catch (error) {
         if (error instanceof SessionAlreadyArchivedError) {
-          writeError(invocation, `Error: ${error.message}`);
+          writeError(invocation, terminal`${SESSION_ERROR_PREFIX}${externalValue(error.message)}`);
           invocation.io.exit(1);
         }
         handleError(invocation, error);

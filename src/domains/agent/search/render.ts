@@ -1,4 +1,10 @@
-import { type TerminalText, authoredText, externalValue, joinTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { AGENT_RESUME_TEXT, AGENT_SESSION_LABEL } from "../protocol";
 import type { AgentSearchResult } from "./results";
@@ -21,9 +27,9 @@ export function renderAgentSearchList(results: readonly AgentSearchResult[]): Te
     AGENT_RESUME_TEXT.ROW_SEPARATOR,
     results.map((result) => {
       const updatedAt = result.updatedAt ?? new Date(result.modifiedAtMs).toISOString();
-      return terminal`${externalValue(updatedAt)} ${
-        authoredText(AGENT_SESSION_LABEL[result.agent])
-      } ${externalValue(result.sessionId)} ${externalValue(result.cwd)}`;
+      return terminal`${externalValue(updatedAt)} ${authoredText(AGENT_SESSION_LABEL[result.agent])} ${
+        externalValue(result.sessionId)
+      } ${externalValue(result.cwd)}`;
     }),
   );
 }

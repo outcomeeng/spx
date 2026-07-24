@@ -8,6 +8,17 @@
  * @module domains/session/handoff-base-checklist
  */
 
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+
+/** Separator between the checklist's own lines. */
+const CHECKLIST_LINE_SEPARATOR = "\n";
+
 /** The error name a handoff-base refusal carries and the checklist names. */
 export const SESSION_HANDOFF_BASE_ERROR_NAME = "SessionHandoffBaseError";
 
@@ -99,17 +110,24 @@ export const HANDOFF_BASE_FACTS_HEADER = "GIT FACTS:";
 /** Heading before prerequisite status lines. */
 export const HANDOFF_BASE_CHECKS_HEADER = "HERE ARE THE CHECKS AND THEIR STATUS:";
 
-/** Renders one resolved-fact line, stating `unresolved` for an absent value. */
-function renderFactLine(label: string, value: string | null): string {
-  return `${CHECKLIST_INDENT}${label}: ${value ?? HANDOFF_BASE_UNRESOLVED}`;
+/**
+ * Renders one resolved-fact line, stating `unresolved` for an absent value. The label is the
+ * product's own, while the value is a git reading — a branch name, a SHA, a worktree path — so
+ * only the value carries the escaping decision.
+ */
+function renderFactLine(label: string, value: string | null): TerminalText {
+  const reading = value === null ? authoredText(HANDOFF_BASE_UNRESOLVED) : externalValue(value);
+  return terminal`${authoredText(CHECKLIST_INDENT)}${authoredText(label)}: ${reading}`;
 }
 
 /** Renders one prerequisite line — a mark, the label, and (when unmet) its remedy. */
-function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite, index: number): string {
+function renderPrerequisiteLine(prerequisite: HandoffBasePrerequisite, index: number): TerminalText {
   const mark = prerequisite.met ? HANDOFF_BASE_MARK.MET : HANDOFF_BASE_MARK.UNMET;
   const lineNumber = index + 1;
-  const base = `${lineNumber}. ${mark} ${prerequisite.label}`;
-  return prerequisite.met ? base : `${base}${REMEDY_SEPARATOR}${prerequisite.remedy}`;
+  const base = terminal`${authoredText(String(lineNumber))}. ${authoredText(mark)} ${authoredText(prerequisite.label)}`;
+  return prerequisite.met
+    ? base
+    : terminal`${base}${authoredText(REMEDY_SEPARATOR)}${authoredText(prerequisite.remedy)}`;
 }
 
 /** Whether the refusal includes an unmet clean-working-tree prerequisite. */
@@ -130,16 +148,16 @@ function isDirtyCheckoutRefusal(checklist: HandoffBaseChecklist): boolean {
  *   refusal carries.
  * @returns The multi-line diagnostic, without a trailing newline.
  */
-export function renderHandoffBaseChecklist(checklist: HandoffBaseChecklist): string {
-  return [
-    isDirtyCheckoutRefusal(checklist) ? HANDOFF_BASE_DIRTY_HEADER : CHECKLIST_HEADER,
-    HANDOFF_BASE_FACTS_HEADER,
+export function renderHandoffBaseChecklist(checklist: HandoffBaseChecklist): TerminalText {
+  return joinTerminalText(CHECKLIST_LINE_SEPARATOR, [
+    authoredText(isDirtyCheckoutRefusal(checklist) ? HANDOFF_BASE_DIRTY_HEADER : CHECKLIST_HEADER),
+    authoredText(HANDOFF_BASE_FACTS_HEADER),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.DEFAULT_BRANCH, checklist.defaultBranch),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.DEFAULT_TIP, checklist.defaultTipSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.HEAD, checklist.headSha),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.CURRENT_WORKTREE, checklist.currentWorktreePath),
     renderFactLine(HANDOFF_BASE_FACT_LABEL.MAIN_CHECKOUT, checklist.mainCheckoutPath),
-    HANDOFF_BASE_CHECKS_HEADER,
+    authoredText(HANDOFF_BASE_CHECKS_HEADER),
     ...checklist.prerequisites.map((prerequisite, index) => renderPrerequisiteLine(prerequisite, index)),
-  ].join("\n");
+  ]);
 }

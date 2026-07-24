@@ -1699,6 +1699,7 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
     io: {
       writeStdout: () => undefined,
       writeStderr: (output) => stderr.push(output),
+      writePassThrough: () => undefined,
       setExitCode: () => undefined,
       exit: () => {
         throw new Error(stderr.join(""));

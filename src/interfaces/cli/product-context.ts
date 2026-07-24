@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import { resolve } from "node:path";
 
 import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
 
@@ -24,6 +24,18 @@ export type ProductContext = {
 export type CliIo = {
   readonly writeStdout: (output: string) => void;
   readonly writeStderr: (output: string) => void;
+  /**
+   * Relays a document the product did not compose — agent-authored release notes, the exact
+   * bytes of a read file, or a subprocess's own output — to standard output unchanged.
+   *
+   * This channel makes no terminal-safety claim, which is the whole distinction from
+   * {@link CliIo.writeStdout}: composed spx output states what the product itself says, so every
+   * externally-originated segment of it is escaped, while a relayed document is the external
+   * artifact itself and escaping it would corrupt the thing the caller asked to see. A document
+   * carrying an escape byte therefore reaches the terminal intact, and a command chooses this
+   * channel only when its output *is* the foreign document rather than a report about it.
+   */
+  readonly writePassThrough: (document: string) => void;
   readonly setExitCode: (exitCode: number) => void;
   readonly exit: (exitCode: number) => never;
 };
@@ -78,6 +90,9 @@ export const DEFAULT_CLI_IO: CliIo = {
   },
   writeStderr: (output) => {
     process.stderr.write(output);
+  },
+  writePassThrough: (document) => {
+    process.stdout.write(document);
   },
   setExitCode: (exitCode) => {
     process.exitCode = exitCode;
