@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/tests/session-start-rejection.mapping.l2.test.ts": "passed",
       "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/tests/session-start.compliance.l2.test.ts": "passed",
       "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/tests/session-start.scenario.l2.test.ts": "passed"
     }
