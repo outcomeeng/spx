@@ -56,6 +56,18 @@ export type GeneratedContextDeterminismCase = {
 export type GeneratedNodeWriteCase = {
   readonly contents: string;
   readonly fixturePath: string;
+  readonly nodeId: string;
+};
+
+export type GeneratedTestEnvironmentHelperCases = {
+  readonly decision: GeneratedWriteCase;
+  readonly node: GeneratedWriteCase;
+  readonly raw: GeneratedWriteCase;
+};
+
+export type GeneratedWriteCase = {
+  readonly contents: string;
+  readonly fixturePath: string;
 };
 
 type KindEntry = {
@@ -146,9 +158,35 @@ function nodeWriteCase(
 ): fc.Arbitrary<GeneratedNodeWriteCase> {
   return fc
     .tuple(nodePaths, generatedSegment(), generatedSegment())
-    .map(([path, filename, title]) => ({
-      contents: `# ${title}\n`,
-      fixturePath: [path, `${filename}.md`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    .map(([nodeId, filename, title]) => ({
+      contents:
+        `# ${title}\n\nPROVIDES generated node state\nSO THAT test environments\nCAN expose meaningful product fixtures\n`,
+      fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, `${filename}.md`].join(
+        SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+      ),
+      nodeId,
+    }));
+}
+
+function helperCases(config: Config): fc.Arbitrary<GeneratedTestEnvironmentHelperCases> {
+  return fc
+    .tuple(
+      nodeWriteCase(arbitraryNodePath(config)),
+      arbitraryDecisionPath(config),
+      generatedSegment(),
+      generatedSegment(),
+      generatedSegment(),
+    )
+    .map(([node, decisionPath, decisionTitle, rawPath, rawContents]) => ({
+      node,
+      decision: {
+        contents: `# ${decisionTitle}\n`,
+        fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, decisionPath].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+      },
+      raw: {
+        contents: rawContents,
+        fixturePath: [rawPath, `${rawPath}.txt`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+      },
     }));
 }
 
@@ -179,6 +217,7 @@ function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
 
 export const TEST_ENVIRONMENT_GENERATOR = {
   contextDeterminismCase: arbitraryContextDeterminismCase,
+  helperCases,
   nodeWriteCase,
   isolationCase,
   lifecycleCase,
