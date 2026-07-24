@@ -7,7 +7,7 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { authoredText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
@@ -123,7 +123,7 @@ function formatInjectedFile(listedPath: string, content: string): string {
 function formatInjectionWarning(error: unknown, listedPath: string): TerminalText {
   const isAbsent = error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND;
   const prefix = isAbsent ? SESSION_INJECTION_MISSING_WARNING_PREFIX : SESSION_INJECTION_UNREADABLE_WARNING_PREFIX;
-  return terminal`${authoredText(prefix)}: ${listedPath}`;
+  return terminal`${authoredText(prefix)}: ${externalValue(listedPath)}`;
 }
 
 async function readInjectedFiles(

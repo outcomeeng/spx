@@ -7,6 +7,7 @@
 
 import { basename, dirname, sep } from "node:path";
 
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import { agentRuntimeDisplayName } from "@/domains/worktree/controlling-process";
 import {
@@ -82,7 +83,7 @@ interface WorktreeJsonStatusRecord {
 }
 
 /** Reads target worktree occupancy and renders it in the requested format. */
-export async function statusCommand(options: StatusCommandOptions): Promise<Result<string>> {
+export async function statusCommand(options: StatusCommandOptions): Promise<Result<TerminalText>> {
   const multiTargetRequest = options.all === true || (options.worktrees !== undefined && options.worktrees.length > 1);
   const targets = await resolveStatusTargets(options);
   if (!targets.ok) return targets;
@@ -164,10 +165,12 @@ function renderStatus(
   records: readonly WorktreeStatusRecord[],
   format: string | undefined,
   multiTargetRequest: boolean,
-): string {
+): TerminalText {
   if (format === WORKTREE_STATUS_FORMAT.JSON) {
     const jsonRecords = records.map(toJsonStatusRecord);
-    return JSON.stringify(multiTargetRequest ? jsonRecords : jsonRecords[0]);
+    // The `--json` form is machine-destined: JSON validity is its contract, and
+    // re-escaping the serialized document would corrupt it for its parsers.
+    return authoredText(JSON.stringify(multiTargetRequest ? jsonRecords : jsonRecords[0]));
   }
   return renderTextStatus(records);
 }
@@ -177,7 +180,7 @@ function toJsonStatusRecord(record: WorktreeStatusRecord): WorktreeJsonStatusRec
   return pid === undefined ? { worktree, status } : { worktree, status, pid, session, host };
 }
 
-function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
+function renderTextStatus(records: readonly WorktreeStatusRecord[]): TerminalText {
   const sections: PlainTreeSection[] = [];
   const sectionByParent = new Map<string, string[]>();
   for (const record of records) {

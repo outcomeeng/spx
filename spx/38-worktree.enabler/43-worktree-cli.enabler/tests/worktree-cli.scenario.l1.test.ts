@@ -12,6 +12,7 @@ import {
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { AGENT_SESSION_ENV, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
@@ -238,7 +239,7 @@ describe("worktree command handlers", () => {
       });
       expect(noClaim.ok).toBe(true);
       if (!noClaim.ok) throw new Error(noClaim.error);
-      expect(JSON.parse(noClaim.value)).toEqual({ worktree: name, status: OCCUPANCY_STATUS.FREE });
+      expect(JSON.parse(renderTerminalText(noClaim.value))).toEqual({ worktree: name, status: OCCUPANCY_STATUS.FREE });
 
       await writeClaim(
         env.worktreesDir,
@@ -279,7 +280,7 @@ describe("worktree command handlers", () => {
       });
       expect(runningJson.ok).toBe(true);
       if (!runningJson.ok) throw new Error(runningJson.error);
-      expect(JSON.parse(runningJson.value)).toEqual({
+      expect(JSON.parse(renderTerminalText(runningJson.value))).toEqual({
         worktree: name,
         status: OCCUPANCY_STATUS.RUNNING,
         pid: holder.pid,
@@ -313,7 +314,7 @@ describe("worktree command handlers", () => {
       expect(free.ok).toBe(true);
       if (!free.ok) throw new Error(free.error);
       const expectedParent = `${await realpath(env.container)}${sep}`;
-      const freeLines = free.value.split("\n");
+      const freeLines = renderTerminalText(free.value).split("\n");
       expect(freeLines).toEqual([
         expectedParent,
         `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${worktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
@@ -417,7 +418,7 @@ describe("worktree command handlers", () => {
           expect(status.ok).toBe(true);
           if (!status.ok) throw new Error(status.error);
           const expectedParent = `${await realpath(layout.container)}${sep}`;
-          const lines = status.value.split("\n");
+          const lines = renderTerminalText(status.value).split("\n");
           expect(lines).toEqual([
             expectedParent,
             `  ${DETAIL_TEE}${DETAIL_BRANCH_SEPARATOR}${firstName}: ${AGENT_RUNTIME_DISPLAY_NAME.codex} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
@@ -461,7 +462,7 @@ describe("worktree command handlers", () => {
 
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
-      const lines = status.value.split("\n");
+      const lines = renderTerminalText(status.value).split("\n");
       expect(lines).toEqual([
         `${firstParent}${sep}`,
         `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${firstWorktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
@@ -495,7 +496,7 @@ describe("worktree command handlers", () => {
 
       expect(status.ok).toBe(true);
       if (!status.ok) throw new Error(status.error);
-      expect(JSON.parse(status.value)).toEqual([
+      expect(JSON.parse(renderTerminalText(status.value))).toEqual([
         { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
     });
@@ -552,7 +553,7 @@ describe("worktree command handlers", () => {
 
           expect(status.ok).toBe(true);
           if (!status.ok) throw new Error(status.error);
-          expect(JSON.parse(status.value)).toEqual([
+          expect(JSON.parse(renderTerminalText(status.value))).toEqual([
             { worktree: secondClaimName, status: OCCUPANCY_STATUS.FREE },
             {
               worktree: firstClaimName,
@@ -647,7 +648,7 @@ describe("worktree command handlers", () => {
 
     expect(status.ok).toBe(true);
     if (!status.ok) throw new Error(status.error);
-    expect(JSON.parse(status.value)).toEqual([{
+    expect(JSON.parse(renderTerminalText(status.value))).toEqual([{
       worktree: worktreeClaimName(worktreeRoot),
       status: OCCUPANCY_STATUS.FREE,
     }]);

@@ -8,7 +8,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
 import {
@@ -109,7 +109,7 @@ async function resolveHookExecutionContext(
     },
     warnings: compactStdout.ok
       ? []
-      : [terminal`${authoredText(HOOK_CONFIG_ERROR_PREFIX)}${authoredText(ERROR_DETAIL_SEPARATOR)}${compactStdout.error}`],
+      : [terminal`${authoredText(HOOK_CONFIG_ERROR_PREFIX)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(compactStdout.error)}`],
   };
 }
 
@@ -144,7 +144,7 @@ function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void
     .option(`${HOOK_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (event: string, options: HookCommandOptions) => {
       if (!isHookEvent(event)) {
-        writeError(invocation, terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${event}`);
+        writeError(invocation, terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(event)}`);
         invocation.io.exit(1);
         return;
       }

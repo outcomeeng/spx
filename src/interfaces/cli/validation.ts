@@ -25,8 +25,6 @@ import {
   type ValidationCommandResult,
   type ValidationOutputTarget,
 } from "@/commands/validation/types";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
@@ -40,6 +38,8 @@ import {
   type ValidationSubcommandDefinition,
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
@@ -272,7 +272,7 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       renderTerminalText(
         terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
           authoredText(invalidPathOperand.messageLabel)
-        }: ${sanitizeCliArgument(invalidOperand)} (${authoredText(invalidPathOperand.reason)})\n`,
+        }: ${externalValue(sanitizeCliArgument(invalidOperand))} (${authoredText(invalidPathOperand.reason)})\n`,
       ),
     );
     invocation.io.exit(invalidPathOperand.exitCode);
@@ -416,7 +416,7 @@ function registerValidationCommands(
           invocation.io.writeStderr(
             renderTerminalText(
               terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${
-                sanitizeCliArgument(options.kind)
+                externalValue(sanitizeCliArgument(options.kind))
               }\n`,
             ),
           );
@@ -531,7 +531,7 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
     renderTerminalText(
       terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
         authoredText(unknownSubcommand.messageLabel)
-      }: ${sanitizeCliArgument(first)}\n`,
+      }: ${externalValue(sanitizeCliArgument(first))}\n`,
     ),
   );
   return io.exit(unknownSubcommand.exitCode);

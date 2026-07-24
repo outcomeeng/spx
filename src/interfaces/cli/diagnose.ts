@@ -29,7 +29,7 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
@@ -61,7 +61,7 @@ function defaultRegistry(): CheckRegistry {
 function handleError(error: string, io: CliIo): never {
   // The error embeds user-supplied manifest path and check-name bytes, so it is
   // an external segment of this composition.
-  io.writeStderr(renderTerminalText(terminal`Error: ${error}\n`));
+  io.writeStderr(renderTerminalText(terminal`Error: ${externalValue(error)}\n`));
   return io.exit(1);
 }
 

@@ -1,12 +1,6 @@
 import type { Command } from "commander";
 
-import {
-  authoredText,
-  joinTerminalText,
-  renderTerminalText,
-  terminal,
-  type TerminalText,
-} from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, authoredText, externalValue, joinTerminalText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
@@ -82,7 +76,7 @@ async function runTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(renderTerminalText(terminal`${error instanceof Error ? error.message : String(error)}\n`));
+    io.writeStderr(renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`));
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
@@ -104,7 +98,7 @@ async function runAgentTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(renderTerminalText(terminal`${error instanceof Error ? error.message : String(error)}\n`));
+    io.writeStderr(renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : String(error))}\n`));
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
@@ -128,7 +122,7 @@ const WARNING_LINE_SEPARATOR = "\n";
 function labelledPathWarning(label: string, paths: readonly string[]): TerminalText {
   return joinTerminalText(WARNING_LINE_SEPARATOR, [
     terminal`${authoredText(label)}:`,
-    ...paths.map((path) => terminal`${path}`),
+    ...paths.map((path) => terminal`${externalValue(path)}`),
   ]);
 }
 
@@ -151,7 +145,7 @@ function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependenc
         authoredText(GATED_TEST_RUNNERS_WARNING),
         ...gatedGroups.flatMap((group) => [
           authoredText(group.language.name),
-          ...group.testPaths.map((testPath) => terminal`${testPath}`),
+          ...group.testPaths.map((testPath) => terminal`${externalValue(testPath)}`),
         ]),
       ]),
     );

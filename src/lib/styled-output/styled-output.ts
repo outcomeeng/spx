@@ -11,6 +11,8 @@
 
 import { Chalk } from "chalk";
 
+import { type TerminalText, authoredText, externalValue, joinTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+
 /** The severity vocabulary a styled report keys its glyphs and colors on. */
 export const SEVERITY = {
   OK: "ok",
@@ -103,6 +105,8 @@ export interface PlainTreeModel {
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
  * ANSI-stripped colored render equals the plain render.
  */
+const TREE_LINE_SEPARATOR = "\n";
+
 export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): string {
   const chalk = new Chalk({ level: options.color ? 1 : 0 });
   const lines: string[] = [];
@@ -121,20 +125,27 @@ export function renderStyledReport(model: StyledReportModel, options: StyledRepo
   return lines.join("\n");
 }
 
-/** Renders a plain grouped tree with each section header followed by indented children. */
-export function renderPlainTree(model: PlainTreeModel): string {
-  return model.sections
-    .flatMap((section) => {
+/**
+ * Renders a plain grouped tree with each section header followed by indented
+ * children. The tree glyphs, indentation, and line structure are product-authored
+ * and keep their bytes; each header and child text is an external segment, so a
+ * worktree name or path cannot forge a tree row or rewrite the terminal.
+ */
+export function renderPlainTree(model: PlainTreeModel): TerminalText {
+  return joinTerminalText(
+    TREE_LINE_SEPARATOR,
+    model.sections.flatMap((section) => {
       const lastIndex = section.children.length - 1;
       return [
-        section.header,
-        ...section.children.map((child, index) => {
-          const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-          return `${DETAIL_INDENT}${branch}${DETAIL_BRANCH_SEPARATOR}${child}`;
-        }),
+        terminal`${externalValue(section.header)}`,
+        ...section.children.map((child, index) =>
+          terminal`${authoredText(DETAIL_INDENT)}${
+            authoredText(index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE)
+          }${authoredText(DETAIL_BRANCH_SEPARATOR)}${externalValue(child)}`
+        ),
       ];
-    })
-    .join("\n");
+    }),
+  );
 }
 
 /** The inputs the descriptor boundary reads to resolve the color choice. */

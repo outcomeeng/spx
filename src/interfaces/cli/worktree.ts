@@ -6,7 +6,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
-import { renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -45,7 +45,7 @@ function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText
 }
 
 function handleError(invocation: CliInvocation, error: string): never {
-  writeError(invocation, terminal`Error: ${error}`);
+  writeError(invocation, terminal`Error: ${externalValue(error)}`);
   return invocation.io.exit(1);
 }
 
@@ -96,7 +96,7 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
         if (!result.ok) handleError(invocation, result.error);
-        writeOutput(invocation, terminal`${result.value}`);
+        writeOutput(invocation, result.value);
       },
     );
 

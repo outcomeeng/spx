@@ -11,26 +11,29 @@
  * decision therefore belongs where a value is embedded, not where the finished
  * string is written.
  *
+ * The type is a branded string rather than a wrapper object. A brand rejects a
+ * raw `string` at every narrowed boundary exactly as a wrapper would, while a
+ * consumer still reads the value as the string it is — so no caller, harness,
+ * or assertion unwraps to use it. The brand is erased at runtime, so a composed
+ * value is not detectable by inspection: composition routes by type instead,
+ * which is why every interpolation is itself a `TerminalText`.
+ *
+ * A document relayed from outside the product — release notes, tool output,
+ * file content — is not this type. Such a channel makes no terminal-safety
+ * claim and is written through the pass-through boundary rather than composed.
+ *
  * @module lib/terminal-text/terminal-text
  */
 
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 
-const TERMINAL_TEXT_TAG = Symbol("spx.terminal-text");
+declare const TERMINAL_TEXT_BRAND: unique symbol;
 
 /** Text whose externally-originated segments are control-byte escaped. */
-export interface TerminalText {
-  readonly [TERMINAL_TEXT_TAG]: true;
-  readonly value: string;
-}
+export type TerminalText = string & { readonly [TERMINAL_TEXT_BRAND]: true };
 
-function make(value: string): TerminalText {
-  return { [TERMINAL_TEXT_TAG]: true, value };
-}
-
-/** Narrows an unknown value to text already composed through this module. */
-export function isTerminalText(candidate: unknown): candidate is TerminalText {
-  return typeof candidate === "object" && candidate !== null && TERMINAL_TEXT_TAG in candidate;
+function brand(value: string): TerminalText {
+  return value as TerminalText;
 }
 
 /**
@@ -39,7 +42,7 @@ export function isTerminalText(candidate: unknown): candidate is TerminalText {
  * and line structure render as authored.
  */
 export function authoredText(text: string): TerminalText {
-  return make(text);
+  return brand(text);
 }
 
 /**
@@ -47,27 +50,28 @@ export function authoredText(text: string): TerminalText {
  * filesystem paths, file content, environment variables, argv, caught-error
  * messages, or API responses. Control bytes are escaped through the shared
  * argument-escaping contract, so an escape byte cannot rewrite the terminal and
- * a line feed cannot forge a diagnostic line. Text already composed through
- * this module passes through, so composition never double-escapes.
+ * a line feed cannot forge a diagnostic line.
  */
 export function externalValue(value: unknown): TerminalText {
-  return isTerminalText(value) ? value : make(escapeCliArgument(value));
+  return brand(escapeCliArgument(value));
 }
 
 /**
- * Composes authored literals with escaped interpolations: every literal segment
- * of the template is authored, and every interpolated value is escaped unless it
- * is already `TerminalText`.
+ * Composes authored literals with already-decided interpolations: every literal
+ * segment of the template is authored, and every interpolated value carries the
+ * escaping decision made where it was built. A raw external value is wrapped at
+ * the interpolation with `externalValue`, which is the point that decision is
+ * made.
  */
-export function terminal(strings: TemplateStringsArray, ...values: readonly unknown[]): TerminalText {
+export function terminal(strings: TemplateStringsArray, ...values: readonly TerminalText[]): TerminalText {
   let composed = "";
   for (const [index, literal] of strings.entries()) {
     composed += literal;
     if (index < values.length) {
-      composed += externalValue(values[index]).value;
+      composed += values[index];
     }
   }
-  return make(composed);
+  return brand(composed);
 }
 
 /**
@@ -77,10 +81,14 @@ export function terminal(strings: TemplateStringsArray, ...values: readonly unkn
  * part keeps the escaping decision made where its values were embedded.
  */
 export function joinTerminalText(separator: string, parts: readonly TerminalText[]): TerminalText {
-  return make(parts.map((part) => part.value).join(separator));
+  return brand(parts.join(separator));
 }
 
-/** Unwraps composed text for a process-stream write at the CLI boundary. */
+/**
+ * Widens composed text to a plain `string` at a boundary that takes one. The
+ * brand is erased at runtime, so this is an identity at the value level; it
+ * marks the point a composed value leaves the type's protection.
+ */
 export function renderTerminalText(text: TerminalText): string {
-  return text.value;
+  return text;
 }

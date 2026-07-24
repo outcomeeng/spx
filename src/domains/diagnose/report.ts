@@ -35,7 +35,7 @@ import {
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
@@ -200,7 +200,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
  */
 function reading(check: CheckRecord, key: string): TerminalText | undefined {
   const value = check.readings[key];
-  return value === undefined ? undefined : terminal`${value}`;
+  return value === undefined ? undefined : terminal`${externalValue(value)}`;
 }
 
 /**
@@ -210,7 +210,7 @@ function reading(check: CheckRecord, key: string): TerminalText | undefined {
  * undefined sentinel.
  */
 function detail(label: string, value: TerminalText | undefined): string {
-  return renderTerminalText(terminal`${authoredText(label)}: ${value}`);
+  return renderTerminalText(terminal`${authoredText(label)}: ${externalValue(value)}`);
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
