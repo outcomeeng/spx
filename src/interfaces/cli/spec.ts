@@ -6,6 +6,7 @@ import {
   renderSpecContextText,
   resolveContextManifest,
 } from "@/commands/spec/context";
+import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -80,7 +81,7 @@ function handleCommandError(io: CliIo, error: unknown): never {
       message = UNPRINTABLE_ERROR_MESSAGE;
     }
   }
-  io.writeStderr(`${SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX}: ${message}\n`);
+  io.writeStderr(renderTerminalText(terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${message}\n`));
   return io.exit(1);
 }
 

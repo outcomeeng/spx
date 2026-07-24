@@ -25,6 +25,7 @@ import {
   type ValidationCommandResult,
   type ValidationOutputTarget,
 } from "@/commands/validation/types";
+import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
@@ -38,7 +39,6 @@ import {
   type ValidationSubcommandDefinition,
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
@@ -268,8 +268,11 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       }
     }
     invocation.io.writeStderr(
-      `spx ${validationCliDefinition.domain.commandName}: ${invalidPathOperand.messageLabel}: `
-        + `${sanitizeCliArgument(invalidOperand)} (${invalidPathOperand.reason})\n`,
+      renderTerminalText(
+        terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
+          authoredText(invalidPathOperand.messageLabel)
+        }: ${invalidOperand} (${authoredText(invalidPathOperand.reason)})\n`,
+      ),
     );
     invocation.io.exit(invalidPathOperand.exitCode);
   }
@@ -410,7 +413,9 @@ function registerValidationCommands(
         if (kind === undefined) {
           const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
           invocation.io.writeStderr(
-            `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
+            renderTerminalText(
+              terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${options.kind}\n`,
+            ),
           );
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
@@ -517,10 +522,15 @@ function parseLiteralProblemKind(value: string): LiteralProblemKind | undefined 
 
 function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never {
   const [first] = operands;
-  const sanitized = sanitizeCliArgument(first);
   const { domain, diagnostics } = validationCliDefinition;
   const { unknownSubcommand } = diagnostics;
-  io.writeStderr(`${SPX_PROGRAM_NAME} ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
+  io.writeStderr(
+    renderTerminalText(
+      terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
+        authoredText(unknownSubcommand.messageLabel)
+      }: ${first}\n`,
+    ),
+  );
   return io.exit(unknownSubcommand.exitCode);
 }
 

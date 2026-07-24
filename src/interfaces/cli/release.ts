@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 
+import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { AgentRunner } from "@/agent/agent-runner";
 import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import {
@@ -16,7 +17,6 @@ import {
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 export const RELEASE_CLI = {
   COMMAND: "release",
@@ -79,7 +79,7 @@ export function createReleaseDomain(
             });
             invocation.io.writeStdout(`${output}\n`);
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(renderTerminalText(terminal`Error: ${errorMessage(error)}\n`));
             invocation.io.exit(1);
           }
         });
@@ -100,10 +100,10 @@ export function createReleaseDomain(
             };
             const paths = await documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
             for (const path of paths) {
-              invocation.io.writeStdout(`${RELEASE_DOCS_SYNC_OUTPUT_PREFIX}: ${path}\n`);
+              invocation.io.writeStdout(renderTerminalText(terminal`${authoredText(RELEASE_DOCS_SYNC_OUTPUT_PREFIX)}: ${path}\n`));
             }
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(renderTerminalText(terminal`Error: ${errorMessage(error)}\n`));
             invocation.io.exit(1);
           }
         });

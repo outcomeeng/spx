@@ -50,7 +50,7 @@ import {
   arbitraryRejectedAgentResumeSinceDurations,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
-import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 export { isPathInsideOrEqual };
 

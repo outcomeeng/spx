@@ -35,7 +35,6 @@ import {
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_ERROR, HOOK_EVENT, isHookEvent } from "@/interfaces/hooks/registry";
 import { defaultGitDependencies } from "@/lib/git/root";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 

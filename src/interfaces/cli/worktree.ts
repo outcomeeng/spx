@@ -6,7 +6,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";

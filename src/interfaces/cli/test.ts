@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 
+import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
@@ -75,7 +76,7 @@ async function runTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    io.writeStderr(renderTerminalText(terminal`${error instanceof Error ? error.message : String(error)}\n`));
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
@@ -97,7 +98,7 @@ async function runAgentTestsThroughCommand(
       },
     );
   } catch (error) {
-    io.writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    io.writeStderr(renderTerminalText(terminal`${error instanceof Error ? error.message : String(error)}\n`));
     io.exit(PROCESS_FAILURE_EXIT_CODE);
   }
 }
