@@ -9,7 +9,7 @@ import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/prop
 describe("terminal text composition invariants", () => {
   it("renders an external segment with no control byte and no DEL", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
-      for (const char of renderTerminalText(terminal`${input}`)) {
+      for (const char of renderTerminalText(terminal`${externalValue(input)}`)) {
         expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
         expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
       }
@@ -26,7 +26,7 @@ describe("terminal text composition invariants", () => {
     assertProperty(
       fc.tuple(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText()),
       ([label, value]) => {
-        expect(renderTerminalText(terminal`${authoredText(label)}: ${value}`)).toBe(
+        expect(renderTerminalText(terminal`${authoredText(label)}: ${externalValue(value)}`)).toBe(
           `${label}: ${renderTerminalText(externalValue(value))}`,
         );
       },
@@ -42,7 +42,7 @@ describe("terminal text composition invariants", () => {
 
   it("does not escape an external value twice when composed text is composed again", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
-      expect(renderTerminalText(terminal`${terminal`${input}`}`)).toBe(renderTerminalText(terminal`${input}`));
+      expect(renderTerminalText(terminal`${terminal`${externalValue(input)}`}`)).toBe(renderTerminalText(terminal`${externalValue(input)}`));
     }, { level: PROPERTY_LEVEL.L1 });
   });
 });

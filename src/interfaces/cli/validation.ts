@@ -39,7 +39,7 @@ import {
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
@@ -282,7 +282,7 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       renderTerminalText(
         terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
           authoredText(invalidPathOperand.messageLabel)
-        }: ${sanitizeCliArgument(invalidOperand)} (${authoredText(invalidPathOperand.reason)})\n`,
+        }: ${externalValue(sanitizeCliArgument(invalidOperand))} (${authoredText(invalidPathOperand.reason)})\n`,
       ),
 >>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
     );
@@ -434,7 +434,7 @@ function registerValidationCommands(
 =======
             renderTerminalText(
               terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${
-                sanitizeCliArgument(options.kind)
+                externalValue(sanitizeCliArgument(options.kind))
               }\n`,
             ),
 >>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
@@ -562,7 +562,7 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
     renderTerminalText(
       terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
         authoredText(unknownSubcommand.messageLabel)
-      }: ${sanitizeCliArgument(first)}\n`,
+      }: ${externalValue(sanitizeCliArgument(first))}\n`,
     ),
   );
 >>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)

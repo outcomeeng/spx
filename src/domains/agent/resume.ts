@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { authoredText, joinTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { type TerminalText, authoredText, externalValue, joinTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type AgentHomeDirs, piSessionStoreDir } from "./home";
 
@@ -328,7 +328,7 @@ export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[
         : new Date(candidate.lastActivityAtMs).toISOString();
       return terminal`${authoredText(updatedAt)} ${
         authoredText(AGENT_SESSION_LABEL[candidate.agent])
-      } ${candidate.sessionId} ${candidate.cwd}`;
+      } ${externalValue(candidate.sessionId)} ${externalValue(candidate.cwd)}`;
     }),
   );
 }
