@@ -3,14 +3,25 @@ import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { CliIo } from "@/interfaces/cli/product-context";
 import type { JournalEvent } from "@/lib/agent-run-journal";
 import { createGithubPullRequestCommentClient, runGhApi } from "@/lib/github-snapshot-sink";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { CLI_STREAM_REPORT } from "./stream-report";
+
+/**
+ * One journal event as a serialized line. The event stream is machine-destined:
+ * its safety contract is JSON validity, which `JSON.stringify` supplies by
+ * escaping control bytes inside string values, and the line separator is the
+ * product's own stream framing.
+ */
+function journalEventLine(event: JournalEvent): TerminalText {
+  return authoredText(`${JSON.stringify(event)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+}
 
 /** The local streaming sink: write each event as a JSON line to standard output. */
 export function stdoutStreamSink(io: CliIo): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
-      io.writeStdout(`${JSON.stringify(event)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+      io.writeStdout(renderTerminalText(terminal`${journalEventLine(event)}`));
     },
   };
 }
@@ -22,7 +33,7 @@ export function stdoutStreamSink(io: CliIo): JournalStreamSink {
 export function stderrStreamSink(io: CliIo): JournalStreamSink {
   return {
     async emit(event: JournalEvent): Promise<void> {
-      io.writeStderr(`${JSON.stringify(event)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+      io.writeStderr(renderTerminalText(terminal`${journalEventLine(event)}`));
     },
   };
 }

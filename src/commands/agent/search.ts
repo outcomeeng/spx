@@ -1,5 +1,7 @@
 import { open, readdir, readFile, stat } from "node:fs/promises";
 
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+
 import {
   AGENT_SESSION_STORE,
   type AgentHomeDirs,
@@ -139,10 +141,10 @@ export async function loadAgentSearchResults(
   });
 }
 
-export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<TerminalText> {
   return renderAgentSearchList(await loadAgentSearchResults(options));
 }
 
-export async function jsonAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+export async function jsonAgentSearchSessions(options: AgentSearchCommandOptions): Promise<TerminalText> {
   return renderAgentSearchJson(await loadAgentSearchResults(options));
 }

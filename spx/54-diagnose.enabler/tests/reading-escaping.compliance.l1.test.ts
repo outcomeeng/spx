@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { renderReportJson } from "@/domains/diagnose/report";
 import { type DiagnoseReport } from "@/domains/diagnose/types";
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE, SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
@@ -19,7 +20,7 @@ describe("check readings the text report renders are escaped for the terminal", 
 
   it("keeps the same readings verbatim in the JSON report for machine consumers", () => {
     assertProperty(arbitraryUnsafeReadingReport(), (report) => {
-      expect((JSON.parse(renderReportJson(report)) as DiagnoseReport).checks[0]?.readings).toStrictEqual(
+      expect((JSON.parse(renderTerminalText(renderReportJson(report))) as DiagnoseReport).checks[0]?.readings).toStrictEqual(
         report.checks[0]?.readings,
       );
     }, { level: PROPERTY_LEVEL.L1 });

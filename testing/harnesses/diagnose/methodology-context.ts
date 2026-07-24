@@ -21,6 +21,7 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -254,7 +255,7 @@ export async function runMethodologyDiagnoseJson(
       fs: { readFile: () => Promise.resolve("") },
     });
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return JSON.parse(output) as Record<string, unknown>;
@@ -277,7 +278,7 @@ export async function runMethodologyDiagnoseText(
       fs: { readFile: () => Promise.resolve("") },
     });
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return output;
@@ -325,7 +326,7 @@ export async function runMethodologyManifestJson(
       },
     });
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return JSON.parse(output) as Record<string, unknown>;
@@ -372,7 +373,7 @@ export async function runDiagnoseWithUnrelatedLegacyDefect(
       fs: { readFile: () => Promise.resolve("") },
     });
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return JSON.parse(output) as Record<string, unknown>;

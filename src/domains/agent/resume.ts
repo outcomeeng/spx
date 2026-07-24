@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { authoredText, joinTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { type AgentHomeDirs, piSessionStoreDir } from "./home";
 
@@ -315,20 +316,31 @@ export function buildAgentResumeLaunchCommand(candidate: AgentResumeCandidate): 
   return AGENT_RESUME_ADAPTER_REGISTRY[candidate.agent].launch(candidate);
 }
 
-export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[]): string {
+export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[]): TerminalText {
   if (candidates.length === 0) {
-    return AGENT_RESUME_TEXT.NO_MATCHES;
+    return authoredText(AGENT_RESUME_TEXT.NO_MATCHES);
   }
-  return candidates.map((candidate) => {
-    const updatedAt = candidate.lastActivityAtMs === null
-      ? "unknown"
-      : new Date(candidate.lastActivityAtMs).toISOString();
-    return `${updatedAt} ${AGENT_SESSION_LABEL[candidate.agent]} ${candidate.sessionId} ${candidate.cwd}`;
-  }).join("\n");
+  return joinTerminalText(
+    AGENT_RESUME_TEXT.ROW_SEPARATOR,
+    candidates.map((candidate) => {
+      const updatedAt = candidate.lastActivityAtMs === null
+        ? AGENT_RESUME_TEXT.UNKNOWN_ACTIVITY
+        : new Date(candidate.lastActivityAtMs).toISOString();
+      return terminal`${authoredText(updatedAt)} ${
+        authoredText(AGENT_SESSION_LABEL[candidate.agent])
+      } ${candidate.sessionId} ${candidate.cwd}`;
+    }),
+  );
 }
 
-export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[]): string {
-  return JSON.stringify(candidates, null, 2);
+/**
+ * The `--json` channel is machine-destined: its safety contract is JSON
+ * validity, which `JSON.stringify` supplies by escaping control bytes inside
+ * string values. Escaping the serialized document again would corrupt it for
+ * the consumers that parse it, so the serializer is the escaping boundary here.
+ */
+export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[]): TerminalText {
+  return authoredText(JSON.stringify(candidates, null, 2));
 }
 
 export interface AgentSessionHead {

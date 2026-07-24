@@ -45,6 +45,7 @@ import {
 } from "@/lib/git/root";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryAgentBranch,
   arbitraryAgentResumeNowMs,
@@ -696,7 +697,7 @@ export async function withAgentSearchFallbackScopeEvidence(
   callback({
     stdout: stdout.join(""),
     stderr: stderr.join(""),
-    warning,
+    warning: renderTerminalText(warning),
     sessionId,
     foreignSessionId,
   });
@@ -881,7 +882,7 @@ export async function withAgentSearchBranchWorktreeEvidence(
     },
   };
 
-  const output = await jsonAgentSearchSessions({
+  const output = renderTerminalText(await jsonAgentSearchSessions({
     cwd: unassociatedRoot,
     fallbackProductScopeRoot: productScopeRoot,
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
@@ -893,8 +894,11 @@ export async function withAgentSearchBranchWorktreeEvidence(
       resolveBranchAssociatedWorktreeRoots: async (cwd, branch) =>
         resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git),
     },
-  });
-  const results = JSON.parse(output) as readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
+  }));
+  const results = JSON.parse(output) as readonly {
+    readonly sessionId: string;
+    readonly matches: readonly string[];
+  }[];
 
   callback({ results, associatedSessionId, claudeAssociatedSessionId });
 }
@@ -943,7 +947,7 @@ export async function withAgentSearchBranchCommandEvidence(
     modifiedAtMs: nowMs - 1,
   });
 
-  const output = await jsonAgentSearchSessions({
+  const output = renderTerminalText(await jsonAgentSearchSessions({
     cwd: productScopeRoot,
     fallbackProductScopeRoot: productScopeRoot,
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
@@ -954,8 +958,11 @@ export async function withAgentSearchBranchCommandEvidence(
       resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
       resolveBranchAssociatedWorktreeRoots: async () => [],
     },
-  });
-  const results = JSON.parse(output) as readonly { readonly sessionId: string; readonly matches: readonly string[] }[];
+  }));
+  const results = JSON.parse(output) as readonly {
+    readonly sessionId: string;
+    readonly matches: readonly string[];
+  }[];
 
   callback({ results, codexSessionId, claudeSessionId });
 }

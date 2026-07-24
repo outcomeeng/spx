@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
 
@@ -17,7 +18,7 @@ export const SPX_COMMANDER_PARSE_SOURCE = "user";
 export type ProductContext = {
   readonly effectiveInvocationDir: string;
   readonly productDir: string;
-  readonly warning?: string;
+  readonly warning?: TerminalText;
 };
 
 export type CliIo = {
@@ -37,7 +38,7 @@ export type CliInvocationOptions = {
   readonly readDirectoryOption: () => string | undefined;
   readonly processCwd: () => string;
   readonly resolveProductDir?: (cwd: string) => ResolvedProductDir;
-  readonly writeWarning: (warning: string | undefined) => void;
+  readonly writeWarning: (warning: TerminalText | undefined) => void;
   readonly io: CliIo;
 };
 

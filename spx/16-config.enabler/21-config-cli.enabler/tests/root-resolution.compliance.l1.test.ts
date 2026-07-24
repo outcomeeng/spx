@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { authoredText, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveProductDir } from "@/domains/config/root";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -61,6 +62,6 @@ describe("resolveProductDir — outside a git worktree", () => {
     const resolved = resolveProductDir(nonRepo);
 
     expect(resolved.warning).toBeDefined();
-    expect(resolved.warning?.length ?? 0).toBeGreaterThan(0);
+    expect(renderTerminalText(resolved.warning ?? authoredText("")).length).toBeGreaterThan(0);
   });
 });

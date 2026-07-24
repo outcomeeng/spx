@@ -1,5 +1,7 @@
 import { open, readdir, stat } from "node:fs/promises";
 
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+
 import {
   AGENT_SESSION_STORE,
   type AgentHomeDirs,
@@ -92,10 +94,10 @@ export async function loadAgentResumeCandidates(
   });
 }
 
-export async function listAgentResumeSessions(options: AgentResumeCommandOptions): Promise<string> {
+export async function listAgentResumeSessions(options: AgentResumeCommandOptions): Promise<TerminalText> {
   return renderAgentResumeList(await loadAgentResumeCandidates(options));
 }
 
-export async function jsonAgentResumeSessions(options: AgentResumeCommandOptions): Promise<string> {
+export async function jsonAgentResumeSessions(options: AgentResumeCommandOptions): Promise<TerminalText> {
   return renderAgentResumeJson(await loadAgentResumeCandidates(options));
 }
