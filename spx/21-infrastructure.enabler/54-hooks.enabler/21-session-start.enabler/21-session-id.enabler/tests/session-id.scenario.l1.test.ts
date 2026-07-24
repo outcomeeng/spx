@@ -82,7 +82,8 @@ describe("hook session-start session identity", () => {
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.result.value.sessionId).toBe(evidence.sessionId);
       expect(evidence.result.value.sessionId).not.toBe(evidence.decoySessionId);
-      expect(evidence.transcriptPathsRead).toEqual([evidence.transcriptPath]);
+      expect(evidence.canonicalTranscriptPath).not.toBe(evidence.transcriptPath);
+      expect(evidence.transcriptPathsRead).toEqual([evidence.canonicalTranscriptPath]);
       expect(evidence.result.value.claimed).toBe(true);
     });
   });

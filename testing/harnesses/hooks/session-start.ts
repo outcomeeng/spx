@@ -60,6 +60,7 @@ export interface PiSessionStartIdentityEvidence {
   readonly result: Result<SessionStartHookResult>;
   readonly sessionId: string;
   readonly decoySessionId: string;
+  readonly canonicalTranscriptPath: string;
   readonly transcriptPath: string;
   readonly transcriptPathsRead: readonly string[];
 }
@@ -309,12 +310,15 @@ export async function withPiSessionStartIdentityEvidence(
       const [timestamp, decoyTimestamp] = orderedDistinctTimestamps();
       const sessionStoreDir = join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName()));
       await mkdir(sessionStoreDir);
-      const transcriptPath = join(sessionStoreDir, agentSessionJsonlName(sessionId));
+      const transcriptTargetPath = join(sessionStoreDir, agentSessionJsonlName(sessionId));
+      const transcriptPath = join(sessionStoreDir, `${basename(transcriptTargetPath)}.link`);
       await writeFile(
-        transcriptPath,
+        transcriptTargetPath,
         piTranscript({ sessionId, cwd: env.worktreePath, timestamp }),
         AGENT_SESSION_STORE.TEXT_ENCODING,
       );
+      await symlink(transcriptTargetPath, transcriptPath);
+      const canonicalTranscriptPath = await realpath(transcriptTargetPath);
       await writeFile(
         join(sessionStoreDir, agentSessionJsonlName(decoySessionId)),
         piTranscript({ sessionId: decoySessionId, cwd: env.worktreePath, timestamp: decoyTimestamp }),
@@ -337,6 +341,7 @@ export async function withPiSessionStartIdentityEvidence(
       await callback({
         sessionId,
         decoySessionId,
+        canonicalTranscriptPath,
         transcriptPath,
         transcriptPathsRead: transcriptFileSystem.pathsRead,
         result,

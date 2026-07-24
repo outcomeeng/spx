@@ -190,7 +190,7 @@ async function resolveSessionStartSessionId(options: {
   let transcriptHead: string;
   try {
     transcriptHead = await options.transcriptFileSystem.readHead(
-      options.payload.transcriptPath,
+      trustedPath.value,
       AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES,
     );
   } catch (error) {
@@ -212,13 +212,16 @@ async function isTrustedPiTranscriptPath(
   sessionStoreDir: string,
   transcriptPath: string,
   fs: HookTranscriptFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<string | undefined>> {
   try {
     const [canonicalStore, canonicalTranscript] = await Promise.all([
       fs.realPath(sessionStoreDir),
       fs.realPath(transcriptPath),
     ]);
-    return { ok: true, value: isPathContained(canonicalStore, canonicalTranscript) };
+    return {
+      ok: true,
+      value: isPathContained(canonicalStore, canonicalTranscript) ? canonicalTranscript : undefined,
+    };
   } catch (error) {
     return { ok: false, error: describeError(error) };
   }
