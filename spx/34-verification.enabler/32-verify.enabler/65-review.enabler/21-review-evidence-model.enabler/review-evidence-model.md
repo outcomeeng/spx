@@ -19,3 +19,4 @@ CAN validate review payloads without requiring provider-specific command vocabul
 ### Compliance
 
 - ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
+- ALWAYS: a review scope or finding payload rejection reason names the failing payload field path or the unmet structural requirement ([test](tests/review-evidence-validation.compliance.l1.test.ts))
