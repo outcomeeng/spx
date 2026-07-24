@@ -22,7 +22,7 @@ import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -127,6 +127,13 @@ export async function withProductDir(
   await withTempDir("spx-methodology-product-", async (productDir) => {
     if (presence !== SPEC_TREE_PRESENCE.NO_REPOSITORY) {
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      // A commit needs an author, and a CI runner carries no global identity.
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.CONFIG,
+        GIT_TEST_CONFIG.USER_NAME_KEY,
+        GIT_TEST_CONFIG.USER_NAME,
+      ]);
     }
     if (presence !== SPEC_TREE_PRESENCE.ABSENT) {
       const specRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
