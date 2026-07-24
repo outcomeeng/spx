@@ -51,6 +51,7 @@ describe("methodology-context diagnose compliance", () => {
     [SPEC_TREE_PRESENCE.ABSENT, false],
     [SPEC_TREE_PRESENCE.UNTRACKED, false],
     [SPEC_TREE_PRESENCE.TRACKED, true],
+    [SPEC_TREE_PRESENCE.NO_REPOSITORY, false],
   ])(
     "observes a %s spec tree as trackedSpecTree=%s through the probe",
     async (presence, expected) => {
