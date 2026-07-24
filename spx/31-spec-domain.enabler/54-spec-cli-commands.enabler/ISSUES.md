@@ -24,17 +24,18 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 
 **Skills:** `spec-tree:applying` (implementation), `typescript:architecting-typescript` (interface change).
 
-## External values reach the terminal without control-byte escaping
+## Composed terminal text carries no node-local escaping evidence
 
-This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
+This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node composes through that primitive and resolves each command's output to one of the two kinds the decision declares. It carries no co-located evidence of its own that either claim holds at its surface.
 
-**Unescaped sites:**
+**Resolved sites:**
 
-- `src/interfaces/cli/spec.ts` — `writeOutput`, `writeError`, and the error handler — spec file content, node directory names, traversal warnings, and caught-error messages embedding the argv target
+- `src/interfaces/cli/spec.ts` — `writeOutput` and the error handler — node directory names, traversal warnings, and caught-error messages embedding the argv target, composed and escaped
+- `src/interfaces/cli/spec.ts` — the context-bundle document write — spec file content, relayed byte-for-byte through the pass-through channel so the bundle reaches its reader unaltered
 
-**Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
+**Impact:** both claims rest on the primitive's own evidence under [`spx/13-cli.enabler`](../../13-cli.enabler/cli.md). A later change that hands a finished string to the composed write, or relays a composed report, fails nothing this node owns, because `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one.
 
-**Resolution:** compose this node's terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence.
+**Resolution:** add this node's compliance assertion and co-located evidence that a control-byte-bearing traversal warning renders escaped while a context bundle's bytes reach standard output unchanged. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the composed-side shape.
 
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
