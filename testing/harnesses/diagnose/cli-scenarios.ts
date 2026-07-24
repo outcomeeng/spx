@@ -9,6 +9,7 @@ import {
   DEFAULT_METHODOLOGY_VERSION,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
+  methodologyVersionIntent,
 } from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import {
@@ -330,6 +331,8 @@ export function registerDiagnoseCliScenarios(): void {
           configuredVersion: DEFAULT_METHODOLOGY_VERSION,
           observedSource: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
           observedVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          versionIntent: methodologyVersionIntent(DEFAULT_METHODOLOGY_VERSION),
+          trackedSpecTree: String(false),
         });
         expect(report.overall).toBe(foldedOverall(report));
         expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);
