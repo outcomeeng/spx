@@ -20,17 +20,18 @@ The session list resolves the `--color`/`--no-color` → `NO_COLOR` → TTY prec
 
 **Resolution:** Migrate the session path to the shared `resolveColorChoice` primitive in `src/lib/styled-output/`, removing `resolveListColor` as a second derivation. Deferred from the styled-output slice, which scoped the primitive so session output can adopt it later without refactoring session output in that slice.
 
-## External values reach the terminal without control-byte escaping
+## Composed terminal text carries no node-local escaping evidence
 
-This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
+This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node composes through that primitive and resolves each command's output to one of the two kinds the decision declares. It carries no co-located evidence of its own that either claim holds at its surface.
 
-**Unescaped sites:**
+**Resolved sites:**
 
-- `src/interfaces/cli/session.ts` — `writeOutput`, `writeError`, and `formatError` — session file fields (goal, next step, branch, identifiers) and caught session-store errors
+- `src/interfaces/cli/session.ts` — `writeOutput`, `writeError`, and `formatError` — session file fields (goal, next step, branch, identifiers) and caught session-store errors, composed and escaped
+- `src/interfaces/cli/session.ts` — `writeDocument`, serving `session show` and `session pickup` — a session file's own content, relayed byte-for-byte through the pass-through channel so the reader receives the file rather than a report about it
 
-**Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
+**Impact:** both claims rest on the primitive's own evidence under [`spx/13-cli.enabler`](../../13-cli.enabler/cli.md). A later change that hands a finished string to the composed write, or composes a relayed session file and rewrites its bytes as escape sequences, fails nothing this node owns, because `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one.
 
-**Resolution:** compose this node's terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence.
+**Resolution:** add this node's compliance assertion and co-located evidence that a control-byte-bearing session field renders escaped in a listing while a shown session file's bytes reach standard output unchanged. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the composed-side shape.
 
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 

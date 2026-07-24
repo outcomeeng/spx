@@ -99,12 +99,15 @@ history, and read at most the requested event count for each selected run.
 
 ## External values reach the terminal without control-byte escaping
 
-This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
+This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node's streamed path composes through that primitive; its command result path does not.
 
-**Unescaped sites:**
+**Composed sites:**
 
-- `src/interfaces/cli/journal.ts` — the journal command output, the store warnings, and the stdin parse failure — journal event content, stdin JSON, `gh api` responses, and branch slugs
-- `src/interfaces/cli/lib/journal-stream-binding.ts` — the streamed event lines — journal events from stdin and file payloads; JSON string escaping covers `0x00`-`0x1f` but leaves `0x7f` raw
+- `src/interfaces/cli/lib/journal-stream-binding.ts` — the streamed event lines — journal events from stdin and file payloads, including the `0x7f` byte that JSON string escaping leaves raw
+
+**Remaining sites:**
+
+- `src/interfaces/cli/journal.ts` — `report` builds `${result.output}` with a line separator and hands the result to the composed-text write as a bare identifier, carrying journal event content, stdin JSON, `gh api` responses, and branch slugs
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 
