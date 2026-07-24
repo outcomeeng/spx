@@ -15,6 +15,11 @@
    - `spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler` — the append boundary reports the verification-type validation reason (`tests/verify-finding.compliance.l1.test.ts`).
    - `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler` — the audit validator names the failing field path or unmet structural requirement (`tests/audit-evidence-validation.compliance.l1.test.ts`).
    - `spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler` — the test validator names the same (`tests/test-evidence-validation.compliance.l1.test.ts`).
+
+   Consumer sites: `src/domains/verify/run-set.ts` derives its value-narrowing view from the reasoned result rather than keeping a second check, and `src/commands/verify/cli.ts` carries the reason into the scope-invalid and finding-invalid diagnostics, which are one fixed string per verb today.
+
+   The rejection diagnostic on standard error orients a human reader: the command and the rejection on the first line, then labeled `verification type`, `evidence kind`, and `reason` lines, then a closing line stating that the run is unchanged and the same idempotency key remains valid for the retry. The single structured JSON result on standard output stays the machine contract and gains the reason as a field. Composing that block through `src/lib/terminal-text/` closes the unescaped-site entry in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`, whose revisit condition is the next changeset touching this node's terminal output path: schema field names are product-authored and keep their bytes, while any reason segment echoing payload values is escaped where it is embedded.
+
 2. Resolve `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` next-action filtering before a verification type can register only part of the evidence-action surface.
 3. Keep run-set context projection out of the individual-run lifecycle; `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` owns it as the separate run-set layer.
 4. Treat `spx journal read-set` as a raw journal substrate only; verification producers consume the run-set projection `spx/34-verification.enabler/32-verify.enabler/54-run-set-orchestration.enabler` provides.
