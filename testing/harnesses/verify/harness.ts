@@ -4274,3 +4274,20 @@ export async function appendReviewFindingMissingRequiredField(
     deps,
   );
 }
+
+/**
+ * Run one `finish` against a started deterministic test run with terminal metadata the type never
+ * accepts, and return the command result. The harness owns the run lifecycle and the finish
+ * invocation; what the reported diagnostic must contain is the linked test's claim.
+ */
+export async function finishTestRunWithSuppliedMetadata(): Promise<CliCommandResult> {
+  const { scenario, deps, runToken } = await testAppendScenario();
+  const terminalMetadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
+  return verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+}

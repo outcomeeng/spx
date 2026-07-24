@@ -10,7 +10,10 @@ import {
 import {
   arbitraryAuditFindingMissingRequiredField,
   arbitraryAuditFindingValidationScenario,
+  arbitraryAuditScopeCoverageGapWithProvenance,
+  arbitraryAuditScopeIncompatibleKind,
   arbitraryAuditScopeMissingRequiredField,
+  arbitraryAuditScopeParentedToSelf,
   arbitraryInvalidAuditFindingScenario,
   arbitraryInvalidAuditScopeScenario,
   invalidCoveredCoverageGapAuditScopePayloads,
@@ -162,5 +165,39 @@ describe("audit evidence validation", () => {
       },
       { level: PROPERTY_LEVEL.L1 },
     );
+  });
+  it("names the unmet structural requirement for each audit scope pairing rule", () => {
+    const pairings = [
+      {
+        payloads: arbitraryAuditScopeIncompatibleKind(),
+        requirement: EVIDENCE_REQUIREMENT.AUDIT_KIND_MATCHES_CLASS,
+      },
+      {
+        payloads: arbitraryAuditScopeCoverageGapWithProvenance(),
+        requirement: EVIDENCE_REQUIREMENT.AUDIT_COVERAGE_GAP_HAS_NO_PROVENANCE,
+      },
+      {
+        payloads: arbitraryAuditScopeParentedToSelf(),
+        requirement: EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_NOT_SELF,
+      },
+    ];
+    for (const pairing of pairings) {
+      assertProperty(
+        pairing.payloads,
+        (payload) => {
+          const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+            payload,
+            events: [],
+            selector: {
+              scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+              scopeIdentity: sampleVerifyTestValue(arbitraryInvalidAuditScopeScenario()).scopeIdentity,
+            },
+          });
+          expect(result?.ok).toBe(false);
+          expect(result?.ok === false ? result.reason : "").toContain(pairing.requirement);
+        },
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    }
   });
 });

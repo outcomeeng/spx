@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import { TERMINAL_METADATA_VALIDATION_ERROR, validateAuditTerminal, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
+import {
+  TERMINAL_METADATA_VALIDATION_ERROR,
+  TERMINAL_REQUIREMENT,
+  validateAuditTerminal,
+  VERIFY_SCOPE_TYPE,
+} from "@/domains/verify/verify";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
@@ -17,9 +22,10 @@ describe("audit file-root terminal compliance", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       },
-    })).toMatchObject({
+    })).toStrictEqual({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
     });
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
@@ -28,9 +34,10 @@ describe("audit file-root terminal compliance", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       },
-    })).toMatchObject({
+    })).toStrictEqual({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
     });
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
@@ -39,9 +46,10 @@ describe("audit file-root terminal compliance", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       },
-    })).toMatchObject({
+    })).toStrictEqual({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
     });
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
@@ -50,9 +58,10 @@ describe("audit file-root terminal compliance", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       },
-    })).toMatchObject({
+    })).toStrictEqual({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
     });
   });
 });

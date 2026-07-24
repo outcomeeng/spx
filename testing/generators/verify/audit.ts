@@ -628,3 +628,35 @@ export function arbitraryAuditFindingMissingRequiredField(): fc.Arbitrary<Missin
       scopeIdentity,
     }));
 }
+
+/**
+ * An audit scope unit whose audit kind belongs to a different audit class, so validation reaches
+ * the kind-against-class compatibility requirement rather than a field check.
+ */
+export function arbitraryAuditScopeIncompatibleKind(): fc.Arbitrary<JsonValue> {
+  return arbitraryAuditScopeUnit().map((unit) =>
+    auditScopePayload({ ...unit, auditClass: AUDIT_CLASS.SPEC, auditKind: AUDIT_KIND.CODE })
+  );
+}
+
+/**
+ * A coverage-gap audit scope unit that nonetheless records producer provenance, so validation
+ * reaches the requirement that an uncovered unit records no executed producer.
+ */
+export function arbitraryAuditScopeCoverageGapWithProvenance(): fc.Arbitrary<JsonValue> {
+  return fc
+    .tuple(arbitraryAuditScopeUnit(), arbitraryAuditProducerProvenance())
+    .map(([unit, producerProvenance]) =>
+      auditScopePayload({
+        ...unit,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE,
+        producerProvenance,
+      })
+    );
+}
+
+/** An audit scope unit naming itself as its own parent, so validation reaches that requirement. */
+export function arbitraryAuditScopeParentedToSelf(): fc.Arbitrary<JsonValue> {
+  return arbitraryAuditScopeUnit().map((unit) => auditScopePayload({ ...unit, parentUnitId: unit.unitId }));
+}
