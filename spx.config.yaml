@@ -1,6 +1,6 @@
 methodology:
   source: outcomeeng/spec-tree
-  version: 0.24.0
+  version: 0.85.0
 
 validation:
   paths:
