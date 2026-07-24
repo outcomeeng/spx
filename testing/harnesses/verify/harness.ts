@@ -3396,7 +3396,7 @@ export async function assertAppendRejectsUnsupportedScopeTypesBeforePayloadRead(
           payload,
           idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
         }),
-        scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE,
+        scopeType: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedScopeType()),
       },
       deps,
     );
@@ -4169,7 +4169,7 @@ export async function assertFinishRejectsUnsupportedScopeAndMalformedScope(): Pr
   const unsupportedType = await verifyFinishCommand(
     {
       ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
-      scopeType: VERIFY_SCOPE_TYPE.WORKING_TREE,
+      scopeType: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unsupportedScopeType()),
     },
     deps,
   );

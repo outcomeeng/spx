@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import { parseChangesetScope, VERIFY_SCOPE_ERROR } from "@/domains/verify/verify";
 import { arbitraryFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -12,11 +13,12 @@ import {
   runChangesetScopeScenario,
   startChangesetScopeRun,
   startFileScopeRun,
+  startWithScopeType,
   withScope,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
-describe("verify changeset scope properties", () => {
+describe("verify scope properties", () => {
   it("resolves any changeset into the derived changed-file scope", async () => {
     await assertProperty(
       VERIFY_TEST_GENERATOR.changesetScopeScenario(),
@@ -99,6 +101,18 @@ describe("verify changeset scope properties", () => {
         const started = await startFileScopeRun(scope.input);
         expect(started.report.locator).toStrictEqual(started.expectedLocator);
         expect(started.runTargetExists).toBe(true);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects every scope type outside the supported scope types", async () => {
+    await assertProperty(
+      VERIFY_TEST_GENERATOR.unsupportedScopeType(),
+      async (scopeType) => {
+        const started = await startWithScopeType(scopeType);
+        expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(started.output).toBe(VERIFY_SCOPE_ERROR.UNSUPPORTED_SCOPE_TYPE);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

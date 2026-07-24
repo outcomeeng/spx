@@ -18,7 +18,6 @@ import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
   FILE: "file",
-  WORKING_TREE: "working-tree",
 } as const;
 
 export type VerifyScopeType = (typeof VERIFY_SCOPE_TYPE)[keyof typeof VERIFY_SCOPE_TYPE];
