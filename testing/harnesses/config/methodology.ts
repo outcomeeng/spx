@@ -11,22 +11,24 @@ import {
   DEFAULT_METHODOLOGY_CONFIG,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
+  type MethodologyConfig,
   methodologyConfigDescriptor,
 } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { productionRegistry } from "@/config/registry";
-import {
-  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
-  harnessEnvironmentConfigDescriptor,
-} from "@/domains/agent-environment/config";
+import type { Config, Result } from "@/config/types";
+import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
-const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
-const SIMILAR_HARNESS_FIELD = "methodologySource";
-const STRAY_HARNESS_FIELD = "strayHarnessField";
+/** The finite invalid-source domain the methodology descriptor rejects. */
+export const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
+/** The finite invalid-version domain the methodology descriptor rejects. */
+export const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+/** A harnessEnvironment field whose name resembles the methodology section without being it. */
+export const SIMILAR_HARNESS_FIELD = "methodologySource";
+/** An unrecognized harnessEnvironment field carried alongside a misplaced methodology section. */
+export const STRAY_HARNESS_FIELD = "strayHarnessField";
 
 export function generatedMethodologySection(): Record<string, unknown> {
   return {
@@ -40,11 +42,6 @@ export function generatedMethodologySource(): string {
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
   ].join("/");
-}
-
-function expectMethodology(value: unknown): void {
-  expect(value).toHaveProperty(METHODOLOGY_CONFIG_FIELDS.SOURCE);
-  expect(value).toHaveProperty(METHODOLOGY_CONFIG_FIELDS.VERSION);
 }
 
 export async function assertMethodologyDefaultsResolveFromProductionRegistry(): Promise<void> {
@@ -86,85 +83,76 @@ export function assertMethodologyConfigFormatsResolveEquivalently(): void {
   }
 }
 
-export async function assertMalformedMethodologyConfigRejects(): Promise<void> {
-  for (const source of INVALID_METHODOLOGY_SOURCES) {
-    await withTestEnv({
-      [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
-      },
-    }, async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`);
-      }
-    });
-  }
-  for (const version of INVALID_METHODOLOGY_VERSIONS) {
-    await withTestEnv({
-      [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-        [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
-      },
-    }, async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
-      }
-    });
-  }
+/** Resolves a product whose methodology section carries the supplied source value. */
+export async function resolveMethodologySource(source: unknown): Promise<Result<Config>> {
+  let resolved: Result<Config> | undefined;
+  await withTestEnv({
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+    },
+  }, async ({ productDir }) => {
+    resolved = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+  });
+  if (resolved === undefined) throw new Error("methodology config resolution produced no result");
+  return resolved;
 }
 
-export async function assertHarnessEnvironmentMethodologyRejects(): Promise<void> {
+/** Resolves a product whose methodology section carries a valid source and the supplied version value. */
+export async function resolveMethodologyVersion(version: unknown): Promise<Result<Config>> {
+  let resolved: Result<Config> | undefined;
+  await withTestEnv({
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+    },
+  }, async ({ productDir }) => {
+    resolved = await resolveConfig(productDir, [methodologyConfigDescriptor]);
+  });
+  if (resolved === undefined) throw new Error("methodology config resolution produced no result");
+  return resolved;
+}
+
+/** Resolves the harnessEnvironment descriptor against a config that misplaces methodology under it. */
+export async function resolveHarnessEnvironmentWithMethodologySection(): Promise<Result<Config>> {
+  let resolved: Result<Config> | undefined;
   await withTestEnv({
     [HARNESS_ENVIRONMENT_SECTION]: {
       [METHODOLOGY_SECTION]: generatedMethodologySection(),
     },
   }, async ({ productDir }) => {
-    const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
-    }
+    resolved = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
   });
+  if (resolved === undefined) throw new Error("harnessEnvironment config resolution produced no result");
+  return resolved;
 }
 
-export async function assertMethodologyResolverRejectsHarnessMethodologyAmongUnknownFields(): Promise<void> {
+/** Resolves methodology config against a harnessEnvironment section carrying methodology among stray fields. */
+export async function resolveMethodologyWithStrayHarnessFields(): Promise<Result<MethodologyConfig>> {
+  let resolved: Result<MethodologyConfig> | undefined;
   await withTestEnv({
     [HARNESS_ENVIRONMENT_SECTION]: {
       [METHODOLOGY_SECTION]: generatedMethodologySection(),
       [STRAY_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     },
   }, async ({ productDir }) => {
-    const result = await resolveMethodologyConfig(productDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(METHODOLOGY_SECTION);
-    }
+    resolved = await resolveMethodologyConfig(productDir);
   });
+  if (resolved === undefined) throw new Error("methodology resolution produced no result");
+  return resolved;
 }
 
-export async function assertMethodologyResolverIgnoresSimilarHarnessField(): Promise<void> {
+/** Resolves methodology config against a harnessEnvironment section carrying only a similarly named field. */
+export async function resolveMethodologyWithSimilarHarnessField(): Promise<Result<MethodologyConfig>> {
+  let resolved: Result<MethodologyConfig> | undefined;
   await withTestEnv({
     [HARNESS_ENVIRONMENT_SECTION]: {
       [SIMILAR_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     },
   }, async ({ productDir }) => {
-    const result = await resolveMethodologyConfig(productDir);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.error);
-    expect(result.value).toEqual(DEFAULT_METHODOLOGY_CONFIG);
+    resolved = await resolveMethodologyConfig(productDir);
   });
-}
-
-export function assertHarnessEnvironmentDefaultsExcludeMethodology(): void {
-  expect(harnessEnvironmentConfigDescriptor.defaults).not.toHaveProperty(METHODOLOGY_SECTION);
-  expect(HARNESS_ENVIRONMENT_CONFIG_FIELDS).not.toHaveProperty("METHODOLOGY");
-}
-
-export function assertMethodologyConfigShape(value: unknown): void {
-  expectMethodology(value);
+  if (resolved === undefined) throw new Error("methodology resolution produced no result");
+  return resolved;
 }
 
 const CONFIG_FILE_FORMAT_ORDER_FOR_TESTS = [

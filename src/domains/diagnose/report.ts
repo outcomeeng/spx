@@ -81,6 +81,7 @@ export const DIAGNOSE_TEXT_HEADER = {
   MARKETPLACE_DRIFT: "plugin installation drift",
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
   MARKETPLACE_UNKNOWN: "plugin marketplace state unknown",
+  METHODOLOGY_BOOTSTRAP_IDENTITY: "methodology identity undeclared",
   METHODOLOGY_RESOLVED: "methodology context resolved",
   METHODOLOGY_UNAVAILABLE: "methodology context unavailable",
   METHODOLOGY_UNKNOWN: "methodology context unknown",
@@ -107,6 +108,9 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
+  METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM:
+    "this product carries a tracked spec tree but declares the bootstrap methodology sentinel, so its methodology identity is not durable.",
+  METHODOLOGY_BOOTSTRAP_IDENTITY_FIX: "declare an exact top-level methodology.version in spx.config.",
   METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
   METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
   METHODOLOGY_VERSION_MISMATCH_FIX:
@@ -162,6 +166,19 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED,
           detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
           detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY:
+      return {
+        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY,
+        details: [
+          detail(
+            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM),
+          ),
+          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
+          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
+          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:

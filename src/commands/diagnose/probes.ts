@@ -9,7 +9,7 @@
  * @module commands/diagnose/probes
  */
 
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -54,7 +54,7 @@ import {
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
-import { compareNumericVersionIdentifiers } from "@/lib/spec-tree";
+import { compareNumericVersionIdentifiers, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -62,8 +62,10 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+/** The agent-home-relative path segments a methodology plugin cache resolves under. */
+export const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
+const NOT_A_DIRECTORY_ERROR_CODE = "ENOTDIR";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
   GIT_ROOT_COMMAND.SYMBOLIC_REF,
@@ -614,27 +616,54 @@ async function configuredVersionDirectory(
   );
 }
 
-export function createMethodologyContextProbe(...agentHomeDirs: readonly string[]): MethodologyContextProbe {
-  const resolvedHomes = resolveAgentHomeDirs();
-  const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
+interface TrackedSpecTreeReading {
+  readonly errored: boolean;
+  readonly tracked: boolean;
+}
+
+/**
+ * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
+ * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
+ * it — the classifier judges that, and this probe supplies the observation.
+ */
+async function trackedSpecTreeReading(productDir: string): Promise<TrackedSpecTreeReading> {
+  try {
+    const entry = await stat(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
+    return { errored: false, tracked: entry.isDirectory() };
+  } catch (error) {
+    if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE) || isNodeErrorCode(error, NOT_A_DIRECTORY_ERROR_CODE)) {
+      return { errored: false, tracked: false };
+    }
+    return { errored: true, tracked: false };
+  }
+}
+
+/**
+ * The methodology-context probe for one product directory. Agent home directories default to the
+ * environment-resolved ones read at probe time, so an exported home set after construction is seen.
+ */
+export function createMethodologyContextProbe(
+  productDir: string,
+  ...agentHomeDirs: readonly string[]
+): MethodologyContextProbe {
   return {
     async probe(config): Promise<MethodologyContextObservation> {
+      const resolvedHomes = resolveAgentHomeDirs();
+      const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
       const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
       const reading = await configuredVersionDirectory(sourcePaths, config);
+      const tracked = await trackedSpecTreeReading(productDir);
+      const trackedSpecTree = tracked.tracked;
+      const errored = reading.errored || tracked.errored;
       if (reading.version === null) {
-        return { source: null, version: null, errored: reading.errored };
+        return { source: null, version: null, trackedSpecTree, errored };
       }
       return {
         source: config.source,
         version: reading.version,
-        errored: reading.errored,
+        trackedSpecTree,
+        errored,
       };
     },
   };
 }
-
-export const defaultMethodologyContextProbe: MethodologyContextProbe = {
-  probe(config): Promise<MethodologyContextObservation> {
-    return createMethodologyContextProbe().probe(config);
-  },
-};

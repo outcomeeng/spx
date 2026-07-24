@@ -1,8 +1,8 @@
 # Agent
 
-PROVIDES coding-agent session coordination
-SO THAT users operating Codex, Claude Code, or Pi in a product worktree
-CAN find and continue Codex, Claude Code, or Pi sessions from the SPX CLI
+PROVIDES coding-agent session identity, resume, search, and closure coordination
+SO THAT users and managed workflows operating Codex, Claude Code, or Pi in a product worktree
+CAN find, continue, bind evidence to, and close the exact native coding-agent session from the SPX CLI
 
 ## Assertions
 
@@ -10,4 +10,5 @@ CAN find and continue Codex, Claude Code, or Pi sessions from the SPX CLI
 
 - ALWAYS: agent resume coordination resolves Codex and Claude Code homes from `CODEX_HOME` and `CLAUDE_CONFIG_DIR`, and resolves Pi sessions from `PI_CODING_AGENT_SESSION_DIR` before `PI_CODING_AGENT_DIR`, before default home-directory paths ([test](tests/agent-home-resolution.compliance.l1.test.ts))
 - ALWAYS: agent search coordination resolves Codex and Claude Code homes from `CODEX_HOME` and `CLAUDE_CONFIG_DIR`, and resolves Pi sessions from `PI_CODING_AGENT_SESSION_DIR` before `PI_CODING_AGENT_DIR`, before default home-directory paths ([test](tests/agent-home-resolution.compliance.l1.test.ts))
-- ALWAYS: agent session coordination treats Codex, Claude Code, and Pi agent-native sessions as distinct from SPX handoff session files under `.spx/sessions/` ([audit])
+- ALWAYS: coding-agent session coordination treats Codex, Claude Code, and Pi native sessions as distinct from SPX handoff session files under `.spx/sessions/` ([audit])
+- ALWAYS: coding-agent session coordination exposes each native session's exact identity so a consuming workflow binds evidence to that session and closes it ([audit])

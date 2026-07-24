@@ -21,6 +21,11 @@ function isCheckName(value: string): value is CheckName {
   return CHECK_NAMES.has(value);
 }
 
+/** Rejection messages the diagnose fact resolution emits, shared with the tests that assert them. */
+export const DIAGNOSE_RESOLVE_ERROR = {
+  UNAVAILABLE_CONFIGURED_CHECKS: "diagnose config `checks` names checks not available in this build",
+} as const;
+
 /** Resolves and validates the effective diagnose check set for the current build. */
 export function resolveDiagnoseCheckSet(
   config: DiagnoseConfig,
@@ -36,7 +41,7 @@ export function resolveDiagnoseCheckSet(
   if (unavailable.length > 0) {
     return {
       ok: false,
-      error: `diagnose config \`checks\` names checks not available in this build: ${unavailable.join(", ")}`,
+      error: `${DIAGNOSE_RESOLVE_ERROR.UNAVAILABLE_CONFIGURED_CHECKS}: ${unavailable.join(", ")}`,
     };
   }
 
