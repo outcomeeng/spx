@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_VERSION_INTENT } from "@/config/methodology";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
+import {
+  METHODOLOGY_CONTEXT_READING_VALUE,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import {
-  ABSENT_READING,
   breakMethodologyCache,
   firstCheck,
   generatedMethodology,
@@ -110,8 +112,8 @@ describe("methodology-context diagnose scenarios", () => {
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
     expect(check.readings).toEqual(expect.objectContaining({
       configuredSource: methodology.source,
-      observedSource: ABSENT_READING,
-      observedVersion: ABSENT_READING,
+      observedSource: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+      observedVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
   });

@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { diagnoseCommand } from "@/commands/diagnose";
-import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
+import { createMethodologyContextProbe, PLUGIN_CACHE_SEGMENTS } from "@/commands/diagnose/probes";
 import {
   DEFAULT_METHODOLOGY_VERSION,
   METHODOLOGY_CONFIG_FIELDS,
@@ -38,12 +38,8 @@ export const METHODOLOGY_CACHE_VERSION = {
   EXACT_ONLY: "stable",
 } as const;
 
-const PLUGIN_CACHE_PATH = ["plugins", "cache"] as const;
 const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
 const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
-
-/** The sentinel a diagnose reading renders for a value the check did not gather. */
-export const ABSENT_READING = "(absent)";
 
 async function withAgentHomeEnv(
   codexHome: string,
@@ -136,7 +132,7 @@ export async function installMethodologyVersion(
   methodology: MethodologyConfig,
   version: string,
 ): Promise<void> {
-  await mkdir(join(agentHome, ...PLUGIN_CACHE_PATH, ...methodology.source.split("/"), version), {
+  await mkdir(join(agentHome, ...PLUGIN_CACHE_SEGMENTS, ...methodology.source.split("/"), version), {
     recursive: true,
   });
 }
