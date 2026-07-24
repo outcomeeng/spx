@@ -478,7 +478,10 @@ async function discoverSearch(
       fs: fixture.fs,
       agentHomeDirs,
       nowMs: () => fixture.nowMs,
-      resolveProductScopeRoot: async () => fixture.worktreeRoot,
+      resolveProductScopeRoot: async () => ({
+        productScopeRoot: fixture.worktreeRoot,
+        worktreeRoot: fixture.worktreeRoot,
+      }),
       resolveBranchAssociatedWorktreeRoots: async () => [],
     },
   });

@@ -11,6 +11,7 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
+  AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_KIND,
   AGENT_SESSION_ROW_TYPE,
@@ -18,6 +19,7 @@ import {
   AGENT_TRANSCRIPT_CONTENT_TYPE,
   AGENT_TRANSCRIPT_PAYLOAD_TYPE,
   AGENT_TRANSCRIPT_TOOL_NAME,
+  type AgentSearchMatchReason,
 } from "@/domains/agent/protocol";
 import {
   type AgentSearchQuery,
@@ -98,6 +100,10 @@ const SEARCH_SAMPLE = {
   PRODUCT_WIDE_INVOCATION_SESSION_ID: 307,
   PRODUCT_WIDE_SIBLING_SESSION_ID: 308,
   PRODUCT_WIDE_FOREIGN_SESSION_ID: 309,
+  POOL_BRANCH_HOME_DIR: 310,
+  POOL_BRANCH_NOW_MS: 311,
+  POOL_BRANCH_SESSION_ID: 312,
+  POOL_BRANCH_CWD: 313,
   PRODUCT_SCOPE_ROOT: 1,
   FOREIGN_PRODUCT_ROOT: 2,
   CODEX_CWD: 3,
@@ -293,6 +299,7 @@ function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT):
 export async function withAgentSearchProductScopeEvidence(
   callback: (evidence: {
     readonly resolvedRoot: string;
+    readonly resolvedWorktreeRoot: string;
     readonly productRoot: string;
     readonly worktreeRoot: string;
   }) => void | Promise<void>,
@@ -300,10 +307,64 @@ export async function withAgentSearchProductScopeEvidence(
   const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
   await withWorktreeLayoutEnv(layoutCase.spec, async (env) => {
     const worktreeRoot = await realpath(env.worktree(layoutCase.mainCheckoutName));
+    const roots = await resolveAgentSearchProductScopeRoot(worktreeRoot, worktreeRoot);
     await callback({
-      resolvedRoot: await resolveAgentSearchProductScopeRoot(worktreeRoot, worktreeRoot),
+      resolvedRoot: roots.productScopeRoot,
+      resolvedWorktreeRoot: roots.worktreeRoot,
       productRoot: dirname(worktreeRoot),
       worktreeRoot,
+    });
+  });
+}
+
+/**
+ * Records a session inside a sibling pool worktree whose transcript carries no branch
+ * identity, then runs `--branch` for that worktree's branch through the real resolvers.
+ * Only the same-product worktree-root association can match it, so the case fails if
+ * `git worktree list` is run from a directory that is not a git working directory.
+ */
+export async function withAgentSearchPoolBranchWorktreeEvidence(
+  callback: (evidence: {
+    readonly results: readonly AgentSearchResult[];
+    readonly sessionId: string;
+    readonly branchReason: AgentSearchMatchReason;
+  }) => void | Promise<void>,
+): Promise<void> {
+  const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+  await withWorktreeLayoutEnv(layoutCase.spec, async (env) => {
+    const invocationWorktree = await realpath(env.worktree(layoutCase.mainCheckoutName));
+    const siblingWorktree = await realpath(env.worktree(layoutCase.otherNames[0]));
+    const siblingBranch = layoutCase.spec.worktrees[1].branch;
+    if (siblingBranch === undefined) {
+      throw new Error("bare-pool layout fixture must check the sibling worktree out on a branch");
+    }
+    const fs = new MemoryAgentSessionFileSystem();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.POOL_BRANCH_HOME_DIR);
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), SEARCH_SAMPLE.POOL_BRANCH_NOW_MS);
+    const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.POOL_BRANCH_SESSION_ID);
+
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId,
+      cwd: sampleAgentResumeValue(arbitraryAgentSessionCwd(siblingWorktree), SEARCH_SAMPLE.POOL_BRANCH_CWD),
+      timestamp: new Date(nowMs).toISOString(),
+      modifiedAtMs: nowMs,
+    });
+
+    await callback({
+      results: await loadAgentSearchResults({
+        cwd: invocationWorktree,
+        fallbackProductScopeRoot: invocationWorktree,
+        query: agentSearchQueryFromOptions({ branch: siblingBranch }),
+        deps: {
+          fs,
+          agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+          nowMs: () => nowMs,
+          resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
+          resolveBranchAssociatedWorktreeRoots: resolveAgentSearchBranchAssociatedWorktreeRoots,
+        },
+      }),
+      sessionId,
+      branchReason: AGENT_SEARCH_MATCH_REASON.BRANCH,
     });
   });
 }
@@ -522,7 +583,7 @@ export async function withAgentSearchJsonMetadataEvidence(
           fs,
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
-          resolveProductScopeRoot: async () => productScopeRoot,
+          resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
           resolveBranchAssociatedWorktreeRoots: async () => [],
         },
       }),
@@ -612,7 +673,10 @@ export async function withAgentSearchFallbackScopeEvidence(
           fs,
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
-          resolveProductScopeRoot: async (_cwd, fallbackRoot) => fallbackRoot,
+          resolveProductScopeRoot: async (_cwd, fallbackRoot) => ({
+            productScopeRoot: fallbackRoot,
+            worktreeRoot: fallbackRoot,
+          }),
           resolveBranchAssociatedWorktreeRoots: async () => [],
         },
       }),
@@ -825,7 +889,7 @@ export async function withAgentSearchBranchWorktreeEvidence(
       fs,
       agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
       nowMs: () => nowMs,
-      resolveProductScopeRoot: async () => productScopeRoot,
+      resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
       resolveBranchAssociatedWorktreeRoots: async (cwd, branch) =>
         resolveAgentSearchBranchAssociatedWorktreeRoots(cwd, branch, git),
     },
@@ -887,7 +951,7 @@ export async function withAgentSearchBranchCommandEvidence(
       fs,
       agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
       nowMs: () => nowMs,
-      resolveProductScopeRoot: async () => productScopeRoot,
+      resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
       resolveBranchAssociatedWorktreeRoots: async () => [],
     },
   });
@@ -1465,7 +1529,7 @@ export async function withAgentSearchBranchExistenceEvidence(
           fs,
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
-          resolveProductScopeRoot: async () => productScopeRoot,
+          resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
           resolveBranchAssociatedWorktreeRoots: async (_cwd, branch) => {
             observedExistingBranches.push(branch);
             return [];

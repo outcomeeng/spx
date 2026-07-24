@@ -270,7 +270,7 @@ export async function withPiSearchCliSelectionEvidence(
         fs,
         agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
         nowMs: () => nowMs,
-        resolveProductScopeRoot: async () => productRoot,
+        resolveProductScopeRoot: async () => ({ productScopeRoot: productRoot, worktreeRoot: productRoot }),
         resolveBranchAssociatedWorktreeRoots: async () => [],
       },
     })],
