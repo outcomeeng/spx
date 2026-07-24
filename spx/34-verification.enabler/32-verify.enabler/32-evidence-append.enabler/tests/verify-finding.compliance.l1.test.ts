@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { EVIDENCE_REQUIREMENT } from "@/domains/verify/evidence-rejection";
+import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
   arbitraryReviewFindingMissingRequiredField,
+  arbitraryReviewFindingWithoutAnchor,
   arbitraryReviewScopeMissingRequiredField,
   sampleVerifyTestValue,
 } from "@testing/generators/verify/verify";
@@ -53,5 +56,21 @@ describe("verify finding evidence compliance", () => {
     const rejected = await appendReviewFindingMissingRequiredField(scenario.payload);
     expect(rejected.exitCode).not.toBe(0);
     expect(rejected.output).toContain(scenario.missingField);
+  });
+
+  it("reports the unmet structural requirement when it rejects a scope payload that is not an object", async () => {
+    const rejected = await appendReviewScopeMissingRequiredField(
+      sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken()),
+    );
+    expect(rejected.exitCode).not.toBe(0);
+    expect(rejected.output).toContain(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  });
+
+  it("reports the unmet structural requirement when it rejects a finding anchored to neither line nor position", async () => {
+    const rejected = await appendReviewFindingMissingRequiredField(
+      sampleVerifyTestValue(arbitraryReviewFindingWithoutAnchor()),
+    );
+    expect(rejected.exitCode).not.toBe(0);
+    expect(rejected.output).toContain(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR);
   });
 });

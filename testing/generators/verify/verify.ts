@@ -1140,3 +1140,18 @@ export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<Revie
     .tuple(arbitraryReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
     .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
 }
+
+/**
+ * A review finding payload anchored to neither a line nor a position. Every other required field
+ * is present, so the payload reaches the anchor requirement rather than failing a field check.
+ */
+export function arbitraryReviewFindingWithoutAnchor(): fc.Arbitrary<JsonValue> {
+  return arbitraryReviewFinding().map((finding) => {
+    const {
+      [REVIEW_PAYLOAD_FIELD.LINE]: _line,
+      [REVIEW_PAYLOAD_FIELD.POSITION]: _position,
+      ...anchorless
+    } = JSON.parse(JSON.stringify(finding)) as { readonly [key: string]: JsonValue };
+    return anchorless;
+  });
+}
