@@ -24,6 +24,7 @@ Terminal completion is a verify-owned journal event, and run status is a pure fo
 - Verifier execution remains outside the verify module; the verify command layer records and renders a run, whether a caller or spx drove it, and a module that drives a verifier is a separate command module the descriptor wires alongside it.
 - Scope, finding, and terminal metadata validation dispatch through an evidence-validator registry keyed by verification type and evidence kind; adding a verification type's evidence validation adds registry entries and changes no verify dispatch control flow.
 - An evidence-validator rejection carries a reason naming the failing payload field path or the unmet structural requirement; acceptance carries the validated value.
+- A terminal-metadata-validator rejection carries both the refusal class the command layer branches on and a reason naming the unmet terminal requirement — which status the verification type seals with, which status the run's own evidence requires, or that the type accepts no terminal metadata.
 - Each evidence payload schema has exactly one validation implementation from which the reasoned and value-narrowing views both derive.
 - Every supported scope type has exactly one registry entry that canonicalizes the selector, constructs the verification-context subject, and produces the `resolvedScope` projection used by start and existing-run operations.
 - File-scope resolution is a pure normalization over a product-relative path and performs no filesystem-existence or git-tracking read.
@@ -40,6 +41,7 @@ Terminal completion is a verify-owned journal event, and run status is a pure fo
 ### Testing
 
 - ALWAYS: a scope or finding evidence validator rejection yields a reason naming the failing payload field path or the unmet structural requirement ([compliance])
+- ALWAYS: a terminal-metadata validator rejection yields a reason naming the unmet terminal requirement alongside the refusal class the command layer branches on ([compliance])
 - ALWAYS: an evidence rejection diagnostic reported by the command layer includes the validator's rejection reason ([compliance])
 
 ### Audit
