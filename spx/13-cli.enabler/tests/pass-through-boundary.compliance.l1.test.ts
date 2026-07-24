@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Domain } from "@/domains/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram, SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
