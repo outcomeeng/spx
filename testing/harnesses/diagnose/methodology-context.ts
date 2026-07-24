@@ -103,6 +103,8 @@ export const SPEC_TREE_PRESENCE = {
   UNTRACKED: "untracked",
   /** A spec-tree root git tracks, so the product carries durable product truth. */
   TRACKED: "tracked",
+  /** A spec-tree root on disk with no git repository at all, so no tracked tree can be established. */
+  NO_REPOSITORY: "no-repository",
 } as const;
 
 export type SpecTreePresence = (typeof SPEC_TREE_PRESENCE)[keyof typeof SPEC_TREE_PRESENCE];
@@ -112,17 +114,20 @@ const SPEC_FIXTURE_CONTENT = "# fixture\n";
 const FIXTURE_COMMIT_MESSAGE = "add spec tree";
 
 /**
- * Materializes a temp git product directory whose spec-tree root is absent, present but untracked,
- * or git-tracked, and hands its path to the callback. Every case initializes a real repository, so
- * the untracked case differs from the tracked one only in whether git carries the file — which is
- * the distinction the tracked-tree observation is required to make.
+ * Materializes a temp product directory whose spec-tree root is absent, present but untracked,
+ * git-tracked, or present outside any repository, and hands its path to the callback. The first
+ * three initialize a real repository, so the untracked case differs from the tracked one only in
+ * whether git carries the file — the distinction the tracked-tree observation is required to make.
+ * The fourth omits the repository entirely, so no tracked tree can be established at all.
  */
 export async function withProductDir(
   presence: SpecTreePresence,
   callback: (productDir: string) => Promise<void>,
 ): Promise<void> {
   await withTempDir("spx-methodology-product-", async (productDir) => {
-    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    if (presence !== SPEC_TREE_PRESENCE.NO_REPOSITORY) {
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    }
     if (presence !== SPEC_TREE_PRESENCE.ABSENT) {
       const specRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
       await mkdir(specRoot, { recursive: true });
