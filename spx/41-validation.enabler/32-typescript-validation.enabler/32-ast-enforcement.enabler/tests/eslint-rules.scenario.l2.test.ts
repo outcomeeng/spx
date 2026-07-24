@@ -18,6 +18,7 @@ import {
   readValidationConfigRules,
   severityOf,
 } from "@testing/harnesses/validation/eslint";
+import { observeTestOwnedConstantDebtAddition } from "@testing/harnesses/validation/lint-policy-observation";
 
 const lintDebtManifests = readLintDebtManifestEntries();
 
@@ -63,6 +64,15 @@ describe("ESLint rules integration", () => {
           }
         }
       });
+    }
+  });
+
+  it("rejects test-owned-constant debt added beyond the committed baseline", async () => {
+    const observation = await observeTestOwnedConstantDebtAddition();
+    expect(observation.result.ok).toBe(false);
+    if (!observation.result.ok) {
+      expect(observation.result.error).toContain(observation.manifestPath);
+      expect(observation.result.error).toContain(observation.addedPath);
     }
   });
 

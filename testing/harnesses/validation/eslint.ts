@@ -1,5 +1,5 @@
-import type { Linter, Rule } from "eslint";
-import { ESLint, RuleTester } from "eslint";
+import type { Rule } from "eslint";
+import { ESLint, Linter, RuleTester } from "eslint";
 import { builtinRules } from "eslint/use-at-your-own-risk";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -59,6 +59,19 @@ export interface ValidationRuleTesterRun {
   readonly ruleName: string;
   readonly rule: Rule.RuleModule;
   readonly cases: ValidationRuleTesterCases;
+}
+
+export interface ValidationRuleCaseObservation {
+  readonly actualOutput: string;
+  readonly expectedErrors: readonly { readonly message?: string; readonly messageId?: string }[];
+  readonly expectedOutput: string | null | undefined;
+  readonly messages: readonly Linter.LintMessage[];
+  readonly source: string;
+}
+
+export interface ValidationRuleRunObservation {
+  readonly invalid: readonly ValidationRuleCaseObservation[];
+  readonly valid: readonly ValidationRuleCaseObservation[];
 }
 
 export interface ValidationLintTextCase {
@@ -130,6 +143,73 @@ export function validationBuiltinRule(name: string): Rule.RuleModule {
     throw new Error(name);
   }
   return rule;
+}
+
+export function observeValidationRuleRun(run: ValidationRuleTesterRun): ValidationRuleRunObservation {
+  return {
+    valid: run.cases.valid.map((testCase) => observeValidationRuleCase(run, testCase, [])),
+    invalid: run.cases.invalid.map((testCase) => {
+      if (!Array.isArray(testCase.errors)) {
+        throw new Error(`Expected generated errors to be explicit for ${run.ruleName}`);
+      }
+      return observeValidationRuleCase(
+        run,
+        testCase,
+        testCase.errors as readonly { readonly message?: string; readonly messageId?: string }[],
+      );
+    }),
+  };
+}
+
+export function observeValidationBuiltinRuleRuns(
+  runs: readonly Omit<ValidationRuleTesterRun, "rule">[],
+): readonly ValidationRuleRunObservation[] {
+  return runs.map((run) => observeValidationRuleRun({ ...run, rule: validationBuiltinRule(run.ruleName) }));
+}
+
+export function observeValidationRuleRuns(
+  runs: readonly Omit<ValidationRuleTesterRun, "rule">[],
+  rule: Rule.RuleModule,
+): readonly ValidationRuleRunObservation[] {
+  return runs.map((run) => observeValidationRuleRun({ ...run, rule }));
+}
+
+function observeValidationRuleCase(
+  run: ValidationRuleTesterRun,
+  testCase: RuleTester.ValidTestCase | RuleTester.InvalidTestCase | string,
+  expectedErrors: readonly { readonly message?: string; readonly messageId?: string }[],
+): ValidationRuleCaseObservation {
+  const source = typeof testCase === "string" ? testCase : testCase.code;
+  const filename = typeof testCase === "string" ? "case.ts" : testCase.filename ?? "case.ts";
+  const options = typeof testCase === "string" || testCase.options === undefined ? [] : testCase.options;
+  const caseLanguageOptions = typeof testCase === "string" ? undefined : testCase.languageOptions;
+  const ruleId = `observed/${run.ruleName}`;
+  const config: Linter.Config = {
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      ...validationEslintRuleTesterLanguageOptions(),
+      ...caseLanguageOptions,
+      parser: caseLanguageOptions?.parser ?? tseslint.parser,
+    },
+    plugins: {
+      observed: {
+        rules: { [run.ruleName]: run.rule },
+      },
+    },
+    rules: {
+      [ruleId]: ["error", ...options],
+    },
+  };
+  const linter = new Linter({ configType: "flat" });
+  const messages = linter.verify(source, config, { filename });
+  const fixed = linter.verifyAndFix(source, config, { filename });
+  return {
+    actualOutput: fixed.output,
+    expectedErrors,
+    expectedOutput: typeof testCase === "string" || !("output" in testCase) ? undefined : testCase.output,
+    messages,
+    source,
+  };
 }
 
 export function createValidationEslint(): ESLint {

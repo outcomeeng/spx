@@ -14,57 +14,37 @@ import {
   astRestrictedSyntaxRuns,
 } from "@testing/generators/validation/ast-enforcement";
 import {
-  installValidationRuleTesterHooks,
-  runValidationBuiltinRuleTesterRuns,
-  runValidationRuleTester,
-  runValidationRuleTesterRuns,
+  observeValidationBuiltinRuleRuns,
+  observeValidationRuleRun,
+  observeValidationRuleRuns,
 } from "@testing/harnesses/validation/eslint";
 
-installValidationRuleTesterHooks();
-
-describe("restricted syntax selectors", () => {
-  it("accepts and rejects the registered restricted syntax cases", () => {
-    expect(() => runValidationBuiltinRuleTesterRuns(astRestrictedSyntaxRuns())).not.toThrow();
-  });
-});
-
-describe("import hygiene rule modules", () => {
-  it(astBareStringUnionRun().title, () => {
-    expect(() =>
-      runValidationRuleTester({
-        ...astBareStringUnionRun(),
-        rule: noBareStringUnions,
-      })
-    ).not.toThrow();
-  });
-
-  it(astImportSourceExtensionRun().title, () => {
-    expect(() =>
-      runValidationRuleTester({
-        ...astImportSourceExtensionRun(),
-        rule: noImportSourceExtensions,
-      })
-    ).not.toThrow();
-  });
-
-  it(astDeepRelativeImportRun().title, () => {
-    expect(() =>
-      runValidationRuleTester({
-        ...astDeepRelativeImportRun(),
-        rule: noDeepRelativeImports,
-      })
-    ).not.toThrow();
-  });
-});
-
-describe("spec reference rule module", () => {
-  it("accepts and rejects the registered spec reference cases", () => {
-    expect(() => runValidationRuleTesterRuns(astNoSpecReferencesRuns(), noSpecReferences)).not.toThrow();
-  });
-});
-
-describe("try catch assertion rule module", () => {
-  it("accepts and rejects the registered try-catch assertion cases", () => {
-    expect(() => runValidationRuleTesterRuns(astBddTryCatchRuns(), noBddTryCatchAntiPattern)).not.toThrow();
+describe("TypeScript AST enforcement mappings", () => {
+  it("maps every generated conforming and violating case to its diagnostics and fixes", () => {
+    const observations = [
+      ...observeValidationBuiltinRuleRuns(astRestrictedSyntaxRuns()),
+      observeValidationRuleRun({ ...astBareStringUnionRun(), rule: noBareStringUnions }),
+      observeValidationRuleRun({ ...astImportSourceExtensionRun(), rule: noImportSourceExtensions }),
+      observeValidationRuleRun({ ...astDeepRelativeImportRun(), rule: noDeepRelativeImports }),
+      ...observeValidationRuleRuns(astNoSpecReferencesRuns(), noSpecReferences),
+      ...observeValidationRuleRuns(astBddTryCatchRuns(), noBddTryCatchAntiPattern),
+    ];
+    observations.forEach((observation) => {
+      observation.valid.forEach((testCase) => expect(testCase.messages).toHaveLength(0));
+      observation.invalid.forEach((testCase) => {
+        expect(testCase.messages).toHaveLength(testCase.expectedErrors.length);
+        testCase.expectedErrors.forEach((expected, index) => {
+          const actual = testCase.messages[index];
+          if (expected.messageId === undefined) {
+            expect(actual?.message).toBe(expected.message);
+          } else {
+            expect(actual?.messageId).toBe(expected.messageId);
+          }
+        });
+        if (testCase.expectedOutput !== undefined) {
+          expect(testCase.actualOutput).toBe(testCase.expectedOutput ?? testCase.source);
+        }
+      });
+    });
   });
 });

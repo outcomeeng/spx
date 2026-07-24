@@ -1,13 +1,26 @@
-import { describe } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import rule, { NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME } from "@eslint-rules/no-hardcoded-spec-tree-node-states";
 import { noHardcodedSpecTreeNodeStatesCases } from "@testing/generators/validation/ast-enforcement";
-import { runValidationRuleTester } from "@testing/harnesses/validation/eslint";
+import { observeValidationRuleRun } from "@testing/harnesses/validation/eslint";
 
 describe("hardcoded spec-tree node state rule", () => {
-  runValidationRuleTester({
-    ruleName: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME,
-    rule,
-    cases: noHardcodedSpecTreeNodeStatesCases(),
+  it("maps generated spec-tree node-state cases to ownership diagnostics", () => {
+    const observation = observeValidationRuleRun({
+      ruleName: NO_HARDCODED_SPEC_TREE_NODE_STATES_RULE_NAME,
+      rule,
+      cases: noHardcodedSpecTreeNodeStatesCases(),
+    });
+    for (const testCase of observation.valid) expect(testCase.messages).toHaveLength(0);
+    for (const testCase of observation.invalid) {
+      expect(testCase.messages).toHaveLength(testCase.expectedErrors.length);
+      for (const [index, expected] of testCase.expectedErrors.entries()) {
+        const actual = testCase.messages[index];
+        expect(actual?.messageId ?? actual?.message).toBe(expected.messageId ?? expected.message);
+      }
+      if (testCase.expectedOutput !== undefined) {
+        expect(testCase.actualOutput).toBe(testCase.expectedOutput ?? testCase.source);
+      }
+    }
   });
 });
