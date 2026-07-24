@@ -1,6 +1,12 @@
 import type { Command } from "commander";
 
-import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  joinTerminalText,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
 import type { Domain } from "@/domains/types";
@@ -50,10 +56,10 @@ const TESTING_PRODUCT_DIR_WARNING = {
 
 async function resolveTestProductDir(
   cwd: string,
-  writeWarning: (warning: string | undefined) => void,
+  writeWarning: (warning: TerminalText | undefined) => void,
 ): Promise<string> {
   const { productDir, isGitRepo } = await detectWorktreeProductRoot(cwd);
-  writeWarning(isGitRepo ? undefined : TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY);
+  writeWarning(isGitRepo ? undefined : authoredText(TESTING_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY));
   return productDir;
 }
 
@@ -113,28 +119,41 @@ interface TestingCliExitDependencies {
   readonly writeWarning: TestingCliDependencies["writeWarning"];
 }
 
+const WARNING_LINE_SEPARATOR = "\n";
+
+/**
+ * A warning whose label and line structure are product-authored and whose listed
+ * paths are external, so each path is escaped without collapsing the list.
+ */
+function labelledPathWarning(label: string, paths: readonly string[]): TerminalText {
+  return joinTerminalText(WARNING_LINE_SEPARATOR, [
+    terminal`${authoredText(label)}:`,
+    ...paths.map((path) => terminal`${path}`),
+  ]);
+}
+
 function reportAndExit(result: TestDispatchResult, deps: TestingCliExitDependencies): never {
   if (result.unresolvedTargets.length > 0) {
-    deps.writeWarning(`${UNRESOLVED_TARGETS_WARNING}:\n${result.unresolvedTargets.join("\n")}`);
+    deps.writeWarning(labelledPathWarning(UNRESOLVED_TARGETS_WARNING, result.unresolvedTargets));
   }
   if ((result.unresolvedChangedSourceFiles ?? []).length > 0) {
     deps.writeWarning(
-      `${UNRESOLVED_CHANGED_SOURCE_WARNING}:\n${(result.unresolvedChangedSourceFiles ?? []).join("\n")}`,
+      labelledPathWarning(UNRESOLVED_CHANGED_SOURCE_WARNING, result.unresolvedChangedSourceFiles ?? []),
     );
   }
   if (result.unmatched.length > 0) {
-    deps.writeWarning(`${UNMATCHED_TEST_FILES_WARNING}:\n${result.unmatched.join("\n")}`);
+    deps.writeWarning(labelledPathWarning(UNMATCHED_TEST_FILES_WARNING, result.unmatched));
   }
   const gatedGroups = unreportedGroups(result);
   if (gatedGroups.length > 0) {
     deps.writeWarning(
-      [
-        GATED_TEST_RUNNERS_WARNING,
+      joinTerminalText(WARNING_LINE_SEPARATOR, [
+        authoredText(GATED_TEST_RUNNERS_WARNING),
         ...gatedGroups.flatMap((group) => [
-          group.language.name,
-          ...group.testPaths,
+          authoredText(group.language.name),
+          ...group.testPaths.map((testPath) => terminal`${testPath}`),
         ]),
-      ].join("\n"),
+      ]),
     );
   }
   deps.exit(result.exitCode);
@@ -196,15 +215,15 @@ export interface TestingCliDependencies {
     changed?: TestingChangedSelection,
   ) => Promise<RecordedTestRun>;
   readonly writeStdout: (output: string) => void;
-  readonly writeWarning: (warning: string | undefined) => void;
+  readonly writeWarning: (warning: TerminalText | undefined) => void;
   readonly setExitCode: (exitCode: number) => void;
   readonly exit: (exitCode: number) => never;
 }
 
 function defaultTestingCliDependencies(invocation: CliInvocation): TestingCliDependencies {
-  const writeWarning = (warning: string | undefined): void => {
+  const writeWarning = (warning: TerminalText | undefined): void => {
     if (warning !== undefined) {
-      invocation.io.writeStderr(`${warning}\n`);
+      invocation.io.writeStderr(renderTerminalText(terminal`${warning}\n`));
     }
   };
   return {

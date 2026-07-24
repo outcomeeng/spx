@@ -25,6 +25,7 @@ import {
   type ValidationCommandResult,
   type ValidationOutputTarget,
 } from "@/commands/validation/types";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
@@ -271,7 +272,7 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       renderTerminalText(
         terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
           authoredText(invalidPathOperand.messageLabel)
-        }: ${invalidOperand} (${authoredText(invalidPathOperand.reason)})\n`,
+        }: ${sanitizeCliArgument(invalidOperand)} (${authoredText(invalidPathOperand.reason)})\n`,
       ),
     );
     invocation.io.exit(invalidPathOperand.exitCode);
@@ -414,7 +415,9 @@ function registerValidationCommands(
           const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
           invocation.io.writeStderr(
             renderTerminalText(
-              terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${options.kind}\n`,
+              terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${
+                sanitizeCliArgument(options.kind)
+              }\n`,
             ),
           );
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
@@ -528,7 +531,7 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
     renderTerminalText(
       terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
         authoredText(unknownSubcommand.messageLabel)
-      }: ${first}\n`,
+      }: ${sanitizeCliArgument(first)}\n`,
     ),
   );
   return io.exit(unknownSubcommand.exitCode);
