@@ -12,6 +12,7 @@ import {
   withAgentSearchMetadataBranchEvidence,
   withAgentSearchPartialLimitEvidence,
   withAgentSearchPickupMarkerEvidence,
+  withAgentSearchPoolBranchWorktreeEvidence,
   withAgentSearchProductScopeEvidence,
   withAgentSearchSubagentMetadataEvidence,
   withAgentSearchUnsafeLimitEvidence,
@@ -22,6 +23,15 @@ describe("agent session search scenarios", () => {
     await withAgentSearchProductScopeEvidence((evidence) => {
       expect(evidence.resolvedRoot).toBe(evidence.productRoot);
       expect(evidence.resolvedRoot).not.toBe(evidence.worktreeRoot);
+      expect(evidence.resolvedWorktreeRoot).toBe(evidence.worktreeRoot);
+    });
+  });
+
+  it("associates a pool worktree's sessions by branch from a resolved product scope", async () => {
+    await withAgentSearchPoolBranchWorktreeEvidence((evidence) => {
+      expect(evidence.results.map((result) => [result.sessionId, result.matches])).toEqual([
+        [evidence.sessionId, [evidence.branchReason]],
+      ]);
     });
   });
 

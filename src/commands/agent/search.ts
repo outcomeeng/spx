@@ -21,11 +21,22 @@ import {
   parseGitWorktreePorcelainRecords,
 } from "@/lib/git/root";
 
+/**
+ * The two roots of `spx/15-worktree-management.pdr.md`. Search filters candidates by
+ * `productScopeRoot`, but `git worktree list` must run from `worktreeRoot`: in a
+ * bare-repository pool the product root is the pool container, which is not itself a
+ * git working directory.
+ */
+export interface AgentSearchScopeRoots {
+  readonly productScopeRoot: string;
+  readonly worktreeRoot: string;
+}
+
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
   readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
-  readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<string>;
+  readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<AgentSearchScopeRoots>;
   readonly resolveBranchAssociatedWorktreeRoots: (cwd: string, branch: string) => Promise<readonly string[]>;
 }
 
@@ -83,9 +94,11 @@ export async function resolveAgentSearchProductScopeRoot(
   cwd: string,
   fallbackProductScopeRoot: string,
   gitDeps: GitDependencies = defaultGitDependencies,
-): Promise<string> {
+): Promise<AgentSearchScopeRoots> {
   const result = await detectGitCommonDirProductRoot(cwd, gitDeps);
-  return result.isGitRepo ? result.productDir : fallbackProductScopeRoot;
+  return result.isGitRepo
+    ? { productScopeRoot: result.productDir, worktreeRoot: result.worktreeRoot }
+    : { productScopeRoot: fallbackProductScopeRoot, worktreeRoot: fallbackProductScopeRoot };
 }
 
 export async function resolveAgentSearchBranchAssociatedWorktreeRoots(
@@ -113,14 +126,14 @@ export async function loadAgentSearchResults(
   options: AgentSearchCommandOptions,
 ): Promise<AgentSearchResult[]> {
   const deps = options.deps ?? defaultAgentSearchCommandDeps;
-  const productScopeRoot = await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot);
+  const roots = await deps.resolveProductScopeRoot(options.cwd, options.fallbackProductScopeRoot);
   return searchAgentSessions({
     agentHomeDirs: deps.agentHomeDirs(),
     nowMs: deps.nowMs(),
-    productScopeRoot,
+    productScopeRoot: roots.productScopeRoot,
     branchAssociatedWorktreeRoots: options.query.branch === null
       ? []
-      : await deps.resolveBranchAssociatedWorktreeRoots(productScopeRoot, options.query.branch),
+      : await deps.resolveBranchAssociatedWorktreeRoots(roots.worktreeRoot, options.query.branch),
     fs: deps.fs,
     query: options.query,
   });
