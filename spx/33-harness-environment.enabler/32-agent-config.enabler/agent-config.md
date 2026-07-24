@@ -14,9 +14,7 @@ CAN use exact configured local projections without manual setup drift or user-sc
 
 ### Compliance
 
-- ALWAYS: Claude Code, Codex, and Pi native settings are modeled as coding-agent outputs under one harness-environment owner ([test](tests/agent-config.compliance.l1.test.ts))
-- ALWAYS: status observation and apply reconciliation derive from the same resolved native projection for each explicitly enabled and available coding agent, while status performs no writes ([test](tests/agent-config.compliance.l1.test.ts))
+- ALWAYS: Claude Code and Codex native settings are modeled as coding-agent outputs under one harness-environment owner ([test](tests/agent-config.compliance.l1.test.ts))
 - ALWAYS: coding-agent config outputs that embed the absolute `productDir` are local coding-agent state, never tracked product files ([audit])
-- NEVER: reconcile native configuration for a coding agent that is disabled or unavailable ([test](tests/agent-config.compliance.l1.test.ts))
 - NEVER: coding-agent config reconciliation selects capability versions, changes methodology identity, or mutates user-scope coding-agent configuration; it consumes resolved product-scoped projections ([audit])
 - NEVER: mix invoking-agent state with a hermetic agentic verification run's execution state ([test](tests/agent-config.compliance.l1.test.ts))

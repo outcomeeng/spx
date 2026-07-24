@@ -61,7 +61,12 @@ The PDR changeset aligns the first affected declarations under `spx/16-config.en
 
 ### Remaining order
 
-1. Route every deterministic lower-spec assertion through `/test` and establish its declared evidence without weakening it to agentic audit.
+1. Route every deterministic lower-spec assertion through `/test` and establish its declared evidence without weakening it to agentic audit. These capability-lifecycle declarations are held back until their evidence lands, so no `[test]` link names a file whose predicate is absent:
+   - Coding-agent participation requires explicit configuration enablement and availability detection together; detection alone never opts an agent in.
+   - Resolved harness capability intent carries declared sources and exact package versions for deterministic native projection to each participating coding agent.
+   - Status observation and apply reconciliation derive from the same resolved native projection for each explicitly enabled and available coding agent, while status performs no writes.
+   - Native configuration is never reconciled for a coding agent that is disabled or unavailable.
+   - Pi native settings join the Claude Code and Codex projection under one harness-environment owner.
 2. Obtain an approving PDR audit with live `/understand`, `/contextualize`, and repository-read capabilities.
 3. Select implementation slices through `/slice`, then run `/apply` for each slice with the required TypeScript test and implementation audits.
 
