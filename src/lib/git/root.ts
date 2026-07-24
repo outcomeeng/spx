@@ -1,8 +1,8 @@
 import { execa } from "execa";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
-import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { withoutGitEnvironment } from "./environment";
 

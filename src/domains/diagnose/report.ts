@@ -35,7 +35,13 @@ import {
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
-import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {

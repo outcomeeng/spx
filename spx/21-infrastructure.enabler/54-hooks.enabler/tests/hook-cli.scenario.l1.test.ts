@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { EventEmitter } from "node:events";
 
-import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import {
   createProcessHookIo,
@@ -14,6 +13,7 @@ import {
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { createProcessTable } from "@testing/harnesses/worktree/harness";

@@ -10,11 +10,11 @@
 
 import { join } from "node:path";
 
-import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { type GitDependencies } from "@/lib/git/root";
 import { resolveSessionsScopeDir } from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 /** Options for resolving session directory configuration. */
 export interface ResolveSessionConfigOptions {

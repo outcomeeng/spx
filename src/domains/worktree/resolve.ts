@@ -7,11 +7,11 @@
 
 import { basename, dirname, resolve } from "node:path";
 
-import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/lib/git/root";
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_RESOLVE_ERROR = {
   AMBIGUOUS_WORKTREE_BASENAME: "ambiguous worktree basename",

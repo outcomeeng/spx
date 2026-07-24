@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { authoredText, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { LEGACY_PRODUCT_ROOT_FIELD_NAMES, resolveProductDir } from "@/domains/config/root";
+import { authoredText, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 describe("product directory API vocabulary", () => {

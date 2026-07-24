@@ -12,9 +12,9 @@ import {
   journalRenderCommand,
   journalSealCommand,
 } from "@/commands/journal/cli";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { failingGitDependencies, RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";

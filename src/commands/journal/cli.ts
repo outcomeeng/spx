@@ -1,4 +1,3 @@
-import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { CliCommandResult, Result } from "@/config/types";
 import {
   JOURNAL_BACKEND,
@@ -32,6 +31,7 @@ import {
   slugBranchIdentity,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 import { createGithubPrStreamSink } from "./github-pr-sink";

@@ -1,10 +1,10 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { renderReportJson } from "@/domains/diagnose/report";
 import { CHECK_RECORD_FIELDS, OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 
 describe("the JSON report conforms to the report schema", () => {

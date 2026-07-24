@@ -11,9 +11,9 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const STATE_STORE_SCOPE_PATH = {
   SPX_DIR: ".spx",

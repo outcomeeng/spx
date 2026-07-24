@@ -11,7 +11,6 @@ import {
   SESSION_INJECTION_SECTION_PREFIX,
   SESSION_INJECTION_UNREADABLE_WARNING_PREFIX,
 } from "@/commands/session/pickup";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
 import {
@@ -20,6 +19,7 @@ import {
   SESSION_FRONT_MATTER,
   SESSION_PRIORITY,
 } from "@/domains/session/types";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,

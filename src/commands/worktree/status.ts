@@ -7,7 +7,6 @@
 
 import { basename, dirname, sep } from "node:path";
 
-import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import { agentRuntimeDisplayName } from "@/domains/worktree/controlling-process";
 import {
@@ -18,6 +17,7 @@ import {
   readClaim,
 } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import {
   resolveAllTargetWorktrees,

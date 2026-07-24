@@ -7,7 +7,6 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { type TerminalText, authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 import { processBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
@@ -24,6 +23,7 @@ import {
   SessionStatus,
 } from "@/domains/session/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions after being claimed. */
