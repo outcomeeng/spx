@@ -70,6 +70,16 @@ describe("methodology-context diagnose compliance", () => {
     expect(output).toContain(observation.version);
   });
 
+  it("renders the bootstrap-identity line when a tracked spec tree declares the sentinel", async () => {
+    const methodology = generatedMethodology();
+    const observation = observedMethodology(methodology, true);
+
+    const output = await runMethodologyDiagnoseText(methodology, observation);
+
+    expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY);
+    expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
+  });
+
   it("rejects methodology-context manifests without methodology facts", async () => {
     const error = await runMethodologyManifestWithoutFacts();
 
