@@ -22,43 +22,43 @@ describe("audit scope append order", () => {
             payload: scenario.specPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.orphanChildPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.lateRootPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.lateRootPayload);
+        ).toEqual({ ok: true, value: scenario.lateRootPayload });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.lateRootPayload,
             events: [scenario.rootEvent, scenario.specEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.rootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.rootPayload);
+        ).toEqual({ ok: true, value: scenario.rootPayload });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.specPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.specPayload);
+        ).toEqual({ ok: true, value: scenario.specPayload });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -73,36 +73,36 @@ describe("audit scope append order", () => {
             payload: scenario.childPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.rootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.rootPayload);
+        ).toEqual({ ok: true, value: scenario.rootPayload });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.orphanChildPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.childPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.childPayload);
+        ).toEqual({ ok: true, value: scenario.childPayload });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.duplicateRootPayload,
             events: [scenario.rootEvent, scenario.childEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

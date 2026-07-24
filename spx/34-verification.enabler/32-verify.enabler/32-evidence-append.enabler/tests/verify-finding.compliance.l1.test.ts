@@ -1,6 +1,13 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
+  arbitraryReviewFindingMissingRequiredField,
+  arbitraryReviewScopeMissingRequiredField,
+  sampleVerifyTestValue,
+} from "@testing/generators/verify/verify";
+import {
+  appendReviewFindingMissingRequiredField,
+  appendReviewScopeMissingRequiredField,
   assertAppendRecordsValidatedEvidencePayload,
   assertInvalidReviewFindingRejectedBeforeAppend,
   assertInvalidReviewScopeRejectedBeforeAppend,
@@ -32,5 +39,19 @@ describe("verify finding evidence compliance", () => {
 
   it("rejects finding evidence when the requested scope differs from the recorded run scope", async () => {
     await assertReviewFindingSelectorMismatchRejectsWithoutAppend();
+  });
+
+  it("reports the validation reason naming the failing field when it rejects a scope payload", async () => {
+    const scenario = sampleVerifyTestValue(arbitraryReviewScopeMissingRequiredField());
+    const rejected = await appendReviewScopeMissingRequiredField(scenario.payload);
+    expect(rejected.exitCode).not.toBe(0);
+    expect(rejected.output).toContain(scenario.missingField);
+  });
+
+  it("reports the validation reason naming the failing field when it rejects a finding payload", async () => {
+    const scenario = sampleVerifyTestValue(arbitraryReviewFindingMissingRequiredField());
+    const rejected = await appendReviewFindingMissingRequiredField(scenario.payload);
+    expect(rejected.exitCode).not.toBe(0);
+    expect(rejected.output).toContain(scenario.missingField);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EVIDENCE_REQUIREMENT } from "@/domains/verify/evidence-rejection";
 import {
   evidenceValidatorFor,
   VERIFY_EVIDENCE_KIND,
@@ -7,7 +8,9 @@ import {
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import {
+  arbitraryAuditFindingMissingRequiredField,
   arbitraryAuditFindingValidationScenario,
+  arbitraryAuditScopeMissingRequiredField,
   arbitraryInvalidAuditFindingScenario,
   arbitraryInvalidAuditScopeScenario,
   invalidCoveredCoverageGapAuditScopePayloads,
@@ -25,8 +28,8 @@ describe("audit evidence validation", () => {
             payload: scenario.payload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -42,9 +45,9 @@ describe("audit evidence validation", () => {
             scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
             scopeIdentity: sampleVerifyTestValue(arbitraryInvalidAuditScopeScenario()).scopeIdentity,
           },
-        })
+        })?.ok
       ),
-    ).toStrictEqual([undefined, undefined]);
+    ).toStrictEqual([false, false]);
   });
 
   it("rejects invalid audit finding payloads before append", () => {
@@ -56,8 +59,8 @@ describe("audit evidence validation", () => {
             payload: scenario.payload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -72,8 +75,8 @@ describe("audit evidence validation", () => {
             payload: JSON.parse(JSON.stringify(scenario.unknownUnitFinding)),
             events: [scenario.scopeEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -88,8 +91,57 @@ describe("audit evidence validation", () => {
             payload: scenario.emptyEvidenceFinding,
             events: [scenario.scopeEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+  it("names the missing required field when it rejects an audit scope payload", () => {
+    assertProperty(
+      arbitraryAuditScopeMissingRequiredField(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+          payload: scenario.payload,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("names the missing required field when it rejects an audit finding payload", () => {
+    assertProperty(
+      arbitraryAuditFindingMissingRequiredField(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload: scenario.payload,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("names the unmet structural requirement when a finding references an unrecorded unit", () => {
+    assertProperty(
+      arbitraryAuditFindingValidationScenario(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload: JSON.parse(JSON.stringify(scenario.unknownUnitFinding)) as never,
+          events: [scenario.scopeEvent],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(
+          EVIDENCE_REQUIREMENT.AUDIT_FINDING_UNIT_IS_RECORDED,
+        );
       },
       { level: PROPERTY_LEVEL.L1 },
     );

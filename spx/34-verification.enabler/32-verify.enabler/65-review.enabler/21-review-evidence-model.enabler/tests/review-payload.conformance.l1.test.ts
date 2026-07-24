@@ -11,7 +11,10 @@ describe("review payload conformance", () => {
       VERIFY_TEST_GENERATOR.reviewTerminalMetadataVariants(),
       (variants) => {
         for (const envelope of variants) {
-          expect(validateReviewTerminalMetadata(envelope as unknown as JsonValue)).toEqual(envelope);
+          expect(validateReviewTerminalMetadata(envelope as unknown as JsonValue)).toEqual({
+            ok: true,
+            value: envelope,
+          });
         }
       },
       { level: PROPERTY_LEVEL.L1 },
@@ -19,7 +22,7 @@ describe("review payload conformance", () => {
     assertProperty(
       VERIFY_TEST_GENERATOR.invalidReviewTerminalMetadata(),
       (payload) => {
-        expect(validateReviewTerminalMetadata(payload as JsonValue)).toBeUndefined();
+        expect(validateReviewTerminalMetadata(payload as JsonValue).ok).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -29,14 +32,14 @@ describe("review payload conformance", () => {
     assertProperty(
       VERIFY_TEST_GENERATOR.reviewScopeUnit(),
       (unit) => {
-        expect(validateReviewScope(unit as unknown as JsonValue)).toEqual(unit);
+        expect(validateReviewScope(unit as unknown as JsonValue)).toEqual({ ok: true, value: unit });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
     assertProperty(
       VERIFY_TEST_GENERATOR.invalidReviewScopeUnit(),
       (payload) => {
-        expect(validateReviewScope(payload as JsonValue)).toBeUndefined();
+        expect(validateReviewScope(payload as JsonValue).ok).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -46,14 +49,14 @@ describe("review payload conformance", () => {
     assertProperty(
       VERIFY_TEST_GENERATOR.reviewFinding(),
       (finding) => {
-        expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual(finding);
+        expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual({ ok: true, value: finding });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
     assertProperty(
       VERIFY_TEST_GENERATOR.invalidReviewFinding(),
       (payload) => {
-        expect(validateReviewFinding(payload as JsonValue)).toBeUndefined();
+        expect(validateReviewFinding(payload as JsonValue).ok).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

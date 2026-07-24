@@ -11,7 +11,7 @@ describe("review payload provider-optionality properties", () => {
       VERIFY_TEST_GENERATOR.reviewFindingAnchorVariants(),
       (variants) => {
         for (const finding of variants) {
-          expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual(finding);
+          expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual({ ok: true, value: finding });
         }
       },
       { level: PROPERTY_LEVEL.L1 },

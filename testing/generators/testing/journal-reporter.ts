@@ -1,5 +1,7 @@
 import * as fc from "fast-check";
 
+import { TEST_PAYLOAD_FIELD } from "@/domains/verify/verify";
+import type { JsonValue } from "@/lib/agent-run-journal";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
   type JournalRunTerminalStatus,
@@ -191,6 +193,39 @@ function arbitraryCollidingFindingPair(): fc.Arbitrary<readonly [TestFinding, Te
     ]);
 }
 
+/** The required fields of the `test` scope schema, drawn from the production vocabulary. */
+const REQUIRED_TEST_SCOPE_FIELDS = [TEST_PAYLOAD_FIELD.MODULE_ID] as const;
+
+/** The required fields of the `test` finding schema. */
+const REQUIRED_TEST_FINDING_FIELDS = [
+  TEST_PAYLOAD_FIELD.MODULE_ID,
+  TEST_PAYLOAD_FIELD.TEST_NAME,
+  TEST_PAYLOAD_FIELD.ERRORS,
+] as const;
+
+/** One otherwise-valid `test` payload with a single named required field removed. */
+export interface TestMissingFieldScenario {
+  readonly payload: JsonValue;
+  readonly missingField: string;
+}
+
+function testPayloadWithoutField(payload: unknown, field: string): JsonValue {
+  const { [field]: _removed, ...rest } = JSON.parse(JSON.stringify(payload)) as { readonly [key: string]: JsonValue };
+  return rest;
+}
+
+function arbitraryScopeUnitMissingRequiredField(): fc.Arbitrary<TestMissingFieldScenario> {
+  return fc
+    .tuple(arbitraryScopeUnit(), fc.constantFrom(...REQUIRED_TEST_SCOPE_FIELDS))
+    .map(([unit, missingField]) => ({ payload: testPayloadWithoutField(unit, missingField), missingField }));
+}
+
+function arbitraryFindingMissingRequiredField(): fc.Arbitrary<TestMissingFieldScenario> {
+  return fc
+    .tuple(arbitraryFinding(), fc.constantFrom(...REQUIRED_TEST_FINDING_FIELDS))
+    .map(([finding, missingField]) => ({ payload: testPayloadWithoutField(finding, missingField), missingField }));
+}
+
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
   mixedRunScenario: arbitraryMixedRunScenario,
@@ -207,6 +242,8 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,
   runRequest: arbitraryRunRequest,
+  scopeUnitMissingRequiredField: arbitraryScopeUnitMissingRequiredField,
+  findingMissingRequiredField: arbitraryFindingMissingRequiredField,
 } as const;
 
 export function sampleJournalReporterValue<T>(arbitrary: fc.Arbitrary<T>): T {

@@ -6,6 +6,7 @@ import {
   AUDIT_COVERAGE_STATUS,
   AUDIT_FINDING_SEVERITY,
   AUDIT_KIND,
+  AUDIT_PAYLOAD_FIELD,
   type AuditFinding,
   type AuditProducerIdentity,
   type AuditProducerProvenance,
@@ -556,4 +557,74 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
         duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
       };
     });
+}
+
+/**
+ * The required top-level fields of the audit scope schema, drawn from the production vocabulary so
+ * the domain cannot drift from the schema the validator reads.
+ */
+const REQUIRED_AUDIT_SCOPE_FIELDS = [
+  AUDIT_PAYLOAD_FIELD.UNIT_ID,
+  AUDIT_PAYLOAD_FIELD.SUBJECT,
+  AUDIT_PAYLOAD_FIELD.AUDIT_CLASS,
+  AUDIT_PAYLOAD_FIELD.AUDIT_KIND,
+  AUDIT_PAYLOAD_FIELD.COVERAGE_REQUIREMENT,
+  AUDIT_PAYLOAD_FIELD.COVERAGE_STATUS,
+  AUDIT_PAYLOAD_FIELD.PRIOR_CONTEXT,
+  AUDIT_PAYLOAD_FIELD.EXPECTED_PRODUCER,
+  AUDIT_PAYLOAD_FIELD.RECORDED_BY_RUN_DRIVER,
+] as const;
+
+/** The required top-level fields of the audit finding schema. */
+const REQUIRED_AUDIT_FINDING_FIELDS = [
+  AUDIT_PAYLOAD_FIELD.UNIT_ID,
+  AUDIT_PAYLOAD_FIELD.RULE,
+  AUDIT_PAYLOAD_FIELD.LOCATION,
+  AUDIT_PAYLOAD_FIELD.MESSAGE,
+  AUDIT_PAYLOAD_FIELD.SEVERITY,
+  AUDIT_PAYLOAD_FIELD.PRODUCER_IDENTITY,
+  AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE,
+  AUDIT_PAYLOAD_FIELD.EVIDENCE,
+] as const;
+
+/** One otherwise-valid payload with a single named required field removed. */
+export interface MissingFieldScenario {
+  readonly payload: JsonValue;
+  readonly missingField: string;
+  readonly scopeIdentity: string;
+}
+
+function withoutField(payload: JsonValue, field: string): JsonValue {
+  const { [field]: _removed, ...rest } = payload as { readonly [key: string]: JsonValue };
+  return rest;
+}
+
+/** Audit scope payloads each missing exactly one required field the schema declares. */
+export function arbitraryAuditScopeMissingRequiredField(): fc.Arbitrary<MissingFieldScenario> {
+  return fc
+    .tuple(
+      arbitraryAuditScopeUnit(),
+      fc.constantFrom(...REQUIRED_AUDIT_SCOPE_FIELDS),
+      STATE_STORE_TEST_GENERATOR.scopeToken(),
+    )
+    .map(([scope, missingField, scopeIdentity]) => ({
+      payload: withoutField(auditScopePayload(scope), missingField),
+      missingField,
+      scopeIdentity,
+    }));
+}
+
+/** Audit finding payloads each missing exactly one required field the schema declares. */
+export function arbitraryAuditFindingMissingRequiredField(): fc.Arbitrary<MissingFieldScenario> {
+  return fc
+    .tuple(
+      arbitraryAuditFinding(),
+      fc.constantFrom(...REQUIRED_AUDIT_FINDING_FIELDS),
+      STATE_STORE_TEST_GENERATOR.scopeToken(),
+    )
+    .map(([finding, missingField, scopeIdentity]) => ({
+      payload: withoutField(JSON.parse(JSON.stringify(finding)) as JsonValue, missingField),
+      missingField,
+      scopeIdentity,
+    }));
 }

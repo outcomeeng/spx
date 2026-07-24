@@ -264,7 +264,9 @@ function validatedPayloads(
     const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
     // Validate against the events recorded strictly before this one — the same prefix the
     // append-time validation saw — so order-dependent validators accept what they accepted then.
-    return validator({ payload, events: events.slice(0, index), selector }) === undefined ? [] : [payload];
+    // The narrowed view derives from the reasoned result rather than a second check, so the
+    // projection and the append boundary cannot drift apart; the reason itself has no reader here.
+    return validator({ payload, events: events.slice(0, index), selector }).ok ? [payload] : [];
   });
 }
 

@@ -18,6 +18,7 @@ import {
   normalizeVerificationContextFileSubjectPath,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
+import { renderVerifyRejection, VERIFY_REJECTION_TEXT } from "@/domains/verify/rejection-report";
 import {
   type AuditScopeUnit,
   buildAppendEvent,
@@ -100,8 +101,8 @@ export const VERIFY_CLI_ERROR = {
   PAYLOAD_READ_FAILED: "spx verification run could not read the evidence payload",
   PAYLOAD_INVALID: "spx verification run evidence payload is not valid JSON",
   RUN_FINISHED: "spx verification run cannot add evidence to a finished run",
-  SCOPE_INVALID: "spx verification run scope add payload failed verification-type validation",
-  FINDING_INVALID: "spx verification run finding add payload failed verification-type validation",
+  SCOPE_INVALID: "spx verification run scope add: evidence payload rejected",
+  FINDING_INVALID: "spx verification run finding add: evidence payload rejected",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
@@ -109,8 +110,7 @@ export const VERIFY_CLI_ERROR = {
   TERMINAL_STATUS_INVALID:
     "spx verification run finish requires a terminal status in the journal terminal-status vocabulary",
   TERMINAL_METADATA_INVALID: "spx verification run terminal metadata failed verification-type validation",
-  TERMINAL_STATUS_CONFLICT:
-    "spx verification run terminal status conflicts with verification-type terminal metadata: status-conflict",
+  TERMINAL_STATUS_CONFLICT: "spx verification run terminal status conflicts with the run's recorded evidence",
   FINISH_FAILED: "spx verification run could not record terminal completion",
   RUN_CONTEXT_FAILED: "spx verification run could not record the run drive mode",
   SEAL_FAILED: "spx verification run could not seal the run journal",
@@ -1012,13 +1012,23 @@ function validateAppendEvidence(
   const validator = evidenceValidatorFor(verificationType, evidenceKind);
   if (validator === undefined) return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   const validated = validator({ payload, events, selector });
-  if (validated === undefined) {
+  if (!validated.ok) {
+    // The validator holds the exact check that failed, so the rejection carries its reason to the
+    // producer instead of collapsing every malformed payload into one aggregate diagnostic.
     return {
       ok: false,
-      error: verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_CLI_ERROR.FINDING_INVALID : VERIFY_CLI_ERROR.SCOPE_INVALID,
+      error: renderVerifyRejection({
+        headline: verb === VERIFY_VERB.APPEND_FINDING
+          ? VERIFY_CLI_ERROR.FINDING_INVALID
+          : VERIFY_CLI_ERROR.SCOPE_INVALID,
+        verificationType,
+        evidenceKind,
+        reason: validated.reason,
+        note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+      }),
     };
   }
-  return { ok: true, value: JSON.parse(JSON.stringify(validated)) as JsonValue };
+  return { ok: true, value: JSON.parse(JSON.stringify(validated.value)) as JsonValue };
 }
 
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
@@ -1312,9 +1322,15 @@ function validateTerminalMetadata(
   if (validated.ok) return { ok: true, value: validated.value };
   return {
     ok: false,
-    error: validated.error === TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT
-      ? VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT
-      : VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID,
+    error: renderVerifyRejection({
+      headline: validated.error === TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT
+        ? VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT
+        : VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID,
+      verificationType,
+      evidenceKind: VERIFY_EVIDENCE_KIND.TERMINAL_METADATA,
+      reason: validated.reason,
+      note: VERIFY_REJECTION_TEXT.FINISH_RETRY_NOTE,
+    }),
   };
 }
 
