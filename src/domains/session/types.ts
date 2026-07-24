@@ -1,6 +1,11 @@
 /**
  * Session type definitions for the session management domain.
  *
+ * Imports stay alias-free here: `eslint-rules/no-hardcoded-session-frontmatter-keys.ts` imports
+ * this module's registry, and the flat config loads that rule through jiti, which resolves no
+ * path alias. Helpers needing other libraries live in sibling modules, such as the composed
+ * marker in `domains/session/output-marker`.
+ *
  * @module session/types
  */
 

@@ -37,6 +37,7 @@ import {
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryAgentBranch,
   arbitraryAgentLaunchExitCode,
@@ -50,7 +51,6 @@ import {
   arbitraryRejectedAgentResumeSinceDurations,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 export { isPathInsideOrEqual };
 
@@ -517,17 +517,19 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
     nowMs,
   );
 
-  const output = renderTerminalText(await listAgentResumeSessions({
-    cwd,
-    fallbackWorktreeRoot: worktreeRoot,
-    scope: worktreeResumeScope(),
-    deps: {
-      fs,
-      agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
-      nowMs: () => nowMs,
-      resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
-    },
-  }));
+  const output = renderTerminalText(
+    await listAgentResumeSessions({
+      cwd,
+      fallbackWorktreeRoot: worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs,
+        agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+        nowMs: () => nowMs,
+        resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
+      },
+    }),
+  );
 
   const [firstLine, secondLine] = output.split("\n");
   expect(firstLine).toContain(newestActivityTimestamp);
@@ -1333,17 +1335,19 @@ export function assertDefaultAgentSessionStoreDirs(): void {
 
 export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
   const fixture = createConfiguredAgentHomeFixture();
-  const output = renderTerminalText(await listAgentResumeSessions({
-    cwd: fixture.codexCwd,
-    fallbackWorktreeRoot: fixture.worktreeRoot,
-    scope: worktreeResumeScope(),
-    deps: {
-      fs: fixture.fs,
-      agentHomeDirs: () => fixture.agentHomeDirs,
-      nowMs: () => fixture.nowMs,
-      resolveWorktreeRoot: async () => fixture.worktreeRoot,
-    },
-  }));
+  const output = renderTerminalText(
+    await listAgentResumeSessions({
+      cwd: fixture.codexCwd,
+      fallbackWorktreeRoot: fixture.worktreeRoot,
+      scope: worktreeResumeScope(),
+      deps: {
+        fs: fixture.fs,
+        agentHomeDirs: () => fixture.agentHomeDirs,
+        nowMs: () => fixture.nowMs,
+        resolveWorktreeRoot: async () => fixture.worktreeRoot,
+      },
+    }),
+  );
 
   expect(output).toContain(fixture.codexSessionId);
   expect(output).toContain(fixture.claudeSessionId);

@@ -24,14 +24,10 @@ import {
   SessionInvalidNextStepError,
 } from "@/domains/session/errors";
 import { resolveHandoffGitRef, resolveWorkBranchGitRef } from "@/domains/session/handoff-base";
+import { composeSessionOutputMarker } from "@/domains/session/output-marker";
 import { parseHandoffInput } from "@/domains/session/parse-handoff-input";
 import { generateSessionId } from "@/domains/session/timestamp";
-import {
-  formatSessionOutputMarker,
-  SESSION_FILE_ENCODING,
-  SESSION_FRONT_MATTER,
-  SESSION_OUTPUT_MARKER,
-} from "@/domains/session/types";
+import { SESSION_FILE_ENCODING, SESSION_FRONT_MATTER, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   gatherGitFacts,
@@ -46,7 +42,11 @@ import {
   resolveDefaultBranch,
   resolveRefSha,
 } from "@/lib/git/root";
+import { authoredText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfig } from "./resolve-config";
+
+/** The product's own lead-in on a created-handoff confirmation. */
+const HANDOFF_CREATED_LABEL = "Created handoff session";
 
 /**
  * Options for the handoff command.
@@ -70,7 +70,7 @@ export interface HandoffOptions {
  */
 export interface HandoffResult {
   /** Stdout text including `<HANDOFF_ID>` and `<SESSION_FILE>` tags. */
-  output: string;
+  output: TerminalText;
 }
 
 /**
@@ -278,8 +278,8 @@ export async function handoffCommand(options: HandoffOptions): Promise<HandoffRe
   await mkdir(config.todoDir, { recursive: true });
   await writeFile(sessionPath, fullContent, SESSION_FILE_ENCODING);
 
-  const output = `Created handoff session ${formatSessionOutputMarker(SESSION_OUTPUT_MARKER.HANDOFF_ID, sessionId)}\n${
-    formatSessionOutputMarker(SESSION_OUTPUT_MARKER.SESSION_FILE, absolutePath)
-  }`;
+  const output = terminal`${authoredText(HANDOFF_CREATED_LABEL)} ${
+    composeSessionOutputMarker(SESSION_OUTPUT_MARKER.HANDOFF_ID, sessionId)
+  }\n${composeSessionOutputMarker(SESSION_OUTPUT_MARKER.SESSION_FILE, absolutePath)}`;
   return { output };
 }

@@ -6,11 +6,12 @@
 
 import { readdir, rename } from "node:fs/promises";
 
-import { processBatch } from "@/domains/session/batch";
+import { processComposedBatch } from "@/domains/session/batch";
 import { SessionNotClaimedError } from "@/domains/session/errors";
 import { buildReleasePaths, findCurrentSession } from "@/domains/session/release";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { SESSION_FILE_ERROR_CODE } from "@/domains/session/types";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_RELEASE_OUTPUT = {
@@ -52,7 +53,7 @@ async function loadDoingSessions(config: SessionDirectoryConfig): Promise<Array<
 /**
  * Releases a single claimed session by ID.
  */
-async function releaseSingle(sessionId: string, config: SessionDirectoryConfig): Promise<string> {
+async function releaseSingle(sessionId: string, config: SessionDirectoryConfig): Promise<TerminalText> {
   const paths = buildReleasePaths(sessionId, config);
 
   try {
@@ -64,7 +65,9 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
     throw error;
   }
 
-  return `${SESSION_RELEASE_OUTPUT.RELEASED}: ${sessionId}\n${SESSION_RELEASE_OUTPUT.RETURNED_TO_TODO}`;
+  return terminal`${authoredText(SESSION_RELEASE_OUTPUT.RELEASED)}: ${externalValue(sessionId)}\n${
+    authoredText(SESSION_RELEASE_OUTPUT.RETURNED_TO_TODO)
+  }`;
 }
 
 /**
@@ -78,7 +81,7 @@ async function releaseSingle(sessionId: string, config: SessionDirectoryConfig):
  * @throws {BatchError} When one or more IDs fail
  * @throws {SessionNotClaimedError} When no session is claimed (empty IDs) or session not in doing (single ID)
  */
-export async function releaseCommand(options: ReleaseOptions): Promise<string> {
+export async function releaseCommand(options: ReleaseOptions): Promise<TerminalText> {
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
   let ids = options.sessionIds;
@@ -94,5 +97,5 @@ export async function releaseCommand(options: ReleaseOptions): Promise<string> {
     ids = [current.id];
   }
 
-  return processBatch(ids, (id) => releaseSingle(id, config));
+  return processComposedBatch(ids, (id) => releaseSingle(id, config));
 }

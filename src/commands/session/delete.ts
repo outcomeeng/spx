@@ -6,9 +6,10 @@
 
 import { stat, unlink } from "node:fs/promises";
 
-import { processBatch } from "@/domains/session/batch";
+import { processComposedBatch } from "@/domains/session/batch";
 import { resolveDeletePath } from "@/domains/session/delete";
 import { resolveSessionPaths, SessionDirectoryConfig } from "@/domains/session/show";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 export const SESSION_DELETE_OUTPUT = {
@@ -62,12 +63,12 @@ async function findExistingPaths(paths: string[]): Promise<string[]> {
 async function deleteSingle(
   sessionId: string,
   config: SessionDirectoryConfig,
-): Promise<string> {
+): Promise<TerminalText> {
   const paths = resolveSessionPaths(sessionId, config);
   const existingPaths = await findExistingPaths(paths);
   const pathToDelete = resolveDeletePath(sessionId, existingPaths);
   await unlink(pathToDelete);
-  return `${SESSION_DELETE_OUTPUT.DELETED}: ${sessionId}`;
+  return terminal`${authoredText(SESSION_DELETE_OUTPUT.DELETED)}: ${externalValue(sessionId)}`;
 }
 
 /**
@@ -78,8 +79,8 @@ async function deleteSingle(
  * @throws {BatchError} When one or more IDs fail
  * @throws {SessionNotFoundError} When session not found (single ID)
  */
-export async function deleteCommand(options: DeleteOptions): Promise<string> {
+export async function deleteCommand(options: DeleteOptions): Promise<TerminalText> {
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
 
-  return processBatch(options.sessionIds, (id) => deleteSingle(id, config));
+  return processComposedBatch(options.sessionIds, (id) => deleteSingle(id, config));
 }

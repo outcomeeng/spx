@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
-import { type TerminalText, authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
@@ -30,10 +30,11 @@ export function resolveProductDir(
 
   return {
     productDir: resolvedCwd,
-    warning:
-      terminal`warning: ${externalValue(resolvedCwd)} is not inside a git worktree — falling back to the current working directory. ${
-        authoredText(GIT_NOT_REPO_MARKER)
-      }.`,
+    warning: terminal`warning: ${
+      externalValue(resolvedCwd)
+    } is not inside a git worktree — falling back to the current working directory. ${
+      authoredText(GIT_NOT_REPO_MARKER)
+    }.`,
   };
 }
 

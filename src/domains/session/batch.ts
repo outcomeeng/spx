@@ -8,6 +8,15 @@
  * @module session/batch
  */
 
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+
 /**
  * Result of processing a single session ID within a batch.
  */
@@ -39,22 +48,19 @@ export class BatchError extends Error {
   }
 }
 
+/** Separator between one batch item's output and the next. */
+const BATCH_ITEM_SEPARATOR = "\n\n";
+/** Prefix stating which id failed, before the failure's own message. */
+const BATCH_FAILURE_LABEL = "Error";
+
 /**
- * Processes multiple session IDs through a handler function.
- *
- * IDs are processed sequentially in argument order (left-to-right).
- * All IDs are processed regardless of individual failures.
- * Throws BatchError if any ID fails.
- *
- * @param ids - Session IDs to process
- * @param handler - Async function that processes a single ID and returns output
- * @returns Combined output string with per-ID results
- * @throws {BatchError} When one or more IDs fail
+ * Runs every id through the handler in argument order, collecting each outcome. Every id is
+ * processed regardless of individual failures, so one bad id never hides the rest.
  */
-export async function processBatch(
+async function collectBatch(
   ids: readonly string[],
   handler: (id: string) => Promise<string>,
-): Promise<string> {
+): Promise<BatchItemResult[]> {
   const results: BatchItemResult[] = [];
 
   for (const id of ids) {
@@ -67,15 +73,70 @@ export async function processBatch(
     }
   }
 
-  const output = results
-    .map((r) => r.ok ? r.message : `Error (${r.id}): ${r.message}`)
-    .join("\n\n");
+  return results;
+}
 
-  const hasFailures = results.some((r) => !r.ok);
-  if (hasFailures) {
-    const err = new BatchError(results);
-    err.message = `${err.message}\n\n${output}`;
-    throw err;
+/** Raises the partial-failure error carrying the joined per-id outcomes. */
+function throwBatchFailure(results: readonly BatchItemResult[], output: string): never {
+  const err = new BatchError(results);
+  err.message = `${err.message}${BATCH_ITEM_SEPARATOR}${output}`;
+  throw err;
+}
+
+/**
+ * Processes multiple session IDs whose per-id output is a relayed document — the session file's
+ * own bytes. The batch joins those documents without composing them, because the payload is the
+ * stored artifact rather than a report the product wrote about it.
+ *
+ * @param ids - Session IDs to process
+ * @param handler - Async function that processes a single ID and returns its document
+ * @returns The joined documents
+ * @throws {BatchError} When one or more IDs fail
+ */
+export async function processBatch(
+  ids: readonly string[],
+  handler: (id: string) => Promise<string>,
+): Promise<string> {
+  const results = await collectBatch(ids, handler);
+
+  const output = results
+    .map((r) => r.ok ? r.message : `${BATCH_FAILURE_LABEL} (${r.id}): ${r.message}`)
+    .join(BATCH_ITEM_SEPARATOR);
+
+  if (results.some((r) => !r.ok)) {
+    throwBatchFailure(results, output);
+  }
+
+  return output;
+}
+
+/**
+ * Processes multiple session IDs whose per-id output is composed spx text. Each item keeps the
+ * escaping decision made where its values were embedded, while the failure prefix escapes the id
+ * it names — an id reaches the batch from the command line, so it is an external reading.
+ *
+ * @param ids - Session IDs to process
+ * @param handler - Async function that processes a single ID and returns its composed output
+ * @returns The joined composition
+ * @throws {BatchError} When one or more IDs fail
+ */
+export async function processComposedBatch(
+  ids: readonly string[],
+  handler: (id: string) => Promise<TerminalText>,
+): Promise<TerminalText> {
+  const results = await collectBatch(ids, handler);
+
+  const output = joinTerminalText(
+    BATCH_ITEM_SEPARATOR,
+    results.map((r) =>
+      r.ok
+        ? authoredText(r.message)
+        : terminal`${authoredText(BATCH_FAILURE_LABEL)} (${externalValue(r.id)}): ${externalValue(r.message)}`
+    ),
+  );
+
+  if (results.some((r) => !r.ok)) {
+    throwBatchFailure(results, renderTerminalText(output));
   }
 
   return output;

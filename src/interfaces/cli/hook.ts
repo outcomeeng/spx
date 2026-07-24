@@ -8,7 +8,6 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
-import { type TerminalText, authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
 import {
@@ -35,6 +34,13 @@ import {
 } from "@/interfaces/hooks/cli-runner";
 import { HOOK_ERROR, HOOK_EVENT, isHookEvent } from "@/interfaces/hooks/registry";
 import { defaultGitDependencies } from "@/lib/git/root";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
 
@@ -109,7 +115,11 @@ async function resolveHookExecutionContext(
     },
     warnings: compactStdout.ok
       ? []
-      : [terminal`${authoredText(HOOK_CONFIG_ERROR_PREFIX)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(compactStdout.error)}`],
+      : [
+        terminal`${authoredText(HOOK_CONFIG_ERROR_PREFIX)}${authoredText(ERROR_DETAIL_SEPARATOR)}${
+          externalValue(compactStdout.error)
+        }`,
+      ],
   };
 }
 
@@ -144,7 +154,12 @@ function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void
     .option(`${HOOK_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (event: string, options: HookCommandOptions) => {
       if (!isHookEvent(event)) {
-        writeError(invocation, terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(event)}`);
+        writeError(
+          invocation,
+          terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${
+            externalValue(event)
+          }`,
+        );
         invocation.io.exit(1);
         return;
       }

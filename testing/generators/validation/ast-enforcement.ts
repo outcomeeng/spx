@@ -276,7 +276,7 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   processStderrWriteInterpolated: "process.stderr.write(`failed: ${error.message}`);",
   consoleErrorInterpolated: "console.error(`gate failed: ${error}`);",
   terminalWriteComposed: "io.writeStdout(renderTerminalText(terminal`path: ${resolved}`));",
-  terminalWriteLiteral: `io.writeStdout("done\\n");`,
+  terminalWriteLiteral: String.raw`io.writeStdout("done\n");`,
   terminalWriteStaticTemplate: "io.writeStdout(`done`);",
   terminalWriteIdentifier: `io.writeStdout(output);`,
   nonTerminalInterpolatedCall: "logger.debug(`path: ${resolved}`);",

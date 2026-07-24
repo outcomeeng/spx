@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { type TerminalText, authoredText, externalValue, joinTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { type AgentHomeDirs, piSessionStoreDir } from "./home";
 
@@ -326,9 +332,9 @@ export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[
       const updatedAt = candidate.lastActivityAtMs === null
         ? AGENT_RESUME_TEXT.UNKNOWN_ACTIVITY
         : new Date(candidate.lastActivityAtMs).toISOString();
-      return terminal`${authoredText(updatedAt)} ${
-        authoredText(AGENT_SESSION_LABEL[candidate.agent])
-      } ${externalValue(candidate.sessionId)} ${externalValue(candidate.cwd)}`;
+      return terminal`${authoredText(updatedAt)} ${authoredText(AGENT_SESSION_LABEL[candidate.agent])} ${
+        externalValue(candidate.sessionId)
+      } ${externalValue(candidate.cwd)}`;
     }),
   );
 }
