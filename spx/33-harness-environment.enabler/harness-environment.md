@@ -9,8 +9,6 @@ CAN run with explicitly enabled and available coding agents, version-matched ins
 ### Compliance
 
 - ALWAYS: harness environment management treats `AGENTS.md`, coding-agent-native configuration, capability sources, plugins, and skills as coding-agent inputs ([audit])
-- ALWAYS: a registered coding agent participates only when product configuration explicitly enables it and availability detection finds it; detection alone never opts an agent in ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
-- ALWAYS: resolved harness capability intent carries declared sources and exact package versions for deterministic native projection to each participating coding agent ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: the `harnessEnvironment` descriptor resolves instruction, agent, marketplace, plugin, and skill configuration through the static config registry ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: each agent carries hook policy at `hooks.sessionStart.compactStdout`, with Codex defaulting compact `SessionStart` stdout off and Claude Code defaulting it on ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
