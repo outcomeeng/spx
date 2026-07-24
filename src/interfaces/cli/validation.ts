@@ -269,8 +269,22 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       }
     }
     invocation.io.writeStderr(
+<<<<<<< HEAD
       `spx ${validationCliDefinition.domain.commandName}: ${invalidPathOperand.messageLabel}: `
         + `${sanitizeCliArgument(invalidOperand)} (${invalidPathOperand.reason})\n`,
+||||||| parent of 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
+      renderTerminalText(
+        terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
+          authoredText(invalidPathOperand.messageLabel)
+        }: ${invalidOperand} (${authoredText(invalidPathOperand.reason)})\n`,
+      ),
+=======
+      renderTerminalText(
+        terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
+          authoredText(invalidPathOperand.messageLabel)
+        }: ${sanitizeCliArgument(invalidOperand)} (${authoredText(invalidPathOperand.reason)})\n`,
+      ),
+>>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
     );
     invocation.io.exit(invalidPathOperand.exitCode);
   }
@@ -411,7 +425,19 @@ function registerValidationCommands(
         if (kind === undefined) {
           const { unknownLiteralProblemKind } = validationCliDefinition.diagnostics;
           invocation.io.writeStderr(
+<<<<<<< HEAD
             `spx validation literal: ${unknownLiteralProblemKind.messageLabel}: ${sanitizeCliArgument(options.kind)}\n`,
+||||||| parent of 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
+            renderTerminalText(
+              terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${options.kind}\n`,
+            ),
+=======
+            renderTerminalText(
+              terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${
+                sanitizeCliArgument(options.kind)
+              }\n`,
+            ),
+>>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
           );
           invocation.io.exit(unknownLiteralProblemKind.exitCode);
         }
@@ -521,7 +547,25 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
   const sanitized = sanitizeCliArgument(first);
   const { domain, diagnostics } = validationCliDefinition;
   const { unknownSubcommand } = diagnostics;
+<<<<<<< HEAD
   io.writeStderr(`${SPX_PROGRAM_NAME} ${domain.commandName}: ${unknownSubcommand.messageLabel}: ${sanitized}\n`);
+||||||| parent of 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
+  io.writeStderr(
+    renderTerminalText(
+      terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
+        authoredText(unknownSubcommand.messageLabel)
+      }: ${first}\n`,
+    ),
+  );
+=======
+  io.writeStderr(
+    renderTerminalText(
+      terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
+        authoredText(unknownSubcommand.messageLabel)
+      }: ${sanitizeCliArgument(first)}\n`,
+    ),
+  );
+>>>>>>> 6cba95872 (fix(cli): compose spec and test warnings through the primitive)
   return io.exit(unknownSubcommand.exitCode);
 }
 

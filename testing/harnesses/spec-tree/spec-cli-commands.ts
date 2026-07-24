@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
@@ -214,9 +215,9 @@ export function registerSpecCliCommandScenarioEvidence(): void {
 
         const statusOutput = await statusCommand({
           cwd: nestedCwd,
-          onWarning: (warning) => statusWarnings.push(warning),
+          onWarning: (warning) => statusWarnings.push(renderTerminalText(warning)),
         });
-        const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(warning) });
+        const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(renderTerminalText(warning)) });
 
         expect(statusOutput).toContain(rootPath);
         expect(nextOutput).toContain(rootPath);
@@ -266,10 +267,10 @@ export function registerSpecCliCommandScenarioEvidence(): void {
         ]);
 
         await expect(
-          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(renderTerminalText(warning)) }),
         ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
         await expect(
-          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(renderTerminalText(warning)) }),
         ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
         expect(statusWarnings).toEqual([]);
         expect(nextWarnings).toEqual([]);
@@ -317,10 +318,10 @@ export function registerSpecCliCommandScenarioEvidence(): void {
         const nextWarnings: string[] = [];
 
         await expect(
-          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
+          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(renderTerminalText(warning)) }),
         ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
         await expect(
-          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
+          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(renderTerminalText(warning)) }),
         ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
 
         expect(statusWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);

@@ -6,7 +6,7 @@ import {
   renderSpecContextText,
   resolveContextManifest,
 } from "@/commands/spec/context";
-import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -62,9 +62,9 @@ function writeOutput(io: CliIo, output: string): void {
   io.writeStdout(`${output}\n`);
 }
 
-function writeInvocationWarning(io: CliIo, warning: string | undefined): void {
+function writeInvocationWarning(io: CliIo, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
-    io.writeStderr(`${warning}\n`);
+    io.writeStderr(renderTerminalText(terminal`${warning}\n`));
   }
 }
 
@@ -140,7 +140,7 @@ function resolveStatusFormat(options: { json?: boolean; format?: string }): Outp
 
 function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void {
   const productDir = (): string => invocation.resolveProductContext().productDir;
-  const onWarning = (warning: string | undefined): void => writeInvocationWarning(invocation.io, warning);
+  const onWarning = (warning: TerminalText | undefined): void => writeInvocationWarning(invocation.io, warning);
 
   specCmd
     .command(SPEC_DOMAIN_CLI.CONTEXT_COMMAND)
