@@ -615,20 +615,25 @@ async function configuredVersionDirectory(
   );
 }
 
+interface TrackedSpecTreeReading {
+  readonly errored: boolean;
+  readonly tracked: boolean;
+}
+
 /**
  * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
  * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
  * it — the classifier judges that, and this probe supplies the observation.
  */
-async function trackedSpecTreeReading(productDir: string): Promise<LatestDirectoryReading> {
+async function trackedSpecTreeReading(productDir: string): Promise<TrackedSpecTreeReading> {
   try {
     const entry = await stat(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
-    return { errored: false, version: entry.isDirectory() ? SPEC_TREE_CONFIG.ROOT_DIRECTORY : null };
+    return { errored: false, tracked: entry.isDirectory() };
   } catch (error) {
     if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE) || isNodeErrorCode(error, NOT_A_DIRECTORY_ERROR_CODE)) {
-      return { errored: false, version: null };
+      return { errored: false, tracked: false };
     }
-    return { errored: true, version: null };
+    return { errored: true, tracked: false };
   }
 }
 
@@ -647,7 +652,7 @@ export function createMethodologyContextProbe(
       const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
       const reading = await configuredVersionDirectory(sourcePaths, config);
       const tracked = await trackedSpecTreeReading(productDir);
-      const trackedSpecTree = tracked.version !== null;
+      const trackedSpecTree = tracked.tracked;
       const errored = reading.errored || tracked.errored;
       if (reading.version === null) {
         return { source: null, version: null, trackedSpecTree, errored };
