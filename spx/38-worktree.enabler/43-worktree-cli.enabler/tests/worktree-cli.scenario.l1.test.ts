@@ -12,7 +12,6 @@ import {
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
 } from "@/commands/worktree/index";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { AGENT_SESSION_ENV, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { AGENT_RUNTIME, AGENT_RUNTIME_DISPLAY_NAME, CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { OCCUPANCY_ERROR, OCCUPANCY_STATUS, readClaim, writeClaim } from "@/domains/worktree/occupancy-store";
@@ -30,6 +29,7 @@ import {
   type GitDependencies,
 } from "@/lib/git/root";
 import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-output/styled-output";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";

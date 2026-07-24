@@ -12,10 +12,10 @@ import {
   journalRenderCommand,
   journalSealCommand,
 } from "@/commands/journal/cli";
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { CliCommandResult, Result } from "@/config/types";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding } from "./lib/journal-stream-binding";
 import { CLI_STREAM_REPORT } from "./lib/stream-report";

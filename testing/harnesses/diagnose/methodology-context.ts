@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import { expect } from "vitest";
 
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { diagnoseCommand } from "@/commands/diagnose";
 import { createMethodologyContextProbe, defaultMethodologyContextProbe } from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
@@ -19,6 +18,7 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { OVERALL_VERDICT } from "@/domains/diagnose/types";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";

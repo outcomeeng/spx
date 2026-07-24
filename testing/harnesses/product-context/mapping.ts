@@ -3,7 +3,6 @@ import { basename, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { resolveProductDir } from "@/domains/config/root";
@@ -16,6 +15,7 @@ import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
 import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {

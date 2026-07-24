@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { AGENT_RESUME_TEXT } from "@/domains/agent/protocol";
 import { resolveProductDir } from "@/domains/config/root";
 import { AGENT_CLI } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryAgentWorktreeRoot, sampleAgentResumeValue } from "@testing/generators/agent/resume";
 import { createNonInteractiveResumeProgram, ImmediateExit } from "@testing/harnesses/agent/resume";
 

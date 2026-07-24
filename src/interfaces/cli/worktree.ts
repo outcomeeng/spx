@@ -6,11 +6,11 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
-import { type TerminalText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { externalValue, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
