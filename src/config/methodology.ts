@@ -23,6 +23,23 @@ export interface MethodologyIdentity {
   readonly version: string;
 }
 
+export const METHODOLOGY_VERSION_INTENT = {
+  BOOTSTRAP: "bootstrap",
+  EXACT: "exact",
+} as const;
+
+export type MethodologyVersionIntent = (typeof METHODOLOGY_VERSION_INTENT)[keyof typeof METHODOLOGY_VERSION_INTENT];
+
+/**
+ * The sentinel names whatever methodology happens to be installed, so it carries no durable identity.
+ * Consumers holding product context reject it once a tracked spec tree makes that identity mandatory.
+ */
+export function methodologyVersionIntent(version: string): MethodologyVersionIntent {
+  return version === DEFAULT_METHODOLOGY_VERSION
+    ? METHODOLOGY_VERSION_INTENT.BOOTSTRAP
+    : METHODOLOGY_VERSION_INTENT.EXACT;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
