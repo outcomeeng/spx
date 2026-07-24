@@ -19,6 +19,7 @@ import {
   resolveConfig,
   resolveConfigFromReadResult,
 } from "@/config/index";
+import { productionRegistry } from "@/config/registry";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import { CONFIG_CLI, configDomain } from "@/interfaces/cli/config";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -138,12 +139,12 @@ export function configCliDeps(resolved: Result<Config>, overrides: ConfigCliDeps
     readProductConfigFile: async () => overrides.readResult ?? absentConfigFileReadResult(),
     resolveConfigFromReadResult: () => resolved,
     resolveProductDir: () => productDir,
-    descriptors: overrides.descriptors ?? [specTreeConfigDescriptor],
+    descriptors: overrides.descriptors ?? productionRegistry,
   };
 }
 
 export function configCliDefaults(): Config {
-  const resolved = resolveConfigFromReadResult(absentConfigFileReadResult().value, [specTreeConfigDescriptor]);
+  const resolved = resolveConfigFromReadResult(absentConfigFileReadResult().value, productionRegistry);
   if (!resolved.ok) {
     throw new Error(resolved.error);
   }
@@ -413,11 +414,11 @@ export async function withShowOverrideObservation(
   const config = configSubset();
   await withTestEnv(config, async ({ productDir }) => {
     const deps: CliDeps = {
-      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, [specTreeConfigDescriptor]),
+      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, productionRegistry),
       readProductConfigFile,
       resolveConfigFromReadResult,
       resolveProductDir: () => productDir,
-      descriptors: [specTreeConfigDescriptor],
+      descriptors: productionRegistry,
     };
     const result = await showCommand({}, deps);
     await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
@@ -538,7 +539,7 @@ export async function withValidateProductDirectoryObservation(
     },
     resolveConfigFromReadResult: () => ({ ok: true, value: configCliDefaults() }),
     resolveProductDir: () => productDir,
-    descriptors: [specTreeConfigDescriptor],
+    descriptors: productionRegistry,
   };
   await validateCommand({}, deps);
   await consume({ observedProductDir, productDir });
@@ -570,7 +571,7 @@ export async function withValidateReadResultObservation(
       return resolveConfigFromReadResult(readResult, descriptors);
     },
     resolveProductDir: () => productDir,
-    descriptors: [specTreeConfigDescriptor],
+    descriptors: productionRegistry,
   };
   const result = await validateCommand({}, deps);
   await consume({ expectedReadResult: fileResult.value, observedReadResult, result });

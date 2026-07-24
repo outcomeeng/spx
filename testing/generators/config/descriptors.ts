@@ -7,6 +7,7 @@ import {
   type PathFilterConfig,
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
+import { productionRegistry } from "@/config/registry";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import {
   AGENT,
@@ -142,6 +143,11 @@ export type GeneratedInvalidMethodologyConfig = {
   readonly field: string;
 };
 
+export type GeneratedProductionSubsetConfig = {
+  readonly config: Config;
+  readonly declaredSections: readonly string[];
+};
+
 export const CONFIG_TEST_GENERATOR = {
   configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
   configEnvironmentCase: arbitraryConfigEnvironmentCase,
@@ -168,6 +174,8 @@ export const CONFIG_TEST_GENERATOR = {
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
   prefixCohort: arbitraryPrefixCohort,
+  productionDescriptor: arbitraryProductionDescriptor,
+  productionSubsetConfig: arbitraryProductionSubsetConfig,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
   directoryScope: arbitraryDirectoryScope,
@@ -267,6 +275,25 @@ function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
 
 function arbitraryConfigShape(): fc.Arbitrary<Config> {
   return fc.oneof(arbitraryEmptyConfig(), arbitrarySpecTreeSubsetConfig());
+}
+
+function arbitraryProductionDescriptor(): fc.Arbitrary<ConfigDescriptor<unknown>> {
+  return fc.constantFrom(...productionRegistry);
+}
+
+function arbitraryProductionSubsetConfig(): fc.Arbitrary<GeneratedProductionSubsetConfig> {
+  return fc
+    .tuple(arbitrarySpecTreeSubsetConfig(), arbitraryConfigKey(), arbitraryConfigKey(), arbitraryConfigKey())
+    .map(([specTree, owner, repository, version]) => ({
+      config: {
+        ...specTree,
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: `${owner}/${repository}`,
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+        },
+      },
+      declaredSections: [SPEC_TREE_SECTION, METHODOLOGY_SECTION],
+    }));
 }
 
 function arbitraryConfigEnvironmentCase(): fc.Arbitrary<GeneratedConfigEnvironmentCase> {

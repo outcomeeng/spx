@@ -1,23 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
+import { productionRegistry } from "@/config/registry";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — defaults are type-complete", () => {
   it("every registered descriptor's declared defaults round-trip through its own validator", () => {
     assertProperty(
-      CONFIG_TEST_GENERATOR.defaultValidationDescriptors(),
-      (generated) => {
-        for (const { descriptor } of generated) {
-          const roundTrip = descriptor.validate(descriptor.defaults);
-          expect(roundTrip.ok).toBe(true);
-          if (roundTrip.ok) {
-            expect(roundTrip.value).toEqual(descriptor.defaults);
-          }
+      CONFIG_TEST_GENERATOR.productionDescriptor(),
+      (descriptor) => {
+        const roundTrip = descriptor.validate(descriptor.defaults);
+        expect(roundTrip.ok).toBe(true);
+        if (roundTrip.ok) {
+          expect(roundTrip.value).toEqual(descriptor.defaults);
         }
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -25,16 +23,12 @@ describe("resolveConfig — defaults are type-complete", () => {
   });
 
   it("resolveConfig returns each descriptor's declared defaults when no config overrides apply", async () => {
-    const descriptors = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.defaultResolutionDescriptors(),
-    ).map(({ descriptor }) => descriptor);
-
     await withTestEnv({}, async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, ...descriptors]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        for (const descriptor of descriptors) {
+        for (const descriptor of productionRegistry) {
           expect(result.value[descriptor.section]).toEqual(descriptor.defaults);
         }
       }
@@ -42,19 +36,13 @@ describe("resolveConfig — defaults are type-complete", () => {
   });
 
   it("the resolved Config has one key per registered descriptor — no stray sections", async () => {
-    const descriptors = sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.completeResolutionDescriptors(),
-    ).map(({ descriptor }) => descriptor);
-
     await withTestEnv({}, async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor, ...descriptors]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
         const keys = Object.keys(result.value).sort(compareAsciiStrings);
-        const expected = [specTreeConfigDescriptor.section, ...descriptors.map((d) => d.section)].sort(
-          compareAsciiStrings,
-        );
+        const expected = productionRegistry.map((descriptor) => descriptor.section).sort(compareAsciiStrings);
         expect(keys).toEqual(expected);
       }
     });

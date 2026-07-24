@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME, resolveConfig } from "@/config/index";
+import { productionRegistry } from "@/config/registry";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -19,11 +20,13 @@ describe("resolveConfig — no product config file", () => {
     await withTestEnv(emptyConfig(), async ({ productDir }) => {
       await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+        for (const descriptor of productionRegistry) {
+          expect(result.value[descriptor.section]).toEqual(descriptor.defaults);
+        }
       }
     });
   });
@@ -32,18 +35,20 @@ describe("resolveConfig — no product config file", () => {
     await withTestEnv(emptyConfig(), async ({ productDir }) => {
       await rm(join(productDir, DEFAULT_CONFIG_FILENAME));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(Object.keys(result.value)).toContain(specTreeConfigDescriptor.section);
+        expect(Object.keys(result.value).sort(compareAsciiStrings)).toEqual(
+          productionRegistry.map((descriptor) => descriptor.section).sort(compareAsciiStrings),
+        );
       }
     });
   });
 
   it("treats an empty product config file the same as an absent file — defaults apply uniformly", async () => {
     await withTestEnv(emptyConfig(), async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
