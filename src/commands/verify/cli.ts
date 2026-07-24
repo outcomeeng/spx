@@ -380,9 +380,7 @@ interface VerifyScopeResolver {
   readonly resolveStart: VerifyStartScopeResolver;
 }
 
-const VERIFY_SCOPE_RESOLVERS: Readonly<
-  Record<VerifyScopeType, VerifyScopeResolver | undefined>
-> = {
+const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolver>> = {
   [VERIFY_SCOPE_TYPE.CHANGESET]: {
     canonicalize: (scopeIdentity) => {
       const parsed = parseChangesetScope(scopeIdentity);
@@ -433,12 +431,11 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<
       },
     }),
   },
-  [VERIFY_SCOPE_TYPE.WORKING_TREE]: undefined,
 };
 
 function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefined {
   if (!Object.hasOwn(VERIFY_SCOPE_RESOLVERS, scopeType)) return undefined;
-  return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver | undefined>>)[scopeType];
+  return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver>>)[scopeType];
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {

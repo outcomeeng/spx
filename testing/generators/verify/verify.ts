@@ -39,6 +39,7 @@ import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/stat
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
 const VERIFY_SCOPE_TYPES = Object.values(VERIFY_SCOPE_TYPE);
+const SUPPORTED_SCOPE_TYPES: ReadonlySet<string> = new Set(VERIFY_SCOPE_TYPES);
 const REVIEW_RUN_SET_RUN_INTERVAL_MS = 60_000;
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
 const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
@@ -659,8 +660,13 @@ export function formatNameStatusZ(paths: readonly string[]): string {
 
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
-  inheritedObjectPropertyName: (): fc.Arbitrary<string> =>
-    fc.constantFrom(...Object.getOwnPropertyNames(Object.prototype)),
+  // Draws the open complement of the supported scope types. The inherited-property branch keeps
+  // prototype-chain names in the domain: a registry lookup written with `in` rather than
+  // `Object.hasOwn` resolves them to inherited members, which arbitrary strings would not expose.
+  unsupportedScopeType: (): fc.Arbitrary<string> =>
+    fc
+      .oneof(fc.constantFrom(...Object.getOwnPropertyNames(Object.prototype)), fc.string())
+      .filter((value) => !SUPPORTED_SCOPE_TYPES.has(value)),
   changesetRef: (): fc.Arbitrary<string> =>
     STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith("-")),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
