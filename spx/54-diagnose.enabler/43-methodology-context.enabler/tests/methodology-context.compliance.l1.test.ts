@@ -1,5 +1,7 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
+import { DEFAULT_METHODOLOGY_VERSION, METHODOLOGY_VERSION_INTENT } from "@/config/methodology";
 import {
   assertDefaultMethodologyProbeReadsAgentHomesAtProbeTime,
   assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefects,
@@ -13,9 +15,44 @@ import {
   assertMethodologyProbeReportsInstalledVersionForMissingExactVersion,
   assertMethodologyProbeUsesExactNonVersionDirectory,
   assertMethodologyProbeUsesNumericVersionOrder,
+  generatedMethodology,
+  observedMethodology,
+  runMethodologyDiagnoseJson,
+  withProductDir,
 } from "@testing/harnesses/diagnose/methodology-context";
 
 describe("methodology-context diagnose compliance", () => {
+  it.each([false, true])(
+    "never converts an observed installed version into exact methodology identity (tracked tree: %s)",
+    async (trackedSpecTree) => {
+      const methodology = generatedMethodology();
+      const observation = observedMethodology(methodology, trackedSpecTree);
+
+      const report = await runMethodologyDiagnoseJson(methodology, observation);
+      const [check] = report.checks as readonly Record<string, unknown>[];
+
+      expect(observation.version).not.toBe(DEFAULT_METHODOLOGY_VERSION);
+      expect(check.readings).toEqual(expect.objectContaining({
+        configuredVersion: DEFAULT_METHODOLOGY_VERSION,
+        observedVersion: observation.version,
+        versionIntent: METHODOLOGY_VERSION_INTENT.BOOTSTRAP,
+      }));
+    },
+  );
+
+  it.each([false, true])(
+    "observes tracked spec-tree presence through the probe (present: %s)",
+    async (trackedSpecTree) => {
+      const methodology = generatedMethodology();
+
+      await withProductDir(trackedSpecTree, async (productDir) => {
+        const observed = await createMethodologyContextProbe(productDir).probe(methodology);
+
+        expect(observed.trackedSpecTree).toBe(trackedSpecTree);
+      });
+    },
+  );
+
   it("renders methodology-context text from the check record", async () => {
     await assertMethodologyDiagnoseTextRenders();
   });
