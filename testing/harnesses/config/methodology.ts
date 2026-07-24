@@ -44,11 +44,6 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-function expectMethodology(value: unknown): void {
-  expect(value).toHaveProperty(METHODOLOGY_CONFIG_FIELDS.SOURCE);
-  expect(value).toHaveProperty(METHODOLOGY_CONFIG_FIELDS.VERSION);
-}
-
 export async function assertMethodologyDefaultsResolveFromProductionRegistry(): Promise<void> {
   await withTestEnv({}, async ({ productDir }) => {
     const result = await resolveConfig(productDir, productionRegistry);
@@ -158,10 +153,6 @@ export async function resolveMethodologyWithSimilarHarnessField(): Promise<Resul
   });
   if (resolved === undefined) throw new Error("methodology resolution produced no result");
   return resolved;
-}
-
-export function assertMethodologyConfigShape(value: unknown): void {
-  expectMethodology(value);
 }
 
 const CONFIG_FILE_FORMAT_ORDER_FOR_TESTS = [

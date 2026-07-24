@@ -62,7 +62,8 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+/** The agent-home-relative path segments a methodology plugin cache resolves under. */
+export const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 const NOT_A_DIRECTORY_ERROR_CODE = "ENOTDIR";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
