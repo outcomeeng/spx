@@ -129,6 +129,23 @@ describe("audit evidence validation", () => {
     );
   });
 
+  it("names the unmet structural requirement when a scope payload carries a covered coverage-gap status", () => {
+    for (const payload of invalidCoveredCoverageGapAuditScopePayloads()) {
+      const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+        payload,
+        events: [],
+        selector: {
+          scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+          scopeIdentity: sampleVerifyTestValue(arbitraryInvalidAuditScopeScenario()).scopeIdentity,
+        },
+      });
+      expect(result?.ok).toBe(false);
+      expect(result?.ok === false ? result.reason : "").toContain(
+        EVIDENCE_REQUIREMENT.AUDIT_COVERAGE_GAP_IS_UNCOVERED,
+      );
+    }
+  });
+
   it("names the unmet structural requirement when a finding references an unrecorded unit", () => {
     assertProperty(
       arbitraryAuditFindingValidationScenario(),

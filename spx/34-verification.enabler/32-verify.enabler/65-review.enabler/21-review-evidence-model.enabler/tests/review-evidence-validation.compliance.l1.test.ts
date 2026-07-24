@@ -10,6 +10,7 @@ import {
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
   arbitraryReviewFindingMissingRequiredField,
+  arbitraryReviewFindingWithoutAnchor,
   arbitraryReviewScopeMissingRequiredField,
   sampleVerifyTestValue,
 } from "@testing/generators/verify/verify";
@@ -54,7 +55,7 @@ describe("review evidence validation", () => {
     );
   });
 
-  it("names the unmet structural requirement when a review payload is not a JSON object", () => {
+  it("names the unmet structural requirement when a review scope payload is not a JSON object", () => {
     const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.SCOPE)?.({
       payload: sampleReviewScopeIdentity(),
       events: [],
@@ -62,6 +63,32 @@ describe("review evidence validation", () => {
     });
     expect(result?.ok).toBe(false);
     expect(result?.ok === false ? result.reason : "").toContain(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  });
+
+  it("names the unmet structural requirement when a review finding payload is not a JSON object", () => {
+    const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
+      payload: sampleReviewScopeIdentity(),
+      events: [],
+      selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: sampleReviewScopeIdentity() },
+    });
+    expect(result?.ok).toBe(false);
+    expect(result?.ok === false ? result.reason : "").toContain(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  });
+
+  it("names the unmet structural requirement when a review finding anchors to neither line nor position", () => {
+    assertProperty(
+      arbitraryReviewFindingWithoutAnchor(),
+      (payload) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: sampleReviewScopeIdentity() },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
 

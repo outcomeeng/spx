@@ -72,8 +72,18 @@ describe("test evidence validation", () => {
     );
   });
 
-  it("names the unmet structural requirement when a test payload is not a JSON object", () => {
+  it("names the unmet structural requirement when a test scope payload is not a JSON object", () => {
     const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.TEST, VERIFY_EVIDENCE_KIND.SCOPE)?.({
+      payload: sampleScopeIdentity(),
+      events: [],
+      selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: sampleScopeIdentity() },
+    });
+    expect(result?.ok).toBe(false);
+    expect(result?.ok === false ? result.reason : "").toContain(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  });
+
+  it("names the unmet structural requirement when a test finding payload is not a JSON object", () => {
+    const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.TEST, VERIFY_EVIDENCE_KIND.FINDING)?.({
       payload: sampleScopeIdentity(),
       events: [],
       selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: sampleScopeIdentity() },
