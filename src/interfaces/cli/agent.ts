@@ -34,6 +34,7 @@ import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
@@ -116,17 +117,17 @@ const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
 
 const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 
-function writeOutput(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStdout(`${output}\n`);
+function writeOutput(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStdout(renderTerminalText(terminal`${output}\n`));
 }
 
-function writeError(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStderr(`${output}\n`);
+function writeError(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStderr(renderTerminalText(terminal`${output}\n`));
 }
 
 function handleError(invocation: CliInvocation, error: unknown): never {
-  const message = error instanceof Error ? `${error.name}: ${error.message}` : inspect(error);
-  writeError(invocation, `Error: ${message}`);
+  const message = error instanceof Error ? terminal`${error.name}: ${error.message}` : terminal`${inspect(error)}`;
+  writeError(invocation, terminal`Error: ${message}`);
   return invocation.io.exit(AGENT_CLI_EXIT.FAILURE);
 }
 
@@ -182,7 +183,7 @@ async function dispatchInteractiveResume(
 ): Promise<number> {
   const candidates = await loadAgentResumeCandidates(commandOptions);
   if (candidates.length === 0) {
-    writeError(invocation, AGENT_RESUME_TEXT.NO_MATCHES);
+    writeError(invocation, authoredText(AGENT_RESUME_TEXT.NO_MATCHES));
     return AGENT_CLI_EXIT.FAILURE;
   }
   if (mode === AGENT_RESUME_MODE.LATEST) {
@@ -219,7 +220,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
             const mode = resolveAgentResumeMode(options);
             const productContext = invocation.resolveProductContext();
             if (mode === AGENT_RESUME_MODE.PICK && !resolvedDeps.isInteractiveTerminal()) {
-              writeError(invocation, AGENT_RESUME_TEXT.INTERACTIVE_REQUIRED);
+              writeError(invocation, authoredText(AGENT_RESUME_TEXT.INTERACTIVE_REQUIRED));
               requestedExitCode = AGENT_CLI_EXIT.FAILURE;
             } else {
               const commandOptions: AgentResumeCommandOptions = {

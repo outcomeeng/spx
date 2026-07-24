@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { AGENT_RESUME_TEXT } from "@/domains/agent/protocol";
 import { resolveProductDir } from "@/domains/config/root";
 import { AGENT_CLI } from "@/interfaces/cli/agent";
@@ -33,7 +34,7 @@ describe("agent resume non-interactive compliance", () => {
     ).rejects.toBeInstanceOf(ImmediateExit);
 
     expect(stdout).toEqual([]);
-    expect(stderr.join("")).toContain(warning);
+    expect(stderr.join("")).toContain(renderTerminalText(warning));
     expect(stderr.join("")).toContain(AGENT_RESUME_TEXT.INTERACTIVE_REQUIRED);
     expect(exitCodes.every((exitCode) => exitCode > 0)).toBe(true);
   });

@@ -50,6 +50,7 @@ import {
   arbitraryRejectedAgentResumeSinceDurations,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export { isPathInsideOrEqual };
 
@@ -516,7 +517,7 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
     nowMs,
   );
 
-  const output = await listAgentResumeSessions({
+  const output = renderTerminalText(await listAgentResumeSessions({
     cwd,
     fallbackWorktreeRoot: worktreeRoot,
     scope: worktreeResumeScope(),
@@ -526,7 +527,7 @@ export async function assertResumeListOrdersByTranscriptActivityAcrossAgents(): 
       nowMs: () => nowMs,
       resolveWorktreeRoot: agentResumeWorktreeRootResolver(worktreeRoot),
     },
-  });
+  }));
 
   const [firstLine, secondLine] = output.split("\n");
   expect(firstLine).toContain(newestActivityTimestamp);
@@ -1332,7 +1333,7 @@ export function assertDefaultAgentSessionStoreDirs(): void {
 
 export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void> {
   const fixture = createConfiguredAgentHomeFixture();
-  const output = await listAgentResumeSessions({
+  const output = renderTerminalText(await listAgentResumeSessions({
     cwd: fixture.codexCwd,
     fallbackWorktreeRoot: fixture.worktreeRoot,
     scope: worktreeResumeScope(),
@@ -1342,7 +1343,7 @@ export async function assertAgentResumeUsesConfiguredAgentHomes(): Promise<void>
       nowMs: () => fixture.nowMs,
       resolveWorktreeRoot: async () => fixture.worktreeRoot,
     },
-  });
+  }));
 
   expect(output).toContain(fixture.codexSessionId);
   expect(output).toContain(fixture.claudeSessionId);

@@ -1,5 +1,6 @@
 import { Command, type ErrorOptions } from "commander";
 
+import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/domains/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
@@ -64,7 +65,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     resolveProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {
-        io.writeStderr(`${warning}\n`);
+        io.writeStderr(renderTerminalText(terminal`${warning}\n`));
       }
     },
     io,

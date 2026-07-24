@@ -133,8 +133,8 @@ export const DIAGNOSE_TEXT_DETAIL = {
 } as const;
 
 /** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
-export function renderReportJson(report: DiagnoseReport): string {
-  return JSON.stringify(
+export function renderReportJson(report: DiagnoseReport): TerminalText {
+  return authoredText(JSON.stringify(
     {
       checks: report.checks.map((check) => ({
         name: check.name,
@@ -147,7 +147,7 @@ export function renderReportJson(report: DiagnoseReport): string {
     },
     null,
     2,
-  );
+  ));
 }
 
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
@@ -475,8 +475,8 @@ function toStyledModel(report: DiagnoseReport): StyledReportModel {
 }
 
 /** Renders the report as human-readable diagnosis text through the styled-output primitive. */
-export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): string {
-  return renderStyledReport(toStyledModel(report), options);
+export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): TerminalText {
+  return authoredText(renderStyledReport(toStyledModel(report), options));
 }
 
 /** Renders the report in the requested format; the color choice applies to the text form only. */
@@ -484,6 +484,6 @@ export function renderReport(
   report: DiagnoseReport,
   format: DiagnoseFormat,
   options: StyledReportOptions,
-): string {
+): TerminalText {
   return format === DIAGNOSE_FORMAT.JSON ? renderReportJson(report) : renderReportText(report, options);
 }

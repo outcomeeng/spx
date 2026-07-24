@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { renderReportJson } from "@/domains/diagnose/report";
 import { CHECK_RECORD_FIELDS, OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
@@ -10,7 +11,7 @@ describe("the JSON report conforms to the report schema", () => {
   it("emits a per-check record array and an overall verdict, each record carrying name, verdict, bucket, readings, and remediation", () => {
     fc.assert(
       fc.property(arbitraryReport(), (report) => {
-        const parsed = JSON.parse(renderReportJson(report)) as {
+        const parsed = JSON.parse(renderTerminalText(renderReportJson(report))) as {
           checks: {
             name: string;
             verdict: string;

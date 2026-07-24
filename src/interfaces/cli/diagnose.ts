@@ -29,7 +29,7 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
@@ -59,9 +59,9 @@ function defaultRegistry(): CheckRegistry {
 }
 
 function handleError(error: string, io: CliIo): never {
-  // Sanitize before echoing: the error embeds user-supplied manifest path and
-  // check-name bytes.
-  io.writeStderr(`Error: ${sanitizeCliArgument(error)}\n`);
+  // The error embeds user-supplied manifest path and check-name bytes, so it is
+  // an external segment of this composition.
+  io.writeStderr(renderTerminalText(terminal`Error: ${error}\n`));
   return io.exit(1);
 }
 
@@ -102,7 +102,7 @@ export const diagnoseDomain: Domain = {
         if (!result.ok) {
           handleError(result.error, invocation.io);
         }
-        invocation.io.writeStdout(`${result.value.output}\n`);
+        invocation.io.writeStdout(renderTerminalText(terminal`${result.value.output}\n`));
         invocation.io.setExitCode(result.value.exitCode);
       });
   },

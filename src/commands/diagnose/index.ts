@@ -12,6 +12,8 @@
  */
 
 import { resolveConfig } from "@/config/index";
+
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { MethodologyConfig } from "@/config/methodology";
 import { isLegacyHarnessMethodologyConfigError, resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
@@ -53,7 +55,7 @@ async function resolveDiagnoseConfig(productDir: string): Promise<
 
 export interface DiagnoseCommandResult {
   /** The rendered report in the requested format. */
-  readonly output: string;
+  readonly output: TerminalText;
   /** The exit code keyed to the overall verdict. */
   readonly exitCode: number;
 }

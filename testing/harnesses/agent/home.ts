@@ -25,6 +25,7 @@ import {
   codexTranscript,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
 const PI_CONFIGURED_AGENT_HOME_SAMPLE = {
@@ -451,12 +452,12 @@ async function discoverResume(
   cwd: string,
   nowMs: number,
 ): Promise<string> {
-  return listAgentResumeSessions({
+  return renderTerminalText(await listAgentResumeSessions({
     cwd,
     fallbackWorktreeRoot: worktreeRoot,
     scope: worktreeResumeScope(),
     deps: { fs, agentHomeDirs, nowMs: () => nowMs, resolveWorktreeRoot: async () => worktreeRoot },
-  });
+  }));
 }
 
 interface SearchDiscoveryFixture {
@@ -470,7 +471,7 @@ async function discoverSearch(
   fixture: SearchDiscoveryFixture,
   agentHomeDirs: () => AgentHomeDirs,
 ): Promise<string> {
-  return jsonAgentSearchSessions({
+  return renderTerminalText(await jsonAgentSearchSessions({
     cwd: fixture.codexCwd,
     fallbackProductScopeRoot: fixture.worktreeRoot,
     query: agentSearchQueryFromOptions({}),
@@ -484,7 +485,7 @@ async function discoverSearch(
       }),
       resolveBranchAssociatedWorktreeRoots: async () => [],
     },
-  });
+  }));
 }
 
 function agentHomeEnvironment(agentHomeDirs: AgentHomeDirs): Record<string, string> {

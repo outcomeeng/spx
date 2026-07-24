@@ -88,6 +88,8 @@ export const AGENT_RESUME_TEXT = {
   NO_MATCHES: "No matching agent sessions found.",
   INTERACTIVE_REQUIRED: "agent resume requires an interactive terminal.",
   MODE_CONFLICT: "Choose only one resume mode",
+  UNKNOWN_ACTIVITY: "unknown",
+  ROW_SEPARATOR: "\n",
 } as const;
 
 export const AGENT_SEARCH_DEFAULT_LIMIT = 20;

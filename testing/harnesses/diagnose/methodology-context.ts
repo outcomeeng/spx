@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { expect } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { diagnoseCommand } from "@/commands/diagnose";
 import { createMethodologyContextProbe, defaultMethodologyContextProbe } from "@/commands/diagnose/probes";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, type MethodologyConfig } from "@/config/methodology";
@@ -94,7 +95,7 @@ async function runJson(
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return JSON.parse(output) as Record<string, unknown>;
@@ -120,7 +121,7 @@ async function runText(
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return output;
@@ -173,7 +174,7 @@ async function runManifestJsonWithMethodology(
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    output = result.value.output;
+    output = renderTerminalText(result.value.output);
   });
   if (output === undefined) throw new Error("diagnose command produced no output");
   return JSON.parse(output) as Record<string, unknown>;
@@ -392,7 +393,7 @@ export async function assertMethodologyDiagnoseIgnoresUnrelatedHarnessConfigDefe
     });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    const report = JSON.parse(result.value.output) as Record<string, unknown>;
+    const report = JSON.parse(renderTerminalText(result.value.output)) as Record<string, unknown>;
     expect(firstCheck(report).verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
   });
 }
