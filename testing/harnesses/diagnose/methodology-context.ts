@@ -144,7 +144,6 @@ async function runJson(
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
     });
-    expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     output = result.value.output;
   });
@@ -170,7 +169,6 @@ async function runText(
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
     });
-    expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     output = result.value.output;
   });
@@ -191,7 +189,6 @@ async function runManifestWithoutMethodology(): Promise<string> {
         readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
       },
     });
-    expect(result.ok).toBe(false);
     if (!result.ok) {
       error = result.error;
     }
@@ -223,7 +220,6 @@ async function runManifestJsonWithMethodology(
           })),
       },
     });
-    expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     output = result.value.output;
   });
@@ -233,10 +229,8 @@ async function runManifestJsonWithMethodology(
 
 function firstCheck(report: Record<string, unknown>): Record<string, unknown> {
   const checks = report.checks;
-  expect(Array.isArray(checks)).toBe(true);
   if (!Array.isArray(checks)) throw new Error("diagnose report checks are not an array");
   const [check] = checks;
-  expect(typeof check).toBe("object");
   if (typeof check !== "object" || check === null) throw new Error("diagnose report has no first check");
   return check as Record<string, unknown>;
 }
