@@ -12,6 +12,7 @@ import {
   journalRenderCommand,
   journalSealCommand,
 } from "@/commands/journal/cli";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { arbitraryJournalEventInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
@@ -89,7 +90,7 @@ describe("journal CLI", () => {
         ...localDeps(path),
         git: failingGitDependencies(),
         onWarning: (warning) => {
-          if (warning !== undefined) warnings.push(warning);
+          if (warning !== undefined) warnings.push(renderTerminalText(warning));
         },
       };
 

@@ -11,6 +11,7 @@ import {
   SESSION_INJECTION_SECTION_PREFIX,
   SESSION_INJECTION_UNREADABLE_WARNING_PREFIX,
 } from "@/commands/session/pickup";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { buildSessionFrontMatterContent } from "@/domains/session/create";
 import { parseSessionMetadata } from "@/domains/session/list";
 import {
@@ -89,7 +90,7 @@ describe("pickup auto-injection", () => {
       sessionIds: [sessionId],
       sessionsDir: harness.sessionsDir,
       cwd: productDir,
-      onWarning: (warning) => warnings.push(warning),
+      onWarning: (warning) => warnings.push(renderTerminalText(warning)),
     });
 
     expect(output).toContain(sessionId);
@@ -108,7 +109,7 @@ describe("pickup auto-injection", () => {
       sessionIds: [sessionId],
       sessionsDir: harness.sessionsDir,
       cwd: productDir,
-      onWarning: (warning) => warnings.push(warning),
+      onWarning: (warning) => warnings.push(renderTerminalText(warning)),
     });
 
     expect(output).toContain(sessionId);

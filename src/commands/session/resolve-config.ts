@@ -10,6 +10,7 @@
 
 import { join } from "node:path";
 
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { SessionDirectoryConfig } from "@/domains/session/show";
 import { type GitDependencies } from "@/lib/git/root";
@@ -30,7 +31,7 @@ export interface ResolveSessionConfigResult {
   /** Resolved session directory configuration with absolute paths. */
   config: SessionDirectoryConfig;
   /** Warning message if not in a git repository. */
-  warning?: string;
+  warning?: TerminalText;
 }
 
 /**
@@ -68,7 +69,7 @@ export async function resolveSessionConfig(
 }
 
 /** Receives the non-git-repo diagnostic for a descriptor to write to stderr. */
-export type SessionWarningHandler = (warning: string) => void;
+export type SessionWarningHandler = (warning: TerminalText) => void;
 
 /**
  * Resolves the session directory configuration, forwarding the non-git-repo

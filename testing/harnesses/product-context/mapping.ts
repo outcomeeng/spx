@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { resolveProductDir } from "@/domains/config/root";
@@ -188,7 +189,7 @@ async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedResolut
   expect(result.exitCodes).toEqual([0]);
   expect(result.stdout).toContain(processDir);
   expect(result.stderr).toContain(processDir);
-  expect(result.stderr).toContain(expectedWarning);
+  expect(result.stderr).toContain(renderTerminalText(expectedWarning));
 }
 
 async function assertDeferredExitCodeIsCaptured(): Promise<void> {

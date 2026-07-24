@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { EventEmitter } from "node:events";
 
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import {
   createProcessHookIo,
@@ -27,12 +28,12 @@ class RecordingHookIo implements HookProcessIo {
     return { ok: false, error: this.stdinFailure };
   }
 
-  writeStdout(content: string): void {
-    this.stdout.push(content);
+  writeStdout(content: TerminalText): void {
+    this.stdout.push(renderTerminalText(content));
   }
 
-  writeStderr(content: string): void {
-    this.stderr.push(content);
+  writeStderr(content: TerminalText): void {
+    this.stderr.push(renderTerminalText(content));
   }
 }
 

@@ -7,6 +7,7 @@
 
 import { basename, dirname, resolve } from "node:path";
 
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/lib/git/root";
@@ -19,7 +20,7 @@ export const WORKTREE_RESOLVE_ERROR = {
 } as const;
 
 /** Receives a non-git-repo diagnostic for an interface boundary to surface. */
-export type WorktreeWarningHandler = (warning: string | undefined) => void;
+export type WorktreeWarningHandler = (warning: TerminalText | undefined) => void;
 
 export interface WorktreePathInfo {
   isExistingNonDirectory(path: string): Promise<boolean>;

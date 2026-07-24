@@ -1,3 +1,4 @@
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { CliCommandResult, Result } from "@/config/types";
 import {
   JOURNAL_BACKEND,
@@ -122,7 +123,7 @@ export interface JournalCliDeps {
   readonly fs?: StateStoreFileSystem;
   readonly now?: () => Date;
   readonly randomBytes?: (size: number) => Buffer;
-  readonly onWarning?: (warning: string | undefined) => void;
+  readonly onWarning?: (warning: TerminalText | undefined) => void;
 }
 
 export interface JournalCliScope {
