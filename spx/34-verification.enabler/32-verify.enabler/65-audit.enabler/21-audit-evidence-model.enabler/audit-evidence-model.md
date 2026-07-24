@@ -17,4 +17,5 @@ CAN record complete audit coverage and findings under `--verification-type audit
 - ALWAYS: audit scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
 - ALWAYS: stable producer identity excludes plugin and tool versions so run-set and finding identity stay stable across producer releases; producer provenance records those versions for inspection and rendering ([audit])
 - ALWAYS: invalid audit scope and finding payloads are rejected before journal events append ([test](tests/audit-evidence-validation.compliance.l1.test.ts))
+- ALWAYS: an audit scope or finding payload rejection reason names the failing payload field path or the unmet structural requirement ([test](tests/audit-evidence-validation.compliance.l1.test.ts))
 - ALWAYS: audit scope validation preserves root-first and parent-before-child append order across the recorded scope evidence prefix ([test](tests/audit-order.compliance.l1.test.ts))
