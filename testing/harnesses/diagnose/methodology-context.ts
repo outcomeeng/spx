@@ -22,6 +22,7 @@ import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -94,17 +95,46 @@ export function unresolvedMethodology(errored: boolean): MethodologyContextObser
   return { source: null, version: null, trackedSpecTree: false, errored };
 }
 
+/** How a temp product directory carries its spec-tree root, for the tracked-tree observation. */
+export const SPEC_TREE_PRESENCE = {
+  /** No spec-tree root on disk at all. */
+  ABSENT: "absent",
+  /** A spec-tree root present on disk that git does not track — a product still bootstrapping. */
+  UNTRACKED: "untracked",
+  /** A spec-tree root git tracks, so the product carries durable product truth. */
+  TRACKED: "tracked",
+} as const;
+
+export type SpecTreePresence = (typeof SPEC_TREE_PRESENCE)[keyof typeof SPEC_TREE_PRESENCE];
+
+const SPEC_FIXTURE_FILENAME = "fixture.md";
+const SPEC_FIXTURE_CONTENT = "# fixture\n";
+const FIXTURE_COMMIT_MESSAGE = "add spec tree";
+
 /**
- * Materializes a temp product directory with or without the tracked spec-tree root and
- * hands its path to the callback. Owns the temp-directory lifecycle only.
+ * Materializes a temp git product directory whose spec-tree root is absent, present but untracked,
+ * or git-tracked, and hands its path to the callback. Every case initializes a real repository, so
+ * the untracked case differs from the tracked one only in whether git carries the file — which is
+ * the distinction the tracked-tree observation is required to make.
  */
 export async function withProductDir(
-  trackedSpecTree: boolean,
+  presence: SpecTreePresence,
   callback: (productDir: string) => Promise<void>,
 ): Promise<void> {
   await withTempDir("spx-methodology-product-", async (productDir) => {
-    if (trackedSpecTree) {
-      await mkdir(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY), { recursive: true });
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    if (presence !== SPEC_TREE_PRESENCE.ABSENT) {
+      const specRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      await mkdir(specRoot, { recursive: true });
+      await writeFile(join(specRoot, SPEC_FIXTURE_FILENAME), SPEC_FIXTURE_CONTENT);
+    }
+    if (presence === SPEC_TREE_PRESENCE.TRACKED) {
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
+      await runGit(productDir, [
+        GIT_TEST_SUBCOMMANDS.COMMIT,
+        GIT_TEST_FLAGS.COMMIT_MESSAGE,
+        FIXTURE_COMMIT_MESSAGE,
+      ]);
     }
     await callback(productDir);
   });

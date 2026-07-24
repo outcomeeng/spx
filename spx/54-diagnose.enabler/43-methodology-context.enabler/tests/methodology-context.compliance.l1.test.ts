@@ -21,6 +21,7 @@ import {
   runMethodologyDiagnoseJson,
   runMethodologyDiagnoseText,
   runMethodologyManifestWithoutFacts,
+  SPEC_TREE_PRESENCE,
   unavailableCheckName,
   withAgentHome,
   withAgentHomePair,
@@ -46,15 +47,19 @@ describe("methodology-context diagnose compliance", () => {
     },
   );
 
-  it.each([false, true])(
-    "observes tracked spec-tree presence through the probe (present: %s)",
-    async (trackedSpecTree) => {
+  it.each([
+    [SPEC_TREE_PRESENCE.ABSENT, false],
+    [SPEC_TREE_PRESENCE.UNTRACKED, false],
+    [SPEC_TREE_PRESENCE.TRACKED, true],
+  ])(
+    "observes a %s spec tree as trackedSpecTree=%s through the probe",
+    async (presence, expected) => {
       const methodology = generatedMethodology();
 
-      await withProductDir(trackedSpecTree, async (productDir) => {
+      await withProductDir(presence, async (productDir) => {
         const observed = await createMethodologyContextProbe(productDir).probe(methodology);
 
-        expect(observed.trackedSpecTree).toBe(trackedSpecTree);
+        expect(observed.trackedSpecTree).toBe(expected);
       });
     },
   );
@@ -191,7 +196,7 @@ describe("methodology-context diagnose compliance", () => {
   it("resolves agent homes at probe time rather than at construction", async () => {
     const methodology = generatedMethodology();
 
-    await withProductDir(false, async (productDir) => {
+    await withProductDir(SPEC_TREE_PRESENCE.ABSENT, async (productDir) => {
       await withAgentHomePair(async (codexHome, claudeHome) => {
         await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
 
