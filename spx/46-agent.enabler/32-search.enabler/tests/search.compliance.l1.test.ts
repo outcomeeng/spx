@@ -11,6 +11,7 @@ import {
   withAgentSearchExclusionEvidence,
   withAgentSearchMetadataBranchEvidence,
   withAgentSearchOlderBranchEvidence,
+  withAgentSearchProductWideSelectorEvidence,
   withAgentSearchSelectedKindEvidence,
   withAgentSearchSelectorIntersectionEvidence,
   withAgentSearchSubagentMetadataEvidence,
@@ -72,6 +73,25 @@ describe("agent session search compliance", () => {
       expect(evidence.results.map((result) => result.sessionId)).toEqual(
         evidence.matchingSessionIds.slice(0, AGENT_SEARCH_DEFAULT_LIMIT),
       );
+    });
+  });
+
+  it("reaches every worktree of the invocation's product and excludes other products", async () => {
+    await withAgentSearchProductWideSelectorEvidence((evidence) => {
+      expect(evidence.pickupResults.map((result) => result.sessionId)).toEqual([
+        evidence.invocationSessionId,
+        evidence.siblingSessionId,
+      ]);
+      expect(evidence.containsResults.map((result) => result.sessionId)).toEqual([
+        evidence.invocationSessionId,
+        evidence.siblingSessionId,
+      ]);
+      expect(evidence.agentResults.map((result) => result.sessionId)).toEqual([
+        evidence.invocationSessionId,
+        evidence.siblingSessionId,
+      ]);
+      expect(evidence.siblingSessionIdResults.map((result) => result.sessionId)).toEqual([evidence.siblingSessionId]);
+      expect(evidence.foreignSessionIdResults).toEqual([]);
     });
   });
 
