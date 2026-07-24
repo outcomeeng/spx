@@ -9,7 +9,7 @@
  * @module commands/diagnose/probes
  */
 
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -50,10 +50,12 @@ import {
   defaultGitDependencies,
   gatherGitFacts,
   GIT_ROOT_COMMAND,
+  type GitDependencies,
   type GitFacts,
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
+import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { compareNumericVersionIdentifiers, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
@@ -65,7 +67,6 @@ export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doin
 /** The agent-home-relative path segments a methodology plugin cache resolves under. */
 export const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
-const NOT_A_DIRECTORY_ERROR_CODE = "ENOTDIR";
 const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
   GIT_ROOT_COMMAND.SYMBOLIC_REF,
@@ -625,17 +626,24 @@ interface TrackedSpecTreeReading {
  * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
  * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
  * it — the classifier judges that, and this probe supplies the observation.
+ *
+ * Tracked means git-tracked, the same meaning the rest of the product gives the word: a spec tree
+ * exists as product truth once git carries a file under it. A directory present on disk but absent
+ * from the index is a product still bootstrapping — exactly the case the sentinel is intended to
+ * cover — so presence alone must not make methodology identity mandatory. Outside a git repository
+ * no tracked tree can be established, so the reading is false rather than admitting every path.
  */
-async function trackedSpecTreeReading(productDir: string): Promise<TrackedSpecTreeReading> {
-  try {
-    const entry = await stat(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
-    return { errored: false, tracked: entry.isDirectory() };
-  } catch (error) {
-    if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE) || isNodeErrorCode(error, NOT_A_DIRECTORY_ERROR_CODE)) {
-      return { errored: false, tracked: false };
-    }
-    return { errored: true, tracked: false };
+async function trackedSpecTreeReading(
+  productDir: string,
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<TrackedSpecTreeReading> {
+  const trackedPaths = await listTrackedPaths(productDir, deps);
+  if (trackedPaths === undefined) return { errored: false, tracked: false };
+  const prefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
+  for (const trackedPath of trackedPaths) {
+    if (trackedPath.startsWith(prefix)) return { errored: false, tracked: true };
   }
+  return { errored: false, tracked: false };
 }
 
 /**
