@@ -76,14 +76,17 @@ name that differs from the command name, before renaming.
 
 This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
 
+**Migrated:** the evidence-payload and terminal-completion rejection path. `src/domains/verify/rejection-report.ts` composes that block through `src/lib/terminal-text/`, escaping the caller-supplied verification type while the labels, the validator reason, and the block's line structure stay product-authored.
+
 **Unescaped sites:**
 
-- `src/interfaces/cli/verify.ts` — each result reported through `src/interfaces/cli/lib/stream-report.ts` — git refs, journal file content, and stdin or file payloads
+- `src/interfaces/cli/verify.ts` — every non-rejection result reported through `src/interfaces/cli/lib/stream-report.ts`: the start, input, status, render, and finish reports, carrying git refs, journal file content, and stdin or file payloads
+- `src/commands/verify/cli.ts` — the run-not-found, payload-read, and append-failure diagnostics, which interpolate caught-error messages and selector values into a plain string
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 
-**Resolution:** compose this node's terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence.
+**Resolution:** compose the remaining terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence, and `src/domains/verify/rejection-report.ts` now carries it for the rejection path.
 
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
-**Revisit condition:** before the next changeset touching this node's terminal output path.
+**Revisit condition:** before the next changeset touching one of the named unescaped sites.
