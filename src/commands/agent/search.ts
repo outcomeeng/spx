@@ -14,7 +14,7 @@ import {
 } from "@/domains/agent";
 import {
   defaultGitDependencies,
-  detectWorktreeProductRoot,
+  detectGitCommonDirProductRoot,
   GIT_ROOT_COMMAND,
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   type GitDependencies,
@@ -72,12 +72,19 @@ export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   resolveBranchAssociatedWorktreeRoots: resolveAgentSearchBranchAssociatedWorktreeRoots,
 };
 
+/**
+ * Search scope is the Git common-dir product root, not the local worktree root: a
+ * session recorded in any worktree of the pool belongs to the same product, and
+ * scoping to `--show-toplevel` would hide every sibling worktree's sessions from a
+ * content, pickup, session-id, or agent-kind search. `spx agent resume` keeps the
+ * worktree root because resuming targets the checkout the user is standing in.
+ */
 export async function resolveAgentSearchProductScopeRoot(
   cwd: string,
   fallbackProductScopeRoot: string,
   gitDeps: GitDependencies = defaultGitDependencies,
 ): Promise<string> {
-  const result = await detectWorktreeProductRoot(cwd, gitDeps);
+  const result = await detectGitCommonDirProductRoot(cwd, gitDeps);
   return result.isGitRepo ? result.productDir : fallbackProductScopeRoot;
 }
 

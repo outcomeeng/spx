@@ -1,7 +1,9 @@
-import { join, sep } from "node:path";
+import { realpath } from "node:fs/promises";
+import { dirname, join, sep } from "node:path";
 
 import {
   jsonAgentSearchSessions,
+  loadAgentSearchResults,
   resolveAgentSearchBranchAssociatedWorktreeRoots,
   resolveAgentSearchProductScopeRoot,
 } from "@/commands/agent/search";
@@ -20,6 +22,7 @@ import {
 import {
   type AgentSearchQuery,
   agentSearchQueryFromOptions,
+  type AgentSearchQueryOptions,
   type AgentSearchResult,
   pickupIdSearchLiteral,
   searchAgentSessions,
@@ -30,9 +33,7 @@ import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
-  GIT_COMMON_DIR_ARGS,
   GIT_ROOT_COMMAND,
-  GIT_SHOW_TOPLEVEL_ARGS,
   GIT_WORKTREE_LIST_PORCELAIN_ARGS,
   GIT_WORKTREE_PORCELAIN_BARE_LINE,
   GIT_WORKTREE_PORCELAIN_BRANCH_PREFIX,
@@ -62,6 +63,11 @@ import {
   agentSearchWorktreeResetAddCommand,
 } from "@testing/generators/agent/search";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  arbitraryBarePoolLayoutCase,
+  sampleMainCheckoutTestValue,
+} from "@testing/generators/main-checkout/main-checkout";
+import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 import {
   agentSessionJsonlName,
@@ -82,9 +88,16 @@ interface SearchFixture {
 }
 
 const SEARCH_SAMPLE = {
-  LINKED_WORKTREE_ROOT: 60,
-  COMMON_CHECKOUT_ROOT: 61,
-  FALLBACK_PRODUCT_SCOPE_ROOT: 62,
+  PRODUCT_WIDE_HOME_DIR: 300,
+  PRODUCT_WIDE_FOREIGN_ROOT: 301,
+  PRODUCT_WIDE_INVOCATION_CWD: 302,
+  PRODUCT_WIDE_SIBLING_CWD: 303,
+  PRODUCT_WIDE_FOREIGN_CWD: 304,
+  PRODUCT_WIDE_NOW_MS: 305,
+  PRODUCT_WIDE_PICKUP_ID: 306,
+  PRODUCT_WIDE_INVOCATION_SESSION_ID: 307,
+  PRODUCT_WIDE_SIBLING_SESSION_ID: 308,
+  PRODUCT_WIDE_FOREIGN_SESSION_ID: 309,
   PRODUCT_SCOPE_ROOT: 1,
   FOREIGN_PRODUCT_ROOT: 2,
   CODEX_CWD: 3,
@@ -271,36 +284,129 @@ function searchFixture(sampleOffset: number = SEARCH_SAMPLE.PRODUCT_SCOPE_ROOT):
   };
 }
 
+/**
+ * Provisions a real bare-repository worktree pool so the local worktree root and the
+ * Git common-dir product root are genuinely different paths, then resolves the search
+ * scope from inside one of its worktrees. A scripted git double cannot supply this
+ * evidence: it would have to encode which root the resolver is expected to read.
+ */
 export async function withAgentSearchProductScopeEvidence(
-  callback: (evidence: { readonly resolvedRoot: string; readonly linkedWorktreeRoot: string }) => void,
+  callback: (evidence: {
+    readonly resolvedRoot: string;
+    readonly productRoot: string;
+    readonly worktreeRoot: string;
+  }) => void | Promise<void>,
 ): Promise<void> {
-  const linkedWorktreeRoot = sampleAgentResumeValue(
-    arbitraryAgentWorktreeRoot(),
-    SEARCH_SAMPLE.LINKED_WORKTREE_ROOT,
-  );
-  const commonCheckoutRoot = sampleAgentResumeValue(
-    arbitraryAgentWorktreeRoot(),
-    SEARCH_SAMPLE.COMMON_CHECKOUT_ROOT,
-  );
-  const fallbackProductScopeRoot = sampleAgentResumeValue(
-    arbitraryAgentWorktreeRoot(),
-    SEARCH_SAMPLE.FALLBACK_PRODUCT_SCOPE_ROOT,
-  );
-  const git: GitDependencies = {
-    execa: async (_command, args) => {
-      if (args.join(" ") === GIT_SHOW_TOPLEVEL_ARGS.join(" ")) {
-        return { exitCode: 0, stdout: linkedWorktreeRoot, stderr: "" };
-      }
-      if (args.join(" ") === GIT_COMMON_DIR_ARGS.join(" ")) {
-        throw new Error("agent search product scope must not read git common dir");
-      }
-      return { exitCode: 0, stdout: commonCheckoutRoot, stderr: "" };
-    },
-  };
+  const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+  await withWorktreeLayoutEnv(layoutCase.spec, async (env) => {
+    const worktreeRoot = await realpath(env.worktree(layoutCase.mainCheckoutName));
+    await callback({
+      resolvedRoot: await resolveAgentSearchProductScopeRoot(worktreeRoot, worktreeRoot),
+      productRoot: dirname(worktreeRoot),
+      worktreeRoot,
+    });
+  });
+}
 
-  callback({
-    resolvedRoot: await resolveAgentSearchProductScopeRoot(linkedWorktreeRoot, fallbackProductScopeRoot, git),
-    linkedWorktreeRoot,
+/**
+ * Records one top-level session per scope — the invocation worktree, a sibling worktree
+ * of the same pool, and an unrelated product — then runs each non-branch selector through
+ * the real scope resolver. Distinct modification times fix the result order.
+ */
+export async function withAgentSearchProductWideSelectorEvidence(
+  callback: (evidence: {
+    readonly pickupResults: readonly AgentSearchResult[];
+    readonly containsResults: readonly AgentSearchResult[];
+    readonly agentResults: readonly AgentSearchResult[];
+    readonly siblingSessionIdResults: readonly AgentSearchResult[];
+    readonly foreignSessionIdResults: readonly AgentSearchResult[];
+    readonly invocationSessionId: string;
+    readonly siblingSessionId: string;
+    readonly foreignSessionId: string;
+  }) => void | Promise<void>,
+): Promise<void> {
+  const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
+  await withWorktreeLayoutEnv(layoutCase.spec, async (env) => {
+    const invocationWorktree = await realpath(env.worktree(layoutCase.mainCheckoutName));
+    const siblingWorktree = await realpath(env.worktree(layoutCase.otherNames[0]));
+    const fs = new MemoryAgentSessionFileSystem();
+    const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.PRODUCT_WIDE_HOME_DIR);
+    const foreignProductRoot = sampleAgentResumeValue(
+      arbitraryAgentWorktreeRoot(),
+      SEARCH_SAMPLE.PRODUCT_WIDE_FOREIGN_ROOT,
+    );
+    const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), SEARCH_SAMPLE.PRODUCT_WIDE_NOW_MS);
+    const timestamp = new Date(nowMs).toISOString();
+    const pickupId = sampleAgentResumeValue(arbitraryDomainLiteral(), SEARCH_SAMPLE.PRODUCT_WIDE_PICKUP_ID);
+    const marker = pickupIdSearchLiteral(pickupId);
+    const invocationSessionId = sampleAgentResumeValue(
+      arbitraryAgentSessionId(),
+      SEARCH_SAMPLE.PRODUCT_WIDE_INVOCATION_SESSION_ID,
+    );
+    const siblingSessionId = sampleAgentResumeValue(
+      arbitraryAgentSessionId(),
+      SEARCH_SAMPLE.PRODUCT_WIDE_SIBLING_SESSION_ID,
+    );
+    const foreignSessionId = sampleAgentResumeValue(
+      arbitraryAgentSessionId(),
+      SEARCH_SAMPLE.PRODUCT_WIDE_FOREIGN_SESSION_ID,
+    );
+
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: invocationSessionId,
+      cwd: sampleAgentResumeValue(
+        arbitraryAgentSessionCwd(invocationWorktree),
+        SEARCH_SAMPLE.PRODUCT_WIDE_INVOCATION_CWD,
+      ),
+      timestamp,
+      marker,
+      modifiedAtMs: nowMs,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: siblingSessionId,
+      cwd: sampleAgentResumeValue(
+        arbitraryAgentSessionCwd(siblingWorktree),
+        SEARCH_SAMPLE.PRODUCT_WIDE_SIBLING_CWD,
+      ),
+      timestamp,
+      marker,
+      modifiedAtMs: nowMs - 1,
+    });
+    writeCodexTranscriptFile(fs, homeDir, {
+      sessionId: foreignSessionId,
+      cwd: sampleAgentResumeValue(
+        arbitraryAgentSessionCwd(foreignProductRoot),
+        SEARCH_SAMPLE.PRODUCT_WIDE_FOREIGN_CWD,
+      ),
+      timestamp,
+      marker,
+      modifiedAtMs: nowMs - 2,
+    });
+
+    const productWideResults = async (options: AgentSearchQueryOptions): Promise<AgentSearchResult[]> =>
+      loadAgentSearchResults({
+        cwd: invocationWorktree,
+        fallbackProductScopeRoot: invocationWorktree,
+        query: agentSearchQueryFromOptions(options),
+        deps: {
+          fs,
+          agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+          nowMs: () => nowMs,
+          resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
+          resolveBranchAssociatedWorktreeRoots: resolveAgentSearchBranchAssociatedWorktreeRoots,
+        },
+      });
+
+    await callback({
+      pickupResults: await productWideResults({ pickupId }),
+      containsResults: await productWideResults({ contains: marker }),
+      agentResults: await productWideResults({ agent: AGENT_SESSION_KIND.CODEX }),
+      siblingSessionIdResults: await productWideResults({ sessionId: siblingSessionId }),
+      foreignSessionIdResults: await productWideResults({ sessionId: foreignSessionId }),
+      invocationSessionId,
+      siblingSessionId,
+      foreignSessionId,
+    });
   });
 }
 

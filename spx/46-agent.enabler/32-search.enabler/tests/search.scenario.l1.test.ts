@@ -18,9 +18,10 @@ import {
 } from "@testing/harnesses/agent/search";
 
 describe("agent session search scenarios", () => {
-  it("resolves default product scope to the linked worktree root", async () => {
+  it("resolves default product scope to the Git common-dir product root, not the worktree root", async () => {
     await withAgentSearchProductScopeEvidence((evidence) => {
-      expect(evidence.resolvedRoot).toBe(evidence.linkedWorktreeRoot);
+      expect(evidence.resolvedRoot).toBe(evidence.productRoot);
+      expect(evidence.resolvedRoot).not.toBe(evidence.worktreeRoot);
     });
   });
 
