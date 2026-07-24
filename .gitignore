@@ -1,14 +1,17 @@
 # Claude Code plan mode
 .claude/*
 !.claude/settings.json
+!.claude/skills
 
 # Agent runtime config
 .codex/*
 !.codex/config.toml
+!.codex/skills/*
 
 # Pi project plugin runtime
 .pi/*
 !.pi/claude-plugins.json
+!.pi/skills/*
 .pi-subagents/
 
 # Dependencies
@@ -47,6 +50,3 @@ npm-debug.log*
 # and exists only at the Git common-dir product root — ignore it wholesale
 # so new subdirectories (e.g. reviews/) do not drift out of coverage.
 .spx/
-
-# Git worktree directories
-.work/*
