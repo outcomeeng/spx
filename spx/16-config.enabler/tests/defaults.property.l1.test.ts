@@ -3,23 +3,17 @@ import { describe, expect, it } from "vitest";
 import { resolveConfig } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("resolveConfig — defaults are type-complete", () => {
   it("every registered descriptor's declared defaults round-trip through its own validator", () => {
-    assertProperty(
-      CONFIG_TEST_GENERATOR.productionDescriptor(),
-      (descriptor) => {
-        const roundTrip = descriptor.validate(descriptor.defaults);
-        expect(roundTrip.ok).toBe(true);
-        if (roundTrip.ok) {
-          expect(roundTrip.value).toEqual(descriptor.defaults);
-        }
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
+    for (const descriptor of productionRegistry) {
+      const roundTrip = descriptor.validate(descriptor.defaults);
+      expect(roundTrip.ok).toBe(true);
+      if (roundTrip.ok) {
+        expect(roundTrip.value).toEqual(descriptor.defaults);
+      }
+    }
   });
 
   it("resolveConfig returns each descriptor's declared defaults when no config overrides apply", async () => {
