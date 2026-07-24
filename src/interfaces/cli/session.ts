@@ -24,6 +24,7 @@ import {
   SessionAlreadyArchivedError,
   showCommand,
 } from "@/commands/session/index";
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
 import { renderHandoffBaseChecklist } from "@/domains/session/handoff-base-checklist";
@@ -91,9 +92,9 @@ function writeError(invocation: CliInvocation, output: string): void {
   invocation.io.writeStderr(`${output}\n`);
 }
 
-function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
-    writeError(invocation, warning);
+    writeError(invocation, renderTerminalText(warning));
   }
 }
 

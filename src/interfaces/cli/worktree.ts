@@ -6,6 +6,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import type { Domain } from "@/domains/types";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
@@ -29,22 +30,22 @@ export const WORKTREE_CLI = {
 
 const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare-repository pool";
 
-function writeOutput(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStdout(`${output}\n`);
+function writeOutput(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStdout(renderTerminalText(terminal`${output}\n`));
 }
 
-function writeError(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStderr(`${output}\n`);
+function writeError(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStderr(renderTerminalText(terminal`${output}\n`));
 }
 
-function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
     writeError(invocation, warning);
   }
 }
 
 function handleError(invocation: CliInvocation, error: string): never {
-  writeError(invocation, `Error: ${error}`);
+  writeError(invocation, terminal`Error: ${error}`);
   return invocation.io.exit(1);
 }
 
@@ -95,7 +96,7 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
         if (!result.ok) handleError(invocation, result.error);
-        writeOutput(invocation, result.value);
+        writeOutput(invocation, terminal`${result.value}`);
       },
     );
 

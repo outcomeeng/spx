@@ -8,6 +8,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 
 import type { Command } from "commander";
 
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveConfig } from "@/config/index";
 import type { Result } from "@/config/types";
 import {
@@ -56,7 +57,7 @@ interface HookCommandOptions {
 
 interface HookExecutionContext {
   readonly runOptions: Omit<HookCliRunOptions, "event">;
-  readonly warnings: readonly string[];
+  readonly warnings: readonly TerminalText[];
 }
 
 function resolveHookCliAgent(env: HookSessionStartEnv): Agent {
@@ -109,7 +110,7 @@ async function resolveHookExecutionContext(
     },
     warnings: compactStdout.ok
       ? []
-      : [`${HOOK_CONFIG_ERROR_PREFIX}${ERROR_DETAIL_SEPARATOR}${compactStdout.error}`],
+      : [terminal`${authoredText(HOOK_CONFIG_ERROR_PREFIX)}${authoredText(ERROR_DETAIL_SEPARATOR)}${compactStdout.error}`],
   };
 }
 
@@ -126,11 +127,11 @@ function resolveHookCliConfigProductDir(
   return invocation.resolveProductContext().productDir;
 }
 
-function writeError(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStderr(`${output}\n`);
+function writeError(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStderr(renderTerminalText(terminal`${output}\n`));
 }
 
-function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
     writeError(invocation, warning);
   }
@@ -144,7 +145,7 @@ function registerHookCommands(hookCmd: Command, invocation: CliInvocation): void
     .option(`${HOOK_CLI.WORKTREES_DIR_FLAG} <path>`, "Explicit .spx/worktrees directory")
     .action(async (event: string, options: HookCommandOptions) => {
       if (!isHookEvent(event)) {
-        writeError(invocation, `${HOOK_ERROR.UNKNOWN_EVENT}: ${sanitizeCliArgument(event)}`);
+        writeError(invocation, terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${event}`);
         invocation.io.exit(1);
         return;
       }

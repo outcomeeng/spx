@@ -11,14 +11,14 @@ import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import type { GitDependencies } from "@/lib/git/root";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { HOOK_ERROR, isHookEvent, runHookEvent, type RunHookEventOptions } from "./registry";
 
 export interface HookProcessIo {
   readStdin(): Promise<Result<string | undefined>>;
-  writeStdout(content: string): void;
-  writeStderr(content: string): void;
+  writeStdout(content: TerminalText): void;
+  writeStderr(content: TerminalText): void;
 }
 
 export interface HookCliRunOptions {
@@ -31,7 +31,7 @@ export interface HookCliRunOptions {
   readonly fs: OccupancyFileSystem;
   readonly gitDeps: GitDependencies;
   readonly io: HookProcessIo;
-  readonly onWarning?: (warning: string | undefined) => void;
+  readonly onWarning?: (warning: TerminalText | undefined) => void;
   readonly processTable: ProcessTable;
   readonly claimRandomBytes: RandomBytes;
   readonly runEvent?: (options: RunHookEventOptions) => ReturnType<typeof runHookEvent>;
@@ -58,6 +58,7 @@ export const HOOK_PROCESS_IO_EVENT = {
 } as const;
 
 const LINE_SEPARATOR = "\n";
+const LINE_SEPARATOR_TEXT = authoredText(LINE_SEPARATOR);
 export const ERROR_DETAIL_SEPARATOR = ": ";
 export const STDIN_READ_ERROR = "hook stdin read failed";
 export const HOOK_CONFIG_ERROR_PREFIX = "hook agent environment config read failed";
@@ -65,14 +66,14 @@ export const HOOK_CONFIG_ERROR_PREFIX = "hook agent environment config read fail
 /** Runs a hook event from a CLI transport, including hook-owned process I/O. */
 export async function runHookCli(options: HookCliRunOptions): Promise<Result<void>> {
   if (!isHookEvent(options.event)) {
-    options.io.writeStderr(`${HOOK_ERROR.UNKNOWN_EVENT}: ${sanitizeCliArgument(options.event)}`);
+    options.io.writeStderr(terminal`${authoredText(HOOK_ERROR.UNKNOWN_EVENT)}${authoredText(ERROR_DETAIL_SEPARATOR)}${options.event}`);
     return { ok: false, error: HOOK_ERROR.UNKNOWN_EVENT };
   }
 
-  const diagnostics: string[] = [];
+  const diagnostics: TerminalText[] = [];
   const stdin = options.stdinContent ?? (await options.io.readStdin());
   const content = stdin.ok ? stdin.value : undefined;
-  if (!stdin.ok) diagnostics.push(stdin.error);
+  if (!stdin.ok) diagnostics.push(authoredText(stdin.error));
   const runEvent = options.runEvent ?? runHookEvent;
   const result = await runEvent({
     compactStdout: options.compactStdout,
@@ -93,15 +94,17 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
     options.io.writeStderr(diagnostic);
   }
   if (!result.ok) {
-    options.io.writeStderr(result.error);
+    options.io.writeStderr(terminal`${result.error}`);
     return result;
   }
 
   for (const diagnostic of result.value.diagnostics) {
-    options.io.writeStderr(diagnostic);
+    options.io.writeStderr(terminal`${diagnostic}`);
   }
   if (result.value.stdout.length > 0) {
-    options.io.writeStdout(result.value.stdout);
+    // The hook payload is machine-destined: the agent harness parses it, so the
+    // producer's serialization is its safety contract rather than escaping.
+    options.io.writeStdout(authoredText(result.value.stdout));
   }
   return { ok: true, value: undefined };
 }
@@ -126,16 +129,18 @@ export function createProcessHookIo(streams: HookProcessIoStreams): HookProcessI
       });
     },
     writeStdout: (content) => {
-      streams.stdout.write(`${content}${LINE_SEPARATOR}`);
+      streams.stdout.write(renderTerminalText(terminal`${content}${LINE_SEPARATOR_TEXT}`));
     },
     writeStderr: (content) => {
-      streams.stderr.write(`${content}${LINE_SEPARATOR}`);
+      streams.stderr.write(renderTerminalText(terminal`${content}${LINE_SEPARATOR_TEXT}`));
     },
   };
 }
 
 function formatStdinReadError(error: unknown): string {
-  return `${STDIN_READ_ERROR}${ERROR_DETAIL_SEPARATOR}${describeStdinReadError(error)}`;
+  return renderTerminalText(
+    terminal`${authoredText(STDIN_READ_ERROR)}${authoredText(ERROR_DETAIL_SEPARATOR)}${describeStdinReadError(error)}`,
+  );
 }
 
 // Stringify a caught stdin-read error without throwing: an Error yields its
