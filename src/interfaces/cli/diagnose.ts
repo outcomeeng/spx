@@ -10,9 +10,9 @@ import { type Command, Option } from "commander";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import {
+  createMethodologyContextProbe,
   createWorktreePoolSnapshotProvider,
   defaultMarketplaceInstallProbe,
-  defaultMethodologyContextProbe,
   sessionEnvironmentProbeFromSnapshotProvider,
   sessionStoreProbeFromSnapshotProvider,
   worktreePoolProbeFromSnapshotProvider,
@@ -44,7 +44,7 @@ export const DIAGNOSE_CLI = {
 const DIAGNOSE_DOMAIN_DESCRIPTION =
   "Run deterministic environment-diagnostics checks, resolving facts from spx.config or a --manifest";
 
-function defaultRegistry(): CheckRegistry {
+function defaultRegistry(productDir: string): CheckRegistry {
   const worktreePoolSnapshot = createWorktreePoolSnapshotProvider();
   return {
     [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
@@ -54,7 +54,7 @@ function defaultRegistry(): CheckRegistry {
     [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(worktreePoolProbeFromSnapshotProvider(worktreePoolSnapshot)),
     [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(sessionStoreProbeFromSnapshotProvider(worktreePoolSnapshot)),
     [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
-    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner(defaultMethodologyContextProbe),
+    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner(createMethodologyContextProbe(productDir)),
   };
 }
 
@@ -87,16 +87,17 @@ export const diagnoseDomain: Domain = {
       .addOption(new Option(`${DIAGNOSE_CLI.COLOR_FLAG}`, "Force colored output"))
       .addOption(new Option(`${DIAGNOSE_CLI.NO_COLOR_FLAG}`, "Disable colored output"))
       .action(async (options: { manifest?: string; format: DiagnoseFormat; color?: boolean }) => {
+        const { productDir } = invocation.resolveProductContext();
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
-          productDir: invocation.resolveProductContext().productDir,
+          productDir,
           format: options.format,
           color: resolveColorChoice({
             flag: options.color,
             noColor: process.env.NO_COLOR,
             isTty: Boolean(process.stdout.isTTY),
           }),
-          registry: defaultRegistry(),
+          registry: defaultRegistry(productDir),
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
         if (!result.ok) {
