@@ -27,6 +27,7 @@ import noRegistryPositionAccess, { NO_REGISTRY_POSITION_ACCESS_RULE_NAME } from 
 import noSpecReferences, { NO_SPEC_REFERENCES_RULE_NAME } from "./no-spec-references";
 import noTaskMarkerComments, { NO_TASK_MARKER_COMMENTS_RULE_NAME } from "./no-task-marker-comments";
 import noTestOwnedDomainConstants, { NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME } from "./no-test-owned-domain-constants";
+import noUnescapedTerminalText, { NO_UNESCAPED_TERMINAL_TEXT_RULE_NAME } from "./no-unescaped-terminal-text";
 
 const eslintRules = {
   meta: {
@@ -48,6 +49,7 @@ const eslintRules = {
     [NO_SPEC_REFERENCES_RULE_NAME]: noSpecReferences,
     [NO_TASK_MARKER_COMMENTS_RULE_NAME]: noTaskMarkerComments,
     [NO_TEST_OWNED_DOMAIN_CONSTANTS_RULE_NAME]: noTestOwnedDomainConstants,
+    [NO_UNESCAPED_TERMINAL_TEXT_RULE_NAME]: noUnescapedTerminalText,
   },
 };
 

@@ -59,6 +59,7 @@ import {
   TEST_OWNED_DOMAIN_CONSTANT_MESSAGE_ID,
   TEST_OWNED_DOMAIN_REGISTRY_MESSAGE_ID,
 } from "@eslint-rules/no-test-owned-domain-constants";
+import { UNESCAPED_TERMINAL_TEXT_MESSAGE_ID } from "@eslint-rules/no-unescaped-terminal-text";
 import {
   NO_RESTRICTED_SYNTAX_RULE_ID,
   testRestrictedSyntax,
@@ -239,6 +240,8 @@ export const VALIDATION_ESLINT_FILES = {
   lifecycleModule: "src/lib/process-lifecycle/install.ts",
   lifecycleHarness: "testing/harnesses/process-lifecycle/spawn-fixture.ts",
   configCwdModule: "src/lib/config/cwd.ts",
+  terminalTextModule: "src/lib/terminal-text/terminal-text.ts",
+  cliDescriptor: "src/interfaces/cli/example.ts",
   gitRoot: "src/lib/git/root.ts",
   precommitGate: "src/lib/precommit/main-checkout-gate.ts",
   domainRunner: "src/some-domain/runner.ts",
@@ -268,6 +271,15 @@ export const VALIDATION_ESLINT_SNIPPETS = {
   importExecAndExecFile: `import { exec, execFile } from "node:child_process";`,
   importChildProcessType: `import type { ChildProcess } from "node:child_process";`,
   importExecAndSpawn: `import { exec, spawn } from "node:child_process";`,
+  terminalWriteInterpolated: "io.writeStdout(`path: ${resolved}`);",
+  terminalWriteConcatenated: `io.writeStderr("path: " + resolved);`,
+  processStderrWriteInterpolated: "process.stderr.write(`failed: ${error.message}`);",
+  consoleErrorInterpolated: "console.error(`gate failed: ${error}`);",
+  terminalWriteComposed: "io.writeStdout(renderTerminalText(terminal`path: ${resolved}`));",
+  terminalWriteLiteral: `io.writeStdout("done\\n");`,
+  terminalWriteStaticTemplate: "io.writeStdout(`done`);",
+  terminalWriteIdentifier: `io.writeStdout(output);`,
+  nonTerminalInterpolatedCall: "logger.debug(`path: ${resolved}`);",
   nonRegistryIndex: `const first = values[0];`,
   registryIndexType: `type NodeKind = (typeof NODE_KINDS)[number];`,
   namedRegistryAccess: `import { KIND_REGISTRY } from "@/lib/spec-tree"; const kind = KIND_REGISTRY.enabler;`,
@@ -1000,6 +1012,69 @@ export function astDeepRelativeImportRun(): ValidationGeneratedRuleTesterRun {
         },
       ],
     },
+  };
+}
+
+export function noUnescapedTerminalTextCases(): ValidationGeneratedRuleTesterCases {
+  return {
+    valid: [
+      {
+        name: "GIVEN a written literal WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteLiteral,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+      },
+      {
+        name: "GIVEN a template with no interpolation WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteStaticTemplate,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+      },
+      {
+        name: "GIVEN an identifier carrying no embedding WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteIdentifier,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+      },
+      {
+        name: "GIVEN the argument composed through the terminal-text primitive WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteComposed,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+      },
+      {
+        name: "GIVEN an interpolated call that is not a terminal write WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.nonTerminalInterpolatedCall,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+      },
+      {
+        name: "GIVEN the terminal-text module itself writes an interpolation WHEN linting THEN no error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteInterpolated,
+        filename: VALIDATION_ESLINT_FILES.terminalTextModule,
+      },
+    ],
+    invalid: [
+      {
+        name: "GIVEN an interpolated template written to an output adapter WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteInterpolated,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+        errors: [{ messageId: UNESCAPED_TERMINAL_TEXT_MESSAGE_ID }],
+      },
+      {
+        name: "GIVEN a concatenation with a non-literal operand WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.terminalWriteConcatenated,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+        errors: [{ messageId: UNESCAPED_TERMINAL_TEXT_MESSAGE_ID }],
+      },
+      {
+        name: "GIVEN an interpolated write to the process stderr stream WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.processStderrWriteInterpolated,
+        filename: VALIDATION_ESLINT_FILES.cliDescriptor,
+        errors: [{ messageId: UNESCAPED_TERMINAL_TEXT_MESSAGE_ID }],
+      },
+      {
+        name: "GIVEN an interpolated console output call WHEN linting THEN error",
+        code: VALIDATION_ESLINT_SNIPPETS.consoleErrorInterpolated,
+        filename: VALIDATION_ESLINT_FILES.precommitGate,
+        errors: [{ messageId: UNESCAPED_TERMINAL_TEXT_MESSAGE_ID }],
+      },
+    ],
   };
 }
 
