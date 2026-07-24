@@ -19,22 +19,22 @@ describe("audit file-root conformance", () => {
             payload: scenario.childPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.rootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.rootPayload);
+        ).toEqual({ ok: true, value: scenario.rootPayload });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.childPayload,
             events: [scenario.rootEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.childPayload);
+        ).toEqual({ ok: true, value: scenario.childPayload });
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -49,8 +49,8 @@ describe("audit file-root conformance", () => {
             payload: scenario.mismatchedRootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -65,15 +65,15 @@ describe("audit file-root conformance", () => {
             payload: scenario.parentedRootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.SCOPE)?.({
             payload: scenario.optionalRootPayload,
             events: [],
             selector: { scopeType: VERIFY_SCOPE_TYPE.FILE, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

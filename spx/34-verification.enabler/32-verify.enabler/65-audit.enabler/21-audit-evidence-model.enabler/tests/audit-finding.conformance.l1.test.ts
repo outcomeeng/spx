@@ -20,14 +20,14 @@ describe("audit finding payload conformance", () => {
             events: [scenario.scopeEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
           }),
-        ).toEqual(scenario.finding);
+        ).toEqual({ ok: true, value: scenario.finding });
         expect(
           evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
             payload: JSON.parse(JSON.stringify(scenario.unknownUnitFinding)),
             events: [scenario.scopeEvent],
             selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-          }),
-        ).toBeUndefined();
+          }).ok,
+        ).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

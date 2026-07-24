@@ -59,7 +59,6 @@ import {
   projectVerifyRun,
   REVIEW_SCOPE_COVERAGE_STATE,
   type RunLocator,
-  TERMINAL_METADATA_VALIDATION_ERROR,
   validateAuditFinding,
   validateAuditScope,
   validateTestFinding,
@@ -1807,7 +1806,9 @@ export async function assertInvalidReviewScopeRejectedBeforeAppend(): Promise<vo
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.SCOPE_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.SCOPE_INVALID)
+    ) {
       throw new Error(`expected invalid review scope rejection, received ${appended.output}`);
     }
   });
@@ -1909,23 +1910,23 @@ export async function assertReviewScopeProjectionIncludesCleanReviewedUnit(): Pr
 export async function assertAuditScopePayloadsConformToSchema(): Promise<void> {
   await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnit(), async (scopeUnit) => {
     const payload = toJsonValue(scopeUnit);
-    expect(validateAuditScope(payload)).toEqual(scopeUnit);
+    expect(validateAuditScope(payload)).toEqual({ ok: true, value: scopeUnit });
   });
   await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnit(), async (scopeUnit) => {
     const { producerProvenance: _producerProvenance, ...scopeUnitWithoutProvenance } = scopeUnit;
     const payload = toJsonValue(scopeUnitWithoutProvenance);
-    expect(validateAuditScope(payload)).toEqual(scopeUnitWithoutProvenance);
+    expect(validateAuditScope(payload)).toEqual({ ok: true, value: scopeUnitWithoutProvenance });
   });
   await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditScopeUnitWithoutOptionalFields(), async (scopeUnit) => {
     const payload = toJsonValue(scopeUnit);
-    expect(validateAuditScope(payload)).toEqual(scopeUnit);
+    expect(validateAuditScope(payload)).toEqual({ ok: true, value: scopeUnit });
   });
 }
 
 export async function assertAuditFindingPayloadsConformToSchema(): Promise<void> {
   await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditFinding(), async (finding) => {
     const payload = toJsonValue(finding);
-    expect(validateAuditFinding(payload)).toEqual(finding);
+    expect(validateAuditFinding(payload)).toEqual({ ok: true, value: finding });
   });
 }
 
@@ -1943,7 +1944,9 @@ export async function assertInvalidAuditScopeRejectedBeforeAppend(): Promise<voi
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.SCOPE_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.SCOPE_INVALID)
+    ) {
       throw new Error(`expected invalid audit scope rejection, received ${appended.output}`);
     }
   });
@@ -1969,7 +1972,9 @@ export async function assertInvalidAuditFindingRejectedBeforeAppend(): Promise<v
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.FINDING_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.FINDING_INVALID)
+    ) {
       throw new Error(`expected invalid audit finding rejection, received ${appended.output}`);
     }
   });
@@ -2002,7 +2007,7 @@ export async function assertAuditFindingUnknownUnitRejectedBeforeAppend(): Promi
     deps,
   );
   expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(appended.output).toBe(VERIFY_CLI_ERROR.FINDING_INVALID);
+  expect(appended.output.startsWith(VERIFY_CLI_ERROR.FINDING_INVALID)).toBe(true);
   assertEqualJson(
     await readVerifyRunEvents(scenario, runToken, fs),
     eventsBeforeInvalidFinding,
@@ -2029,7 +2034,7 @@ export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Pro
     deps,
   );
   expect(appended.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(appended.output).toBe(VERIFY_CLI_ERROR.FINDING_INVALID);
+  expect(appended.output.startsWith(VERIFY_CLI_ERROR.FINDING_INVALID)).toBe(true);
   assertEqualJson(
     await readVerifyRunEvents(scenario, runToken, fs),
     eventsBeforeInvalidFinding,
@@ -2039,13 +2044,13 @@ export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Pro
 
 export async function assertTestScopePayloadsConformToSchema(): Promise<void> {
   await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit(), async (scopeUnit) => {
-    expect(validateTestScope(toJsonValue(scopeUnit))).toEqual(scopeUnit);
+    expect(validateTestScope(toJsonValue(scopeUnit))).toEqual({ ok: true, value: scopeUnit });
   });
 }
 
 export async function assertTestFindingPayloadsConformToSchema(): Promise<void> {
   await assertVerifyProperty(JOURNAL_REPORTER_TEST_GENERATOR.finding(), async (finding) => {
-    expect(validateTestFinding(toJsonValue(finding))).toEqual(finding);
+    expect(validateTestFinding(toJsonValue(finding))).toEqual({ ok: true, value: finding });
   });
 }
 
@@ -2063,7 +2068,9 @@ export async function assertInvalidTestScopeRejectedBeforeAppend(): Promise<void
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.SCOPE_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.SCOPE_INVALID)
+    ) {
       throw new Error(`expected invalid test scope rejection, received ${appended.output}`);
     }
   });
@@ -2089,7 +2096,9 @@ export async function assertInvalidTestFindingRejectedBeforeAppend(): Promise<vo
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.FINDING_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.FINDING_INVALID)
+    ) {
       throw new Error(`expected invalid test finding rejection, received ${appended.output}`);
     }
   });
@@ -2110,7 +2119,7 @@ export async function assertTestTerminalRejectsAgenticDisposition(): Promise<voi
     deps,
   );
   expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(rejected.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
 
   const accepted = await verifyFinishCommand(
@@ -2134,7 +2143,7 @@ export async function assertTestTerminalRejectsSuppliedMetadata(): Promise<void>
     deps,
   );
   expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID);
+  expect(rejected.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID)).toBe(true);
   expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
 
   const accepted = await verifyFinishCommand(
@@ -2164,7 +2173,7 @@ export async function assertTestTerminalRejectsPassedWithFindings(): Promise<voi
     deps,
   );
   expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(rejected.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeRejectedFinish);
 
   const accepted = await verifyFinishCommand(
@@ -2365,7 +2374,7 @@ export async function assertAuditRejectsSuppliedTerminalMetadata(): Promise<void
     deps,
   );
   expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID);
+  expect(finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID)).toBe(true);
   expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeInvalidMetadata);
   expect(
     await finishRun(
@@ -2391,7 +2400,9 @@ export async function assertInvalidReviewFindingRejectedBeforeAppend(): Promise<
       }),
       deps,
     );
-    if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || appended.output !== VERIFY_CLI_ERROR.FINDING_INVALID) {
+    if (
+      appended.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || !appended.output.startsWith(VERIFY_CLI_ERROR.FINDING_INVALID)
+    ) {
       throw new Error(`expected invalid review finding rejection, received ${appended.output}`);
     }
   });
@@ -2515,7 +2526,7 @@ export async function assertReviewTerminalMetadataConflictRejectsWithoutSealing(
   );
   if (
     finished.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR
-    || !finished.output.includes(TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT)
+    || !finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)
   ) {
     throw new Error(`expected terminal metadata conflict rejection, received ${finished.output}`);
   }
@@ -2549,7 +2560,7 @@ export async function assertReviewFindingsRejectApprovedTerminalStatus(): Promis
     deps,
   );
   expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
   await expect(
     fs.readFile(appendableJournalSealMarkerPath(startReport.locator.runTarget), STATE_STORE_TEXT_ENCODING),
@@ -2589,7 +2600,7 @@ export async function assertReviewFindingScopeRejectsApprovedTerminalStatus(): P
     deps,
   );
   expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   expect(findTerminalEvent(await readVerifyRunEvents(scenario, runToken, fs))).toBeUndefined();
   await expect(
     fs.readFile(appendableJournalSealMarkerPath(startReport.locator.runTarget), STATE_STORE_TEXT_ENCODING),
@@ -2609,7 +2620,7 @@ export async function assertCleanReviewRunRejectsForeignTerminalStatus(): Promis
     deps,
   );
   expect(rejected.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-  expect(rejected.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+  expect(rejected.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   expect(await readVerifyRunEvents(scenario, runToken, fs)).toEqual(eventsBeforeFinish);
 
   const accepted = await verifyFinishCommand(
@@ -2672,7 +2683,7 @@ export async function assertReviewTerminalMetadataStateMapsTerminalStatus(): Pro
       deps,
     );
     expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+    expect(finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   }
   {
     const { scenario, deps } = createVerifyAppendScenario(
@@ -2704,7 +2715,7 @@ export async function assertReviewTerminalMetadataStateMapsTerminalStatus(): Pro
       deps,
     );
     expect(finished.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(finished.output).toBe(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT);
+    expect(finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_STATUS_CONFLICT)).toBe(true);
   }
   await assertReviewCommentedTerminalMetadataAcceptsCallerTerminalStatus();
 }
@@ -2796,7 +2807,8 @@ export async function assertInvalidReviewTerminalMetadataRejectedWithoutCompleti
       deps,
     );
     if (
-      finished.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR || finished.output !== VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID
+      finished.exitCode !== VERIFY_CLI_EXIT_CODE.ERROR
+      || !finished.output.startsWith(VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID)
     ) {
       throw new Error(`expected invalid terminal metadata rejection, received ${finished.output}`);
     }
@@ -4227,4 +4239,38 @@ export async function finishRecoversUnsealedRun(
     );
   }
   return report;
+}
+
+/**
+ * Run one `scope add` against a started review run with a payload missing a named required field,
+ * and return the command result the append boundary reported. The harness owns the run lifecycle
+ * and the append invocation; what the reported diagnostic must contain is the linked test's claim.
+ */
+export async function appendReviewScopeMissingRequiredField(
+  payload: JsonValue,
+): Promise<CliCommandResult> {
+  const { scenario, deps, runToken } = await reviewAppendScenario();
+  return verifyAppendScopeCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(payload),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
+}
+
+/** The same observation for the finding-evidence boundary. */
+export async function appendReviewFindingMissingRequiredField(
+  payload: JsonValue,
+): Promise<CliCommandResult> {
+  const { scenario, deps, runToken } = await reviewAppendScenario();
+  return verifyAppendFindingCommand(
+    verifyAppendOptions(scenario, {
+      run: runToken,
+      payload: JSON.stringify(payload),
+      idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+    }),
+    deps,
+  );
 }

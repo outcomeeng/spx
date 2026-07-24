@@ -20,6 +20,7 @@ import {
   type AuditScopeUnit,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
+  REVIEW_PAYLOAD_FIELD,
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
   REVIEW_TERMINAL_STATUSES,
@@ -1095,4 +1096,47 @@ export function sampleVerifyTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
   if (value === undefined) throw new Error("Verify test generator returned no sample");
   return value;
+}
+
+/** The required top-level fields of the review scope schema, drawn from the production vocabulary. */
+const REQUIRED_REVIEW_SCOPE_FIELDS = [
+  REVIEW_PAYLOAD_FIELD.PATH,
+  REVIEW_PAYLOAD_FIELD.COMMIT,
+  REVIEW_PAYLOAD_FIELD.SIDE,
+  REVIEW_PAYLOAD_FIELD.COVERAGE_STATE,
+] as const;
+
+/** The required top-level fields of the review finding schema. */
+const REQUIRED_REVIEW_FINDING_FIELDS = [
+  REVIEW_PAYLOAD_FIELD.PATH,
+  REVIEW_PAYLOAD_FIELD.ORIGINAL_COMMIT,
+  REVIEW_PAYLOAD_FIELD.DIFF_HUNK,
+  REVIEW_PAYLOAD_FIELD.BODY,
+  REVIEW_PAYLOAD_FIELD.SIDE,
+  REVIEW_PAYLOAD_FIELD.FINDING,
+] as const;
+
+/** One otherwise-valid review payload with a single named required field removed. */
+export interface ReviewMissingFieldScenario {
+  readonly payload: JsonValue;
+  readonly missingField: string;
+}
+
+function reviewPayloadWithoutField(payload: unknown, field: string): JsonValue {
+  const { [field]: _removed, ...rest } = JSON.parse(JSON.stringify(payload)) as { readonly [key: string]: JsonValue };
+  return rest;
+}
+
+/** Review scope payloads each missing exactly one required field the schema declares. */
+export function arbitraryReviewScopeMissingRequiredField(): fc.Arbitrary<ReviewMissingFieldScenario> {
+  return fc
+    .tuple(arbitraryReviewScopeUnit(), fc.constantFrom(...REQUIRED_REVIEW_SCOPE_FIELDS))
+    .map(([unit, missingField]) => ({ payload: reviewPayloadWithoutField(unit, missingField), missingField }));
+}
+
+/** Review finding payloads each missing exactly one required field the schema declares. */
+export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<ReviewMissingFieldScenario> {
+  return fc
+    .tuple(arbitraryReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
+    .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
 }

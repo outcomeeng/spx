@@ -158,7 +158,7 @@ describe("audit terminal rollup", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       },
-    })).toStrictEqual({
+    })).toMatchObject({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
     });

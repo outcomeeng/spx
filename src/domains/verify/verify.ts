@@ -3,6 +3,14 @@ import { join } from "node:path";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
 import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import type { EvidenceValidationResult } from "@/domains/verify/evidence-rejection";
+import {
+  acceptEvidence,
+  EVIDENCE_REQUIREMENT,
+  forwardEvidenceRejection,
+  rejectEvidenceField,
+  rejectEvidenceRequirement,
+} from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
 import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
@@ -356,9 +364,42 @@ export const TERMINAL_METADATA_VALIDATION_ERROR = {
 export type TerminalMetadataValidationError =
   (typeof TERMINAL_METADATA_VALIDATION_ERROR)[keyof typeof TERMINAL_METADATA_VALIDATION_ERROR];
 
+/**
+ * A terminal-completion validation outcome. A rejection names the class of refusal the command
+ * layer branches on and carries the reason a reader needs: which metadata field failed, or which
+ * status the run's own evidence requires instead.
+ */
 export type TerminalMetadataValidationResult =
   | { readonly ok: true; readonly value: JsonValue | undefined }
-  | { readonly ok: false; readonly error: TerminalMetadataValidationError };
+  | {
+    readonly ok: false;
+    readonly error: TerminalMetadataValidationError;
+    readonly reason: string;
+  };
+
+/** The structural requirements a terminal status can fail against a run's recorded evidence. */
+export const TERMINAL_REQUIREMENT = {
+  STATUS_IN_TYPE_VOCABULARY: "the terminal status is one the verification type seals with",
+  STATUS_MATCHES_EVIDENCE: "the terminal status matches the status the run's recorded evidence requires",
+  METADATA_MATCHES_EVIDENCE: "the terminal metadata agrees with the run's recorded evidence",
+  NO_METADATA_ACCEPTED: "the verification type seals with no terminal metadata",
+  PASSED_HAS_NO_FINDINGS: "a run sealing as passed recorded no findings",
+} as const;
+
+export type TerminalRequirement = (typeof TERMINAL_REQUIREMENT)[keyof typeof TERMINAL_REQUIREMENT];
+
+const TERMINAL_REASON_PREFIX = "terminal completion does not satisfy: ";
+
+function rejectTerminal(
+  error: TerminalMetadataValidationError,
+  requirement: TerminalRequirement,
+): TerminalMetadataValidationResult {
+  return { ok: false, error, reason: `${TERMINAL_REASON_PREFIX}${requirement}` };
+}
+
+function rejectTerminalMetadata(reason: string): TerminalMetadataValidationResult {
+  return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID, reason };
+}
 
 export const VERIFY_EVIDENCE_KIND = {
   SCOPE: "scope",
@@ -627,8 +668,34 @@ function readOptionalRecord(
     : { state: OPTIONAL_FIELD_STATE.INVALID };
 }
 
-function hasInvalidOptionalField(...fields: readonly OptionalField<unknown>[]): boolean {
-  return fields.some((field) => field.state === OPTIONAL_FIELD_STATE.INVALID);
+/**
+ * Read several required string fields at once, refusing at the first one missing or malformed.
+ * Reading them as a set keeps a validator's per-field reasons without one branch per field.
+ */
+function readRequiredStrings<K extends string>(
+  record: { readonly [key: string]: JsonValue },
+  fields: readonly K[],
+  ...path: readonly string[]
+): EvidenceValidationResult<{ readonly [field in K]: string }> {
+  const read = {} as { [field in K]: string };
+  for (const field of fields) {
+    const value = readRequiredString(record, field);
+    if (value === undefined) return rejectEvidenceField(...path, field);
+    read[field] = value;
+  }
+  return acceptEvidence(read);
+}
+
+/**
+ * Check several already-read optional fields at once, refusing at the first malformed one. An
+ * absent optional field is valid; only a present-but-malformed value refuses.
+ */
+function requireValidOptionalFields(
+  reads: readonly (readonly [string, OptionalField<unknown>])[],
+  ...path: readonly string[]
+): EvidenceValidationResult<undefined> {
+  const invalid = reads.find(([, field]) => field.state === OPTIONAL_FIELD_STATE.INVALID);
+  return invalid === undefined ? acceptEvidence(undefined) : rejectEvidenceField(...path, invalid[0]);
 }
 
 function isReviewFindingDisposition(
@@ -711,79 +778,180 @@ export interface EvidenceValidationInput {
   readonly selector: VerifyRunSelector;
 }
 
-export type EvidenceValidator = (input: EvidenceValidationInput) => unknown | undefined;
+export type EvidenceValidator = (input: EvidenceValidationInput) => EvidenceValidationResult<unknown>;
 export type TerminalMetadataValidator = (input: TerminalValidationInput) => TerminalMetadataValidationResult;
 
-function evidencePayloadValidator(validator: (payload: JsonValue) => unknown | undefined): EvidenceValidator {
+function evidencePayloadValidator(
+  validator: (payload: JsonValue) => EvidenceValidationResult<unknown>,
+): EvidenceValidator {
   return (input) => validator(input.payload);
 }
 
-function readReviewFindingMetadata(payload: JsonValue | undefined): ReviewFindingMetadata | undefined {
-  if (!isJsonRecord(payload)) return undefined;
+/** The field names the `review` finding, scope, and terminal-metadata payload schemas declare. */
+export const REVIEW_PAYLOAD_FIELD = {
+  PATH: "path",
+  ORIGINAL_COMMIT: "originalCommit",
+  DIFF_HUNK: "diffHunk",
+  BODY: "body",
+  SIDE: "side",
+  FINDING: "finding",
+  DISPOSITION: "disposition",
+  SUMMARY: "summary",
+  LINE: "line",
+  POSITION: "position",
+  PROVIDER_IDENTITY: "providerIdentity",
+  URL: "url",
+  COMMIT: "commit",
+  COVERAGE_STATE: "coverageState",
+  ACTOR: "actor",
+  STATE: "state",
+  SUBMITTED_AT: "submittedAt",
+} as const;
+
+/** The required string-valued fields of the `review` finding schema, read as one set. */
+const REQUIRED_REVIEW_FINDING_STRING_FIELDS = [
+  REVIEW_PAYLOAD_FIELD.PATH,
+  REVIEW_PAYLOAD_FIELD.ORIGINAL_COMMIT,
+  REVIEW_PAYLOAD_FIELD.DIFF_HUNK,
+  REVIEW_PAYLOAD_FIELD.BODY,
+] as const;
+
+/** The field names the `audit` scope, finding, and nested identity payload schemas declare. */
+export const AUDIT_PAYLOAD_FIELD = {
+  UNIT_ID: "unitId",
+  PARENT_UNIT_ID: "parentUnitId",
+  SUBJECT: "subject",
+  AUDIT_CLASS: "auditClass",
+  AUDIT_KIND: "auditKind",
+  COVERAGE_REQUIREMENT: "coverageRequirement",
+  COVERAGE_STATUS: "coverageStatus",
+  PRIOR_CONTEXT: "priorContext",
+  EXPECTED_PRODUCER: "expectedProducer",
+  RECORDED_BY_RUN_DRIVER: "recordedByRunDriver",
+  PRODUCER_IDENTITY: "producerIdentity",
+  PRODUCER_PROVENANCE: "producerProvenance",
+  PRODUCER_KIND: "producerKind",
+  AGENT_NAME: "agentName",
+  AGENT_OWNING_PLUGIN_NAME: "agentOwningPluginName",
+  SKILL_NAME: "skillName",
+  SKILL_OWNING_PLUGIN_NAME: "skillOwningPluginName",
+  INVOCATION_ROLE: "invocationRole",
+  AGENT_OWNING_PLUGIN_VERSION: "agentOwningPluginVersion",
+  SKILL_OWNING_PLUGIN_VERSION: "skillOwningPluginVersion",
+  TOOL_VERSION: "toolVersion",
+  CHANGED_FILE_PARTITION: "changedFilePartition",
+  CONCERN_PARTITION: "concernPartition",
+  LANGUAGE_PARTITION: "languagePartition",
+  RULE: "rule",
+  SEVERITY: "severity",
+  LOCATION: "location",
+  MESSAGE: "message",
+  EVIDENCE: "evidence",
+  OBSERVED: "observed",
+  EXPECTED: "expected",
+} as const;
+
+/** The required string-valued fields of the `audit` scope schema, read as one set. */
+const REQUIRED_AUDIT_SCOPE_STRING_FIELDS = [
+  AUDIT_PAYLOAD_FIELD.UNIT_ID,
+  AUDIT_PAYLOAD_FIELD.SUBJECT,
+] as const;
+
+/** The required string-valued fields of the `audit` finding schema, read as one set. */
+const REQUIRED_AUDIT_FINDING_STRING_FIELDS = [
+  AUDIT_PAYLOAD_FIELD.UNIT_ID,
+  AUDIT_PAYLOAD_FIELD.RULE,
+  AUDIT_PAYLOAD_FIELD.LOCATION,
+  AUDIT_PAYLOAD_FIELD.MESSAGE,
+] as const;
+
+/** The field names the `test` scope and finding payload schemas declare. */
+export const TEST_PAYLOAD_FIELD = {
+  MODULE_ID: "moduleId",
+  TEST_NAME: "testName",
+  ERRORS: "errors",
+} as const;
+
+function readReviewFindingMetadata(
+  payload: JsonValue | undefined,
+  ...path: readonly string[]
+): EvidenceValidationResult<ReviewFindingMetadata> {
+  if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
   const { disposition, summary } = payload;
-  if (!isReviewFindingDisposition(disposition)) return undefined;
-  if (typeof summary !== "string" || summary.length === 0) return undefined;
-  return { disposition, summary };
+  if (!isReviewFindingDisposition(disposition)) {
+    return rejectEvidenceField(...path, REVIEW_PAYLOAD_FIELD.DISPOSITION);
+  }
+  if (typeof summary !== "string" || summary.length === 0) {
+    return rejectEvidenceField(...path, REVIEW_PAYLOAD_FIELD.SUMMARY);
+  }
+  return acceptEvidence({ disposition, summary });
 }
 
 /** Validate a `review` finding payload as a platform-neutral anchored review comment. */
-export function validateReviewFinding(
-  payload: JsonValue,
-): ReviewFinding | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const path = readRequiredString(payload, "path");
-  const originalCommit = readRequiredString(payload, "originalCommit");
-  const diffHunk = readRequiredString(payload, "diffHunk");
-  const body = readRequiredString(payload, "body");
+export function validateReviewFinding(payload: JsonValue): EvidenceValidationResult<ReviewFinding> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const required = readRequiredStrings(payload, REQUIRED_REVIEW_FINDING_STRING_FIELDS);
+  if (!required.ok) return forwardEvidenceRejection(required);
   const { side } = payload;
-  const finding = readReviewFindingMetadata(payload.finding);
-  if (path === undefined || originalCommit === undefined || diffHunk === undefined || body === undefined) {
-    return undefined;
-  }
-  if (!isReviewAnchorSide(side)) return undefined;
-  if (finding === undefined) return undefined;
-  const line = readOptionalPositiveInteger(payload, "line");
-  const position = readOptionalPositiveInteger(payload, "position");
-  const providerIdentity = readOptionalString(payload, "providerIdentity");
-  const url = readOptionalString(payload, "url");
-  if (hasInvalidOptionalField(line, position, providerIdentity, url)) return undefined;
+  if (!isReviewAnchorSide(side)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
+  const finding = readReviewFindingMetadata(payload.finding, REVIEW_PAYLOAD_FIELD.FINDING);
+  if (!finding.ok) return forwardEvidenceRejection(finding);
+  const line = readOptionalPositiveInteger(payload, REVIEW_PAYLOAD_FIELD.LINE);
+  const position = readOptionalPositiveInteger(payload, REVIEW_PAYLOAD_FIELD.POSITION);
+  const providerIdentity = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY);
+  const url = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.URL);
+  const optional = requireValidOptionalFields([
+    [REVIEW_PAYLOAD_FIELD.LINE, line],
+    [REVIEW_PAYLOAD_FIELD.POSITION, position],
+    [REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY, providerIdentity],
+    [REVIEW_PAYLOAD_FIELD.URL, url],
+  ]);
+  if (!optional.ok) return forwardEvidenceRejection(optional);
   const lineValue = optionalFieldValue(line);
   const positionValue = optionalFieldValue(position);
-  if (lineValue === undefined && positionValue === undefined) return undefined;
+  if (lineValue === undefined && positionValue === undefined) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR);
+  }
   const providerIdentityValue = optionalFieldValue(providerIdentity);
   const urlValue = optionalFieldValue(url);
-  return {
-    path,
+  return acceptEvidence({
+    path: required.value[REVIEW_PAYLOAD_FIELD.PATH],
     side,
-    originalCommit,
-    diffHunk,
-    body,
-    finding,
+    originalCommit: required.value[REVIEW_PAYLOAD_FIELD.ORIGINAL_COMMIT],
+    diffHunk: required.value[REVIEW_PAYLOAD_FIELD.DIFF_HUNK],
+    body: required.value[REVIEW_PAYLOAD_FIELD.BODY],
+    finding: finding.value,
     ...(providerIdentityValue === undefined ? {} : { providerIdentity: providerIdentityValue }),
     ...(lineValue === undefined ? {} : { line: lineValue }),
     ...(positionValue === undefined ? {} : { position: positionValue }),
     ...(urlValue === undefined ? {} : { url: urlValue }),
-  };
+  });
 }
 
-export function validateReviewScope(payload: JsonValue): ReviewScopeUnit | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const path = readRequiredString(payload, "path");
-  const commit = readRequiredString(payload, "commit");
+export function validateReviewScope(payload: JsonValue): EvidenceValidationResult<ReviewScopeUnit> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const path = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.PATH);
+  if (path === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.PATH);
+  const commit = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.COMMIT);
+  if (commit === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.COMMIT);
   const { side, coverageState } = payload;
-  if (path === undefined || commit === undefined) return undefined;
-  if (!isReviewAnchorSide(side)) return undefined;
-  if (!isReviewScopeCoverageState(coverageState)) return undefined;
-  const line = readOptionalPositiveInteger(payload, "line");
-  const position = readOptionalPositiveInteger(payload, "position");
-  const providerIdentity = readOptionalString(payload, "providerIdentity");
-  const url = readOptionalString(payload, "url");
-  if (hasInvalidOptionalField(line, position, providerIdentity, url)) return undefined;
+  if (!isReviewAnchorSide(side)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
+  if (!isReviewScopeCoverageState(coverageState)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.COVERAGE_STATE);
+  const line = readOptionalPositiveInteger(payload, REVIEW_PAYLOAD_FIELD.LINE);
+  if (line.state === OPTIONAL_FIELD_STATE.INVALID) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.LINE);
+  const position = readOptionalPositiveInteger(payload, REVIEW_PAYLOAD_FIELD.POSITION);
+  if (position.state === OPTIONAL_FIELD_STATE.INVALID) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.POSITION);
+  const providerIdentity = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY);
+  if (providerIdentity.state === OPTIONAL_FIELD_STATE.INVALID) {
+    return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY);
+  }
+  const url = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.URL);
+  if (url.state === OPTIONAL_FIELD_STATE.INVALID) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.URL);
   const lineValue = optionalFieldValue(line);
   const positionValue = optionalFieldValue(position);
   const providerIdentityValue = optionalFieldValue(providerIdentity);
   const urlValue = optionalFieldValue(url);
-  return {
+  return acceptEvidence({
     path,
     side,
     commit,
@@ -792,24 +960,30 @@ export function validateReviewScope(payload: JsonValue): ReviewScopeUnit | undef
     ...(lineValue === undefined ? {} : { line: lineValue }),
     ...(positionValue === undefined ? {} : { position: positionValue }),
     ...(urlValue === undefined ? {} : { url: urlValue }),
-  };
+  });
 }
 
-export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTerminalMetadata | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const actor = readRequiredString(payload, "actor");
-  const body = readRequiredStringValue(payload, "body");
-  const submittedAt = readRequiredString(payload, "submittedAt");
-  const commit = readRequiredString(payload, "commit");
+export function validateReviewTerminalMetadata(payload: JsonValue): EvidenceValidationResult<ReviewTerminalMetadata> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const actor = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.ACTOR);
+  if (actor === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.ACTOR);
+  const body = readRequiredStringValue(payload, REVIEW_PAYLOAD_FIELD.BODY);
+  if (body === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.BODY);
+  const submittedAt = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.SUBMITTED_AT);
+  if (submittedAt === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SUBMITTED_AT);
+  const commit = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.COMMIT);
+  if (commit === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.COMMIT);
   const { state } = payload;
-  if (actor === undefined || body === undefined || submittedAt === undefined || commit === undefined) return undefined;
-  if (!isReviewTerminalState(state)) return undefined;
-  const providerIdentity = readOptionalString(payload, "providerIdentity");
-  const url = readOptionalString(payload, "url");
-  if (hasInvalidOptionalField(providerIdentity, url)) return undefined;
+  if (!isReviewTerminalState(state)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.STATE);
+  const providerIdentity = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY);
+  if (providerIdentity.state === OPTIONAL_FIELD_STATE.INVALID) {
+    return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.PROVIDER_IDENTITY);
+  }
+  const url = readOptionalString(payload, REVIEW_PAYLOAD_FIELD.URL);
+  if (url.state === OPTIONAL_FIELD_STATE.INVALID) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.URL);
   const providerIdentityValue = optionalFieldValue(providerIdentity);
   const urlValue = optionalFieldValue(url);
-  return {
+  return acceptEvidence({
     actor,
     state,
     body,
@@ -817,30 +991,38 @@ export function validateReviewTerminalMetadata(payload: JsonValue): ReviewTermin
     commit,
     ...(providerIdentityValue === undefined ? {} : { providerIdentity: providerIdentityValue }),
     ...(urlValue === undefined ? {} : { url: urlValue }),
-  };
+  });
 }
 
 export function validateReviewTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
-  const validated = input.metadata === undefined ? undefined : validateReviewTerminalMetadata(input.metadata);
-  if (input.metadata !== undefined && validated === undefined) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
-  }
+  const metadata = input.metadata === undefined ? undefined : validateReviewTerminalMetadata(input.metadata);
+  if (metadata !== undefined && !metadata.ok) return rejectTerminalMetadata(metadata.reason);
+  const validated = metadata?.value;
   // A review run seals only with a status in the review vocabulary. The journal terminal statuses
   // `isVerifyTerminalStatus` admits but review never uses — `failed`, `interrupted`, and the
   // deterministic-runner status `passed` — never seal a review, even on a clean run whose evidence and
   // metadata compute no concrete expected status; any status outside the journal vocabulary is already
   // rejected upstream before this validator runs.
   if (!REVIEW_TERMINAL_STATUSES.has(input.terminalStatus)) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_IN_TYPE_VOCABULARY,
+    );
   }
   const evidenceStatus = expectedReviewEvidenceTerminalStatus(input.events);
   const metadataStatus = expectedReviewMetadataTerminalStatus(validated);
   if (evidenceStatus !== undefined && metadataStatus !== undefined && evidenceStatus !== metadataStatus) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.METADATA_MATCHES_EVIDENCE,
+    );
   }
   const expectedStatus = evidenceStatus ?? metadataStatus;
   if (expectedStatus !== undefined && input.terminalStatus !== expectedStatus) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE,
+    );
   }
   if (validated === undefined) return { ok: true, value: undefined };
   return {
@@ -857,72 +1039,83 @@ export function validateReviewTerminal(input: TerminalValidationInput): Terminal
   };
 }
 
-function validateAuditProducerIdentity(payload: JsonValue | undefined): AuditProducerIdentity | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const producerKind = readRequiredString(payload, "producerKind");
-  const agentName = readRequiredString(payload, "agentName");
-  const agentOwningPluginName = readRequiredString(payload, "agentOwningPluginName");
-  const skillName = readRequiredString(payload, "skillName");
-  const skillOwningPluginName = readRequiredString(payload, "skillOwningPluginName");
-  const invocationRole = readRequiredString(payload, "invocationRole");
-  if (
-    producerKind === undefined
-    || agentName === undefined
-    || agentOwningPluginName === undefined
-    || skillName === undefined
-    || skillOwningPluginName === undefined
-    || invocationRole === undefined
-  ) {
-    return undefined;
+function validateAuditProducerIdentity(
+  payload: JsonValue | undefined,
+  ...path: readonly string[]
+): EvidenceValidationResult<AuditProducerIdentity> {
+  if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
+  const producerKind = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.PRODUCER_KIND);
+  if (producerKind === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.PRODUCER_KIND);
+  const agentName = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.AGENT_NAME);
+  if (agentName === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.AGENT_NAME);
+  const agentOwningPluginName = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.AGENT_OWNING_PLUGIN_NAME);
+  if (agentOwningPluginName === undefined) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.AGENT_OWNING_PLUGIN_NAME);
   }
-  return {
+  const skillName = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.SKILL_NAME);
+  if (skillName === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.SKILL_NAME);
+  const skillOwningPluginName = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.SKILL_OWNING_PLUGIN_NAME);
+  if (skillOwningPluginName === undefined) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.SKILL_OWNING_PLUGIN_NAME);
+  }
+  const invocationRole = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.INVOCATION_ROLE);
+  if (invocationRole === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.INVOCATION_ROLE);
+  return acceptEvidence({
     producerKind,
     agentName,
     agentOwningPluginName,
     skillName,
     skillOwningPluginName,
     invocationRole,
-  };
+  });
 }
 
-function validateAuditProducerProvenance(payload: JsonValue | undefined): AuditProducerProvenance | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const agentOwningPluginVersion = readRequiredString(payload, "agentOwningPluginVersion");
-  const skillOwningPluginVersion = readRequiredString(payload, "skillOwningPluginVersion");
-  if (agentOwningPluginVersion === undefined || skillOwningPluginVersion === undefined) return undefined;
-  const toolVersion = readOptionalString(payload, "toolVersion");
-  if (hasInvalidOptionalField(toolVersion)) return undefined;
+function validateAuditProducerProvenance(
+  payload: JsonValue | undefined,
+  ...path: readonly string[]
+): EvidenceValidationResult<AuditProducerProvenance> {
+  if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
+  const agentOwningPluginVersion = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.AGENT_OWNING_PLUGIN_VERSION);
+  if (agentOwningPluginVersion === undefined) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.AGENT_OWNING_PLUGIN_VERSION);
+  }
+  const skillOwningPluginVersion = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.SKILL_OWNING_PLUGIN_VERSION);
+  if (skillOwningPluginVersion === undefined) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.SKILL_OWNING_PLUGIN_VERSION);
+  }
+  const toolVersion = readOptionalString(payload, AUDIT_PAYLOAD_FIELD.TOOL_VERSION);
+  if (toolVersion.state === OPTIONAL_FIELD_STATE.INVALID) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.TOOL_VERSION);
+  }
   const toolVersionValue = optionalFieldValue(toolVersion);
-  return {
+  return acceptEvidence({
     agentOwningPluginVersion,
     skillOwningPluginVersion,
     ...(toolVersionValue === undefined ? {} : { toolVersion: toolVersionValue }),
-  };
+  });
 }
 
-function validateAuditPriorContextPartitions(payload: JsonValue | undefined): AuditPriorContextPartitions | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const changedFilePartition = readRequiredString(payload, "changedFilePartition");
-  const concernPartition = readRequiredString(payload, "concernPartition");
-  if (changedFilePartition === undefined || concernPartition === undefined) return undefined;
-  const languagePartition = readOptionalString(payload, "languagePartition");
-  if (hasInvalidOptionalField(languagePartition)) return undefined;
+function validateAuditPriorContextPartitions(
+  payload: JsonValue | undefined,
+  ...path: readonly string[]
+): EvidenceValidationResult<AuditPriorContextPartitions> {
+  if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
+  const changedFilePartition = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.CHANGED_FILE_PARTITION);
+  if (changedFilePartition === undefined) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.CHANGED_FILE_PARTITION);
+  }
+  const concernPartition = readRequiredString(payload, AUDIT_PAYLOAD_FIELD.CONCERN_PARTITION);
+  if (concernPartition === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.CONCERN_PARTITION);
+  const languagePartition = readOptionalString(payload, AUDIT_PAYLOAD_FIELD.LANGUAGE_PARTITION);
+  if (languagePartition.state === OPTIONAL_FIELD_STATE.INVALID) {
+    return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.LANGUAGE_PARTITION);
+  }
   const languagePartitionValue = optionalFieldValue(languagePartition);
-  return {
+  return acceptEvidence({
     changedFilePartition,
     concernPartition,
     ...(languagePartitionValue === undefined ? {} : { languagePartition: languagePartitionValue }),
-  };
-}
-
-function validateOptionalAuditProducerProvenance(
-  producerProvenance: OptionalField<{ readonly [key: string]: JsonValue }>,
-): OptionalField<AuditProducerProvenance> {
-  if (producerProvenance.state !== OPTIONAL_FIELD_STATE.PRESENT) return producerProvenance;
-  const value = validateAuditProducerProvenance(producerProvenance.value);
-  return value === undefined
-    ? { state: OPTIONAL_FIELD_STATE.INVALID }
-    : { state: OPTIONAL_FIELD_STATE.PRESENT, value };
+  });
 }
 
 function auditKindAllowsProducerProvenance(
@@ -942,84 +1135,143 @@ function auditKindAllowsCoverageStatus(auditKind: AuditKind, coverageStatus: Aud
   );
 }
 
-export function validateAuditScope(payload: JsonValue): AuditScopeUnit | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const unitId = readRequiredString(payload, "unitId");
-  const subject = readRequiredString(payload, "subject");
+/** An audit unit's typed vocabulary fields, once each is a member of its own closed registry. */
+interface AuditScopeClassification {
+  readonly auditClass: AuditClass;
+  readonly auditKind: AuditKind;
+  readonly coverageRequirement: AuditCoverageRequirement;
+  readonly coverageStatus: AuditCoverageStatus;
+}
+
+/**
+ * Read an audit unit's class, kind, coverage requirement, and coverage status, refusing the
+ * first field outside its registry and then the two pairings the audit payload decision
+ * constrains: kind against class, and a coverage-gap unit against a covered status.
+ */
+function readAuditScopeClassification(
+  payload: { readonly [key: string]: JsonValue },
+): EvidenceValidationResult<AuditScopeClassification> {
   const { auditClass, auditKind, coverageRequirement, coverageStatus } = payload;
-  if (unitId === undefined || subject === undefined) return undefined;
-  if (!isAuditClass(auditClass) || !isAuditKind(auditKind)) return undefined;
-  if (!isCompatibleAuditKind(auditClass, auditKind)) return undefined;
-  if (!isAuditCoverageRequirement(coverageRequirement)) return undefined;
-  if (!isAuditCoverageStatus(coverageStatus)) return undefined;
-  if (!auditKindAllowsCoverageStatus(auditKind, coverageStatus)) return undefined;
-  const priorContext = validateAuditPriorContextPartitions(readRequiredRecord(payload, "priorContext"));
-  const expectedProducer = validateAuditProducerIdentity(readRequiredRecord(payload, "expectedProducer"));
-  const recordedByRunDriver = validateAuditProducerIdentity(readRequiredRecord(payload, "recordedByRunDriver"));
-  if (priorContext === undefined || expectedProducer === undefined || recordedByRunDriver === undefined) {
-    return undefined;
+  if (!isAuditClass(auditClass)) return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.AUDIT_CLASS);
+  if (!isAuditKind(auditKind)) return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.AUDIT_KIND);
+  if (!isCompatibleAuditKind(auditClass, auditKind)) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_KIND_MATCHES_CLASS);
   }
-  const parentUnitId = readOptionalString(payload, "parentUnitId");
-  const producerProvenance = validateOptionalAuditProducerProvenance(
-    readOptionalRecord(payload, "producerProvenance"),
+  if (!isAuditCoverageRequirement(coverageRequirement)) {
+    return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.COVERAGE_REQUIREMENT);
+  }
+  if (!isAuditCoverageStatus(coverageStatus)) return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.COVERAGE_STATUS);
+  if (!auditKindAllowsCoverageStatus(auditKind, coverageStatus)) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_COVERAGE_GAP_IS_UNCOVERED);
+  }
+  return acceptEvidence({ auditClass, auditKind, coverageRequirement, coverageStatus });
+}
+
+/** Validate an audit unit's producer provenance when the optional field is present. */
+function readOptionalAuditProducerProvenance(
+  field: OptionalField<{ readonly [key: string]: JsonValue }>,
+): EvidenceValidationResult<AuditProducerProvenance | undefined> {
+  if (field.state !== OPTIONAL_FIELD_STATE.PRESENT) return acceptEvidence(undefined);
+  return validateAuditProducerProvenance(field.value, AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE);
+}
+
+export function validateAuditScope(payload: JsonValue): EvidenceValidationResult<AuditScopeUnit> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const required = readRequiredStrings(payload, REQUIRED_AUDIT_SCOPE_STRING_FIELDS);
+  if (!required.ok) return forwardEvidenceRejection(required);
+  const unitId = required.value[AUDIT_PAYLOAD_FIELD.UNIT_ID];
+  const subject = required.value[AUDIT_PAYLOAD_FIELD.SUBJECT];
+  const classification = readAuditScopeClassification(payload);
+  if (!classification.ok) return forwardEvidenceRejection(classification);
+  const { auditClass, auditKind, coverageRequirement, coverageStatus } = classification.value;
+  const priorContext = validateAuditPriorContextPartitions(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.PRIOR_CONTEXT),
+    AUDIT_PAYLOAD_FIELD.PRIOR_CONTEXT,
   );
-  if (hasInvalidOptionalField(parentUnitId, producerProvenance)) return undefined;
+  if (!priorContext.ok) return forwardEvidenceRejection(priorContext);
+  const expectedProducer = validateAuditProducerIdentity(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.EXPECTED_PRODUCER),
+    AUDIT_PAYLOAD_FIELD.EXPECTED_PRODUCER,
+  );
+  if (!expectedProducer.ok) return forwardEvidenceRejection(expectedProducer);
+  const recordedByRunDriver = validateAuditProducerIdentity(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.RECORDED_BY_RUN_DRIVER),
+    AUDIT_PAYLOAD_FIELD.RECORDED_BY_RUN_DRIVER,
+  );
+  if (!recordedByRunDriver.ok) return forwardEvidenceRejection(recordedByRunDriver);
+  const parentUnitId = readOptionalString(payload, AUDIT_PAYLOAD_FIELD.PARENT_UNIT_ID);
+  const producerProvenanceField = readOptionalRecord(payload, AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE);
+  const optional = requireValidOptionalFields([
+    [AUDIT_PAYLOAD_FIELD.PARENT_UNIT_ID, parentUnitId],
+    [AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE, producerProvenanceField],
+  ]);
+  if (!optional.ok) return forwardEvidenceRejection(optional);
+  const producerProvenance = readOptionalAuditProducerProvenance(producerProvenanceField);
+  if (!producerProvenance.ok) return forwardEvidenceRejection(producerProvenance);
+  const producerProvenanceValue = producerProvenance.value;
   const parentUnitIdValue = optionalFieldValue(parentUnitId);
-  const producerProvenanceValue = optionalFieldValue(producerProvenance);
-  if (parentUnitIdValue === unitId) return undefined;
-  if (!auditKindAllowsProducerProvenance(auditKind, producerProvenanceValue)) return undefined;
-  return {
+  if (parentUnitIdValue === unitId) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_NOT_SELF);
+  if (!auditKindAllowsProducerProvenance(auditKind, producerProvenanceValue)) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_COVERAGE_GAP_HAS_NO_PROVENANCE);
+  }
+  return acceptEvidence({
     unitId,
     auditClass,
     auditKind,
     subject,
     coverageRequirement,
     coverageStatus,
-    priorContext,
-    expectedProducer,
-    recordedByRunDriver,
+    priorContext: priorContext.value,
+    expectedProducer: expectedProducer.value,
+    recordedByRunDriver: recordedByRunDriver.value,
     ...(parentUnitIdValue === undefined ? {} : { parentUnitId: parentUnitIdValue }),
     ...(producerProvenanceValue === undefined ? {} : { producerProvenance: producerProvenanceValue }),
-  };
+  });
 }
 
 function validateAuditFindingEvidence(
   evidence: { readonly [key: string]: JsonValue } | undefined,
-): AuditFinding["evidence"] | undefined {
-  if (evidence === undefined) return undefined;
-  const observed = readRequiredString(evidence, "observed");
-  const expected = readRequiredString(evidence, "expected");
-  if (observed === undefined || expected === undefined) return undefined;
-  return { observed, expected };
+  ...path: readonly string[]
+): EvidenceValidationResult<AuditFinding["evidence"]> {
+  if (evidence === undefined) return rejectEvidenceField(...path);
+  const observed = readRequiredString(evidence, AUDIT_PAYLOAD_FIELD.OBSERVED);
+  if (observed === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.OBSERVED);
+  const expected = readRequiredString(evidence, AUDIT_PAYLOAD_FIELD.EXPECTED);
+  if (expected === undefined) return rejectEvidenceField(...path, AUDIT_PAYLOAD_FIELD.EXPECTED);
+  return acceptEvidence({ observed, expected });
 }
 
-export function validateAuditFinding(payload: JsonValue): AuditFinding | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const unitId = readRequiredString(payload, "unitId");
-  const rule = readRequiredString(payload, "rule");
-  const location = readRequiredString(payload, "location");
-  const message = readRequiredString(payload, "message");
+export function validateAuditFinding(payload: JsonValue): EvidenceValidationResult<AuditFinding> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const required = readRequiredStrings(payload, REQUIRED_AUDIT_FINDING_STRING_FIELDS);
+  if (!required.ok) return forwardEvidenceRejection(required);
   const { severity } = payload;
-  if (unitId === undefined || rule === undefined || location === undefined || message === undefined) {
-    return undefined;
-  }
-  if (!isAuditFindingSeverity(severity)) return undefined;
-  const producerIdentity = validateAuditProducerIdentity(readRequiredRecord(payload, "producerIdentity"));
-  const producerProvenance = validateAuditProducerProvenance(readRequiredRecord(payload, "producerProvenance"));
-  const evidence = validateAuditFindingEvidence(readRequiredRecord(payload, "evidence"));
-  if (producerIdentity === undefined || producerProvenance === undefined || evidence === undefined) {
-    return undefined;
-  }
-  return {
-    unitId,
-    producerIdentity,
-    producerProvenance,
-    rule,
+  if (!isAuditFindingSeverity(severity)) return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.SEVERITY);
+  const producerIdentity = validateAuditProducerIdentity(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.PRODUCER_IDENTITY),
+    AUDIT_PAYLOAD_FIELD.PRODUCER_IDENTITY,
+  );
+  if (!producerIdentity.ok) return forwardEvidenceRejection(producerIdentity);
+  const producerProvenance = validateAuditProducerProvenance(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE),
+    AUDIT_PAYLOAD_FIELD.PRODUCER_PROVENANCE,
+  );
+  if (!producerProvenance.ok) return forwardEvidenceRejection(producerProvenance);
+  const evidence = validateAuditFindingEvidence(
+    readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.EVIDENCE),
+    AUDIT_PAYLOAD_FIELD.EVIDENCE,
+  );
+  if (!evidence.ok) return forwardEvidenceRejection(evidence);
+  return acceptEvidence({
+    unitId: required.value[AUDIT_PAYLOAD_FIELD.UNIT_ID],
+    producerIdentity: producerIdentity.value,
+    producerProvenance: producerProvenance.value,
+    rule: required.value[AUDIT_PAYLOAD_FIELD.RULE],
     severity,
-    location,
-    message,
-    evidence,
-  };
+    location: required.value[AUDIT_PAYLOAD_FIELD.LOCATION],
+    message: required.value[AUDIT_PAYLOAD_FIELD.MESSAGE],
+    evidence: evidence.value,
+  });
 }
 
 export function auditFindingReferencesRecordedScope(
@@ -1029,14 +1281,16 @@ export function auditFindingReferencesRecordedScope(
   return events.some((event) => {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
     const scope = validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
-    return scope?.unitId === finding.unitId;
+    return scope.ok && scope.value.unitId === finding.unitId;
   });
 }
 
-function validateAuditFindingForRun(input: EvidenceValidationInput): AuditFinding | undefined {
+function validateAuditFindingForRun(input: EvidenceValidationInput): EvidenceValidationResult<AuditFinding> {
   const finding = validateAuditFinding(input.payload);
-  if (finding === undefined) return undefined;
-  return auditFindingReferencesRecordedScope(input.events, finding) ? finding : undefined;
+  if (!finding.ok) return finding;
+  return auditFindingReferencesRecordedScope(input.events, finding.value)
+    ? finding
+    : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FINDING_UNIT_IS_RECORDED);
 }
 
 /** One inspected test module recorded as `test` scope evidence, owned by the verify domain. */
@@ -1052,22 +1306,23 @@ export interface TestFinding {
 }
 
 /** Validate a `test` scope payload as one inspected test module. */
-export function validateTestScope(payload: JsonValue): TestScopeUnit | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const moduleId = readRequiredString(payload, "moduleId");
-  if (moduleId === undefined) return undefined;
-  return { moduleId };
+export function validateTestScope(payload: JsonValue): EvidenceValidationResult<TestScopeUnit> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const moduleId = readRequiredString(payload, TEST_PAYLOAD_FIELD.MODULE_ID);
+  if (moduleId === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.MODULE_ID);
+  return acceptEvidence({ moduleId });
 }
 
 /** Validate a `test` finding payload as one failing test case with its error messages. */
-export function validateTestFinding(payload: JsonValue): TestFinding | undefined {
-  if (!isJsonRecord(payload)) return undefined;
-  const moduleId = readRequiredString(payload, "moduleId");
-  const testName = readRequiredString(payload, "testName");
-  if (moduleId === undefined || testName === undefined) return undefined;
+export function validateTestFinding(payload: JsonValue): EvidenceValidationResult<TestFinding> {
+  if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
+  const moduleId = readRequiredString(payload, TEST_PAYLOAD_FIELD.MODULE_ID);
+  if (moduleId === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.MODULE_ID);
+  const testName = readRequiredString(payload, TEST_PAYLOAD_FIELD.TEST_NAME);
+  if (testName === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.TEST_NAME);
   const errors = readFindingErrors(payload.errors);
-  if (errors === undefined) return undefined;
-  return { moduleId, testName, errors };
+  if (errors === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.ERRORS);
+  return acceptEvidence({ moduleId, testName, errors });
 }
 
 /**
@@ -1095,15 +1350,24 @@ const TEST_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 /** Validate a `test` run's terminal completion: a runner-mapped status with no terminal metadata. */
 export function validateTestTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
   if (input.metadata !== undefined) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID,
+      TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED,
+    );
   }
   if (!TEST_TERMINAL_STATUSES.has(input.terminalStatus)) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_IN_TYPE_VOCABULARY,
+    );
   }
   // A passing deterministic run produces no findings, so `passed` never seals a run whose evidence
   // already records failures — the public recorder path never marks a run with findings as passing.
   if (input.terminalStatus === JOURNAL_RUN_STATE_STATUS.PASSED && countVerifyFindings(input.events) > 0) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.PASSED_HAS_NO_FINDINGS,
+    );
   }
   return { ok: true, value: undefined };
 }
@@ -1112,27 +1376,36 @@ function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly Au
   return events.flatMap((event) => {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return [];
     const scope = validateAuditScope(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
-    return scope === undefined ? [] : [scope];
+    return scope.ok ? [scope.value] : [];
   });
 }
 
-function validateAuditScopeForRun(input: EvidenceValidationInput): AuditScopeUnit | undefined {
-  const scope = validateAuditScope(input.payload);
-  if (scope === undefined) return undefined;
+function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValidationResult<AuditScopeUnit> {
+  const validated = validateAuditScope(input.payload);
+  if (!validated.ok) return validated;
+  const scope = validated.value;
   const recordedScopes = auditScopeUnitsFromEvents(input.events);
   if (recordedScopes.length === 0) {
-    if (scope.parentUnitId !== undefined) return undefined;
-    if (input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return scope;
+    if (scope.parentUnitId !== undefined) {
+      return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FIRST_UNIT_IS_ROOT);
+    }
+    if (input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return validated;
     return scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
         && scope.subject === input.selector.scopeIdentity
-      ? scope
-      : undefined;
+      ? validated
+      : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FILE_ROOT_MATCHES_SCOPE);
   }
   if (scope.parentUnitId === undefined) {
-    if (input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE) return undefined;
-    return recordedScopes.some((recordedScope) => recordedScope.parentUnitId !== undefined) ? undefined : scope;
+    if (input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE) {
+      return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FILE_RUN_HAS_ONE_ROOT);
+    }
+    return recordedScopes.some((recordedScope) => recordedScope.parentUnitId !== undefined)
+      ? rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED)
+      : validated;
   }
-  return recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId) ? scope : undefined;
+  return recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId)
+    ? validated
+    : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED);
 }
 
 /**
@@ -1227,10 +1500,16 @@ function expectedAuditTerminalStatus(input: TerminalValidationInput): string {
 
 export function validateAuditTerminal(input: TerminalValidationInput): TerminalMetadataValidationResult {
   if (input.metadata !== undefined) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID,
+      TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED,
+    );
   }
   if (input.terminalStatus !== expectedAuditTerminalStatus(input)) {
-    return { ok: false, error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT };
+    return rejectTerminal(
+      TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE,
+    );
   }
   return { ok: true, value: undefined };
 }
@@ -1410,7 +1689,7 @@ function countReviewScopeFindingUnits(events: readonly JournalEvent[]): number {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
     const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
     const scope = validateReviewScope(payload);
-    return scope?.coverageState === REVIEW_SCOPE_COVERAGE_STATE.FINDING;
+    return scope.ok && scope.value.coverageState === REVIEW_SCOPE_COVERAGE_STATE.FINDING;
   }).length;
 }
 

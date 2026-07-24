@@ -51,11 +51,11 @@ function wholePayloadIdentity(payload: JsonValue): FindingIdentityFields {
  */
 export function reviewRunSetFindingIdentity(payload: JsonValue): FindingIdentityFields {
   const finding = validateReviewFinding(payload);
-  return finding === undefined ? wholePayloadIdentity(payload) : reviewFindingIdentityFields(finding);
+  return finding.ok ? reviewFindingIdentityFields(finding.value) : wholePayloadIdentity(payload);
 }
 
 /** Total payload-shaped reviewed-unit key adapter for the run-set projection. */
 export function reviewRunSetScopeUnitKey(payload: JsonValue): string {
   const unit = validateReviewScope(payload);
-  return unit === undefined ? JSON.stringify(payload) : reviewScopeUnitKey(unit);
+  return unit.ok ? reviewScopeUnitKey(unit.value) : JSON.stringify(payload);
 }

@@ -15,7 +15,7 @@ describe("audit terminal metadata", () => {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
         scopeIdentity: sampleVerifyTestValue(arbitraryAuditTerminalMetadataScenario()).scope.scopeIdentity,
       },
-    })).toStrictEqual({
+    })).toMatchObject({
       ok: false,
       error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID,
     });
