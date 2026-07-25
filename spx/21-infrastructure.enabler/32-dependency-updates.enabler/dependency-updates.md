@@ -10,7 +10,7 @@ CAN stay on current, advisory-clear dependency versions without manual tracking
 
 - ALWAYS: a repository-root Renovate configuration raises pull requests for outdated and vulnerable dependencies ([audit])
 - ALWAYS: vulnerability-driven updates raise pull requests at any time and carry a security label ([audit])
-- ALWAYS: routine updates across every manager are withheld until a release reaches a minimum age, each update's wait measured against its own release so no update's wait restarts when an unrelated one publishes, while vulnerability fixes bypass the wait ([audit])
+- ALWAYS: routine updates across every manager are withheld until a release reaches a minimum age, with independently released updates each waiting on their own release rather than on a shared clock an unrelated release restarts, while packages published together from one source share a single wait and vulnerability fixes bypass the wait ([audit])
 - ALWAYS: every non-major update merges automatically once its continuous-integration checks pass, whatever manager declares it and whatever dependency type it carries, while every major-version update — including a major vulnerability fix — and the pnpm package-manager bump require manual approval ([audit])
 - ALWAYS: routine automerges execute inside the daily early-morning window between 03:00 and 07:00 Europe/Zurich time, while vulnerability-fix automerges execute at any hour ([audit])
 - ALWAYS: third-party GitHub Actions are referenced by a pinned commit digest, while the product's own outcomeeng/gh-actions reusable workflows are referenced at their development branch and excluded from digest pinning, so the product integrates changes to the actions it controls without a per-change pull request ([audit])
