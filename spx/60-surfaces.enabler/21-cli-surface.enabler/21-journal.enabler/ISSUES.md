@@ -96,33 +96,3 @@ scale with the explicit bounds.
 Enhancement: split sealed-run metadata discovery from event loading so the
 command can select the most recent bounded run set before reading per-run event
 history, and read at most the requested event count for each selected run.
-
-## External values reach the terminal without control-byte escaping
-
-This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node's streamed path composes through that primitive; its command result path does not.
-
-**Composed sites:**
-
-- `src/interfaces/cli/lib/journal-stream-binding.ts` — the streamed event lines — journal events from stdin and file payloads, including the `0x7f` byte that JSON string escaping leaves raw
-
-**Remaining sites:**
-
-- `src/interfaces/cli/journal.ts` — `report` builds `${result.output}` with a line separator and hands the result to the composed-text write as a bare identifier, carrying journal event content, stdin JSON, `gh api` responses, and branch slugs
-
-**Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
-
-**Resolution:** compose this node's terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence.
-
-**Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
-
-**Revisit condition:** before the next changeset touching this node's terminal output path.
-
-## The journal report picks its channel from the exit code, not from what the output is
-
-`report` in [`src/interfaces/cli/journal.ts`](../../../../src/interfaces/cli/journal.ts) writes `result.output` to the composed-text write on success and to standard error otherwise. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) resolves standard output to composed spx output or a relayed document, and the exit code decides neither. Sibling machine-JSON write sites — `spec context show --json`, `session show --json`, and the release notes write — relay their payload as a document.
-
-**Impact:** whichever kind the journal payload is, this site states it by accident. If the rendered projection is a document, the composed write's safety claim is false; if it is a composed report, the stream choice still leaves the claim unstated.
-
-**Resolution:** classify the journal payload against the two kinds and select the channel from the classification, leaving the exit code to decide only the stream.
-
-**Skills:** `/apply`, `/audit-typescript-code`.
