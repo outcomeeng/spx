@@ -16,10 +16,17 @@ One product operation keeps registry identity checks, changelog-section extracti
 
 ## Verification
 
-- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, and a repository-host release publisher through explicit inputs and injected interfaces
-- ALWAYS: package publication confirmation compares the existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published
-- ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from the verified release inputs and performs an idempotent create-or-update operation only after package confirmation succeeds
-- ALWAYS: the package-publishing adapter receives OIDC trusted-publishing authority without repository-content write permission, and the GitHub-release adapter receives repository-content write permission without package-registry identity-token authority
-- NEVER: publication orchestration invokes a model, regenerates release prose, or accepts independently authored GitHub Release content
-- NEVER: workflow scripts reimplement release identity checks, changelog-section extraction, retry classification, or hosted-release reconciliation owned by `spx release publish`
-- NEVER: `vi.mock()`, `jest.mock()`, module replacement, or filesystem replacement substitutes for the injected package and repository-host publisher boundaries
+### Testing
+
+- ALWAYS: package publication confirmation compares an existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published ([compliance])
+- ALWAYS: changelog-section extraction returns the exact validated section for the verified release version and rejects changelogs that omit that version or define it more than once ([compliance])
+- ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from verified release inputs and performs an idempotent create-or-update operation only after package confirmation succeeds ([compliance])
+- ALWAYS: the publication workflow invokes `spx release publish` only after deterministic verification and grants the publication job the minimum combined authority of `contents: write` and `id-token: write`, while every other job retains read-only repository contents ([compliance])
+
+### Audit
+
+- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, and a repository-host release publisher through explicit inputs and injected interfaces ([audit])
+- ALWAYS: package-registry and repository-host transport mechanics live with their owning backend concerns behind the injected publication boundaries ([audit])
+- NEVER: publication orchestration invokes a model, regenerates release prose, or accepts independently authored GitHub Release content ([audit])
+- NEVER: workflow scripts reimplement release identity checks, changelog-section extraction, retry classification, or hosted-release reconciliation owned by `spx release publish` ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, module replacement, or filesystem replacement substitutes for the injected package and repository-host publisher boundaries ([audit])
