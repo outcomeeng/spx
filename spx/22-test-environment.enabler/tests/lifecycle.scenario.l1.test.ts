@@ -12,8 +12,10 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
+import {
+  sampleTestEnvironmentValue,
+  TEST_ENVIRONMENT_GENERATOR,
+} from "@testing/generators/test-environment/test-environment";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — startup", () => {
@@ -36,7 +38,7 @@ describe("withTestEnv — startup", () => {
   });
 
   it("invokes the callback with an env object exposing productDir and write helpers", async () => {
-    const generated = sampleConfigTestValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
+    const generated = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.writeNode(generated.node.fixturePath, generated.node.contents);
       await env.writeDecision(generated.decision.fixturePath, generated.decision.contents);
@@ -78,16 +80,9 @@ describe("withTestEnv — cleanup on return", () => {
 });
 
 describe("withTestEnv — cleanup on throw", () => {
-  class TestBoomError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = "TestBoomError";
-    }
-  }
-
   it("removes the temp directory when the callback throws, and rethrows the original error unchanged", async () => {
     let productDir = "";
-    const boom = new TestBoomError("callback blew up");
+    const { callbackError: boom } = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.lifecycleCase());
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
