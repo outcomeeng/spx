@@ -4,7 +4,10 @@ import { PACKAGE_PROVENANCE, releaseTagForVersion } from "@/domains/release/publ
 import { releaseNotesConformsToKeepAChangelog } from "@/domains/release/release-notes";
 import { usesWindowsPathSemantics } from "@/lib/file-system/pathContainment";
 import { arbitraryKeepAChangelogConformanceCase } from "@testing/generators/release/changelog";
-import { arbitraryPublicationScenario } from "@testing/generators/release/publication";
+import {
+  arbitraryPublicationScenario,
+  arbitraryPublicationSectionValidationScenario,
+} from "@testing/generators/release/publication";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
@@ -87,6 +90,21 @@ describe("release test generator contracts", () => {
         expect(releaseNotesConformsToKeepAChangelog(content, releaseData.version)).toBe(
           independentlyConforms,
         );
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("generates exact version-section oracle cases with duplicate and footer boundaries", () => {
+    assertProperty(
+      arbitraryPublicationSectionValidationScenario(),
+      (scenario) => {
+        expect(
+          observeIndependentVersionSection(scenario.footerChangelog, scenario.version),
+        ).toBe(scenario.footerExpectedSection);
+        expect(
+          observeIndependentVersionSection(scenario.duplicateChangelog, scenario.version),
+        ).toBeUndefined();
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

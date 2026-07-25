@@ -27,6 +27,7 @@ export const KEEP_A_CHANGELOG_CHANGE_GROUPS = [
   "Security",
 ] as const;
 const CARRIAGE_RETURN = "\r";
+const MARKDOWN_REFERENCE_DEFINITION_PATTERN = /^\[[^\]\n]+\]:/u;
 
 export interface ParsedMarkdownHeading {
   readonly tag: string;
@@ -54,12 +55,13 @@ export function keepAChangelogVersionHeadingText(version: string): string {
 export function observeIndependentVersionSection(notes: string, version: string): string | undefined {
   const lines = notes.split("\n");
   const headings = parseMarkdownItHeadings(notes);
-  const versionHeading = headings.find(
+  const versionHeadings = headings.filter(
     (heading) =>
       heading.tag === MARKDOWN_HEADING_TAG.H2
       && heading.text === keepAChangelogVersionHeadingText(version),
   );
-  if (versionHeading === undefined) {
+  const versionHeading = versionHeadings[0];
+  if (versionHeadings.length !== 1 || versionHeading === undefined) {
     return undefined;
   }
   const boundary = headings.find(
@@ -67,7 +69,23 @@ export function observeIndependentVersionSection(notes: string, version: string)
       heading.lineStart > versionHeading.lineStart
       && (heading.tag === MARKDOWN_HEADING_TAG.H1 || heading.tag === MARKDOWN_HEADING_TAG.H2),
   );
-  return lines.slice(versionHeading.lineStart, boundary?.lineStart).join("\n");
+  return lines.slice(
+    versionHeading.lineStart,
+    independentSectionBoundary(lines, boundary?.lineStart ?? lines.length),
+  ).join("\n");
+}
+
+function independentSectionBoundary(lines: readonly string[], boundary: number): number {
+  let cursor = boundary - 1;
+  while (cursor >= 0 && normalizeLineEnding(lines[cursor])?.trim().length === 0) {
+    cursor -= 1;
+  }
+  let footerStart = boundary;
+  while (cursor >= 0 && MARKDOWN_REFERENCE_DEFINITION_PATTERN.test(normalizeLineEnding(lines[cursor]) ?? "")) {
+    footerStart = cursor;
+    cursor -= 1;
+  }
+  return footerStart;
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {

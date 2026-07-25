@@ -215,6 +215,16 @@ export function changelogWithFooterReferences(
   ].join(LINE_SEPARATOR);
 }
 
+export function changelogWithFooterReferenceScenario(
+  version: string,
+  subjects: readonly string[],
+): ConformantChangelogScenario {
+  return {
+    content: changelogWithFooterReferences(version, subjects),
+    versionSection: conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, version, subjects),
+  };
+}
+
 export function changelogWithPrependedReleaseAndFooterReferences(
   currentVersion: string,
   priorVersion: string,
