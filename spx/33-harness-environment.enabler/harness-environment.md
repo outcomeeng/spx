@@ -13,8 +13,6 @@ CAN run with explicitly enabled and available coding agents, version-matched ins
 - ALWAYS: each agent carries hook policy at `hooks.sessionStart.compactStdout`, with Codex defaulting compact `SessionStart` stdout off and Claude Code defaulting it on ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: generated or reconciled harness environment configuration is deterministic for the same product directory and resolved config ([audit])
-- ALWAYS: harness capability status is read-only, apply reproduces exact committed versions, and update selects only declared-methodology-compatible versions without changing methodology identity
-- NEVER: harness environment management mutates user-scope coding-agent configuration
 - ALWAYS: an agentic verification run receives isolated harness environment state rather than mutating the invoking agent's state ([audit])
 - NEVER: the `harnessEnvironment` descriptor resolves methodology source or version; those fields belong to top-level `methodology` config ([test](../16-config.enabler/43-methodology-config.enabler/tests/methodology-config.compliance.l1.test.ts))
 - NEVER: require network access for core config reconciliation when required marketplaces, plugins, and skills are present locally ([audit])

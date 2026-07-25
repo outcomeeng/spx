@@ -19,3 +19,5 @@
 25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/21-spec.enabler
 25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/32-test.enabler
 57-methodology-lifecycle.enabler
+33-harness-environment.enabler/21-agent-instructions.enabler
+33-harness-environment.enabler/43-plugin-bootstrap.enabler
