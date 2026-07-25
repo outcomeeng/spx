@@ -27,7 +27,8 @@ This node's terminal output path passes values that originated outside the produ
 **Resolved sites:**
 
 - `src/interfaces/cli/session.ts` — `writeOutput`, `writeError`, and `formatError` — session file fields (goal, next step, branch, identifiers) and caught session-store errors, composed and escaped
-- `src/interfaces/cli/session.ts` — `writeDocument`, serving `session show` and `session pickup` — a session file's own content, relayed byte-for-byte through the pass-through channel so the reader receives the file rather than a report about it
+- `src/interfaces/cli/session.ts` — `session show` without `--json` and `session pickup` — the `Status`, `Priority`, and `Goal` header and the `Claimed session` marker are the product's own announcement, so the report composes as `TerminalText` with the session body and the marker's session id escaped where they are embedded
+- `src/interfaces/cli/session.ts` — `session show --json` — the parsed-frontmatter record is data for a machine rather than a report for a terminal, so it relays byte-for-byte through the pass-through channel
 
 **Impact:** both claims rest on the primitive's own evidence under [`spx/13-cli.enabler`](../../13-cli.enabler/cli.md). A later change that hands a finished string to the composed write, or composes a relayed session file and rewrites its bytes as escape sequences, fails nothing this node owns, because `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one.
 

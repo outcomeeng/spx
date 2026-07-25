@@ -2,11 +2,11 @@
 
 ## Tool output reaches the terminal through the composed-text channel
 
-[`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) resolves a command's standard output to one of two kinds: composed spx output, whose external segments are escaped where they are embedded, or a document relayed byte-for-byte through the pass-through channel. A tool's own output is a relayed document — escaping it would mangle every tool's formatting and colour. The per-stage completion output takes that channel; this node's remaining tool-output paths still hand raw subprocess bytes to the composed-text write, which is the mixture the invariant forbids.
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) resolves a command's standard output to one of two kinds: composed spx output, whose external segments are escaped where they are embedded, or a document relayed byte-for-byte through the pass-through channel. A tool's own document — its streamed bytes, formatting and colour intact — is relayed; escaping it would mangle every tool's output. A stage line that quotes a tool's summary between an spx-authored counter and duration is not that document but a report spx composes about the run, so it composes and escapes the quoted segment. This node's remaining paths hand a tool's document itself to the composed-text write, which is the mixture the invariant forbids.
 
 **Resolved site:**
 
-- `src/interfaces/cli/validation.ts` — `onStageComplete` — relayed through the pass-through channel
+- `src/interfaces/cli/validation.ts` — `onStageComplete` — the stage line is a mixture: an authored `[n/total]` counter and duration around a tool's own output. It composes as `TerminalText`, so the counter and duration keep their bytes while the tool segment is escaped where it is embedded
 
 **Remaining sites:**
 
