@@ -32,6 +32,7 @@ export interface ParsedMarkdownHeading {
   readonly tag: string;
   readonly text: string;
   readonly index: number;
+  readonly lineStart: number;
 }
 
 export interface IndependentMarkdownObservation {
@@ -48,6 +49,25 @@ export function observeIndependentMarkdown(notes: string): IndependentMarkdownOb
 
 export function keepAChangelogVersionHeadingText(version: string): string {
   return `[${version}]`;
+}
+
+export function observeIndependentVersionSection(notes: string, version: string): string | undefined {
+  const lines = notes.split("\n");
+  const headings = parseMarkdownItHeadings(notes);
+  const versionHeading = headings.find(
+    (heading) =>
+      heading.tag === MARKDOWN_HEADING_TAG.H2
+      && heading.text === keepAChangelogVersionHeadingText(version),
+  );
+  if (versionHeading === undefined) {
+    return undefined;
+  }
+  const boundary = headings.find(
+    (heading) =>
+      heading.lineStart > versionHeading.lineStart
+      && (heading.tag === MARKDOWN_HEADING_TAG.H1 || heading.tag === MARKDOWN_HEADING_TAG.H2),
+  );
+  return lines.slice(versionHeading.lineStart, boundary?.lineStart).join("\n");
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
@@ -91,7 +111,11 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
     if (inline === undefined || inline.type !== MARKDOWN_TOKEN.inline) {
       return;
     }
-    headings.push({ tag: token.tag, text: inline.content, index });
+    const lineStart = token.map?.[0];
+    if (lineStart === undefined) {
+      return;
+    }
+    headings.push({ tag: token.tag, text: inline.content, index, lineStart });
   });
   return headings;
 }

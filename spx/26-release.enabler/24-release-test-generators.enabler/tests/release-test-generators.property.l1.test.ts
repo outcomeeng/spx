@@ -1,8 +1,10 @@
 import { win32 } from "node:path";
 
+import { PACKAGE_PROVENANCE, releaseTagForVersion } from "@/domains/release/publication";
 import { releaseNotesConformsToKeepAChangelog } from "@/domains/release/release-notes";
 import { usesWindowsPathSemantics } from "@/lib/file-system/pathContainment";
 import { arbitraryKeepAChangelogConformanceCase } from "@testing/generators/release/changelog";
+import { arbitraryPublicationScenario } from "@testing/generators/release/publication";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
@@ -12,10 +14,36 @@ import {
   keepAChangelogVersionHeadingText,
   MARKDOWN_HEADING_TAG,
   observeIndependentMarkdown,
+  observeIndependentVersionSection,
 } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import { describe, expect, it } from "vitest";
 
 describe("release test generator contracts", () => {
+  it("generates one coherent publication identity", () => {
+    assertProperty(
+      arbitraryPublicationScenario(),
+      (scenario) => {
+        expect(scenario.tag).toBe(releaseTagForVersion(scenario.releaseData.version));
+        expect(scenario.packagePublication.version).toBe(scenario.releaseData.version);
+        expect(scenario.packagePublication.commit).toBe(scenario.taggedCommit);
+        expect(scenario.packagePublication.provenance).toBe(PACKAGE_PROVENANCE.VERIFIED);
+        expect(scenario.expectedHostedRelease.tag).toBe(scenario.tag);
+        expect(scenario.expectedHostedRelease.title).toBe(scenario.tag);
+        expect(scenario.expectedHostedRelease.targetCommit).toBe(scenario.taggedCommit);
+        expect(
+          releaseNotesConformsToKeepAChangelog(scenario.changelog, scenario.releaseData.version),
+        ).toBe(true);
+        expect(
+          observeIndependentVersionSection(
+            scenario.changelog,
+            scenario.releaseData.version,
+          ),
+        ).toBe(scenario.expectedHostedRelease.body);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
   it("generates changelog cases that agree with the independent Markdown oracle", () => {
     assertProperty(
       arbitraryKeepAChangelogConformanceCase(),

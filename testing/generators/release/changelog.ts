@@ -340,9 +340,37 @@ export function arbitraryConformantChangelog(
   version: string,
   subjects: readonly string[],
 ): fc.Arbitrary<string> {
+  return arbitraryConformantChangelogScenario(version, subjects).map(({ content }) => content);
+}
+
+export interface ConformantChangelogScenario {
+  readonly content: string;
+  readonly versionSection: string;
+}
+
+export function arbitraryConformantChangelogScenario(
+  version: string,
+  subjects: readonly string[],
+): fc.Arbitrary<ConformantChangelogScenario> {
   return fc
     .constantFrom(...CHANGELOG_CHANGE_GROUPS)
-    .map((group) => conformantChangelogWith(group, version, subjects));
+    .map((group) => ({
+      content: conformantChangelogWith(group, version, subjects),
+      versionSection: conformantVersionSectionWith(group, version, subjects),
+    }));
+}
+
+function conformantVersionSectionWith(
+  group: ChangelogChangeGroup,
+  version: string,
+  subjects: readonly string[],
+): string {
+  return [
+    changelogVersionHeading(version),
+    changelogGroupHeading(group),
+    formatEntries(subjects),
+    BLANK_LINE,
+  ].join(LINE_SEPARATOR);
 }
 
 /** The oracle change group the non-conformant cases use where a group heading must be present. */
