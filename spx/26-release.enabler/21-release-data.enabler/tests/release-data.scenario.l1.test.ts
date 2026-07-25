@@ -93,6 +93,37 @@ describe("computeReleaseData — release contents derive from git history", () =
     });
   });
 
+  it("ends release contents at an explicit tagged release ref", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [base, release, later] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.releaseNotesCommits),
+      );
+      const { earlier, later: releaseTag } = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.releaseTagPair(),
+      );
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+
+      await env.writeTracked(base.path, base.content);
+      await env.commit(base.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, earlier]);
+      await env.writeTracked(release.path, release.content);
+      await env.commit(release.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, releaseTag]);
+      await env.writeTracked(later.path, later.content);
+      await env.commit(later.subject);
+
+      const data = await computeReleaseData({
+        productDir: env.productDir,
+        packageVersion,
+        releaseRef: releaseTag,
+      });
+
+      expect(data.previousTag).toBe(earlier);
+      expect(data.commits.map((commit) => commit.subject)).toEqual([release.subject]);
+      expect(data.changedPaths).toEqual([release.path]);
+    });
+  });
+
   it("reports the full commit history as the release contents when no previous release tag exists", async () => {
     await withGitWorktreeEnv(async (env) => {
       const commits = sampleReleaseTestValue(
