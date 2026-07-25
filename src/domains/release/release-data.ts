@@ -41,6 +41,8 @@ export interface ComputeReleaseDataOptions {
   readonly productDir: string;
   /** The product's package version, resolved from the product working tree. */
   readonly packageVersion: string;
+  /** The commit or tag whose release contents are computed; defaults to `HEAD`. */
+  readonly releaseRef?: string;
   /** The injected git runner; defaults to the sanitized-environment runner. */
   readonly deps?: GitDependencies;
 }
@@ -80,11 +82,16 @@ export function classifyVersionDelta(previousTag: string, packageVersion: string
  * access flows through the injected runner.
  */
 export async function computeReleaseData(options: ComputeReleaseDataOptions): Promise<ReleaseData> {
-  const { productDir, packageVersion, deps = defaultGitDependencies } = options;
+  const {
+    productDir,
+    packageVersion,
+    releaseRef = GIT_ROOT_COMMAND.HEAD,
+    deps = defaultGitDependencies,
+  } = options;
 
-  const previousTag = await resolvePreviousReleaseTag(productDir, deps);
-  const commits = await commitsBetween(previousTag, GIT_ROOT_COMMAND.HEAD, productDir, deps);
-  const changedPaths = await changedPathsBetween(previousTag, GIT_ROOT_COMMAND.HEAD, productDir, deps);
+  const previousTag = await resolvePreviousReleaseTag(releaseRef, productDir, deps);
+  const commits = await commitsBetween(previousTag, releaseRef, productDir, deps);
+  const changedPaths = await changedPathsBetween(previousTag, releaseRef, productDir, deps);
   const versionDelta = previousTag === null ? null : classifyVersionDelta(previousTag, packageVersion);
 
   return { version: packageVersion, previousTag, commits, versionDelta, changedPaths };
@@ -99,11 +106,12 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
  * prior release tag is reachable, including an empty repository.
  */
 async function resolvePreviousReleaseTag(
+  releaseRef: string,
   productDir: string,
   deps: GitDependencies,
 ): Promise<string | null> {
-  const tagsAtHead = await releaseTagsAt(GIT_ROOT_COMMAND.HEAD, productDir, deps);
-  return closestReleaseTag(GIT_ROOT_COMMAND.HEAD, tagsAtHead, productDir, deps);
+  const tagsAtRelease = await releaseTagsAt(releaseRef, productDir, deps);
+  return closestReleaseTag(releaseRef, tagsAtRelease, productDir, deps);
 }
 
 export function releaseVersionFromTag(tag: string): string {
