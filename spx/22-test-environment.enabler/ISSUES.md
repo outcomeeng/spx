@@ -40,11 +40,3 @@ The remaining two Compliance rules — that both entrypoints take a caller-suppl
 **Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator and [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, so neither file belongs to this node.
 
 **Resolution:** pin a seed in both samplers in their owning nodes' changesets, or amend the overlay if unseeded draws are the intended contract.
-
-## The cleanup-runs-exactly-once clause has no observable consequence
-
-[`test-environment.md`](test-environment.md) Properties asserts cleanup "runs exactly once per callback invocation". `removeTempDir` in [`testing/harnesses/with-temp-dir.ts`](../../testing/harnesses/with-temp-dir.ts) calls `rm` with `{ recursive: true, force: true }`, so a second cleanup leaves the same observable state and [`tests/lifecycle.property.l1.test.ts`](tests/lifecycle.property.l1.test.ts) cannot distinguish one invocation from two.
-
-**Impact:** Low. The clauses that carry the contract — removal happens, on both the return and throw paths — are observed. Only the cardinality is unobserved.
-
-**Resolution:** deferred for the same reason as the cleanup-failure entry above: counting invocations needs an injected-remover seam the ADR-declared `withTempDir(prefix, callback)` signature does not expose. Revisit together with that entry if the seam is ever added.
