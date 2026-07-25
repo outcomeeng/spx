@@ -11,7 +11,7 @@ import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesse
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — cleanup invariance", () => {
-  it("runs cleanup exactly once per invocation under random callback outcomes", async () => {
+  it("removes the temp directory whatever the callback outcome and however often it suspends", async () => {
     await assertProperty(
       TEST_ENVIRONMENT_GENERATOR.lifecycleCase(),
       async ({ awaits, callbackError, outcome }) => {
