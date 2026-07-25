@@ -42,3 +42,13 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The context format switch duplicates the descriptor's own branch
+
+`contextOutputForFormat` in [`src/interfaces/cli/spec.ts`](../../../src/interfaces/cli/spec.ts) routes a named format to its renderer and flattens the composed text form to a plain string. The descriptor no longer calls it — the two formats travel different channels at the write site, so the action selects a renderer directly. Only tests reach the function.
+
+**Impact:** two implementations of one routing decision. The descriptor's channel selection can change without the switch following, and a test asserting through the switch then proves a path production no longer takes.
+
+**Resolution:** retarget its tests at `contextReport` and `contextDocument`, which are what the descriptor calls, then remove the switch.
+
+**Skills:** `/test-typescript`, `/apply`.

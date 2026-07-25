@@ -49,3 +49,16 @@ before using it as a template for a new TypeScript validation decision record.
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** once the composed-text write signature narrows, so the remaining gap is only the direct `console` and `process.stderr` sites.
+
+## The terminal-text rule misses two shapes it exists to catch
+
+`spx/no-unescaped-terminal-text` in [`eslint-rules/no-unescaped-terminal-text.ts`](../../../../eslint-rules/no-unescaped-terminal-text.ts) reports a value interpolated or concatenated into a write argument. Two shapes at real call sites evade it:
+
+- `isTerminalSink` matches a `MemberExpression` callee, so a sink captured into a local alias (`const write = io.writeStderr; write(payload)`) is invisible to it.
+- `embedsValue` inspects template and binary expressions, so a bare `CallExpression` argument (`io.writeStdout(Buffer.from(chunk).toString())`) carries no embedded value it can see.
+
+**Impact:** a zero-violation lint result does not establish that the escaping invariant of [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) holds for a file. Both shapes occurred in `src/interfaces/cli/validation.ts` while the rule ran at `error` severity with no exemptions.
+
+**Resolution:** resolve an aliased sink to its initializer before the sink test, and treat a call expression argument as an embedded value unless it is a composition-primitive call. Extend the rule's violating fixtures to cover both shapes.
+
+**Skills:** `/apply`, `/test-typescript`.
