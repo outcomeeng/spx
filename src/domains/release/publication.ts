@@ -50,6 +50,21 @@ export function releaseTagForVersion(version: string): string {
   return `v${version}`;
 }
 
+export function packagePublicationMatches(
+  _expected: PackagePublication,
+  _actual: PackagePublication,
+): boolean {
+  throw new Error("Package publication comparison is not implemented");
+}
+
+export function hostedReleaseFor(
+  _tag: string,
+  _taggedCommit: string,
+  _releaseNotesSection: string,
+): HostedRelease {
+  throw new Error("Hosted release derivation is not implemented");
+}
+
 export function publishRelease(_input: PublishReleaseInput): Promise<void> {
   return Promise.reject(new Error("Release publication is not implemented"));
 }

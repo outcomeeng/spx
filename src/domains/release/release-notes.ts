@@ -674,6 +674,15 @@ export function releaseNotesConformsToKeepAChangelog(
   }
 }
 
+/** Returns the one validated changelog section for a release version. */
+export function validatedReleaseNotesSection(
+  notes: string,
+  version: string,
+): string {
+  assertConformsToKeepAChangelog(notes, version, undefined);
+  return currentReleaseNotesSection(notes, version);
+}
+
 /**
  * Validates that the read-back notes conform to the Keep a Changelog structure:
  * the title, a section for the release version, and at least one change-group

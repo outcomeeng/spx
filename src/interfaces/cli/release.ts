@@ -23,6 +23,7 @@ export const RELEASE_CLI = {
   NOTES_COMMAND: "notes",
   DOCS_COMMAND: "docs",
   SYNC_COMMAND: "sync",
+  PUBLISH_COMMAND: "publish",
   CHANGELOG_PATH_OPTION: "--changelog-path <path>",
 } as const;
 
