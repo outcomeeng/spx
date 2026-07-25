@@ -36,6 +36,17 @@ export type CliIo = {
    * channel only when its output *is* the foreign document rather than a report about it.
    */
   readonly writePassThrough: (document: string) => void;
+  /**
+   * Relays a document the product did not compose to standard error unchanged, carrying the same
+   * no-safety-claim contract as {@link CliIo.writePassThrough}.
+   *
+   * A subprocess writes its diagnostics to its own standard error, and those bytes are as much
+   * the tool's own document as the ones on its standard output — a compiler's caret diagnostics
+   * and a linter's colour are exactly what escaping would destroy. The relay therefore covers
+   * both streams, so which stream a foreign document lands on never decides whether the product
+   * can state what that output is.
+   */
+  readonly writePassThroughError: (document: string) => void;
   readonly setExitCode: (exitCode: number) => void;
   readonly exit: (exitCode: number) => never;
 };
@@ -93,6 +104,9 @@ export const DEFAULT_CLI_IO: CliIo = {
   },
   writePassThrough: (document) => {
     process.stdout.write(document);
+  },
+  writePassThroughError: (document) => {
+    process.stderr.write(document);
   },
   setExitCode: (exitCode) => {
     process.exitCode = exitCode;

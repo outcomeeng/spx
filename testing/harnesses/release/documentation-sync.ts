@@ -1700,6 +1700,7 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
       writeStdout: () => undefined,
       writeStderr: (output) => stderr.push(output),
       writePassThrough: () => undefined,
+      writePassThroughError: () => undefined,
       setExitCode: () => undefined,
       exit: () => {
         throw new Error(stderr.join(""));

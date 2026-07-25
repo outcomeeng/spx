@@ -49,6 +49,8 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     // output receives both unless it redirects the relay separately. The two stay distinct in the
     // type — one claims control-byte safety and the other does not — not in their destination.
     writePassThrough: options.writePassThrough ?? options.writeStdout ?? DEFAULT_CLI_IO.writePassThrough,
+    writePassThroughError: options.writePassThroughError ?? options.writeStderr
+      ?? DEFAULT_CLI_IO.writePassThroughError,
     setExitCode: options.setExitCode ?? DEFAULT_CLI_IO.setExitCode,
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };

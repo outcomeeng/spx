@@ -8,16 +8,15 @@
 
 - `src/interfaces/cli/validation.ts` — `onStageComplete` — the stage line is a mixture: an authored `[n/total]` counter and duration around a tool's own output. It composes as `TerminalText`, so the counter and duration keep their bytes while the tool segment is escaped where it is embedded
 
-**Remaining sites:**
+- `src/interfaces/cli/validation.ts` — `validationSubprocessOutputStreams` — the streamed stdout and stderr chunks from tsc, eslint, knip, dprint, and markdownlint, relayed through `writePassThrough` and `writePassThroughError` so each tool's own bytes reach the terminal intact
 
-- `src/interfaces/cli/validation.ts` — `validationSubprocessOutputStreams` — the streamed stdout and stderr chunks from tsc, eslint, knip, dprint, and markdownlint, passed to `writeStdout` and `writeStderr` as raw strings
-- `src/interfaces/cli/validation.ts` — `emitValidationResult` — `result.terminalOutput ?? result.output`, which carries tool output composed by `src/commands/validation/`
+**Remaining site:**
 
-**Impact:** the composed-text write claims its argument carries the escaping decisions made where its values were embedded. These sites hand it a foreign document instead, so the claim is false at three paths and the tool bytes reach the terminal unescaped. `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one, so nothing fails.
+- `src/interfaces/cli/validation.ts` — `emitValidationResult` — `result.terminalOutput ?? result.output`, whose kind varies by subcommand. A leaf subcommand's `terminalOutput` is the tool's own document (`streamedValidationTerminalOutput` in `src/commands/validation/{lint,typescript,knip,formatting}.ts`), while `all` sets it to an spx-composed aggregate summary (`src/commands/validation/all.ts`). One write site serves both, so it cannot state which kind it holds.
 
-**Blocked by:** the pass-through channel relays standard output only. A subprocess's stderr is equally a foreign document and has no relay, so `writeStderr` cannot express the correct claim until the channel covers both streams.
+**Impact:** the composed-text write claims its argument carries the escaping decisions made where its values were embedded. At this site the claim is false whenever the payload is a leaf tool's document, and the tool bytes reach the terminal unescaped. `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one, so nothing fails.
 
-**Resolution:** extend the pass-through channel to standard error, route both streamed chunks and the tool-output portion of the result through it, and add this node's compliance assertion and co-located evidence that a tool's bytes reach the terminal unchanged while a spx-composed stage line escapes a control-byte-bearing path.
+**Resolution:** the write site cannot infer the kind, so the producer declares it — add a discriminant to `ValidationCommandResult` in `src/commands/validation/types.ts`, set it to the document kind in each leaf tool producer and the composed kind in `all`, and branch `emitValidationResult` on it so each payload takes the channel that matches what it is. Then add this node's compliance assertion and co-located evidence that a tool's bytes reach the terminal unchanged while an spx-composed stage line escapes a control-byte-bearing path.
 
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
