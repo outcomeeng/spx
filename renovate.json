@@ -17,14 +17,12 @@
   "minimumReleaseAge": "3 days",
   "packageRules": [
     {
-      "description": "Group and automerge GitHub Actions updates once its continuous-integration checks pass.",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "groupName": "github-actions",
+      "description": "Automerge every non-major update once its continuous-integration checks pass, whatever manager declares it and whatever dependency type it carries. Later rules withhold automerge from major updates and from the pnpm package manager. GitHub Actions updates stay ungrouped so each action ages out of the minimum release age on its own clock; grouping them restarts the shared clock whenever any single member publishes.",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
       "automerge": true
     },
     {
-      "description": "Automerge non-major devDependency updates once its continuous-integration checks pass.",
+      "description": "Collect non-major devDependency updates into a single pull request; the first rule already grants them automerge.",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "dev dependencies (non-major)",
