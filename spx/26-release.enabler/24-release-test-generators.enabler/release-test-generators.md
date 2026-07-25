@@ -1,6 +1,6 @@
 # Release Test Generators
 
-PROVIDES coherent generated release-data, changelog, documentation, commit, version, path, configuration, and failure-scenario domains composed from production-owned release contracts
+PROVIDES coherent generated release-data, changelog, documentation, publication identity, provenance, hosted-release, commit, version, path, configuration, and failure-scenario domains composed from production-owned release contracts
 SO THAT the release test harness and release behavior evidence
 CAN explore meaningful release cases without assertion files or harnesses reconstructing protocol vocabulary, related paths, or dependent values
 
@@ -8,6 +8,7 @@ CAN explore meaningful release cases without assertion files or harnesses recons
 
 ### Properties
 
+- Every generated publication scenario ties its package identity, release tag, tagged commit, provenance state, changelog version section, and expected hosted release to one coherent release identity ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated Keep a Changelog case agrees with the independent Markdown oracle for its generated release version and changelog structure ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated distinct path-segment triple contains three non-empty, pairwise-distinct path segments ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated distinct domain-literal pair contains two non-empty, distinct values ([test](tests/release-test-generators.property.l1.test.ts))
