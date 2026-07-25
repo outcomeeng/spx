@@ -24,4 +24,27 @@ The remaining two Compliance rules — that both entrypoints take a caller-suppl
 
 **Scope:** The evidence belongs to [`spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/ast-enforcement.md), which owns the enforcement rules and their violating-fixture tests. [`spx/13-cli.enabler`](../13-cli.enabler/cli.md) already carries this shape: its "asynchronous `child_process.spawn` imports outside `src/lib/process-lifecycle/`" mapping assertion links evidence in that node.
 
-**Resolution:** author one enforcement rule per boundary in the AST-enforcement node, then retag each of the three assertions `[test]` with a link to the rule's mapping evidence.
+**Resolution:** author one enforcement rule per boundary in the AST-enforcement node, then retag each of the three assertions `[test]` with a link to the rule's mapping evidence. That node already carries a `vi.mock()` rule, so the mocking boundary needs `jest.mock` and `memfs` added rather than a rule from scratch.
+
+## Sibling generator samplers draw without the seed their contract promises
+
+[`spx/local/typescript-tests.md`](../local/typescript-tests.md) documents `sampleLiteralTestValue` as drawing "one value with a fixed seed so the test is deterministic". Two samplers call `fc.sample(arbitrary, { numRuns: 1 })` with no seed, so each run draws a different case and a failing draw carries no replay path:
+
+- [`testing/generators/literal/literal.ts`](../../testing/generators/literal/literal.ts) `sampleLiteralTestValue`
+- [`testing/generators/config/descriptors.ts`](../../testing/generators/config/descriptors.ts) `sampleConfigTestValue`
+
+`sampleTestEnvironmentValue` in [`testing/generators/test-environment/test-environment.ts`](../../testing/generators/test-environment/test-environment.ts) pins its seed and matches the documented contract.
+
+**Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and the overlay describes behavior the two samplers do not have.
+
+**Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator and [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, so neither file belongs to this node.
+
+**Resolution:** pin a seed in both samplers in their owning nodes' changesets, or amend the overlay if unseeded draws are the intended contract.
+
+## The cleanup-runs-exactly-once clause has no observable consequence
+
+[`test-environment.md`](test-environment.md) Properties asserts cleanup "runs exactly once per callback invocation". `removeTempDir` in [`testing/harnesses/with-temp-dir.ts`](../../testing/harnesses/with-temp-dir.ts) calls `rm` with `{ recursive: true, force: true }`, so a second cleanup leaves the same observable state and [`tests/lifecycle.property.l1.test.ts`](tests/lifecycle.property.l1.test.ts) cannot distinguish one invocation from two.
+
+**Impact:** Low. The clauses that carry the contract — removal happens, on both the return and throw paths — are observed. Only the cardinality is unobserved.
+
+**Resolution:** deferred for the same reason as the cleanup-failure entry above: counting invocations needs an injected-remover seam the ADR-declared `withTempDir(prefix, callback)` signature does not expose. Revisit together with that entry if the seam is ever added.
