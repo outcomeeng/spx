@@ -1,3 +1,4 @@
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -248,7 +249,10 @@ function validationOverrideMetadataTestStage(flag: string): ValidationStage {
       },
       skipReason: OVERRIDE_METADATA_TEST_REASON,
     },
-    run: () => Promise.resolve({ exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS, output: "" }),
+    run: () =>
+      Promise.resolve(
+        authoredValidationResult({ exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS, output: "" }),
+      ),
   };
 }
 export const validationPipelineSkipComplianceCases = collectHarnessTestCases(
@@ -607,10 +611,12 @@ async function runStepOrderScenario(
       failsPipeline: true,
       participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
       run: () =>
-        Promise.resolve({
-          exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-          output: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
-        }),
+        Promise.resolve(
+          authoredValidationResult({
+            exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+            output: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
+          }),
+        ),
     },
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
@@ -619,10 +625,10 @@ async function runStepOrderScenario(
       run: async () => {
         secondStageStarted.resolve();
         await releaseSecondStage.promise;
-        return {
+        return authoredValidationResult({
           exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
           output: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
-        };
+        });
       },
     },
   ];
@@ -906,14 +912,14 @@ async function runFailureExitCodeScenario(
     const stages = validationPipelineStages.map((stage): ValidationStage => ({
       ...stage,
       run: () =>
-        Promise.resolve({
+        Promise.resolve(authoredValidationResult({
           exitCode: stage.name === failingStage.name
             ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
             : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
           output: stage.name === failingStage.name
             ? stage.name
             : formatValidationNoProblemsMessage(stage.name),
-        }),
+        })),
     }));
     const result = await allCommand({ cwd: VALIDATION_ROOT, quiet: true, validationStages: stages });
 
@@ -982,14 +988,14 @@ async function runStepDurationScenario(
       ...stage,
       participation: stage.participation,
       run: () =>
-        Promise.resolve({
+        Promise.resolve(authoredValidationResult({
           exitCode: stage.name === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT
             ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
             : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
           output: stage.name === VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT
             ? stage.name
             : formatValidationNoProblemsMessage(stage.name),
-        }),
+        })),
     };
   });
   const mixedResult = await allCommand({ cwd: VALIDATION_ROOT }, { stages: mixedVerdictStages });
@@ -1034,14 +1040,14 @@ async function executeStableVerdictRun(
       failsPipeline: true,
       participation: stage.participation,
       run: () => {
-        const result = {
+        const result = authoredValidationResult({
           exitCode: scenario.stageFailures[index]
             ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
             : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
           output: scenario.stageFailures[index]
             ? stage.name
             : formatValidationNoProblemsMessage(stage.name),
-        };
+        });
         executedStageVerdicts.push(result);
         return Promise.resolve(result);
       },
@@ -1064,14 +1070,14 @@ async function runAdditiveVerdictsScenario(
         ...stage,
         failsPipeline: true,
         run: () =>
-          Promise.resolve({
+          Promise.resolve(authoredValidationResult({
             exitCode: stageFailures[index]
               ? VALIDATION_PIPELINE_DATA.exitCodes.FAILURE
               : VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
             output: stageFailures[index]
               ? stage.name
               : formatValidationNoProblemsMessage(stage.name),
-          }),
+          })),
       }));
       const base = await allCommand(
         { cwd: VALIDATION_ROOT },
@@ -1082,10 +1088,10 @@ async function runAdditiveVerdictsScenario(
         failsPipeline: true,
         participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
         run: () =>
-          Promise.resolve({
+          Promise.resolve(authoredValidationResult({
             exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
             output: formatValidationNoProblemsMessage(addedStageName),
-          }),
+          })),
       };
       const extendedStages = [
         ...existingStages.slice(0, insertionIndex),

@@ -1,3 +1,4 @@
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
@@ -196,10 +197,10 @@ describe("resolved validation configuration", () => {
       const deps: KnipStageDeps = {
         knipCommand: async (options) => {
           commandCalls.push(options);
-          return {
+          return authoredValidationResult({
             exitCode: VALIDATION_EXIT_CODES.SUCCESS,
             output: VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS,
-          };
+          });
         },
       };
 

@@ -7,7 +7,7 @@
  */
 import {
   authoredText,
-  externalValue,
+  joinTerminalText,
   renderTerminalText,
   terminal,
   type TerminalText,
@@ -33,7 +33,9 @@ import type {
   ValidationCommandResult,
   ValidationStageCompletion,
 } from "./types";
-import { VALIDATION_OUTPUT_TARGET, VALIDATION_STREAMED_TERMINAL_OUTPUT } from "./types";
+import { VALIDATION_OUTPUT_TARGET } from "./types";
+
+const VALIDATION_TRANSCRIPT_LINE_SEPARATOR = "\n";
 
 /**
  * Format step output with step number and timing.
@@ -51,21 +53,22 @@ function formatStepWithTiming(
   result: ValidationCommandResult,
   quiet: boolean,
 ): TerminalText {
-  const output = result.terminalOutput ?? result.output;
   if (quiet) return authoredText("");
 
   const counter = authoredText(`[${stepNumber}/${totalSteps}] `);
   const timing = authoredText(result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`);
 
-  if (result.terminalOutput === VALIDATION_STREAMED_TERMINAL_OUTPUT) {
+  if (result.streamedDetail === true) {
     const verdict = result.exitCode === 0 ? VALIDATION_SYMBOLS.SUCCESS : VALIDATION_SYMBOLS.FAILURE;
     const stage = authoredText(`${stageName}: ${verdict} ${VALIDATION_STREAMED_STAGE_RESULT}`);
     return terminal`${counter}${stage}${timing}`;
   }
 
-  if (!output) return authoredText("");
+  if (result.terminalText.length === 0) return authoredText("");
 
-  return terminal`${counter}${externalValue(output)}${timing}`;
+  // The stage already decided authored-versus-reading for every segment it holds, so enclosing it
+  // reproduces those bytes rather than escaping the whole report a second time.
+  return terminal`${counter}${result.terminalText}${timing}`;
 }
 
 function parseStageOutput(output: string): unknown {
@@ -85,6 +88,7 @@ interface RecordStageResultOptions {
   readonly result: ValidationCommandResult;
   readonly quiet: boolean;
   readonly outputs: string[];
+  readonly terminalLines: TerminalText[];
   readonly jsonSteps: AllValidationJsonStep[];
   readonly subprocessOutput?: CapturedSubprocessOutput;
   readonly writeOutput?: (output: string) => void;
@@ -99,6 +103,7 @@ function recordStageResult(options: RecordStageResultOptions): void {
     result,
     quiet,
     outputs,
+    terminalLines,
     jsonSteps,
     subprocessOutput,
     writeOutput,
@@ -115,9 +120,11 @@ function recordStageResult(options: RecordStageResultOptions): void {
     return;
   }
 
-  const stepOutput = renderTerminalText(formatStepWithTiming(stepNumber, totalSteps, stage.name, result, quiet));
+  const stepText = formatStepWithTiming(stepNumber, totalSteps, stage.name, result, quiet);
+  const stepOutput = renderTerminalText(stepText);
   if (stepOutput) {
     outputs.push(stepOutput);
+    terminalLines.push(stepText);
     writeOutput?.(stepOutput);
   }
 }
@@ -161,11 +168,13 @@ function skippedStageResult(
   if (reason === undefined) {
     throw new Error(`validation stage ${stage.name} skipped without a configured reason`);
   }
+  const output = json
+    ? formatValidationStageSkipJsonOutput(reason, durationMs)
+    : formatValidationStageSkipOutput(stage.name, participation.flag ?? reason);
   return {
     exitCode: 0,
-    output: json
-      ? formatValidationStageSkipJsonOutput(reason, durationMs)
-      : formatValidationStageSkipOutput(stage.name, participation.flag ?? reason),
+    output,
+    terminalText: authoredText(output),
     structuredOutput: json,
     durationMs,
   };
@@ -219,6 +228,7 @@ interface ExecuteValidationStagesOptions {
   readonly json: boolean;
   readonly quiet: boolean;
   readonly outputs: string[];
+  readonly terminalLines: TerminalText[];
   readonly jsonSteps: AllValidationJsonStep[];
   readonly onStageComplete?: (completion: ValidationStageCompletion) => void;
   readonly outputStreams?: ValidationSubprocessOutputStreams;
@@ -239,6 +249,7 @@ async function executeValidationStages(options: ExecuteValidationStagesOptions):
       result: execution.result,
       quiet: options.quiet,
       outputs: options.outputs,
+      terminalLines: options.terminalLines,
       jsonSteps: options.jsonSteps,
       subprocessOutput: execution.subprocessOutput,
       writeOutput: options.writeOutput,
@@ -317,6 +328,7 @@ export async function allCommand(
   const now = deps.now ?? Date.now;
   const startTime = now();
   const outputs: string[] = [];
+  const terminalLines: TerminalText[] = [];
   const jsonSteps: AllValidationJsonStep[] = [];
 
   const context = {
@@ -335,6 +347,7 @@ export async function allCommand(
     json: json === true,
     quiet,
     outputs,
+    terminalLines,
     jsonSteps,
     onStageComplete,
     outputStreams,
@@ -356,27 +369,34 @@ export async function allCommand(
     return {
       exitCode: hasFailure ? 1 : 0,
       output,
+      // Every stage result was JSON-encoded into this record, which escapes the control
+      // characters a tool's output could carry, so the document is the product's own.
+      terminalText: authoredText(output),
       outputTarget: VALIDATION_OUTPUT_TARGET.STDOUT,
       durationMs: totalDurationMs,
     };
   }
 
   // Add summary line
-  let terminalOutput: string | undefined;
+  let terminalText = authoredText("");
   if (!quiet) {
     const summary = formatSummary({ success: !hasFailure, totalDurationMs });
     deps.writeOutput?.(`\n${summary}`);
     if (onStageComplete !== undefined) {
-      terminalOutput = `\n${summary}`;
+      // Each stage line already reached the terminal as it completed; what remains for this
+      // write is the pipeline's own verdict.
+      terminalText = authoredText(`\n${summary}`);
     } else {
       outputs.push("", summary); // Empty line before summary
+      terminalLines.push(authoredText(""), authoredText(summary));
+      terminalText = joinTerminalText(VALIDATION_TRANSCRIPT_LINE_SEPARATOR, terminalLines);
     }
   }
 
   return {
     exitCode: hasFailure ? 1 : 0,
     output: outputs.join("\n"),
-    terminalOutput,
+    terminalText,
     durationMs: totalDurationMs,
   };
 }

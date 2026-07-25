@@ -4,6 +4,7 @@
  * Runs TypeScript type checking using tsc.
  */
 import { resolveConfig } from "@/config/index";
+import { authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -28,7 +29,13 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import { streamedValidationTerminalOutput, type TypeScriptCommandOptions, type ValidationCommandResult } from "./types";
+import {
+  capturedToolOutput,
+  streamedValidationDetail,
+  type TypeScriptCommandOptions,
+  type ValidationCommandResult,
+  validationReport,
+} from "./types";
 
 export interface TypeScriptCommandDeps {
   readonly detectTypeScript: typeof detectTypeScript;
@@ -81,9 +88,11 @@ export async function typescriptCommand(
   // Gate 1: language detection. No TypeScript = skip cleanly.
   const tsDetection = deps.detectTypeScript(cwd);
   if (!tsDetection.present) {
+    const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.ABSENT;
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.ABSENT,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -93,6 +102,9 @@ export async function typescriptCommand(
     return {
       exitCode: 1,
       output: `${TYPESCRIPT_VALIDATION_MESSAGES.CONFIG_ERROR} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(TYPESCRIPT_VALIDATION_MESSAGES.CONFIG_ERROR)} — ${
+        externalValue(loaded.error)
+      }`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -113,9 +125,11 @@ export async function typescriptCommand(
     scopeConfig,
   );
   if (noTargetsMessage !== undefined) {
+    const output = quiet ? "" : noTargetsMessage;
     return {
       exitCode: 0,
-      output: quiet ? "" : noTargetsMessage,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -129,7 +143,12 @@ export async function typescriptCommand(
   });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
+    return {
+      exitCode: 0,
+      output: skipMessage,
+      terminalText: authoredText(skipMessage),
+      durationMs: Date.now() - startTime,
+    };
   }
 
   const result = await deps.validateTypeScript({
@@ -154,19 +173,27 @@ function formatTypeScriptResult(
 ): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : TYPESCRIPT_VALIDATION_MESSAGES.NO_VALIDATION_PATH_TARGETS;
-    return { exitCode: 0, output, durationMs };
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs };
   }
+  const streamedDetail = streamedValidationDetail(result.output, json, streamedPipelineOutput);
   if (result.success) {
     const output = quiet
       ? ""
       : [TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS, result.output].filter((line) => line !== undefined && line.length > 0)
         .join("\n");
-    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
-    return { exitCode: 0, output, terminalOutput, durationMs };
+    const terminalText = quiet ? authoredText("") : validationReport([
+      authoredText(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS),
+      capturedToolOutput(result.output),
+    ]);
+    return { exitCode: 0, output, terminalText, streamedDetail, durationMs };
   }
-  const output = [result.output, result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE]
+  const failureMessage = result.error ?? VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE;
+  const output = [result.output, failureMessage]
     .filter((line) => line !== undefined && line.length > 0)
     .join("\n");
-  const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
-  return { exitCode: 1, output, terminalOutput, durationMs };
+  const terminalText = validationReport([
+    capturedToolOutput(result.output),
+    result.error === undefined ? authoredText(failureMessage) : externalValue(failureMessage),
+  ]);
+  return { exitCode: 1, output, terminalText, streamedDetail, durationMs };
 }

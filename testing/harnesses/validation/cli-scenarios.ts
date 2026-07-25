@@ -1,3 +1,4 @@
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { symlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -73,10 +74,10 @@ function controlledValidationStages(observedContexts: ObservedValidationStageCon
     ...stage,
     run: async (context) => {
       observedContexts.push({ name: stage.name, context });
-      return {
+      return authoredValidationResult({
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
         output: formatValidationNoProblemsMessage(stage.name),
-      };
+      });
     },
   }));
 }
@@ -134,10 +135,11 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
       participation: registeredParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
-      run: async () => ({
-        exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
-        output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
-      }),
+      run: async () =>
+        authoredValidationResult({
+          exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
+          output: formatValidationNoProblemsMessage(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
+        }),
     },
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
@@ -146,10 +148,10 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
       run: async () => {
         laterStageStarted.resolve();
         await releaseLaterStage.promise;
-        return {
+        return authoredValidationResult({
           exitCode: VALIDATION_PIPELINE_DATA.exitCodes.FAILURE,
           output: VALIDATION_COMMAND_OUTPUT.TYPESCRIPT_FAILURE,
-        };
+        });
       },
     },
   ];

@@ -12,6 +12,7 @@ import { isAbsolute, join, relative } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -39,9 +40,10 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
 import {
+  capturedToolOutput,
   type FormattingCommandOptions,
-  VALIDATION_STREAMED_TERMINAL_OUTPUT,
   type ValidationCommandResult,
+  validationReport,
 } from "./types";
 
 export interface FormattingCommandDependencies {
@@ -83,6 +85,7 @@ export async function formattingCommand(
     return {
       exitCode: 1,
       output: `${FORMATTING_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(FORMATTING_CONFIG_ERROR_MESSAGE)} — ${externalValue(loaded.error)}`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -95,7 +98,7 @@ export async function formattingCommand(
     const output = quiet
       ? ""
       : `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: skipped (${FORMATTING_COMMAND_OUTPUT.NO_CONFIG_SKIP_REASON})`;
-    return { exitCode: 0, output, durationMs: Date.now() - startTime };
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs: Date.now() - startTime };
   }
 
   const pathFilter = validationPathFilterForTool(
@@ -115,7 +118,7 @@ export async function formattingCommand(
     const output = quiet
       ? ""
       : `${VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING}: skipped (${FORMATTING_COMMAND_OUTPUT.EMPTY_SCOPE_REASON})`;
-    return { exitCode: 0, output, durationMs: Date.now() - startTime };
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs: Date.now() - startTime };
   }
 
   const results: FormattingValidationResult[] = [];
@@ -126,7 +129,8 @@ export async function formattingCommand(
   const durationMs = Date.now() - startTime;
 
   if (results.every((result) => result.success)) {
-    return { exitCode: 0, output: quiet ? "" : FORMATTING_COMMAND_OUTPUT.NO_ISSUES, durationMs };
+    const output = quiet ? "" : FORMATTING_COMMAND_OUTPUT.NO_ISSUES;
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs };
   }
 
   const detail = results
@@ -136,8 +140,14 @@ export async function formattingCommand(
     .filter((output) => output.length > 0)
     .join("\n");
   const output = [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, detail].filter((line) => line.length > 0).join("\n");
-  const terminalOutput = formattingTerminalOutput(results, outputStreams, json, streamedPipelineOutput);
-  return { exitCode: 1, output, terminalOutput, durationMs };
+  const report = formattingTerminalReport(results, outputStreams, json, streamedPipelineOutput, detail);
+  return {
+    exitCode: 1,
+    output,
+    terminalText: report.text,
+    streamedDetail: report.streamedDetail,
+    durationMs,
+  };
 }
 
 function formattingValidationContexts(
@@ -163,22 +173,36 @@ function formattingValidationContexts(
   }];
 }
 
-function formattingTerminalOutput(
+interface FormattingTerminalReport {
+  readonly text: TerminalText;
+  readonly streamedDetail: boolean;
+}
+
+/**
+ * The failure report spx speaks about a dprint run. The summary line is the product's own; the
+ * diff and error text dprint produced are readings, escaped where they are embedded. When the run
+ * streamed its diff through the pass-through relay, the report is the summary alone and the caller
+ * reports a verdict rather than repeating bytes the terminal already received.
+ */
+function formattingTerminalReport(
   results: readonly FormattingValidationResult[],
   outputStreams: ValidationSubprocessOutputStreams | undefined,
   json: boolean | undefined,
   streamedPipelineOutput: boolean | undefined,
-): string | undefined {
+  detail: string,
+): FormattingTerminalReport {
+  const summary = authoredText(FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY);
   if (json === true || outputStreams === undefined) {
-    return undefined;
+    return { text: validationReport([summary, capturedToolOutput(detail)]), streamedDetail: false };
   }
   const errors = results.flatMap((result) => result.error === undefined ? [] : [result.error]);
   if (errors.length > 0) {
-    return [FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY, ...errors].join("\n");
+    return {
+      text: validationReport([summary, ...errors.map((error) => externalValue(error))]),
+      streamedDetail: false,
+    };
   }
-  return streamedPipelineOutput === true
-    ? VALIDATION_STREAMED_TERMINAL_OUTPUT
-    : FORMATTING_COMMAND_OUTPUT.FAILURE_SUMMARY;
+  return { text: summary, streamedDetail: streamedPipelineOutput === true };
 }
 
 function normalizeFormattingPathOperand(productDir: string, relativePath: string): string {

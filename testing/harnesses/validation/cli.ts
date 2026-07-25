@@ -1,3 +1,4 @@
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { CommanderError } from "commander";
 import { execa } from "execa";
 import { cp, mkdir, symlink } from "node:fs/promises";
@@ -265,7 +266,7 @@ export function createRecordingValidationDomain(
     options: Readonly<Record<string, unknown>>,
   ) => {
     calls.push({ commandName, options });
-    return Promise.resolve({ exitCode, output, durationMs: 0 });
+    return Promise.resolve(authoredValidationResult({ exitCode, output, durationMs: 0 }));
   };
   const commandHandlers: ValidationCommandHandlers = {
     all: (options) => record(validationCliDefinition.subcommands.all.commandName, { ...options }),

@@ -5,6 +5,13 @@
  */
 import { resolveConfig } from "@/config/index";
 import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
   validationConfigDescriptor,
@@ -21,7 +28,7 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { CircularCommandOptions, ValidationCommandResult } from "./types";
+import { type CircularCommandOptions, type ValidationCommandResult, validationReport } from "./types";
 
 type CircularValidationResult = Awaited<ReturnType<typeof validateCircularDependencies>>;
 
@@ -34,6 +41,9 @@ export const CIRCULAR_DEPENDENCY_OUTPUT = {
   FOUND: VALIDATION_COMMAND_OUTPUT.CIRCULAR_FOUND,
 } as const;
 
+const CIRCULAR_CYCLE_ARROW = " → ";
+const CIRCULAR_CYCLE_INDENT = "  ";
+
 export interface CircularCommandDeps {
   readonly validateCircularDependencies: typeof validateCircularDependencies;
 }
@@ -45,27 +55,37 @@ export const defaultCircularCommandDeps: CircularCommandDeps = {
 function formatCircularValidationResult(result: CircularValidationResult, quiet: boolean): {
   readonly exitCode: number;
   readonly output: string;
+  readonly terminalText: TerminalText;
 } {
   if (result.success) {
-    return {
-      exitCode: 0,
-      output: quiet ? "" : VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND,
-    };
+    const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.CIRCULAR_NONE_FOUND;
+    return { exitCode: 0, output, terminalText: authoredText(output) };
   }
 
   if (result.circularDependencies && result.circularDependencies.length > 0) {
     const cycles = result.circularDependencies
-      .map((cycle) => `  ${cycle.join(" → ")}`)
+      .map((cycle) => `${CIRCULAR_CYCLE_INDENT}${cycle.join(CIRCULAR_CYCLE_ARROW)}`)
       .join("\n");
+    // The heading, indent, and arrow are the product's own line structure; every module
+    // identifier comes from the graph dependency-cruiser walked, so each is escaped here.
+    const cycleLines = result.circularDependencies.map((cycle) =>
+      terminal`${authoredText(CIRCULAR_CYCLE_INDENT)}${
+        joinTerminalText(CIRCULAR_CYCLE_ARROW, cycle.map((module) => externalValue(module)))
+      }`
+    );
     return {
       exitCode: 1,
       output: `${CIRCULAR_DEPENDENCY_OUTPUT.FOUND}:\n${cycles}`,
+      terminalText: validationReport([authoredText(`${CIRCULAR_DEPENDENCY_OUTPUT.FOUND}:`), ...cycleLines]),
     };
   }
 
   return {
     exitCode: 1,
     output: result.error ?? CIRCULAR_DEPENDENCY_OUTPUT.FOUND,
+    terminalText: result.error === undefined
+      ? authoredText(CIRCULAR_DEPENDENCY_OUTPUT.FOUND)
+      : externalValue(result.error),
   };
 }
 
@@ -89,9 +109,11 @@ export async function circularCommand(
   // Gate 1: language detection. No TypeScript = skip cleanly.
   const tsDetection = detectTypeScript(cwd);
   if (!tsDetection.present) {
+    const output = quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE;
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -101,6 +123,7 @@ export async function circularCommand(
     return {
       exitCode: 1,
       output: `${CIRCULAR_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(CIRCULAR_CONFIG_ERROR_MESSAGE)} — ${externalValue(loaded.error)}`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -119,9 +142,11 @@ export async function circularCommand(
     effectiveScopeConfig,
   );
   if (noTargetsMessage !== undefined) {
+    const output = quiet ? "" : noTargetsMessage;
     return {
       exitCode: 0,
-      output: quiet ? "" : noTargetsMessage,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }

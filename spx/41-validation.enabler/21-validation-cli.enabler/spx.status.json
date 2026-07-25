@@ -7,7 +7,8 @@
       "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.mapping.l2.test.ts": "passed",
       "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.property.l2.test.ts": "passed",
       "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.scenario.l2.test.ts": "passed",
-      "spx/41-validation.enabler/21-validation-cli.enabler/tests/full-pipeline-skip.scenario.l2.test.ts": "passed"
+      "spx/41-validation.enabler/21-validation-cli.enabler/tests/full-pipeline-skip.scenario.l2.test.ts": "passed",
+      "spx/41-validation.enabler/21-validation-cli.enabler/tests/output-channel.compliance.l2.test.ts": "passed"
     }
   }
 }

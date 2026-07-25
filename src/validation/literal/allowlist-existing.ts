@@ -1,3 +1,4 @@
+import { authoredText, externalValue, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { randomBytes } from "node:crypto";
 import { rename, rm, writeFile } from "node:fs/promises";
 
@@ -43,6 +44,12 @@ export interface AllowlistExistingOptions {
 export interface AllowlistExistingResult {
   readonly exitCode: number;
   readonly output: string;
+  /**
+   * The same result as terminal text. A reader or serializer failure carries parser output and
+   * file content, so it is a reading; the ambiguity message is spx's own sentence over a closed
+   * set of config filenames.
+   */
+  readonly terminalText: TerminalText;
 }
 
 const EXIT_OK = 0;
@@ -83,17 +90,18 @@ export async function allowlistExisting(
 
   const readResult = await reader.read(options.productDir);
   if (!readResult.ok) {
-    return { exitCode: EXIT_ERROR, output: readResult.error };
+    return { exitCode: EXIT_ERROR, output: readResult.error, terminalText: externalValue(readResult.error) };
   }
 
   const configRead = readResult.value;
   if (configRead.kind === "ambiguous") {
-    return { exitCode: EXIT_ERROR, output: formatConfigFileAmbiguityError(configRead.detected) };
+    const output = formatConfigFileAmbiguityError(configRead.detected);
+    return { exitCode: EXIT_ERROR, output, terminalText: authoredText(output) };
   }
 
   const resolvedConfig = resolveConfigFromReadResult(configRead, [validationConfigDescriptor]);
   if (!resolvedConfig.ok) {
-    return { exitCode: EXIT_ERROR, output: resolvedConfig.error };
+    return { exitCode: EXIT_ERROR, output: resolvedConfig.error, terminalText: externalValue(resolvedConfig.error) };
   }
   const validationConfig = resolvedConfig.value[validationConfigDescriptor.section] as ValidationConfig;
 
@@ -118,11 +126,11 @@ export async function allowlistExisting(
 
   const serialized = serializeWithUpdatedInclude(target, updatedInclude);
   if (!serialized.ok) {
-    return { exitCode: EXIT_ERROR, output: serialized.error };
+    return { exitCode: EXIT_ERROR, output: serialized.error, terminalText: externalValue(serialized.error) };
   }
   await writer.write(target.path, serialized.value);
 
-  return { exitCode: EXIT_OK, output: "" };
+  return { exitCode: EXIT_OK, output: "", terminalText: authoredText("") };
 }
 
 function collectFindingValues(

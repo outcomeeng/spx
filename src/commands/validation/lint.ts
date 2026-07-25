@@ -4,6 +4,7 @@
  * Runs ESLint for code quality checks.
  */
 import { resolveConfig } from "@/config/index";
+import { authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -28,7 +29,13 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import { type LintCommandOptions, streamedValidationTerminalOutput, type ValidationCommandResult } from "./types";
+import {
+  capturedToolOutput,
+  type LintCommandOptions,
+  streamedValidationDetail,
+  type ValidationCommandResult,
+  validationReport,
+} from "./types";
 
 export interface LintCommandDeps {
   readonly detectTypeScript: typeof detectTypeScript;
@@ -75,9 +82,11 @@ export async function lintCommand(
   // Gate 1: language detection. No TypeScript = skip cleanly.
   const tsDetection = deps.detectTypeScript(cwd);
   if (!tsDetection.present) {
+    const output = quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE;
     return {
       exitCode: 0,
-      output: quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -91,6 +100,7 @@ export async function lintCommand(
     return {
       exitCode: 1,
       output: MISSING_CONFIG_MESSAGE,
+      terminalText: authoredText(MISSING_CONFIG_MESSAGE),
       durationMs: Date.now() - startTime,
     };
   }
@@ -100,6 +110,7 @@ export async function lintCommand(
     return {
       exitCode: 1,
       output: `${ESLINT_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(ESLINT_CONFIG_ERROR_MESSAGE)} — ${externalValue(loaded.error)}`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -134,9 +145,11 @@ export async function lintCommand(
     scopeConfig,
   );
   if (noTargetsMessage !== undefined) {
+    const output = quiet ? "" : noTargetsMessage;
     return {
       exitCode: 0,
-      output: quiet ? "" : noTargetsMessage,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -145,7 +158,12 @@ export async function lintCommand(
   const toolResult = await deps.discoverTool("eslint", { productDir: cwd, includeBundled: false });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
+    return {
+      exitCode: 0,
+      output: skipMessage,
+      terminalText: authoredText(skipMessage),
+      durationMs: Date.now() - startTime,
+    };
   }
 
   // Build validation context
@@ -186,8 +204,9 @@ function formatLintResult(
 ): ValidationCommandResult {
   if (result.skipped) {
     const output = quiet ? "" : VALIDATION_PATHS_NO_TARGETS_MESSAGE;
-    return { exitCode: 0, output, durationMs };
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs };
   }
+  const streamedDetail = streamedValidationDetail(result.output, json, streamedPipelineOutput);
   if (result.success) {
     const output = quiet
       ? ""
@@ -195,12 +214,19 @@ function formatLintResult(
         line !== undefined && line.length > 0
       )
         .join("\n");
-    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
-    return { exitCode: 0, output, terminalOutput, durationMs };
+    const terminalText = quiet ? authoredText("") : validationReport([
+      authoredText(VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS),
+      capturedToolOutput(result.output),
+    ]);
+    return { exitCode: 0, output, terminalText, streamedDetail, durationMs };
   }
-  const output = [result.output, result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE]
+  const failureMessage = result.error ?? VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE;
+  const output = [result.output, failureMessage]
     .filter((line) => line !== undefined && line.length > 0)
     .join("\n");
-  const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
-  return { exitCode: 1, output, terminalOutput, durationMs };
+  const terminalText = validationReport([
+    capturedToolOutput(result.output),
+    result.error === undefined ? authoredText(failureMessage) : externalValue(failureMessage),
+  ]);
+  return { exitCode: 1, output, terminalText, streamedDetail, durationMs };
 }

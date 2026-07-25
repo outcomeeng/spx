@@ -39,4 +39,6 @@ CAN trust that well-formed subcommands reach the correct stage and that malforme
 - ALWAYS: reject invalid `--kind` values before literal detection, emit the sanitized kind to stderr, and exit non-zero ([test](tests/dispatch.compliance.l2.test.ts))
 - NEVER: invoke a stage handler during dispatch failure ([test](tests/dispatch.compliance.l2.test.ts))
 - NEVER: invoke a stage handler when Commander rejects an unknown option ([test](tests/dispatch.compliance.l2.test.ts))
+- ALWAYS: write a subcommand's result as composed spx output, so the command's own verdict keeps its bytes while a tool's captured output is escaped where the command embedded it ([test](tests/output-channel.compliance.l2.test.ts))
+- NEVER: repeat a stage's subprocess detail through the composed-text write once that detail has reached the terminal through the pass-through relay ([test](tests/output-channel.compliance.l2.test.ts))
 - NEVER: use `vi.mock()`, `jest.mock()`, or any filesystem-mocking mechanism in tests under this enabler ([audit])

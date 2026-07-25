@@ -1,3 +1,4 @@
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import * as fc from "fast-check";
 
 import { allCommand, resolveFullPipelineStages } from "@/commands/validation/all";
@@ -80,7 +81,9 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
                 participation: registeredParticipationPolicy(),
                 run: () => {
                   executedStageNames.push(name);
-                  return Promise.resolve({ exitCode: VALIDATION_EXIT_CODES.FAILURE, output: name });
+                  return Promise.resolve(
+                    authoredValidationResult({ exitCode: VALIDATION_EXIT_CODES.FAILURE, output: name }),
+                  );
                 },
               })),
             }]);
@@ -141,7 +144,10 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
           ...registeredStage,
           run: async () => {
             executionCount += 1;
-            return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: registeredStage.name };
+            return authoredValidationResult({
+              exitCode: VALIDATION_EXIT_CODES.SUCCESS,
+              output: registeredStage.name,
+            });
           },
         };
 

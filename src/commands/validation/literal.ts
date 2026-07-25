@@ -10,6 +10,14 @@ import { resolveConfig } from "@/config/index";
 import { LITERAL_PROBLEM_KIND, type LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
 import { compareAsciiStrings } from "@/lib/state-store";
 import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
   validationConfigDescriptor,
@@ -43,6 +51,11 @@ export const OUTPUT_MODE_NAMES = Object.values(OUTPUT_MODE_NAME);
 export type OutputModeName = (typeof OUTPUT_MODE_NAMES)[number];
 
 export const VERBOSE_PROBLEM_LINE_PREFIX = "line ";
+
+const LITERAL_REPORT_LINE_SEPARATOR = "\n";
+const LITERAL_RELATED_LOCATION_SEPARATOR = ", ";
+const LITERAL_VERBOSE_PROBLEM_INDENT = "  ";
+const LITERAL_STRING_KIND = "string";
 
 export interface LiteralCommandOptions {
   readonly cwd: string;
@@ -105,31 +118,35 @@ export async function literalCommand(
 
   const tsDetection = detectTypeScript(options.cwd);
   if (!tsDetection.present) {
+    const output = options.quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE;
     return {
       exitCode: LITERAL_EXIT_CODES.OK,
-      output: options.quiet ? "" : TYPESCRIPT_ABSENT_MESSAGE,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - start,
     };
   }
 
   const resolved = await resolveLiteralCommandConfig(options);
   if (typeof resolved === "string") {
+    const configProblem = formatValidationConfigProblemMessage(
+      VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
+      "configuration error",
+    );
     return {
       exitCode: LITERAL_EXIT_CODES.CONFIG_ERROR,
-      output: `${
-        formatValidationConfigProblemMessage(
-          VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
-          "configuration error",
-        )
-      } — ${resolved}`,
+      output: `${configProblem} — ${resolved}`,
+      terminalText: terminal`${authoredText(configProblem)} — ${externalValue(resolved)}`,
       durationMs: Date.now() - start,
     };
   }
 
   if (!resolved.enabled) {
+    const output = options.quiet ? "" : LITERAL_DISABLED_MESSAGE;
     return {
       exitCode: LITERAL_EXIT_CODES.OK,
-      output: options.quiet ? "" : LITERAL_DISABLED_MESSAGE,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - start,
     };
   }
@@ -144,9 +161,11 @@ export async function literalCommand(
 
   const noTargetsMessage = explicitLiteralNoTargetsSkipMessage(options, result);
   if (noTargetsMessage !== undefined) {
+    const output = options.quiet ? "" : noTargetsMessage;
     return {
       exitCode: LITERAL_EXIT_CODES.OK,
-      output: options.quiet ? "" : noTargetsMessage,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - start,
     };
   }
@@ -156,17 +175,24 @@ export async function literalCommand(
   const exitCode = totalProblems === 0 ? LITERAL_EXIT_CODES.OK : LITERAL_EXIT_CODES.FINDINGS;
 
   let output: string;
+  let terminalText: TerminalText;
   if (options.json) {
     output = JSON.stringify(filteredFindings);
+    // JSON encoding escapes the control characters a detected literal could carry, so the
+    // record is the product's own structured speech by the time it reaches a stream.
+    terminalText = authoredText(output);
   } else if (options.quiet) {
     output = "";
+    terminalText = authoredText(output);
   } else {
-    output = formatLiteralCommandOutput(filteredFindings, options);
+    terminalText = formatLiteralCommandOutput(filteredFindings, options);
+    output = renderTerminalText(terminalText);
   }
 
   return {
     exitCode,
     output,
+    terminalText,
     durationMs: Date.now() - start,
     outputTarget: VALIDATION_OUTPUT_TARGET.STDOUT,
   };
@@ -242,19 +268,24 @@ export function countLiteralProblems(findings: DetectionResult): number {
   return findings.srcReuse.length + findings.testDupe.length;
 }
 
-export function formatDefaultLiteralProblems(findings: DetectionResult): string {
-  return toLiteralProblems(findings)
-    .map((problem) =>
-      `[${problem.problemKind}] ${formatLiteralValue(problem.literalKind, problem.value)} ${formatLoc(problem.test)}`
-    )
-    .join("\n");
+export function formatDefaultLiteralProblems(findings: DetectionResult): TerminalText {
+  return joinTerminalText(
+    LITERAL_REPORT_LINE_SEPARATOR,
+    toLiteralProblems(findings).map((problem) =>
+      terminal`[${authoredText(problem.problemKind)}] ${composeLiteralValue(problem.literalKind, problem.value)} ${
+        composeLiteralLocation(problem.test)
+      }`
+    ),
+  );
 }
 
-export function formatVerboseLiteralProblems(findings: DetectionResult): string {
-  const lines = [
-    `Literal: ${
-      countLiteralProblems(findings)
-    } problems (reuse: ${findings.srcReuse.length}, dupe: ${findings.testDupe.length})`,
+export function formatVerboseLiteralProblems(findings: DetectionResult): TerminalText {
+  const lines: TerminalText[] = [
+    authoredText(
+      `Literal: ${
+        countLiteralProblems(findings)
+      } problems (reuse: ${findings.srcReuse.length}, dupe: ${findings.testDupe.length})`,
+    ),
   ];
 
   appendVerboseSection(
@@ -280,16 +311,19 @@ export function formatVerboseLiteralProblems(findings: DetectionResult): string 
     })),
   );
 
-  return lines.join("\n");
+  return joinTerminalText(LITERAL_REPORT_LINE_SEPARATOR, lines);
 }
 
-export function formatFilesWithProblems(findings: DetectionResult): string {
-  return [...new Set(toLiteralProblems(findings).map((problem) => problem.test.file))]
-    .sort(compareAsciiStrings)
-    .join("\n");
+export function formatFilesWithProblems(findings: DetectionResult): TerminalText {
+  return joinTerminalText(
+    LITERAL_REPORT_LINE_SEPARATOR,
+    [...new Set(toLiteralProblems(findings).map((problem) => problem.test.file))]
+      .sort(compareAsciiStrings)
+      .map((file) => externalValue(file)),
+  );
 }
 
-export function formatLiteralValues(findings: DetectionResult): string {
+export function formatLiteralValues(findings: DetectionResult): TerminalText {
   const values = new Map<string, { readonly kind: LiteralKind; readonly value: string }>();
   for (const problem of toLiteralProblems(findings)) {
     values.set(`${problem.literalKind}\0${problem.value}`, {
@@ -297,24 +331,28 @@ export function formatLiteralValues(findings: DetectionResult): string {
       value: problem.value,
     });
   }
-  return [...values.values()]
-    .sort((left, right) => compareAsciiStrings(left.value, right.value) || compareAsciiStrings(left.kind, right.kind))
-    .map((entry) => formatLiteralValue(entry.kind, entry.value))
-    .join("\n");
+  return joinTerminalText(
+    LITERAL_REPORT_LINE_SEPARATOR,
+    [...values.values()]
+      .sort((left, right) => compareAsciiStrings(left.value, right.value) || compareAsciiStrings(left.kind, right.kind))
+      .map((entry) => composeLiteralValue(entry.kind, entry.value)),
+  );
 }
 
 function formatLiteralCommandOutput(
   findings: DetectionResult,
   options: LiteralCommandOptions,
-): string {
+): TerminalText {
   const totalProblems = countLiteralProblems(findings);
 
   if (totalProblems === 0 && options.kind !== undefined) {
-    return formatNoProblemsOfKind(options.kind);
+    return authoredText(formatNoProblemsOfKind(options.kind));
   }
 
   if (totalProblems === 0) {
-    return options.filesWithProblems || options.literals || options.verbose ? "" : NO_PROBLEMS_MESSAGE;
+    return authoredText(
+      options.filesWithProblems || options.literals || options.verbose ? "" : NO_PROBLEMS_MESSAGE,
+    );
   }
 
   if (options.filesWithProblems) return formatFilesWithProblems(findings);
@@ -343,23 +381,25 @@ function toLiteralProblems(findings: DetectionResult): readonly LiteralProblem[]
 }
 
 function appendVerboseSection(
-  lines: string[],
+  lines: TerminalText[],
   heading: string,
   problems: readonly LiteralProblem[],
 ): void {
   const sortedProblems = [...problems].sort(compareLiteralProblems);
   if (sortedProblems.length === 0) return;
 
-  lines.push(heading);
+  lines.push(authoredText(heading));
   let currentFile: string | undefined;
   for (const problem of sortedProblems) {
     if (problem.test.file !== currentFile) {
-      lines.push(problem.test.file);
+      lines.push(externalValue(problem.test.file));
       currentFile = problem.test.file;
     }
     lines.push(
-      `  line ${problem.test.line}: ${formatLiteralValue(problem.literalKind, problem.value)} also in ${
-        problem.related.map(formatLoc).join(", ")
+      terminal`${authoredText(LITERAL_VERBOSE_PROBLEM_INDENT)}${authoredText(VERBOSE_PROBLEM_LINE_PREFIX)}${
+        authoredText(String(problem.test.line))
+      }: ${composeLiteralValue(problem.literalKind, problem.value)} also in ${
+        joinTerminalText(LITERAL_RELATED_LOCATION_SEPARATOR, problem.related.map(composeLiteralLocation))
       }`,
     );
   }
@@ -394,10 +434,15 @@ function compareLiteralProblems(left: LiteralProblem, right: LiteralProblem): nu
   );
 }
 
-function formatLiteralValue(kind: LiteralKind, value: string): string {
-  return kind === "string" ? `"${value}"` : value;
+/**
+ * One detected literal as a report segment. The quoting is spx's own notation; the value itself
+ * was read out of a product source file, so it is escaped where it is embedded.
+ */
+function composeLiteralValue(kind: LiteralKind, value: string): TerminalText {
+  return kind === LITERAL_STRING_KIND ? terminal`"${externalValue(value)}"` : externalValue(value);
 }
 
-function formatLoc(loc: LiteralLocation): string {
-  return `${loc.file}:${loc.line}`;
+/** A finding's location: the separator is spx's, the file path and line are readings. */
+function composeLiteralLocation(loc: LiteralLocation): TerminalText {
+  return terminal`${externalValue(loc.file)}:${authoredText(String(loc.line))}`;
 }

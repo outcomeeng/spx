@@ -9,6 +9,7 @@
 import { isAbsolute, join } from "node:path";
 
 import { resolveConfig } from "@/config/index";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -36,7 +37,7 @@ import {
   VALIDATION_SKIP_LABELS,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import type { MarkdownCommandOptions, ValidationCommandResult } from "./types";
+import { type MarkdownCommandOptions, type ValidationCommandResult, validationReport } from "./types";
 
 /**
  * Run markdown validation.
@@ -64,6 +65,7 @@ export const MARKDOWN_COMMAND_OUTPUT = {
   PROBLEM_TERM: VALIDATION_PROBLEM_TERMS.SINGULAR,
   SKIPPED_FILE_SCOPE_PREFIX: "Markdown skipped file scope",
 } as const;
+const MARKDOWN_ERROR_LINE_INDENT = "  ";
 const MARKDOWN_CONFIG_ERROR_MESSAGE = formatValidationConfigProblemMessage(
   VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN,
   "configuration error",
@@ -77,6 +79,7 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
     return {
       exitCode: 1,
       output: `${MARKDOWN_CONFIG_ERROR_MESSAGE} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(MARKDOWN_CONFIG_ERROR_MESSAGE)} — ${externalValue(loaded.error)}`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -104,16 +107,16 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
       .map((resolution) => resolution.skipped)
       .filter((skipped): skipped is MarkdownSkippedValidationTarget => skipped !== undefined);
   const skippedOutput = quiet ? [] : skippedTargets.map(formatSkippedFileScope);
+  const skippedSegments = quiet ? [] : skippedTargets.map(composeSkippedFileScope);
 
   if (targets.length === 0) {
-    const reason = files && files.length > 0
-      ? VALIDATION_SKIP_LABELS.MARKDOWN_NO_SCOPE_REASON
-      : VALIDATION_SKIP_LABELS.MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON;
-    const output = quiet ? "" : [
-      ...skippedOutput,
-      `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: skipped (${reason})`,
-    ].join("\n");
-    return { exitCode: 0, output, durationMs: Date.now() - startTime };
+    return markdownNoTargetsResult({
+      hasExplicitFiles: Boolean(files && files.length > 0),
+      skippedOutput,
+      skippedSegments,
+      quiet,
+      durationMs: Date.now() - startTime,
+    });
   }
 
   // Run markdown validation
@@ -126,7 +129,28 @@ export async function markdownCommand(options: MarkdownCommandOptions): Promise<
   });
   const durationMs = Date.now() - startTime;
 
-  return formatMarkdownResult(result, skippedOutput, quiet, durationMs);
+  return formatMarkdownResult(result, skippedOutput, skippedSegments, quiet, durationMs);
+}
+
+interface MarkdownNoTargetsOptions {
+  readonly hasExplicitFiles: boolean;
+  readonly skippedOutput: readonly string[];
+  readonly skippedSegments: readonly TerminalText[];
+  readonly quiet: boolean | undefined;
+  readonly durationMs: number;
+}
+
+function markdownNoTargetsResult(options: MarkdownNoTargetsOptions): ValidationCommandResult {
+  const { hasExplicitFiles, skippedOutput, skippedSegments, quiet, durationMs } = options;
+  const reason = hasExplicitFiles
+    ? VALIDATION_SKIP_LABELS.MARKDOWN_NO_SCOPE_REASON
+    : VALIDATION_SKIP_LABELS.MARKDOWN_NO_DEFAULT_DIRECTORIES_REASON;
+  const skipLine = `${VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN}: skipped (${reason})`;
+  const output = quiet ? "" : [...skippedOutput, skipLine].join("\n");
+  const terminalText = quiet
+    ? authoredText("")
+    : validationReport([...skippedSegments, authoredText(skipLine)]);
+  return { exitCode: 0, output, terminalText, durationMs };
 }
 
 function markdownValidationOperandPath(productDir: string, filePath: string): string {
@@ -148,25 +172,41 @@ function formatSkippedFileScope(target: MarkdownSkippedValidationTarget): string
   return `${MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX}: ${target.path} (${target.reason})`;
 }
 
+/** The same skip line as terminal text: the label is spx's, the path came from the caller. */
+function composeSkippedFileScope(target: MarkdownSkippedValidationTarget): TerminalText {
+  return terminal`${authoredText(MARKDOWN_COMMAND_OUTPUT.SKIPPED_FILE_SCOPE_PREFIX)}: ${externalValue(target.path)} (${
+    externalValue(target.reason)
+  })`;
+}
+
 function formatMarkdownResult(
   result: Awaited<ReturnType<typeof validateMarkdown>>,
   skippedOutput: readonly string[],
+  skippedSegments: readonly TerminalText[],
   quiet: boolean | undefined,
   durationMs: number,
 ): ValidationCommandResult {
   if (result.success) {
     const output = quiet ? "" : [...skippedOutput, MARKDOWN_COMMAND_OUTPUT.NO_ISSUES].join("\n");
-    return { exitCode: 0, output, durationMs };
+    const terminalText = quiet
+      ? authoredText("")
+      : validationReport([...skippedSegments, authoredText(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES)]);
+    return { exitCode: 0, output, terminalText, durationMs };
   }
   const errorLines = result.errors.map(
-    (error) => `  ${error.file}:${error.line} ${error.detail}`,
+    (error) => `${MARKDOWN_ERROR_LINE_INDENT}${error.file}:${error.line} ${error.detail}`,
   );
-  const output = [
-    ...skippedOutput,
-    formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN, {
-      count: result.errors.length,
-    }),
-    ...errorLines,
-  ].join("\n");
-  return { exitCode: 1, output, durationMs };
+  const problemsFound = formatValidationProblemsFoundMessage(VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN, {
+    count: result.errors.length,
+  });
+  const output = [...skippedOutput, problemsFound, ...errorLines].join("\n");
+  // The indent and separators are spx's line structure; the file path, line, and markdownlint
+  // detail are readings from outside the product, so each is escaped where it is embedded.
+  const errorSegments = result.errors.map((error) =>
+    terminal`${authoredText(MARKDOWN_ERROR_LINE_INDENT)}${externalValue(error.file)}:${
+      authoredText(String(error.line))
+    } ${externalValue(error.detail)}`
+  );
+  const terminalText = validationReport([...skippedSegments, authoredText(problemsFound), ...errorSegments]);
+  return { exitCode: 1, output, terminalText, durationMs };
 }

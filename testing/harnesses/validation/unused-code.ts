@@ -11,7 +11,7 @@ import {
   VALIDATION_STAGE_DISPLAY_NAMES,
   VALIDATION_STREAMED_STAGE_RESULT,
 } from "@/commands/validation/messages";
-import { VALIDATION_STREAMED_TERMINAL_OUTPUT, type ValidationStageCompletion } from "@/commands/validation/types";
+import type { ValidationStageCompletion } from "@/commands/validation/types";
 import { VALIDATION_KNIP_SUBSECTION } from "@/validation/config/descriptor";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import type { ValidationStageContext } from "@/validation/languages/types";
@@ -380,9 +380,7 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           expect(stageCompletions).toHaveLength(validationPipelineStages.length);
           expect(knipCompletions).toHaveLength(1);
           expect(knipCompletions[0]?.result.output).toBe(failureDetail);
-          expect(knipCompletions[0]?.result.terminalOutput).toBe(
-            VALIDATION_STREAMED_TERMINAL_OUTPUT,
-          );
+          expect(knipCompletions[0]?.result.streamedDetail).toBe(true);
           expect(knipCompletions[0]?.output).toContain(VALIDATION_STREAMED_STAGE_RESULT);
           expect(result.output.split(VALIDATION_STREAMED_STAGE_RESULT)).toHaveLength(2);
           const terminalSummary = formatSummary({
@@ -390,7 +388,7 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
             totalDurationMs: result.durationMs ?? 0,
           });
           expect(result.output).not.toContain(terminalSummary);
-          expect(result.terminalOutput).toBe(`\n${terminalSummary}`);
+          expect(result.terminalText).toBe(`\n${terminalSummary}`);
         },
       );
     });
@@ -419,9 +417,7 @@ export const unusedCodeComplianceCases = collectHarnessTestCases(() => {
           expect(knipCompletions).toHaveLength(1);
           expect(knipCompletions[0]?.result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
           expect(knipCompletions[0]?.result.output).toContain(successDetail);
-          expect(knipCompletions[0]?.result.terminalOutput).toBe(
-            VALIDATION_STREAMED_TERMINAL_OUTPUT,
-          );
+          expect(knipCompletions[0]?.result.streamedDetail).toBe(true);
           expect(knipCompletions[0]?.output).toContain(VALIDATION_STREAMED_STAGE_RESULT);
           expect(result.output.split(VALIDATION_STREAMED_STAGE_RESULT)).toHaveLength(2);
         },

@@ -8,6 +8,7 @@
  * the surrounding repository's formatting state.
  */
 
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { type ChildProcess, execFile, type SpawnOptions } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -595,10 +596,10 @@ async function runParticipationOverrideScenario(): Promise<void> {
     ...formattingStage,
     run: async () => {
       executionCount += 1;
-      return {
+      return authoredValidationResult({
         exitCode: FORMATTING_VALIDATION_DATA.passExitCode,
         output: FORMATTING_COMMAND_OUTPUT.NO_ISSUES,
-      };
+      });
     },
   };
 

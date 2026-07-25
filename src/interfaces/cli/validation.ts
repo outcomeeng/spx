@@ -39,7 +39,13 @@ import {
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
@@ -145,10 +151,10 @@ export interface ValidationDomainOptions {
 }
 
 interface ValidationCliResult {
-  readonly output: string;
   readonly exitCode: number;
+  readonly terminalText: TerminalText;
   readonly outputTarget?: ValidationOutputTarget;
-  readonly terminalOutput?: string;
+  readonly streamedDetail?: boolean;
 }
 
 interface LiteralCommandHandlerOptions extends CommonValidationOptions {
@@ -180,15 +186,23 @@ const defaultValidationCommandHandlers: ValidationCommandHandlers = {
   all: allCommand,
 };
 
+/**
+ * Writes a validation command's own report and exits with its code.
+ *
+ * The payload is always a report spx composed — a stage verdict, a skip line, a problem list, or
+ * an aggregate summary — never a foreign document. Whatever tool output, caught error, or path it
+ * quotes was escaped by the command that built it, at the point that value was embedded. A stage
+ * whose subprocess detail already reached the terminal through the pass-through relay writes
+ * nothing further here, so the tool's own bytes are never repeated as a composed reading.
+ */
 function emitValidationResult(result: ValidationCliResult, io: CliIo): never {
-  const output = result.terminalOutput ?? result.output;
-  if (output.length > 0) {
+  if (result.streamedDetail !== true && result.terminalText.length > 0) {
     const outputTarget = result.outputTarget
       ?? (result.exitCode === 0 ? VALIDATION_OUTPUT_TARGET.STDOUT : VALIDATION_OUTPUT_TARGET.STDERR);
     const writeOutput = outputTarget === VALIDATION_OUTPUT_TARGET.STDOUT
       ? io.writeStdout
       : io.writeStderr;
-    writeOutput(`${output}\n`);
+    writeOutput(renderTerminalText(terminal`${result.terminalText}\n`));
   }
   return io.exit(result.exitCode);
 }

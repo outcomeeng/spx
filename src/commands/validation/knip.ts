@@ -4,6 +4,7 @@
  * Runs knip to find unused exports, dependencies, and files.
  */
 import { resolveConfig } from "@/config/index";
+import { authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   type ValidationConfig,
@@ -21,7 +22,13 @@ import {
   VALIDATION_COMMAND_OUTPUT,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "./messages";
-import { type KnipCommandOptions, streamedValidationTerminalOutput, type ValidationCommandResult } from "./types";
+import {
+  capturedToolOutput,
+  type KnipCommandOptions,
+  streamedValidationDetail,
+  type ValidationCommandResult,
+  validationReport,
+} from "./types";
 
 export interface KnipCommandDeps {
   readonly detectTypeScript: typeof detectTypeScript;
@@ -61,9 +68,11 @@ export async function knipCommand(
   const startTime = Date.now();
 
   if (!deps.detectTypeScript(cwd).present) {
+    const output = quiet ? "" : KNIP_TYPESCRIPT_ABSENT_MESSAGE;
     return {
       exitCode: 0,
-      output: quiet ? "" : KNIP_TYPESCRIPT_ABSENT_MESSAGE,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -73,6 +82,9 @@ export async function knipCommand(
     return {
       exitCode: 1,
       output: `${VALIDATION_COMMAND_OUTPUT.KNIP_CONFIG_ERROR} — ${loaded.error}`,
+      terminalText: terminal`${authoredText(VALIDATION_COMMAND_OUTPUT.KNIP_CONFIG_ERROR)} — ${
+        externalValue(loaded.error)
+      }`,
       durationMs: Date.now() - startTime,
     };
   }
@@ -80,7 +92,7 @@ export async function knipCommand(
 
   if (!validationConfig.knip.enabled) {
     const output = quiet ? "" : VALIDATION_COMMAND_OUTPUT.KNIP_DISABLED;
-    return { exitCode: 0, output, durationMs: Date.now() - startTime };
+    return { exitCode: 0, output, terminalText: authoredText(output), durationMs: Date.now() - startTime };
   }
 
   // Discover knip
@@ -90,7 +102,12 @@ export async function knipCommand(
   });
   if (!toolResult.found) {
     const skipMessage = formatSkipMessage(KNIP_VALIDATION_STEP_NAME, toolResult);
-    return { exitCode: 0, output: skipMessage, durationMs: Date.now() - startTime };
+    return {
+      exitCode: 0,
+      output: skipMessage,
+      terminalText: authoredText(skipMessage),
+      durationMs: Date.now() - startTime,
+    };
   }
 
   const scopeConfig = resolveTypeScriptValidationScope({
@@ -105,9 +122,11 @@ export async function knipCommand(
     scopeConfig,
   );
   if (noTargetsMessage !== undefined) {
+    const output = quiet ? "" : noTargetsMessage;
     return {
       exitCode: 0,
-      output: quiet ? "" : noTargetsMessage,
+      output,
+      terminalText: authoredText(output),
       durationMs: Date.now() - startTime,
     };
   }
@@ -125,17 +144,32 @@ export async function knipCommand(
   );
   const durationMs = Date.now() - startTime;
 
-  // Map result to command output
+  return formatKnipResult(result, quiet, durationMs, json, streamedPipelineOutput);
+}
+
+function formatKnipResult(
+  result: Awaited<ReturnType<typeof validateKnip>>,
+  quiet: boolean | undefined,
+  durationMs: number,
+  json: boolean | undefined,
+  streamedPipelineOutput: boolean | undefined,
+): ValidationCommandResult {
   if (result.success) {
     const output = quiet
       ? ""
       : [VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS, result.output].filter((line) => line !== undefined && line.length > 0)
         .join("\n");
-    const terminalOutput = streamedValidationTerminalOutput(result.output, json, streamedPipelineOutput);
-    return { exitCode: 0, output, terminalOutput, durationMs };
-  } else {
-    const output = result.error ?? VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE;
-    const terminalOutput = streamedValidationTerminalOutput(result.error, json, streamedPipelineOutput);
-    return { exitCode: 1, output, terminalOutput, durationMs };
+    const terminalText = quiet ? authoredText("") : validationReport([
+      authoredText(VALIDATION_COMMAND_OUTPUT.KNIP_SUCCESS),
+      capturedToolOutput(result.output),
+    ]);
+    const streamedDetail = streamedValidationDetail(result.output, json, streamedPipelineOutput);
+    return { exitCode: 0, output, terminalText, streamedDetail, durationMs };
   }
+  const output = result.error ?? VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE;
+  const terminalText = result.error === undefined
+    ? authoredText(VALIDATION_COMMAND_OUTPUT.KNIP_FAILURE)
+    : externalValue(result.error);
+  const streamedDetail = streamedValidationDetail(result.error, json, streamedPipelineOutput);
+  return { exitCode: 1, output, terminalText, streamedDetail, durationMs };
 }

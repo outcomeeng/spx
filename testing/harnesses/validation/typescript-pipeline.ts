@@ -2,6 +2,7 @@ import { allCommand } from "@/commands/validation/all";
 import { formatTypeScriptAbsentSkipMessage, formatValidationStageSkipOutput } from "@/commands/validation/messages";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
+import { authoredValidationResult } from "@testing/generators/validation/command-result";
 import { validationAllTypeScriptSubprocessScenarios } from "@testing/generators/validation/validation";
 import {
   expectValidationSubprocessResult,
@@ -62,7 +63,7 @@ export const typescriptValidationComplianceCases = collectHarnessTestCases(() =>
           },
           run: async () => {
             executionCount += 1;
-            return { exitCode: 0, output: registeredStage.name };
+            return authoredValidationResult({ exitCode: 0, output: registeredStage.name });
           },
         };
 
