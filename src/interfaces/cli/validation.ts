@@ -500,16 +500,19 @@ function validationSubprocessOutputStreams(
   json?: boolean,
 ): ValidationSubprocessOutputStreams | undefined {
   if (json === true) return discardValidationSubprocessOutputStreams;
+  // These chunks are the tool's own bytes as it emits them — tsc's caret diagnostics, eslint's
+  // colour, dprint's diff. They are the foreign document itself rather than a report about it,
+  // so both streams relay unchanged; escaping here would mangle every tool's output.
   return {
     stdout: {
       write: (chunk) => {
-        io.writeStdout(Buffer.from(chunk).toString());
+        io.writePassThrough(Buffer.from(chunk).toString());
         return true;
       },
     },
     stderr: {
       write: (chunk) => {
-        io.writeStderr(Buffer.from(chunk).toString());
+        io.writePassThroughError(Buffer.from(chunk).toString());
         return true;
       },
     },
