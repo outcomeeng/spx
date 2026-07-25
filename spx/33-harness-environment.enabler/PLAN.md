@@ -61,7 +61,7 @@ The PDR changeset aligns the first affected declarations under `spx/16-config.en
 
 ### Remaining order
 
-1. Route every deterministic lower-spec assertion through `/test` and establish its declared evidence without weakening it to agentic audit. These capability-lifecycle declarations are held back until their evidence lands, so no `[test]` link names a file whose predicate is absent:
+1. Route every deterministic lower-spec assertion through `/test` and establish its declared evidence without weakening it to agentic audit. `spx/33-harness-environment.enabler/21-agent-instructions.enabler` and `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler` carry `spx/EXCLUDE` entries while their `[test]` links name predicates that are absent; each entry is removed as its node's evidence lands. The declarations awaiting evidence are:
    - Coding-agent participation requires explicit configuration enablement and availability detection together; detection alone never opts an agent in.
    - Resolved harness capability intent carries declared sources and exact package versions for deterministic native projection to each participating coding agent.
    - Status observation and apply reconciliation derive from the same resolved native projection for each explicitly enabled and available coding agent, while status performs no writes.

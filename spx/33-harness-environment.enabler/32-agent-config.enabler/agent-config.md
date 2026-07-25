@@ -16,5 +16,5 @@ CAN use exact configured local projections without manual setup drift or user-sc
 
 - ALWAYS: Claude Code and Codex native settings are modeled as coding-agent outputs under one harness-environment owner ([test](tests/agent-config.compliance.l1.test.ts))
 - ALWAYS: coding-agent config outputs that embed the absolute `productDir` are local coding-agent state, never tracked product files ([audit])
-- NEVER: coding-agent config reconciliation selects capability versions, changes methodology identity, or mutates user-scope coding-agent configuration; it consumes resolved product-scoped projections
+- NEVER: coding-agent config reconciliation selects capability versions or changes methodology identity; it consumes resolved product-scoped projections ([audit])
 - NEVER: mix invoking-agent state with a hermetic agentic verification run's execution state ([test](tests/agent-config.compliance.l1.test.ts))
