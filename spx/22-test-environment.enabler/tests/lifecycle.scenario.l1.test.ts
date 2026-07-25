@@ -12,6 +12,8 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — startup", () => {
@@ -34,12 +36,16 @@ describe("withTestEnv — startup", () => {
   });
 
   it("invokes the callback with an env object exposing productDir and write helpers", async () => {
+    const generated = sampleConfigTestValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      expect(env.productDir).toBeDefined();
-      expect(env.writeNode).toBeDefined();
-      expect(env.writeDecision).toBeDefined();
-      expect(env.writeRaw).toBeDefined();
-      expect(env.readFile).toBeDefined();
+      await env.writeNode(generated.node.fixturePath, generated.node.contents);
+      await env.writeDecision(generated.decision.fixturePath, generated.decision.contents);
+      await env.writeRaw(generated.raw.fixturePath, generated.raw.contents);
+
+      expect(await env.readFile(generated.node.fixturePath)).toBe(generated.node.contents);
+      expect(await env.readFile(generated.decision.fixturePath)).toBe(generated.decision.contents);
+      expect(await env.readFile(generated.raw.fixturePath)).toBe(generated.raw.contents);
+      expect(env.productDir.startsWith(tmpdir())).toBe(true);
     });
   });
 

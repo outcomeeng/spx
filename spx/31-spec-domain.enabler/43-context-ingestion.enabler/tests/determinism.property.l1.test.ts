@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import * as fc from "fast-check";
 
+import { arbitraryDecisionPath, arbitraryNodePath } from "@testing/generators/test-environment/test-environment";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { arbitraryDecisionPath, arbitraryNodePath, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
   contextTextCommand,
