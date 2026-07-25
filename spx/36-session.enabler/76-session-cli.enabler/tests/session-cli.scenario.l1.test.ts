@@ -2,7 +2,7 @@ import { archiveCommand, SESSION_ARCHIVE_OUTPUT } from "@/commands/session/archi
 import { deleteCommand, SESSION_DELETE_OUTPUT } from "@/commands/session/delete";
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand, SESSION_RELEASE_OUTPUT } from "@/commands/session/release";
-import { showCommand } from "@/commands/session/show";
+import { showReport } from "@/commands/session/show";
 import { BatchError } from "@/domains/session/batch";
 import { SESSION_SHOW_LABEL } from "@/domains/session/show";
 import {
@@ -165,7 +165,7 @@ describe("batch show", () => {
     const priority2 = SESSION_PRIORITY.LOW;
     await harness.writeSession(TODO, id1, { priority: priority1 });
     await harness.writeSession(TODO, id2, { priority: priority2 });
-    const output = await showCommand({ sessionIds: [id1, id2], sessionsDir: harness.sessionsDir });
+    const output = await showReport({ sessionIds: [id1, id2], sessionsDir: harness.sessionsDir });
     expect(output).toContain(id1);
     expect(output).toContain(id2);
     expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority1}`);
@@ -176,7 +176,7 @@ describe("batch show", () => {
     const priority = SESSION_PRIORITY.HIGH;
     await harness.writeSession(TODO, id, { priority });
 
-    const output = await showCommand({ sessionIds: [id], sessionsDir: harness.sessionsDir });
+    const output = await showReport({ sessionIds: [id], sessionsDir: harness.sessionsDir });
 
     expect(output).toContain(id);
     expect(output).toContain(`${SESSION_SHOW_LABEL.PRIORITY}: ${priority}`);

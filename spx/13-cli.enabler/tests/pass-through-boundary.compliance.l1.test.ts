@@ -44,6 +44,22 @@ async function runVerb(payload: string, verb: string): Promise<string> {
   return captured.join("");
 }
 
+/** Runs a verb with each channel redirected to its own buffer, so their destinations are distinguishable. */
+async function runVerbWithSplitChannels(
+  payload: string,
+  verb: string,
+): Promise<{ composed: string; relayed: string }> {
+  const composed: string[] = [];
+  const relayed: string[] = [];
+  const program = createCliProgram({
+    domains: [channelDomain(payload)],
+    writeStdout: (output) => composed.push(output),
+    writePassThrough: (output) => relayed.push(output),
+  });
+  await program.parseAsync([verb], { from: SPX_COMMANDER_PARSE_SOURCE });
+  return { composed: composed.join(""), relayed: relayed.join("") };
+}
+
 describe("the two standard-output channels", () => {
   it("relays a document byte-for-byte while composing the same bytes escapes them", () => {
     assertProperty(arbitraryTerminalUnsafeText(), async (payload) => {
@@ -66,6 +82,18 @@ describe("the two standard-output channels", () => {
       const relayed = await runVerb(payload, relayVerb);
 
       expect(relayed).toBe(payload);
+    }, { level: PROPERTY_LEVEL.L1 });
+  });
+
+  it("sends relayed output to a separately redirected relay instead of the composed destination", () => {
+    assertProperty(arbitraryTerminalUnsafeText(), async (payload) => {
+      // This is the "unless it redirects the relay separately" carve-out. A caller that sets both
+      // destinations gets them honoured independently, so the relay must not fall back to the
+      // composed destination once it has one of its own.
+      const { composed, relayed } = await runVerbWithSplitChannels(payload, relayVerb);
+
+      expect(relayed).toBe(payload);
+      expect(composed).toHaveLength(0);
     }, { level: PROPERTY_LEVEL.L1 });
   });
 });

@@ -19,7 +19,7 @@ import { handoffCommand } from "@/commands/session/handoff";
 import { listCommand, SESSION_LIST_EMPTY_TEXT, SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { pickupCommand } from "@/commands/session/pickup";
 import { releaseCommand } from "@/commands/session/release";
-import { showCommand } from "@/commands/session/show";
+import { showDocument } from "@/commands/session/show";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { AGENT_SESSION_ENV } from "@/domains/session/agent-session";
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
@@ -1643,7 +1643,7 @@ describe("listCommand JSON records and field projection", () => {
   });
 });
 
-describe("showCommand JSON output", () => {
+describe("showDocument JSON output", () => {
   let harness: SessionHarness;
 
   beforeEach(async () => {
@@ -1678,7 +1678,7 @@ describe("showCommand JSON output", () => {
     const id = sampleSessionId();
     await harness.writeSession(TODO, id);
 
-    const output = await showCommand({
+    const output = await showDocument({
       sessionIds: [id],
       sessionsDir: harness.sessionsDir,
       format: SESSION_LIST_FORMAT.JSON,
@@ -1697,7 +1697,7 @@ describe("showCommand JSON output", () => {
       await harness.writeSession(TODO, id);
     }
 
-    const output = await showCommand({
+    const output = await showDocument({
       sessionIds: ids,
       sessionsDir: harness.sessionsDir,
       format: SESSION_LIST_FORMAT.JSON,
@@ -1725,14 +1725,14 @@ describe("showCommand JSON output", () => {
     await harness.writeSession(TODO, bareId);
 
     const carried = JSON.parse(
-      await showCommand({
+      await showDocument({
         sessionIds: [carriedId],
         sessionsDir: harness.sessionsDir,
         format: SESSION_LIST_FORMAT.JSON,
       }),
     ) as Record<string, unknown>;
     const bare = JSON.parse(
-      await showCommand({ sessionIds: [bareId], sessionsDir: harness.sessionsDir, format: SESSION_LIST_FORMAT.JSON }),
+      await showDocument({ sessionIds: [bareId], sessionsDir: harness.sessionsDir, format: SESSION_LIST_FORMAT.JSON }),
     ) as Record<string, unknown>;
 
     expect(carried[SESSION_RECORD_FIELD.AGENT_SESSION_ID]).toBe(agentSessionId);
@@ -1745,7 +1745,7 @@ describe("showCommand JSON output", () => {
     const absentId = sampleSessionId();
 
     await expect(
-      showCommand({
+      showDocument({
         sessionIds: [absentId],
         sessionsDir: harness.sessionsDir,
         format: SESSION_LIST_FORMAT.JSON,
@@ -1763,7 +1763,7 @@ describe("showCommand JSON output", () => {
     await harness.writeSession(TODO, presentId);
 
     await expect(
-      showCommand({
+      showDocument({
         sessionIds: [presentId, absentId],
         sessionsDir: harness.sessionsDir,
         format: SESSION_LIST_FORMAT.JSON,
