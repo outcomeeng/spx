@@ -31,7 +31,9 @@ This node's terminal output path passes values that originated outside the produ
 **Resolved sites:**
 
 - `src/interfaces/cli/spec.ts` — `writeOutput` and the error handler — node directory names, traversal warnings, and caught-error messages embedding the argv target, composed and escaped
-- `src/interfaces/cli/spec.ts` — the context-bundle document write — spec file content, relayed byte-for-byte through the pass-through channel so the bundle reaches its reader unaltered
+- `src/interfaces/cli/spec.ts` — `spec context show` without `--json` — the manifest is a report the product composes, so its `Targets`, `Product root`, and `Methodology` labels are authored while the argv operands and node paths beside them are escaped where they are embedded
+- `src/interfaces/cli/spec.ts` — `spec context show --json` — the bundle is data for a machine, and with `--content` it carries each read document's exact bytes, so it relays byte-for-byte through the pass-through channel
+- `src/interfaces/cli/spec.ts` — the `--understand` methodology tail — each methodology body is a document read for its exact bytes, so it relays on its own write after the composed manifest rather than mixing the two claims in one write
 
 **Impact:** both claims rest on the primitive's own evidence under [`spx/13-cli.enabler`](../../13-cli.enabler/cli.md). A later change that hands a finished string to the composed write, or relays a composed report, fails nothing this node owns, because `spx/no-unescaped-terminal-text` reports a value embedded in a write argument and cannot see a bare identifier handed to one.
 
