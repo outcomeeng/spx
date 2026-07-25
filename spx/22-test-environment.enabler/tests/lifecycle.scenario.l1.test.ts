@@ -96,7 +96,7 @@ describe("withTestEnv — cleanup on throw", () => {
 
   it("propagates non-Error rejections unchanged while still cleaning up", async () => {
     let productDir = "";
-    const rejection = { code: "NON_ERROR", detail: 42 } as const;
+    const rejection = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.nonErrorRejection());
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {

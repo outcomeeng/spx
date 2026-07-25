@@ -206,7 +206,7 @@ function nodeSpecPath(
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     parent === undefined ? "" : nodeDirectoryName(registry, parent),
     nodeDirectoryName(registry, node),
-    `${node.slug}.md`,
+    `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
   );
 }
 
@@ -219,7 +219,7 @@ function decisionPath(
   return joinSpecTreeFixturePath(
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     nodeDirectoryName(registry, parent),
-    `${decision.order}-${decision.slug}${definition.suffix}`,
+    `${decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${decision.slug}${definition.suffix}`,
   );
 }
 
@@ -228,7 +228,7 @@ function nodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = getKindDefinition(node.kind, registry);
-  return `${node.order}-${node.slug}${definition.suffix}`;
+  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 function nodeTitle(node: RepresentativeSpecTreeFixture["root"]): string {
@@ -244,7 +244,7 @@ function specContent(title: string): string {
 }
 
 function joinSpecTreeFixturePath(...segments: readonly string[]): string {
-  return segments.filter((segment) => segment.length > 0).join("/");
+  return segments.filter((segment) => segment.length > 0).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 }
 
 function resolvePath(productDir: string, relativePath: string): string {

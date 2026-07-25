@@ -50,6 +50,11 @@ export type GeneratedTestEnvironmentLifecycleCase = {
   readonly outcome: (typeof TEST_ENVIRONMENT_CALLBACK_OUTCOME)[keyof typeof TEST_ENVIRONMENT_CALLBACK_OUTCOME];
 };
 
+export type GeneratedNonErrorRejection = {
+  readonly code: string;
+  readonly detail: number;
+};
+
 export type GeneratedContextDeterminismCase = {
   readonly extraDecisionFile: string;
   readonly extraNodeDirectory: string;
@@ -108,7 +113,7 @@ function arbitraryEntryFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<Sp
       fc.constantFrom(...entries),
     )
     .map(([index, slug, title, entry]) => {
-      const path = `${index}-${slug}${entry.suffix}`;
+      const path = `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${entry.suffix}`;
       return {
         contents: `# ${title}\n`,
         fixturePath: entry.category === SPEC_TREE_CONFIG.CATEGORY.NODE
@@ -208,6 +213,14 @@ function isolationCase(): fc.Arbitrary<GeneratedTestEnvironmentIsolationCase> {
     }));
 }
 
+/** A rejection value that is not an Error, for the path where the callback rejects with a plain value. */
+function nonErrorRejection(): fc.Arbitrary<GeneratedNonErrorRejection> {
+  return fc.record({
+    code: generatedSegment(),
+    detail: fc.integer(),
+  });
+}
+
 function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
   return fc
     .record({
@@ -240,4 +253,5 @@ export const TEST_ENVIRONMENT_GENERATOR = {
   nodeWriteCase,
   isolationCase,
   lifecycleCase,
+  nonErrorRejection,
 } as const;

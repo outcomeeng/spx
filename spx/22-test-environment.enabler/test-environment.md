@@ -18,7 +18,7 @@ CAN construct real filesystem fixtures without hand-written directory trees, man
 
 ### Properties
 
-- Temp directories created by the environment are always removed: cleanup runs exactly once per callback invocation, on both the return and throw paths ([test](tests/lifecycle.property.l1.test.ts))
+- Temp directories created by the environment are always removed: whether the callback returns or throws, and however many times it suspends, the directory is gone once the environment completes ([test](tests/lifecycle.property.l1.test.ts))
 - Concurrent environments are independent: two callbacks running in parallel receive distinct temp directories and one's writes do not appear in the other ([test](tests/isolation.property.l1.test.ts))
 - Generator output is valid by construction: every path or tree produced by the environment's generators parses cleanly through the corresponding spec-tree read operation ([test](tests/generators.property.l1.test.ts))
 
