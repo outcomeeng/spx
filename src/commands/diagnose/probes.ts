@@ -617,11 +617,6 @@ async function configuredVersionDirectory(
   );
 }
 
-interface TrackedSpecTreeReading {
-  readonly errored: boolean;
-  readonly tracked: boolean;
-}
-
 /**
  * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
  * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
@@ -630,20 +625,21 @@ interface TrackedSpecTreeReading {
  * Tracked means git-tracked, the same meaning the rest of the product gives the word: a spec tree
  * exists as product truth once git carries a file under it. A directory present on disk but absent
  * from the index is a product still bootstrapping — exactly the case the sentinel is intended to
- * cover — so presence alone must not make methodology identity mandatory. Outside a git repository
- * no tracked tree can be established, so the reading is false rather than admitting every path.
+ * cover — so presence alone must not make methodology identity mandatory. Outside a git repository,
+ * and on any git failure, `listTrackedPaths` yields no paths, which reads as no tracked tree rather
+ * than as a distinct error: an unestablished tree cannot make methodology identity mandatory.
  */
-async function trackedSpecTreeReading(
+async function hasTrackedSpecTree(
   productDir: string,
   deps: GitDependencies = defaultGitDependencies,
-): Promise<TrackedSpecTreeReading> {
+): Promise<boolean> {
   const trackedPaths = await listTrackedPaths(productDir, deps);
-  if (trackedPaths === undefined) return { errored: false, tracked: false };
+  if (trackedPaths === undefined) return false;
   const prefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
   for (const trackedPath of trackedPaths) {
-    if (trackedPath.startsWith(prefix)) return { errored: false, tracked: true };
+    if (trackedPath.startsWith(prefix)) return true;
   }
-  return { errored: false, tracked: false };
+  return false;
 }
 
 /**
@@ -660,9 +656,8 @@ export function createMethodologyContextProbe(
       const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
       const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
       const reading = await configuredVersionDirectory(sourcePaths, config);
-      const tracked = await trackedSpecTreeReading(productDir);
-      const trackedSpecTree = tracked.tracked;
-      const errored = reading.errored || tracked.errored;
+      const trackedSpecTree = await hasTrackedSpecTree(productDir);
+      const errored = reading.errored;
       if (reading.version === null) {
         return { source: null, version: null, trackedSpecTree, errored };
       }
