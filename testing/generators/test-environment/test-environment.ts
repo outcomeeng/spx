@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
+  NODE_SUFFIXES,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   specTreeConfigDescriptor,
@@ -16,8 +17,10 @@ const MAX_CALLBACK_AWAITS = 3;
 const MAX_GENERATED_SEGMENT_LENGTH = 20;
 const MIN_PARALLEL_ENVIRONMENTS = 2;
 const GENERATED_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"] as const;
+const MAX_MARKER_LENGTH = 12;
+const PATH_UNSAFE_MARKER_CHARACTERS = /[/\0]/;
 const RAW_FIXTURE_EXTENSION = ".txt";
-const SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
+const PRIOR_SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 
 export const TEST_ENVIRONMENT_CALLBACK_OUTCOME = {
   RETURN: "return",
@@ -116,7 +119,9 @@ function arbitraryEntryFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<Sp
       return {
         contents: `# ${title}\n`,
         fixturePath: entry.category === SPEC_TREE_CONFIG.CATEGORY.NODE
-          ? [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path, `${slug}${SPEC_FILE_SUFFIX}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
+          ? [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path, `${slug}${PRIOR_SPEC_FILE_SUFFIX}`].join(
+            SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+          )
           : [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
         kind: entry.kind,
         path,
@@ -160,17 +165,31 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
     .map((generatedEntries) => ({ entries: generatedEntries }));
 }
 
+/**
+ * The slug inside a node directory name, which the spec file is named after. A node directory is
+ * `{order}{separator}{slug}{kind suffix}`, and its spec file is that same slug plus the spec-file
+ * suffix — a fixture whose basename is unrelated to its directory is valid under no naming schema.
+ */
+function nodeSlug(nodeId: string): string {
+  const separatorIndex = nodeId.indexOf(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR);
+  const afterOrder = separatorIndex === -1 ? nodeId : nodeId.slice(separatorIndex + 1);
+  const kindSuffix = NODE_SUFFIXES.find((candidate) => afterOrder.endsWith(candidate));
+  return kindSuffix === undefined ? afterOrder : afterOrder.slice(0, -kindSuffix.length);
+}
+
 function nodeWriteCase(
   nodePaths: fc.Arbitrary<string>,
 ): fc.Arbitrary<GeneratedNodeWriteCase> {
   return fc
-    .tuple(nodePaths, generatedSegment(), generatedSegment())
-    .map(([nodeId, filename, title]) => ({
+    .tuple(nodePaths, generatedSegment())
+    .map(([nodeId, title]) => ({
       contents:
         `# ${title}\n\nPROVIDES generated node state\nSO THAT test environments\nCAN expose meaningful product fixtures\n`,
-      fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, `${filename}${SPEC_FILE_SUFFIX}`].join(
-        SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
-      ),
+      fixturePath: [
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        nodeId,
+        `${nodeSlug(nodeId)}${PRIOR_SPEC_FILE_SUFFIX}`,
+      ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       nodeId,
     }));
 }
@@ -201,10 +220,14 @@ function isolationCase(): fc.Arbitrary<GeneratedTestEnvironmentIsolationCase> {
   return fc
     .tuple(
       generatedSegment(),
-      fc.uniqueArray(generatedSegment(), {
-        minLength: MIN_PARALLEL_ENVIRONMENTS,
-        maxLength: MAX_PARALLEL_ENVIRONMENTS,
-      }),
+      fc.uniqueArray(
+        fc.string({ minLength: 1, maxLength: MAX_MARKER_LENGTH })
+          .filter((marker) => !PATH_UNSAFE_MARKER_CHARACTERS.test(marker)),
+        {
+          minLength: MIN_PARALLEL_ENVIRONMENTS,
+          maxLength: MAX_PARALLEL_ENVIRONMENTS,
+        },
+      ),
     )
     .map(([sharedName, markers]) => ({
       environments: markers.map((marker) => ({ marker })),

@@ -18,7 +18,7 @@
 - "NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism".
 - "NEVER: read from the production `src/config/registry.ts`".
 
-The remaining two Compliance rules — that both entrypoints take a caller-supplied `Config` and expose `productDir`, and that neither returns a manual-cleanup handle — assert API shape rather than a decidable source boundary, so `[audit]` is their correct mechanism.
+The other three `[audit]` Compliance rules keep that mechanism correctly. Two assert API shape rather than a decidable source boundary: that both entrypoints take a caller-supplied `Config` and expose `productDir`, and that neither returns a manual-cleanup handle. The third — that cleanup runs exactly once from a `finally` block wrapping the callback, with no opt-out — is partly decidable and partly not: a cleanup call appearing in a user test body is a source boundary a rule could decide, while the cardinality has no observable consequence, since `removeTempDir` runs `rm` with `force` and a second cleanup leaves identical state. Splitting it would separate clauses the decision record states together, so it stays whole under `[audit]` until the enforcement rules below exist and can carry the decidable half.
 
 **Impact:** Keeping statically decidable behavior under `[audit]` weakens the spec-test map, and the boundary holds only while a reviewer notices a violation.
 

@@ -61,9 +61,9 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 const sourcePath = sampleGeneratedValue(arbitrarySourceFilePath());
 ```
 
-`sampleGeneratedValue` draws one value with a fixed seed so the test is deterministic but does not repeat the hardcoded value in multiple files. It is the only single-draw sampler: a generator module never declares its own.
+`sampleGeneratedValue` draws one value with a fixed seed so the test is deterministic but does not repeat the hardcoded value in multiple files. Reach for it in new tests rather than declaring a single-draw sampler inside a generator module.
 
-`sampleLiteralTestValue` in `testing/generators/literal/literal.ts` and `sampleConfigTestValue` in `testing/generators/config/descriptors.ts` predate it and draw without a seed. Call `sampleGeneratedValue` instead in new tests, and retire each of those two in its owning node's changeset.
+Many generator modules under `testing/generators/` still declare their own `sample*TestValue`, and a subset of those — including `sampleLiteralTestValue`, `sampleConfigTestValue`, and `sampleSpecTreeTestValue` — draw without a seed, so a failing draw in those tests carries no replay path. Migrating them is per-module work for the node that owns each module.
 
 ---
 
@@ -72,10 +72,11 @@ const sourcePath = sampleGeneratedValue(arbitrarySourceFilePath());
 Tests that write files to a real temp directory use `withLiteralFixtureEnv` from `testing/harnesses/literal/harness.ts`. The harness accepts a `ReuseFixtureInputs` object produced by the generator — it does not accept raw strings.
 
 ```typescript
-import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { LITERAL_TEST_GENERATOR } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
-const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
+const inputs = sampleGeneratedValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
 await withLiteralFixtureEnv({}, async (env) => {
   await env.writeReuseFixture(inputs);
   // ...

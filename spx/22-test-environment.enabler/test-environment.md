@@ -14,13 +14,13 @@ CAN construct real filesystem fixtures without hand-written directory trees, man
 - Given the callback throws, when the environment completes, then the temp directory is removed and the original error is rethrown unchanged ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given nested environments (a withTestEnv call inside another), when the inner callback returns, then only the inner temp directory is removed; the outer environment remains intact for the outer callback ([test](tests/nesting.scenario.l1.test.ts))
 - Given a callback destructures a helper (e.g., `writeNode`), when the helper is invoked, then the corresponding file is written under the temp product directory and subsequent reads see the change ([test](tests/helpers.scenario.l1.test.ts))
-- Given a property-based test composes generators (e.g., valid node paths for a Config's hierarchy levels), when the property runs, then each generated fixture produces a valid temp product state that the property can exercise ([test](tests/generators.scenario.l1.test.ts))
 
 ### Properties
 
 - Temp directories created by the environment are always removed: whether the callback returns or throws, and however many times it suspends, the directory is gone once the environment completes ([test](tests/lifecycle.property.l1.test.ts))
 - Concurrent environments are independent: two callbacks running in parallel receive distinct temp directories and one's writes do not appear in the other ([test](tests/isolation.property.l1.test.ts))
 - Generator output is valid by construction: every path or tree produced by the environment's generators parses cleanly through the corresponding spec-tree read operation ([test](tests/generators.property.l1.test.ts))
+- Every fixture drawn from an env-scoped generator materializes inside the callback into a temp product state the spec-tree read operation recognizes, with each node's spec file named for the node directory that holds it ([test](tests/env-generators.property.l1.test.ts))
 
 ### Compliance
 
