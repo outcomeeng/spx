@@ -11,6 +11,7 @@ import {
   arbitraryPublicationWorkflowViolation,
 } from "@testing/generators/release/publication";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import { observePublication } from "@testing/harnesses/release/publication";
 import {
   observeGithubReleasePublisher,
@@ -33,9 +34,9 @@ describe("release publication compliance", () => {
     assertProperty(
       arbitraryPublicationIdentityMismatchScenario(),
       (scenario) => {
-        expect(
-          packagePublicationMatches(scenario.packagePublication, scenario.existingPackage),
-        ).toBe(false);
+        Object.values(scenario.identityMismatches).forEach((mismatch) => {
+          expect(packagePublicationMatches(scenario.packagePublication, mismatch)).toBe(false);
+        });
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
@@ -146,14 +147,20 @@ describe("release publication compliance", () => {
       arbitraryPublicationSectionValidationScenario(),
       (scenario) => {
         expect(validatedReleaseNotesSection(scenario.validChangelog, scenario.version)).toBe(
-          scenario.expectedSection,
+          observeIndependentVersionSection(scenario.validChangelog, scenario.version),
         );
         expect(validatedReleaseNotesSection(scenario.footerChangelog, scenario.version)).toBe(
-          scenario.footerExpectedSection,
+          observeIndependentVersionSection(scenario.footerChangelog, scenario.version),
         );
+        expect(
+          observeIndependentVersionSection(scenario.validChangelog, scenario.absentVersion),
+        ).toBeUndefined();
         expect(() => validatedReleaseNotesSection(scenario.validChangelog, scenario.absentVersion)).toThrow(
           ReleaseNotesError,
         );
+        expect(
+          observeIndependentVersionSection(scenario.duplicateChangelog, scenario.version),
+        ).toBeUndefined();
         expect(() => validatedReleaseNotesSection(scenario.duplicateChangelog, scenario.version)).toThrow(
           ReleaseNotesError,
         );

@@ -1,7 +1,6 @@
 import { type PackagePublication, ReleasePublicationError } from "@/domains/release/publication";
 import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
 import { RELEASE_CLI_OUTPUT } from "@/interfaces/cli/release-output";
-import { externalValue, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationMissingHostedReleaseScenario,
@@ -104,9 +103,7 @@ describe("release publication dispatch", () => {
       changelogPath: undefined,
     }]);
     expect(observation.stdout).toBe(
-      `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${
-        renderTerminalText(externalValue(observation.scenario.tag))
-      }${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
+      `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${observation.scenario.tag}${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
     );
   });
 

@@ -46,14 +46,20 @@ export interface PublicationRetryScenario extends PublicationWithExistingPackage
   readonly existingHostedRelease: HostedRelease;
 }
 
+export type PackagePublicationIdentityMismatches = {
+  readonly [Field in keyof PackagePublication]: PackagePublication;
+};
+
+export interface PublicationIdentityMismatchScenario extends PublicationWithExistingPackageScenario {
+  readonly identityMismatches: PackagePublicationIdentityMismatches;
+}
+
 export interface PublicationSectionValidationScenario {
   readonly version: string;
   readonly validChangelog: string;
-  readonly expectedSection: string;
   readonly absentVersion: string;
   readonly duplicateChangelog: string;
   readonly footerChangelog: string;
-  readonly footerExpectedSection: string;
 }
 
 export interface PublicationWorkflowViolationScenario {
@@ -95,22 +101,38 @@ export function arbitraryPublicationMissingHostedReleaseScenario(): fc.Arbitrary
 }
 
 export function arbitraryPublicationIdentityMismatchScenario(): fc.Arbitrary<
-  PublicationWithExistingPackageScenario
+  PublicationIdentityMismatchScenario
 > {
   return arbitraryPublicationBase().chain((scenario) =>
-    arbitraryDomainLiteral()
-      .filter((staleBody) => staleBody !== scenario.expectedHostedRelease.body)
-      .map((staleBody) => ({
-        ...scenario,
-        existingPackage: {
-          ...scenario.packagePublication,
-          commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
-        },
-        existingHostedRelease: {
-          ...scenario.expectedHostedRelease,
-          body: staleBody,
-        },
-      }))
+    fc
+      .record({
+        name: arbitraryDomainLiteral().filter((name) => name !== scenario.packagePublication.name),
+        version: RELEASE_TEST_GENERATOR.distinctSemverFrom(scenario.packagePublication.version),
+        staleBody: arbitraryDomainLiteral().filter((body) => body !== scenario.expectedHostedRelease.body),
+      })
+      .map(({ name, version, staleBody }) => {
+        const identityMismatches = {
+          name: { ...scenario.packagePublication, name },
+          version: { ...scenario.packagePublication, version },
+          commit: {
+            ...scenario.packagePublication,
+            commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
+          },
+          provenance: {
+            ...scenario.packagePublication,
+            provenance: PACKAGE_PROVENANCE.UNVERIFIED,
+          },
+        } satisfies PackagePublicationIdentityMismatches;
+        return {
+          ...scenario,
+          identityMismatches,
+          existingPackage: identityMismatches.commit,
+          existingHostedRelease: {
+            ...scenario.expectedHostedRelease,
+            body: staleBody,
+          },
+        };
+      })
   );
 }
 
@@ -135,14 +157,12 @@ export function arbitraryPublicationSectionValidationScenario(): fc.Arbitrary<
       return {
         version: scenario.releaseData.version,
         validChangelog: scenario.changelog,
-        expectedSection: scenario.expectedHostedRelease.body,
         absentVersion,
         duplicateChangelog: changelogWithDuplicateCurrentVersionSections(
           scenario.releaseData.version,
           subjects,
         ),
         footerChangelog: footer.content,
-        footerExpectedSection: footer.versionSection,
       };
     })
   );

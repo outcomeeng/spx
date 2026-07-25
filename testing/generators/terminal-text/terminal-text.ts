@@ -12,7 +12,21 @@
 
 import fc from "fast-check";
 
-import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
+import {
+  CONTROL_CHAR_UPPER_BOUND,
+  DEL_CHAR_CODE,
+  FIRST_PRINTABLE_CHAR_CODE,
+  HEX_PAD,
+  HEX_RADIX,
+} from "@/lib/sanitize-cli-argument";
+
+const ORACLE_HEX_ESCAPE_PREFIX = String.raw`\x`;
+const ORACLE_HEX_PAD_CHARACTER = "0";
+
+export interface TerminalEscapingCase {
+  readonly input: string;
+  readonly escaped: string;
+}
 
 /** A byte the terminal treats as a command rather than as text: C0 controls and DEL. */
 export const arbitraryTerminalUnsafeCodePoint = (): fc.Arbitrary<number> =>
@@ -36,3 +50,22 @@ export const arbitraryTerminalUnsafeText = (): fc.Arbitrary<string> =>
       fc.array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), { maxLength: 8 }),
     )
     .map(([head, unsafe, tail]) => String.fromCodePoint(...head, unsafe, ...tail));
+
+/** Unsafe text paired with an escape rendering computed independently from production. */
+export const arbitraryTerminalEscapingCase = (): fc.Arbitrary<TerminalEscapingCase> =>
+  arbitraryTerminalUnsafeText().map((input) => ({
+    input,
+    escaped: independentlyEscapeTerminalText(input),
+  }));
+
+function independentlyEscapeTerminalText(input: string): string {
+  return Array.from(input, (character) => {
+    const codePoint = character.codePointAt(0);
+    if (codePoint === undefined) {
+      throw new Error("Terminal escaping oracle received an empty character");
+    }
+    return codePoint <= CONTROL_CHAR_UPPER_BOUND || codePoint === DEL_CHAR_CODE
+      ? `${ORACLE_HEX_ESCAPE_PREFIX}${codePoint.toString(HEX_RADIX).padStart(HEX_PAD, ORACLE_HEX_PAD_CHARACTER)}`
+      : character;
+  }).join("");
+}
