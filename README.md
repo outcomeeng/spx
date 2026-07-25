@@ -199,21 +199,33 @@ worktree.
    `origin/main`: `git pull --ff-only origin main`
 2. Bump the version with `pnpm version patch --no-git-tag-version`, unless the
    release request specifies `minor`, `major`, or an exact version
-3. Run `pnpm run publish:check`
-4. Commit and tag:
-   `git add package.json`
+3. Generate the human-readable release artifacts from the release data:
+
+   ```bash
+   spx release notes
+   spx release docs sync
+   ```
+
+4. Review the generated changelog section and documentation updates, then run
+   `pnpm run publish:check`
+5. Commit the version, changelog, and configured documentation paths, then tag:
+   `git add package.json CHANGELOG.md README.md`
    `git commit -m "build(release): bump version to X.Y.Z"`
    `git tag vX.Y.Z`
-5. Push: `git push origin main && git push origin vX.Y.Z`
-6. Approve the deployment in the GitHub Actions `npm-publish` environment
-7. Confirm the published version and provenance:
+6. Push: `git push origin main && git push origin vX.Y.Z`
+7. Approve the deployment in the GitHub Actions `npm-publish` environment. The
+   tagged workflow runs `spx release publish`, which confirms or publishes the
+   provenance-bearing npm package before it creates or repairs the GitHub
+   Release from the exact validated changelog section.
+8. Confirm the published version, provenance, and hosted release:
 
 ```bash
 npm view @outcomeeng/spx version
 npm audit signatures
+gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url
 ```
 
-8. Require current `main` to equal the release tag commit, then rebuild the
+9. Require current `main` to equal the release tag commit, then rebuild the
    operator-visible CLI and confirm it reports the released version:
 
 ```bash
