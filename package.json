@@ -100,7 +100,7 @@
     "chalk": "^5.6.2",
     "commander": "^11.1.0",
     "dependency-cruiser": "16.10.4",
-    "dprint": "0.55.1",
+    "dprint": "0.55.2",
     "eslint-visitor-keys": "^5.0.1",
     "execa": "^9.6.1",
     "ink": "^7.0.6",
