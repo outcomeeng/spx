@@ -99,7 +99,13 @@ async function readPackageIdentity(
   productDir: string,
 ): Promise<{ readonly name: string; readonly version: string }> {
   const manifest = JSON.parse(await readFile(join(productDir, PACKAGE_MANIFEST), "utf8")) as unknown;
-  if (!isRecord(manifest) || typeof manifest.name !== "string" || typeof manifest.version !== "string") {
+  if (
+    !isRecord(manifest)
+    || typeof manifest.name !== "string"
+    || manifest.name.length === 0
+    || typeof manifest.version !== "string"
+    || manifest.version.length === 0
+  ) {
     throw new ReleasePublicationError("package.json must declare a package name and version");
   }
   return { name: manifest.name, version: manifest.version };
