@@ -210,9 +210,9 @@ export async function runValidationInProcess(
   }
 }
 
-export function withEmptyValidationProject(
-  testFn: (productDir: string) => Promise<void>,
-): Promise<void> {
+export function withEmptyValidationProject<T>(
+  testFn: (productDir: string) => Promise<T>,
+): Promise<T> {
   return withTempDir(VALIDATION_CLI_TEMP_PREFIX, testFn);
 }
 
@@ -286,40 +286,42 @@ export function createRecordingValidationDomain(
   };
 }
 
-export async function expectValidationAllForwardsProductionScope(): Promise<void> {
-  await withEmptyValidationProject(async (productDir) => {
-    const recorder = createRecordingValidationDomain(0);
-    const result = await runValidationInProcess([
-      validationCliDefinition.subcommands.all.commandName,
-      validationCommonCliOptions.scope.flag,
-      VALIDATION_SCOPES.PRODUCTION,
-    ], { domain: recorder.domain, processCwd: () => productDir });
-    expect(result.exitCode).toBe(0);
-    expect(recorder.calls).toHaveLength(1);
-    expect(recorder.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.PRODUCTION);
-  });
+/** What one `validation all` dispatch exposes: the CLI result and the handler calls it produced. */
+export interface ValidationAllDispatch {
+  readonly result: ValidationCliResult;
+  readonly calls: readonly ValidationHandlerCall[];
 }
 
-export async function expectValidationAllForwardsFileScope(): Promise<void> {
-  await expectValidationAllForwardsPath(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
-}
-
-export async function expectValidationAllForwardsDirectoryScope(): Promise<void> {
-  await expectValidationAllForwardsPath(dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath())));
-}
-
-async function expectValidationAllForwardsPath(path: string): Promise<void> {
-  await withEmptyValidationProject(async (productDir) => {
+/**
+ * Dispatches `validation all` with the given operands against a recording domain inside an empty
+ * product directory, and returns the raw observations for the executed test file to assert on.
+ */
+export function dispatchValidationAll(
+  operands: readonly string[],
+): Promise<ValidationAllDispatch> {
+  return withEmptyValidationProject(async (productDir) => {
     const recorder = createRecordingValidationDomain(0);
     const result = await runValidationInProcess(
-      [validationCliDefinition.subcommands.all.commandName, path],
+      [validationCliDefinition.subcommands.all.commandName, ...operands],
       { domain: recorder.domain, processCwd: () => productDir },
     );
-    expect(result.exitCode).toBe(0);
-    expect(recorder.calls).toHaveLength(1);
-    expect(recorder.calls[0]?.options.files).toEqual([path]);
-    expect(recorder.calls[0]?.options.scope).toBe(VALIDATION_SCOPES.FULL);
+    return { result, calls: recorder.calls };
   });
+}
+
+/** The `--scope` operand pair selecting the production scope. */
+export function validationProductionScopeOperands(): readonly string[] {
+  return [validationCommonCliOptions.scope.flag, VALIDATION_SCOPES.PRODUCTION];
+}
+
+/** A sampled product-relative source file path for positional-operand dispatch. */
+export function sampleValidationSourceFilePath(): string {
+  return sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+}
+
+/** The directory containing a sampled product-relative source file path. */
+export function sampleValidationSourceDirectoryPath(): string {
+  return dirname(sampleValidationSourceFilePath());
 }
 
 export function expectValidationSubprocessResult(
