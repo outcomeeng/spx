@@ -1,14 +1,12 @@
-import { expect } from "vitest";
-
 import {
   CONFIG_FILE_FORMAT,
   configFileForFormat,
+  type ConfigFileFormat,
   resolveConfig,
   resolveConfigFromReadResult,
   serializeConfigFileSections,
 } from "@/config/index";
 import {
-  DEFAULT_METHODOLOGY_CONFIG,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
   type MethodologyConfig,
@@ -44,43 +42,61 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-export async function assertMethodologyDefaultsResolveFromProductionRegistry(): Promise<void> {
+/** Resolves a product carrying no config file through the full production descriptor registry. */
+export async function resolveMethodologyDefaultsFromProductionRegistry(): Promise<Result<Config>> {
+  let resolved: Result<Config> | undefined;
   await withTestEnv({}, async ({ productDir }) => {
-    const result = await resolveConfig(productDir, productionRegistry);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.error);
-    expect(result.value[METHODOLOGY_SECTION]).toEqual(DEFAULT_METHODOLOGY_CONFIG);
+    resolved = await resolveConfig(productDir, productionRegistry);
   });
+  if (resolved === undefined) throw new Error("methodology config resolution produced no result");
+  return resolved;
 }
 
-export async function assertExplicitMethodologyConfigResolves(): Promise<void> {
-  const methodology = generatedMethodologySection();
-  await withTestEnv({ [METHODOLOGY_SECTION]: methodology }, async ({ productDir }) => {
-    const result = await resolveConfig(productDir, [methodologyConfigDescriptor]);
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error(result.error);
-    expect(result.value[METHODOLOGY_SECTION]).toEqual(methodology);
+/** Resolves a product whose config declares a generated methodology section, returning that section with the result. */
+export async function resolveExplicitMethodologyConfig(): Promise<{
+  readonly declared: Record<string, unknown>;
+  readonly resolved: Result<Config>;
+}> {
+  const declared = generatedMethodologySection();
+  let resolved: Result<Config> | undefined;
+  await withTestEnv({ [METHODOLOGY_SECTION]: declared }, async ({ productDir }) => {
+    resolved = await resolveConfig(productDir, [methodologyConfigDescriptor]);
   });
+  if (resolved === undefined) throw new Error("methodology config resolution produced no result");
+  return { declared, resolved };
 }
 
-export function assertMethodologyConfigFormatsResolveEquivalently(): void {
+/** One config file format's round trip: serialize the declared section, then resolve it back. */
+export interface MethodologyFormatRoundTrip {
+  readonly format: ConfigFileFormat;
+  readonly serialized: Result<string>;
+  readonly resolved: Result<Config> | undefined;
+}
+
+/**
+ * Round-trips one generated methodology section through every supported config file format,
+ * returning the descriptor's own validation of that section as the independent oracle.
+ */
+export function roundTripMethodologyConfigFormats(): {
+  readonly expected: Result<MethodologyConfig>;
+  readonly roundTrips: readonly MethodologyFormatRoundTrip[];
+} {
   const methodology = generatedMethodologySection();
   const config = { [METHODOLOGY_SECTION]: methodology };
   const expected = methodologyConfigDescriptor.validate(methodology);
-  expect(expected.ok).toBe(true);
-  if (!expected.ok) throw new Error(expected.error);
-  for (const format of CONFIG_FILE_FORMAT_ORDER_FOR_TESTS) {
+  const roundTrips = CONFIG_FILE_FORMAT_ORDER_FOR_TESTS.map((format) => {
     const serialized = serializeConfigFileSections(format, config);
-    expect(serialized.ok).toBe(true);
-    if (!serialized.ok) throw new Error(serialized.error);
-    const parsed = resolveConfigFromReadResult({
-      kind: "ok",
-      file: configFileForFormat("", format, serialized.value),
-    }, [methodologyConfigDescriptor]);
-    expect(parsed.ok).toBe(true);
-    if (!parsed.ok) throw new Error(parsed.error);
-    expect(parsed.value[METHODOLOGY_SECTION]).toEqual(expected.value);
-  }
+    if (!serialized.ok) return { format, serialized, resolved: undefined };
+    return {
+      format,
+      serialized,
+      resolved: resolveConfigFromReadResult({
+        kind: "ok",
+        file: configFileForFormat("", format, serialized.value),
+      }, [methodologyConfigDescriptor]),
+    };
+  });
+  return { expected, roundTrips };
 }
 
 /** Resolves a product whose methodology section carries the supplied source value. */
