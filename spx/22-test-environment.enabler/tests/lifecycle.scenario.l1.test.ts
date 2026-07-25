@@ -12,10 +12,8 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import {
-  sampleTestEnvironmentValue,
-  TEST_ENVIRONMENT_GENERATOR,
-} from "@testing/generators/test-environment/test-environment";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — startup", () => {
@@ -38,7 +36,7 @@ describe("withTestEnv — startup", () => {
   });
 
   it("invokes the callback with an env object exposing productDir and write helpers", async () => {
-    const generated = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
+    const generated = sampleGeneratedValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.writeNode(generated.node.fixturePath, generated.node.contents);
       await env.writeDecision(generated.decision.fixturePath, generated.decision.contents);
@@ -82,7 +80,7 @@ describe("withTestEnv — cleanup on return", () => {
 describe("withTestEnv — cleanup on throw", () => {
   it("removes the temp directory when the callback throws, and rethrows the original error unchanged", async () => {
     let productDir = "";
-    const { callbackError: boom } = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.lifecycleCase());
+    const { callbackError: boom } = sampleGeneratedValue(TEST_ENVIRONMENT_GENERATOR.lifecycleCase());
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
@@ -96,7 +94,7 @@ describe("withTestEnv — cleanup on throw", () => {
 
   it("propagates non-Error rejections unchanged while still cleaning up", async () => {
     let productDir = "";
-    const rejection = sampleTestEnvironmentValue(TEST_ENVIRONMENT_GENERATOR.nonErrorRejection());
+    const rejection = sampleGeneratedValue(TEST_ENVIRONMENT_GENERATOR.nonErrorRejection());
 
     await expect(
       withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {

@@ -17,7 +17,6 @@ const MAX_GENERATED_SEGMENT_LENGTH = 20;
 const MIN_PARALLEL_ENVIRONMENTS = 2;
 const GENERATED_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"] as const;
 const RAW_FIXTURE_EXTENSION = ".txt";
-const SAMPLE_SEED = 20_260_724;
 const SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 
 export const TEST_ENVIRONMENT_CALLBACK_OUTCOME = {
@@ -233,18 +232,6 @@ function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
       callbackError: new Error(errorMessage),
       outcome,
     }));
-}
-
-/**
- * Draws one case from a test-environment arbitrary for a scenario that needs a single fixture.
- * The seed is fixed so a scenario draws the same case on every run and a failure reproduces.
- */
-export function sampleTestEnvironmentValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1, seed: SAMPLE_SEED });
-  if (value === undefined) {
-    throw new Error("Test-environment generator returned no sample");
-  }
-  return value;
 }
 
 export const TEST_ENVIRONMENT_GENERATOR = {
