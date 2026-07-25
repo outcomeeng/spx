@@ -9,7 +9,7 @@ import {
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";

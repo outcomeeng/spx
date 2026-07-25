@@ -27,7 +27,7 @@ import { worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";

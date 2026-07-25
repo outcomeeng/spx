@@ -14,7 +14,7 @@ import {
 } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
 
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 
 export const CONFIG_CLI = {

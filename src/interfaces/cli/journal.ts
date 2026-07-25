@@ -13,7 +13,7 @@ import {
   journalSealCommand,
 } from "@/commands/journal/cli";
 import type { CliCommandResult, Result } from "@/config/types";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 
 import { createJournalStreamBinding } from "./lib/journal-stream-binding";

@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
 import type { TargetSelection } from "@/domains/test";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
