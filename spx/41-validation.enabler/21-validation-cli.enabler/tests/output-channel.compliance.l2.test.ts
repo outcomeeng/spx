@@ -4,7 +4,8 @@ import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation/messages";
 import { capturedToolOutput, type ValidationCommandResult, validationReport } from "@/commands/validation/types";
 import { createValidationDomain } from "@/interfaces/cli/validation";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { authoredText, externalValue, renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
+import { authoredText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
@@ -34,18 +35,32 @@ async function runLintWith(result: ValidationCommandResult): Promise<string> {
   return captured.join("");
 }
 
+/** Whether the terminal reads this code point as a command rather than as text. */
+function drivesTerminal(code: number): boolean {
+  return code < FIRST_PRINTABLE_CHAR_CODE || code === DEL_CHAR_CODE;
+}
+
 describe("the channel a validation subcommand's result takes", () => {
-  it("keeps the command's own verdict while escaping the tool bytes it quotes", () => {
+  it("keeps the command's own verdict and lets no control byte but its own line break through", () => {
     assertProperty(arbitraryTerminalUnsafeText(), async (toolOutput) => {
       const written = await runLintWith(stageReport(toolOutput));
 
       // The product's own line survives byte-for-byte: a writer that escaped the whole payload
       // would have mangled this too, so its presence rules that failure out.
       expect(written).toContain(VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS);
-      expect(written).toContain(renderTerminalText(externalValue(toolOutput)));
-      // The generator guarantees a terminal-unsafe byte, so a raw copy reaching the stream means
-      // the reading was never escaped — the defect this assertion exists to catch.
-      expect(written).not.toContain(toolOutput);
+
+      // An oracle over byte classes rather than over the composer's own output, so this holds
+      // whatever escaping the report uses. The generator guarantees a terminal-unsafe byte, so a
+      // survivor here means a reading reached the stream able to drive the terminal.
+      const lineFeed = String.fromCodePoint(10);
+      const surviving = [...written]
+        .map((character) => character.codePointAt(0) ?? 0)
+        .filter((code) => drivesTerminal(code) && code !== lineFeed.codePointAt(0));
+      expect(surviving).toEqual([]);
+
+      // Line structure is what makes a compiler report readable, and this report prints the
+      // tool's lines as its own, so escaping must not collapse them into one.
+      expect(written.split(lineFeed)).toHaveLength(toolOutput.split(lineFeed).length + 2);
     }, { level: PROPERTY_LEVEL.L1 });
   });
 

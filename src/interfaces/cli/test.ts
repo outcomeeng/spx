@@ -254,7 +254,7 @@ async function runTestingAction(
   const productDir = await deps.resolveProductDir();
   if (options.agent === true) {
     const result = await deps.runAgentTests(productDir, passing, targets, changed);
-    deps.writeStdout(formatAgentTestOutput(result));
+    deps.writeStdout(renderTerminalText(formatAgentTestOutput(result)));
     deps.setExitCode(result.dispatch.exitCode);
     return;
   }

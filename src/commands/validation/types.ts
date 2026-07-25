@@ -31,9 +31,18 @@ export function validationReport(segments: readonly (TerminalText | undefined)[]
  * A tool's captured output as a report segment. The bytes came from tsc, eslint, knip, or dprint
  * rather than from this product, so they are escaped here — the point they enter a report spx
  * speaks. A tool that wrote nothing contributes no segment.
+ *
+ * The report is escaped one line at a time because a diagnostic's line structure is what makes it
+ * readable, and this product prints those lines as its own. Escaping the block whole would render
+ * every line feed as `\x0a` and collapse a multi-line compiler report into a single unreadable
+ * line, which is the opposite of what the reader needs from a failing stage.
  */
 export function capturedToolOutput(output: string | undefined): TerminalText | undefined {
-  return output === undefined || output.length === 0 ? undefined : externalValue(output);
+  if (output === undefined || output.length === 0) return undefined;
+  return joinTerminalText(
+    VALIDATION_REPORT_LINE_SEPARATOR,
+    output.split(VALIDATION_REPORT_LINE_SEPARATOR).map((line) => externalValue(line)),
+  );
 }
 
 /**

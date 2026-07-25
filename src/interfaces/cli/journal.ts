@@ -15,7 +15,13 @@ import {
 import type { CliCommandResult, Result } from "@/config/types";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding } from "./lib/journal-stream-binding";
 import { CLI_STREAM_REPORT } from "./lib/stream-report";
@@ -214,9 +220,23 @@ async function readStdinEventInput(): Promise<Result<unknown>> {
   }
 }
 
+/**
+ * Writes a journal command's result on the channel that matches what the result is.
+ *
+ * Every success payload this command layer produces is a JSON document — a run reference, an event
+ * history, a run listing, a seal acknowledgement, a rendered projection — so it relays byte-for-byte
+ * like the sibling `--json` surfaces, and JSON encoding has already escaped the control characters
+ * an event payload could carry. A failure payload is a diagnostic spx speaks about a caught error,
+ * so it composes, with the error text escaped where it is embedded. The exit code decides only which
+ * of the two a result is, never the safety claim the write makes.
+ */
 function report(result: CliCommandResult, io: CliIo): void {
-  const output = `${result.output}${CLI_STREAM_REPORT.LINE_SEPARATOR}`;
-  if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) io.writeStdout(output);
-  else io.writeStderr(output);
+  if (result.exitCode === JOURNAL_CLI_EXIT_CODE.OK) {
+    io.writePassThrough(`${result.output}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+  } else {
+    io.writeStderr(
+      renderTerminalText(terminal`${externalValue(result.output)}${authoredText(CLI_STREAM_REPORT.LINE_SEPARATOR)}`),
+    );
+  }
   io.setExitCode(result.exitCode);
 }
