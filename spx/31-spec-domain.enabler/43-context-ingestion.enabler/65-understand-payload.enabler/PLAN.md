@@ -10,6 +10,10 @@
 1. Materialize the per-agent package trees and their provenance records under the
    governance of `spx/25-outcomeeng.enabler/31-methodology-package.enabler`, one tree
    per coding agent the methodology source builds, with no cross-agent translation.
+   The agreed layout is `methodology/{agent}/{package}/`, with each package root
+   carrying its own provenance record. The agent set is enumerated from the
+   methodology source rather than named in code, so a further coding agent is a new
+   directory rather than a source change.
 2. Replace installed-package resolution in the payload reader with selection of the
    committed tree for the coding agent in scope, keeping manifest parsing, schema
    validation, provenance comparison, and catalog mapping pure over supplied bytes and
