@@ -5,5 +5,13 @@
     "typescript@outcomeeng": true,
     "spec-tree@outcomeeng": true,
     "sonarqube@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "outcomeeng": {
+      "source": {
+        "source": "github",
+        "repo": "outcomeeng/plugins"
+      }
+    }
   }
 }
