@@ -7,6 +7,7 @@ CAN read, reproduce, and compare the methodology the product declares without re
 ## Assertions
 
 - Every coding agent the methodology source builds has its own committed package tree, and no tree is derived from another agent's tree.
+- Committed package trees are addressed by coding agent and then by package name, under a product directory outside the tracked `spx/` tree, so materialized content never enters spec-tree traversal or markdown validation.
 - Each committed package tree carries a provenance record naming the exact methodology version and the content digest of the tree it describes.
 - Each provenance record's declared methodology version equals the exact version the top-level `methodology` config descriptor resolves under `spx/16-config.enabler/43-methodology-config.enabler`.
 - Materialization is deterministic: an identical methodology source and version produce byte-identical committed trees and provenance records.
