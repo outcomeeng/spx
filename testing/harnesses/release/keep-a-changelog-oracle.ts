@@ -61,7 +61,7 @@ export function observeIndependentVersionSection(notes: string, version: string)
       && heading.text === keepAChangelogVersionHeadingText(version),
   );
   const versionHeading = versionHeadings[0];
-  if (versionHeadings.length !== 1 || versionHeading === undefined) {
+  if (versionHeadings.length !== 1) {
     return undefined;
   }
   const boundary = headings.find(

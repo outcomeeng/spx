@@ -1,6 +1,7 @@
 import {
   formatDocumentationSyncOutput,
   formatReleaseNotesOutput,
+  formatReleasePublicationOutput,
   RELEASE_CLI_OUTPUT,
 } from "@/interfaces/cli/release-output";
 import { externalValue, renderTerminalText } from "@/lib/terminal-text/terminal-text";
@@ -28,6 +29,20 @@ describe("release CLI terminal output compliance", () => {
         expect(formatDocumentationSyncOutput(path)).toBe(
           `${RELEASE_CLI_OUTPUT.DOCUMENTATION_UPDATED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${
             renderTerminalText(externalValue(path))
+          }${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
+        );
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("escapes publication tags while preserving the authored label and line ending", () => {
+    assertProperty(
+      arbitraryTerminalUnsafeText(),
+      (tag) => {
+        expect(formatReleasePublicationOutput(tag)).toBe(
+          `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${
+            renderTerminalText(externalValue(tag))
           }${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
         );
       },

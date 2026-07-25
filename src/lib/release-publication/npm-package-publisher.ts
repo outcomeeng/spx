@@ -7,7 +7,7 @@ import {
 
 import { type ReleasePublicationRunner, runReleasePublicationCommand } from "./runner";
 
-const NPM_PUBLICATION = {
+export const NPM_PUBLICATION = {
   EXECUTABLE: "npm",
   VIEW: "view",
   JSON: "--json",
@@ -18,6 +18,15 @@ const NPM_PUBLICATION = {
   IGNORE_SCRIPTS: "--ignore-scripts",
   NOT_FOUND: "E404",
   SLSA_PROVENANCE_V1: "https://slsa.dev/provenance/v1",
+  METADATA: {
+    NAME: "name",
+    VERSION: "version",
+    COMMIT: "gitHead",
+    DIST: "dist",
+    ATTESTATIONS: "attestations",
+    PROVENANCE: "provenance",
+    PREDICATE_TYPE: "predicateType",
+  },
 } as const;
 
 export interface NpmPackagePublisherOptions {
@@ -72,9 +81,9 @@ function parsePackagePublication(raw: string): PackagePublication {
   if (!isRecord(metadata)) {
     throw new ReleasePublicationError("npm view returned invalid package metadata");
   }
-  const name = metadata.name;
-  const version = metadata.version;
-  const commit = metadata.gitHead;
+  const name = metadata[NPM_PUBLICATION.METADATA.NAME];
+  const version = metadata[NPM_PUBLICATION.METADATA.VERSION];
+  const commit = metadata[NPM_PUBLICATION.METADATA.COMMIT];
   if (typeof name !== "string" || typeof version !== "string" || typeof commit !== "string") {
     throw new ReleasePublicationError("npm view package metadata lacks name, version, or gitHead");
   }
@@ -89,12 +98,12 @@ function parsePackagePublication(raw: string): PackagePublication {
 }
 
 function provenancePredicate(metadata: Record<string, unknown>): unknown {
-  const dist = metadata.dist;
+  const dist = metadata[NPM_PUBLICATION.METADATA.DIST];
   if (!isRecord(dist)) return undefined;
-  const attestations = dist.attestations;
+  const attestations = dist[NPM_PUBLICATION.METADATA.ATTESTATIONS];
   if (!isRecord(attestations)) return undefined;
-  const provenance = attestations.provenance;
-  return isRecord(provenance) ? provenance.predicateType : undefined;
+  const provenance = attestations[NPM_PUBLICATION.METADATA.PROVENANCE];
+  return isRecord(provenance) ? provenance[NPM_PUBLICATION.METADATA.PREDICATE_TYPE] : undefined;
 }
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {

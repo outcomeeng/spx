@@ -14,6 +14,7 @@ import {
   type ReleasePublicationWorkflowSnapshot,
   type ReleasePublicationWorkflowViolation,
 } from "@/interfaces/cli/release-publication-workflow";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryConformantChangelogScenario,
@@ -22,19 +23,27 @@ import {
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 
-export interface PublicationScenario {
+interface PublicationBaseScenario {
+  readonly productDir: string;
   readonly releaseData: ReleaseData;
   readonly tag: string;
   readonly taggedCommit: string;
   readonly changelog: string;
   readonly packagePublication: PackagePublication;
   readonly expectedHostedRelease: HostedRelease;
+}
+
+export interface PublicationScenario extends PublicationBaseScenario {
   readonly existingPackage: PackagePublication | null;
   readonly existingHostedRelease: HostedRelease | null;
 }
 
 export interface PublicationWithExistingPackageScenario extends PublicationScenario {
   readonly existingPackage: PackagePublication;
+}
+
+export interface PublicationRetryScenario extends PublicationWithExistingPackageScenario {
+  readonly existingHostedRelease: HostedRelease;
 }
 
 export interface PublicationSectionValidationScenario {
@@ -60,7 +69,7 @@ export function arbitraryPublicationScenario(): fc.Arbitrary<PublicationScenario
   }));
 }
 
-export function arbitraryPublicationRetryScenario(): fc.Arbitrary<PublicationWithExistingPackageScenario> {
+export function arbitraryPublicationRetryScenario(): fc.Arbitrary<PublicationRetryScenario> {
   return arbitraryPublicationBase().chain((scenario) =>
     arbitraryDomainLiteral()
       .filter((staleBody) => staleBody !== scenario.expectedHostedRelease.body)
@@ -150,22 +159,22 @@ export function arbitraryPublicationWorkflowViolation(
     }));
 }
 
-function arbitraryPublicationBase(): fc.Arbitrary<
-  Omit<PublicationScenario, "existingPackage" | "existingHostedRelease">
-> {
+function arbitraryPublicationBase(): fc.Arbitrary<PublicationBaseScenario> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
     fc
       .tuple(
+        arbitraryPathSegment(),
         arbitraryDomainLiteral(),
         arbitraryConformantChangelogScenario(
           releaseData.version,
           releaseData.commits.map((commit) => commit.subject),
         ),
       )
-      .map(([name, changelog]) => {
+      .map(([productDir, name, changelog]) => {
         const taggedCommit = requireTaggedCommit(releaseData);
         const tag = releaseTagForVersion(releaseData.version);
         return {
+          productDir,
           releaseData,
           tag,
           taggedCommit,

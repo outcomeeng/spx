@@ -1,4 +1,7 @@
 import { type PackagePublication, ReleasePublicationError } from "@/domains/release/publication";
+import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
+import { RELEASE_CLI_OUTPUT } from "@/interfaces/cli/release-output";
+import { externalValue, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationMissingHostedReleaseScenario,
@@ -11,7 +14,11 @@ import {
   type FailedPublicationObservation,
   observeFailedPublication,
   observePublication,
+  observePublishReleaseCli,
+  observePublishReleaseCommand,
   type PublicationObservation,
+  type PublishReleaseCliObservation,
+  type PublishReleaseCommandObservation,
 } from "@testing/harnesses/release/publication";
 import { describe, expect, it } from "vitest";
 
@@ -60,6 +67,47 @@ describe("release publication dispatch", () => {
       );
       return true;
     });
+  });
+
+  it("composes the tagged release through the publish command", async () => {
+    const observation: PublishReleaseCommandObservation = await observePublishReleaseCommand(
+      sampleReleaseTestValue(arbitraryPublicationScenario()),
+    );
+    expect(observation.tag).toBe(observation.scenario.tag);
+    expect(observation.packageIdentityProductDirs).toEqual([observation.scenario.productDir]);
+    expect(observation.taggedCommitRequests).toEqual([{
+      productDir: observation.scenario.productDir,
+      tag: observation.scenario.tag,
+    }]);
+    expect(observation.releaseDataRequests).toEqual([{
+      productDir: observation.scenario.productDir,
+      version: observation.scenario.releaseData.version,
+      tag: observation.scenario.tag,
+    }]);
+    expect(observation.releaseNotesRequests).toEqual([{
+      productDir: observation.scenario.productDir,
+      changelogPath: DEFAULT_CHANGELOG_PATH,
+    }]);
+    expect(observation.packagePublisherProductDirs).toEqual([observation.scenario.productDir]);
+    expect(observation.hostedReleasePublisherProductDirs).toEqual([observation.scenario.productDir]);
+    expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
+      observation.scenario.expectedHostedRelease,
+    ]);
+  });
+
+  it("dispatches the release publish CLI verb", async () => {
+    const observation: PublishReleaseCliObservation = await observePublishReleaseCli(
+      sampleReleaseTestValue(arbitraryPublicationScenario()),
+    );
+    expect(observation.requests).toEqual([{
+      productDir: observation.scenario.productDir,
+      changelogPath: undefined,
+    }]);
+    expect(observation.stdout).toBe(
+      `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${
+        renderTerminalText(externalValue(observation.scenario.tag))
+      }${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
+    );
   });
 
   it("creates an absent hosted release for an existing package", async () => {

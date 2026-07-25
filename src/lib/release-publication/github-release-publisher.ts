@@ -6,7 +6,7 @@ import {
 
 import { type ReleasePublicationRunner, runReleasePublicationCommand } from "./runner";
 
-const GITHUB_RELEASE = {
+export const GITHUB_RELEASE = {
   EXECUTABLE: "gh",
   RELEASE: "release",
   VIEW: "view",
@@ -20,6 +20,12 @@ const GITHUB_RELEASE = {
   STDIN_FILE: "-",
   VERIFY_TAG: "--verify-tag",
   NOT_FOUND: "release not found",
+  METADATA: {
+    TAG: "tagName",
+    TITLE: "name",
+    TARGET: "targetCommitish",
+    BODY: "body",
+  },
 } as const;
 
 export interface GithubReleasePublisherOptions {
@@ -87,10 +93,10 @@ async function inspectHostedRelease(
   if (!isRecord(release)) {
     throw new ReleasePublicationError("gh release view returned invalid release metadata");
   }
-  const tagName = release.tagName;
-  const name = release.name;
-  const targetCommitish = release.targetCommitish;
-  const body = release.body;
+  const tagName = release[GITHUB_RELEASE.METADATA.TAG];
+  const name = release[GITHUB_RELEASE.METADATA.TITLE];
+  const targetCommitish = release[GITHUB_RELEASE.METADATA.TARGET];
+  const body = release[GITHUB_RELEASE.METADATA.BODY];
   if (
     typeof tagName !== "string"
     || typeof name !== "string"

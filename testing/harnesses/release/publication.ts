@@ -1,3 +1,6 @@
+import { Command } from "commander";
+
+import { publishReleaseCommand, type PublishReleaseCommandOptions } from "@/commands/release/publish";
 import {
   type HostedRelease,
   type HostedReleasePublisher,
@@ -6,6 +9,8 @@ import {
   publishRelease,
   type PublishReleaseInput,
 } from "@/domains/release/publication";
+import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import type { PublicationScenario } from "@testing/generators/release/publication";
 
 export interface RecordedPublicationRequest<T> {
@@ -24,6 +29,36 @@ export interface PublicationObservation {
 
 export interface FailedPublicationObservation extends PublicationObservation {
   readonly error: unknown;
+}
+
+export interface PublishReleaseCommandObservation extends PublicationObservation {
+  readonly tag: string;
+  readonly packageIdentityProductDirs: readonly string[];
+  readonly taggedCommitRequests: readonly TaggedCommitRequest[];
+  readonly releaseDataRequests: readonly ReleaseDataRequest[];
+  readonly releaseNotesRequests: readonly ReleaseNotesRequest[];
+  readonly packagePublisherProductDirs: readonly string[];
+  readonly hostedReleasePublisherProductDirs: readonly string[];
+}
+
+export interface TaggedCommitRequest {
+  readonly productDir: string;
+  readonly tag: string;
+}
+
+export interface ReleaseDataRequest extends TaggedCommitRequest {
+  readonly version: string;
+}
+
+export interface ReleaseNotesRequest {
+  readonly productDir: string;
+  readonly changelogPath: string;
+}
+
+export interface PublishReleaseCliObservation {
+  readonly scenario: PublicationScenario;
+  readonly requests: readonly PublishReleaseCommandOptions[];
+  readonly stdout: string;
 }
 
 export async function observePublication(scenario: PublicationScenario): Promise<PublicationObservation> {
@@ -55,6 +90,101 @@ export async function observeFailedPublication(
     };
   }
   throw new Error("Publication failure scenario completed without an error");
+}
+
+export async function observePublishReleaseCommand(
+  scenario: PublicationScenario,
+): Promise<PublishReleaseCommandObservation> {
+  const sequence = new PublicationRequestSequence();
+  const packagePublisher = new RecordingPackagePublisher(scenario.existingPackage, sequence);
+  const hostedReleasePublisher = new RecordingHostedReleasePublisher(
+    scenario.existingHostedRelease,
+    sequence,
+  );
+  const packageIdentityProductDirs: string[] = [];
+  const taggedCommitRequests: TaggedCommitRequest[] = [];
+  const releaseDataRequests: ReleaseDataRequest[] = [];
+  const releaseNotesRequests: ReleaseNotesRequest[] = [];
+  const packagePublisherProductDirs: string[] = [];
+  const hostedReleasePublisherProductDirs: string[] = [];
+
+  const tag = await publishReleaseCommand(
+    { productDir: scenario.productDir },
+    {
+      readPackageIdentity: (productDir) => {
+        packageIdentityProductDirs.push(productDir);
+        return Promise.resolve({
+          name: scenario.packagePublication.name,
+          version: scenario.packagePublication.version,
+        });
+      },
+      resolveTaggedCommit: (productDir, requestedTag) => {
+        taggedCommitRequests.push({ productDir, tag: requestedTag });
+        return Promise.resolve(scenario.taggedCommit);
+      },
+      resolveReleaseData: (productDir, version, requestedTag) => {
+        releaseDataRequests.push({ productDir, version, tag: requestedTag });
+        return Promise.resolve(scenario.releaseData);
+      },
+      readReleaseNotes: (productDir, changelogPath) => {
+        releaseNotesRequests.push({ productDir, changelogPath });
+        return Promise.resolve(scenario.changelog);
+      },
+      createPackagePublisher: (productDir) => {
+        packagePublisherProductDirs.push(productDir);
+        return packagePublisher;
+      },
+      createHostedReleasePublisher: (productDir) => {
+        hostedReleasePublisherProductDirs.push(productDir);
+        return hostedReleasePublisher;
+      },
+    },
+  );
+
+  return {
+    ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
+    tag,
+    packageIdentityProductDirs,
+    taggedCommitRequests,
+    releaseDataRequests,
+    releaseNotesRequests,
+    packagePublisherProductDirs,
+    hostedReleasePublisherProductDirs,
+  };
+}
+
+export async function observePublishReleaseCli(
+  scenario: PublicationScenario,
+): Promise<PublishReleaseCliObservation> {
+  const requests: PublishReleaseCommandOptions[] = [];
+  const stdout: string[] = [];
+  const program = new Command();
+  const invocation: CliInvocation = {
+    io: {
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: () => undefined,
+      setExitCode: () => undefined,
+      exit: (exitCode) => {
+        throw new Error(String(exitCode));
+      },
+    },
+    resolveEffectiveInvocationDir: () => scenario.productDir,
+    resolveProductContext: () => ({
+      effectiveInvocationDir: scenario.productDir,
+      productDir: scenario.productDir,
+    }),
+  };
+  createReleaseDomain({
+    publishReleaseCommand: (options) => {
+      requests.push(options);
+      return Promise.resolve(scenario.tag);
+    },
+  }).register(program, invocation);
+  await program.parseAsync(
+    [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND],
+    { from: SPX_COMMANDER_PARSE_SOURCE },
+  );
+  return { scenario, requests, stdout: stdout.join("") };
 }
 
 class PublicationRequestSequence {
