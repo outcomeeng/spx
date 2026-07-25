@@ -28,7 +28,7 @@ describe("arbitraryNodePath — free-function form", () => {
         expect(path.endsWith(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)).toBe(false);
         expect(NODE_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.STANDARD },
     );
   });
 });
@@ -40,7 +40,7 @@ describe("arbitraryDecisionPath — free-function form", () => {
       (path) => {
         expect(DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.STANDARD },
     );
   });
 });
@@ -75,7 +75,7 @@ describe("generated paths parse through the filesystem read operation", () => {
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
         expect(entry?.id).toBe(path);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.STANDARD },
     );
   });
 
@@ -90,7 +90,7 @@ describe("generated paths parse through the filesystem read operation", () => {
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
         expect(entry?.id).toBe(path);
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.STANDARD },
     );
   });
 });

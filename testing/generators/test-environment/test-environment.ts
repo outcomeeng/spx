@@ -2,11 +2,9 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
-  type Kind,
-  type KindDefinition,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
-  type SpecTreeConfig,
+  specTreeConfigDescriptor,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree";
 
@@ -18,6 +16,9 @@ const MAX_CALLBACK_AWAITS = 3;
 const MAX_GENERATED_SEGMENT_LENGTH = 20;
 const MIN_PARALLEL_ENVIRONMENTS = 2;
 const GENERATED_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"] as const;
+const RAW_FIXTURE_EXTENSION = ".txt";
+const SAMPLE_SEED = 20_260_724;
+const SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 
 export const TEST_ENVIRONMENT_CALLBACK_OUTCOME = {
   RETURN: "return",
@@ -38,8 +39,9 @@ export type SpecTreeFixture = {
 export type GeneratedTestEnvironmentIsolationCase = {
   readonly environments: readonly {
     readonly marker: string;
-    readonly relativePath: string;
   }[];
+  /** One path every parallel environment writes, so a leak across environments is observable. */
+  readonly relativePath: string;
 };
 
 export type GeneratedTestEnvironmentLifecycleCase = {
@@ -86,13 +88,14 @@ function generatedSegment(): fc.Arbitrary<string> {
 }
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const rawSpecTree = config[SPEC_TREE_CONFIG.SECTION];
-  if (rawSpecTree === undefined || rawSpecTree === null || typeof rawSpecTree !== "object") {
-    throw new Error(`Config supplied to spec-tree generators is missing the ${SPEC_TREE_CONFIG.SECTION} section`);
+  const validated = specTreeConfigDescriptor.validate(config[SPEC_TREE_CONFIG.SECTION]);
+  if (!validated.ok) {
+    throw new Error(
+      `Config supplied to spec-tree generators has an unusable ${SPEC_TREE_CONFIG.SECTION} section: ${validated.error}`,
+    );
   }
-  const specTree = rawSpecTree as SpecTreeConfig;
-  return Object.entries(specTree.kinds)
-    .filter((entry): entry is [string, KindDefinition<Kind>] => entry[1].category === category)
+  return Object.entries(validated.value.kinds)
+    .filter(([, definition]) => definition.category === category)
     .map(([kind, definition]) => ({ category, kind, suffix: definition.suffix }));
 }
 
@@ -109,7 +112,7 @@ function arbitraryEntryFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<Sp
       return {
         contents: `# ${title}\n`,
         fixturePath: entry.category === SPEC_TREE_CONFIG.CATEGORY.NODE
-          ? [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path, `${slug}.md`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
+          ? [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path, `${slug}${SPEC_FILE_SUFFIX}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
           : [SPEC_TREE_CONFIG.ROOT_DIRECTORY, path].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
         kind: entry.kind,
         path,
@@ -133,7 +136,7 @@ export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
   return arbitraryEntryFromKinds(entries).map((entry) => entry.path);
 }
 
-export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
+function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
     extraDecisionFile: arbitraryDecisionPath(config),
     extraNodeDirectory: arbitraryNodePath(config),
@@ -161,7 +164,7 @@ function nodeWriteCase(
     .map(([nodeId, filename, title]) => ({
       contents:
         `# ${title}\n\nPROVIDES generated node state\nSO THAT test environments\nCAN expose meaningful product fixtures\n`,
-      fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, `${filename}.md`].join(
+      fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, `${filename}${SPEC_FILE_SUFFIX}`].join(
         SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
       ),
       nodeId,
@@ -185,19 +188,23 @@ function helperCases(config: Config): fc.Arbitrary<GeneratedTestEnvironmentHelpe
       },
       raw: {
         contents: rawContents,
-        fixturePath: [rawPath, `${rawPath}.txt`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        fixturePath: [rawPath, `${rawPath}${RAW_FIXTURE_EXTENSION}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       },
     }));
 }
 
 function isolationCase(): fc.Arbitrary<GeneratedTestEnvironmentIsolationCase> {
   return fc
-    .uniqueArray(generatedSegment(), {
-      minLength: MIN_PARALLEL_ENVIRONMENTS,
-      maxLength: MAX_PARALLEL_ENVIRONMENTS,
-    })
-    .map((markers) => ({
-      environments: markers.map((marker) => ({ marker, relativePath: `${marker}.txt` })),
+    .tuple(
+      generatedSegment(),
+      fc.uniqueArray(generatedSegment(), {
+        minLength: MIN_PARALLEL_ENVIRONMENTS,
+        maxLength: MAX_PARALLEL_ENVIRONMENTS,
+      }),
+    )
+    .map(([sharedName, markers]) => ({
+      environments: markers.map((marker) => ({ marker })),
+      relativePath: `${sharedName}${RAW_FIXTURE_EXTENSION}`,
     }));
 }
 
@@ -213,6 +220,18 @@ function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
       callbackError: new Error(errorMessage),
       outcome,
     }));
+}
+
+/**
+ * Draws one case from a test-environment arbitrary for a scenario that needs a single fixture.
+ * The seed is fixed so a scenario draws the same case on every run and a failure reproduces.
+ */
+export function sampleTestEnvironmentValue<T>(arbitrary: fc.Arbitrary<T>): T {
+  const [value] = fc.sample(arbitrary, { numRuns: 1, seed: SAMPLE_SEED });
+  if (value === undefined) {
+    throw new Error("Test-environment generator returned no sample");
+  }
+  return value;
 }
 
 export const TEST_ENVIRONMENT_GENERATOR = {

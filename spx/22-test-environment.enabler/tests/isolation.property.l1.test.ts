@@ -11,9 +11,9 @@ describe("withTestEnv — concurrent isolation", () => {
   it("gives every concurrent invocation a distinct temp directory and isolates writes across any cardinality of parallel runs", async () => {
     await assertProperty(
       TEST_ENVIRONMENT_GENERATOR.isolationCase(),
-      async ({ environments }) => {
+      async ({ environments, relativePath }) => {
         const observations = await Promise.all(
-          environments.map(async ({ marker, relativePath }): Promise<{ dir: string; readBack: string }> => {
+          environments.map(async ({ marker }): Promise<{ dir: string; readBack: string }> => {
             let dir = "";
             let readBack = "";
             await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
