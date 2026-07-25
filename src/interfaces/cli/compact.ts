@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 
 import { compactRetrieveCommand, compactStoreCommand } from "@/commands/compact";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 
 export const COMPACT_CLI = {

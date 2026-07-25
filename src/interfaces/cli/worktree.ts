@@ -7,7 +7,7 @@ import { randomBytes as nodeRandomBytes } from "node:crypto";
 import type { Command } from "commander";
 
 import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { defaultGitDependencies } from "@/lib/git/root";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";

@@ -19,8 +19,8 @@ import {
   verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
-import type { Domain } from "@/domains/types";
 import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB } from "@/domains/verify/verify";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";

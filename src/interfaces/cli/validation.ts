@@ -25,8 +25,8 @@ import {
   type ValidationCommandResult,
   type ValidationOutputTarget,
 } from "@/commands/validation/types";
-import type { Domain } from "@/domains/types";
 import type { LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPX_PROGRAM_NAME } from "@/interfaces/cli/program";
 import {

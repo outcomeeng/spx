@@ -35,7 +35,6 @@ import { DESCRIPTOR_DIGEST_HEX_ENCODING, DESCRIPTOR_DIGEST_SHA256_ALGORITHM } fr
 import type { CliCommandResult } from "@/config/types";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import type { Domain } from "@/domains/types";
 import {
   createVerificationContextDocument,
   normalizeVerificationContextFileSubjectPath,
@@ -81,6 +80,7 @@ import {
   verifyInputRecordPath,
   verifyRunsDir,
 } from "@/domains/verify/verify";
+import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";

@@ -37,7 +37,7 @@ import {
 } from "@/domains/session/list";
 import { buildPickupCommand, pickupReference } from "@/domains/session/pick-model";
 import { SESSION_FILE_ENCODING, SESSION_STATUSES } from "@/domains/session/types";
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { toMessage } from "@/lib/error-message";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
