@@ -37,3 +37,13 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The root-resolution warning assertion does not read the warning
+
+The compliance test at [`tests/root-resolution.compliance.l1.test.ts`](tests/root-resolution.compliance.l1.test.ts) asserts the not-in-git warning is non-empty without asserting its content, so a warning naming the wrong directory, or carrying an unescaped path, satisfies it.
+
+**Impact:** the assertion is weakly falsifiable — it fails only when the warning disappears entirely, not when it becomes wrong.
+
+**Resolution:** assert the warning names the resolved fallback directory and that an external path embedded in it is escaped.
+
+**Skills:** `/test-typescript`, `/audit-typescript-tests`.

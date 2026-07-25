@@ -116,3 +116,13 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The journal report picks its channel from the exit code, not from what the output is
+
+`report` in [`src/interfaces/cli/journal.ts`](../../../../src/interfaces/cli/journal.ts) writes `result.output` to the composed-text write on success and to standard error otherwise. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../../13-cli.enabler/15-cli-architecture.adr.md) resolves standard output to composed spx output or a relayed document, and the exit code decides neither. Sibling machine-JSON write sites — `spec context show --json`, `session show --json`, and the release notes write — relay their payload as a document.
+
+**Impact:** whichever kind the journal payload is, this site states it by accident. If the rendered projection is a document, the composed write's safety claim is false; if it is a composed report, the stream choice still leaves the claim unstated.
+
+**Resolution:** classify the journal payload against the two kinds and select the channel from the classification, leaving the exit code to decide only the stream.
+
+**Skills:** `/apply`, `/audit-typescript-code`.
