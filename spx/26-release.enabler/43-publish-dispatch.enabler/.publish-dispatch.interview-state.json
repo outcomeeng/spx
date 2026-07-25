@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-07-25T00:00:00Z",
+  "subject": "Human-readable release-note publication",
+  "codebase_analysis": {
+    "publish_workflow": "Tag-triggered deterministic verification followed by npm trusted publishing; no GitHub Release is created.",
+    "release_notes": "spx release notes writes a validated Keep a Changelog version section to CHANGELOG.md.",
+    "documentation_sync": "spx release docs sync updates configured documentation, defaulting to README.md.",
+    "contract_gap": "Publish dispatch promises release notes and documentation without naming the hosted delivery surface."
+  },
+  "coverage": {
+    "problem": "done",
+    "users": "done",
+    "delivery_surface": "done",
+    "content_contract": "done",
+    "failure_semantics": "done",
+    "command_ownership": "done",
+    "retry_architecture": "done",
+    "provenance_and_permissions": "done",
+    "operational_constraints": "done",
+    "existing_release_repair": "done"
+  },
+  "qa": [
+    {
+      "id": "release_notes_authority",
+      "question": "Which surface should users treat as the authoritative release-note presentation?",
+      "answer": "Changelog + GitHub",
+      "decision": "CHANGELOG.md owns the durable text, and every GitHub Release publishes that version's exact validated section."
+    },
+    {
+      "id": "publication_ordering",
+      "question": "When should the GitHub Release become publicly visible relative to npm publication?",
+      "answer": "After npm succeeds",
+      "decision": "Publish npm first, then idempotently create or update the GitHub Release in the same workflow."
+    },
+    {
+      "id": "publish_command_ownership",
+      "question": "What should spx release publish own?",
+      "answer": "Whole release dispatch",
+      "decision": "The command verifies tag and package identity, ensures npm publication, and idempotently reconciles the GitHub Release."
+    },
+    {
+      "id": "repair_existing_release",
+      "question": "Should this work create the missing human-readable GitHub Release for the already-published 0.6.25 version?",
+      "answer": "Repair after merge",
+      "decision": "After merge, run the dispatcher for 0.6.25, validate the existing npm artifact, and create or reconcile its GitHub Release from the exact validated changelog section."
+    }
+  ],
+  "decisions_log": [
+    {
+      "decision": "Use one prose authority across repository and hosted release surfaces.",
+      "resolution": "Extract the exact validated version section from CHANGELOG.md for the GitHub Release body; perform no second model pass."
+    },
+    {
+      "decision": "Order irreversible and repairable publication boundaries explicitly.",
+      "resolution": "Publish npm first; then create or reconcile the GitHub Release. A GitHub failure fails the workflow, and a rerun repairs the hosted release idempotently."
+    },
+    {
+      "decision": "Keep hosted-release authority narrow.",
+      "resolution": "Grant contents: write only to the publish job, derive tag and title from the verified release tag, pass the extracted body through a file, and retain npm OIDC provenance permissions."
+    },
+    {
+      "decision": "Expose publication as one resumable product operation.",
+      "resolution": "spx release publish owns registry and GitHub publication. It consumes committed generated artifacts, accepts an existing package only when its release identity matches, and reconciles one GitHub Release for the verified tag."
+    },
+    {
+      "decision": "Repair the release that exposed the hosted-note gap.",
+      "resolution": "After the capability reaches main, invoke the retry-safe dispatcher for 0.6.25 so its validated npm artifact gains the corresponding human-readable GitHub Release."
+    }
+  ],
+  "output": {
+    "status": "authored",
+    "path": [
+      "spx/26-release.enabler/43-publish-dispatch.enabler/publish-dispatch.md",
+      "spx/26-release.enabler/43-publish-dispatch.enabler/21-release-publication-dispatch.adr.md"
+    ],
+    "alignment": "2 files checked; 0 findings across 0 files",
+    "task_format": "current session via /apply"
+  }
+}
