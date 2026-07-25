@@ -1,11 +1,5 @@
-import {
-  hostedReleaseFor,
-  packagePublicationMatches,
-} from "@/domains/release/publication";
-import {
-  ReleaseNotesError,
-  validatedReleaseNotesSection,
-} from "@/domains/release/release-notes";
+import { hostedReleaseFor, packagePublicationMatches } from "@/domains/release/publication";
+import { ReleaseNotesError, validatedReleaseNotesSection } from "@/domains/release/release-notes";
 import { releasePublicationWorkflowViolations } from "@/interfaces/cli/release-publication-workflow";
 import {
   arbitraryPublicationIdentityMismatchScenario,
@@ -51,12 +45,12 @@ describe("release publication compliance", () => {
         expect(validatedReleaseNotesSection(scenario.footerChangelog, scenario.version)).toBe(
           scenario.footerExpectedSection,
         );
-        expect(() =>
-          validatedReleaseNotesSection(scenario.validChangelog, scenario.absentVersion)
-        ).toThrow(ReleaseNotesError);
-        expect(() =>
-          validatedReleaseNotesSection(scenario.duplicateChangelog, scenario.version)
-        ).toThrow(ReleaseNotesError);
+        expect(() => validatedReleaseNotesSection(scenario.validChangelog, scenario.absentVersion)).toThrow(
+          ReleaseNotesError,
+        );
+        expect(() => validatedReleaseNotesSection(scenario.duplicateChangelog, scenario.version)).toThrow(
+          ReleaseNotesError,
+        );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

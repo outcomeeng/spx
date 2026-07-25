@@ -222,9 +222,7 @@ function mutateWorkflowSnapshot(
       ) {
         return {
           ...job,
-          needs: job.needs.filter((dependency) =>
-            dependency !== RELEASE_PUBLICATION_WORKFLOW.JOB.DETERMINISTIC
-          ),
+          needs: job.needs.filter((dependency) => dependency !== RELEASE_PUBLICATION_WORKFLOW.JOB.DETERMINISTIC),
         };
       }
       if (

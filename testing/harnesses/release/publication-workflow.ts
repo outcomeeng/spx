@@ -34,9 +34,7 @@ function parseJob(id: string, candidate: unknown): ReleasePublicationWorkflowJob
     needs: stringList(candidate.needs),
     permissions: stringRecord(candidate.permissions),
     commands: Array.isArray(candidate.steps)
-      ? candidate.steps.flatMap((step) =>
-        isRecord(step) && typeof step.run === "string" ? [step.run.trim()] : []
-      )
+      ? candidate.steps.flatMap((step) => isRecord(step) && typeof step.run === "string" ? [step.run.trim()] : [])
       : [],
   };
 }
