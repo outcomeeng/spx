@@ -4,6 +4,12 @@ export {
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
 } from "./documentation-sync";
+export {
+  DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
+  publishReleaseCommand,
+  type PublishReleaseCommandDependencies,
+  type PublishReleaseCommandOptions,
+} from "./publish";
 export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
 export {
   canonicalizeExistingPath,

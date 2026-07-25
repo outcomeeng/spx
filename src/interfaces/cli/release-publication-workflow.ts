@@ -44,7 +44,39 @@ export interface ReleasePublicationWorkflowSnapshot {
 }
 
 export function releasePublicationWorkflowViolations(
-  _snapshot: ReleasePublicationWorkflowSnapshot,
+  snapshot: ReleasePublicationWorkflowSnapshot,
 ): readonly ReleasePublicationWorkflowViolation[] {
-  throw new Error("Release publication workflow validation is not implemented");
+  const violations = new Set<ReleasePublicationWorkflowViolation>();
+  const publishJob = snapshot.jobs.find((job) => job.id === RELEASE_PUBLICATION_WORKFLOW.JOB.PUBLISH);
+  if (publishJob === undefined || !publishJob.commands.includes(RELEASE_PUBLISH_INVOCATION)) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.COMMAND_ABSENT);
+  }
+  if (
+    publishJob === undefined
+    || !publishJob.needs.includes(RELEASE_PUBLICATION_WORKFLOW.JOB.DETERMINISTIC)
+  ) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DETERMINISTIC_DEPENDENCY_ABSENT);
+  }
+  if (
+    publishJob?.permissions[RELEASE_PUBLICATION_WORKFLOW.PERMISSION.CONTENTS]
+      !== RELEASE_PUBLICATION_WORKFLOW.PERMISSION.WRITE
+  ) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.PUBLISH_CONTENTS_WRITE_ABSENT);
+  }
+  if (
+    publishJob?.permissions[RELEASE_PUBLICATION_WORKFLOW.PERMISSION.ID_TOKEN]
+      !== RELEASE_PUBLICATION_WORKFLOW.PERMISSION.WRITE
+  ) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.PUBLISH_ID_TOKEN_WRITE_ABSENT);
+  }
+  if (
+    snapshot.jobs.some((job) =>
+      job.id !== RELEASE_PUBLICATION_WORKFLOW.JOB.PUBLISH
+      && job.permissions[RELEASE_PUBLICATION_WORKFLOW.PERMISSION.CONTENTS]
+        !== RELEASE_PUBLICATION_WORKFLOW.PERMISSION.READ
+    )
+  ) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.NON_PUBLISH_CONTENTS_NOT_READ_ONLY);
+  }
+  return [...violations];
 }

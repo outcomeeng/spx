@@ -7,6 +7,7 @@ import {
   documentationSyncCommand,
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
+  publishReleaseCommand,
   releaseNotesCommand,
 } from "@/commands/release";
 import {
@@ -16,6 +17,11 @@ import {
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
+import {
+  formatDocumentationSyncOutput,
+  formatReleaseNotesOutput,
+  formatReleasePublicationOutput,
+} from "@/interfaces/cli/release-output";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 export const RELEASE_CLI = {
@@ -31,7 +37,7 @@ const RELEASE_DOMAIN_DESCRIPTION = "Prepare release artifacts from the current p
 const RELEASE_NOTES_DESCRIPTION = "Generate release notes for the current package version";
 const RELEASE_DOCS_DESCRIPTION = "Manage release documentation";
 const RELEASE_DOCS_SYNC_DESCRIPTION = "Update release documentation for the current package version";
-const RELEASE_DOCS_SYNC_OUTPUT_PREFIX = "Updated documentation";
+const RELEASE_PUBLISH_DESCRIPTION = "Publish the tagged package and reconcile its GitHub Release";
 
 export interface ReleaseCliDependencies {
   readonly createDocumentationAgentRunner: () => AgentRunner;
@@ -40,6 +46,7 @@ export interface ReleaseCliDependencies {
     productDir: string,
   ) => DocumentationFaithfulnessAuditor;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
+  readonly publishReleaseCommand: typeof publishReleaseCommand;
 }
 
 const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
@@ -47,6 +54,7 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  publishReleaseCommand,
 };
 
 export function createReleaseDomain(
@@ -78,7 +86,7 @@ export function createReleaseDomain(
                 productDir,
               ),
             });
-            invocation.io.writeStdout(`${output}\n`);
+            invocation.io.writeStdout(formatReleaseNotesOutput(output));
           } catch (error) {
             invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
             invocation.io.exit(1);
@@ -101,8 +109,25 @@ export function createReleaseDomain(
             };
             const paths = await documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
             for (const path of paths) {
-              invocation.io.writeStdout(`${RELEASE_DOCS_SYNC_OUTPUT_PREFIX}: ${path}\n`);
+              invocation.io.writeStdout(formatDocumentationSyncOutput(path));
             }
+          } catch (error) {
+            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.exit(1);
+          }
+        });
+
+      release
+        .command(RELEASE_CLI.PUBLISH_COMMAND)
+        .description(RELEASE_PUBLISH_DESCRIPTION)
+        .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, "Changelog path within the product working tree")
+        .action(async (options: { changelogPath?: string }) => {
+          try {
+            const tag = await deps.publishReleaseCommand({
+              productDir: invocation.resolveProductContext().productDir,
+              changelogPath: options.changelogPath,
+            });
+            invocation.io.writeStdout(formatReleasePublicationOutput(tag));
           } catch (error) {
             invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
             invocation.io.exit(1);

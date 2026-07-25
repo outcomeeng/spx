@@ -1,6 +1,7 @@
 import type { ReleaseData } from "@/domains/release/release-data";
 
 export const PACKAGE_PROVENANCE = {
+  UNVERIFIED: "unverified",
   VERIFIED: "verified",
 } as const;
 
@@ -51,20 +52,58 @@ export function releaseTagForVersion(version: string): string {
 }
 
 export function packagePublicationMatches(
-  _expected: PackagePublication,
-  _actual: PackagePublication,
+  expected: PackagePublication,
+  actual: PackagePublication,
 ): boolean {
-  throw new Error("Package publication comparison is not implemented");
+  return actual.name === expected.name
+    && actual.version === expected.version
+    && actual.commit === expected.commit
+    && actual.provenance === expected.provenance;
 }
 
 export function hostedReleaseFor(
-  _tag: string,
-  _taggedCommit: string,
-  _releaseNotesSection: string,
+  tag: string,
+  taggedCommit: string,
+  releaseNotesSection: string,
 ): HostedRelease {
-  throw new Error("Hosted release derivation is not implemented");
+  return {
+    tag,
+    title: tag,
+    targetCommit: taggedCommit,
+    body: releaseNotesSection,
+  };
 }
 
-export function publishRelease(_input: PublishReleaseInput): Promise<void> {
-  return Promise.reject(new Error("Release publication is not implemented"));
+export async function publishRelease(input: PublishReleaseInput): Promise<void> {
+  const expectedTag = releaseTagForVersion(input.releaseData.version);
+  if (input.tag !== expectedTag) {
+    throw new ReleasePublicationError(
+      `Release tag ${input.tag} does not match package version ${input.releaseData.version}`,
+    );
+  }
+  const expectedPackage: PackagePublication = {
+    ...input.packagePublication,
+    version: input.releaseData.version,
+    commit: input.taggedCommit,
+    provenance: PACKAGE_PROVENANCE.VERIFIED,
+  };
+  if (!packagePublicationMatches(expectedPackage, input.packagePublication)) {
+    throw new ReleasePublicationError("Package publication input does not match the verified release identity");
+  }
+
+  const existingPackage = await input.packagePublisher.inspect(expectedPackage);
+  if (existingPackage === null) {
+    await input.packagePublisher.publish(expectedPackage);
+  } else if (!packagePublicationMatches(expectedPackage, existingPackage)) {
+    throw new ReleasePublicationError("Published package does not match the verified release identity");
+  }
+
+  const confirmedPackage = await input.packagePublisher.inspect(expectedPackage);
+  if (confirmedPackage === null || !packagePublicationMatches(expectedPackage, confirmedPackage)) {
+    throw new ReleasePublicationError("Package publication could not be confirmed with verified provenance");
+  }
+
+  await input.hostedReleasePublisher.reconcile(
+    hostedReleaseFor(input.tag, input.taggedCommit, input.releaseNotesSection),
+  );
 }
