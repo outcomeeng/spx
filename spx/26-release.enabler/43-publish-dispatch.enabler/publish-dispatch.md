@@ -15,5 +15,9 @@ CAN reach its registry with verified provenance, its release notes, and its upda
 
 ### Compliance
 
+- ALWAYS: package publication confirmation compares an existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published ([test](tests/publish-dispatch.compliance.l1.test.ts))
+- ALWAYS: changelog-section extraction returns the exact validated section for the verified release version and rejects changelogs that omit that version or define it more than once ([test](tests/publish-dispatch.compliance.l1.test.ts))
+- ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from verified release inputs and occurs only after package confirmation succeeds ([test](tests/publish-dispatch.compliance.l1.test.ts))
+- ALWAYS: the publication workflow invokes `spx release publish` only after deterministic verification and grants the publication job `contents: write` and `id-token: write`, while every other job retains read-only repository contents ([test](tests/publish-dispatch.compliance.l1.test.ts))
 - ALWAYS: publication carries build provenance through the registry's trusted-publishing mechanism ([audit])
 - NEVER: model the product's own pre-publish validation and test gates as release dependencies — running them before publishing is self-application, governed by the product's release workflow rather than the release spec tree ([audit])
