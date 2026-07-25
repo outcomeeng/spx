@@ -21,4 +21,4 @@ CAN read methodology selection through the static config registry without depend
 - NEVER: the methodology descriptor represents `installed` as an exact methodology version; it preserves that value as bootstrap intent so product-context consumers can reject it as durable identity when a tracked `spx/` tree exists ([test](tests/methodology-config.compliance.l1.test.ts))
 - ALWAYS: `methodology.source` rejects traversal and absolute-path shapes before any consumer builds a filesystem path from it ([test](tests/methodology-config.compliance.l1.test.ts))
 - ALWAYS: `harnessEnvironment.methodology` is rejected as an unknown `harnessEnvironment` field rather than treated as methodology intent ([test](tests/methodology-config.compliance.l1.test.ts))
-- NEVER: methodology source or version defaults are declared by the harness-environment descriptor ([test](../../33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts))
+- NEVER: methodology source or version defaults are declared by the harness-environment descriptor ([test](tests/methodology-config.compliance.l1.test.ts))
