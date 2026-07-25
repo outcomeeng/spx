@@ -57,6 +57,13 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export type SpecContextManifestResolution =
@@ -556,36 +563,70 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   };
 }
 
-function appendList(lines: string[], label: string, values: readonly string[]): void {
-  lines.push(`${label}:`);
+function appendList(lines: TerminalText[], label: string, values: readonly TerminalText[]): void {
+  lines.push(authoredText(`${label}:`));
   for (const value of values) {
-    lines.push(`${TEXT_LIST_INDENT}${value}`);
+    lines.push(terminal`${authoredText(TEXT_LIST_INDENT)}${value}`);
   }
 }
 
-function renderRoleBindings(roles: readonly { readonly target: string; readonly role: string }[]): string {
-  return roles.map((binding) => `${binding.role}@${binding.target}`).join(", ");
+/** Composes a labelled field: the label is the product's own, the reading is not. */
+function labelledField(label: string, value: TerminalText): TerminalText {
+  return terminal`${authoredText(`${label}: `)}${value}`;
 }
 
-function renderReadDocument(document: SpecContextReadDocument): string {
-  const provenance = document.citedBy === undefined ? "" : ` (cited by ${document.citedBy.join(", ")})`;
-  return `${renderRoleBindings(document.roles)}: ${document.path}${provenance}`;
+function renderRoleBindings(roles: readonly { readonly target: string; readonly role: string }[]): TerminalText {
+  return joinTerminalText(
+    ", ",
+    roles.map((binding) => terminal`${externalValue(binding.role)}@${externalValue(binding.target)}`),
+  );
 }
 
-export function renderSpecContextText(manifest: SpecContextManifest): string {
-  const lines = [
-    `${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${manifest.targets.join(", ")}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
+function renderReadDocument(document: SpecContextReadDocument): TerminalText {
+  const provenance = document.citedBy === undefined
+    ? authoredText("")
+    : terminal`${authoredText(" (cited by ")}${joinTerminalText(", ", document.citedBy.map(externalValue))}${
+      authoredText(")")
+    }`;
+  return terminal`${renderRoleBindings(document.roles)}${authoredText(": ")}${
+    externalValue(document.path)
+  }${provenance}`;
+}
+
+/**
+ * Composes the human-readable context manifest. Every label and separator is the product's own
+ * speech; the targets are argv operands, and the roots, paths, methodology identity, and any
+ * embedded methodology document are readings from outside the product's source.
+ */
+export function renderSpecContextText(manifest: SpecContextManifest): TerminalText {
+  const lines: TerminalText[] = [
+    labelledField(SPEC_CONTEXT_TEXT_LABEL.TARGETS, joinTerminalText(", ", manifest.targets.map(externalValue))),
+    labelledField(SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT, externalValue(manifest.productDir)),
+    labelledField(
+      SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY,
+      terminal`${externalValue(manifest.methodology.source)}@${externalValue(manifest.methodology.version)}`,
+    ),
+    labelledField(SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION, authoredText(String(manifest.schemaVersion))),
+    labelledField(SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP, authoredText(String(manifest.bootstrap))),
   ];
   appendList(lines, SPEC_CONTEXT_TEXT_LABEL.READ, manifest.read.map(renderReadDocument));
   appendList(
     lines,
     SPEC_CONTEXT_TEXT_LABEL.LISTED,
-    manifest.listed.map((entry) => `${renderRoleBindings(entry.roles)}: ${entry.path}`),
+    manifest.listed.map((entry) =>
+      terminal`${renderRoleBindings(entry.roles)}${authoredText(": ")}${externalValue(entry.path)}`
+    ),
   );
+  return joinTerminalText("\n", lines);
+}
+
+/**
+ * Renders the methodology documents the text form carries after its manifest. Each body is the
+ * document's own bytes, which an agent reads for their exact content, so the command relays this
+ * tail rather than composing it — escaping would destroy the payload's line structure.
+ */
+export function renderSpecContextMethodologyDocuments(manifest: SpecContextManifest): string {
+  const sections: string[] = [];
   for (const document of manifest.read) {
     if (
       document.content === undefined
@@ -593,9 +634,9 @@ export function renderSpecContextText(manifest: SpecContextManifest): string {
     ) {
       continue;
     }
-    lines.push(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY_DOCUMENT}: ${document.path}`, document.content);
+    sections.push(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY_DOCUMENT}: ${document.path}`, document.content);
   }
-  return lines.join("\n");
+  return sections.join("\n");
 }
 
 export function renderSpecContextJson(manifest: SpecContextManifest): string {

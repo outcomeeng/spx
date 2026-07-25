@@ -19,5 +19,5 @@ export { reconcileCommand } from "./reconcile";
 export type { ReconcileOptions } from "./reconcile";
 export { releaseCommand } from "./release";
 export type { ReleaseOptions } from "./release";
-export { showCommand } from "./show";
+export { showDocument, showReport } from "./show";
 export type { ShowOptions } from "./show";

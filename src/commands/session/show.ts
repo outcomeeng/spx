@@ -6,12 +6,13 @@
 
 import { readFile, stat } from "node:fs/promises";
 
-import { BatchError, type BatchItemResult, processBatch } from "@/domains/session/batch";
+import { BatchError, type BatchItemResult, processComposedBatch } from "@/domains/session/batch";
 import { SessionNotFoundError } from "@/domains/session/errors";
 import { parseSessionMetadata, type SessionRecord, toSessionRecord } from "@/domains/session/list";
 import { formatShowOutput, resolveSessionPaths, SEARCH_ORDER, SessionDirectoryConfig } from "@/domains/session/show";
 import { SESSION_FILE_ENCODING, SessionStatus } from "@/domains/session/types";
-import { SESSION_LIST_FORMAT, type SessionListFormat } from "./list";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import type { SessionListFormat } from "./list";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /**
@@ -78,7 +79,7 @@ export async function resolveSession(
 async function showSingle(
   sessionId: string,
   config: SessionDirectoryConfig,
-): Promise<string> {
+): Promise<TerminalText> {
   const { status, content } = await resolveSession(sessionId, config);
   return formatShowOutput(content, { status });
 }
@@ -124,21 +125,27 @@ async function showJson(
 }
 
 /**
- * Executes the show command for one or more session IDs.
- *
- * Text format renders each session's metadata header and body; JSON format emits
- * the parsed-frontmatter record(s) — a bare object for one id, an array for many.
+ * Composes the text view of one or more sessions — each session's metadata header and body as a
+ * report the product states about the session.
  *
  * @param options - Command options with one or more session IDs
- * @returns Formatted output for display
+ * @returns Composed terminal text for display
  * @throws {BatchError} When one or more IDs fail
  */
-export async function showCommand(options: ShowOptions): Promise<string> {
+export async function showReport(options: ShowOptions): Promise<TerminalText> {
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
+  return processComposedBatch(options.sessionIds, (id) => showSingle(id, config));
+}
 
-  if (options.format === SESSION_LIST_FORMAT.JSON) {
-    return showJson(options.sessionIds, config);
-  }
-
-  return processBatch(options.sessionIds, (id) => showSingle(id, config));
+/**
+ * Renders the JSON record view — a bare object for one id, an array for many. The payload is data
+ * for a machine rather than a report for a terminal, so the command relays it as a document.
+ *
+ * @param options - Command options with one or more session IDs
+ * @returns The record JSON
+ * @throws {BatchError} When one or more IDs fail
+ */
+export async function showDocument(options: ShowOptions): Promise<string> {
+  const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, options.cwd);
+  return showJson(options.sessionIds, config);
 }

@@ -22,7 +22,8 @@ import {
   reconcileCommand,
   releaseCommand,
   SessionAlreadyArchivedError,
-  showCommand,
+  showDocument,
+  showReport,
 } from "@/commands/session/index";
 import { SESSION_LIST_FORMAT } from "@/commands/session/list";
 import { SessionHandoffBaseError } from "@/domains/session/errors";
@@ -102,9 +103,8 @@ function writeOutput(invocation: CliInvocation, output: TerminalText): void {
 }
 
 /**
- * Writes a session document — the session file's own content, plus whatever files its frontmatter
- * asked to inject. The payload is the stored artifact rather than a report the product composed
- * about it, so it relays unchanged.
+ * Writes the JSON record view. The payload is data for a machine rather than a report for a
+ * terminal, so it relays as a document; escaping it would corrupt the envelope.
  */
 function writeDocument(invocation: CliInvocation, document: string): void {
   invocation.io.writePassThrough(`${document}\n`);
@@ -290,14 +290,18 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
   )
     .action(async (ids: string[], options: { json?: boolean; sessionsDir?: string }) => {
       try {
-        const output = await showCommand({
+        const showOptions = {
           sessionIds: ids,
           format: options.json ? SESSION_LIST_FORMAT.JSON : SESSION_LIST_FORMAT.TEXT,
           sessionsDir: options.sessionsDir,
           cwd: effectiveInvocationDir(),
-          onWarning: (warning) => writeInvocationWarning(invocation, warning),
-        });
-        writeDocument(invocation, output);
+          onWarning: (warning: TerminalText | undefined) => writeInvocationWarning(invocation, warning),
+        };
+        if (options.json === true) {
+          writeDocument(invocation, await showDocument(showOptions));
+        } else {
+          writeOutput(invocation, await showReport(showOptions));
+        }
       } catch (error) {
         handleError(invocation, error);
       }
@@ -325,7 +329,7 @@ function registerSessionCommands(sessionCmd: Command, invocation: CliInvocation)
           cwd: effectiveInvocationDir(),
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        writeDocument(invocation, output);
+        writeOutput(invocation, output);
       } catch (error) {
         handleError(invocation, error);
       }

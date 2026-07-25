@@ -7,7 +7,7 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { processBatch } from "@/domains/session/batch";
+import { processComposedBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
@@ -23,7 +23,13 @@ import {
   SessionStatus,
 } from "@/domains/session/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions after being claimed. */
@@ -111,8 +117,14 @@ function injectionPath(cwd: string, filePath: string): string {
   return resolve(cwd, filePath);
 }
 
-function formatInjectedFile(listedPath: string, content: string): string {
-  return `${SESSION_INJECTION_SECTION_PREFIX}: ${listedPath}\n${content}`;
+/**
+ * Composes one injected-file section. The section prefix is the product's own; the listed path
+ * comes from the session's frontmatter and the content from that file, so both are escaped here.
+ */
+function formatInjectedFile(listedPath: string, content: string): TerminalText {
+  return terminal`${authoredText(`${SESSION_INJECTION_SECTION_PREFIX}: `)}${externalValue(listedPath)}${
+    authoredText("\n")
+  }${externalValue(content)}`;
 }
 
 /**
@@ -131,8 +143,8 @@ async function readInjectedFiles(
   cwd: string,
   deps: PickupDependencies,
   onWarning?: SessionWarningHandler,
-): Promise<string[]> {
-  const sections: string[] = [];
+): Promise<TerminalText[]> {
+  const sections: TerminalText[] = [];
   for (const listedPath of [...metadata.specs, ...metadata.files]) {
     // The claim has already committed, so an injection read that throws for any
     // reason degrades to a warning naming the path rather than aborting pickup.
@@ -156,7 +168,7 @@ async function pickupSingle(
   deps: PickupDependencies,
   noInject: boolean,
   onWarning?: SessionWarningHandler,
-): Promise<string> {
+): Promise<TerminalText> {
   const paths = buildClaimPaths(sessionId, config);
   await deps.mkdir(config.doingDir, { recursive: true });
 
@@ -170,11 +182,17 @@ async function pickupSingle(
   const metadata = parseSessionMetadata(content);
   const output = formatShowOutput(content, { status: PICKUP_TARGET_STATUS });
   const injected = noInject ? [] : await readInjectedFiles(metadata, cwd, deps, onWarning);
-  const injectionOutput = injected.length === 0 ? "" : `\n\n${injected.join("\n\n")}`;
+  const injectionOutput = injected.length === 0
+    ? authoredText("")
+    : terminal`${authoredText("\n\n")}${joinTerminalText("\n\n", injected)}`;
 
-  return `Claimed session ${
-    formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId)
-  }\n\n${output}${injectionOutput}`;
+  // "Claimed session" and the marker are the product's own announcement; the session id reaches
+  // this handler from the command line, so it is escaped where it is embedded in the marker.
+  const claim = terminal`${authoredText("Claimed session ")}${
+    externalValue(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId))
+  }${authoredText("\n\n")}`;
+
+  return terminal`${claim}${output}${injectionOutput}`;
 }
 
 /**
@@ -189,7 +207,7 @@ async function pickupSingle(
  * @throws {SessionNotAvailableError} When one or more sessions cannot be claimed
  * @throws {BatchError} When one or more explicit IDs fail
  */
-export async function pickupCommand(options: PickupOptions): Promise<string> {
+export async function pickupCommand(options: PickupOptions): Promise<TerminalText> {
   const deps = options.deps ?? PICKUP_DEPS;
   const cwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
   const config = await resolveSessionConfigSurfacingWarning(options.sessionsDir, options.onWarning, cwd);
@@ -218,5 +236,8 @@ export async function pickupCommand(options: PickupOptions): Promise<string> {
     return pickupSingle(options.sessionIds[0], config, cwd, deps, noInject, options.onWarning);
   }
 
-  return processBatch(options.sessionIds, (id) => pickupSingle(id, config, cwd, deps, noInject, options.onWarning));
+  return processComposedBatch(
+    options.sessionIds,
+    (id) => pickupSingle(id, config, cwd, deps, noInject, options.onWarning),
+  );
 }

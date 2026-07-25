@@ -487,7 +487,7 @@ function registerValidationCommands(
       participationOverrides: selectedValidationAllOverrides(options, allOverrideCliOptions),
       quiet: options.quiet,
       json: options.json,
-      onStageComplete: ({ output }) => invocation.io.writePassThrough(`${output}\n`),
+      onStageComplete: ({ output }) => invocation.io.writeStdout(renderTerminalText(terminal`${output}\n`)),
       outputStreams: validationSubprocessOutputStreams(invocation.io, options.json),
     });
     emitValidationResult(result, invocation.io);

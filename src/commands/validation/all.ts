@@ -6,6 +6,13 @@
  * step count derive entirely from the registry — no stage is dispatched by name.
  */
 import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
+import {
   VALIDATION_STAGE_PARTICIPATION,
   type ValidationStage,
   type ValidationStageContext,
@@ -34,7 +41,8 @@ import { VALIDATION_OUTPUT_TARGET, VALIDATION_STREAMED_TERMINAL_OUTPUT } from ".
  * @param stepNumber - Current step number (1-indexed)
  * @param result - Validation result
  * @param quiet - Whether to suppress output
- * @returns Formatted output string
+ * @returns Composed stage line: the step counter, stage name, verdict, and timing are the
+ * product's own speech, while a tool's own output is an external reading embedded within it.
  */
 function formatStepWithTiming(
   stepNumber: number,
@@ -42,20 +50,22 @@ function formatStepWithTiming(
   stageName: string,
   result: ValidationCommandResult,
   quiet: boolean,
-): string {
+): TerminalText {
   const output = result.terminalOutput ?? result.output;
-  if (quiet) return "";
+  if (quiet) return authoredText("");
+
+  const counter = authoredText(`[${stepNumber}/${totalSteps}] `);
+  const timing = authoredText(result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`);
 
   if (result.terminalOutput === VALIDATION_STREAMED_TERMINAL_OUTPUT) {
     const verdict = result.exitCode === 0 ? VALIDATION_SYMBOLS.SUCCESS : VALIDATION_SYMBOLS.FAILURE;
-    const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
-    return `[${stepNumber}/${totalSteps}] ${stageName}: ${verdict} ${VALIDATION_STREAMED_STAGE_RESULT}${timing}`;
+    const stage = authoredText(`${stageName}: ${verdict} ${VALIDATION_STREAMED_STAGE_RESULT}`);
+    return terminal`${counter}${stage}${timing}`;
   }
 
-  if (!output) return "";
+  if (!output) return authoredText("");
 
-  const timing = result.durationMs === undefined ? "" : ` (${formatDuration(result.durationMs)})`;
-  return `[${stepNumber}/${totalSteps}] ${output}${timing}`;
+  return terminal`${counter}${externalValue(output)}${timing}`;
 }
 
 function parseStageOutput(output: string): unknown {
@@ -105,7 +115,7 @@ function recordStageResult(options: RecordStageResultOptions): void {
     return;
   }
 
-  const stepOutput = formatStepWithTiming(stepNumber, totalSteps, stage.name, result, quiet);
+  const stepOutput = renderTerminalText(formatStepWithTiming(stepNumber, totalSteps, stage.name, result, quiet));
   if (stepOutput) {
     outputs.push(stepOutput);
     writeOutput?.(stepOutput);
@@ -271,7 +281,7 @@ function notifyStageCompletion(
 ): void {
   if (options.json || options.onStageComplete === undefined) return;
   const output = formatStepWithTiming(stepNumber, options.stages.length, stage.name, result, options.quiet);
-  if (output.length === 0) return;
+  if (renderTerminalText(output).length === 0) return;
   options.onStageComplete({
     stepNumber,
     totalSteps: options.stages.length,

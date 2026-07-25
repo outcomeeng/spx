@@ -1,6 +1,7 @@
 /**
  * Shared types for validation commands.
  */
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
@@ -72,7 +73,7 @@ export interface ValidationStageCompletion {
   readonly totalSteps: number;
   readonly stageName: string;
   readonly result: ValidationCommandResult;
-  readonly output: string;
+  readonly output: TerminalText;
 }
 
 /** Common options for all validation commands */

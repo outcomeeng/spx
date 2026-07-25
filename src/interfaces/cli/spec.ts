@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import {
   type ContextOptions,
   renderSpecContextJson,
+  renderSpecContextMethodologyDocuments,
   renderSpecContextText,
   resolveContextManifest,
 } from "@/commands/spec/context";
@@ -71,9 +72,9 @@ function writeOutput(io: CliIo, output: TerminalText): void {
 }
 
 /**
- * Writes a context bundle, whose payload is the read documents themselves rather than a report
- * the product composed about them. With `--content` the bundle carries each document's exact
- * bytes, so this is the relay channel, not composed spx output.
+ * Writes a JSON context bundle. Its payload is the manifest as data, and with `--content` it
+ * carries each read document's exact bytes, so it relays as a document rather than as composed
+ * spx output — escaping it would corrupt both the envelope and the bytes the caller asked for.
  */
 function writeDocument(io: CliIo, document: string): void {
   io.writePassThrough(`${document}\n`);
@@ -125,16 +126,44 @@ export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure
   }
 }
 
-/** Routes a named context output format to its deterministic renderer. */
+async function resolveManifestOrThrow(options: ContextOptions) {
+  const resolution = await resolveContextManifest(options);
+  if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
+  return resolution.manifest;
+}
+
+/** Renders the JSON bundle, which the command relays as a document. */
+export async function contextDocument(options: ContextOptions): Promise<string> {
+  return renderSpecContextJson(await resolveManifestOrThrow(options));
+}
+
+/**
+ * Composes the human-readable manifest and the methodology-document tail it carries. The manifest
+ * is the product's own report; each methodology body is a document read for its exact bytes, so
+ * the two travel separate channels rather than mixing their claims in one write.
+ */
+export async function contextReport(
+  options: ContextOptions,
+): Promise<{ readonly report: TerminalText; readonly documents: string }> {
+  const manifest = await resolveManifestOrThrow(options);
+  return {
+    report: renderSpecContextText(manifest),
+    documents: renderSpecContextMethodologyDocuments(manifest),
+  };
+}
+
+/**
+ * Routes a named context output format to its deterministic renderer, rendering the composed
+ * text form to a plain string. The two formats travel different channels at the write site, so
+ * production code selects a renderer directly rather than through this format switch.
+ */
 export async function contextOutputForFormat(
   format: SpecContextOutputFormat,
   options: ContextOptions,
 ): Promise<string> {
-  const resolution = await resolveContextManifest(options);
-  if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
-  return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-    ? renderSpecContextJson(resolution.manifest)
-    : renderSpecContextText(resolution.manifest);
+  if (format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON) return contextDocument(options);
+  const { report, documents } = await contextReport(options);
+  return documents.length === 0 ? renderTerminalText(report) : `${renderTerminalText(report)}\n${documents}`;
 }
 
 function resolveStatusFormat(options: { json?: boolean; format?: string }): OutputFormat {
@@ -181,17 +210,24 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
         if (options.content === true && options.json !== true) {
           throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
         }
-        const format = options.json === true
-          ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-          : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
-        const output = await contextOutputForFormat(format, {
+        const contextOptions = {
           targets,
           cwd: productDir(),
           content: options.content === true,
           understand: options.understand === true,
           onWarning,
-        });
-        writeDocument(invocation.io, output);
+        };
+        if (options.json === true) {
+          writeDocument(invocation.io, await contextDocument(contextOptions));
+        } else {
+          const { report, documents } = await contextReport(contextOptions);
+          if (documents.length === 0) {
+            writeOutput(invocation.io, report);
+          } else {
+            invocation.io.writeStdout(renderTerminalText(terminal`${report}${SPEC_LINE_TERMINATOR}`));
+            writeDocument(invocation.io, documents);
+          }
+        }
       } catch (error) {
         handleCommandError(invocation.io, error);
       }

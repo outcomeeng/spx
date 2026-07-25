@@ -8,6 +8,13 @@ import { join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { parseSessionMetadata } from "./list";
 import { SESSION_STATUSES, type SessionStatus } from "./types";
 
@@ -100,39 +107,42 @@ export function resolveSessionPaths(
   ];
 }
 
+/** Composes one `Label: value` line, where the label is the product's own and the reading is not. */
+function metadataLine(label: string, value: string): TerminalText {
+  return terminal`${authoredText(`${label}: `)}${externalValue(value)}`;
+}
+
 /**
- * Formats session content for display with metadata header.
+ * Composes the session view: a metadata header the product writes about the session, followed by
+ * the session file's own body. The labels and separator are product speech, while the frontmatter
+ * readings and the file body are written by whoever authored the session, so they are escaped
+ * where they are embedded. The whole view is one composed report rather than a relayed document —
+ * the product wrapped the file in its own header, so it is speaking about the file, not reproducing it.
  *
  * @param content - Raw session file content
  * @param options - Display options including status
- * @returns Formatted output string with metadata header
- *
- * @example
- * ```typescript
- * const output = formatShowOutput(sessionContent, { status: 'todo' });
- * // => "Status: todo\nPriority: high\n---\n# Session Content..."
- * ```
+ * @returns Composed terminal text carrying the header and the body
  */
 export function formatShowOutput(
   content: string,
   options: ShowOutputOptions,
-): string {
+): TerminalText {
   const metadata = parseSessionMetadata(content);
 
-  // Build header with extracted metadata
-  const headerLines: string[] = [
-    `${SESSION_SHOW_LABEL.STATUS}: ${options.status}`,
-    `${SESSION_SHOW_LABEL.PRIORITY}: ${metadata.priority}`,
-    `${SESSION_SHOW_LABEL.GIT_REF}: ${metadata.git_ref}`,
-    `${SESSION_SHOW_LABEL.GOAL}: ${metadata.goal}`,
-    `${SESSION_SHOW_LABEL.NEXT_STEP}: ${metadata.next_step}`,
-    `${SESSION_SHOW_LABEL.CREATED}: ${metadata.created_at ?? ""}`,
-    `${SESSION_SHOW_LABEL.AGENT_SESSION}: ${metadata.agent_session_id ?? ""}`,
+  const headerLines: TerminalText[] = [
+    metadataLine(SESSION_SHOW_LABEL.STATUS, options.status),
+    metadataLine(SESSION_SHOW_LABEL.PRIORITY, metadata.priority),
+    metadataLine(SESSION_SHOW_LABEL.GIT_REF, metadata.git_ref),
+    metadataLine(SESSION_SHOW_LABEL.GOAL, metadata.goal),
+    metadataLine(SESSION_SHOW_LABEL.NEXT_STEP, metadata.next_step),
+    metadataLine(SESSION_SHOW_LABEL.CREATED, metadata.created_at ?? ""),
+    metadataLine(SESSION_SHOW_LABEL.AGENT_SESSION, metadata.agent_session_id ?? ""),
   ];
 
-  // Combine header with separator and original content
-  const header = headerLines.join("\n");
-  const separator = "\n" + SESSION_SHOW_SEPARATOR_CHAR.repeat(SESSION_SHOW_SEPARATOR_WIDTH) + "\n\n";
+  const header = joinTerminalText("\n", headerLines);
+  const separator = authoredText(
+    "\n" + SESSION_SHOW_SEPARATOR_CHAR.repeat(SESSION_SHOW_SEPARATOR_WIDTH) + "\n\n",
+  );
 
-  return header + separator + content;
+  return terminal`${header}${separator}${externalValue(content)}`;
 }
