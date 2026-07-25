@@ -52,15 +52,18 @@ If the domain you need is not in this list, **add it**. Do not hardcode.
 
 ## Sampling from generators
 
-For tests that need a single deterministic value from a generator (scenario/compliance tests that call a real filesystem harness), use `sampleLiteralTestValue`:
+For tests that need a single deterministic value from a generator (scenario/compliance tests that call a real filesystem harness), use `sampleGeneratedValue`:
 
 ```typescript
-import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
-const sourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
+const sourcePath = sampleGeneratedValue(arbitrarySourceFilePath());
 ```
 
-`sampleLiteralTestValue` draws one value with a fixed seed so the test is deterministic but does not repeat the hardcoded value in multiple files.
+`sampleGeneratedValue` draws one value with a fixed seed so the test is deterministic but does not repeat the hardcoded value in multiple files. It is the only single-draw sampler: a generator module never declares its own.
+
+`sampleLiteralTestValue` in `testing/generators/literal/literal.ts` and `sampleConfigTestValue` in `testing/generators/config/descriptors.ts` predate it and draw without a seed. Call `sampleGeneratedValue` instead in new tests, and retire each of those two in its owning node's changeset.
 
 ---
 

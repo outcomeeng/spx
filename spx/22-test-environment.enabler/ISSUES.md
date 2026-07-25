@@ -33,10 +33,10 @@ The remaining two Compliance rules — that both entrypoints take a caller-suppl
 - [`testing/generators/literal/literal.ts`](../../testing/generators/literal/literal.ts) `sampleLiteralTestValue`
 - [`testing/generators/config/descriptors.ts`](../../testing/generators/config/descriptors.ts) `sampleConfigTestValue`
 
-`sampleTestEnvironmentValue` in [`testing/generators/test-environment/test-environment.ts`](../../testing/generators/test-environment/test-environment.ts) pins its seed and matches the documented contract.
+[`testing/generators/sample.ts`](../../testing/generators/sample.ts) now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The two older samplers remain.
 
-**Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and the overlay describes behavior the two samplers do not have.
+**Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and one documented contract maps to three implementations that disagree about determinism.
 
 **Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator and [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, so neither file belongs to this node.
 
-**Resolution:** pin a seed in both samplers in their owning nodes' changesets, or amend the overlay if unseeded draws are the intended contract.
+**Resolution:** repoint each of the two samplers' call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset.

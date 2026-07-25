@@ -25,6 +25,7 @@ CAN construct real filesystem fixtures without hand-written directory trees, man
 ### Compliance
 
 - ALWAYS: temp directories live under the OS temp directory (`os.tmpdir()`) and their removal is constrained to that root — no path outside the OS temp root is ever deleted ([test](tests/safety.compliance.l1.test.ts))
+- ALWAYS: cleanup runs exactly once per invocation, from a `finally` block wrapping the callback, so no caller can opt out and no cleanup call appears in user test code, per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](21-callback-scoped-environment.adr.md) ([audit])
 - ALWAYS: every test harness that needs a temp directory composes on the shared temp-directory primitive, which owns directory creation under `os.tmpdir()` and validated removal — no harness creates or removes a temp directory directly, per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](21-callback-scoped-environment.adr.md) ([audit])
 - ALWAYS: `withTestEnv` and `withSpecTreeEnv` accept a `Config` from the caller and expose `productDir` through the callback environment — neither composes configs from the production registry, per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](21-callback-scoped-environment.adr.md) ([audit])
 - NEVER: `withTestEnv` or `withSpecTreeEnv` returns a handle that requires manual cleanup — both entrypoints are callback-scoped, per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](21-callback-scoped-environment.adr.md) ([audit])
