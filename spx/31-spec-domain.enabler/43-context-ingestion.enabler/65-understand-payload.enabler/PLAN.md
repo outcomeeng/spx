@@ -26,7 +26,13 @@
    version rather than the plugin version, matching the managed instruction markers in
    `CLAUDE.md` and `AGENTS.md`. The plugin version stays a separate axis, and
    `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/ISSUES.md` records that the
-   compatibility relation between the two has no published source yet.
+   compatibility relation between the two has no published source yet. This cannot be a
+   config-only edit: `src/commands/diagnose/probes.ts` composes a plugin-cache directory
+   from `methodology.source` and then matches `methodology.version` against the version
+   directories under it, so it consumes the field as a plugin version. Correcting the
+   declared value without changing that probe leaves the methodology-context check
+   unable to match. Move plugin-version resolution off the methodology field in the same
+   change.
 5. Re-establish evidence for the assertions whose subject moved from the installed plugin
    to the committed tree, and establish evidence for the two untagged compliance
    assertions covering digest divergence and per-coding-agent tree selection. Route both
