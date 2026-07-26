@@ -3,8 +3,8 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/22-test-environment.enabler/tests/env-generators.property.l1.test.ts": "passed",
       "spx/22-test-environment.enabler/tests/generators.property.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/generators.scenario.l1.test.ts": "passed",
       "spx/22-test-environment.enabler/tests/helpers.scenario.l1.test.ts": "passed",
       "spx/22-test-environment.enabler/tests/isolation.property.l1.test.ts": "passed",
       "spx/22-test-environment.enabler/tests/lifecycle.property.l1.test.ts": "passed",
