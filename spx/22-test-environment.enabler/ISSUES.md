@@ -28,15 +28,16 @@ The other three `[audit]` Compliance rules keep that mechanism correctly. Two as
 
 ## Sibling generator samplers draw without the seed their contract promises
 
-[`spx/local/typescript-tests.md`](../local/typescript-tests.md) documents `sampleLiteralTestValue` as drawing "one value with a fixed seed so the test is deterministic". Two samplers call `fc.sample(arbitrary, { numRuns: 1 })` with no seed, so each run draws a different case and a failing draw carries no replay path:
+[`spx/local/typescript-tests.md`](../local/typescript-tests.md) documents the single-draw sampler as drawing "one value with a fixed seed so the test is deterministic". Many generator modules under `testing/generators/` declare their own `sample*TestValue`, and a subset call `fc.sample(arbitrary, { numRuns: 1 })` with no seed, so each run draws a different case and a failing draw carries no replay path. The unseeded ones observed so far:
 
 - [`testing/generators/literal/literal.ts`](../../testing/generators/literal/literal.ts) `sampleLiteralTestValue`
 - [`testing/generators/config/descriptors.ts`](../../testing/generators/config/descriptors.ts) `sampleConfigTestValue`
+- [`testing/generators/spec-tree/spec-tree.ts`](../../testing/generators/spec-tree/spec-tree.ts) `sampleSpecTreeTestValue`
 
-[`testing/generators/sample.ts`](../../testing/generators/sample.ts) now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The two older samplers remain.
+[`testing/generators/sample.ts`](../../testing/generators/sample.ts) now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The per-module samplers remain.
 
-**Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and one documented contract maps to three implementations that disagree about determinism.
+**Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and one documented contract maps to many implementations that disagree about determinism.
 
-**Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator and [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, so neither file belongs to this node.
+**Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator, [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, and [`spx/23-spec-tree.enabler`](../23-spec-tree.enabler/spec-tree.md) owns the spec-tree generator, so none of those files belongs to this node.
 
-**Resolution:** repoint each of the two samplers' call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset.
+**Resolution:** repoint each per-module sampler's call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset, taking the unseeded ones first.
