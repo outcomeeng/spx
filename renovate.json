@@ -9,6 +9,7 @@
   "schedule": ["at any time"],
   "timezone": "Europe/Zurich",
   "automergeSchedule": ["after 3:00 and before 7:00"],
+  "rebaseWhen": "conflicted",
   "labels": ["dependencies"],
   "prHourlyLimit": 4,
   "prConcurrentLimit": 10,
