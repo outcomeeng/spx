@@ -163,17 +163,13 @@ function helperCases(config: Config): fc.Arbitrary<GeneratedTestEnvironmentHelpe
   return fc
     .tuple(
       arbitraryNodeEntry(config),
-      arbitraryDecisionPath(config),
-      generatedSegment(),
+      arbitraryDecisionEntry(config),
       generatedSegment(),
       generatedSegment(),
     )
-    .map(([node, decisionPath, decisionTitle, rawPath, rawContents]) => ({
+    .map(([node, decision, rawPath, rawContents]) => ({
       node,
-      decision: {
-        contents: `# ${decisionTitle}\n`,
-        fixturePath: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, decisionPath].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
-      },
+      decision,
       raw: {
         contents: rawContents,
         fixturePath: [rawPath, `${rawPath}${RAW_FIXTURE_EXTENSION}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),

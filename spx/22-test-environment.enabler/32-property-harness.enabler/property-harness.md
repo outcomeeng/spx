@@ -28,5 +28,6 @@ CAN assert invariants over generated inputs without declaring test-owned run cou
 
 - ALWAYS: an unset `SPX_PROPERTY_SEED` resolves to a freshly drawn seed rather than a fixed constant, so successive runs explore different cases ([test](tests/property-harness.compliance.l1.test.ts))
 - ALWAYS: a failing run reports the seed it used so the run replays under `SPX_PROPERTY_SEED` ([test](tests/property-harness.scenario.l1.test.ts))
+- ALWAYS: a test needing one case rather than a swept domain draws it from its generator through the shared single-draw sampler, whose pinned seed makes the drawn case identical across runs so a failure reproduces ([test](tests/sampler.compliance.l1.test.ts))
 - NEVER: a property test that uses the harness declares its own run count, seed, or timeout — the harness owns them ([audit])
 - NEVER: the harness reimplements case generation or shrinking — it composes on fast-check ([audit])
