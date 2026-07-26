@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
+import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
@@ -15,7 +15,7 @@ import {
 describe("spec context determinism", () => {
   it("produces byte-identical machine output across repeated runs on identical tree content and methodology resources", async () => {
     await assertProperty(
-      TEST_ENVIRONMENT_GENERATOR.contextDeterminismCase(specTreeKindsConfig()),
+      arbitraryContextDeterminismCase(specTreeKindsConfig()),
       async ({ extraDecisionFile, extraNodeDirectory }) => {
         await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
           await env.materialize();

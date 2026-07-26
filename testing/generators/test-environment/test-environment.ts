@@ -17,7 +17,6 @@ const MAX_GENERATED_SEGMENT_LENGTH = 20;
 const MIN_PARALLEL_ENVIRONMENTS = 2;
 const GENERATED_SEGMENT_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"] as const;
 const MAX_MARKER_LENGTH = 12;
-const PATH_UNSAFE_MARKER_CHARACTERS = /[/\0]/;
 const RAW_FIXTURE_EXTENSION = ".txt";
 const PRIOR_SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 
@@ -54,11 +53,6 @@ export type GeneratedTestEnvironmentLifecycleCase = {
 export type GeneratedNonErrorRejection = {
   readonly code: string;
   readonly detail: number;
-};
-
-export type GeneratedContextDeterminismCase = {
-  readonly extraDecisionFile: string;
-  readonly extraNodeDirectory: string;
 };
 
 export type GeneratedTestEnvironmentHelperCases = {
@@ -134,13 +128,6 @@ export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
   return arbitraryEntryFromKinds(entries).map((entry) => entry.path);
 }
 
-function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
-  return fc.record({
-    extraDecisionFile: arbitraryDecisionPath(config),
-    extraNodeDirectory: arbitraryNodePath(config),
-  });
-}
-
 export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
   const entries = [
     ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE),
@@ -194,8 +181,7 @@ function isolationCase(): fc.Arbitrary<GeneratedTestEnvironmentIsolationCase> {
     .tuple(
       generatedSegment(),
       fc.uniqueArray(
-        fc.string({ minLength: 1, maxLength: MAX_MARKER_LENGTH })
-          .filter((marker) => !PATH_UNSAFE_MARKER_CHARACTERS.test(marker)),
+        fc.string({ minLength: 1, maxLength: MAX_MARKER_LENGTH }),
         {
           minLength: MIN_PARALLEL_ENVIRONMENTS,
           maxLength: MAX_PARALLEL_ENVIRONMENTS,
@@ -231,7 +217,6 @@ function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
 }
 
 export const TEST_ENVIRONMENT_GENERATOR = {
-  contextDeterminismCase: arbitraryContextDeterminismCase,
   helperCases,
   isolationCase,
   lifecycleCase,
