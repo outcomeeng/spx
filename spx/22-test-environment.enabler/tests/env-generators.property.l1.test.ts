@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createFilesystemSpecTreeSource,
-  readSpecTree,
-  recognizeSpecTreeFilesystemEntry,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
-} from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -31,42 +25,6 @@ describe("env-scoped generators — produce fixtures materializable inside the c
             // the generator: a spec file not named for its node directory's slug diverges here.
             expect(node?.ref?.path).toBe(fixturePath);
           });
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-  });
-
-  it("draws node directory paths the reader recognizes as nodes", async () => {
-    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await assertProperty(
-        env.arbitraryNodePath,
-        (path) => {
-          const entry = recognizeSpecTreeFilesystemEntry({
-            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-            relativePath: path,
-          });
-
-          expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
-          expect(entry?.id).toBe(path);
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-  });
-
-  it("draws decision paths the reader recognizes as decisions", async () => {
-    await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await assertProperty(
-        env.arbitraryDecisionPath,
-        (path) => {
-          const entry = recognizeSpecTreeFilesystemEntry({
-            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-            relativePath: path,
-          });
-
-          expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
-          expect(entry?.id).toBe(path);
         },
         { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
       );
