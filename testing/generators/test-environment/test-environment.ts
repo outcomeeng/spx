@@ -2,7 +2,6 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
-  NODE_SUFFIXES,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   specTreeConfigDescriptor,
@@ -60,12 +59,6 @@ export type GeneratedNonErrorRejection = {
 export type GeneratedContextDeterminismCase = {
   readonly extraDecisionFile: string;
   readonly extraNodeDirectory: string;
-};
-
-export type GeneratedNodeWriteCase = {
-  readonly contents: string;
-  readonly fixturePath: string;
-  readonly nodeId: string;
 };
 
 export type GeneratedTestEnvironmentHelperCases = {
@@ -130,11 +123,7 @@ function arbitraryEntryFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<Sp
 }
 
 export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
-  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
-  if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryNodePath has no node kinds registered");
-  }
-  return arbitraryEntryFromKinds(entries).map((entry) => entry.path);
+  return arbitraryNodeEntry(config).map((entry) => entry.path);
 }
 
 export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
@@ -166,38 +155,22 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
 }
 
 /**
- * The slug inside a node directory name, which the spec file is named after. A node directory is
- * `{order}{separator}{slug}{kind suffix}`, and its spec file is that same slug plus the spec-file
- * suffix — a fixture whose basename is unrelated to its directory is valid under no naming schema.
+ * A whole node entry — directory path and the spec file inside it — from one construction, so the
+ * two never drift. Callers that need to write the node take the entry rather than re-deriving the
+ * spec-file name from the formatted directory string.
  */
-function nodeSlug(nodeId: string): string {
-  const separatorIndex = nodeId.indexOf(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR);
-  const afterOrder = separatorIndex === -1 ? nodeId : nodeId.slice(separatorIndex + 1);
-  const kindSuffix = NODE_SUFFIXES.find((candidate) => afterOrder.endsWith(candidate));
-  return kindSuffix === undefined ? afterOrder : afterOrder.slice(0, -kindSuffix.length);
-}
-
-function nodeWriteCase(
-  nodePaths: fc.Arbitrary<string>,
-): fc.Arbitrary<GeneratedNodeWriteCase> {
-  return fc
-    .tuple(nodePaths, generatedSegment())
-    .map(([nodeId, title]) => ({
-      contents:
-        `# ${title}\n\nPROVIDES generated node state\nSO THAT test environments\nCAN expose meaningful product fixtures\n`,
-      fixturePath: [
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        nodeId,
-        `${nodeSlug(nodeId)}${PRIOR_SPEC_FILE_SUFFIX}`,
-      ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
-      nodeId,
-    }));
+export function arbitraryNodeEntry(config: Config): fc.Arbitrary<SpecTreeFixtureEntry> {
+  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
+  if (entries.length === 0) {
+    throw new Error("Config supplied to arbitraryNodeEntry has no node kinds registered");
+  }
+  return arbitraryEntryFromKinds(entries);
 }
 
 function helperCases(config: Config): fc.Arbitrary<GeneratedTestEnvironmentHelperCases> {
   return fc
     .tuple(
-      nodeWriteCase(arbitraryNodePath(config)),
+      arbitraryNodeEntry(config),
       arbitraryDecisionPath(config),
       generatedSegment(),
       generatedSegment(),
@@ -260,7 +233,6 @@ function lifecycleCase(): fc.Arbitrary<GeneratedTestEnvironmentLifecycleCase> {
 export const TEST_ENVIRONMENT_GENERATOR = {
   contextDeterminismCase: arbitraryContextDeterminismCase,
   helperCases,
-  nodeWriteCase,
   isolationCase,
   lifecycleCase,
   nonErrorRejection,
