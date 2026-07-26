@@ -2,7 +2,11 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 
-import { arbitraryDecisionPath, arbitraryNodePath } from "@testing/generators/test-environment/test-environment";
+import {
+  arbitraryDecisionEntry,
+  arbitraryNodeEntry,
+  type SpecTreeFixtureEntry,
+} from "@testing/generators/test-environment/test-environment";
 
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
@@ -731,13 +735,13 @@ export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTa
 
 /** One extra node directory and one extra decision file, for a context projection run twice over the same tree. */
 export type GeneratedContextDeterminismCase = {
-  readonly extraDecisionFile: string;
-  readonly extraNodeDirectory: string;
+  readonly extraDecision: SpecTreeFixtureEntry;
+  readonly extraNode: SpecTreeFixtureEntry;
 };
 
 export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
-    extraDecisionFile: arbitraryDecisionPath(config),
-    extraNodeDirectory: arbitraryNodePath(config),
+    extraDecision: arbitraryDecisionEntry(config),
+    extraNode: arbitraryNodeEntry(config),
   });
 }

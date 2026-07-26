@@ -7,7 +7,6 @@ import {
   contextCommand,
   contextTextCommand,
   methodologyPackageConfig,
-  rootedSpecPath,
   specTreeKindsConfig,
   writeMethodologyPackage,
 } from "@testing/harnesses/spec/context";
@@ -16,12 +15,12 @@ describe("spec context determinism", () => {
   it("produces byte-identical machine output across repeated runs on identical tree content and methodology resources", async () => {
     await assertProperty(
       arbitraryContextDeterminismCase(specTreeKindsConfig()),
-      async ({ extraDecisionFile, extraNodeDirectory }) => {
+      async ({ extraDecision, extraNode }) => {
         await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
           await env.materialize();
           await writeMethodologyPackage(env);
-          await env.writeRaw(rootedSpecPath(`${extraNodeDirectory}/extra.md`), "# Extra node\n");
-          await env.writeRaw(rootedSpecPath(extraDecisionFile), "# Extra decision\n");
+          await env.writeRaw(extraNode.fixturePath, extraNode.contents);
+          await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
           const snapshot = await env.readFilesystemSnapshot();
           const target = snapshot.allNodes[0];
           const targets = [target.id];
