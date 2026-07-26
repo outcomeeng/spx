@@ -34,7 +34,7 @@ Define and implement deterministic management for agent instructions, agent conf
 
 ## Agent capability lifecycle packet
 
-The product needs one root product decision record (PDR), proposed at `spx/13-agent-capability-lifecycle.pdr.md`, that consumes the vocabulary in `spx/12-agent-harness.pdr.md` and governs methodology identity, compatible tooling updates, repository-local agent capability reconciliation, user-scope diagnostics, and methodology migration across the higher-index consumers.
+`spx/13-agent-capability-lifecycle.pdr.md` is the root product decision record for this packet. It consumes the vocabulary in `spx/12-agent-harness.pdr.md` and governs methodology identity, compatible tooling updates, repository-local agent capability reconciliation, user-scope diagnostics, and methodology migration across the higher-index consumers.
 
 ### Settled product behavior
 
