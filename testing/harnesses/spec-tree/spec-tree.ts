@@ -26,9 +26,11 @@ import {
 } from "@testing/generators/spec-tree/spec-tree";
 import {
   arbitraryDecisionPath,
+  arbitraryNodeEntry,
   arbitraryNodePath,
   arbitrarySpecTree,
   type SpecTreeFixture,
+  type SpecTreeFixtureEntry,
 } from "@testing/generators/test-environment/test-environment";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -51,6 +53,7 @@ export type SpecTreeEnv =
     readonly productDir: string;
     readFile(relativePath: string): Promise<string>;
     readonly arbitraryNodePath: Arbitrary<string>;
+    readonly arbitraryNodeEntry: Arbitrary<SpecTreeFixtureEntry>;
     readonly arbitraryDecisionPath: Arbitrary<string>;
     readonly arbitrarySpecTree: Arbitrary<SpecTreeFixture>;
   }
@@ -99,6 +102,9 @@ export function withTestEnv<T>(
       readFile: (relativePath) => readAt(productDir, relativePath),
       get arbitraryNodePath() {
         return arbitraryNodePath(config);
+      },
+      get arbitraryNodeEntry() {
+        return arbitraryNodeEntry(config);
       },
       get arbitraryDecisionPath() {
         return arbitraryDecisionPath(config);
