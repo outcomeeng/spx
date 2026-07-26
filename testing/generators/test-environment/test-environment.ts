@@ -120,12 +120,17 @@ export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
   return arbitraryNodeEntry(config).map((entry) => entry.path);
 }
 
-export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
+/** A whole decision entry — its path and the contents to write at it — from one construction. */
+export function arbitraryDecisionEntry(config: Config): fc.Arbitrary<SpecTreeFixtureEntry> {
   const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION);
   if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryDecisionPath has no decision kinds registered");
+    throw new Error("Config supplied to arbitraryDecisionEntry has no decision kinds registered");
   }
-  return arbitraryEntryFromKinds(entries).map((entry) => entry.path);
+  return arbitraryEntryFromKinds(entries);
+}
+
+export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
+  return arbitraryDecisionEntry(config).map((entry) => entry.path);
 }
 
 export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
