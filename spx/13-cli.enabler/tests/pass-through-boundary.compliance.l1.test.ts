@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Domain } from "@/domains/types";
+import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
