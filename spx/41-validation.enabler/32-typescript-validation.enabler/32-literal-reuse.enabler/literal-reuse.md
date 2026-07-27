@@ -8,4 +8,4 @@ CAN enforce the source/test boundary import rules and the no-test-owned-semantic
 
 ### Compliance
 
-- ALWAYS: the stage participates in `spx validation all` — `allCommand` imports and invokes `literalCommand`, which returns a non-zero exit code when problems exist after value-allowlist suppression, path filtering, and kind selection ([review])
+- ALWAYS: the stage participates in `spx validation all` — `allCommand` imports and invokes `literalCommand`, which returns a non-zero exit code when problems exist after value-allowlist suppression, path filtering, and kind selection ([audit])

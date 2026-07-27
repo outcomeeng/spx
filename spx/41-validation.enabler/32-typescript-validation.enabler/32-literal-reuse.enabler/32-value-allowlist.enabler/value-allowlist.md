@@ -21,5 +21,5 @@ CAN suppress findings for values a project has classified as non-domain (HTTP ve
 
 ### Compliance
 
-- ALWAYS: the `spx.config.*` section key for validation configuration is `"validation"`, literal config is nested under `"validation.literal"`, and the literal-value allowlist is nested under `"validation.literal.values"` — no caller outside the config module references these keys as string literals ([review](21-allowlist-config.adr.md))
+- ALWAYS: the `spx.config.*` section key for validation configuration is `"validation"`, literal config is nested under `"validation.literal"`, and the literal-value allowlist is nested under `"validation.literal.values"` — no caller outside the config module references these keys as string literals ([audit])
 - ALWAYS: `exclude` removes a value from the effective allowlist regardless of which source contributed it — a value in both `include` and `exclude` is not in the effective allowlist ([test](tests/value-allowlist.compliance.l1.test.ts))

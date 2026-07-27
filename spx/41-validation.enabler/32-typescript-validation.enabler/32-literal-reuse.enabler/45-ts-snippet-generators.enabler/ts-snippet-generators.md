@@ -14,5 +14,5 @@ CAN call a builder instead of authoring inline template literals for each snippe
 
 ### Compliance
 
-- ALWAYS: `testing/harnesses/literal/harness.ts` derives its file-writing shapes (`formatSourceFile`, `formatTestFile`) from these exported builders — the canonical string forms are not duplicated between the in-memory and file-based code paths ([review])
-- NEVER: a builder embeds its `value` argument via template literal interpolation — values are embedded through `JSON.stringify` or plain string concatenation so that no new interpolated TemplateElement quasi strings are introduced in the builder source ([review])
+- ALWAYS: `testing/harnesses/literal/harness.ts` derives its file-writing shapes (`formatSourceFile`, `formatTestFile`) from these exported builders — the canonical string forms are not duplicated between the in-memory and file-based code paths ([audit])
+- NEVER: a builder embeds its `value` argument via template literal interpolation — values are embedded through `JSON.stringify` or plain string concatenation so that no new interpolated TemplateElement quasi strings are introduced in the builder source ([audit])
