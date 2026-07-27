@@ -7,8 +7,8 @@ import {
   arbitraryTestFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { collectFromSource, indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 describe("literal-reuse detection test harness — scenarios", () => {
   it("collectFromSource finds a string literal carried by a source snippet", () => {

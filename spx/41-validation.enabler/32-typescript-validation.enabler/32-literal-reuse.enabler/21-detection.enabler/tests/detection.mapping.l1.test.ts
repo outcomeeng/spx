@@ -10,7 +10,7 @@ import {
   sampleLiteralTestValue,
   sampleTestFilePathPair,
 } from "@testing/generators/literal/literal";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 
 import { collectFromSource, indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
 

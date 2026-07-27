@@ -26,7 +26,7 @@ import {
   buildNumericDeclaration,
   buildStringDeclaration,
   buildTemplateDeclaration,
-} from "@testing/harnesses/literal/snippets";
+} from "@testing/generators/literal/snippets";
 
 const DOMAIN_LITERAL_MIN_LENGTH = DEFAULT_MIN_STRING_LENGTH + 4;
 const DOMAIN_LITERAL_MAX_LENGTH = 32;
@@ -280,6 +280,22 @@ export interface LiteralPathScopedSourceReuseFixtureInputs {
   readonly excludedPathPrefix: string;
 }
 
+export interface LiteralSnippetBuilderScenario {
+  readonly stringValue: string;
+  readonly numericValue: string;
+  readonly sourceFile: string;
+  readonly testFile: string;
+}
+
+export function arbitraryLiteralSnippetBuilderScenario(): fc.Arbitrary<LiteralSnippetBuilderScenario> {
+  return fc.record({
+    stringValue: arbitraryDomainLiteral(),
+    numericValue: arbitraryDomainNumber().map(String),
+    sourceFile: arbitrarySourceFilePath(),
+    testFile: arbitraryTestFilePath(),
+  });
+}
+
 export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
   return fc
     .record({
@@ -509,6 +525,7 @@ export const LITERAL_TEST_GENERATOR = {
   reuseFixtureInputs: arbitraryLiteralReuseFixtureInputs,
   sourceReuseFixtureInputs: arbitraryLiteralSourceReuseFixtureInputs,
   pathScopedSourceReuseFixtureInputs: arbitraryLiteralPathScopedSourceReuseFixtureInputs,
+  snippetBuilderScenario: arbitraryLiteralSnippetBuilderScenario,
   literalConfig: arbitraryLiteralConfig,
   literalValueConfig: arbitraryLiteralValueConfig,
   detectionResult: arbitraryDetectionResult,

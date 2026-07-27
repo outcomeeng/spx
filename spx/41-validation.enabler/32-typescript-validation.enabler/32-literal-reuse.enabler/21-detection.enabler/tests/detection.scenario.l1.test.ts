@@ -16,7 +16,7 @@ import {
   buildNumericDeclaration,
   buildStringAssertion,
   buildStringDeclaration,
-} from "@testing/harnesses/literal/snippets";
+} from "@testing/generators/literal/snippets";
 
 import { indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
 

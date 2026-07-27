@@ -9,8 +9,8 @@ import type {
   LiteralSourceReuseFixtureInputs,
 } from "@testing/generators/literal/literal";
 import { arbitraryLiteralReuseFixtureInputs, literalEmptyConfig } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { collectHarnessTestCases, expect, it } from "@testing/harnesses/vitest-registration";
