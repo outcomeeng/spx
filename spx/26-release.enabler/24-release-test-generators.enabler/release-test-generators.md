@@ -6,10 +6,13 @@ CAN explore meaningful release cases without assertion files or harnesses recons
 
 ## Assertions
 
+### Conformance
+
+- Every generated Keep a Changelog case agrees with the independent Markdown oracle for its generated release version and changelog structure ([test](tests/release-test-generators.conformance.l1.test.ts))
+
 ### Properties
 
 - Every generated publication scenario ties its package identity, release tag, tagged commit, provenance state, changelog version section, and expected hosted release to one coherent release identity ([test](tests/release-test-generators.property.l1.test.ts))
-- Every generated Keep a Changelog case agrees with the independent Markdown oracle for its generated release version and changelog structure ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated distinct path-segment triple contains three non-empty, pairwise-distinct path segments ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated distinct domain-literal pair contains two non-empty, distinct values ([test](tests/release-test-generators.property.l1.test.ts))
 - Every generated semantic version that excludes another version differs from the excluded version ([test](tests/release-test-generators.property.l1.test.ts))
