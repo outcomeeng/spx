@@ -49,6 +49,7 @@ export type ReleaseDataDeterminismScenario = {
   readonly commits: readonly ReleaseCommitFixture[];
   readonly tag: string;
   readonly packageVersion: string;
+  readonly versionDelta: VersionDelta;
 };
 
 type ReleaseVersionProgression = {
@@ -231,6 +232,7 @@ function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDete
       commits,
       tag: progression.previousTag,
       packageVersion: progression.version,
+      versionDelta: progression.versionDelta,
     }));
 }
 
