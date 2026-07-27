@@ -49,16 +49,6 @@ function createCapturingProgram(stderr: string[], options: CliDiagnosticOptions)
   return program;
 }
 
-function captureCommanderError(run: () => void): CommanderError | undefined {
-  try {
-    run();
-    return undefined;
-  } catch (error) {
-    if (!(error instanceof CommanderError)) throw error;
-    return error;
-  }
-}
-
 /** Parse `argv` through the CLI program and return everything it diagnosed. */
 export async function runCliDiagnostic(
   argv: readonly string[],
@@ -73,13 +63,5 @@ export async function runCliDiagnostic(
     if (!(error instanceof CommanderError)) throw error;
     commanderError = error;
   }
-  return { stderr: stderr.join(""), commanderError };
-}
-
-/** Raise `message` through the program's own `error` path and return what it diagnosed. */
-export function runCliErrorDiagnostic(message: string): CliDiagnosticRun {
-  const stderr: string[] = [];
-  const program = createCapturingProgram(stderr, {});
-  const commanderError = captureCommanderError(() => program.error(message));
   return { stderr: stderr.join(""), commanderError };
 }

@@ -1,4 +1,4 @@
-import { Command, type ErrorOptions } from "commander";
+import { Command } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
@@ -23,20 +23,43 @@ type CliGlobalOptions = {
 };
 
 /**
- * A Commander program that escapes the user-supplied portion of every error
- * message before Commander renders it, so terminal-control bytes echoed from an
- * unknown option or command cannot rewrite the terminal or forge a diagnostic
- * line. Subcommands inherit the behavior through `createCommand`. Escaping is
- * escape-only — it applies no length bound — so Commander's own multi-line
- * usage and help structure is preserved around the escaped message.
+ * Commander builds each diagnostic itself, fusing its own words with whatever the caller typed,
+ * so by the time a message reaches `error` the two are no longer separable. These two hooks are
+ * where they are still apart: every other diagnostic Commander raises embeds only declarations
+ * the product wrote — an option's flags, an argument's name, the command's own name, a count.
+ * Commander marks both `@api private` and omits them from its published typings; this states the
+ * runtime shape the overrides bind to.
+ */
+declare module "commander" {
+  interface Command {
+    unknownOption(flag: string): void;
+    unknownCommand(): void;
+  }
+}
+
+/**
+ * A Commander program that escapes the caller-supplied token where Commander embeds it, so
+ * terminal-control bytes echoed from an unknown option or command cannot rewrite the terminal
+ * or forge a diagnostic line, while the diagnostic Commander composes around that token — its
+ * newline before a suggestion, its usage and help blocks — keeps its own bytes. Subcommands
+ * inherit the behavior through `createCommand`. Escaping is escape-only and leaves printable
+ * input untouched, so Commander's near-match suggestions are unchanged for ordinary tokens.
  */
 class SafeDiagnosticCommand extends Command {
   override createCommand(name?: string): SafeDiagnosticCommand {
     return new SafeDiagnosticCommand(name);
   }
 
-  override error(message: string, errorOptions?: ErrorOptions): never {
-    return super.error(escapeCliArgument(message), errorOptions);
+  override unknownOption(flag: string): void {
+    super.unknownOption(escapeCliArgument(flag));
+  }
+
+  override unknownCommand(): void {
+    // The unknown name is read from `args` rather than passed, so it is escaped in place. The
+    // call below never returns, which is why rewriting the parsed operands here reaches nothing.
+    const [unknownName, ...remainingArgs] = this.args;
+    this.args = [escapeCliArgument(unknownName), ...remainingArgs];
+    super.unknownCommand();
   }
 }
 

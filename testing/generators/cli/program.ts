@@ -1,4 +1,5 @@
 import { CONFIG_CLI } from "@/interfaces/cli/config";
+import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { ESCAPE_CONTROL_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 
@@ -32,8 +33,29 @@ export interface CommanderDiagnosticScenario {
   readonly rawForgedLineBreak: string;
   /** The escaped escape byte, present when the option text is routed through escaping. */
   readonly escapedEscapeByte: string;
-  /** A stray error fragment carrying the same escape byte, for the direct `error()` path. */
-  readonly unsafeErrorFragment: string;
+  /**
+   * An unknown long option one character short of a registered flag. Commander answers a
+   * near match with a two-line message — the diagnostic, then its own newline, then the
+   * suggestion — which is the multi-line structure escaping must leave intact.
+   */
+  readonly nearMatchOption: string;
+  /** The registered long flag Commander suggests for `nearMatchOption`. */
+  readonly nearMatchOptionSuggestion: string;
+  /** An unknown command one character short of a registered subcommand, answered the same way. */
+  readonly nearMatchCommandArgv: readonly string[];
+  /** The registered command name Commander suggests for `nearMatchCommandArgv`. */
+  readonly nearMatchCommandSuggestion: string;
+  /**
+   * The escaped line feed. Escaping applied to a whole composed message renders Commander's
+   * own newline as these four characters, so its absence is what distinguishes escaping the
+   * user-supplied portion from escaping the diagnostic Commander built around it.
+   */
+  readonly escapedLineFeed: string;
+}
+
+/** Drops the final character so the token stays one edit from its source-owned original. */
+function oneEditFrom(registeredName: string): string {
+  return registeredName.slice(0, -1);
 }
 
 const ANSI_SGR_RED_BODY = "[31m";
@@ -41,6 +63,7 @@ const UNKNOWN_OPTION_MARKER = "--";
 const USAGE_FORGERY_PREFIX = "Usage: ";
 const LINE_FEED = "\n";
 const ESCAPED_ESCAPE_BYTE = String.raw`\x1b`;
+const ESCAPED_LINE_FEED = String.raw`\x0a`;
 
 export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
   const rawEscapeByte = String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE);
@@ -54,6 +77,10 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     rawEscapeByte,
     rawForgedLineBreak: `${LINE_FEED}${forgedLine}`,
     escapedEscapeByte: ESCAPED_ESCAPE_BYTE,
-    unsafeErrorFragment: `${token}${rawEscapeByte}${ANSI_SGR_RED_BODY}`,
+    nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
+    nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
+    nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],
+    nearMatchCommandSuggestion: CONFIG_CLI.commandName,
+    escapedLineFeed: ESCAPED_LINE_FEED,
   };
 }
