@@ -38,9 +38,9 @@ describe("Commander diagnostics — terminal byte-safety compliance", () => {
 
     expect(run.commanderError).toBeInstanceOf(CommanderError);
     expect(run.stderr).not.toContain(scenario.escapedLineFeed);
-    // The suggestion has to land on a later line than the diagnostic. Escaping the message
-    // Commander already composed collapses both onto one line, which the negative assertion
-    // above would catch, but only this one proves the near match produced a second line at all.
+    // The two assertions catch different mutations. Escaping the message Commander composed
+    // leaves the literal escape sequence the assertion above rejects; dropping that newline
+    // instead merges the two lines while leaving no sequence behind, and only ordering sees it.
     expect(lines.findIndex((line) => line.includes(scenario.nearMatchOptionSuggestion)))
       .toBeGreaterThan(lines.findIndex((line) => line.includes(scenario.nearMatchOption)));
   });
