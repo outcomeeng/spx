@@ -10,6 +10,7 @@ import type { Result } from "@/config/types";
 import { AGENT_SESSION_KIND, type AgentSessionKind, isAgentSearchSessionKind } from "@/domains/agent/protocol";
 import { parsePiHead } from "@/domains/agent/resume";
 import { normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const HOOK_SESSION_START_PAYLOAD = {
   AGENT: "agent",
@@ -172,10 +173,14 @@ export function isPiHookSessionStartPayload(payload: HookSessionStartPayload): b
   return payload.agent === AGENT_SESSION_KIND.PI;
 }
 
-/** Renders the model-visible stdout for the `session-start` hook event. */
-export function renderSessionStartStdout(input: HookSessionStartStdoutInput): string {
-  if (input.source !== HOOK_SESSION_START_SOURCE.COMPACT) return NO_STARTUP_DIRECTIVE;
-  return input.compactStdout ? HOOK_COMPACT_FOUNDATION_DIRECTIVE : NO_STARTUP_DIRECTIVE;
+/**
+ * Renders the model-visible stdout for the `session-start` hook event. Both directives are
+ * product-authored, and this is the last place that is visible — a caller holding the rendered
+ * result sees only a string and would have to assert the provenance rather than read it.
+ */
+export function renderSessionStartStdout(input: HookSessionStartStdoutInput): TerminalText {
+  if (input.source !== HOOK_SESSION_START_SOURCE.COMPACT) return authoredText(NO_STARTUP_DIRECTIVE);
+  return authoredText(input.compactStdout ? HOOK_COMPACT_FOUNDATION_DIRECTIVE : NO_STARTUP_DIRECTIVE);
 }
 
 export function resolveHookSessionStartEnvFile(

@@ -30,6 +30,7 @@ import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
@@ -42,7 +43,7 @@ export interface HookTranscriptFileSystem {
 
 export interface HookEventResult {
   readonly diagnostics: readonly string[];
-  readonly stdout: string;
+  readonly stdout: TerminalText;
 }
 
 export interface SessionStartHookResult extends HookEventResult {

@@ -112,9 +112,7 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
     options.io.writeStderr(terminal`${externalValue(diagnostic)}`);
   }
   if (result.value.stdout.length > 0) {
-    // The hook payload is machine-destined: the agent harness parses it, so the
-    // producer's serialization is its safety contract rather than escaping.
-    options.io.writeStdout(authoredText(result.value.stdout));
+    options.io.writeStdout(result.value.stdout);
   }
   return { ok: true, value: undefined };
 }
