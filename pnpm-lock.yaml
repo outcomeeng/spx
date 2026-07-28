@@ -55,7 +55,7 @@ importers:
         version: 0.23.1
       markdownlint-rule-relative-links:
         specifier: ^5.1.0
-        version: 5.1.1
+        version: 5.1.2
       parse-duration-ms:
         specifier: ^0.1.0
         version: 0.1.0
@@ -2562,8 +2562,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  markdownlint-rule-relative-links@5.1.1:
-    resolution: {integrity: sha512-XgpNzADiFLxbDE6vbGRoauRgbE34YXAesFzTuWSxMxsdJwmcKCNnlkzjZITcb3/sP0SHx3t57Vq9/Q/WK9sU4w==}
+  markdownlint-rule-relative-links@5.1.2:
+    resolution: {integrity: sha512-mskM3EOV7SdAPEfhaLzdtaZ/25S/i6ef0sX6+O2LqqD7JvHgaY1OLVgMb3ZfybD90DFLRhzry3LieF+W/uS3gA==}
     engines: {node: '>=22.0.0'}
 
   markdownlint@0.41.1:
@@ -5882,7 +5882,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  markdownlint-rule-relative-links@5.1.1:
+  markdownlint-rule-relative-links@5.1.2:
     dependencies:
       markdown-it: 14.3.0
       mime: 4.1.0
