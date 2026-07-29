@@ -30,6 +30,7 @@ import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagn
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
   type StyledReportModel,
@@ -229,11 +230,13 @@ function reading(check: CheckRecord, key: string): TerminalText | undefined {
 /**
  * Builds one `label: value` detail line. Both sides arrive already composed, so
  * a caller states whether its value is product-authored or external instead of
- * letting the builder assume; an absent value resolves to the escaper's
- * undefined sentinel.
+ * letting the builder assume, and the composed value is spliced in as it stands
+ * rather than escaped a second time. An absent reading has no value to state, so
+ * it resolves to the sentinel the escaper names for that case — a string this
+ * product owns, not one a reading supplied.
  */
 function detail(label: string, value: TerminalText | undefined): string {
-  return renderTerminalText(terminal`${authoredText(label)}: ${externalValue(value)}`);
+  return renderTerminalText(terminal`${authoredText(label)}: ${value ?? authoredText(SENTINEL_UNDEFINED)}`);
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
