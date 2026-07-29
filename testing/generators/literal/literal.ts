@@ -365,9 +365,9 @@ export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseF
       reuseLiteral: arbitraryDomainLiteral(),
       dupeLiteral: arbitraryDomainLiteral(),
       reuseSourceFile: arbitrarySourceFilePath(),
-      reuseTestFile: arbitraryTestFilePath(),
-      dupeFirstTestFile: arbitraryTestFilePath(),
-      dupeSecondTestFile: arbitraryTestFilePath(),
+      reuseTestFile: arbitrarySpecTreeTestFilePath(),
+      dupeFirstTestFile: arbitrarySpecTreeTestFilePath(),
+      dupeSecondTestFile: arbitrarySpecTreeTestFilePath(),
     })
     .filter((inputs) => {
       const values = Object.values(inputs);

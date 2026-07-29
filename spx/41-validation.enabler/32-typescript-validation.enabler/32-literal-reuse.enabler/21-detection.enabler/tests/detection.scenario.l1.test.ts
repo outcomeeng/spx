@@ -6,6 +6,7 @@ import {
   arbitraryDomainNumber,
   arbitraryLiteralReuseFixtureInputs,
   arbitrarySourceFilePath,
+  arbitrarySpecTreeTestFilePath,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
   sampleLiteralPair,
@@ -24,7 +25,7 @@ describe("literal-reuse detection — scenarios", () => {
   it("string literal carrying domain meaning in a src file and a test file produces a src↔test reuse finding citing both locations", () => {
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const testFile = sampleLiteralTestValue(arbitraryTestFilePath());
+    const testFile = sampleLiteralTestValue(arbitrarySpecTreeTestFilePath());
 
     const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
     const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
