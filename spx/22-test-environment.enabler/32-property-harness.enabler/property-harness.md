@@ -24,10 +24,12 @@ CAN assert invariants over generated inputs without declaring test-owned run cou
 - Seed resolution is total: for any environment, the resolved seed is the parsed `SPX_PROPERTY_SEED` when it holds a valid integer and a freshly drawn seed otherwise ([test](tests/property-harness.property.l1.test.ts))
 - For a fixed seed, the generated case sequence is identical across runs ([test](tests/property-harness.property.l1.test.ts))
 
+### Conformance
+
+- The shared single-draw sampler returns the case fast-check produces for the same arbitrary under the sampler's source-owned pinned parameters, so repeated draws reproduce ([test](tests/sampler.conformance.l1.test.ts))
+
 ### Compliance
 
-- ALWAYS: an unset `SPX_PROPERTY_SEED` resolves to a freshly drawn seed rather than a fixed constant, so successive runs explore different cases ([test](tests/property-harness.compliance.l1.test.ts))
-- ALWAYS: a failing run reports the seed it used so the run replays under `SPX_PROPERTY_SEED` ([test](tests/property-harness.scenario.l1.test.ts))
-- ALWAYS: the shared single-draw sampler returns the case its given arbitrary produces under a pinned seed, so repeated draws from one arbitrary agree and a scenario built on it reproduces ([test](tests/sampler.compliance.l1.test.ts))
 - NEVER: a property test that uses the harness declares its own run count, seed, or timeout — the harness owns them ([audit])
 - NEVER: the harness reimplements case generation or shrinking — it composes on fast-check ([audit])
+- ALWAYS: the property-harness evidence generators own seed, invalid-environment, shrinking, and sampler-probe input domains, leaving linked assertion files to own only predicates and observations ([audit])
