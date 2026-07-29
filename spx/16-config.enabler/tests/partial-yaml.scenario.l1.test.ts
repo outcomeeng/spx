@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
+import { productionRegistry } from "@/config/registry";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -26,14 +27,25 @@ describe("resolveConfig — partial config", () => {
   });
 
   it("fills sections absent from config content with the descriptor's defaults, leaving declared sections intact", async () => {
-    const projectConfig: Config = sampleConfigTestValue(CONFIG_TEST_GENERATOR.emptyConfig());
+    const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productionSubsetConfig());
+    const projectConfig: Config = generated.config;
 
     await withTestEnv(projectConfig, async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[specTreeConfigDescriptor.section]).toEqual(specTreeConfigDescriptor.defaults);
+        expect(Object.keys(result.value).sort(compareAsciiStrings)).toEqual(
+          productionRegistry.map((descriptor) => descriptor.section).sort(compareAsciiStrings),
+        );
+        for (const descriptor of productionRegistry) {
+          if (!generated.declaredSections.includes(descriptor.section)) {
+            expect(result.value[descriptor.section]).toEqual(descriptor.defaults);
+          }
+        }
+        for (const section of generated.declaredSections) {
+          expect(result.value).toHaveProperty(section);
+        }
       }
     });
   });
