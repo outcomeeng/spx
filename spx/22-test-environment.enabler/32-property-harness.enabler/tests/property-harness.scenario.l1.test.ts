@@ -11,6 +11,7 @@ import {
   assertProperty,
   PromiseReturningSyncPredicateError,
   PROPERTY_CLASSIFICATION,
+  PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS,
   PropertyFailureError,
   resolveRunCount,
   SPX_PROPERTY_SEED_ENV,
@@ -31,14 +32,34 @@ describe("assertProperty runs a property under harness-owned policy", () => {
   });
 
   it("resolves when an asynchronous property holds", async () => {
+    let completed = 0;
     await expect(
       assertProperty(
         arbitraryPropertyValue(),
-        async (value) => Number.isInteger(value),
+        async (value) => {
+          await Promise.resolve();
+          completed += 1;
+          return Number.isInteger(value);
+        },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       ),
     ).resolves.toBeUndefined();
+    expect(completed).toBe(resolveRunCount(PROPERTY_CLASSIFICATION.SMALL_L1));
   });
+
+  it(
+    "throws when an asynchronous property exceeds the classification timeout",
+    { timeout: PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS },
+    async () => {
+      await expect(
+        assertProperty(
+          arbitraryPropertyValue(),
+          async () => await new Promise<boolean | void>(() => {}),
+          PROPERTY_CLASSIFICATION.SMALL_L1,
+        ),
+      ).rejects.toBeInstanceOf(PropertyFailureError);
+    },
+  );
 
   it("throws a structured failure carrying the run seed and shrunk counterexample", () => {
     const seed = sampleGeneratedValue(arbitraryPropertySeed());
