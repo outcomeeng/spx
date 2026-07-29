@@ -227,10 +227,12 @@ export function arbitraryDistinctLiteralIndexEntries(): fc.Arbitrary<readonly [L
     pair: arbitraryDistinctLiteralKindValuePair(),
     firstLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
     secondLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
-  }).map(({ pair, firstLocation, secondLocation }) => [
-    { ...pair.first, loc: firstLocation },
-    { ...pair.second, loc: secondLocation },
-  ] as const);
+  }).map(({ pair, firstLocation, secondLocation }) =>
+    [
+      { ...pair.first, loc: firstLocation },
+      { ...pair.second, loc: secondLocation },
+    ] as const
+  );
 }
 
 export function arbitraryLiteralLocation(fileArb: fc.Arbitrary<string>): fc.Arbitrary<LiteralLocation> {

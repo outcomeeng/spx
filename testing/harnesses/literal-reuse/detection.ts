@@ -8,10 +8,7 @@ import {
   type LiteralIndex,
   type LiteralOccurrence,
 } from "@/validation/literal/index";
-import type {
-  LiteralDetectionFixture,
-  LiteralDetectionFixtureFile,
-} from "@testing/generators/literal/literal";
+import type { LiteralDetectionFixture, LiteralDetectionFixtureFile } from "@testing/generators/literal/literal";
 
 export function indexSources(
   ...sources: ReadonlyArray<readonly [string, string]>
