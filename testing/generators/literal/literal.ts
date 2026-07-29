@@ -360,14 +360,24 @@ export function arbitraryLiteralSnippetBuilderScenario(): fc.Arbitrary<LiteralSn
 }
 
 export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
+  return arbitraryLiteralReuseFixtureInputsWithTestPaths(arbitraryTestFilePath());
+}
+
+export function arbitrarySpecTreeLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
+  return arbitraryLiteralReuseFixtureInputsWithTestPaths(arbitrarySpecTreeTestFilePath());
+}
+
+function arbitraryLiteralReuseFixtureInputsWithTestPaths(
+  testFilePath: fc.Arbitrary<string>,
+): fc.Arbitrary<LiteralReuseFixtureInputs> {
   return fc
     .record({
       reuseLiteral: arbitraryDomainLiteral(),
       dupeLiteral: arbitraryDomainLiteral(),
       reuseSourceFile: arbitrarySourceFilePath(),
-      reuseTestFile: arbitrarySpecTreeTestFilePath(),
-      dupeFirstTestFile: arbitrarySpecTreeTestFilePath(),
-      dupeSecondTestFile: arbitrarySpecTreeTestFilePath(),
+      reuseTestFile: testFilePath,
+      dupeFirstTestFile: testFilePath,
+      dupeSecondTestFile: testFilePath,
     })
     .filter((inputs) => {
       const values = Object.values(inputs);
@@ -382,6 +392,14 @@ export function arbitraryLiteralSourceReuseFixtureInputs(): fc.Arbitrary<Literal
     literal: arbitraryDomainLiteral(),
     sourceFile: arbitrarySourceFilePath(),
     testFile: arbitraryTestFilePath(),
+  });
+}
+
+export function arbitrarySpecTreeLiteralSourceReuseFixtureInputs(): fc.Arbitrary<LiteralSourceReuseFixtureInputs> {
+  return fc.record({
+    literal: arbitraryDomainLiteral(),
+    sourceFile: arbitrarySourceFilePath(),
+    testFile: arbitrarySpecTreeTestFilePath(),
   });
 }
 

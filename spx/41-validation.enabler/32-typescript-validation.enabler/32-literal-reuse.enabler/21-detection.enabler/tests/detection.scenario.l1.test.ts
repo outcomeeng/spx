@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { createEmptyLiteralAllowlist, detectReuse, LITERAL_KIND, REMEDIATION } from "@/validation/literal/index";
+import {
+  createEmptyLiteralAllowlist,
+  detectReuse,
+  LITERAL_KIND,
+  REMEDIATION,
+  validateLiteralReuse,
+} from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
   arbitraryDomainNumber,
-  arbitraryLiteralReuseFixtureInputs,
   arbitrarySourceFilePath,
-  arbitrarySpecTreeTestFilePath,
+  arbitrarySpecTreeLiteralReuseFixtureInputs,
+  arbitrarySpecTreeLiteralSourceReuseFixtureInputs,
   arbitraryTestFilePath,
   LITERAL_TEST_GENERATOR_COUNTS,
+  literalEmptyConfig,
   sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
@@ -20,47 +27,43 @@ import {
 } from "@testing/generators/literal/snippets";
 
 import { indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
+import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 
 describe("literal-reuse detection — scenarios", () => {
-  it("string literal carrying domain meaning in a src file and a test file produces a src↔test reuse finding citing both locations", () => {
-    const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const sourceFile = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const testFile = sampleLiteralTestValue(arbitrarySpecTreeTestFilePath());
+  it("string literal carrying domain meaning in a src file and a test file produces a src↔test reuse finding citing both locations", async () => {
+    const inputs = sampleLiteralTestValue(arbitrarySpecTreeLiteralSourceReuseFixtureInputs());
 
-    const srcIndex = indexSources([sourceFile, buildStringDeclaration(literal)]);
-    const tests = testOccurrences([testFile, buildStringAssertion(literal)]);
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
+      await env.writeSourceReuseFixture(inputs);
+      const result = await validateLiteralReuse({ productDir: env.productDir });
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
-
-    const finding = result.srcReuse.find((f) => f.value === literal);
-    expect(finding).toBeDefined();
-    expect(finding?.kind).toBe(LITERAL_KIND.STRING);
-    expect(finding?.test.file).toBe(testFile);
-    expect(finding?.src.map((s) => s.file)).toContain(sourceFile);
-    expect(result.testDupe).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
+      const finding = result.findings.srcReuse.find((candidate) => candidate.value === inputs.literal);
+      expect(finding).toBeDefined();
+      expect(finding?.kind).toBe(LITERAL_KIND.STRING);
+      expect(finding?.test.file).toBe(inputs.testFile);
+      expect(finding?.src.map((location) => location.file)).toContain(inputs.sourceFile);
+      expect(result.findings.testDupe).toHaveLength(LITERAL_TEST_GENERATOR_COUNTS.none);
+    });
   });
 
-  it("string literal in two or more test files with no source occurrence produces a test↔test duplication finding citing every test location", () => {
-    const inputs = sampleLiteralTestValue(arbitraryLiteralReuseFixtureInputs());
+  it("string literal in two or more test files with no source occurrence produces a test↔test duplication finding citing every test location", async () => {
+    const inputs = sampleLiteralTestValue(arbitrarySpecTreeLiteralReuseFixtureInputs());
 
-    const srcIndex = indexSources([inputs.reuseSourceFile, buildStringDeclaration(inputs.reuseLiteral)]);
-    const tests = testOccurrences(
-      [inputs.dupeFirstTestFile, buildStringAssertion(inputs.dupeLiteral)],
-      [inputs.dupeSecondTestFile, buildStringAssertion(inputs.dupeLiteral)],
-    );
+    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
+      await env.writeReuseFixture(inputs);
+      const result = await validateLiteralReuse({ productDir: env.productDir });
 
-    const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
-
-    const findings = result.testDupe.filter((f) => f.value === inputs.dupeLiteral);
-    expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
-    const cited = new Set<string>();
-    for (const finding of findings) {
-      expect(finding.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
-      cited.add(finding.test.file);
-      for (const other of finding.otherTests) cited.add(other.file);
-    }
-    expect(cited.has(inputs.dupeFirstTestFile)).toBe(true);
-    expect(cited.has(inputs.dupeSecondTestFile)).toBe(true);
+      const findings = result.findings.testDupe.filter((candidate) => candidate.value === inputs.dupeLiteral);
+      expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
+      const cited = new Set<string>();
+      for (const finding of findings) {
+        expect(finding.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
+        cited.add(finding.test.file);
+        for (const other of finding.otherTests) cited.add(other.file);
+      }
+      expect(cited.has(inputs.dupeFirstTestFile)).toBe(true);
+      expect(cited.has(inputs.dupeSecondTestFile)).toBe(true);
+    });
   });
 
   it("numeric literal of meaningful magnitude duplicating between source and test produces a src↔test reuse finding", () => {
