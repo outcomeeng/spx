@@ -1,4 +1,3 @@
-import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
@@ -6,11 +5,13 @@ import { renderReportJson } from "@/domains/diagnose/report";
 import { CHECK_RECORD_FIELDS, OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("the JSON report conforms to the report schema", () => {
   it("emits a per-check record array and an overall verdict, each record carrying name, verdict, bucket, readings, and remediation", () => {
-    fc.assert(
-      fc.property(arbitraryReport(), (report) => {
+    assertProperty(
+      arbitraryReport(),
+      (report) => {
         const parsed = JSON.parse(renderTerminalText(renderReportJson(report))) as {
           checks: {
             name: string;
@@ -36,7 +37,8 @@ describe("the JSON report conforms to the report schema", () => {
           expect(check.remediation).toBe(report.checks[index].remediation);
           expect(check.readings).toEqual(report.checks[index].readings);
         });
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });
