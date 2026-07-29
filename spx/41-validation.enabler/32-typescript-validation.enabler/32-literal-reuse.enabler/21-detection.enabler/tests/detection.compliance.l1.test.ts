@@ -17,8 +17,8 @@ import {
   sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
-import { sampleGeneratedValue } from "@testing/generators/sample";
 import { buildStringDeclaration } from "@testing/generators/literal/snippets";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 import { collectFromSource } from "@testing/harnesses/literal-reuse/detection";
