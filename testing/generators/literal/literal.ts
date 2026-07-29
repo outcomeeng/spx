@@ -302,6 +302,12 @@ export function arbitrarySourceFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `src/${slug}.ts`);
 }
 
+export function arbitraryDistinctSourceFilePathPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(arbitrarySourceFilePath(), arbitrarySourceFilePath())
+    .filter(([first, second]) => first !== second);
+}
+
 export function arbitraryTestFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `tests/${slug}.test.ts`);
 }
@@ -597,6 +603,7 @@ export const LITERAL_TEST_GENERATOR = {
   domainLiteral: arbitraryDomainLiteral,
   domainNumber: arbitraryDomainNumber,
   sourceFilePath: arbitrarySourceFilePath,
+  sourceFilePathPair: arbitraryDistinctSourceFilePathPair,
   testFilePath: arbitraryTestFilePath,
   webPresetToken: arbitraryWebPresetToken,
   presetName: arbitraryPresetName,

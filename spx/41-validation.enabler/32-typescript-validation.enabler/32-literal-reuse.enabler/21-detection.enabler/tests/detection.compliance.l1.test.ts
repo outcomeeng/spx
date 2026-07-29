@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -13,10 +12,12 @@ import {
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
+  LITERAL_TEST_GENERATOR,
   literalModuleNamingFixtures,
   sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
@@ -55,14 +56,9 @@ describe("ALWAYS: domain path filters narrow literal reuse indexing", () => {
   it("skips files excluded through pathConfig while indexing other git-visible files", async () => {
     await withGitWorktreeEnv(async (env) => {
       const [excludedLiteral, activeLiteral] = sampleLiteralPair();
-      const generatedPaths = sampleLiteralTestValue(
-        fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 2, maxLength: 2 }),
+      const [excludedRelativePath, activeRelativePath] = sampleGeneratedValue(
+        LITERAL_TEST_GENERATOR.sourceFilePathPair(),
       );
-      const excludedRelativePath = generatedPaths[0];
-      const activeRelativePath = generatedPaths[1];
-      if (excludedRelativePath === undefined || activeRelativePath === undefined) {
-        throw new Error("literal detection compliance: source path generator returned too few paths");
-      }
 
       await env.writeTracked(excludedRelativePath, buildStringDeclaration(excludedLiteral));
       await env.writeTracked(activeRelativePath, buildStringDeclaration(activeLiteral));
