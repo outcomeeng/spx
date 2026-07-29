@@ -27,8 +27,9 @@ export interface PublicationObservation {
   readonly hostedReleaseState: HostedRelease | null;
 }
 
-export interface FailedPublicationObservation extends PublicationObservation {
-  readonly error: unknown;
+export interface PublicationHarness {
+  publish(): Promise<void>;
+  observe(): PublicationObservation;
 }
 
 export interface PublishReleaseCommandObservation extends PublicationObservation {
@@ -62,34 +63,22 @@ export interface PublishReleaseCliObservation {
 }
 
 export async function observePublication(scenario: PublicationScenario): Promise<PublicationObservation> {
-  const sequence = new PublicationRequestSequence();
-  const packagePublisher = new RecordingPackagePublisher(scenario.existingPackage, sequence);
-  const hostedReleasePublisher = new RecordingHostedReleasePublisher(
-    scenario.existingHostedRelease,
-    sequence,
-  );
-  await publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher));
-  return publicationObservation(scenario, packagePublisher, hostedReleasePublisher);
+  const harness = createPublicationHarness(scenario);
+  await harness.publish();
+  return harness.observe();
 }
 
-export async function observeFailedPublication(
-  scenario: PublicationScenario,
-): Promise<FailedPublicationObservation> {
+export function createPublicationHarness(scenario: PublicationScenario): PublicationHarness {
   const sequence = new PublicationRequestSequence();
   const packagePublisher = new RecordingPackagePublisher(scenario.existingPackage, sequence);
   const hostedReleasePublisher = new RecordingHostedReleasePublisher(
     scenario.existingHostedRelease,
     sequence,
   );
-  try {
-    await publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher));
-  } catch (error) {
-    return {
-      ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
-      error,
-    };
-  }
-  throw new Error("Publication failure scenario completed without an error");
+  return {
+    publish: () => publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher)),
+    observe: () => publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
+  };
 }
 
 export async function observePublishReleaseCommand(

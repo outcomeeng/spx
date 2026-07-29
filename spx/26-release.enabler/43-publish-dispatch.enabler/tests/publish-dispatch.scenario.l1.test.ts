@@ -10,8 +10,7 @@ import {
 } from "@testing/generators/release/publication";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
-  type FailedPublicationObservation,
-  observeFailedPublication,
+  createPublicationHarness,
   observePublication,
   observePublishReleaseCli,
   observePublishReleaseCommand,
@@ -23,15 +22,14 @@ import { describe, expect, it } from "vitest";
 
 describe("release publication dispatch", () => {
   it("rejects a release tag that does not name the package version", async () => {
-    await expect(
-      observeFailedPublication(sampleReleaseTestValue(arbitraryPublicationTagMismatchScenario())),
-    ).resolves.toSatisfy((observation: FailedPublicationObservation) => {
-      expect(observation.error).toBeInstanceOf(ReleasePublicationError);
-      expect(observation.packageInspectRequests).toEqual([]);
-      expect(observation.packagePublishRequests).toEqual([]);
-      expect(observation.hostedReleaseRequests).toEqual([]);
-      return true;
-    });
+    const harness = createPublicationHarness(
+      sampleReleaseTestValue(arbitraryPublicationTagMismatchScenario()),
+    );
+    await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+    const observation = harness.observe();
+    expect(observation.packageInspectRequests).toEqual([]);
+    expect(observation.packagePublishRequests).toEqual([]);
+    expect(observation.hostedReleaseRequests).toEqual([]);
   });
 
   it("publishes the package before exposing the hosted release", async () => {
@@ -137,19 +135,16 @@ describe("release publication dispatch", () => {
   });
 
   it("leaves the hosted release unchanged when package identity verification fails", async () => {
-    await expect(
-      observeFailedPublication(
-        sampleReleaseTestValue(arbitraryPublicationIdentityMismatchScenario()),
-      ),
-    ).resolves.toSatisfy((observation: FailedPublicationObservation) => {
-      expect(observation.error).toBeInstanceOf(ReleasePublicationError);
-      expect(observation.packageInspectRequests.map((request) => request.value)).toEqual([
-        observation.scenario.packagePublication,
-      ]);
-      expect(observation.packagePublishRequests).toEqual([]);
-      expect(observation.hostedReleaseRequests).toEqual([]);
-      expect(observation.hostedReleaseState).toEqual(observation.scenario.existingHostedRelease);
-      return true;
-    });
+    const harness = createPublicationHarness(
+      sampleReleaseTestValue(arbitraryPublicationIdentityMismatchScenario()),
+    );
+    await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+    const observation = harness.observe();
+    expect(observation.packageInspectRequests.map((request) => request.value)).toEqual([
+      observation.scenario.packagePublication,
+    ]);
+    expect(observation.packagePublishRequests).toEqual([]);
+    expect(observation.hostedReleaseRequests).toEqual([]);
+    expect(observation.hostedReleaseState).toEqual(observation.scenario.existingHostedRelease);
   });
 });
