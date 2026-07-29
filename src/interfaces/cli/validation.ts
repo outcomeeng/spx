@@ -39,13 +39,7 @@ import {
 } from "@/interfaces/cli/validation-contract";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import {
-  authoredText,
-  externalValue,
-  renderTerminalText,
-  terminal,
-  type TerminalText,
-} from "@/lib/terminal-text/terminal-text";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import type { ValidationStage } from "@/validation/languages/types";
 import { allowlistExisting } from "@/validation/literal/allowlist-existing";
 import { validationPipelineStages } from "@/validation/registry";
@@ -286,7 +280,7 @@ async function resolveValidationPaths(invocation: CliInvocation, pathOperands: r
       renderTerminalText(
         terminal`spx ${authoredText(validationCliDefinition.domain.commandName)}: ${
           authoredText(invalidPathOperand.messageLabel)
-        }: ${externalValue(sanitizeCliArgument(invalidOperand))} (${authoredText(invalidPathOperand.reason)})\n`,
+        }: ${authoredText(sanitizeCliArgument(invalidOperand))} (${authoredText(invalidPathOperand.reason)})\n`,
       ),
     );
     invocation.io.exit(invalidPathOperand.exitCode);
@@ -430,7 +424,7 @@ function registerValidationCommands(
           invocation.io.writeStderr(
             renderTerminalText(
               terminal`spx validation literal: ${authoredText(unknownLiteralProblemKind.messageLabel)}: ${
-                externalValue(sanitizeCliArgument(options.kind))
+                authoredText(sanitizeCliArgument(options.kind))
               }\n`,
             ),
           );
@@ -549,7 +543,7 @@ function handleUnknownSubcommand(operands: readonly string[], io: CliIo): never 
     renderTerminalText(
       terminal`${authoredText(SPX_PROGRAM_NAME)} ${authoredText(domain.commandName)}: ${
         authoredText(unknownSubcommand.messageLabel)
-      }: ${externalValue(sanitized)}\n`,
+      }: ${authoredText(sanitized)}\n`,
     ),
   );
   return io.exit(unknownSubcommand.exitCode);
