@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  arbitraryNonShrinkingPropertyValue,
   arbitraryPropertySeed,
   arbitraryPropertyValue,
   arbitraryShrinkingFailureInput,
@@ -53,7 +54,7 @@ describe("assertProperty runs a property under harness-owned policy", () => {
     async () => {
       await expect(
         assertProperty(
-          arbitraryPropertyValue(),
+          arbitraryNonShrinkingPropertyValue(),
           async () => await new Promise<boolean | void>(() => {}),
           PROPERTY_CLASSIFICATION.SMALL_L1,
         ),

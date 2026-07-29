@@ -16,6 +16,10 @@ export function arbitraryPropertyValue(): fc.Arbitrary<number> {
   return fc.integer();
 }
 
+export function arbitraryNonShrinkingPropertyValue(): fc.Arbitrary<number> {
+  return fc.noShrink(arbitraryPropertyValue());
+}
+
 export function arbitraryAbsentOrNonIntegerSeedText(): fc.Arbitrary<string | undefined> {
   return fc.option(
     fc.string().map((value) => `${NON_INTEGER_PREFIX}${value}`),
