@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEmptyLiteralAllowlist, detectReuse, LITERAL_KIND } from "@/validation/literal/index";
+import { createEmptyLiteralAllowlist, detectReuse, LITERAL_KIND, REMEDIATION } from "@/validation/literal/index";
 import {
   arbitraryDomainLiteral,
   arbitraryDomainNumber,
@@ -54,6 +54,7 @@ describe("literal-reuse detection — scenarios", () => {
     expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
     const cited = new Set<string>();
     for (const finding of findings) {
+      expect(finding.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
       cited.add(finding.test.file);
       for (const other of finding.otherTests) cited.add(other.file);
     }

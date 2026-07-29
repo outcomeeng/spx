@@ -18,7 +18,7 @@ import {
   LITERAL_KIND,
   type LiteralKind,
   type LiteralLocation,
-  MODULE_NAMING_SKIP,
+  type LiteralOccurrence,
   REMEDIATION,
   type ReuseFinding,
 } from "@/validation/literal/index";
@@ -76,32 +76,44 @@ const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
 const ALL_PRESET_NAMES: ReadonlyArray<PresetName> = Object.values(PRESET_NAMES);
 
-const IMPORT_SYNTAX_EXAMPLES: Readonly<Record<string, { readonly source: string; readonly path: string }>> = {
-  ImportDeclaration: {
+const MODULE_NAMING_FIXTURES: readonly LiteralModuleNamingFixture[] = [
+  {
+    nodeType: "ImportDeclaration",
+    field: "source",
     source: `import { a } from "./import-decl-path";`,
     path: "./import-decl-path",
   },
-  ExportNamedDeclaration: {
+  {
+    nodeType: "ExportNamedDeclaration",
+    field: "source",
     source: `export { x } from "./export-named-path";`,
     path: "./export-named-path",
   },
-  ExportAllDeclaration: {
+  {
+    nodeType: "ExportAllDeclaration",
+    field: "source",
     source: `export * from "./export-all-path";`,
     path: "./export-all-path",
   },
-  ImportExpression: {
+  {
+    nodeType: "ImportExpression",
+    field: "source",
     source: `const load = () => import("./dynamic-import-path");`,
     path: "./dynamic-import-path",
   },
-  TSImportType: {
+  {
+    nodeType: "TSImportType",
+    field: "source",
     source: `type X = import("./type-only-path").Thing;`,
     path: "./type-only-path",
   },
-  TSExternalModuleReference: {
+  {
+    nodeType: "TSExternalModuleReference",
+    field: "expression",
     source: `import eq = require("./equals-required-path");`,
     path: "./equals-required-path",
   },
-};
+];
 
 const AST_OCCURRENCE_MAPPING_LABEL = {
   STRING_DECLARATION: "stringLiteralDeclaration",
@@ -133,6 +145,44 @@ export function arbitraryLiteralSourceSnippet(): fc.Arbitrary<string> {
     arbitraryDomainNumber().map((value) => buildNumericDeclaration(String(value))),
     arbitraryDomainLiteral().map(buildTemplateDeclaration),
   );
+}
+
+export interface LiteralDetectionFixtureFile {
+  readonly filename: string;
+  readonly source: string;
+}
+
+export interface LiteralDetectionFixture {
+  readonly srcFiles: readonly LiteralDetectionFixtureFile[];
+  readonly testFiles: readonly LiteralDetectionFixtureFile[];
+}
+
+function arbitraryLiteralDetectionFixtureFile(
+  filenameArbitrary: fc.Arbitrary<string>,
+): fc.Arbitrary<LiteralDetectionFixtureFile> {
+  return fc.record({
+    filename: filenameArbitrary,
+    source: arbitraryLiteralSourceSnippet(),
+  });
+}
+
+export function arbitraryLiteralDetectionFixture(): fc.Arbitrary<LiteralDetectionFixture> {
+  return fc.record({
+    sharedSource: arbitraryLiteralSourceSnippet(),
+    srcFiles: fc.uniqueArray(arbitraryLiteralDetectionFixtureFile(arbitrarySourceFilePath()), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+      selector: (entry) => entry.filename,
+    }),
+    testFiles: fc.uniqueArray(arbitraryLiteralDetectionFixtureFile(arbitraryTestFilePath()), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+      selector: (entry) => entry.filename,
+    }),
+  }).map(({ sharedSource, srcFiles, testFiles }) => ({
+    srcFiles: srcFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+    testFiles: testFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+  }));
 }
 
 export interface LiteralKindValue {
@@ -170,6 +220,17 @@ export function arbitraryDistinctLiteralKindValuePair(): fc.Arbitrary<DistinctLi
       second: { kind: LITERAL_KIND.NUMBER, value: String(number) },
     })),
   );
+}
+
+export function arbitraryDistinctLiteralIndexEntries(): fc.Arbitrary<readonly [LiteralOccurrence, LiteralOccurrence]> {
+  return fc.record({
+    pair: arbitraryDistinctLiteralKindValuePair(),
+    firstLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
+    secondLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
+  }).map(({ pair, firstLocation, secondLocation }) => [
+    { ...pair.first, loc: firstLocation },
+    { ...pair.second, loc: secondLocation },
+  ] as const);
 }
 
 export function arbitraryLiteralLocation(fileArb: fc.Arbitrary<string>): fc.Arbitrary<LiteralLocation> {
@@ -368,10 +429,7 @@ export interface LiteralModuleNamingFixture {
 }
 
 export function literalModuleNamingFixtures(): readonly LiteralModuleNamingFixture[] {
-  return Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) => {
-    const example = IMPORT_SYNTAX_EXAMPLES[nodeType];
-    return [...fields].map((field) => ({ nodeType, field, source: example.source, path: example.path }));
-  });
+  return MODULE_NAMING_FIXTURES;
 }
 
 export function literalAstOccurrenceCases(): readonly {

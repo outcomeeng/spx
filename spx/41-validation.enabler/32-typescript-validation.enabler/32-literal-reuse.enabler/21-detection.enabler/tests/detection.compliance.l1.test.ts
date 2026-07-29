@@ -27,7 +27,7 @@ describe("ALWAYS: AST traversal descends only into fields the injected visitor-k
     const emptyKeys: VisitorKeysMap = {};
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const source = `const x = { key: "${literal}" };`;
+    const source = buildStringDeclaration(literal);
 
     const occurrences = collectFromSource(source, filename, {
       ...DEFAULT_LITERAL_COLLECT_OPTIONS,
@@ -40,7 +40,7 @@ describe("ALWAYS: AST traversal descends only into fields the injected visitor-k
   it("default visitor-keys map indexes literals from positions beneath registered node types", () => {
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const source = `const x = { key: "${literal}" };`;
+    const source = buildStringDeclaration(literal);
 
     const occurrences = collectFromSource(source, filename, {
       ...DEFAULT_LITERAL_COLLECT_OPTIONS,
