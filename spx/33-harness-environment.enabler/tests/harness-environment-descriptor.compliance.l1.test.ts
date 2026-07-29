@@ -2,18 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { productionRegistry } from "@/config/registry";
+import { RESULT_VALUE_KEY } from "@/config/types";
 import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   HARNESS_ENVIRONMENT_SECTION,
+  type HarnessEnvironmentConfig,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
-  assertHarnessEnvironmentConfig,
-  expectRejectedConfig,
-  expectResolvedConfig,
   harnessEnvironmentPath,
   sampleHarnessEnvironmentKey,
   sampleUnknownAgent,
@@ -30,8 +29,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(generated.config, async ({ productDir }) => {
         const result = await resolveConfig(productDir);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment).toEqual(generated.expected);
       });
@@ -40,9 +40,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
     it("resolves descriptor defaults for omitted harness environment config", async () => {
       await withTestEnv({}, async ({ productDir }) => {
         const result = await resolveConfig(productDir, productionRegistry);
-        const config = expectResolvedConfig(result);
-
-        expect(assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION])).toEqual(
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value[HARNESS_ENVIRONMENT_SECTION]).toEqual(
           harnessEnvironmentConfigDescriptor.defaults,
         );
       });
@@ -57,8 +57,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.agents).toEqual(harnessEnvironmentConfigDescriptor.defaults.agents);
       });
@@ -67,8 +68,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
     it("resolves per-agent hook policy defaults", async () => {
       await withTestEnv({}, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.agents[AGENT.CODEX].hooks.sessionStart.compactStdout).toBe(false);
         expect(harnessEnvironment.agents[AGENT.CLAUDE_CODE].hooks.sessionStart.compactStdout).toBe(true);
@@ -99,8 +101,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.agents[AGENT.CODEX].hooks.sessionStart.compactStdout).toBe(true);
         expect(harnessEnvironment.agents[AGENT.CLAUDE_CODE].hooks.sessionStart.compactStdout).toBe(false);
@@ -116,8 +119,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.instructions).toEqual(harnessEnvironmentConfigDescriptor.defaults.instructions);
       });
@@ -134,8 +138,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.instructions.files).toEqual([]);
       });
@@ -156,7 +161,13 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result, harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS, unknownAgent));
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS, unknownAgent),
+          );
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -192,7 +203,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -276,7 +291,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -298,15 +317,18 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(
-          result,
-          harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
-            "0",
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS,
-          ),
-        );
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
+              "0",
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS,
+            ),
+          );
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -327,16 +349,19 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(
-          result,
-          harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
-            "0",
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS,
-            "1",
-          ),
-        );
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
+              "0",
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.TARGET_AGENTS,
+              "1",
+            ),
+          );
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -408,7 +433,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -434,8 +463,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.instructions.files[0]?.targetAgents).toEqual([AGENT.CODEX]);
       });
@@ -508,7 +538,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -538,15 +572,18 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(
-          result,
-          harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
-            "1",
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
-          ),
-        );
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.PLUGIN_BOOTSTRAP,
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.MARKETPLACES,
+              "1",
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.NAME,
+            ),
+          );
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -608,7 +645,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -703,7 +744,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -768,7 +813,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });
@@ -869,8 +918,9 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
 
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
-        const config = expectResolvedConfig(result);
-        const harnessEnvironment = assertHarnessEnvironmentConfig(config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const harnessEnvironment = result.value[HARNESS_ENVIRONMENT_SECTION] as HarnessEnvironmentConfig;
 
         expect(harnessEnvironment.instructions.files).toEqual([
           {
@@ -906,15 +956,18 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(
-          result,
-          harnessEnvironmentPath(
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
-            "1",
-            HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH,
-          ),
-        );
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(
+            harnessEnvironmentPath(
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.INSTRUCTIONS,
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.FILES,
+              "1",
+              HARNESS_ENVIRONMENT_CONFIG_FIELDS.PATH,
+            ),
+          );
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -929,7 +982,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
       await withTestEnv(productConfig, async ({ productDir }) => {
         const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-        expectRejectedConfig(result, harnessEnvironmentPath(unknownField));
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error).toContain(harnessEnvironmentPath(unknownField));
+          expect(RESULT_VALUE_KEY in result).toBe(false);
+        }
       });
     });
 
@@ -1067,7 +1124,11 @@ function runHarnessEnvironmentDescriptorComplianceTests(): void {
         await withTestEnv(productConfig, async ({ productDir }) => {
           const result = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
 
-          expectRejectedConfig(result, expectedErrorPath);
+          expect(result.ok).toBe(false);
+          if (!result.ok) {
+            expect(result.error).toContain(expectedErrorPath);
+            expect(RESULT_VALUE_KEY in result).toBe(false);
+          }
         });
       }
     });

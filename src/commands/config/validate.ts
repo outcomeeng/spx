@@ -1,3 +1,5 @@
+import { CONFIG_FILE_READ_KIND } from "@/config";
+
 import type { CliDeps, CliResult, ValidateOptions } from "./types";
 
 const EXIT_CODE_INVALID = 1;
@@ -39,7 +41,7 @@ export async function validateCommand(_options: ValidateOptions, deps: CliDeps):
   }
 
   const file = fileResult.value;
-  const stdout = file.kind === "ok"
+  const stdout = file.kind === CONFIG_FILE_READ_KIND.OK
     ? buildPresentSuccessLine(file.file.filename, productDir)
     : buildAbsentSuccessLine(productDir);
 

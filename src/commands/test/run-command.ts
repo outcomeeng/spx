@@ -4,6 +4,7 @@ import { digestDescriptorSection } from "@/config/descriptor-digest";
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILE_READ_KIND,
   type ConfigFile,
   type ConfigFileReadResult,
   resolveConfig,
@@ -199,14 +200,14 @@ async function readStagedConfigFile(productDir: string, git: GitDependencies): P
       raw: result.stdout,
     });
   }
-  if (detected.length === 0) return { kind: "absent" };
+  if (detected.length === 0) return { kind: CONFIG_FILE_READ_KIND.ABSENT };
   if (detected.length > 1) {
     return {
-      kind: "ambiguous",
+      kind: CONFIG_FILE_READ_KIND.AMBIGUOUS,
       detected: detected.map((file) => file.filename),
     };
   }
-  return { kind: "ok", file: detected[0] };
+  return { kind: CONFIG_FILE_READ_KIND.OK, file: detected[0] };
 }
 
 // The files this run covered — the union of the dispatched runners' test paths.

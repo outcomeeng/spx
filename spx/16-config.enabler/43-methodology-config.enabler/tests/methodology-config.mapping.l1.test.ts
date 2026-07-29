@@ -1,22 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_SECTION } from "@/config/methodology";
-import { roundTripMethodologyConfigFormats } from "@testing/harnesses/config/methodology";
+import { observeMethodologyConfigFormatsResolveEquivalently } from "@testing/harnesses/config/methodology";
 
 describe("methodology config mappings", () => {
   it("resolves equivalent methodology config across supported file formats", () => {
-    const { expected, roundTrips } = roundTripMethodologyConfigFormats();
-
-    expect(expected.ok).toBe(true);
-    if (!expected.ok) return;
-
-    for (const { format, serialized, resolved } of roundTrips) {
-      expect(serialized.ok, format).toBe(true);
-      expect(resolved, format).toBeDefined();
-      if (resolved === undefined) continue;
-      expect(resolved.ok, format).toBe(true);
-      if (!resolved.ok) continue;
-      expect(resolved.value[METHODOLOGY_SECTION], format).toEqual(expected.value);
+    const observation = observeMethodologyConfigFormatsResolveEquivalently();
+    expect(observation.expected.ok).toBe(true);
+    if (!observation.expected.ok) throw new Error(observation.expected.error);
+    for (const format of observation.formats) {
+      expect(format.serialized.ok).toBe(true);
+      expect(format.parsed?.ok).toBe(true);
+      if (format.parsed?.ok === true) {
+        expect(format.parsed.value[METHODOLOGY_SECTION]).toEqual(observation.expected.value);
+      }
     }
   });
 });

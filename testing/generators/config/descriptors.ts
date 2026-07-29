@@ -1,12 +1,14 @@
 import * as fc from "fast-check";
+import { join } from "node:path";
 
-import type { ConfigFileReadResult } from "@/config/index";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
-import type { ConfigDescriptor, Result } from "@/config/types";
+import { productionRegistry } from "@/config/registry";
+import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
@@ -14,7 +16,14 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, type SpecTreeKindCategory } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_SECTION,
+  specTreeConfigDescriptor,
+  type SpecTreeKindCategory,
+} from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
 export const CONFIG_TEST_FIELDS = {
@@ -23,6 +32,14 @@ export const CONFIG_TEST_FIELDS = {
 } as const;
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
+const MIN_DEFAULT_VALIDATION_DESCRIPTORS = 1;
+const MAX_DEFAULT_VALIDATION_DESCRIPTORS = 4;
+const DEFAULT_RESOLUTION_DESCRIPTORS = 3;
+const COMPLETE_RESOLUTION_DESCRIPTORS = 4;
+const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
+const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
+const STRAY_HARNESS_FIELD = "strayHarnessField";
 
 type GeneratedTokenSection = {
   readonly [CONFIG_TEST_FIELDS.TOKEN]: string;
@@ -40,6 +57,11 @@ type GeneratedDescriptorOptions = {
 export type GeneratedEnvironmentSentinel = {
   readonly key: string;
   readonly value: string;
+};
+
+export type GeneratedConfigEnvironmentCase = {
+  readonly config: Config;
+  readonly sentinel: GeneratedEnvironmentSentinel;
 };
 
 export type GeneratedInvalidSpecTreeConfig = {
@@ -72,9 +94,32 @@ export type GeneratedKindOverride = {
   };
 };
 
-export type GeneratedResolutionScope = {
+export type GeneratedResolutionScopeScenario = {
   readonly productDirectory: string;
   readonly nestedDirectory: string;
+  readonly parentConfig: Config;
+  readonly rootConfig: Config;
+  readonly nestedConfig: Config;
+  readonly unrecognizedRelativePath: string;
+  readonly expectedDefaultKinds: readonly string[];
+  readonly expectedRootKinds: readonly string[];
+};
+
+export type GeneratedDirectoryScope = {
+  readonly productDirectory: string;
+  readonly nestedDirectory: string;
+};
+
+export type GeneratedConfigFormatScenario = {
+  readonly config: Config;
+};
+
+export type GeneratedConfigCliDeterminismCase = {
+  readonly asJson: boolean;
+  readonly productDir: string;
+  readonly resolutionError: string | undefined;
+  readonly readError: string | undefined;
+  readonly includeDescriptor: boolean;
 };
 
 export type GeneratedInvalidPathFilter = {
@@ -93,8 +138,23 @@ export type GeneratedHarnessEnvironmentConfig = {
   readonly expected: HarnessEnvironmentConfig;
 };
 
+export type GeneratedInvalidMethodologyConfig = {
+  readonly config: Config;
+  readonly field: string;
+};
+
+export type GeneratedProductionSubsetConfig = {
+  readonly config: Config;
+  readonly declaredSections: readonly string[];
+};
+
 export const CONFIG_TEST_GENERATOR = {
-  absentConfigFileReadResult: arbitraryAbsentConfigFileReadResult,
+  configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
+  configEnvironmentCase: arbitraryConfigEnvironmentCase,
+  configShape: arbitraryConfigShape,
+  defaultValidationDescriptors: arbitraryDefaultValidationDescriptors,
+  defaultResolutionDescriptors: arbitraryDefaultResolutionDescriptors,
+  completeResolutionDescriptors: arbitraryCompleteResolutionDescriptors,
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
@@ -103,7 +163,6 @@ export const CONFIG_TEST_GENERATOR = {
   scalar: arbitraryConfigScalar,
   specTreeKindField: arbitrarySpecTreeKindField,
   specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
-  specTreeDefaultsConfig: arbitrarySpecTreeDefaultsConfig,
   specTreeSubsetConfig: arbitrarySpecTreeSubsetConfig,
   specTreeArrayKindsConfig: arbitrarySpecTreeArrayKindsConfig,
   tempPrefix: arbitraryTempPrefix,
@@ -115,9 +174,13 @@ export const CONFIG_TEST_GENERATOR = {
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
   prefixCohort: arbitraryPrefixCohort,
+  productionDescriptor: arbitraryProductionDescriptor,
+  productionSubsetConfig: arbitraryProductionSubsetConfig,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
-  resolutionScope: arbitraryResolutionScope,
+  directoryScope: arbitraryDirectoryScope,
+  resolutionScopeScenario: arbitraryResolutionScopeScenario,
+  configFormatScenario: arbitraryConfigFormatScenario,
 } as const;
 
 export type GeneratedSpecTreeArrayKindsConfig = {
@@ -137,6 +200,67 @@ export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: n
   return fc.sample(arbitrary, { numRuns });
 }
 
+export function generatedMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  };
+}
+
+export function generatedMethodologySource(): string {
+  return [
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  ].join("/");
+}
+
+export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
+  return [
+    ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
+    })),
+    ...INVALID_METHODOLOGY_VERSIONS.map((version) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`,
+    })),
+  ];
+}
+
+export function generatedHarnessMethodologyConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+    },
+  };
+}
+
+export function generatedHarnessMethodologyWithUnknownFieldsConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [METHODOLOGY_SECTION]: generatedMethodologySection(),
+      [STRAY_HARNESS_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  };
+}
+
+export function generatedSimilarHarnessMethodologyFieldConfig(): Config {
+  return {
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [SIMILAR_HARNESS_METHODOLOGY_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    },
+  };
+}
+
 function arbitraryConfigKey(): fc.Arbitrary<string> {
   return fc.stringMatching(/^[a-z][a-z0-9]{5,16}$/).filter((key) => key !== SPEC_TREE_SECTION);
 }
@@ -147,6 +271,57 @@ function arbitraryConfigScalar(): fc.Arbitrary<string> {
 
 function arbitraryEmptyConfig(): fc.Arbitrary<Record<string, unknown>> {
   return fc.constant({});
+}
+
+function arbitraryConfigShape(): fc.Arbitrary<Config> {
+  return fc.oneof(arbitraryEmptyConfig(), arbitrarySpecTreeSubsetConfig());
+}
+
+function arbitraryProductionDescriptor(): fc.Arbitrary<ConfigDescriptor<unknown>> {
+  return fc.constantFrom(...productionRegistry);
+}
+
+function arbitraryProductionSubsetConfig(): fc.Arbitrary<GeneratedProductionSubsetConfig> {
+  return fc
+    .tuple(arbitrarySpecTreeSubsetConfig(), arbitraryConfigKey(), arbitraryConfigKey(), arbitraryConfigKey())
+    .map(([specTree, owner, repository, version]) => ({
+      config: {
+        ...specTree,
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: `${owner}/${repository}`,
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+        },
+      },
+      declaredSections: [SPEC_TREE_SECTION, METHODOLOGY_SECTION],
+    }));
+}
+
+function arbitraryConfigEnvironmentCase(): fc.Arbitrary<GeneratedConfigEnvironmentCase> {
+  return fc.record({
+    config: arbitraryConfigShape(),
+    sentinel: arbitraryEnvironmentSentinel(),
+  });
+}
+
+function arbitraryDefaultValidationDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: MIN_DEFAULT_VALIDATION_DESCRIPTORS,
+    maxLength: MAX_DEFAULT_VALIDATION_DESCRIPTORS,
+  });
+}
+
+function arbitraryDefaultResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: DEFAULT_RESOLUTION_DESCRIPTORS,
+    maxLength: DEFAULT_RESOLUTION_DESCRIPTORS,
+  });
+}
+
+function arbitraryCompleteResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
+  return arbitraryTokenDescriptors({
+    minLength: COMPLETE_RESOLUTION_DESCRIPTORS,
+    maxLength: COMPLETE_RESOLUTION_DESCRIPTORS,
+  });
 }
 
 function arbitraryProductDir(): fc.Arbitrary<string> {
@@ -426,12 +601,14 @@ function arbitraryEnvironmentSentinel(): fc.Arbitrary<GeneratedEnvironmentSentin
     .map(({ key, value }) => ({ key: `${ENVIRONMENT_SENTINEL_PREFIX}${key.toUpperCase()}`, value }));
 }
 
-function arbitraryAbsentConfigFileReadResult(): fc.Arbitrary<Result<ConfigFileReadResult>> {
-  return fc.constant({ ok: true, value: { kind: "absent" } });
-}
-
-function arbitrarySpecTreeDefaultsConfig(): fc.Arbitrary<Record<string, unknown>> {
-  return fc.constant({ [SPEC_TREE_SECTION]: { [SPEC_TREE_CONFIG_FIELDS.KINDS]: { ...KIND_REGISTRY } } });
+function arbitraryConfigCliDeterminismCase(): fc.Arbitrary<GeneratedConfigCliDeterminismCase> {
+  return fc.record({
+    asJson: fc.boolean(),
+    productDir: arbitraryProductDir(),
+    resolutionError: fc.option(arbitrarySpecTreeUnknownKindError(), { nil: undefined }),
+    readError: fc.option(arbitraryConfigScalar(), { nil: undefined }),
+    includeDescriptor: fc.boolean(),
+  });
 }
 
 function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> {
@@ -556,16 +733,59 @@ function arbitraryKindOverride(category: SpecTreeKindCategory): fc.Arbitrary<Gen
     }));
 }
 
-function arbitraryResolutionScope(): fc.Arbitrary<GeneratedResolutionScope> {
+type ConfigKindDefinition = {
+  readonly category: SpecTreeKindCategory;
+  readonly suffix: string;
+};
+
+function buildSpecTreeConfig(kind: string, definition: ConfigKindDefinition): Config {
+  return {
+    [specTreeConfigDescriptor.section]: {
+      [SPEC_TREE_CONFIG_FIELDS.KINDS]: {
+        [kind]: definition,
+      },
+    },
+  };
+}
+
+function firstRegisteredKind(category: SpecTreeKindCategory): readonly [string, ConfigKindDefinition] {
+  const entry = Object.entries(KIND_REGISTRY).find(([, definition]) => definition.category === category);
+  if (entry === undefined) throw new Error(`Missing registered ${category} kind for config scenario generation`);
+  return entry;
+}
+
+function arbitraryResolutionScopeScenario(): fc.Arbitrary<GeneratedResolutionScopeScenario> {
+  const [rootKind, rootDefinition] = firstRegisteredKind(SPEC_TREE_KIND_CATEGORY.NODE);
   return fc
     .record({
       productDirectory: arbitraryConfigKey(),
       nestedDirectory: arbitraryConfigKey(),
+      parentOnly: arbitraryKindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
+      nestedOnly: arbitraryKindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
     })
-    .map(({ productDirectory, nestedDirectory }) => ({
+    .filter(({ parentOnly, nestedOnly }) => parentOnly.kind !== nestedOnly.kind)
+    .map(({ productDirectory, nestedDirectory, parentOnly, nestedOnly }) => ({
       productDirectory,
       nestedDirectory,
+      parentConfig: buildSpecTreeConfig(parentOnly.kind, parentOnly.definition),
+      rootConfig: buildSpecTreeConfig(rootKind, rootDefinition),
+      nestedConfig: buildSpecTreeConfig(nestedOnly.kind, nestedOnly.definition),
+      unrecognizedRelativePath: join(productDirectory, nestedOnly.kind),
+      expectedDefaultKinds: Object.keys(specTreeConfigDescriptor.defaults.kinds),
+      expectedRootKinds: [rootKind],
     }));
+}
+
+function arbitraryDirectoryScope(): fc.Arbitrary<GeneratedDirectoryScope> {
+  return fc.record({
+    productDirectory: arbitraryConfigKey(),
+    nestedDirectory: arbitraryConfigKey(),
+  });
+}
+
+function arbitraryConfigFormatScenario(): fc.Arbitrary<GeneratedConfigFormatScenario> {
+  const [kind, definition] = firstRegisteredKind(SPEC_TREE_KIND_CATEGORY.DECISION);
+  return fc.constant({ config: buildSpecTreeConfig(kind, definition) });
 }
 
 function buildTokenDescriptor(section: string, tokenDefault: string): GeneratedTokenDescriptor {

@@ -187,7 +187,7 @@ export function registerSpecCliCommandScenarioEvidence(): void {
     it("reports current spec-tree nodes from a nested git repository directory", async () => {
       await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         await env.materialize();
-        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.directoryScope());
         const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
         await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
         await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
@@ -228,7 +228,7 @@ export function registerSpecCliCommandScenarioEvidence(): void {
     it("reports current spec-tree nodes through injected git root dependencies", async () => {
       await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         await env.materialize();
-        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScope());
+        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.directoryScope());
         const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
         await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
         const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);

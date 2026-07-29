@@ -1,28 +1,24 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-function configShape(): fc.Arbitrary<Config> {
-  return fc.oneof(CONFIG_TEST_GENERATOR.emptyConfig(), CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
-}
 
 describe("resolveConfig — determinism", () => {
   it("produces the same resolved Config on every load against any config shape drawn from the registry", async () => {
-    await fc.assert(
-      fc.asyncProperty(configShape(), async (projectConfig) => {
+    await assertProperty(
+      CONFIG_TEST_GENERATOR.configShape(),
+      async (projectConfig) => {
         await withTestEnv(projectConfig, async ({ productDir }) => {
           const first = await resolveConfig(productDir, [specTreeConfigDescriptor]);
           const second = await resolveConfig(productDir, [specTreeConfigDescriptor]);
 
           expect(first).toEqual(second);
         });
-      }),
-      { numRuns: 10 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 

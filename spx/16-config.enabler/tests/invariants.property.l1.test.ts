@@ -1,6 +1,5 @@
 import { readdir } from "node:fs/promises";
 
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
@@ -8,17 +7,15 @@ import { RESULT_VALUE_KEY } from "@/config/types";
 import { KIND_REGISTRY, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-function configShape(): fc.Arbitrary<Config> {
-  return fc.oneof(CONFIG_TEST_GENERATOR.emptyConfig(), CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
-}
-
 describe("resolveConfig — side-effect freedom (property)", () => {
   it("leaves the project directory unchanged across any config shape drawn from the registry", async () => {
-    await fc.assert(
-      fc.asyncProperty(configShape(), async (projectConfig) => {
+    await assertProperty(
+      CONFIG_TEST_GENERATOR.configShape(),
+      async (projectConfig) => {
         await withTestEnv(projectConfig, async ({ productDir }) => {
           const before = await readdir(productDir);
           await resolveConfig(productDir, [specTreeConfigDescriptor]);
@@ -26,38 +23,40 @@ describe("resolveConfig — side-effect freedom (property)", () => {
 
           expect(after.sort(compareAsciiStrings)).toEqual(before.sort(compareAsciiStrings));
         });
-      }),
-      { numRuns: 10 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("leaves the process environment unchanged across any config shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(configShape(), CONFIG_TEST_GENERATOR.environmentSentinel(), async (projectConfig, sentinel) => {
+    await assertProperty(
+      CONFIG_TEST_GENERATOR.configEnvironmentCase(),
+      async ({ config, sentinel }) => {
         process.env[sentinel.key] = sentinel.value;
         try {
-          await withTestEnv(projectConfig, async ({ productDir }) => {
+          await withTestEnv(config, async ({ productDir }) => {
             await resolveConfig(productDir, [specTreeConfigDescriptor]);
             expect(process.env[sentinel.key]).toBe(sentinel.value);
           });
         } finally {
           delete process.env[sentinel.key];
         }
-      }),
-      { numRuns: 10 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("does not mutate process.cwd during resolution across any config shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(configShape(), async (projectConfig) => {
+    await assertProperty(
+      CONFIG_TEST_GENERATOR.configShape(),
+      async (projectConfig) => {
         const before = process.cwd();
         await withTestEnv(projectConfig, async ({ productDir }) => {
           await resolveConfig(productDir, [specTreeConfigDescriptor]);
         });
         expect(process.cwd()).toBe(before);
-      }),
-      { numRuns: 10 },
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });

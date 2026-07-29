@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
+import { generatedMethodologySection } from "@testing/generators/config/descriptors";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
-import { generatedMethodologySection } from "@testing/harnesses/config/methodology";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
