@@ -57,8 +57,8 @@ export const PROPERTY_TIMEOUTS_MS: Record<PropertyLevel, number> = {
 const PROPERTY_TEST_ENVELOPE_MARGIN_MS = 5_000;
 
 /** Vitest envelope for evidence that exercises the L1 fast-check timeout. */
-export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS =
-  PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1] + PROPERTY_TEST_ENVELOPE_MARGIN_MS;
+export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1]
+  + PROPERTY_TEST_ENVELOPE_MARGIN_MS;
 
 const SEED_MODULUS = 2 ** 32;
 const INTEGER_TEXT = /^\s*-?\d+\s*$/;
