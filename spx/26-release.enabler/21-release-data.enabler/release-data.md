@@ -15,6 +15,7 @@ CAN operate on one accurate, reproducible description of what a release contains
 - Given a tagged release ref and later repository commits, when release data is computed for that ref, then its commits and changed paths end at the tagged release commit ([test](tests/release-data.scenario.l1.test.ts))
 - Given no previous release tag exists, when release data is computed, then it reports the full commit history as the release contents and the changed paths are the paths those commits touch ([test](tests/release-data.scenario.l1.test.ts))
 - Given commits change paths since the previous release tag, when release data is computed, then the changed paths are the paths those commits touch between that tag and HEAD ([test](tests/release-data.scenario.l1.test.ts))
+- Given a merge commit introduces a path beyond either parent commit, when release data is computed, then the changed paths include that merge-commit path ([test](tests/release-data.scenario.l1.test.ts))
 - Given a path is touched by more than one commit since the previous release tag, when release data is computed, then it appears exactly once in the changed paths ([test](tests/release-data.scenario.l1.test.ts))
 
 ### Mappings
@@ -27,4 +28,4 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 ### Compliance
 
-- NEVER: perform network access or invoke an LLM to compute release data — git plumbing and the local working tree are the only inputs ([test](tests/release-data.compliance.l1.test.ts))
+- NEVER: perform network access or invoke an LLM to compute release data — git plumbing and the local working tree are the only inputs ([audit])
