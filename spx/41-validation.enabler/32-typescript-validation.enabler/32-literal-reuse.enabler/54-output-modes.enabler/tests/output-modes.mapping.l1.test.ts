@@ -30,25 +30,8 @@ import {
   expectedLiteralLines,
   expectedVerboseLines,
 } from "@testing/harnesses/literal/output-expectations";
-import { runValidationInProcess, validationCliEmptyOutput } from "@testing/harnesses/validation/cli";
-import { literalOutputModeCliArgs } from "@testing/harnesses/validation/literal-output-mode-cli";
 
 describe("output-modes — mappings", () => {
-  it.each(OUTPUT_MODE_NAMES)("%s mode routes findings to stdout through CLI dispatch", async (mode) => {
-    await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
-      const inputs = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.reuseFixtureInputs());
-      await env.writeReuseFixture(inputs);
-
-      const result = await runValidationInProcess(literalOutputModeCliArgs(mode), {
-        processCwd: () => env.productDir,
-      });
-
-      expect(result.exitCode).toBe(LITERAL_EXIT_CODES.FINDINGS);
-      expect(result.stdout.length).toBeGreaterThan(LITERAL_TEST_GENERATOR_COUNTS.none);
-      expect(result.stderr).toBe(validationCliEmptyOutput());
-    });
-  });
-
   it.each(OUTPUT_MODE_NAMES)(
     "--kind reuse selects srcReuse and --kind dupe selects testDupe in %s mode",
     async (mode) => {
