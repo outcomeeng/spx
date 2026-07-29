@@ -131,6 +131,12 @@ describe("assertProperty runs a property under harness-owned policy", () => {
     }
     expect(captured).toBeInstanceOf(PropertyFailureError);
     expect((captured as PropertyFailureError).cause).toBeInstanceOf(PromiseReturningSyncPredicateError);
+    expect(
+      ((captured as PropertyFailureError).cause as PromiseReturningSyncPredicateError).message,
+    ).toContain(
+      ((captured as PropertyFailureError).cause as PromiseReturningSyncPredicateError)
+        .requiredDeclaration,
+    );
   });
 
   it("replays the identical failing case when SPX_PROPERTY_SEED holds the reported seed", () => {

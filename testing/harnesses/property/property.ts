@@ -62,6 +62,7 @@ export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERT
 
 const SEED_MODULUS = 2 ** 32;
 const INTEGER_TEXT = /^\s*-?\d+\s*$/;
+const ASYNC_PREDICATE_DECLARATION = "async";
 
 export interface PropertyClassification {
   readonly level: PropertyLevel;
@@ -97,10 +98,12 @@ export class PropertyFailureError extends Error {
 
 /** Raised when a synchronous predicate returns a Promise that the harness cannot safely await. */
 export class PromiseReturningSyncPredicateError extends TypeError {
+  readonly requiredDeclaration = ASYNC_PREDICATE_DECLARATION;
+
   constructor() {
     super(
       "assertProperty received a Promise-returning predicate that is not an async function; "
-        + "declare the predicate `async` so the harness awaits each generated case.",
+        + `declare the predicate \`${ASYNC_PREDICATE_DECLARATION}\` so the harness awaits each generated case.`,
     );
     this.name = "PromiseReturningSyncPredicateError";
   }
