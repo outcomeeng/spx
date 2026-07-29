@@ -19,6 +19,7 @@ const GIT_RELEASE_FLAG = {
   ABBREV_ZERO: "--abbrev=0",
   MATCH: "--match",
   EXCLUDE: "--exclude",
+  DIFF_MERGES_FIRST_PARENT: "--diff-merges=first-parent",
   NAME_ONLY: "--name-only",
   POINTS_AT: "--points-at",
   LIST: "--list",
@@ -143,7 +144,13 @@ export async function changedPathsBetween(
 ): Promise<string[]> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, logRange(fromTag, toRef)],
+    [
+      GIT_RELEASE_SUBCOMMAND.LOG,
+      GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT,
+      EMPTY_LOG_FORMAT,
+      GIT_RELEASE_FLAG.NAME_ONLY,
+      logRange(fromTag, toRef),
+    ],
     { cwd, reject: false },
   );
   if (result.exitCode !== 0) return [];

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { computeReleaseData } from "@/domains/release/release-data";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
-import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 describe("computeReleaseData — release contents derive from git history", () => {
@@ -169,6 +169,38 @@ describe("computeReleaseData — release contents derive from git history", () =
       expect(data.changedPaths).toEqual(expect.arrayContaining(rest.map((commit) => commit.path)));
       expect(data.changedPaths).not.toContain(base.path);
       expect(data.changedPaths).toHaveLength(rest.length);
+    });
+  });
+
+  it("includes a path introduced by a merge commit beyond either parent", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [base, branch, mergeOnly] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.releaseNotesCommits),
+      );
+      const tag = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseTag());
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+      const branchName = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.branchName());
+
+      await env.writeTracked(base.path, base.content);
+      await env.commit(base.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, tag]);
+      const baseBranch = await env.runGit([GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT]);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.NEW_BRANCH, branchName]);
+      await env.writeTracked(branch.path, branch.content);
+      await env.commit(branch.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.CHECKOUT, baseBranch]);
+      await env.runGit([
+        GIT_TEST_SUBCOMMANDS.MERGE,
+        GIT_TEST_FLAGS.NO_FAST_FORWARD,
+        GIT_TEST_FLAGS.NO_COMMIT,
+        branchName,
+      ]);
+      await env.writeTracked(mergeOnly.path, mergeOnly.content);
+      await env.commit(mergeOnly.subject);
+
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.changedPaths).toContain(mergeOnly.path);
     });
   });
 
