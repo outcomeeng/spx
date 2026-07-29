@@ -16,13 +16,13 @@ CAN read its configuration through a uniform, type-checked API without inline co
 
 ### Properties
 
-- Defaults are type-complete: every registered descriptor's declared defaults satisfy the descriptor's declared shape ([test](tests/defaults.property.l1.test.ts))
 - Resolution is deterministic: the same `productDir` config file produces the same typed `Config` across repeated loads ([test](tests/determinism.property.l1.test.ts))
 - Load is side-effect-free: resolving the config leaves the filesystem and process environment unchanged ([test](tests/invariants.property.l1.test.ts))
 
 ### Mappings
 
 - `spx.config.json`, `spx.config.yaml`, and `spx.config.toml` each produce an equivalent typed `Config` when they contain the same key-value structure ([test](tests/config-format.mapping.l1.test.ts))
+- Defaults are type-complete: every registered descriptor's declared defaults satisfy the descriptor's declared shape ([test](tests/defaults.mapping.l1.test.ts))
 - Every declared config format maps to config-owned read, parse, and serialize behavior through the config API ([test](tests/format-api.mapping.l1.test.ts))
 
 ### Compliance
@@ -32,5 +32,5 @@ CAN read its configuration through a uniform, type-checked API without inline co
 - ALWAYS: each descriptor's validator receives only its own section from the config file — validators cannot read other descriptors' values or the raw file content ([test](tests/validation-isolation.compliance.l1.test.ts))
 - ALWAYS: tests for the config module and descriptors construct fixtures programmatically through the shared spec-tree harness — directory trees and config file content are generated, never hand-written, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
 - ALWAYS: the `validation` and `testing` config sections are registered as separate domain descriptors; repeated structural shapes such as path include/exclude filters are imported from shared config primitives and exposed under each domain's own section, not parsed by commands, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
-- NEVER: return a partial or untyped config when any descriptor's validator rejects its section — the load either returns a fully-typed `Config` or an error ([test](tests/invariants.property.l1.test.ts))
+- NEVER: return a partial or untyped config when any descriptor's validator rejects its section — the load either returns a fully-typed `Config` or an error ([test](tests/typed-or-error.compliance.l1.test.ts))
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real spec-tree fixtures under temp directories passed as `productDir`, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
