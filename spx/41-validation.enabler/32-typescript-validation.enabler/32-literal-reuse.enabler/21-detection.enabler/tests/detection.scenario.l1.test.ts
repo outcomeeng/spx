@@ -8,7 +8,6 @@ import {
   validateLiteralReuse,
 } from "@/validation/literal/index";
 import {
-  arbitraryDomainLiteral,
   arbitraryDomainNumber,
   arbitrarySourceFilePath,
   arbitrarySpecTreeLiteralReuseFixtureInputs,
