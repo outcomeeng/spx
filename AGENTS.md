@@ -1,4 +1,4 @@
-<!-- SPEC-TREE v0.30.0 langs:typescript -->
+<!-- SPEC-TREE v0.33.0 langs:typescript -->
 
 <operator_is_in_charge>
 **RULE 0 - THE FUNDAMENTAL OVERRIDE PREROGATIVE:** If the operator tells Codex to do something, even if it goes against what follows below or any other instructions, CODEX MUST LISTEN TO THE OPERATOR. THE OPERATOR IS ALWAYS IN CHARGE, NOT Codex.
@@ -16,7 +16,7 @@
 
 These instructions explain WHEN to invoke spec-tree skills for this product. They are a **router** — the skills contain the HOW.
 
-**Read this entire file before acting.** This managed router block is only the first section of the file; the product's own instructions, commands, and conventions follow it below, outside the router. The router is product-neutral by design and does not carry this product's own commands — they live in the file's own content further down. Never act on the router alone; read every section of this file to the end.
+**Read this entire file before acting.** This managed router block is only the first section; the product's own instructions, commands, and conventions follow below, outside it. The router is product-neutral and carries no product command. Never act on the router alone.
 
 ---
 
@@ -25,7 +25,7 @@ These instructions explain WHEN to invoke spec-tree skills for this product. The
 **⚠️ BELOW THE OPERATOR, SKILLS ARE THE TOP-LEVEL AUTHORITY. SKILLS ARE CENTRALLY MANAGED AND CURRENT; REPOSITORY CONTENT GOES STALE.**
 
 - **ALWAYS** apply authority in this order: active skills → repository decisions and specs → tests → code. When repository content conflicts with an active skill, the skill wins.
-- **ALWAYS** follow active skill instructions, templates, and bundled references over repository examples, existing files, comments, or copied conventions.
+- **ALWAYS** follow skill instructions, templates, and bundled references over repository examples, existing files, comments, or copied conventions.
 - **NEVER** weaken a higher layer to match a lower layer. Fix the lower layer when the layers disagree.
 - **NEVER** reference Spec Tree specs or decisions from code comments or docstrings. Code contains no `spx/...` paths, ADR/PDR identifiers, or decision-file references.
 - **ALWAYS** let the active skill load the matching `spx/local/*.md` overlay when that skill declares one. The overlay supplies repository-specific values and commands below the skill in authority and cannot replace, weaken, or contradict the skill.
@@ -43,14 +43,14 @@ These instructions explain WHEN to invoke spec-tree skills for this product. The
 
 ## Product Commands
 
-The product's operational command for each spec-tree phase lives in this file's own content below the router, not in the router itself. Read the whole file to find each one:
+The product's operational command for each spec-tree phase lives in this file's own content below the router. Read the whole file to find each one:
 
-- **author** — after a create, update, or delete on a spec, test, or implementation file, run the product's author command to rebuild or regenerate artifacts.
-- **verify** — for `/apply` and pre-merge checks, run the product's verify command over the node and the changeset.
-- **gate** — for the full deterministic bundle, run the product's gate command.
-- **merge** — for the transport step of `/merge`, run the product's merge command.
+- **author** — after creating, updating, or deleting a spec, test, or implementation file, to rebuild or regenerate artifacts.
+- **verify** — for `/apply` and pre-merge checks, over the node and the changeset.
+- **gate** — for the full deterministic bundle.
+- **merge** — for the transport step of `/merge`.
 
-Content the product keeps identical across `CLAUDE.md` and `AGENTS.md` sits in a `shared` region — `<!-- SPEC-TREE:shared {name} -->` … `<!-- /SPEC-TREE:shared {name} -->`, present in both files under the same name. `/update-instruction-block` keeps a `shared` region in sync by taking the git-more-recent side; it never merges the two bodies.
+Content the product keeps identical across this agent guide and the guides for other agents (for example `CLAUDE.md` and `AGENTS.md`) sits in a `shared` region — `<!-- SPEC-TREE:shared {name} -->` … `<!-- /SPEC-TREE:shared {name} -->`, present in both files under the same name. `/update-instruction-block` keeps a `shared` region in sync by taking the git-more-recent side; it never merges the two bodies.
 
 ---
 
@@ -64,7 +64,7 @@ Require a live `<SPEC_TREE_FOUNDATION>` marker before directly reading, searchin
 
 `spx session` operations — including inspection, archive, and release — plus `spx worktree status`, `spx diagnose`, and no-patch Git status, history, and topology are exempt. Never follow paths from their output into repository content without the marker.
 
-A compacted summary, session file, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, require `/understand` again before the next product-content access.
+A compacted summary, session file, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, invoke `/understand` again before the next product-content access.
 
 ### Before working on a specific node -> `/contextualize`
 
@@ -74,13 +74,11 @@ A compacted summary, session file, statement that `/understand` ran, or read of 
 
 `/contextualize` MUST invoke `/sync-base` and receive `already_current` or `rebased` before reading product truth. `/sync-base` owns the complete currency operation: fetch, clean rebase or detached advance, session-authorized dirty-tree checkpointing through `/commit-changes`, and same-invocation retry. Callers consume its final result; they never duplicate branch creation, commit, stash, or retry logic, and they never reinterpret `dirty_tree` as a rebase conflict.
 
-**🛑 STOP TRIGGER — after every compaction event:** all loaded spec-tree context is gone. **Re-invoke `/contextualize` on every node still in scope** before touching it again — not just the next one being worked on.
-
-**NEVER** resume work on a node without having invoked `/contextualize` since the last compaction.
+**🛑 STOP TRIGGER — after every compaction event:** all loaded spec-tree context is gone. **NEVER** resume work on a node without re-invoking `/contextualize` for that specific node since the last compaction.
 
 ### When creating specs or nodes -> `/author`
 
-Create product specs, ADRs/PDRs, enabler nodes, outcome nodes.
+Create product decisions (ADRs/PDRs), specs, enabler nodes, outcome nodes.
 
 ### When composing or breaking down nodes -> `/decompose`
 
@@ -108,13 +106,13 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 **BLOCKING REQUIREMENT**
 
-Every change destined for the default branch routes through `/merge`, the transport dispatcher — it classifies the changeset, selects the transport, and delegates. `/merge` reads `spx/local/merging.md` as a repo-local overlay **when that file is present**; the overlay is optional, so its absence is normal and not a blocker — `/merge` applies the default lifecycle. `spx/local/merging.md` is the one place repository-specific merge behavior belongs: never infer the transport from other docs when it is absent, and never edit this generated instruction block to change merge behavior — invoke `/merge` and let the lifecycle apply the defaults. The four authority gates, the delivered-value boundary, and the finding-disposition rule are transport-neutral and live in `/merging-standards`.
+Every change destined for the default branch routes through `/merge`, the transport dispatcher — it classifies the changeset, selects the transport, and delegates. `spx/local/merging.md` is the one place repository-specific merge behavior belongs, and it is optional: when absent, `/merge` applies the default lifecycle rather than blocking. Never infer the transport from other docs, and never edit this generated instruction block to change merge behavior. The four authority gates, the delivered-value boundary, and the finding-disposition rule are transport-neutral and live in `/merging-standards`.
 
 ## Stop Triggers
 
 Default-branch work is complete only when it reaches the default branch on origin through `/merge` — passing validation, tests, review, or audits is progress, not a stopping point, and an accepted proposal ("yes", "go", "do it") authorizes the whole lifecycle, not a pause. Each trigger below resolves the same way: finish the remaining independent work, then continue through `/commit-changes` and `/merge` until the change reaches the default branch on origin or an explicit lifecycle gate stops.
 
-🛑 **About to summarize after edits, validation, tests, review, or audits passed** — do not conclude. Ensure the work is committed on a local branch, then drive `/merge`.
+🛑 **About to summarize after edits, validation, tests, review, or audits passed** — do not conclude.
 
 🛑 **About to report blocked, wait, or ask a question** — first do every action that does not need the answer: edits, verification, branch setup, commit, review. A blocker exists only when all three hold:
 
@@ -122,11 +120,11 @@ Default-branch work is complete only when it reaches the default branch on origi
 - the local branch already holds every change makeable without the answer;
 - the applicable gates have run or produced concrete failing evidence.
 
-🛑 **About to finish on a detached HEAD or stop at a fresh commit** — `git status --short --branch` reporting `## HEAD (no branch)`, or a new local commit, is not an endpoint. Create or switch to a local branch preserving the worktree changes, then continue through `/merge` unless the user explicitly limited the task to local-only work.
+🛑 **About to finish on a detached HEAD or stop at a fresh commit** — `git status --short --branch` reporting `## HEAD (no branch)`, or a new local commit, is not an endpoint; create or switch to a local branch preserving the worktree changes, unless the user explicitly limited the task to local-only work.
 
 ## Checkpoint Commits
 
-`/commit-changes` may create an atomic local checkpoint whenever a coherent concern is ready to preserve, independent of verification state. Record the latest state as `passing`, `failing`, or `not-run`; that state controls later gate dispatch, never commit permission. Run hooks normally, confirm the full `HEAD` changed, and report committed paths, remaining paths, and verification state. Never strand dirty work merely because verification fails or has not run.
+`/commit-changes` may create an atomic local checkpoint whenever a coherent concern is ready to preserve, independent of verification state — never strand dirty work because verification fails or has not run. Record the latest state as `passing`, `failing`, or `not-run`; that state controls later gate dispatch, never commit permission. Run hooks normally, confirm the full `HEAD` changed, and report committed paths, remaining paths, and verification state.
 
 ## Worktree Occupancy
 
@@ -146,6 +144,19 @@ DENY   git stash pop stash@{0}
 DENY   git stash clear
 ```
 
+## Autonomy Boundary
+
+Default-branch git and version-control mutation — branching, committing, pushing, publishing, merging, and the `/merge` flow's own cleanup of the branches it created — proceeds only inside a governing skill flow, never as a direct command outside one; creating or switching to a local branch to preserve work in progress, and a `--force-with-lease` push to the working branch that flow owns, stay inside it. This autonomy never extends to force-pushing a shared or protected ref, deleting a ref no active skill flow authorizes, bypassing commit hooks (`--no-verify`) or commit signing, or any action the Git Safety Protocol forbids; each needs explicit operator instruction in the same turn.
+
+### Sub-agent dispatch
+
+The configured verifier and reviewer roles this router names are pre-authorized. A harness rule may require the operator to request sub-agent use before one is dispatched; treat this section as that standing request. Authorization follows the named role, never a role resemblance.
+
+- **NEVER** ask the operator to confirm dispatching one — not at a gate, not per node, not once per session, and never as a structured-question option set. A harness permission prompt is the operator's to answer, never a question to raise.
+- **NEVER** dispatch a sub-agent this router does not name merely because it is discovered, available, or plausibly useful.
+- **NEVER** run a verification skill — audit or review — in the main conversation; the separate context is what keeps the verdict free of that conversation's bias.
+- **ALWAYS** treat the gate as blocked when a named role cannot be dispatched or does not return: finish the deterministic verification, then report the exact dispatch attempted and how it failed.
+
 ## Mutation Status Updates
 
 Before proposing or performing a repository mutation, name:
@@ -155,20 +166,17 @@ Before proposing or performing a repository mutation, name:
 - why the action is local enough or gate-authorized enough to proceed;
 - the next validation command, review, audit, check wait, or merge gate the action feeds.
 
-Avoid shorthand such as "config patch", "direct patch", "fix the PR", or "ship it path" when the exact file, PR state, or command is known. A terse user prompt such as "check", "continue", or "ship it" still gets the live state first: full head SHA when a PR exists, current-head review state, required-check state, deployment-readiness and release-readiness rules, and the next autonomous action.
+Avoid shorthand such as "config patch" or "ship it path" when the exact file, PR state, or command is known. A terse prompt such as "check", "continue", or "ship it" still gets the live state first: full head SHA when a PR exists, current-head review state, required-check state, deployment-readiness and release-readiness rules, and the next autonomous action.
 
 ## Quick Reference: Skills and Agents
 
-Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context. Audit agents return structured verdicts; changeset reviewer agents return the raw review journal token for the main conversation to inspect and process through the governing review workflow. **ALWAYS run an audit through its agent** — the separate context keeps the verdict free of the main conversation's bias — and dispatch agents in parallel when auditing multiple targets.
+Skills run in the main conversation. Agents preload the skill and run autonomously as subagents in a separate context. Audit agents return structured verdicts; changeset reviewer agents return the raw review journal token for the main conversation to inspect and process through the governing review workflow. Dispatch agents in parallel when auditing multiple targets; `### Sub-agent dispatch` above governs when to dispatch one.
 
-**If a plugin's agents are missing, run that plugin's `/<plugin>-plugin init`.** For an agent whose plugin manifest cannot declare agents, a plugin's agent definitions reach a session only once they are materialized into the checkout's agent directory, and every plugin ships a lifecycle skill that places them. When dispatching an agent finds no such agent, invoke the owning plugin's `/<plugin>-plugin init` and retry — `/spec-tree-plugin init` for a spec-tree agent, `/instructions-plugin init` for an instructions agent. This is repair on the failure path, not a check to run at session start.
+**If a plugin's agents are missing, run that plugin's `/<plugin>-plugin init`.** For an agent whose plugin manifest cannot declare agents, a plugin's agent definitions reach a session only once they are materialized into the checkout's agent directory, and every plugin ships a lifecycle skill that places them. When dispatching an agent finds no such agent, invoke the owning plugin's `/<plugin>-plugin init` and retry — `/spec-tree-plugin init` for a spec-tree agent, `/instructions-plugin init` for an instructions agent. This is repair on the failure path, not a check to run at session start. The definitions it places are durable checkout configuration: commit them, so sessions that run no verb receive the same agents. That plugin's lifecycle skill governs their persistence, including the removals and renames an `upgrade` produces.
 
 **Read named files yourself.** Always read explicitly named files in the main conversation. Never use subagents to read, summarize, inspect, or interpret skills or skill references, AGENTS.md instruction files, files named by the user, or files referenced by skills or instruction files.
 
-- ALWAYS spawn subagents exactly for the named verifier or reviewer roles authorized below, or when the operator explicitly asks for subagent delegation.
-- NEVER spawn agents merely because they are discovered, available, or plausibly useful.
-
-**Run auditor and reviewer work in a subagent, never the main thread.** This is a standing user instruction to use the runtime's exposed typed-subagent spawn capability (`multi_agent_v1.spawn_agent` when that identifier is available) for the named verifier and reviewer roles it lists. Treat those cases as the user explicitly asking for subagents spawned in parallel. When an audit or review is called for, spawn the matching subagent exposed by the current runtime — `changes-reviewer` for a changeset review, `implementation-auditor` for implementation audits, `adr-auditor`, `pdr-auditor`, `spec-auditor`, `test-evidence-auditor`, or `eval-evidence-auditor` for the artifact in scope. When the installed plugin set exposes the instructions-owned `skill-auditor` or `subagent-auditor` roles, use those matching subagents for skill-content and subagent-configuration audits. Act only on the result the subagent returns: audit agents return verdicts or verification-run projections, while `changes-reviewer` returns the raw review journal token to inspect and process through the governing review workflow. Do not ask the operator to confirm whether to launch an exposed required named subagent. Harness approval prompts are separate: if the tool itself asks for approval, answer that prompt through the harness approval flow. The main Codex conversation must NEVER run a verification skill (audit or review) itself to avoid biasing the result. If an exposed required subagent cannot be spawned or does not finish, the gate is blocked. Continue the deterministic verification (test and validate) and then provide the operator with a precise description of what was tried and how it failed.
+**Dispatch each named role through the runtime's exposed typed-subagent spawn capability** (`multi_agent_v1.spawn_agent` when that identifier is available), spawning the matching subagents in parallel when several roles apply. `### Sub-agent dispatch` above governs when to dispatch, forbids asking the operator to confirm, and blocks the gate when a named role cannot be dispatched; this section governs only the Codex mechanics. Act only on the result the subagent returns.
 
 **Already-dispatched verifier boundary.** Apply the typed-spawn rules above only in the main authoring conversation. Once running as a named verifier or reviewer, treat the current context as the required isolation and execute the configured audit or review skill directly. NEVER search for or spawn another verifier, use `tool_search` to discover multi-agent tools, or invoke `codex exec`, `claude`, `pi`, or another agent CLI. Missing nested-verifier tools is expected inside the dispatched verifier and does not block direct execution.
 
@@ -393,7 +401,7 @@ Use this shape for skill audits:
   "tool": "multi_agent_v1.spawn_agent",
   "arguments": {
     "agent_type": "skill-auditor",
-    "message": "Repository: <absolute-repository-path>\nSkill content: <full paths to every changed artifact governing the skill surface, including SKILL.md files, skill subdirectory files, authored shared fragments, and generated runtime copies>\nGoverning node(s): <full spx/... path(s) when known>\nDeterministic verification already run: <commands and results, or why this audit is being run before verification>\nTask: Audit the changed skill content for skill-authoring standards, agent-prompt standards, progressive disclosure, portability, voice, and structure. Return only the structured JSON verdict specified by instructions:audit-skills, with no prose outside the JSON object."
+    "message": "Repository: <absolute-repository-path>\nSkill content: <full paths to every changed artifact governing the skill surface, including SKILL.md files, skill subdirectory files, authored shared fragments, and generated runtime copies>\nGoverning node(s): <full spx/... path(s) when known>\nDeterministic verification already run: <commands and results, or why this audit is being run before verification>\nTask: Audit the changed skill content for skill-authoring standards, agent-prompt standards, progressive disclosure, portability, voice, and structure. Return only the structured JSON verdict specified by instructions:audit-skill, with no prose outside the JSON object."
   }
 }
 ```
@@ -405,7 +413,7 @@ Use this shape for one subagent audit. When several custom-agent configurations 
   "tool": "multi_agent_v1.spawn_agent",
   "arguments": {
     "agent_type": "subagent-auditor",
-    "message": "Repository: <absolute-repository-path>\nCustom agent file: <full path to one changed agent-directory file in the checkout>\nGoverning node(s): <full spx/... path(s) when known>\nDeterministic verification already run: <commands and results, or why this audit is being run before verification>\nTask: Audit the changed custom agent configuration for subagent-authoring standards, prompt voice, tool boundaries, model settings, skill preloads, and output contract. Return only the structured JSON verdict specified by instructions:audit-subagents, with no prose outside the JSON object."
+    "message": "Repository: <absolute-repository-path>\nCustom agent file: <full path to one changed agent-directory file in the checkout>\nGoverning node(s): <full spx/... path(s) when known>\nDeterministic verification already run: <commands and results, or why this audit is being run before verification>\nTask: Audit the changed custom agent configuration for subagent-authoring standards, prompt voice, tool boundaries, model settings, skill preloads, and output contract. Return only the structured JSON verdict specified by instructions:audit-subagent, with no prose outside the JSON object."
   }
 }
 ```
@@ -420,28 +428,25 @@ Use this shape for one subagent audit. When several custom-agent configurations 
 - `eval-evidence-auditor`: repository path, governing node, `[eval]` assertions, all eval artifacts, producer artifacts, and the task to audit real-producer evidence. Its final message MUST be the audit-eval-evidence JSON verdict with overall `PASS`, `FAIL`, or `UNKNOWN` and no prose outside the JSON object.
 - `spec-auditor`: repository path, full node path, and the task to audit assertion quality, evidence tags, atemporal voice, decision alignment, and structure. Its final message MUST be `APPROVED` or `REJECTED`; rejection lists concrete findings with full paths, governing rules, and required fixes.
 - `adr-auditor` or `pdr-auditor`: repository path, full decision path, governing node, committed audit scope, and the role's decision-audit task; ADR tasks also carry the language-scope classification. The final message MUST follow that auditor's structured verdict contract without a competing prose envelope.
-- `skill-auditor`, when that configured role is installed: repository path, full paths to every changed artifact governing the skill surface — including skill-directory files, authored shared fragments, and generated runtime copies — governing nodes when known, deterministic verification state, and the skill-authoring audit task. Its final message MUST be the `instructions:audit-skills` JSON verdict with `schema_version: 1`, `skill: "audit-skills"`, `overall: "APPROVED" | "REJECTED"`, and the `keep-these-aspects`, `worth-improving`, and `must-fix` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
+- `skill-auditor`, when that configured role is installed: repository path, full paths to every changed artifact governing the skill surface — including skill-directory files, authored shared fragments, and generated runtime copies — governing nodes when known, deterministic verification state, and the skill-authoring audit task. Its final message MUST be the `instructions:audit-skill` JSON verdict with `schema_version: 1`, `skill: "audit-skill"`, `overall: "APPROVED" | "REJECTED"`, and the `keep-these-aspects`, `worth-improving`, and `must-fix` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
 
-- `subagent-auditor`, when that configured role is installed: repository path, exactly one changed custom agent configuration path in the active agent harness's native format, governing nodes when known, deterministic verification state, and the subagent-authoring audit task. Multiple changed configurations require separate `subagent-auditor` dispatches, one per path; acquire their handles sequentially and let their role tasks run concurrently. Each final message MUST be the `instructions:audit-subagents` JSON verdict with `schema_version: 1`, `skill: "audit-subagents"`, `overall: "APPROVED" | "REJECTED"`, and the `critical-issues`, `recommendations`, `strengths`, and `quick-fixes` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
+- `subagent-auditor`, when that configured role is installed: repository path, exactly one changed custom agent configuration path in the active agent harness's native format, governing nodes when known, deterministic verification state, and the subagent-authoring audit task. Multiple changed configurations require separate `subagent-auditor` dispatches, one per path; acquire their handles sequentially and let their role tasks run concurrently. Each final message MUST be the `instructions:audit-subagent` JSON verdict with `schema_version: 1`, `skill: "audit-subagent"`, `overall: "APPROVED" | "REJECTED"`, and the `critical-issues`, `recommendations`, `strengths`, and `quick-fixes` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
 
-| User Says...                               | Skill                  | Agent                   |
-| ------------------------------------------ | ---------------------- | ----------------------- |
-| "Implement this outcome"                   | `/apply`               | `applier`               |
-| "Create an outcome"                        | `/author`              | —                       |
-| "Add an ADR"                               | `/author`              | —                       |
-| "Add a new node" or "This node is too big" | `/decompose`           | —                       |
-| "Move this under that"                     | `/refactor`            | —                       |
-| "Check these specs"                        | `/align`               | —                       |
-| "Establish evidence for this"              | `/verify`              | —                       |
-| "Write tests for this"                     | `/verify`              | —                       |
-| "Start the TDD flow"                       | `/apply`               | `applier`               |
-| "Audit this PDR"                           | `/audit-pdr`           | `pdr-auditor`           |
-| "Audit this ADR"                           | `/audit-adr`           | `adr-auditor`           |
-| "Audit test evidence"                      | `/audit-tests`         | `test-evidence-auditor` |
-| "Audit eval evidence"                      | `/audit-eval-evidence` | `eval-evidence-auditor` |
-| "Audit this spec node"                     | `/audit-specs`         | `spec-auditor`          |
-| "Diagnose the spx environment"             | `/diagnose`            | —                       |
-| "File a follow-up in a dependency queue"   | `/issue`               | —                       |
+| User Says...                                            | Skill                  | Agent                   |
+| ------------------------------------------------------- | ---------------------- | ----------------------- |
+| "Implement this outcome" or "Start the TDD flow"        | `/apply`               | —                       |
+| "Create an outcome" or "Add an ADR"                     | `/author`              | —                       |
+| "Add a new node" or "This node is too big"              | `/decompose`           | —                       |
+| "Move this under that"                                  | `/refactor`            | —                       |
+| "Check these specs"                                     | `/align`               | —                       |
+| "Establish evidence for this" or "Write tests for this" | `/verify`              | —                       |
+| "Audit this PDR"                                        | `/audit-pdr`           | `pdr-auditor`           |
+| "Audit this ADR"                                        | `/audit-adr`           | `adr-auditor`           |
+| "Audit test evidence"                                   | `/audit-tests`         | `test-evidence-auditor` |
+| "Audit eval evidence"                                   | `/audit-eval-evidence` | `eval-evidence-auditor` |
+| "Audit this spec node"                                  | `/audit-specs`         | `spec-auditor`          |
+| "Diagnose the spx environment"                          | `/diagnose`            | —                       |
+| "File a follow-up in a dependency queue"                | `/issue`               | —                       |
 
 Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tests|architecture}` skills that generic artifact-type auditors compose for the language in scope. There is no per-language auditor agent. Dispatch `implementation-auditor` for implementation audits; it invokes the matching language concern skills automatically:
 
@@ -469,9 +474,9 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 
 ## Session Management
 
-Sessions are shared across every worktree. Each session must be handed off via `/handoff` so it can be resumed from any other worktree: the handoff leaves the worktree clean and persists all state on origin. Propose a handoff when the session's goal is met or the work must pause; resume one with `/pickup`. When a claimed session is complete and should leave the active queue, close it through `/handoff` or `/handoff --no-session` so claimed-session accounting archives it. To return a wrongly claimed session to the shared queue instead, run `spx session release <session-id>`.
+Sessions are shared across every worktree. Hand off each session via `/handoff` so it can be resumed from any other worktree: the handoff leaves the worktree clean and persists all state on origin. Propose one when the session's goal is met or the work must pause; resume with `/pickup`. When a claimed session is complete and should leave the active queue, close it through `/handoff` or `/handoff --no-session` so claimed-session accounting archives it. To return a wrongly claimed session to the shared queue instead, run `spx session release <session-id>`.
 
-An explicit request to inspect, archive, or release identified session documents routes directly through the corresponding `spx session` command as operational-state management. Reserve `/handoff` for closing active work through reflection, persistence, continuation disposition, and claimed-session accounting. Direct session operations require `/understand` only before following their output into `spx/`, source, or test content.
+An explicit request to inspect, archive, or release identified session documents routes directly through the corresponding `spx session` command as operational-state management; `/handoff` is reserved for closing active work through reflection, persistence, continuation disposition, and claimed-session accounting. Direct session operations require `/understand` only before following their output into `spx/`, source, or test content.
 
 <!-- /SPEC-TREE -->
 
