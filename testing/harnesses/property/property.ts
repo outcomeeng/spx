@@ -62,6 +62,11 @@ export interface PropertyClassification {
   readonly size?: PropertySize;
 }
 
+/** Reusable harness-owned classifications for linked property evidence. */
+export const PROPERTY_CLASSIFICATION = {
+  SMALL_L1: { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+} as const satisfies Record<string, PropertyClassification>;
+
 export interface PropertyRunDeps {
   readonly env?: Record<string, string | undefined>;
   readonly drawSeed?: () => number;
@@ -81,6 +86,17 @@ export class PropertyFailureError extends Error {
     this.name = "PropertyFailureError";
     this.seed = args.seed;
     this.counterexample = args.counterexample;
+  }
+}
+
+/** Raised when a synchronous predicate returns a Promise that the harness cannot safely await. */
+export class PromiseReturningSyncPredicateError extends TypeError {
+  constructor() {
+    super(
+      "assertProperty received a Promise-returning predicate that is not an async function; "
+        + "declare the predicate `async` so the harness awaits each generated case.",
+    );
+    this.name = "PromiseReturningSyncPredicateError";
   }
 }
 
@@ -156,10 +172,7 @@ export function assertProperty<T>(
   const guardedSyncPredicate = (value: T): boolean | void => {
     const outcome = predicate(value);
     if (outcome != null && typeof (outcome as { then?: unknown }).then === "function") {
-      throw new TypeError(
-        "assertProperty received a Promise-returning predicate that is not an async function; "
-          + "declare the predicate `async` so the harness awaits each generated case.",
-      );
+      throw new PromiseReturningSyncPredicateError();
     }
     return outcome as boolean | void;
   };
