@@ -26,6 +26,12 @@ export interface CommanderDiagnosticScenario {
   readonly unsafeOption: string;
   /** The same unknown option addressed to a real subcommand of the production registry. */
   readonly unsafeSubcommandArgv: readonly string[];
+  /**
+   * Argv whose command name is unknown and carries the escape byte and forged line. Commander
+   * answers an unknown command by reading the name back out of the parsed operands rather than
+   * receiving it as an argument, so the scenario reaches that diagnostic on its own path.
+   */
+  readonly unsafeCommandArgv: readonly string[];
   /** The subcommand the argv above addresses, so a caller can assert whose usage was rendered. */
   readonly subcommandName: string;
   /** The escape byte in raw form, which must never survive to the diagnostic. */
@@ -82,6 +88,7 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
   return {
     unsafeOption,
     unsafeSubcommandArgv: [CONFIG_CLI.commandName, unsafeOption],
+    unsafeCommandArgv: [unsafeValue],
     subcommandName: CONFIG_CLI.commandName,
     rawEscapeByte,
     rawForgedLineBreak: `${LINE_FEED}${forgedLine}`,
