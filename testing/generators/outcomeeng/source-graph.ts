@@ -363,27 +363,33 @@ export interface UnresolvablePathFixture {
 
 /** A fixture whose test or source path escapes, leaves, or never enters the product directory. */
 /**
- * The variants encoded as relative `..` traversals. They resolve into the product
- * directory's parent, so a seed segment can walk back through them. Every other variant
- * resolves to the parent itself, to the product directory itself, or to an absolute
- * foreign location, none of which a seed segment can redirect.
+ * The seed segment each relative-traversal variant lands directly under the product
+ * directory's parent. `PARENT_ESCAPE` prefixes the whole seed path, so its first segment
+ * lands there; `NESTED_ESCAPE` cancels the head segment against its own `..`, so its
+ * second segment lands there instead. Every other variant resolves to the parent itself,
+ * the product directory itself, or an absolute foreign location, which no seed segment
+ * redirects.
  */
-const RELATIVE_ESCAPE_VARIANTS: ReadonlySet<UnresolvablePathVariant> = new Set([
-  UNRESOLVABLE_PATH_VARIANT.PARENT_ESCAPE,
-  UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE,
-]);
+const RELATIVE_ESCAPE_DECISIVE_SEGMENT: Partial<Record<UnresolvablePathVariant, number>> = {
+  [UNRESOLVABLE_PATH_VARIANT.PARENT_ESCAPE]: 0,
+  [UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE]: 1,
+};
 
 /**
- * Whether a relative `..` encoding of this seed path would land back inside the product
- * directory. Such an encoding resolves into the product directory's parent, so a seed
- * segment repeating the product directory's own trailing segment walks straight back in
- * and the result stops being unresolvable — it names a location inside the product
- * directory, which the normalizer is right to accept.
+ * Whether this variant's encoding of the seed path would land back inside the product
+ * directory. Both relative-traversal encodings resolve into the product directory's
+ * parent, so when the segment they land under repeats the product directory's own
+ * trailing segment the path walks straight back in and stops being unresolvable — it
+ * names a location inside the product directory, which the normalizer is right to accept.
  */
-function escapeSeedReentersProductDir(productDir: string, escapeSeedPath: string): boolean {
-  const trailingProductSegment = productDir.split(posix.sep).at(-1);
-  if (trailingProductSegment === undefined) return false;
-  return escapeSeedPath.split(posix.sep).includes(trailingProductSegment);
+function escapeSeedReentersProductDir(
+  variant: UnresolvablePathVariant,
+  productDir: string,
+  escapeSeedPath: string,
+): boolean {
+  const decisiveSegment = RELATIVE_ESCAPE_DECISIVE_SEGMENT[variant];
+  if (decisiveSegment === undefined) return false;
+  return escapeSeedPath.split(posix.sep)[decisiveSegment] === productDir.split(posix.sep).at(-1);
 }
 
 export function arbitraryUnresolvablePathFixture(): fc.Arbitrary<UnresolvablePathFixture> {
@@ -396,10 +402,7 @@ export function arbitraryUnresolvablePathFixture(): fc.Arbitrary<UnresolvablePat
       kind: fc.constantFrom(...Object.values(PROVIDER_FACT_KIND)),
       provenance: arbitraryProviderFactProvenance(),
     })
-    .filter((seed) =>
-      !RELATIVE_ESCAPE_VARIANTS.has(seed.variant)
-      || !escapeSeedReentersProductDir(seed.productDir, seed.paths[1])
-    )
+    .filter((seed) => !escapeSeedReentersProductDir(seed.variant, seed.productDir, seed.paths[1]))
     .map((seed) => {
       const [validPath, escapeSeedPath] = seed.paths;
       const unresolvablePath = encodeUnresolvablePath(seed.variant, seed.productDir, escapeSeedPath);
