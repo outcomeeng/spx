@@ -9,6 +9,8 @@ import {
   sessionOptionsForSubcommand,
   sessionOptionToken,
 } from "./session/definition";
+import { launchAgent } from "./session/pick/launch-agent";
+import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
 import {
   archiveCommand,
@@ -56,8 +58,6 @@ const SESSION_LINE_TERMINATOR = authoredText("\n");
 const SESSION_ERROR_PREFIX = authoredText("Error: ");
 /** Refusal when `session pickup` names neither a session id nor `--auto`. */
 const SESSION_PICKUP_SELECTOR_REQUIRED_MESSAGE = "Error: Either session ID or --auto flag is required";
-import { launchAgent } from "./session/pick/launch-agent";
-import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
 export const SESSION_CLI = {
   commandName: "session",
