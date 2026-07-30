@@ -7,12 +7,18 @@ import {
   resolveConfigFromReadResult,
   serializeConfigFileSections,
 } from "@/config/index";
-import { METHODOLOGY_SECTION, type MethodologyConfig, methodologyConfigDescriptor } from "@/config/methodology";
+import {
+  METHODOLOGY_CONFIG_FIELDS,
+  METHODOLOGY_SECTION,
+  type MethodologyConfig,
+  methodologyConfigDescriptor,
+} from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { productionRegistry } from "@/config/registry";
 import type { Config, Result } from "@/config/types";
 import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import {
+  generatedExactMethodologySection,
   generatedHarnessMethodologyConfig,
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
@@ -41,6 +47,11 @@ export interface MethodologyFormatsObservation {
 export interface InvalidMethodologyObservation {
   readonly field: string;
   readonly result: Result<Config>;
+}
+
+export interface MethodologyVersionObservation {
+  readonly declared: string | undefined;
+  readonly result: Result<MethodologyConfig>;
 }
 
 export async function observeMethodologyDefaultsResolveFromProductionRegistry(): Promise<Result<Config>> {
@@ -96,6 +107,20 @@ export async function observeMethodologyResolverHarnessUnknownFieldRejection(): 
     generatedHarnessMethodologyWithUnknownFieldsConfig(),
     ({ productDir }) => resolveMethodologyConfig(productDir),
   );
+}
+
+export async function observeUndeclaredMethodologyVersionResolution(): Promise<MethodologyVersionObservation> {
+  const result = await withTestEnv({}, ({ productDir }) => resolveMethodologyConfig(productDir));
+  return { declared: undefined, result };
+}
+
+export async function observeDeclaredMethodologyVersionResolution(): Promise<MethodologyVersionObservation> {
+  const methodology = generatedExactMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveMethodologyConfig(productDir),
+  );
+  return { declared: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION] as string, result };
 }
 
 export async function observeMethodologyResolverSimilarHarnessField(): Promise<Result<MethodologyConfig>> {

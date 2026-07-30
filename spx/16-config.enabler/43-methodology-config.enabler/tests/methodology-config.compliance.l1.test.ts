@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_METHODOLOGY_CONFIG, METHODOLOGY_SECTION } from "@/config/methodology";
+import {
+  DEFAULT_METHODOLOGY_CONFIG,
+  DEFAULT_METHODOLOGY_VERSION,
+  METHODOLOGY_SECTION,
+  METHODOLOGY_VERSION_INTENT,
+  methodologyVersionIntent,
+} from "@/config/methodology";
 import {
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
 import {
+  observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
   observeMalformedMethodologyConfigRejections,
   observeMethodologyResolverHarnessUnknownFieldRejection,
   observeMethodologyResolverSimilarHarnessField,
+  observeUndeclaredMethodologyVersionResolution,
 } from "@testing/harnesses/config/methodology";
 
 describe("methodology config compliance", () => {
@@ -19,6 +27,24 @@ describe("methodology config compliance", () => {
       expect(observation.result.ok).toBe(false);
       if (!observation.result.ok) expect(observation.result.error).toContain(observation.field);
     }
+  });
+
+  it("preserves the sentinel version as bootstrap intent rather than an exact version", async () => {
+    const observation = await observeUndeclaredMethodologyVersionResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(DEFAULT_METHODOLOGY_VERSION);
+    expect(methodologyVersionIntent(observation.result.value.version)).toBe(METHODOLOGY_VERSION_INTENT.BOOTSTRAP);
+  });
+
+  it("carries a declared non-sentinel version as an exact methodology version", async () => {
+    const observation = await observeDeclaredMethodologyVersionResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(observation.declared);
+    expect(methodologyVersionIntent(observation.result.value.version)).toBe(METHODOLOGY_VERSION_INTENT.EXACT);
   });
 
   it("rejects methodology under harnessEnvironment", async () => {
