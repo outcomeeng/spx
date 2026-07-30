@@ -13,11 +13,12 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 
-import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { METHODOLOGY_FIXTURE_VERSION } from "@testing/harnesses/spec/context";
 
 export interface DiagnoseCliRun {
   readonly stdout: string;
@@ -79,7 +80,7 @@ export async function writeAllChecksManifest(): Promise<string> {
       ...facts,
       checks: Object.values(CHECK_NAME),
       methodologySource: DEFAULT_METHODOLOGY_SOURCE,
-      methodologyVersion: DEFAULT_METHODOLOGY_VERSION,
+      methodologyVersion: METHODOLOGY_FIXTURE_VERSION,
     }),
   );
   return manifestPath;

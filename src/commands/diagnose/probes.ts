@@ -14,8 +14,6 @@ import { basename, dirname, join } from "node:path";
 
 import { execa } from "execa";
 
-import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
-import { resolveAgentHomeDirs } from "@/domains/agent";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -50,24 +48,20 @@ import {
   defaultGitDependencies,
   gatherGitFacts,
   GIT_ROOT_COMMAND,
-  type GitDependencies,
   type GitFacts,
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
-import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import { compareNumericVersionIdentifiers, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { METHODOLOGY_TREE_ROOT } from "@/lib/methodology/tree";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-/** The agent-home-relative path segments a methodology plugin cache resolves under. */
-export const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
 const NOT_FOUND_ERROR_CODE = "ENOENT";
-const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
   GIT_ROOT_COMMAND.SYMBOLIC_REF,
   GIT_ROOT_COMMAND.QUIET,
@@ -550,123 +544,45 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
   },
 };
 
-interface LatestDirectoryReading {
-  readonly errored: boolean;
-  readonly version: string | null;
-}
-
-interface VersionDirectoriesReading {
-  readonly errored: boolean;
-  readonly versions: readonly string[];
-}
-
 function isNodeErrorCode(error: unknown, code: string): boolean {
   return error instanceof Error
     && "code" in error
     && (error as { readonly code?: unknown }).code === code;
 }
 
-async function versionDirectories(path: string): Promise<VersionDirectoriesReading> {
+/**
+ * Coding agents whose committed methodology tree exists for the declared version.
+ * The observation reads only the product directory: a coding agent's plugin cache
+ * is never the source of methodology state, per
+ * `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler`.
+ */
+async function materializedCodingAgents(
+  productDir: string,
+  methodologyVersion: string | undefined,
+): Promise<MethodologyContextObservation> {
+  if (methodologyVersion === undefined) {
+    return { materializedCodingAgents: [], errored: false };
+  }
+  const versionRoot = join(productDir, METHODOLOGY_TREE_ROOT, methodologyVersion);
   try {
-    const entries = await readdir(path, { withFileTypes: true });
-    const versions = entries
+    const entries = await readdir(versionRoot, { withFileTypes: true });
+    const codingAgents = entries
       .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-    return { errored: false, versions };
+      .map((entry) => entry.name)
+      .sort(compareCodeUnits);
+    return { materializedCodingAgents: codingAgents, errored: false };
   } catch (error) {
     if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE)) {
-      return { errored: false, versions: [] };
+      return { materializedCodingAgents: [], errored: false };
     }
-    return { errored: true, versions: [] };
+    return { materializedCodingAgents: [], errored: true };
   }
 }
 
-function isVersionDirectoryName(name: string): boolean {
-  return VERSION_DIRECTORY_PATTERN.test(name);
-}
-
-function selectConfiguredVersion(
-  readings: readonly VersionDirectoriesReading[],
-  config: MethodologyConfig,
-): LatestDirectoryReading {
-  const versions = readings.flatMap((reading) => reading.versions);
-  const validVersions = versions
-    .filter(isVersionDirectoryName)
-    .sort(compareNumericVersionIdentifiers);
-  let version: string | null;
-  if (config.version === DEFAULT_METHODOLOGY_VERSION) {
-    version = validVersions.at(-1) ?? null;
-  } else {
-    version = versions.find((candidate) => candidate === config.version)
-      ?? validVersions.at(-1)
-      ?? null;
-  }
-  return {
-    errored: readings.some((reading) => reading.errored),
-    version,
-  };
-}
-
-async function configuredVersionDirectory(
-  paths: readonly string[],
-  config: MethodologyConfig,
-): Promise<LatestDirectoryReading> {
-  return selectConfiguredVersion(
-    await Promise.all(paths.map((path) => versionDirectories(path))),
-    config,
-  );
-}
-
-/**
- * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
- * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
- * it — the classifier judges that, and this probe supplies the observation.
- *
- * Tracked means git-tracked, the same meaning the rest of the product gives the word: a spec tree
- * exists as product truth once git carries a file under it. A directory present on disk but absent
- * from the index is a product still bootstrapping — exactly the case the sentinel is intended to
- * cover — so presence alone must not make methodology identity mandatory. Outside a git repository,
- * and on any git failure, `listTrackedPaths` yields no paths, which reads as no tracked tree rather
- * than as a distinct error: an unestablished tree cannot make methodology identity mandatory.
- */
-async function hasTrackedSpecTree(
-  productDir: string,
-  deps: GitDependencies = defaultGitDependencies,
-): Promise<boolean> {
-  const trackedPaths = await listTrackedPaths(productDir, deps);
-  if (trackedPaths === undefined) return false;
-  const prefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
-  for (const trackedPath of trackedPaths) {
-    if (trackedPath.startsWith(prefix)) return true;
-  }
-  return false;
-}
-
-/**
- * The methodology-context probe for one product directory. Agent home directories default to the
- * environment-resolved ones read at probe time, so an exported home set after construction is seen.
- */
-export function createMethodologyContextProbe(
-  productDir: string,
-  ...agentHomeDirs: readonly string[]
-): MethodologyContextProbe {
+export function createMethodologyContextProbe(productDir: string): MethodologyContextProbe {
   return {
     async probe(config): Promise<MethodologyContextObservation> {
-      const resolvedHomes = resolveAgentHomeDirs();
-      const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
-      const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
-      const reading = await configuredVersionDirectory(sourcePaths, config);
-      const trackedSpecTree = await hasTrackedSpecTree(productDir);
-      const errored = reading.errored;
-      if (reading.version === null) {
-        return { source: null, version: null, trackedSpecTree, errored };
-      }
-      return {
-        source: config.source,
-        version: reading.version,
-        trackedSpecTree,
-        errored,
-      };
+      return materializedCodingAgents(productDir, config.version);
     },
   };
 }

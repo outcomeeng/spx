@@ -1,12 +1,11 @@
-import { METHODOLOGY_VERSION_INTENT, type MethodologyConfig, methodologyVersionIntent } from "@/config/methodology";
+import type { MethodologyConfig } from "@/config/methodology";
 import type { CheckRunner } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 
 export const METHODOLOGY_CONTEXT_VERDICT = {
   RESOLVED: "resolved",
-  BOOTSTRAP_IDENTITY: "bootstrap-identity",
-  VERSION_MISMATCH: "version-mismatch",
+  UNDECLARED: "undeclared",
   UNAVAILABLE: "unavailable",
   UNKNOWN: "unknown",
 } as const;
@@ -15,13 +14,13 @@ export type MethodologyContextVerdict = (typeof METHODOLOGY_CONTEXT_VERDICT)[key
 
 export const METHODOLOGY_CONTEXT_READING_VALUE = {
   ABSENT: "(absent)",
+  NONE: "(none)",
 } as const;
 
+/** What the probe observes about the committed methodology trees under the product directory. */
 export interface MethodologyContextObservation {
-  readonly source: string | null;
-  readonly version: string | null;
-  /** Whether the product directory carries a tracked spec tree, observed by the probe rather than the classifier. */
-  readonly trackedSpecTree: boolean;
+  /** Coding agents whose committed tree exists for the declared methodology version. */
+  readonly materializedCodingAgents: readonly string[];
   readonly errored: boolean;
 }
 
@@ -29,9 +28,8 @@ export interface MethodologyContextReading {
   readonly configured: boolean;
   readonly configuredSource: string | null;
   readonly configuredVersion: string | null;
-  readonly observedSource: string | null;
-  readonly observedVersion: string | null;
-  readonly trackedSpecTree: boolean;
+  readonly migratingFrom: string | null;
+  readonly materializedCodingAgents: readonly string[];
   readonly errored: boolean;
 }
 
@@ -40,29 +38,17 @@ export interface MethodologyContextProbe {
 }
 
 const REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
-  [METHODOLOGY_CONTEXT_VERDICT.RESOLVED]: "Configured methodology context resolves locally; no action needed.",
-  [METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY]:
-    "Declare an exact methodology.version; the installed sentinel is bootstrap intent, not durable identity.",
-  [METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH]:
-    "Install the configured methodology version or change the methodology config.",
+  [METHODOLOGY_CONTEXT_VERDICT.RESOLVED]: "Declared methodology resolves to committed trees; no action needed.",
+  [METHODOLOGY_CONTEXT_VERDICT.UNDECLARED]:
+    "Declare methodology.version; the product's methodology identity has no default.",
   [METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE]:
-    "Install the configured methodology source or make it visible to the local agent runtime.",
+    "Materialize the committed methodology tree for the declared version and each enabled coding agent.",
   [METHODOLOGY_CONTEXT_VERDICT.UNKNOWN]:
-    "Re-run diagnose; if it persists, inspect local methodology plugin installation state.",
+    "Re-run diagnose; if it persists, inspect the committed methodology trees under the product directory.",
 };
 
 function readingValue(value: string | null): string {
   return value ?? METHODOLOGY_CONTEXT_READING_VALUE.ABSENT;
-}
-
-/**
- * The declared version's intent, so a report reader distinguishes bootstrap intent from an
- * exact declaration without re-deriving the sentinel comparison from the raw version reading.
- */
-function versionIntentReading(configuredVersion: string | null): string {
-  return configuredVersion === null
-    ? METHODOLOGY_CONTEXT_READING_VALUE.ABSENT
-    : methodologyVersionIntent(configuredVersion);
 }
 
 function record(
@@ -78,10 +64,10 @@ function record(
       configured: String(reading.configured),
       configuredSource: readingValue(reading.configuredSource),
       configuredVersion: readingValue(reading.configuredVersion),
-      observedSource: readingValue(reading.observedSource),
-      observedVersion: readingValue(reading.observedVersion),
-      versionIntent: versionIntentReading(reading.configuredVersion),
-      trackedSpecTree: String(reading.trackedSpecTree),
+      migratingFrom: readingValue(reading.migratingFrom),
+      materializedCodingAgents: reading.materializedCodingAgents.length === 0
+        ? METHODOLOGY_CONTEXT_READING_VALUE.NONE
+        : [...reading.materializedCodingAgents].join(", "),
     },
     remediation: REMEDIATION[verdict],
   };
@@ -91,40 +77,24 @@ export function classifyMethodologyContext(reading: MethodologyContextReading): 
   if (reading.errored) {
     return record(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN, VERDICT_BUCKET.UNKNOWN, reading);
   }
-  if (reading.observedSource === null || reading.observedVersion === null) {
-    return record(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE, VERDICT_BUCKET.UNKNOWN, reading);
+  if (reading.configuredVersion === null) {
+    return record(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED, VERDICT_BUCKET.DEGRADED, reading);
   }
-  const intent = versionIntentReading(reading.configuredVersion);
-  if (intent === METHODOLOGY_VERSION_INTENT.BOOTSTRAP && reading.trackedSpecTree) {
-    return record(METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY, VERDICT_BUCKET.DEGRADED, reading);
-  }
-  if (intent === METHODOLOGY_VERSION_INTENT.EXACT && reading.configuredVersion !== reading.observedVersion) {
-    return record(METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH, VERDICT_BUCKET.DEGRADED, reading);
+  if (reading.materializedCodingAgents.length === 0) {
+    return record(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE, VERDICT_BUCKET.DEGRADED, reading);
   }
   return record(METHODOLOGY_CONTEXT_VERDICT.RESOLVED, VERDICT_BUCKET.HEALTHY, reading);
 }
 
 export function methodologyContextRunner(probe: MethodologyContextProbe): CheckRunner {
   return async (manifest) => {
-    if (manifest.methodologyError !== undefined) {
+    if (manifest.methodologyError !== undefined || manifest.methodology === undefined) {
       return classifyMethodologyContext({
-        configured: true,
+        configured: manifest.methodologyError !== undefined,
         configuredSource: null,
         configuredVersion: null,
-        observedSource: null,
-        observedVersion: null,
-        trackedSpecTree: false,
-        errored: true,
-      });
-    }
-    if (manifest.methodology === undefined) {
-      return classifyMethodologyContext({
-        configured: false,
-        configuredSource: null,
-        configuredVersion: null,
-        observedSource: null,
-        observedVersion: null,
-        trackedSpecTree: false,
+        migratingFrom: null,
+        materializedCodingAgents: [],
         errored: true,
       });
     }
@@ -134,10 +104,9 @@ export function methodologyContextRunner(probe: MethodologyContextProbe): CheckR
     return classifyMethodologyContext({
       configured: true,
       configuredSource: methodology.source,
-      configuredVersion: methodology.version,
-      observedSource: observation.source,
-      observedVersion: observation.version,
-      trackedSpecTree: observation.trackedSpecTree,
+      configuredVersion: methodology.version ?? null,
+      migratingFrom: methodology.migratingFrom ?? null,
+      materializedCodingAgents: observation.materializedCodingAgents,
       errored: observation.errored,
     });
   };

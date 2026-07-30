@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_METHODOLOGY_SOURCE, DEFAULT_METHODOLOGY_VERSION } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import type { DiagnoseConfig } from "@/domains/diagnose/config";
 import { CHECK_NAME, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import { resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
@@ -10,6 +10,7 @@ import {
   arbitraryNameToken,
   arbitrarySpxFloor,
 } from "@testing/generators/diagnose/manifest";
+import { METHODOLOGY_FIXTURE_VERSION } from "@testing/harnesses/spec/context";
 
 const availableChecks = Object.values(CHECK_NAME);
 
@@ -72,7 +73,7 @@ describe("diagnostic fact resolution follows the precedence manifest over config
   it("carries methodology facts into config-derived manifests", () => {
     const methodology = {
       source: DEFAULT_METHODOLOGY_SOURCE,
-      version: DEFAULT_METHODOLOGY_VERSION,
+      version: METHODOLOGY_FIXTURE_VERSION,
     };
     const config: DiagnoseConfig = { checks: [CHECK_NAME.METHODOLOGY_CONTEXT] };
 
