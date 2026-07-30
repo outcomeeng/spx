@@ -1,7 +1,7 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, resolveMethodologyIdentity } from "@/config/methodology";
+import { type MethodologyConfig, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -13,7 +13,6 @@ import {
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
 import {
-  formatFoundationPackageUnconfiguredError,
   formatFoundationResourceUnreadableError,
   foundationCatalogPaths,
 } from "@/lib/methodology/foundation-manifest";
@@ -22,6 +21,12 @@ import {
   defaultMethodologyPackageFileSystem,
   resolveFoundationManifest,
 } from "@/lib/methodology/package-resource";
+import {
+  formatCodingAgentUnresolvedError,
+  formatMethodologyTreeMissingError,
+  METHODOLOGY_TREE_ROOT,
+  methodologyTreeRelativeDir,
+} from "@/lib/methodology/tree";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
@@ -58,6 +63,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export type SpecContextManifestResolution =
@@ -69,8 +75,10 @@ export interface ContextOptions {
   readonly cwd?: string;
   /** When true, every read-class entry carries the document's exact content, digest, and byte count. */
   readonly content?: boolean;
-  /** When true, the manifest carries the foundation methodology payload from the installed package. */
+  /** When true, the manifest carries the foundation methodology payload from the committed methodology tree. */
   readonly understand?: boolean;
+  /** The coding agent whose committed tree the methodology payload reads; inferred when exactly one exists. */
+  readonly codingAgent?: string;
   readonly gitDependencies?: GitDependencies;
   readonly onWarning?: SpecProductDirWarningHandler;
 }
@@ -426,18 +434,58 @@ interface MethodologyPayload {
  * absent or invalid manifest, an unrecognized schema version, or an unreadable
  * named resource fails the whole projection naming the resolved path.
  */
+/**
+ * The coding agent whose committed tree the payload reads. An explicit name is
+ * used as given; otherwise the version's tree root must hold exactly one coding
+ * agent, because guessing between two would silently change the foundation an
+ * agent receives.
+ */
+async function resolveCodingAgent(
+  productDir: string,
+  methodologyVersion: string,
+  requested: string | undefined,
+): Promise<string> {
+  if (requested !== undefined) return requested;
+  const versionRoot = join(productDir, METHODOLOGY_TREE_ROOT, methodologyVersion);
+  const relativeRoot = join(METHODOLOGY_TREE_ROOT, methodologyVersion);
+  let entries: string[];
+  try {
+    entries = (await readdir(versionRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort(compareCodeUnits);
+  } catch {
+    throw new Error(formatCodingAgentUnresolvedError(relativeRoot, []));
+  }
+  if (entries.length !== 1) {
+    throw new Error(formatCodingAgentUnresolvedError(relativeRoot, entries));
+  }
+  return entries[0] ?? "";
+}
+
 async function readMethodologyPayload(
   productDir: string,
-  packageDir: string | undefined,
+  methodologyConfig: MethodologyConfig,
+  requestedCodingAgent: string | undefined,
   targets: readonly string[],
 ): Promise<MethodologyPayload> {
-  if (packageDir === undefined) {
-    throw new Error(
-      formatFoundationPackageUnconfiguredError(METHODOLOGY_SECTION, METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR),
-    );
+  const identity = resolveMethodologyIdentity(methodologyConfig);
+  if (!identity.ok) {
+    throw new Error(identity.error);
   }
-  const resolved = await resolveFoundationManifest(productDir, packageDir, defaultMethodologyPackageFileSystem);
-  if (!resolved.ok) throw new Error(resolved.error);
+  const codingAgent = await resolveCodingAgent(productDir, identity.value.version, requestedCodingAgent);
+  const treeRelativeDir = methodologyTreeRelativeDir(identity.value.version, codingAgent);
+  if (!treeRelativeDir.ok) {
+    throw new Error(treeRelativeDir.error);
+  }
+  const resolved = await resolveFoundationManifest(
+    productDir,
+    treeRelativeDir.value,
+    defaultMethodologyPackageFileSystem,
+  );
+  if (!resolved.ok) {
+    throw new Error(`${formatMethodologyTreeMissingError(treeRelativeDir.value)}: ${resolved.error}`);
+  }
   const { packageDir: resolvedPackageDir, manifestPath, manifest } = resolved.value;
   // The manifest is validated data, not a trusted read authority: the core
   // path binds a read only when it resolves — through any symbolic link —
@@ -494,7 +542,11 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   if (!methodologyConfig.ok) {
     throw new Error(methodologyConfig.error);
   }
-  const methodology = resolveMethodologyIdentity(methodologyConfig.value);
+  const methodologyIdentity = resolveMethodologyIdentity(methodologyConfig.value);
+  if (!methodologyIdentity.ok) {
+    throw new Error(methodologyIdentity.error);
+  }
+  const methodology = methodologyIdentity.value;
   const contentRequested = options.content === true;
   const scannedDocuments: ScannedDocuments = new Map();
   const uniqueTargets = new Map<string, SpecTreeNode>(
@@ -519,7 +571,12 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   let listed = bundle.listed;
   let coverage = bundle.coverage;
   if (options.understand === true) {
-    const payload = await readMethodologyPayload(productDir, methodologyConfig.value.packageDir, bundle.targets);
+    const payload = await readMethodologyPayload(
+      productDir,
+      methodologyConfig.value,
+      options.codingAgent,
+      bundle.targets,
+    );
     read = [...read, payload.core];
     listed = [
       ...listed,

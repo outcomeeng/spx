@@ -26,6 +26,7 @@ export const SPEC_DOMAIN_CLI = {
   JSON_OPTION: "--json",
   CONTENT_OPTION: "--content",
   UNDERSTAND_OPTION: "--understand",
+  CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
   UPDATE_OPTION: "--update",
@@ -154,28 +155,38 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     )
     .option(
       SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
-      "Include the foundation methodology payload from the installed methodology package",
+      "Include the foundation methodology payload from the committed methodology tree",
     )
-    .action(async (targets: string[], options: { json?: boolean; content?: boolean; understand?: boolean }) => {
-      try {
-        if (options.content === true && options.json !== true) {
-          throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+    .option(
+      SPEC_DOMAIN_CLI.CODING_AGENT_OPTION_DEFINITION,
+      "Coding agent whose committed methodology tree the payload reads",
+    )
+    .action(
+      async (
+        targets: string[],
+        options: { json?: boolean; content?: boolean; understand?: boolean; codingAgent?: string },
+      ) => {
+        try {
+          if (options.content === true && options.json !== true) {
+            throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+          }
+          const format = options.json === true
+            ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
+            : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
+          const output = await contextOutputForFormat(format, {
+            targets,
+            cwd: productDir(),
+            content: options.content === true,
+            understand: options.understand === true,
+            codingAgent: options.codingAgent,
+            onWarning,
+          });
+          writeOutput(invocation.io, output);
+        } catch (error) {
+          handleCommandError(invocation.io, error);
         }
-        const format = options.json === true
-          ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-          : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
-        const output = await contextOutputForFormat(format, {
-          targets,
-          cwd: productDir(),
-          content: options.content === true,
-          understand: options.understand === true,
-          onWarning,
-        });
-        writeOutput(invocation.io, output);
-      } catch (error) {
-        handleCommandError(invocation.io, error);
-      }
-    });
+      },
+    );
 
   specCmd
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)

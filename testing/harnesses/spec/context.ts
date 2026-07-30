@@ -17,6 +17,7 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
+import { FOUNDATION_PLUGIN_NAME, METHODOLOGY_TREE_ROOT } from "@/lib/methodology/tree";
 import {
   KIND_REGISTRY,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -227,10 +228,17 @@ export async function runIsolatedEscapeWriteProbe(productDir: string) {
   return { escapeFileExists, escapeFilePath, result };
 }
 
+export const METHODOLOGY_FIXTURE_VERSION = "4.0.0";
+
 export function specTreeKindsConfig(): Config {
   return {
     [SPEC_TREE_CONFIG.SECTION]: {
       [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
+    },
+    // A context projection stamps the product's methodology identity, which a
+    // product declares rather than inherits, so every context fixture declares one.
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: METHODOLOGY_FIXTURE_VERSION,
     },
   };
 }
@@ -412,10 +420,14 @@ export async function withRichContextEnv(
 /** Filename of the escape-target fixture a containment scenario writes outside the probed boundary. */
 export const SPEC_CONTEXT_ESCAPE_TARGET_FILENAME = "outside-secret.md";
 
-/** The materialized installed-methodology-package fixture: locations and exact resource text. */
+/** The materialized committed-methodology-tree fixture: locations and exact resource text. */
 export interface MethodologyPackageFixture {
-  /** Product-relative package root, the value the `methodology` config descriptor carries. */
+  /** Product-relative tree root, addressed by declared methodology version and coding agent. */
   readonly packageDir: string;
+  /** The methodology version the fixture tree serves. */
+  readonly methodologyVersion: string;
+  /** The coding agent the fixture tree belongs to. */
+  readonly codingAgent: string;
   /** Product-relative path of the written manifest file. */
   readonly manifestPath: string;
   /** Package-relative path of the core foundation document. */
@@ -426,15 +438,22 @@ export interface MethodologyPackageFixture {
   readonly catalogPaths: readonly string[];
 }
 
-const METHODOLOGY_PACKAGE_DIRECTORY = "methodology-package";
+export const METHODOLOGY_FIXTURE_CODING_AGENT = "claude";
+const METHODOLOGY_TREE_DIRECTORY = [
+  METHODOLOGY_TREE_ROOT,
+  METHODOLOGY_FIXTURE_VERSION,
+  METHODOLOGY_FIXTURE_CODING_AGENT,
+  FOUNDATION_PLUGIN_NAME,
+].join("/");
 
-/** The config sections a methodology-package test passes to `withSpecTreeEnv`. */
+/** The config sections a committed-methodology-tree test passes to `withSpecTreeEnv`. */
 export function methodologyPackageConfig(identity?: Record<string, unknown>): Config {
+  const base = specTreeKindsConfig();
   return {
-    ...specTreeKindsConfig(),
+    ...base,
     [METHODOLOGY_SECTION]: {
+      ...(base[METHODOLOGY_SECTION] as Record<string, unknown>),
       ...identity,
-      [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: METHODOLOGY_PACKAGE_DIRECTORY,
     },
   };
 }
@@ -462,14 +481,16 @@ export async function writeMethodologyPackage(
     [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [templatePath],
     [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [examplePath],
   };
-  const manifestPath = `${METHODOLOGY_PACKAGE_DIRECTORY}/${FOUNDATION_MANIFEST_RELATIVE_PATH}`;
+  const manifestPath = `${METHODOLOGY_TREE_DIRECTORY}/${FOUNDATION_MANIFEST_RELATIVE_PATH}`;
   await env.writeRaw(manifestPath, JSON.stringify(manifest));
-  await env.writeRaw(`${METHODOLOGY_PACKAGE_DIRECTORY}/${corePath}`, coreText);
+  await env.writeRaw(`${METHODOLOGY_TREE_DIRECTORY}/${corePath}`, coreText);
   for (const catalogPath of [referencePath, templatePath, examplePath]) {
-    await env.writeRaw(`${METHODOLOGY_PACKAGE_DIRECTORY}/${catalogPath}`, `# Catalog resource\n`);
+    await env.writeRaw(`${METHODOLOGY_TREE_DIRECTORY}/${catalogPath}`, `# Catalog resource\n`);
   }
   return {
-    packageDir: METHODOLOGY_PACKAGE_DIRECTORY,
+    packageDir: METHODOLOGY_TREE_DIRECTORY,
+    methodologyVersion: METHODOLOGY_FIXTURE_VERSION,
+    codingAgent: METHODOLOGY_FIXTURE_CODING_AGENT,
     manifestPath,
     corePath,
     coreText,
