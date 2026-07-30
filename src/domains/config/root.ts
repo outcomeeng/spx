@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
-const GIT_NOT_REPO_MARKER = "not a git repository";
+export const PRODUCT_DIR_NOT_GIT_WARNING = "not a git repository";
 
 export type ResolvedProductDir = {
   readonly productDir: string;
@@ -29,7 +29,7 @@ export function resolveProductDir(
   return {
     productDir: resolvedCwd,
     warning:
-      `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${GIT_NOT_REPO_MARKER}.`,
+      `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${PRODUCT_DIR_NOT_GIT_WARNING}.`,
   };
 }
 
