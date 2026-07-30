@@ -7,47 +7,43 @@
 
 ## Pending steps
 
-1. Materialize the per-coding-agent plugin trees and their provenance records under the
-   governance of `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler`, one tree per
-   coding agent the marketplace builds, with no cross-coding-agent translation. The
-   agreed layout is `methodology/{coding-agent}/{plugin}/`, so the spec-tree plugin
-   materializes to `methodology/claude/spec-tree/` and `methodology/codex/spec-tree/`,
-   each root carrying its own provenance record. The coding-agent set is enumerated from
-   the marketplace rather than named in code, so a further coding agent is a new
-   directory rather than a source change.
-2. Replace installed-plugin resolution in the payload reader with selection of the
-   committed tree for the coding agent in scope, keeping manifest parsing, schema
-   validation, provenance comparison, and catalog mapping pure over supplied bytes and
-   the tree read behind the injected reader.
-3. Remove the `packageDir` field from the `methodology` config descriptor in
-   `src/config/methodology.ts`; version and source remain, and no installed-plugin
-   location participates in resolution.
-4. Correct `methodology.version` in `spx.config.yaml` so it declares the methodology
-   version rather than the plugin version, matching the managed instruction markers in
-   `CLAUDE.md` and `AGENTS.md`. The plugin version stays a separate axis, and
-   `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/ISSUES.md` records that the
-   compatibility relation between the two has no published source yet. This cannot be a
-   config-only edit: `src/commands/diagnose/probes.ts` composes a plugin-cache directory
-   from `methodology.source` and then matches `methodology.version` against the version
-   directories under it, so it consumes the field as a plugin version. Correcting the
-   declared value without changing that probe leaves the methodology-context check
-   unable to match. Move plugin-version resolution off the methodology field in the same
-   change.
-5. Re-establish evidence for the assertions whose subject moved from the installed plugin
-   to the committed tree, and establish evidence for the two untagged compliance
-   assertions covering digest divergence and per-coding-agent tree selection. Route both
-   through `/apply`, which invokes `/verify` to select each assertion's verification type
-   before any test is written.
-6. Keep methodology test infrastructure free of installed-plugin resolution: a harness
-   that locates a coding-agent-local plugin has no consumer once the payload reads the
-   committed tree, and its presence would reintroduce the run-time dependency the
-   decision removes. `testing/harnesses/spec/context.ts` still names its fixture
-   directory `methodology-package`; rename it with the reader rewrite.
+1. Accept `methodology.migratingFrom` in the `methodology` config descriptor in
+   `src/config/methodology.ts`, and remove `packageDir`. Remove the `installed` sentinel
+   and the version-intent classification with it: the sentinel names an installed
+   methodology, and no methodology is installed once the foundation is committed. Its only
+   production consumer is the diagnose methodology-context check.
+2. Materialize the committed trees under the governance of
+   `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler`, addressed
+   `methodology/{methodology-version}/{coding-agent}/{plugin}/`. One tree per declared
+   methodology version — the target and, while open, the migration source — per coding
+   agent the marketplace builds. Each tree is rooted at the plugin root and holds the
+   resources its `skills/understand/manifest.json` names, so every manifest-declared path
+   resolves unchanged. Materialization copies from a revision of the capability source
+   repository's built per-coding-agent output; no plugin cache is read.
+3. Replace `packageDir` resolution in the payload reader with the address formed from the
+   declared methodology version and the coding agent in scope. Manifest parsing, schema
+   validation, provenance comparison, and catalog mapping stay pure over supplied bytes
+   with the tree read behind the injected reader.
+4. Move the diagnose methodology-context probe off the plugin cache. Delete the
+   version-directory walk in `src/commands/diagnose/probes.ts` — `PLUGIN_CACHE_SEGMENTS`,
+   `VERSION_DIRECTORY_PATTERN`, `versionDirectories`, `isVersionDirectoryName`,
+   `selectConfiguredVersion`, `configuredVersionDirectory` — and observe the committed
+   trees under the product directory instead. The check's verdict vocabulary loses
+   `version-mismatch` and `bootstrap-identity`.
+5. Rename the `methodology-package` fixture directory in `testing/harnesses/spec/context.ts`
+   with the reader rewrite, and drop the cache-fixture construction in
+   `testing/harnesses/diagnose/methodology-context.ts`.
+
+## Prototype tier
+
+Every spec and decision artifact in this changeset declares `tier: prototype`. No test or
+eval evidence is established for the assertions this tier introduces; the existing
+evidence links in `understand-payload.md` remain and their tests follow the reader
+rewrite.
 
 ## Verification route
 
 - `tsx src/cli.ts validation markdown` over the touched node directories
 - `pnpm run validate`
-- `tsx src/cli.ts test spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler`
-- test-evidence and implementation audits through their configured agents
+- `tsx src/cli.ts spec context show <node> --understand` against a materialized tree
 - `/merge`
