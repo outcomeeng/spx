@@ -307,6 +307,10 @@ function validate(value: unknown): Result<SpecTreeConfig> {
   return validateKindDefinitionMap(kindValue as Record<string, unknown>);
 }
 
+export function unknownSpecTreeKindError(kind: string): string {
+  return `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`;
+}
+
 function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
   const kindNames: Kind[] = [];
   for (const entry of kinds) {
@@ -317,10 +321,7 @@ function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
       };
     }
     if (!isKind(entry)) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${entry}"`,
-      };
+      return { ok: false, error: unknownSpecTreeKindError(entry) };
     }
     kindNames.push(entry);
   }
@@ -340,10 +341,7 @@ function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result
   const entries: Array<[Kind, KindDefinition<Kind>]> = [];
   for (const [key, entry] of Object.entries(kindEntries)) {
     if (!isKind(key)) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${key}"`,
-      };
+      return { ok: false, error: unknownSpecTreeKindError(key) };
     }
     if (typeof entry !== "object" || entry === null) {
       return {
