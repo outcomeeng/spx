@@ -13,11 +13,11 @@ import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/lib/spec-tree";
 import {
   authoredText,
   externalValue,
+  joinTerminalText,
   renderTerminalText,
   terminal,
   type TerminalText,
@@ -42,6 +42,11 @@ export const SPEC_DOMAIN_CLI = {
 export const SPEC_CONTEXT_CONTENT_MESSAGE = {
   REQUIRES_JSON: `${SPEC_DOMAIN_CLI.CONTENT_OPTION} requires ${SPEC_DOMAIN_CLI.JSON_OPTION}`,
 } as const;
+
+/** The quote a target diagnostic shows one caller-supplied operand in. */
+const SPEC_CONTEXT_OPERAND_QUOTE = "\"";
+/** What separates the candidate segments an ambiguous-target diagnostic lists. */
+const SPEC_CONTEXT_CANDIDATE_SEPARATOR = ", ";
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
   ERROR_PREFIX: "Error",
@@ -87,48 +92,68 @@ function writeInvocationWarning(io: CliIo, warning: TerminalText | undefined): v
 }
 
 function handleCommandError(io: CliIo, error: unknown): never {
-  let message: string;
-  if (error instanceof Error) {
-    message = error.message;
-  } else if (typeof error === "string") {
-    message = error;
-  } else {
-    try {
-      message = JSON.stringify(error);
-    } catch {
-      message = UNPRINTABLE_ERROR_MESSAGE;
-    }
-  }
   io.writeStderr(
-    renderTerminalText(terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${externalValue(message)}\n`),
+    renderTerminalText(
+      terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${diagnosticOf(error)}\n`,
+    ),
   );
   return io.exit(1);
 }
 
-function quotedCliArgument(value: string): string {
-  return JSON.stringify(sanitizeCliArgument(value));
+/**
+ * States what a caught value contributes to the diagnostic. A value this descriptor composed is
+ * spliced as it stands, because its operands were escaped where they were embedded; every other
+ * throw site hands over a message the product did not compose, so it enters as an external value.
+ */
+function diagnosticOf(error: unknown): TerminalText {
+  if (error instanceof ComposedDiagnosticError) return error.diagnostic;
+  if (error instanceof Error) return externalValue(error.message);
+  if (typeof error === "string") return externalValue(error);
+  try {
+    return externalValue(JSON.stringify(error));
+  } catch {
+    return externalValue(UNPRINTABLE_ERROR_MESSAGE);
+  }
 }
 
-/** Formats a typed target-resolution failure for safe terminal presentation. */
-export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure): string {
-  const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
+/** Surrounds one caller-supplied operand with the quotes the diagnostic shows it in. */
+function quotedCliArgument(value: string): TerminalText {
+  return terminal`${authoredText(SPEC_CONTEXT_OPERAND_QUOTE)}${externalValue(value)}${
+    authoredText(SPEC_CONTEXT_OPERAND_QUOTE)
+  }`;
+}
+
+/** Composes a typed target-resolution failure as the diagnostic the terminal shows. */
+export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure): TerminalText {
+  const prefix = authoredText(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind]);
   switch (failure.kind) {
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
-      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${
+      return terminal`${prefix} ${quotedCliArgument(failure.segment)} for input ${
         quotedCliArgument(failure.input)
-      }. Candidates: ${failure.candidates.map(sanitizeCliArgument).join(", ")}`;
+      }. Candidates: ${joinTerminalText(SPEC_CONTEXT_CANDIDATE_SEPARATOR, failure.candidates.map(externalValue))}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
-      return `${prefix}: ${sanitizeCliArgument(failure.input)}. Use spx/${sanitizeCliArgument(failure.ownerId)}`;
+      return terminal`${prefix}: ${externalValue(failure.input)}. Use spx/${externalValue(failure.ownerId)}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
-      return `${prefix}: ${sanitizeCliArgument(failure.input)}`;
+      return terminal`${prefix}: ${externalValue(failure.input)}`;
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
-      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${quotedCliArgument(failure.input)}`;
+      return terminal`${prefix} ${quotedCliArgument(failure.segment)} for input ${quotedCliArgument(failure.input)}`;
+  }
+}
+
+/**
+ * Carries a diagnostic this descriptor already composed. A thrown value reaches the error handler
+ * as `unknown`, so the handler cannot read a brand the runtime erased; the class is what survives
+ * the throw and tells the handler the operands inside were escaped where they were embedded.
+ */
+class ComposedDiagnosticError extends Error {
+  constructor(readonly diagnostic: TerminalText) {
+    super(renderTerminalText(diagnostic));
   }
 }
 
 async function resolveManifestOrThrow(options: ContextOptions) {
   const resolution = await resolveContextManifest(options);
-  if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
+  if (!resolution.ok) throw new ComposedDiagnosticError(formatSpecContextTargetFailure(resolution.failure));
   return resolution.manifest;
 }
 

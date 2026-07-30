@@ -14,6 +14,7 @@ import {
   type SpecTreeNode,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import {
   SPEC_CONTEXT_CASE_TITLE,
   SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY,
@@ -94,7 +95,7 @@ async function assertRejectsArtifactTarget(mappingCase: SpecContextArtifactMappi
         failure: fixture.failure,
         ok: false,
       });
-      message = formatSpecContextTargetFailure(fixture.failure);
+      message = renderTerminalText(formatSpecContextTargetFailure(fixture.failure));
     } else {
       await env.materialize(fixture.sourceFixture);
       if (fixture.filesystemArtifact.type === SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE.DIRECTORY) {
@@ -194,7 +195,7 @@ describe("spec context target resolution mapping", () => {
   it.each(specContextTargetMappingCases())(SPEC_CONTEXT_CASE_TITLE, assertTargetMappingCase);
 
   it.each(specContextTargetDiagnosticSafetyCases())(SPEC_CONTEXT_CASE_TITLE, (safetyCase) => {
-    const message = formatSpecContextTargetFailure(safetyCase.failure);
+    const message = renderTerminalText(formatSpecContextTargetFailure(safetyCase.failure));
     expect(message).toContain(sanitizeCliArgument(safetyCase.unsafeValue));
     expect(message).not.toContain(safetyCase.unsafeValue);
   });
