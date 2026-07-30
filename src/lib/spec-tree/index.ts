@@ -45,6 +45,7 @@ export {
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   specTreeConfigDescriptor,
   supersededNodeSuffixes,
+  unknownSpecTreeKindError,
 } from "./config";
 export type {
   DecisionKind,

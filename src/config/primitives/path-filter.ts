@@ -10,12 +10,17 @@ export interface PathFilterConfig {
   readonly exclude?: readonly string[];
 }
 
+export function pathFilterObjectError(path: string): string {
+  return `${path} must be an object`;
+}
+
+export function pathFilterStringArrayError(path: string, field: string): string {
+  return `${path}.${field} must be an array of strings`;
+}
+
 export function validatePathFilterConfig(raw: unknown, path: string): Result<PathFilterConfig> {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return {
-      ok: false,
-      error: `${path} must be an object`,
-    };
+    return { ok: false, error: pathFilterObjectError(path) };
   }
   const candidate = raw as Record<string, unknown>;
 
@@ -26,7 +31,7 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
   ) {
     return {
       ok: false,
-      error: `${path}.${PATH_FILTER_CONFIG_FIELDS.INCLUDE} must be an array of strings`,
+      error: pathFilterStringArrayError(path, PATH_FILTER_CONFIG_FIELDS.INCLUDE),
     };
   }
 
@@ -37,7 +42,7 @@ export function validatePathFilterConfig(raw: unknown, path: string): Result<Pat
   ) {
     return {
       ok: false,
-      error: `${path}.${PATH_FILTER_CONFIG_FIELDS.EXCLUDE} must be an array of strings`,
+      error: pathFilterStringArrayError(path, PATH_FILTER_CONFIG_FIELDS.EXCLUDE),
     };
   }
 
