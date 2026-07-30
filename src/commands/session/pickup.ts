@@ -10,11 +10,11 @@ import { join, resolve } from "node:path";
 import { processComposedBatch } from "@/domains/session/batch";
 import { NoSessionsAvailableError } from "@/domains/session/errors";
 import { parseSessionMetadata } from "@/domains/session/list";
+import { composeSessionOutputMarker } from "@/domains/session/output-marker";
 import { buildClaimPaths, classifyClaimError, selectBestSession } from "@/domains/session/pickup";
 import { formatShowOutput, SessionDirectoryConfig } from "@/domains/session/show";
 import {
   CLAIMABLE_STATUS,
-  formatSessionOutputMarker,
   Session,
   SESSION_FILE_ENCODING,
   SESSION_FILE_ERROR_CODE,
@@ -186,10 +186,10 @@ async function pickupSingle(
     ? authoredText("")
     : terminal`${authoredText("\n\n")}${joinTerminalText("\n\n", injected)}`;
 
-  // "Claimed session" and the marker are the product's own announcement; the session id reaches
+  // "Claimed session" and the marker tag are the product's own announcement; the session id reaches
   // this handler from the command line, so it is escaped where it is embedded in the marker.
   const claim = terminal`${authoredText("Claimed session ")}${
-    externalValue(formatSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId))
+    composeSessionOutputMarker(SESSION_OUTPUT_MARKER.PICKUP_ID, sessionId)
   }${authoredText("\n\n")}`;
 
   return terminal`${claim}${output}${injectionOutput}`;

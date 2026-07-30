@@ -26,8 +26,13 @@ export function renderAgentSearchList(results: readonly AgentSearchResult[]): Te
   return joinTerminalText(
     AGENT_RESUME_TEXT.ROW_SEPARATOR,
     results.map((result) => {
-      const updatedAt = result.updatedAt ?? new Date(result.modifiedAtMs).toISOString();
-      return terminal`${externalValue(updatedAt)} ${authoredText(AGENT_SESSION_LABEL[result.agent])} ${
+      // A stored timestamp is read from the agent's own transcript, while the fallback is one this
+      // product composes from a numeric mtime, so each branch states where its value came from —
+      // the same split the resume listing makes for the timestamp it composes.
+      const updatedAt = result.updatedAt === null
+        ? authoredText(new Date(result.modifiedAtMs).toISOString())
+        : externalValue(result.updatedAt);
+      return terminal`${updatedAt} ${authoredText(AGENT_SESSION_LABEL[result.agent])} ${
         externalValue(result.sessionId)
       } ${externalValue(result.cwd)}`;
     }),
