@@ -44,7 +44,15 @@ describe("resolveConfig — partial config", () => {
           }
         }
         for (const section of generated.declaredSections) {
-          expect(result.value).toHaveProperty(section);
+          const descriptor = productionRegistry.find((candidate) => candidate.section === section);
+          if (descriptor === undefined) {
+            throw new Error(`production registry declares no descriptor for section ${section}`);
+          }
+          const composed = descriptor.validate(projectConfig[section]);
+          expect(composed.ok).toBe(true);
+          if (composed.ok) {
+            expect(result.value[section]).toEqual(composed.value);
+          }
         }
       }
     });
