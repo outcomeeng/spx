@@ -363,6 +363,17 @@ export interface UnresolvablePathFixture {
 
 /** A fixture whose test or source path escapes, leaves, or never enters the product directory. */
 /**
+ * The variants encoded as relative `..` traversals. They resolve into the product
+ * directory's parent, so a seed segment can walk back through them. Every other variant
+ * resolves to the parent itself, to the product directory itself, or to an absolute
+ * foreign location, none of which a seed segment can redirect.
+ */
+const RELATIVE_ESCAPE_VARIANTS: ReadonlySet<UnresolvablePathVariant> = new Set([
+  UNRESOLVABLE_PATH_VARIANT.PARENT_ESCAPE,
+  UNRESOLVABLE_PATH_VARIANT.NESTED_ESCAPE,
+]);
+
+/**
  * Whether a relative `..` encoding of this seed path would land back inside the product
  * directory. Such an encoding resolves into the product directory's parent, so a seed
  * segment repeating the product directory's own trailing segment walks straight back in
@@ -385,7 +396,10 @@ export function arbitraryUnresolvablePathFixture(): fc.Arbitrary<UnresolvablePat
       kind: fc.constantFrom(...Object.values(PROVIDER_FACT_KIND)),
       provenance: arbitraryProviderFactProvenance(),
     })
-    .filter((seed) => !escapeSeedReentersProductDir(seed.productDir, seed.paths[1]))
+    .filter((seed) =>
+      !RELATIVE_ESCAPE_VARIANTS.has(seed.variant)
+      || !escapeSeedReentersProductDir(seed.productDir, seed.paths[1])
+    )
     .map((seed) => {
       const [validPath, escapeSeedPath] = seed.paths;
       const unresolvablePath = encodeUnresolvablePath(seed.variant, seed.productDir, escapeSeedPath);
