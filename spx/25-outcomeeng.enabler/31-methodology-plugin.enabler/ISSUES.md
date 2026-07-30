@@ -1,29 +1,27 @@
 # Open Issues
 
-## No published source relates a plugin version to a methodology version
+## Published plugin artifacts declare no supported-methodology range
 
-`spx/13-agent-capability-lifecycle.pdr.md` separates two version axes: the declared
-methodology version, which must match the managed instruction markers, and the installed
-Spec Tree plugin version, which must merely be *compatible* with it. Its compliance rule
-forbids routine capability updates from changing `methodology.version`, so the axes
-cannot be the same number.
+`spx/13-agent-capability-lifecycle.pdr.md` requires a published Outcome Engineering
+artifact to declare the methodology-version range it supports alongside its own version,
+so a consumer selecting an artifact for a methodology version reads that range instead of
+comparing two unrelated numbering schemes.
 
-The marketplace publishes only the plugin axis. `spec-tree@outcomeeng` declares
-`version` in its `plugin.json`, and `claude plugin list` reports that value. No manifest
-in the plugin states which methodology version that plugin implements. The methodology
-axis surfaces in this product only as the managed instruction marker
-`<!-- SPEC-TREE v0.30.0 langs:typescript -->`, whose value originates in a
-`template_version` field on the plugin's instruction-block template — a field naming that
-template rather than the methodology.
+No published artifact declares one yet. The `spec-tree` plugin's `plugin.json` carries
+`name`, `version`, `description`, `author`, `repository`, `license`, `keywords`, `skills`,
+and `interface`, in both the Claude and Codex builds, with no field naming a methodology
+version or range.
 
-**Impact:** the compatibility relation the decision depends on has no published source. A
-provenance record can attest the plugin and version it materialized from, because both
-are recoverable from the tree, but nothing lets validation decide whether that plugin
-version is compatible with the declared methodology version. Until it can, provenance
-validation covers digest integrity only.
+**Impact:** materialization cannot compute which plugin version serves a given methodology
+version. The choice is made when a tree is materialized and recorded in that tree's
+provenance record, so the tree states which plugin version it carries and which
+methodology version it serves, but nothing verifies the pairing.
 
-**Resolution:** obtain the methodology axis from its owner. Either the marketplace
-publishes, per plugin version, the methodology version that plugin implements, or the
-instruction-block template version is adopted as that statement and named as such. The
-question belongs to the Outcome Engineering plugin repository and routes there through
-`/issue`; record the answer here, then extend provenance validation to compare the axes.
+**Scope:** the declaration belongs to the artifact publisher, not to this product. The
+reader is unaffected either way — it addresses a committed tree by declared methodology
+version and coding agent and performs no range comparison.
+
+**Resolution:** route the range declaration to the Outcome Engineering plugin repository
+through `/issue`. When published artifacts carry it, materialization computes the plugin
+version instead of recording an operator choice, and provenance validation gains a pairing
+check. Remove this entry when materialization reads a declared range.
