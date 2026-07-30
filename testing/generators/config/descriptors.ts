@@ -9,7 +9,6 @@ import {
   pathFilterStringArrayError,
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
-import { productionRegistry } from "@/config/registry";
 import type { Config, ConfigDescriptor, Result } from "@/config/types";
 import {
   AGENT,
@@ -35,10 +34,6 @@ export const CONFIG_TEST_FIELDS = {
 } as const;
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
-const MIN_DEFAULT_VALIDATION_DESCRIPTORS = 1;
-const MAX_DEFAULT_VALIDATION_DESCRIPTORS = 4;
-const DEFAULT_RESOLUTION_DESCRIPTORS = 3;
-const COMPLETE_RESOLUTION_DESCRIPTORS = 4;
 const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
 const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
@@ -155,9 +150,6 @@ export const CONFIG_TEST_GENERATOR = {
   configCliDeterminismCase: arbitraryConfigCliDeterminismCase,
   configEnvironmentCase: arbitraryConfigEnvironmentCase,
   configShape: arbitraryConfigShape,
-  defaultValidationDescriptors: arbitraryDefaultValidationDescriptors,
-  defaultResolutionDescriptors: arbitraryDefaultResolutionDescriptors,
-  completeResolutionDescriptors: arbitraryCompleteResolutionDescriptors,
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
@@ -177,7 +169,6 @@ export const CONFIG_TEST_GENERATOR = {
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
   prefixCohort: arbitraryPrefixCohort,
-  productionDescriptor: arbitraryProductionDescriptor,
   productionSubsetConfig: arbitraryProductionSubsetConfig,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
@@ -290,10 +281,6 @@ function arbitraryConfigShape(): fc.Arbitrary<Config> {
   return fc.oneof(arbitraryEmptyConfig(), arbitrarySpecTreeSubsetConfig());
 }
 
-function arbitraryProductionDescriptor(): fc.Arbitrary<ConfigDescriptor<unknown>> {
-  return fc.constantFrom(...productionRegistry);
-}
-
 function arbitraryProductionSubsetConfig(): fc.Arbitrary<GeneratedProductionSubsetConfig> {
   return fc
     .tuple(arbitrarySpecTreeSubsetConfig(), arbitraryConfigKey(), arbitraryConfigKey(), arbitraryConfigKey())
@@ -313,27 +300,6 @@ function arbitraryConfigEnvironmentCase(): fc.Arbitrary<GeneratedConfigEnvironme
   return fc.record({
     config: arbitraryConfigShape(),
     sentinel: arbitraryEnvironmentSentinel(),
-  });
-}
-
-function arbitraryDefaultValidationDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
-  return arbitraryTokenDescriptors({
-    minLength: MIN_DEFAULT_VALIDATION_DESCRIPTORS,
-    maxLength: MAX_DEFAULT_VALIDATION_DESCRIPTORS,
-  });
-}
-
-function arbitraryDefaultResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
-  return arbitraryTokenDescriptors({
-    minLength: DEFAULT_RESOLUTION_DESCRIPTORS,
-    maxLength: DEFAULT_RESOLUTION_DESCRIPTORS,
-  });
-}
-
-function arbitraryCompleteResolutionDescriptors(): fc.Arbitrary<GeneratedTokenDescriptor[]> {
-  return arbitraryTokenDescriptors({
-    minLength: COMPLETE_RESOLUTION_DESCRIPTORS,
-    maxLength: COMPLETE_RESOLUTION_DESCRIPTORS,
   });
 }
 
