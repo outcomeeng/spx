@@ -5,39 +5,23 @@ export const METHODOLOGY_SECTION = "methodology";
 export const METHODOLOGY_CONFIG_FIELDS = {
   SOURCE: "source",
   VERSION: "version",
-  PACKAGE_DIR: "packageDir",
+  MIGRATING_FROM: "migratingFrom",
 } as const;
 
-export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/spec-tree";
-export const DEFAULT_METHODOLOGY_VERSION = "installed";
+export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/methodology";
 
 export interface MethodologyConfig {
+  /** The repository the methodology is published from, as `owner/repository`. */
   readonly source: string;
-  readonly version: string;
-  /** Installed methodology package root the foundation-resource reader resolves; absent when unconfigured. */
-  readonly packageDir?: string;
+  /** The methodology version the product targets; absent until the product declares one. */
+  readonly version?: string;
+  /** The methodology version the product migrates from; present only while a migration window is open. */
+  readonly migratingFrom?: string;
 }
 
 export interface MethodologyIdentity {
   readonly source: string;
   readonly version: string;
-}
-
-export const METHODOLOGY_VERSION_INTENT = {
-  BOOTSTRAP: "bootstrap",
-  EXACT: "exact",
-} as const;
-
-export type MethodologyVersionIntent = (typeof METHODOLOGY_VERSION_INTENT)[keyof typeof METHODOLOGY_VERSION_INTENT];
-
-/**
- * The sentinel names whatever methodology happens to be installed, so it carries no durable identity.
- * Consumers holding product context reject it once a tracked spec tree makes that identity mandatory.
- */
-export function methodologyVersionIntent(version: string): MethodologyVersionIntent {
-  return version === DEFAULT_METHODOLOGY_VERSION
-    ? METHODOLOGY_VERSION_INTENT.BOOTSTRAP
-    : METHODOLOGY_VERSION_INTENT.EXACT;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,8 +55,12 @@ const METHODOLOGY_SOURCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Z
 
 export const DEFAULT_METHODOLOGY_CONFIG: MethodologyConfig = {
   source: DEFAULT_METHODOLOGY_SOURCE,
-  version: DEFAULT_METHODOLOGY_VERSION,
 };
+
+/** Diagnostic for a methodology identity requested by a product that declares no methodology version. */
+export function formatMethodologyVersionUndeclaredError(): string {
+  return `No methodology version is declared; set ${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`;
+}
 
 function validateMethodologySource(path: string, value: unknown): Result<string> {
   const source = validateNonEmptyString(path, value);
@@ -81,6 +69,11 @@ function validateMethodologySource(path: string, value: unknown): Result<string>
     return { ok: false, error: `${path} must be an owner/repository identifier` };
   }
   return source;
+}
+
+function validateOptionalVersion(field: string, raw: unknown): Result<string | undefined> {
+  if (raw === undefined) return { ok: true, value: undefined };
+  return validateNonEmptyString(`${METHODOLOGY_SECTION}.${field}`, raw);
 }
 
 export function validateMethodologyConfig(value: unknown): Result<MethodologyConfig> {
@@ -97,27 +90,37 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
     : validateMethodologySource(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`, sourceRaw);
   if (!source.ok) return source;
 
-  const versionRaw = value[METHODOLOGY_CONFIG_FIELDS.VERSION];
-  const version = versionRaw === undefined
-    ? { ok: true as const, value: DEFAULT_METHODOLOGY_CONFIG.version }
-    : validateNonEmptyString(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`, versionRaw);
+  const version = validateOptionalVersion(
+    METHODOLOGY_CONFIG_FIELDS.VERSION,
+    value[METHODOLOGY_CONFIG_FIELDS.VERSION],
+  );
   if (!version.ok) return version;
 
-  const packageDirRaw = value[METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR];
-  if (packageDirRaw === undefined) {
-    return { ok: true, value: { source: source.value, version: version.value } };
-  }
-  const packageDir = validateNonEmptyString(
-    `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR}`,
-    packageDirRaw,
+  const migratingFrom = validateOptionalVersion(
+    METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM,
+    value[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM],
   );
-  if (!packageDir.ok) return packageDir;
+  if (!migratingFrom.ok) return migratingFrom;
 
-  return { ok: true, value: { source: source.value, version: version.value, packageDir: packageDir.value } };
+  return {
+    ok: true,
+    value: {
+      source: source.value,
+      ...(version.value === undefined ? {} : { version: version.value }),
+      ...(migratingFrom.value === undefined ? {} : { migratingFrom: migratingFrom.value }),
+    },
+  };
 }
 
-export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
-  return { source: config.source, version: config.version };
+/**
+ * The product's methodology identity. A product that declares no version has no identity —
+ * no sentinel stands in for one, because nothing installs a methodology to fall back to.
+ */
+export function resolveMethodologyIdentity(config: MethodologyConfig): Result<MethodologyIdentity> {
+  if (config.version === undefined) {
+    return { ok: false, error: formatMethodologyVersionUndeclaredError() };
+  }
+  return { ok: true, value: { source: config.source, version: config.version } };
 }
 
 export const methodologyConfigDescriptor: ConfigDescriptor<MethodologyConfig> = {

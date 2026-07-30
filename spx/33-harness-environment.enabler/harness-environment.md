@@ -14,7 +14,7 @@ CAN run with explicitly enabled and available coding agents, version-matched ins
 - ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: generated or reconciled harness environment configuration is deterministic for the same product directory and resolved config ([audit])
 - ALWAYS: an agentic verification run receives isolated harness environment state rather than mutating the invoking agent's state ([audit])
-- NEVER: the `harnessEnvironment` descriptor resolves methodology source or version; those fields belong to top-level `methodology` config ([test](../16-config.enabler/43-methodology-config.enabler/tests/methodology-config.compliance.l1.test.ts))
+- NEVER: the `harnessEnvironment` descriptor resolves methodology source or version; those fields belong to top-level `methodology` config
 - NEVER: require network access for core config reconciliation when required marketplaces, plugins, and skills are present locally ([audit])
 - NEVER: the parent descriptor performs instruction reconciliation, agent config writes, plugin installation, or network access ([audit])
 
