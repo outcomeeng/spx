@@ -21,7 +21,8 @@ export interface MethodologyConfig {
 
 export interface MethodologyIdentity {
   readonly source: string;
-  readonly version: string;
+  /** Absent when the product declares no methodology version; no sentinel stands in for one. */
+  readonly version?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,15 +113,22 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
   };
 }
 
+/** The product's methodology identity, carrying the declared version when the product declares one. */
+export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
+  return config.version === undefined
+    ? { source: config.source }
+    : { source: config.source, version: config.version };
+}
+
 /**
- * The product's methodology identity. A product that declares no version has no identity —
- * no sentinel stands in for one, because nothing installs a methodology to fall back to.
+ * The declared methodology version, required by consumers that address a committed
+ * methodology tree. A product that declares none has nothing to address, and no
+ * sentinel stands in for one because nothing installs a methodology to fall back to.
  */
-export function resolveMethodologyIdentity(config: MethodologyConfig): Result<MethodologyIdentity> {
-  if (config.version === undefined) {
-    return { ok: false, error: formatMethodologyVersionUndeclaredError() };
-  }
-  return { ok: true, value: { source: config.source, version: config.version } };
+export function requireMethodologyVersion(config: MethodologyConfig): Result<string> {
+  return config.version === undefined
+    ? { ok: false, error: formatMethodologyVersionUndeclaredError() }
+    : { ok: true, value: config.version };
 }
 
 export const methodologyConfigDescriptor: ConfigDescriptor<MethodologyConfig> = {

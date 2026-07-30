@@ -1,7 +1,7 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { type MethodologyConfig, resolveMethodologyIdentity } from "@/config/methodology";
+import { type MethodologyConfig, requireMethodologyVersion, resolveMethodologyIdentity } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -469,12 +469,12 @@ async function readMethodologyPayload(
   requestedCodingAgent: string | undefined,
   targets: readonly string[],
 ): Promise<MethodologyPayload> {
-  const identity = resolveMethodologyIdentity(methodologyConfig);
-  if (!identity.ok) {
-    throw new Error(identity.error);
+  const declaredVersion = requireMethodologyVersion(methodologyConfig);
+  if (!declaredVersion.ok) {
+    throw new Error(declaredVersion.error);
   }
-  const codingAgent = await resolveCodingAgent(productDir, identity.value.version, requestedCodingAgent);
-  const treeRelativeDir = methodologyTreeRelativeDir(identity.value.version, codingAgent);
+  const codingAgent = await resolveCodingAgent(productDir, declaredVersion.value, requestedCodingAgent);
+  const treeRelativeDir = methodologyTreeRelativeDir(declaredVersion.value, codingAgent);
   if (!treeRelativeDir.ok) {
     throw new Error(treeRelativeDir.error);
   }
@@ -542,11 +542,7 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   if (!methodologyConfig.ok) {
     throw new Error(methodologyConfig.error);
   }
-  const methodologyIdentity = resolveMethodologyIdentity(methodologyConfig.value);
-  if (!methodologyIdentity.ok) {
-    throw new Error(methodologyIdentity.error);
-  }
-  const methodology = methodologyIdentity.value;
+  const methodology = resolveMethodologyIdentity(methodologyConfig.value);
   const contentRequested = options.content === true;
   const scannedDocuments: ScannedDocuments = new Map();
   const uniqueTargets = new Map<string, SpecTreeNode>(

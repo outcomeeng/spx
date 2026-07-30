@@ -319,14 +319,13 @@ export function registerDiagnoseCliScenarios(): void {
           unregistered: String(false),
           drifted: String(false),
         });
-        expect(methodologyRecord.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
+        expect(methodologyRecord.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED);
         expect(methodologyRecord.readings).toEqual({
           configured: String(true),
           configuredSource: DEFAULT_METHODOLOGY_SOURCE,
-          configuredVersion: METHODOLOGY_FIXTURE_VERSION,
-          observedSource: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-          observedVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-          trackedSpecTree: String(false),
+          configuredVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          migratingFrom: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          materializedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
         });
         expect(report.overall).toBe(foldedOverall(report));
         expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);
