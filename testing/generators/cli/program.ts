@@ -1,4 +1,5 @@
 import { CONFIG_CLI } from "@/interfaces/cli/config";
+import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { ESCAPE_CONTROL_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -41,6 +42,13 @@ export interface CommanderDiagnosticScenario {
   readonly nearMatchOption: string;
   /** The registered long flag Commander suggests for `nearMatchOption`. */
   readonly nearMatchOptionSuggestion: string;
+  /**
+   * Argv naming a registered option whose declared choices reject the value supplied with it.
+   * Commander answers a rejected value with a message it composed around that value, so the
+   * scenario reaches the diagnostic where the flags the product declared and the bytes the
+   * caller typed sit in one string.
+   */
+  readonly invalidChoiceArgv: readonly string[];
   /** An unknown command one character short of a registered subcommand, answered the same way. */
   readonly nearMatchCommandArgv: readonly string[];
   /** The registered command name Commander suggests for `nearMatchCommandArgv`. */
@@ -69,7 +77,8 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
   const rawEscapeByte = String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE);
   const token = sampleLiteralTestValue(arbitraryDomainLiteral()).repeat(MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1);
   const forgedLine = `${USAGE_FORGERY_PREFIX}${token}`;
-  const unsafeOption = `${UNKNOWN_OPTION_MARKER}${token}${rawEscapeByte}${ANSI_SGR_RED_BODY}${LINE_FEED}${forgedLine}`;
+  const unsafeValue = `${token}${rawEscapeByte}${ANSI_SGR_RED_BODY}${LINE_FEED}${forgedLine}`;
+  const unsafeOption = `${UNKNOWN_OPTION_MARKER}${unsafeValue}`;
   return {
     unsafeOption,
     unsafeSubcommandArgv: [CONFIG_CLI.commandName, unsafeOption],
@@ -77,6 +86,7 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     rawEscapeByte,
     rawForgedLineBreak: `${LINE_FEED}${forgedLine}`,
     escapedEscapeByte: ESCAPED_ESCAPE_BYTE,
+    invalidChoiceArgv: [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
     nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
     nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],

@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { type Argument, Command, type Option } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
@@ -24,17 +24,37 @@ type CliGlobalOptions = {
 
 /**
  * Commander builds each diagnostic itself, fusing its own words with whatever the caller typed,
- * so by the time a message reaches `error` the two are no longer separable. These two hooks are
+ * so by the time a message reaches `error` the two are no longer separable. These three hooks are
  * where they are still apart: every other diagnostic Commander raises embeds only declarations
  * the product wrote — an option's flags, an argument's name, the command's own name, a count.
- * Commander marks both `@api private` and omits them from its published typings; this states the
- * runtime shape the overrides bind to.
+ * Commander marks all three `@api private` and omits them from its published typings; this states
+ * the runtime shape the overrides bind to.
  */
 declare module "commander" {
   interface Command {
     unknownOption(flag: string): void;
     unknownCommand(): void;
+    _callParseArg(
+      target: Option | Argument,
+      value: string,
+      previous: unknown,
+      invalidArgumentMessage: string,
+    ): unknown;
   }
+}
+
+/**
+ * Restates a message Commander already composed with the caller's value in escaped form. The
+ * substitution takes the first occurrence, which is the caller's own: it runs only when escaping
+ * changed the value, and a value that changed carries a byte no flags string, argument name, or
+ * command name the product declared around it can hold. An empty value is left alone — there is
+ * no byte in it to rewrite the terminal with, and the escaper answers it with a sentinel that
+ * would replace Commander's quoted empty argument with prose the caller never typed.
+ */
+function withEscapedValue(message: string, value: string): string {
+  const escapedValue = escapeCliArgument(value);
+  if (value.length === 0 || escapedValue === value) return message;
+  return message.replace(value, escapedValue);
 }
 
 /**
@@ -44,6 +64,11 @@ declare module "commander" {
  * newline before a suggestion, its usage and help blocks — keeps its own bytes. Subcommands
  * inherit the behavior through `createCommand`. Escaping is escape-only and leaves printable
  * input untouched, so Commander's near-match suggestions are unchanged for ordinary tokens.
+ *
+ * The value an option or argument rejects arrives the same way: Commander writes it into the
+ * invalid-argument message before any handler sees it, and the parse hook is the last place the
+ * value is still a separate parameter, whether it came from argv or from the environment
+ * variable an option declares.
  */
 class SafeDiagnosticCommand extends Command {
   override createCommand(name?: string): SafeDiagnosticCommand {
@@ -60,6 +85,15 @@ class SafeDiagnosticCommand extends Command {
     const [unknownName, ...remainingArgs] = this.args;
     this.args = [escapeCliArgument(unknownName), ...remainingArgs];
     super.unknownCommand();
+  }
+
+  override _callParseArg(
+    target: Option | Argument,
+    value: string,
+    previous: unknown,
+    invalidArgumentMessage: string,
+  ): unknown {
+    return super._callParseArg(target, value, previous, withEscapedValue(invalidArgumentMessage, value));
   }
 }
 

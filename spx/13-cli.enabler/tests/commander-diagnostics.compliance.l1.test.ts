@@ -30,6 +30,17 @@ describe("Commander diagnostics — terminal byte-safety compliance", () => {
     expect(run.stderr).toContain(`\nUsage: ${SPX_PROGRAM_NAME} ${scenario.subcommandName}`);
   });
 
+  it("escapes control bytes in the value a registered option's declared choices rejected", async () => {
+    const scenario = commanderDiagnosticScenario();
+
+    const run = await runCliDiagnostic(scenario.invalidChoiceArgv, { registerProductionDomains: true });
+
+    expect(run.commanderError).toBeInstanceOf(CommanderError);
+    expect(run.stderr).not.toContain(scenario.rawEscapeByte);
+    expect(run.stderr).not.toContain(scenario.rawForgedLineBreak);
+    expect(run.stderr).toContain(scenario.escapedEscapeByte);
+  });
+
   it("keeps the newline Commander wrote between a near-match option diagnostic and its suggestion", async () => {
     const scenario = commanderDiagnosticScenario();
 
