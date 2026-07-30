@@ -107,9 +107,16 @@ export function resolveSessionPaths(
   ];
 }
 
-/** Composes one `Label: value` line, where the label is the product's own and the reading is not. */
+/**
+ * Composes one `Label: value` line, where the label is the product's own and the reading is not.
+ * A field the session left unset has no reading to state, so the line stops after the label: the
+ * escaper answers an empty string with the sentinel that makes an empty CLI argument visible in a
+ * diagnostic, and stating that sentinel here would report content the session never wrote.
+ */
 function metadataLine(label: string, value: string): TerminalText {
-  return terminal`${authoredText(`${label}: `)}${externalValue(value)}`;
+  const labelText = authoredText(`${label}: `);
+  if (value.length === 0) return labelText;
+  return terminal`${labelText}${externalValue(value)}`;
 }
 
 /**

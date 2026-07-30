@@ -74,6 +74,7 @@ import {
   type SessionPriority,
 } from "@/domains/session/types";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
+import { SENTINEL_EMPTY } from "@/lib/sanitize-cli-argument";
 import { STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 
 import type { HandoffHeaderFixture } from "@testing/generators/session/session";
@@ -244,6 +245,10 @@ describe("listCommand", () => {
       const shown = formatShowOutput(content, { status: TODO });
       expect(shown).toContain(`${SESSION_SHOW_LABEL.GOAL}: `);
       expect(shown).toContain(`${SESSION_SHOW_LABEL.NEXT_STEP}: `);
+      // A label prefix is present whether or not something follows it, so the assertions above
+      // hold just as well when a field the session never set reports the escaper's empty-argument
+      // sentinel as its reading. The sentinel's absence is what catches that.
+      expect(shown).not.toContain(SENTINEL_EMPTY);
 
       await pickupCommand({ sessionIds: [sessionId], sessionsDir: harness.sessionsDir });
       expect(await listCommand({ status: DOING, sessionsDir: harness.sessionsDir })).toContain(sessionId);
