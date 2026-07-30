@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
-import { CONFIG_FILE_FORMAT_ORDER, CONFIG_FILENAMES, readProductConfigFile } from "@/config/index";
+import {
+  CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILE_READ_KIND,
+  CONFIG_FILENAMES,
+  readProductConfigFile,
+} from "@/config/index";
 import {
   VALIDATION_LITERAL_SUBSECTION,
   VALIDATION_LITERAL_VALUES_SUBSECTION,
@@ -150,7 +155,7 @@ describe("allowlist-existing compliance", () => {
 
         const read = await readProductConfigFile(env.productDir);
         expect(read.ok).toBe(true);
-        if (!read.ok || read.value.kind !== "ok") return;
+        if (!read.ok || read.value.kind !== CONFIG_FILE_READ_KIND.OK) return;
         expect(read.value.file.format).toBe(format);
 
         const allowlist = readLiteralAllowlist(await readProductConfigSections(env));

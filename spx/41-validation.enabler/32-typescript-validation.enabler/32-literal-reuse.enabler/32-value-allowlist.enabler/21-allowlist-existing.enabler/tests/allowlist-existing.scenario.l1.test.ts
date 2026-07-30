@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { LITERAL_EXIT_CODES } from "@/commands/validation/literal";
 import {
   CONFIG_FILE_FORMAT,
+  CONFIG_FILE_READ_KIND,
   CONFIG_FILENAMES,
   DEFAULT_CONFIG_FILENAME,
   readProductConfigFile,
@@ -90,7 +91,7 @@ describe("allowlist-existing scenario", () => {
 
       const configRead = await readProductConfigFile(env.productDir);
       expect(configRead.ok).toBe(true);
-      if (!configRead.ok || configRead.value.kind !== "ok") return;
+      if (!configRead.ok || configRead.value.kind !== CONFIG_FILE_READ_KIND.OK) return;
       expect(configRead.value.file.filename).toBe(DEFAULT_CONFIG_FILENAME);
     });
   });

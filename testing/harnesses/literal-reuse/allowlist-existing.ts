@@ -6,6 +6,7 @@ import * as fc from "fast-check";
 import {
   CONFIG_FILE_DEFINITIONS,
   CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILE_READ_KIND,
   type ConfigFileFormat,
   parseConfigFileSections,
   readProductConfigFile,
@@ -102,7 +103,7 @@ export async function readProductConfigSections(env: ConfigFixtureEnv): Promise<
   if (!read.ok) {
     throw new Error(read.error);
   }
-  if (read.value.kind !== "ok") {
+  if (read.value.kind !== CONFIG_FILE_READ_KIND.OK) {
     throw new Error(`expected one product config file, got ${read.value.kind}`);
   }
   const parsed = parseConfigFileSections(read.value.file);
