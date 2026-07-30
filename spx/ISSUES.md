@@ -20,16 +20,26 @@
 
 **Resolution:** truth flows down, so the two ADRs change first: rename the descriptor layer to the surfaces layer and state the capabilities layer's home, reviewed as a `decompose-next` projection and passed through `adr-auditor`; then move `src/interfaces/cli/` and settle `src/lib/` in one pass with `git mv` and import updates. Until the ADRs change, new descriptors follow them as they stand. Re-enter after `spx/PLAN.md`'s configured node-kind support lands, because the surfaces area is not a valid node kind before it.
 
-## Subprocess wrappers report a missing exit code as success
+## Source-graph containment property fails on some generated inputs
 
-Execa leaves `exitCode` undefined when a subprocess could not be spawned or was terminated by a signal. Wrappers that normalize that value with `result.exitCode ?? 0` report such a run as a successful exit-code-zero completion to every caller that only checks `exitCode !== 0`. The release publication runner (`src/lib/release-publication/runner.ts`) and the release git-runner harness now fail such a run; the same normalization remains at:
+`spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`
+— "rejects fact paths that escape or never enter the product directory" — failed after
+34 runs under seed `2488147906` and passed on the next run with a fresh seed. The failure
+reproduces on demand:
 
-- `src/lib/git/root.ts` — the production git runner default. Owned by [`spx/18-state.enabler`](18-state.enabler/state.md).
-- `testing/harnesses/with-git-env.ts`, `testing/harnesses/testing/typescript-runner.ts`, and `testing/harnesses/git/changed-paths.ts` — harness runners whose owning nodes govern their evidence.
+```bash
+SPX_PROPERTY_SEED=2488147906 tsx src/cli.ts test spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler
+```
 
-**Impact:** a spawn failure or signal kill of `git` or a test runner can read as a clean run wherever only the exit code is inspected.
+**Impact:** the containment property holds for most generated paths and fails for a shape
+the generator reaches rarely, so the gate passes or fails depending on the seed. Either
+the containment rule rejects a path it should accept, or it accepts one it should reject;
+the seed names the exact case.
 
-**Resolution:** in each owning node's own changeset, make the wrapper fail (or expose a distinct incomplete state) when `exitCode` is undefined, add the violating case to that node's evidence, and remove the site from this list.
+**Resolution:** replay the seed, read the shrunk counterexample, and decide whether the
+defect is in the containment rule under `src/outcomeeng/spec-tree/graph/source/` or in the
+generator's path domain. Fix the owning side and keep the counterexample as a scenario
+alongside the property.
 
 ## Locale-dependent ordering remains in projection and listing paths
 
