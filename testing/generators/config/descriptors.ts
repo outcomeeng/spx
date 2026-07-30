@@ -1,10 +1,12 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_VERSION, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
+  pathFilterObjectError,
+  pathFilterStringArrayError,
   validatePathFilterConfig,
 } from "@/config/primitives/path-filter";
 import { productionRegistry } from "@/config/registry";
@@ -23,6 +25,7 @@ import {
   SPEC_TREE_SECTION,
   specTreeConfigDescriptor,
   type SpecTreeKindCategory,
+  unknownSpecTreeKindError,
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 
@@ -214,6 +217,16 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
+/** Draws from the config-key domain minus the bootstrap sentinel, which that domain can otherwise emit. */
+export function generatedExactMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(
+      CONFIG_TEST_GENERATOR.key().filter((version) => version !== DEFAULT_METHODOLOGY_VERSION),
+    ),
+  };
+}
+
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
   return [
     ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
@@ -400,7 +413,7 @@ function arbitraryInvalidPathFilterObject(): fc.Arbitrary<{
     fc.array(fc.string()),
   ).map((value) => ({
     value,
-    error: (path) => `${path} must be an object`,
+    error: (path) => pathFilterObjectError(path),
   }));
 }
 
@@ -419,7 +432,7 @@ function arbitraryInvalidPathFilterField(field: string): fc.Arbitrary<{
     )
     .map((value) => ({
       value: { [field]: value },
-      error: (path) => `${path}.${field} must be an array of strings`,
+      error: (path) => pathFilterStringArrayError(path, field),
     }));
 }
 
@@ -647,7 +660,7 @@ function arbitraryInvalidSpecTreeConfig(): fc.Arbitrary<GeneratedInvalidSpecTree
     .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
     .map((offendingKind) => ({
       offendingKind,
-      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${offendingKind}"`,
+      error: unknownSpecTreeKindError(offendingKind),
       config: {
         [SPEC_TREE_SECTION]: {
           [SPEC_TREE_CONFIG_FIELDS.KINDS]: {
@@ -668,7 +681,7 @@ function arbitrarySpecTreeKindField(): fc.Arbitrary<string> {
 function arbitrarySpecTreeUnknownKindError(): fc.Arbitrary<string> {
   return arbitraryConfigKey()
     .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
-    .map((kind) => `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`);
+    .map((kind) => unknownSpecTreeKindError(kind));
 }
 
 function arbitraryTokenDescriptor(): fc.Arbitrary<GeneratedTokenDescriptor> {
