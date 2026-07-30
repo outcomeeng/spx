@@ -90,3 +90,21 @@ Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shi
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
 **Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+
+## Spec assertions still carry the legacy `[review]` verification marker
+
+`[review]` is the legacy spelling of the `[audit]` assertion tag. 32 files under `spx/` still carry it, so the tree presents two spellings for one verification mechanism and a reader cannot tell a deliberate audit assertion from an unmigrated one.
+
+The `spx/16-config.enabler` subtree was migrated when its config evidence was aligned; three of its own children were left because that change was scoped to `config.md`:
+
+- [`spx/16-config.enabler/32-shared-config-primitives.enabler`](16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md)
+- [`spx/16-config.enabler/43-domain-execution-descriptors.enabler`](16-config.enabler/43-domain-execution-descriptors.enabler/domain-execution-descriptors.md)
+- [`spx/16-config.enabler/54-canonical-descriptor-digest.enabler`](16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md)
+
+The remainder spans `17-file-inclusion`, `22-test-environment`, `31-spec-domain`, `36-session`, and `41-validation`, plus four decision records.
+
+**Impact:** the tag carries the verification mechanism, so a mixed vocabulary weakens the spec-to-evidence map. Some `[review]` assertions are also testable and belong under `[test]` rather than being renamed, which is a per-assertion judgment, not a find-and-replace.
+
+**Resolution:** one owning subtree at a time. Route each assertion through `/verify` so the mechanism is selected from the verdict its real subject can produce, then apply `/author` and re-run the node's spec audit. Do not bulk-rewrite `[review]` to `[audit]` — that would preserve any assertion whose real mechanism is `[test]`.
+
+**Skills:** `/verify`, `/test`, `/author`, `/audit-specs`.
