@@ -1,0 +1,9 @@
+{
+  "codingAgent": "claude",
+  "contentDigest": "sha256:54169ed147e52e8871ada360009ef6133c74e226c4d523473ec6383775b02779",
+  "methodologyVersion": "4.0.0",
+  "plugin": "spec-tree",
+  "pluginVersion": "0.88.0",
+  "sourceRepository": "outcomeeng/plugins",
+  "sourceRevision": "6d1c6e47776ef890574df06a365ea47111eb554e"
+}

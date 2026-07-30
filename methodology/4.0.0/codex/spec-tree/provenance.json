@@ -1,0 +1,9 @@
+{
+  "codingAgent": "codex",
+  "contentDigest": "sha256:5880bd1c702a61770cee2d3c3e334c4912ad41bc49fbf87ca9eebcfea58799b3",
+  "methodologyVersion": "4.0.0",
+  "plugin": "spec-tree",
+  "pluginVersion": "0.88.0",
+  "sourceRepository": "outcomeeng/plugins",
+  "sourceRevision": "6d1c6e47776ef890574df06a365ea47111eb554e"
+}
