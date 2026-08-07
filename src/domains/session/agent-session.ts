@@ -42,8 +42,8 @@ export function normalizeAgentSessionToken(value: string): string {
 }
 
 export function resolveAgentSessionId(env: AgentSessionEnvironment): string | undefined {
-  const raw = nonEmptyEnvValue(env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID])
-    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.CODEX_THREAD_ID])
+  const raw = nonEmptyEnvValue(env[AGENT_SESSION_ENV.CODEX_THREAD_ID])
+    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID])
     ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]);
   return raw === undefined ? undefined : normalizeAgentSessionToken(raw);
 }

@@ -1062,9 +1062,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toEqual(expect.any(String));
   });
 
-  it("GIVEN CLAUDE_CODE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_CODE_SESSION_ID value", async () => {
+  it("GIVEN CODEX_THREAD_ID is set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
     const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
-    process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = agentSessionId;
+    process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = agentSessionId;
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
@@ -1076,9 +1076,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
   });
 
-  it("GIVEN CLAUDE_CODE_SESSION_ID absent and CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
+  it("GIVEN CODEX_THREAD_ID absent and CLAUDE_CODE_SESSION_ID set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_CODE_SESSION_ID value", async () => {
     const threadId = "thread-xyz-789";
-    process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = threadId;
+    process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = threadId;
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
