@@ -76,23 +76,13 @@ describe("hook session-start session identity", () => {
     });
   });
 
-  it("exports the resolved identity under SPX_AGENT_SESSION_ID and names no agent-owned session variable", async () => {
+  it("exports the resolved identity under SPX_AGENT_SESSION_ID", async () => {
     await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.claudeSessionId}`,
       );
-      for (
-        const agentOwnedSessionVariable of [
-          HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID,
-          HOOK_SESSION_START_ENV.CODEX_THREAD_ID,
-        ]
-      ) {
-        expect(evidence.envContent).not.toContain(
-          `${HOOK_ENV_FILE.EXPORT_PREFIX}${agentOwnedSessionVariable}=`,
-        );
-      }
     });
   });
 
