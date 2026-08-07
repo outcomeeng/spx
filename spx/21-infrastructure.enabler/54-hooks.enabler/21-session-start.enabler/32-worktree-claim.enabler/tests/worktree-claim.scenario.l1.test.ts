@@ -128,7 +128,7 @@ describe("hook session-start worktree claim", () => {
 
       const envContent = await readHookEnvFile(envFile);
       expect(envContent.startsWith(existingExport)).toBe(true);
-      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, sessionId);
+      expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID, sessionId);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.PROJECT_DIR, `'${env.worktreePath}'`);
       expectHookEnvExport(envContent, HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH, `'${result.value.claimPath}'`);

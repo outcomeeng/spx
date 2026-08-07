@@ -48,7 +48,7 @@ export async function withLiveClaimSessionEnvironmentProbeFixture(
     if (!written.ok) throw new Error(written.error);
 
     const env = {
-      ...(options.shellIdentity ? { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claim.sessionId } : {}),
+      ...(options.shellIdentity ? { [HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID]: claim.sessionId } : {}),
       [HOOK_SESSION_START_ENV.SPX_WORKTREE_CLAIM_PATH]: written.value,
     };
     const facts: GitFacts = {

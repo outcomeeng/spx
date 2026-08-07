@@ -33,13 +33,13 @@ function escapedMarker(nodePath: string): string {
 }
 
 async function runCompactCli(args: readonly string[], productDir: string, sessionToken: string): Promise<CliRun> {
-  const previousClaudeSessionId = process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID];
+  const previousClaudeSessionId = process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID];
   const previousCodexThreadId = process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID];
   const deferredExitCodes: number[] = [];
   const immediateExitCodes: number[] = [];
   const stdout: string[] = [];
 
-  process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID] = sessionToken;
+  process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = sessionToken;
   process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = "";
 
   try {
@@ -62,9 +62,9 @@ async function runCompactCli(args: readonly string[], productDir: string, sessio
     }
   } finally {
     if (previousClaudeSessionId === undefined) {
-      delete process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID];
+      delete process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID];
     } else {
-      process.env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID] = previousClaudeSessionId;
+      process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = previousClaudeSessionId;
     }
 
     if (previousCodexThreadId === undefined) {
