@@ -19,7 +19,7 @@ describe("hook session-start session identity", () => {
       expect(evidence.result.value.sessionId).toBe(evidence.codexSessionId);
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.codexSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.codexSessionId}`,
       );
     });
   });
@@ -31,7 +31,7 @@ describe("hook session-start session identity", () => {
       expect(evidence.result.value.sessionId).toBe(normalizeAgentSessionToken(evidence.payloadSessionId));
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${
           normalizeAgentSessionToken(
             evidence.payloadSessionId,
           )
@@ -40,39 +40,59 @@ describe("hook session-start session identity", () => {
     });
   });
 
-  it("uses CLAUDE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
+  it("uses CLAUDE_CODE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
     await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.result.value.sessionId).toBe(evidence.claudeSessionId);
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.claudeSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.claudeSessionId}`,
       );
     });
   });
 
-  it("uses CODEX_THREAD_ID when CLAUDE_SESSION_ID contains only whitespace", async () => {
+  it("uses CODEX_THREAD_ID when CLAUDE_CODE_SESSION_ID contains only whitespace", async () => {
     await withWhitespaceClaudeSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.result.value.sessionId).toBe(evidence.codexSessionId);
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.codexSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.codexSessionId}`,
       );
     });
   });
 
-  it("uses the hook payload session id before CLAUDE_SESSION_ID when both exist", async () => {
+  it("uses the hook payload session id before CLAUDE_CODE_SESSION_ID when both exist", async () => {
     await withPayloadPrecedenceSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.result.value.sessionId).toBe(evidence.payloadSessionId);
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.payloadSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.payloadSessionId}`,
       );
+    });
+  });
+
+  it("exports the resolved identity under SPX_AGENT_SESSION_ID and names no agent-owned session variable", async () => {
+    await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
+      expect(evidence.result.ok).toBe(true);
+      if (!evidence.result.ok) throw new Error(evidence.result.error);
+      expect(evidence.envContent).toContain(
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=`,
+      );
+      for (
+        const agentOwnedSessionVariable of [
+          HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID,
+          HOOK_SESSION_START_ENV.CODEX_THREAD_ID,
+        ]
+      ) {
+        expect(evidence.envContent).not.toContain(
+          `${HOOK_ENV_FILE.EXPORT_PREFIX}${agentOwnedSessionVariable}=`,
+        );
+      }
     });
   });
 

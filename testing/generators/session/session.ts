@@ -579,7 +579,7 @@ export const SESSION_GENERATOR_ERROR = {
 } as const;
 
 /**
- * Arbitrary non-empty agent-session identity ($CLAUDE_SESSION_ID / $CODEX_THREAD_ID)
+ * Arbitrary non-empty agent-session identity ($CLAUDE_CODE_SESSION_ID, $CODEX_THREAD_ID, or $SPX_AGENT_SESSION_ID)
  * carrying at least one path-unsafe marker, so `resolveAgentSessionId` must
  * sanitize it into a path-safe token. Interleaves alphanumeric runs with unsafe
  * markers and guarantees at least one marker is present.

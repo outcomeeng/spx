@@ -95,7 +95,7 @@ describe("hook CLI compact stdout boundary", () => {
         ],
         {
           [CONTROLLING_PID_ENV]: String(process.pid),
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
+          [HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]: claudeSessionId,
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexThreadId,
         },
         env.worktreePath,
@@ -162,7 +162,7 @@ describe("hook CLI compact stdout boundary", () => {
         {
           [CONTROLLING_PID_ENV]: String(process.pid),
           [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
-          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]: "",
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
         },
         env.worktreePath,

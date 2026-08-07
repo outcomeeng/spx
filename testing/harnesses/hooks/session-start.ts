@@ -258,7 +258,7 @@ export async function withClaudePrecedenceSessionStartIdentityEvidence(
   await withDirectIdentityEvidence(
     {
       envOverlay: {
-        [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId,
+        [HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]: claudeSessionId,
         [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexSessionId,
       },
       evidence: { claudeSessionId, codexSessionId },
@@ -274,7 +274,7 @@ export async function withWhitespaceClaudeSessionStartIdentityEvidence(
   await withDirectIdentityEvidence(
     {
       envOverlay: {
-        [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: sampleWhitespaceAgentSessionIdentity(),
+        [HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]: sampleWhitespaceAgentSessionIdentity(),
         [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: codexSessionId,
       },
       evidence: { codexSessionId },
@@ -290,7 +290,7 @@ export async function withPayloadPrecedenceSessionStartIdentityEvidence(
   await withDirectIdentityEvidence(
     {
       payloadSessionId,
-      envOverlay: { [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: claudeSessionId },
+      envOverlay: { [HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]: claudeSessionId },
       evidence: { payloadSessionId, claudeSessionId },
     },
     callback,

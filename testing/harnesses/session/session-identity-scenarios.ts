@@ -1,4 +1,4 @@
-import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT_SESSION_ENV, AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { buildSessionFrontMatterContent, SESSION_FRONT_MATTER_DELIMITER } from "@/domains/session/create";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import {
@@ -26,23 +26,34 @@ function expectedSessionId(instant: Date): string {
 
 export function registerSessionIdentityScenarioEvidence(): void {
   describe("resolveAgentSessionId", () => {
-    it("GIVEN agent session environment values WHEN resolved THEN Claude takes precedence and Codex is the fallback", () => {
-      const [claudeSession, codexSession] = sampleDistinctSessionIds(2);
+    it("GIVEN agent session environment values WHEN resolved THEN Claude Code takes precedence, then Codex, then the SPX-resolved identity", () => {
+      const [claudeSession, codexSession, spxSession] = sampleDistinctSessionIds(3);
 
       expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: claudeSession,
-        CODEX_THREAD_ID: codexSession,
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
       })).toBe(claudeSession);
       expect(resolveAgentSessionId({
-        CODEX_THREAD_ID: codexSession,
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
       })).toBe(codexSession);
       expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: "",
-        CODEX_THREAD_ID: codexSession,
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
+      })).toBe(spxSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
       })).toBe(codexSession);
       expect(resolveAgentSessionId({
-        CLAUDE_SESSION_ID: "",
-        CODEX_THREAD_ID: "",
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
+      })).toBe(spxSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: "",
       })).toBeUndefined();
       expect(resolveAgentSessionId({})).toBeUndefined();
     });

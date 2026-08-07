@@ -42,7 +42,7 @@ describe("the session-environment probe maps exported claim paths", () => {
       claimMatchesCurrentWorktree: true,
       shellIdentity: false,
     }, async ({ env, snapshot }) => {
-      expect(env).not.toHaveProperty(HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID);
+      expect(env).not.toHaveProperty(HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID);
       const reading = await sessionEnvironmentProbeFromSnapshotProvider(
         snapshotProvider(snapshot),
         env,

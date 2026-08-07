@@ -20,7 +20,7 @@ describe("packaged hook session-start Pi rejection mapping", () => {
           PI_SESSION_START_REJECTION_REGISTRY[evidence.rejectionKind].diagnostic,
         );
         expect(evidence.envContent).not.toContain(
-          `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=`,
+          `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=`,
         );
         expect(evidence.statusResult.exitCode, evidence.statusResult.stderr).toBe(0);
         expect(JSON.parse(evidence.statusResult.stdout)).toEqual(

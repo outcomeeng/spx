@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
+import { AGENT_SESSION_ENV, AGENT_SESSION_TOKEN_PATTERN, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { DEFAULT_SESSION_METADATA, parseSessionMetadata } from "@/domains/session/list";
 import { generateSessionId, parseSessionId, SESSION_ID_PATTERN } from "@/domains/session/timestamp";
 import {
@@ -59,11 +59,15 @@ export function registerSessionIdentityPropertyEvidence(): void {
       assertProperty(
         arbitraryPathUnsafeAgentSessionIdentity(),
         (unsafeSessionToken) => {
-          const firstClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
-          const secondClaudeToken = resolveAgentSessionId({ CLAUDE_SESSION_ID: unsafeSessionToken });
+          const firstClaudeToken = resolveAgentSessionId({
+            [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: unsafeSessionToken,
+          });
+          const secondClaudeToken = resolveAgentSessionId({
+            [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: unsafeSessionToken,
+          });
           const codexToken = resolveAgentSessionId({
-            CLAUDE_SESSION_ID: "",
-            CODEX_THREAD_ID: unsafeSessionToken,
+            [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
+            [AGENT_SESSION_ENV.CODEX_THREAD_ID]: unsafeSessionToken,
           });
 
           expect(firstClaudeToken).toBeDefined();
