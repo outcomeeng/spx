@@ -40,14 +40,14 @@ describe("hook session-start session identity", () => {
     });
   });
 
-  it("uses CLAUDE_CODE_SESSION_ID before CODEX_THREAD_ID when both env values exist", async () => {
+  it("uses CODEX_THREAD_ID before CLAUDE_CODE_SESSION_ID when both env values exist", async () => {
     await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
-      expect(evidence.result.value.sessionId).toBe(evidence.claudeSessionId);
+      expect(evidence.result.value.sessionId).toBe(evidence.codexSessionId);
       expect(evidence.result.value.claimed).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.claudeSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.codexSessionId}`,
       );
     });
   });
@@ -81,7 +81,7 @@ describe("hook session-start session identity", () => {
       expect(evidence.result.ok).toBe(true);
       if (!evidence.result.ok) throw new Error(evidence.result.error);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.claudeSessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.codexSessionId}`,
       );
     });
   });

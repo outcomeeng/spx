@@ -26,33 +26,33 @@ function expectedSessionId(instant: Date): string {
 
 export function registerSessionIdentityScenarioEvidence(): void {
   describe("resolveAgentSessionId", () => {
-    it("GIVEN agent session environment values WHEN resolved THEN Claude Code takes precedence, then Codex, then the SPX-resolved identity", () => {
+    it("GIVEN agent session environment values WHEN resolved THEN Codex takes precedence, then Claude Code, then the SPX-resolved identity", () => {
       const [claudeSession, codexSession, spxSession] = sampleDistinctSessionIds(3);
 
       expect(resolveAgentSessionId({
-        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
         [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
+      })).toBe(codexSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
         [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
       })).toBe(claudeSession);
       expect(resolveAgentSessionId({
-        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
-        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
-      })).toBe(codexSession);
-      expect(resolveAgentSessionId({
         [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
       })).toBe(spxSession);
       expect(resolveAgentSessionId({
-        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
-        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: codexSession,
-      })).toBe(codexSession);
-      expect(resolveAgentSessionId({
-        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
         [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
+      })).toBe(claudeSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
         [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
       })).toBe(spxSession);
       expect(resolveAgentSessionId({
-        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
         [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
         [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: "",
       })).toBeUndefined();
       expect(resolveAgentSessionId({})).toBeUndefined();
