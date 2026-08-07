@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 
 export const AGENT_SESSION_ENV = {
-  CLAUDE_SESSION_ID: "CLAUDE_SESSION_ID",
+  CLAUDE_CODE_SESSION_ID: "CLAUDE_CODE_SESSION_ID",
   CODEX_THREAD_ID: "CODEX_THREAD_ID",
+  SPX_AGENT_SESSION_ID: "SPX_AGENT_SESSION_ID",
 } as const;
 
 export type AgentSessionEnvironment = Readonly<Record<string, string | undefined>>;
@@ -41,7 +42,8 @@ export function normalizeAgentSessionToken(value: string): string {
 }
 
 export function resolveAgentSessionId(env: AgentSessionEnvironment): string | undefined {
-  const raw = nonEmptyEnvValue(env[AGENT_SESSION_ENV.CLAUDE_SESSION_ID])
-    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.CODEX_THREAD_ID]);
+  const raw = nonEmptyEnvValue(env[AGENT_SESSION_ENV.CODEX_THREAD_ID])
+    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID])
+    ?? nonEmptyEnvValue(env[AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]);
   return raw === undefined ? undefined : normalizeAgentSessionToken(raw);
 }

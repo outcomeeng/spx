@@ -22,19 +22,19 @@ async function runSpx(
 }
 
 function agentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
-  return { [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: sessionToken };
+  return { [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: sessionToken };
 }
 
 function codexAgentSessionEnv(sessionToken: string): Readonly<Record<string, string>> {
   return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
+    [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
     [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sessionToken,
   };
 }
 
 function emptyAgentSessionEnv(): Readonly<Record<string, string>> {
   return {
-    [AGENT_SESSION_ENV.CLAUDE_SESSION_ID]: "",
+    [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",
     [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
   };
 }

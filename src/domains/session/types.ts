@@ -104,7 +104,7 @@ export interface SessionMetadata {
   files: string[];
   /** ISO 8601 timestamp when session was created */
   created_at?: string;
-  /** Agent session ID from CLAUDE_SESSION_ID or CODEX_THREAD_ID at handoff time */
+  /** Agent session ID from CLAUDE_CODE_SESSION_ID, CODEX_THREAD_ID, or SPX_AGENT_SESSION_ID at handoff time */
   agent_session_id?: string;
 }
 
