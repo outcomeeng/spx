@@ -8,7 +8,11 @@ import {
   SESSION_ID_SEPARATOR,
 } from "@/domains/session/timestamp";
 import { DEFAULT_PRIORITY, SESSION_FRONT_MATTER, SESSION_PRIORITY } from "@/domains/session/types";
-import { sampleDistinctSessionIds, samplePathUnsafeAgentSessionIdentity } from "@testing/generators/session/session";
+import {
+  sampleDistinctSessionIds,
+  samplePathUnsafeAgentSessionIdentity,
+  sampleWhitespaceAgentSessionIdentity,
+} from "@testing/generators/session/session";
 import { buildSessionMarkdownBody, DEFAULT_GIT_DEPS_BRANCH } from "@testing/harnesses/session/harness";
 import { describe, expect, it } from "vitest";
 
@@ -45,6 +49,15 @@ export function registerSessionIdentityScenarioEvidence(): void {
         [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
         [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
       })).toBe(claudeSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sampleWhitespaceAgentSessionIdentity(),
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: claudeSession,
+      })).toBe(claudeSession);
+      expect(resolveAgentSessionId({
+        [AGENT_SESSION_ENV.CODEX_THREAD_ID]: sampleWhitespaceAgentSessionIdentity(),
+        [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: sampleWhitespaceAgentSessionIdentity(),
+        [AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID]: spxSession,
+      })).toBe(spxSession);
       expect(resolveAgentSessionId({
         [AGENT_SESSION_ENV.CODEX_THREAD_ID]: "",
         [AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID]: "",

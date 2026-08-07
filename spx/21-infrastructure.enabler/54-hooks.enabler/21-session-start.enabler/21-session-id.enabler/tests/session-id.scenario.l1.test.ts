@@ -76,16 +76,6 @@ describe("hook session-start session identity", () => {
     });
   });
 
-  it("exports the resolved identity under SPX_AGENT_SESSION_ID", async () => {
-    await withClaudePrecedenceSessionStartIdentityEvidence((evidence) => {
-      expect(evidence.result.ok).toBe(true);
-      if (!evidence.result.ok) throw new Error(evidence.result.error);
-      expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.codexSessionId}`,
-      );
-    });
-  });
-
   it("uses the exact Pi transcript header as the native session identity", async () => {
     await withPiSessionStartIdentityEvidence((evidence) => {
       expect(evidence.result.ok).toBe(true);

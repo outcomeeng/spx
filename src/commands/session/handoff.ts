@@ -194,7 +194,7 @@ async function rejectDirectoryInjectionEntries(entries: readonly string[], cwd: 
  * Caller-supplied structured fields come from a JSON object at the start of
  * stdin; bytes after the JSON object form the markdown body verbatim. The
  * CLI prefills `created_at` from the system clock and `agent_session_id` from
- * `$CLAUDE_CODE_SESSION_ID` (falling back to `$CODEX_THREAD_ID`, then
+ * `$CODEX_THREAD_ID` (falling back to `$CLAUDE_CODE_SESSION_ID`, then
  * `$SPX_AGENT_SESSION_ID`). `git_ref` is the
  * gate-derived base (branch name in the main checkout on a branch, HEAD SHA
  * when detached, or the `origin/<default>` tip SHA in a clean detached non-main
