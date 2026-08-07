@@ -45,6 +45,9 @@ claim.
   operands accepted by `spx hook run <event>`.
 - Hook adapters are the only modules that interpret hook payload stdin, hook
   env-file paths, and hook-specific stdout semantics.
+- Every environment variable name SPX introduces carries the `SPX_` prefix. A
+  hook env-file export whose name lies in a coding agent's namespace names a
+  variable that agent itself defines, and carries the value SPX resolved for it.
 - Pi native-session identity is accepted only from a valid bounded header at the
   exact transcript path supplied by the Pi lifecycle adapter, after canonical
   containment under the configured Pi session-store root, with a cwd that
@@ -94,11 +97,21 @@ claim.
   agent session, and the `PreToolUse` hook adapter does not perform a
   status-then-claim occupancy repair loop ([audit])
 - ALWAYS: the `session-start` hook adapter writes hook env-file exports for
-  `CLAUDE_SESSION_ID`, `CLAUDE_PROJECT_DIR`, and `PROJECT_DIR` when the hook
+  `SPX_AGENT_SESSION_ID`, `CLAUDE_PROJECT_DIR`, and `PROJECT_DIR` when the hook
   runtime supplies an env-file path and enough identity and project information
   to compute each value, writes an absolute `SPX_WORKTREE_CLAIM_PATH` export
   when the worktree claim succeeds, and writes `unset SPX_WORKTREE_CLAIM_PATH`
   when the worktree claim is unavailable ([audit])
+- ALWAYS: an environment variable SPX introduces carries the `SPX_` prefix
+  naming SPX as the party that defines it ([audit])
+- ALWAYS: a hook env-file export named in a coding agent's namespace names a
+  variable that agent itself defines, so the export supplies SPX's resolved
+  value for an existing name rather than adding a name to that namespace
+  ([audit])
+- NEVER: SPX coins a new environment variable name inside a coding agent's
+  namespace — the agent owns that namespace and may later define the same name
+  for its own purpose, and the resulting collision reaches every consumer with
+  no signal that two parties defined one variable ([audit])
 - NEVER: a module under `src/interfaces/hooks/` imports from `src/commands/` ([audit])
 - NEVER: a domain-specific command descriptor exposes an agent lifecycle event as
   a subcommand ([audit])
