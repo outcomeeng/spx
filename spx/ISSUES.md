@@ -81,7 +81,7 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 
 ## Test assertion flow lives in harnesses instead of executed test files
 
-Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
+Across the product, 19 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts` and `testing/harnesses/process-lifecycle/compliance.ts`.
 
 [`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
@@ -89,4 +89,6 @@ Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shi
 
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
-**Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+**Scope:** Product-wide — 19 test files and their harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+
+`spx/36-session.enabler/32-session-identity.enabler` is unwound: its scenario, property, and compliance suites live in the node's own `tests/` files, and `testing/harnesses/session/session-identity.ts` retains only the fixture-instant builder, the independent expected-identifier derivation, and the second-truncation helper.
