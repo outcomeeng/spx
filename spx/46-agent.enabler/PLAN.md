@@ -42,7 +42,7 @@ The values are independent policy. Their equal initial values create no shared c
 1. Extend `spx/46-agent.enabler/agent.md` with the finite mapping from the two agent config fields to their independent 15-day defaults and independent overrides.
 2. Amend `spx/46-agent.enabler/21-resume.enabler/resume.md` so the default activity window resolves from `agent.resume.recentDays`, defaults to 15 days, and an explicit `--since` overrides only that invocation's resume window.
 3. Amend `spx/46-agent.enabler/32-search.enabler/search.md` so the default result window resolves from `agent.search.recentDays`, defaults to 15 days, and `--all` removes only the search result-window bound.
-4. Add a search compliance assertion that full-history branch evidence is raw-prefiltered with serialization-aware needles derived from the exact branch name and only prefilter-positive files enter structured command or subagent parsing. This turns the observed scan explosion into deterministic work evidence without rejecting branch names whose transcript representation is JSON-escaped.
+4. Add search compliance assertions that full-history branch association is served from a persistent derived index in a shared product-state scope, while query-time maintenance examines only a source-owned bounded delta of new or changed transcripts. Unchanged historical transcripts are never reopened during a warm query, and incomplete index coverage is reported explicitly instead of producing a false no-match result.
 5. Add a search scenario for an empty bounded result whose diagnostic states the resolved recent window and directs the user to `--all`.
 
 ### Red evidence before implementation
@@ -54,7 +54,7 @@ The values are independent policy. Their equal initial values create no shared c
    - invalid values identify the exact descriptor field.
 2. Strengthen `spx/46-agent.enabler/32-search.enabler/tests/search.compliance.l1.test.ts` with source-independent boundary cases supplied by the agent test generator: a transcript just inside 15 days is included, one just outside is excluded, a search override changes only search eligibility, and `--all` removes the bound.
 3. Strengthen `spx/46-agent.enabler/21-resume.enabler/tests/resume.compliance.l1.test.ts` with the corresponding source-independent 15-day boundary and a resume-only override. Remove recency expectations derived from `AGENT_RESUME_RECENT_WINDOW_MS`; that coupling lets an incorrect production value update its own oracle.
-4. Extend the search filesystem/scanner evidence with observations for raw-prefilter candidates, full transcript reads, and structurally parsed rows. On a generated high-volume history containing few prefilter-positive files, assert that structured work is proportional to positive evidence files rather than total historical files or bytes. Include a valid branch name containing characters that JSON escapes and prove its encoded command evidence survives prefiltering and reaches structured validation.
+4. Extend the search filesystem/scanner evidence with observations for index hits, delta files and bytes examined, raw-prefilter candidates, full transcript reads, and structurally parsed rows. On a generated high-volume indexed history, assert that a warm branch query reads no unchanged historical transcript content. After adding literal-negative and JSON-escaped positive evidence, assert that maintenance stays within its source-owned file, byte, and deadline budgets, parses only prefilter-positive files, and indexes the escaped branch correctly. A cold history larger than one maintenance budget reports incomplete coverage without returning a definitive empty result, and repeated bounded maintenance advances to complete coverage.
 5. Keep `spx/16-config.enabler/tests/defaults-only.scenario.l1.test.ts` as registry-composition evidence after registering the descriptor. Do not rely on it to prove descriptor presence: it derives both its actual and expected section sets from `productionRegistry`, so the parent agent mapping test owns that requirement.
 
 ### Implementation sequence
@@ -65,19 +65,21 @@ The values are independent policy. Their equal initial values create no shared c
 4. Convert each resolved day value to milliseconds at its command/domain boundary. Make the recency predicate require an explicit window argument. Remove `AGENT_RESUME_LIMITS.RECENT_DAYS` and `AGENT_RESUME_RECENT_WINDOW_MS` so search cannot inherit resume policy through an omitted argument.
 5. Preserve resume semantics: explicit `--since` replaces the configured resume window for both modification-time read bounds and transcript-activity eligibility; default resume uses only the configured resume field.
 6. Preserve search semantics: default output candidates use only the configured search window; `--all` admits non-future candidates outside it; result limits remain independent of time bounds.
-7. Refactor branch association into two passes behind injected boundaries:
-   - pass one gathers direct metadata and same-product worktree matches for eligible output candidates, derives serialization-aware raw needles from the exact requested branch name, and prefilters historical files without rejecting JSON-escaped representations;
-   - pass two structurally parses command and Codex subagent evidence only from prefilter-positive files, validates accepted command forms, attributes subagent evidence to top-level sessions, and rejects false-positive raw matches;
-   - old evidence may associate a recent top-level result, while old top-level sessions remain excluded unless `--all` is present.
-8. When bounded search returns no rows, render a diagnostic using the resolved search window and the existing source-owned `--all` flag. JSON output remains machine data and carries no presentation-only prose.
+7. Build a persistent branch-evidence index behind injected boundaries and address it through the shared state API:
+   - each entry records the adapter, canonical transcript identity, observed size and modification time, attributed top-level session identity, structurally verified branches, and coverage state;
+   - bounded maintenance processes only new or changed transcript identities, derives serialization-aware raw needles, prefilters within source-owned file, byte, and deadline budgets, structurally validates only positive files, and atomically advances coverage without reopening unchanged historical content;
+   - branch queries gather direct metadata and same-product worktree matches for eligible output candidates, then join verified index associations without scanning the full transcript store;
+   - old indexed evidence may associate a recent top-level result, while old top-level sessions remain excluded unless `--all` is present.
+8. Distinguish complete empty results from incomplete index coverage. A complete bounded text search with no rows states the resolved search window and names the existing source-owned `--all` flag; incomplete coverage names the bounded maintenance state and never claims no matching session exists. JSON output remains machine data and carries structured coverage state with no presentation-only prose.
 
 ### Acceptance evidence
 
 - The reported eleven-day transcript is returned by default branch search under the 15-day search setting.
 - Search and resume each default to 15 days and can be overridden independently through `spx.config.{json,yaml,toml}`.
 - Changing the search default or override cannot change resume eligibility, and changing the resume default or override cannot change search eligibility.
-- Default branch search preserves full-history command and Codex subagent association without structurally parsing prefilter-negative historical transcripts.
-- Valid branch names whose transcript representation contains JSON escapes survive raw prefiltering and reach structured command validation.
+- A warm default branch search preserves indexed full-history command and Codex subagent association without reading unchanged historical transcript content.
+- Bounded index maintenance never exceeds its source-owned file, byte, or deadline budgets; incomplete coverage is explicit and repeated maintenance reaches complete coverage.
+- Valid branch names whose transcript representation contains JSON escapes survive bounded prefiltering and reach structured command validation.
 - An empty bounded text search explains the active recent window and names `--all`; `--all` finds otherwise matching older sessions.
 - The focused config, agent-parent, resume, and search evidence passes, followed by `pnpm run validate`.
 - The exact committed changeset receives test-evidence audit, implementation audit, and changes review before `/merge`.
