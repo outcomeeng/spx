@@ -53,9 +53,9 @@ commands remain focused on explicit operator actions.
   the payload is readable, rather than from the process launch directory
   ([audit])
 - ALWAYS: compact-source stdout agent selection treats
-  `CODEX_THREAD_ID` as the Codex marker even when a `CLAUDE_SESSION_ID`
-  value is also present, treats `CLAUDE_SESSION_ID` as the Claude Code marker
-  when `CODEX_THREAD_ID` is absent, and treats `CLAUDE_ENV_FILE` as the
+  `CODEX_THREAD_ID` as the Codex marker even when a `CLAUDE_CODE_SESSION_ID`
+  value is also present, treats `CLAUDE_CODE_SESSION_ID` as the Claude Code
+  marker when `CODEX_THREAD_ID` is absent, and treats `CLAUDE_ENV_FILE` as the
   tertiary Claude Code marker when both session markers are absent;
   session identity resolution remains an event-specific `session-start`
   responsibility ([audit])

@@ -1062,9 +1062,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter[SESSION_FRONT_MATTER.CREATED_AT]).toEqual(expect.any(String));
   });
 
-  it("GIVEN CLAUDE_SESSION_ID is set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_SESSION_ID value", async () => {
+  it("GIVEN CODEX_THREAD_ID is set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
     const agentSessionId = "fa0a91ee-f0bc-449e-8299-727ebe314a78";
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    process.env[AGENT_SESSION_ENV.CODEX_THREAD_ID] = agentSessionId;
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
@@ -1076,9 +1076,9 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, agentSessionId);
   });
 
-  it("GIVEN CLAUDE_SESSION_ID absent and CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id is written with CODEX_THREAD_ID value", async () => {
+  it("GIVEN CODEX_THREAD_ID absent and CLAUDE_CODE_SESSION_ID set WHEN handoff creates session THEN agent_session_id is written with CLAUDE_CODE_SESSION_ID value", async () => {
     const threadId = "thread-xyz-789";
-    process.env.CODEX_THREAD_ID = threadId;
+    process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = threadId;
 
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
@@ -1090,7 +1090,21 @@ describe("handoffCommand — created_at and agent_session_id pre-fill", () => {
     expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, threadId);
   });
 
-  it("GIVEN neither CLAUDE_SESSION_ID nor CODEX_THREAD_ID set WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
+  it("GIVEN only SPX_AGENT_SESSION_ID set WHEN handoff creates session THEN agent_session_id is written with SPX_AGENT_SESSION_ID value", async () => {
+    const hookResolvedId = "pi-9c1f4b2a-7e08-4d55-b3a1-6f2c0d94e731";
+    process.env[AGENT_SESSION_ENV.SPX_AGENT_SESSION_ID] = hookResolvedId;
+
+    const { output } = await handoffCommand({
+      content: prefillHandoffStdin,
+      sessionsDir: harness.sessionsDir,
+      deps: handoffGitDeps,
+    });
+    const frontMatter = parseFrontMatter(await readFile(extractSessionFile(output), SESSION_FILE_ENCODING));
+
+    expect(frontMatter).toHaveProperty(SESSION_FRONT_MATTER.AGENT_SESSION_ID, hookResolvedId);
+  });
+
+  it("GIVEN no agent-session environment identity WHEN handoff creates session THEN agent_session_id does not appear in YAML front matter", async () => {
     const { output } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1583,7 +1597,7 @@ describe("listCommand JSON records and field projection", () => {
 
   it("carries created_at and agent_session_id only when the session frontmatter holds them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
@@ -1713,7 +1727,7 @@ describe("showCommand JSON output", () => {
 
   it("GIVEN a session carrying created_at and agent_session_id WHEN shown as JSON THEN both appear; a bare session omits them", async () => {
     const agentSessionId = sampleSessionId();
-    process.env.CLAUDE_SESSION_ID = agentSessionId;
+    process.env[AGENT_SESSION_ENV.CLAUDE_CODE_SESSION_ID] = agentSessionId;
     const { output: handoffOutput } = await handoffCommand({
       content: prefillHandoffStdin,
       sessionsDir: harness.sessionsDir,
