@@ -3,9 +3,9 @@
 PROVIDES compact lifecycle stdout policy for the `session-start` hook event —
 emitting model-visible compact recovery context only when the invoking agent's
 `hooks.sessionStart.compactStdout` policy enables it
-SO THAT compact handling can remain active for agents that need it while
-remaining silent for agents whose compact SessionStart source is delayed or
-replayed
+SO THAT the agent plugins that invoke `session-start`
+CAN receive compact recovery context where their compact lifecycle source
+arrives usefully, and silence where it arrives delayed or replayed
 
 ## Assertions
 

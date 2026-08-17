@@ -12,7 +12,7 @@ Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabu
 
 ### Why this plan exists
 
-The spec-tree plugin now specifies `.spx/sessions/$CLAUDE_SESSION_ID/` (or `$CODEX_THREAD_ID/` under Codex) as the authoritative accumulator for every handoff session an agent session has claimed. The marketplace side is in place after commit `ad7d696`:
+The spec-tree plugin now specifies `.spx/sessions/<agent-session-id>/`, resolved through the declared agent sources, as the authoritative accumulator for every handoff session an agent session has claimed. The marketplace side is in place after commit `ad7d696`:
 
 - `plugins/spec-tree/bin/session-start` no longer creates the directory for an agent session. It is created lazily on first claim.
 - `plugins/spec-tree/skills/handoff/references/scope-resolution.md` reads the filesystem as primary source of truth and cross-checks against `<SESSION_SCOPE>` / `<PICKUP_CHECKPOINT>` / `<PICKUP_CLAIM>` markers.
@@ -33,9 +33,9 @@ This plan keeps the CLI half of the accumulator under the session enabler. The o
 ```text
 1. mv todo/<id>.md -> doing/<id>.md          (existing behavior, unchanged)
 2. Resolve $AGENT_SESSION_ID:
-     prefer $CLAUDE_SESSION_ID
-     fall back to $CODEX_THREAD_ID
-     if neither set -> skip steps 3-4 (degraded, keep going)
+     resolve through spx/36-session.enabler/32-session-identity.enabler
+     ($PI_SESSION_ID, then $CODEX_THREAD_ID, then $CLAUDE_CODE_SESSION_ID)
+     if none set -> skip steps 3-4 (degraded, keep going)
 3. mkdir -p .spx/sessions/$AGENT_SESSION_ID/
 4. ln -sfn ../doing/<id>.md .spx/sessions/$AGENT_SESSION_ID/<id>.md
 ```
@@ -57,7 +57,7 @@ Relative symlink is deliberate. Absolute paths break when the repo is checked ou
 
 - **Symlink format**: relative, exactly `../doing/<id>.md`. A symlink ending in anything else is invalid and must be treated as a bug, not as data.
 - **Dangling symlinks**: `spx session pickup` on a previously-dangling id must first remove the old symlink, then create the new one. Never overwrite without validating.
-- **Agent session id collision**: if two conversations happen to produce the same `$CLAUDE_SESSION_ID` (should not occur; Claude session ids are per-conversation), the second pickup silently shares the same directory. This is acceptable degraded behavior; no special handling required.
+- **Agent session id collision**: if two conversations happen to produce the same agent session id (should not occur; agent session ids are per-conversation), the second pickup silently shares the same directory. This is acceptable degraded behavior; no special handling required.
 - **File permissions**: the directory for an agent session and its symlinks inherit umask. Do not chmod explicitly.
 - **Concurrency**: pickup and archive are already atomic at the queue level. The accumulator steps happen before/after the queue move. A crash between queue move and symlink create leaves a session in `doing/` without a symlink; `scope-resolution.md` classifies that as "markers are a superset of filesystem", and the marker cross-check catches it. A crash between symlink remove and archive move leaves a symlink with a target in `archive/`; the filesystem step classifies it as "already archived" and skips it. Both are acceptable recovery paths.
 
@@ -75,7 +75,7 @@ Relative symlink is deliberate. Absolute paths break when the repo is checked ou
 
 Per the product's test-language ADR (TypeScript + Vitest), write tests in the owning node `tests/` directories following `<subject>.<evidence>.<level>[.<runner>].test.ts`:
 
-- `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts`: claim-then-inspect-symlink round-trip; `$CLAUDE_SESSION_ID` and `$CODEX_THREAD_ID` paths; neither-set degraded path.
+- `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts`: claim-then-inspect-symlink round-trip; each declared agent source's path; none-set degraded path.
 - `spx/36-session.enabler/54-session-retention.enabler/tests/session-retention.scenario.l1.test.ts`: archive-removes-own-symlink; archive-removes-cross-agent-session-symlink by simulating a second agent-session directory; archive-of-untracked-id when no symlink exists.
 - `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.property.l1.test.ts` or a parent-level session property test: for any sequence of pickup and archive operations with a fixed agent session id, the set `{readlink(S) for S in .spx/sessions/$AGENT_SESSION_ID/}` equals the set of picked-up-but-not-yet-archived ids.
 - `spx/36-session.enabler/65-session-claim.enabler/tests/session-claim.scenario.l1.test.ts`: pre-existing dangling symlink with a newly-claimed matching id; crash-between-move-and-symlink recovery.
@@ -86,7 +86,7 @@ Per the product's test-language ADR (TypeScript + Vitest), write tests in the ow
 
 - `src/commands/session/pickup.ts`: add the resolve-agent-session-id + mkdir -p + ln -sfn step after the existing move.
 - `src/commands/session/archive.ts`: add the scan-and-unlink step before the existing move.
-- Reuse or extend `src/domains/session/agent-session.ts` for agent-session-id resolution instead of duplicating the `$CLAUDE_SESSION_ID` / `$CODEX_THREAD_ID` priority logic.
+- Reuse or extend `src/domains/session/agent-session.ts` for agent-session-id resolution instead of duplicating the declared source priority logic.
 
 **Audit gate**: run the current local validation gate and the focused session tests that cover the edited nodes. Zero new findings.
 
@@ -94,9 +94,9 @@ Per the product's test-language ADR (TypeScript + Vitest), write tests in the ow
 
 Return to `~/Code/outcomeeng/plugins/` only for the cross-product verification step. Install or point that repository at the updated `spx` build through the product's current local workflow. Then:
 
-1. In a fresh conversation, `/pickup` some test session. Verify `.spx/sessions/$CLAUDE_SESSION_ID/<id>.md` exists as a symlink pointing at `../doing/<id>.md`.
+1. In a fresh conversation, `/pickup` some test session. Verify `.spx/sessions/<agent-session-id>/<id>.md` exists as a symlink pointing at `../doing/<id>.md`.
 2. `/handoff`. Confirm workflow 04 resolves scope from the filesystem (the verdict output should name the symlink's id) and the symlink is removed after `spx session archive`.
-3. Inspect `.spx/sessions/$CLAUDE_SESSION_ID/`. It must be empty or removed after closure.
+3. Inspect `.spx/sessions/<agent-session-id>/`. It must be empty or removed after closure.
 4. Context-compaction test: claim a session, run `/compact`, then `/handoff`. Scope must still resolve correctly via the filesystem even though the `<SESSION_SCOPE>` marker is gone.
 
 ### Touch points in the marketplace repo

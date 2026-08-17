@@ -13,11 +13,10 @@ environment
 - Given the `session-start` payload carries a session id, when the hook runs, then SPX uses that id as the agent session identity ([test](tests/session-id.scenario.l1.test.ts))
 - Given the `session-start` payload carries a session id and the hook environment also carries agent session variables naming different sessions, when the hook runs, then SPX uses the payload session id ([test](tests/session-id.scenario.l1.test.ts))
 - Given the `session-start` payload carries no session id, when the hook runs, then SPX resolves no agent session identity and records no worktree claim ([test](tests/session-id.scenario.l1.test.ts))
-- Given the `session-start` payload carries a transcript path that canonically resolves inside one configured agent session-store root, when the hook runs, then SPX classifies that agent as the holder's agent per [`spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md`](../../../../33-harness-environment.enabler/21-harness-environment-descriptor.adr.md) ([test](tests/session-id.scenario.l1.test.ts))
 
 ### Mappings
 
-- Transcript-path evidence maps to no agent classification and no worktree claim with its source-owned diagnostic when the path is absent, cannot be canonicalized, resolves outside every configured agent session-store root, or resolves inside more than one ([test](tests/session-id.mapping.l1.test.ts))
+- Each configured agent session-store root maps a transcript path canonically resolving inside it to that agent's classification, per [`spx/33-harness-environment.enabler/21-harness-environment-descriptor.adr.md`](../../../../33-harness-environment.enabler/21-harness-environment-descriptor.adr.md); a path that is absent, cannot be canonicalized, resolves outside every configured root, or resolves inside more than one maps to no agent classification and no worktree claim with its source-owned diagnostic ([test](tests/session-id.mapping.l1.test.ts))
 
 ### Compliance
 
