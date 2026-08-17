@@ -8,7 +8,7 @@ Compaction is tied to the dirty checkout whose transcript emitted the spec-tree 
 
 `--session-id` is authoritative over the environment resolver because compaction runs from hook subprocesses that do not inherit the agent-session environment variable. The environment resolver cannot recover the identity in that context, so the caller that knows the session names it explicitly; the resolver supplies the token only when the flag is absent or empty, preserving the environment path for direct invocations.
 
-The CLI remains presentation-free because runtime hooks own their own resume prose. spx owns deterministic extraction, storage, retrieval, and exit codes.
+The CLI remains presentation-free because agent hooks own their own resume prose. spx owns deterministic extraction, storage, retrieval, and exit codes.
 
 ## Invariants
 

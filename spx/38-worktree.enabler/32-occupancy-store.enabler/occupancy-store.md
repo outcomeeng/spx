@@ -8,7 +8,7 @@ CAN answer `spx worktree status`, acquire a claim for `spx worktree claim`, and 
 
 ### Scenarios
 
-- Given an unclaimed worktree, when a claim is written, then `.spx/worktrees/<name>.claim` holds the session id, host, controlling-process id, and start time ([test](tests/occupancy-store.scenario.l1.test.ts))
+- Given an unclaimed worktree, when a claim is written, then `.spx/worktrees/<name>.claim` holds the holder agent, agent session id, host, controlling-process id, and start time ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree whose existing claim holder is live on the same host, when another claimant attempts acquisition, then the acquisition is refused and the existing claim remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree whose existing claim already belongs to the same live holder, when that holder attempts acquisition again, then acquisition succeeds and the existing claim remains unchanged ([test](tests/occupancy-store.scenario.l1.test.ts))
 - Given a worktree whose existing claim holder is dead, when another claimant attempts acquisition, then the claim file holds the new claim ([test](tests/occupancy-store.scenario.l1.test.ts))
@@ -33,8 +33,8 @@ CAN answer `spx worktree status`, acquire a claim for `spx worktree claim`, and 
 
 ### Properties
 
-- A claim record round-trips: writing the session id, host, controlling-process id, and start time then reading the claim returns the same four fields ([test](tests/occupancy-store.property.l1.test.ts))
-- A claim write is atomic: a concurrent read observes either no claim or the complete four-field record, never a partial record ([test](tests/occupancy-store.property.l1.test.ts))
+- A claim record round-trips: writing the holder agent, agent session id, host, controlling-process id, and start time then reading the claim returns the same five fields ([test](tests/occupancy-store.property.l1.test.ts))
+- A claim write is atomic: a concurrent read observes either no claim or the complete five-field record, never a partial record ([test](tests/occupancy-store.property.l1.test.ts))
 - Claim admission is atomic: an overlapping claimant cannot overwrite a worktree claim while the first acquisition is in progress or while the current holder's release is in progress ([test](tests/occupancy-store.property.l1.test.ts))
 
 ### Compliance
