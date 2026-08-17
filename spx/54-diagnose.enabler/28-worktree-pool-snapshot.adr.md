@@ -16,7 +16,7 @@ The snapshot is command-layer orchestration, not domain classification. Domain c
 - A non-errored snapshot has exactly one worktree entry for every active worktree root reported by git facts, and the sum of `running` and `free` entries equals the entry count.
 - A bare-pool snapshot carries the state topology API's designated main-checkout path, the resolved default branch, and one canonical-checkout branch observation: attached with a branch name, detached, or unavailable.
 - A live occupancy claim contributes a normalized session token to the snapshot's live claim set; missing or dead claims classify as `free`.
-- A live claim named by `SPX_WORKTREE_CLAIM_PATH` contributes to the snapshot only when its claim filename matches the current worktree entry; when it contributes, it marks that current worktree entry `running` and adds the normalized session token to the live claim set.
+- The current worktree's own claim, addressed under `.spx/worktrees/` from the resolved worktree root, contributes to the snapshot only when its claim filename matches the current worktree entry; when it contributes, it marks that entry `running` and adds the normalized session token to the live claim set.
 
 ## Verification
 
@@ -24,9 +24,9 @@ The snapshot is command-layer orchestration, not domain classification. Domain c
 
 - ALWAYS: the snapshot gather maps injected git facts, canonical-checkout designation, default-branch resolution, canonical-checkout branch observation, occupancy claim reads, and process-liveness observations to bare-repository, linked-worktree, canonical-checkout, current-worktree, running/free, and live-claim-set data without invoking `spx worktree status` ([mapping])
 - ALWAYS: a designated canonical checkout maps its symbolic-HEAD observation to attached with a branch name or detached, while a failed default-branch or symbolic-HEAD probe maps to unavailable rather than a healthy branch standing ([mapping])
-- ALWAYS: the snapshot gather merges a live `SPX_WORKTREE_CLAIM_PATH` claim into the current worktree entry and live claim set only when the exported claim filename matches the current worktree ([mapping])
+- ALWAYS: the snapshot gather merges the current worktree's own live claim into its entry and the live claim set only when the claim filename matches that worktree, addressing the claim from the resolved worktree root rather than from any value a hook exported ([mapping])
 - ALWAYS: adding a free worktree or dead claim to an otherwise compliant layout never degrades the worktree-pool verdict and only changes reported occupancy counts ([property])
-- ALWAYS: the session-environment reading derives `worktreeClaimed` from the current worktree's snapshot entry plus the hook and agent-session identity inputs ([mapping])
+- ALWAYS: the session-environment reading derives `worktreeClaimed` from the current worktree's snapshot entry plus the agent-session identity input ([mapping])
 - ALWAYS: the session-store reading derives orphaned doing-session count by joining doing sessions against the snapshot's normalized live claim set ([mapping])
 - NEVER: diagnose worktree-touching probes execute `spx worktree status` or parse its JSON output to classify occupancy ([compliance])
 
