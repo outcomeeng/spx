@@ -3,9 +3,8 @@
 Hook handling is a peer interface layer under `src/interfaces/hooks/`, with an
 explicit event registry keyed by agent lifecycle event name. The CLI transport
 for `spx hook run <event>` dispatches into that hook interface, and hook adapters
-own the hook process contract: stdin payload reading, bounded native-session
-metadata reads, stdout context, stderr diagnostics, and nonblocking degraded
-completion. Hook adapters call shared domain services directly; they never depend
+own the hook process contract: stdin payload reading, stdout context, stderr
+diagnostics, and nonblocking degraded completion. Hook adapters call shared domain services directly; they never depend
 on `src/commands/` handlers, and shared operations needed by both commands and
 hooks live below both interface layers. A hook adapter takes the agent session
 identity and the agent from the stdin payload alone, and SPX writes no
@@ -43,13 +42,15 @@ path proven canonically contained by a configured agent's session-store root
 names that agent without relying on any variable a second agent can also set.
 
 An exact native transcript path is a session fact available at the lifecycle
-boundary. Store scanning and latest-file selection are rejected because two agent
-processes can start in the same product directory, making a recency winner an
-uncertain holder identity. Canonical containment establishes path provenance
-before content is read; lexical containment alone is insufficient because a
-symlink inside the store can resolve outside it. A path outside every configured
-store root, or malformed or mismatched evidence inside one, degrades to no agent
-classification and therefore no worktree claim.
+boundary, and the store it sits in names the agent that wrote it. Store scanning
+and latest-file selection are rejected because two agent processes can start in
+the same product directory, making a recency winner an uncertain holder identity.
+Canonical containment is what establishes provenance; lexical containment alone
+is insufficient because a symlink inside a store can resolve outside it. A path
+outside every configured store root, or inside more than one, degrades to no
+agent classification and therefore no worktree claim. Reading the transcript's
+contents is unnecessary — the payload already carries the session id and the
+product directory, so containment decides the only question left.
 
 ## Invariants
 
@@ -82,24 +83,22 @@ classification and therefore no worktree claim.
 - ALWAYS: hook adapters own hook process I/O — stdin payload, stdout context, and
   stderr diagnostics — because those are hook interface concerns rather than
   domain concerns ([audit])
-- ALWAYS: hook adapters isolate bounded transcript reads and output writes behind
-  typed boundary functions or injected dependencies so event logic verifies
-  without replacing modules through a mocking framework ([audit])
+- ALWAYS: hook adapters isolate canonical path resolution and output writes
+  behind typed boundary functions or injected dependencies so event logic
+  verifies without replacing modules through a mocking framework ([audit])
 - ALWAYS: `session-start` resolves the agent session identity from the stdin
   payload session id and records no identity when that id is absent ([audit])
 - ALWAYS: `session-start` classifies the originating agent from the stdin payload
   transcript path, accepting the classification only when that path canonically
   resolves inside exactly one configured agent session-store root ([audit])
-- ALWAYS: native transcript metadata reads are bounded independently of
-  transcript size and use a typed injected reader; canonical path resolution for
-  a configured store root and a supplied transcript path is injected through the
-  same boundary ([audit])
+- ALWAYS: canonical path resolution for a configured store root and a supplied
+  transcript path is reached through a typed injected boundary ([audit])
 - NEVER: lexical containment substitutes for canonical containment when a
   transcript path can traverse a symlink ([audit])
 - NEVER: `session-start` scans an agent session store, selects a latest
-  transcript, reads a transcript outside a configured store root, or records a
-  worktree claim from untrusted, malformed, missing, or product-mismatched
-  transcript metadata ([audit])
+  transcript, opens a transcript's contents, or records a worktree claim from a
+  transcript path it could not place inside exactly one configured store root
+  ([audit])
 - NEVER: a hook adapter reads an agent session identity, an agent classification,
   or a product directory from the process environment — the stdin payload is the
   hook world's only input for each ([audit])
