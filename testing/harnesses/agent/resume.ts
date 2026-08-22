@@ -137,6 +137,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
+  private readonly textReadPathSet = new Set<string>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -192,11 +193,17 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   }
 
   async readText(path: string): Promise<string> {
-    const file = this.files.get(resolve(path));
+    const resolved = resolve(path);
+    this.textReadPathSet.add(resolved);
+    const file = this.files.get(resolved);
     if (file === undefined) {
       throw new Error(`missing file: ${path}`);
     }
     return file.content;
+  }
+
+  textReadPaths(): readonly string[] {
+    return [...this.textReadPathSet];
   }
 
   async stat(path: string): Promise<{ readonly mtimeMs: number }> {
@@ -408,6 +415,49 @@ export function writeClaudeProjectTranscriptFile(
     fs,
     claudeProjectTranscriptPath(homeDir, input.cwd, agentSessionJsonlName(input.sessionId)),
     claudeCodeTranscript(input),
+    input,
+  );
+}
+
+export interface ClaudeTranscriptRecord {
+  readonly cwd: string;
+  readonly timestamp: string;
+  readonly branch?: string;
+}
+
+export type ClaudeTranscriptRecords = readonly [ClaudeTranscriptRecord, ...ClaudeTranscriptRecord[]];
+
+export function claudeCodeTranscriptRecords(
+  sessionId: string,
+  records: ClaudeTranscriptRecords,
+): string {
+  return records
+    .map((record) =>
+      JSON.stringify({
+        [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: record.timestamp,
+        [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL]: sessionId,
+        [AGENT_SESSION_JSON_FIELDS.CWD]: record.cwd,
+        [AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]: record.branch ?? null,
+      })
+    )
+    .join("\n");
+}
+
+// Claude Code files a transcript under the project directory encoded from the
+// session's opening working directory, so a session that later moves to another
+// worktree or product keeps the directory its first record named.
+export function writeClaudeMultiRecordTranscriptFile(
+  fs: MemoryAgentSessionFileSystem,
+  homeDir: string,
+  input: TranscriptWriteInput & {
+    readonly sessionId: string;
+    readonly records: ClaudeTranscriptRecords;
+  },
+): string {
+  return writeTranscriptFile(
+    fs,
+    claudeProjectTranscriptPath(homeDir, input.records[0].cwd, agentSessionJsonlName(input.sessionId)),
+    claudeCodeTranscriptRecords(input.sessionId, input.records),
     input,
   );
 }
