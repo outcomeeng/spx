@@ -1,4 +1,102 @@
+import * as fc from "fast-check";
+
 import { AGENT_TRANSCRIPT_GIT_COMMAND } from "@/domains/agent/protocol";
+import type { ClaudeTranscriptRecord, ClaudeTranscriptRecords } from "@testing/harnesses/agent/resume";
+
+import {
+  arbitraryAgentBranch,
+  arbitraryAgentResumeNowMs,
+  arbitraryAgentSessionCwd,
+  arbitraryAgentSessionId,
+  arbitraryAgentWorktreeRoot,
+} from "./resume";
+
+const MIN_LEADING_RECORDS = 1;
+const MAX_LEADING_RECORDS = 6;
+const MIN_TRAILING_RECORDS = 0;
+const MAX_TRAILING_RECORDS = 6;
+const RECORD_INTERVAL_MS = 1_000;
+
+/**
+ * A session that opens in one product and later works in another, which is how a
+ * transcript's recorded working directory and branch diverge from the values its
+ * opening record carries.
+ */
+export interface GeneratedMovingSessionScenario {
+  readonly homeDir: string;
+  readonly sessionId: string;
+  readonly productScopeRoot: string;
+  readonly foreignRoot: string;
+  readonly branchWorktreeRoot: string;
+  readonly targetBranch: string;
+  readonly otherBranch: string;
+  readonly branchRecordIndex: number;
+  readonly branchRecordCwd: string;
+  readonly records: ClaudeTranscriptRecords;
+  readonly nowMs: number;
+}
+
+export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMovingSessionScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentBranch(),
+      arbitraryAgentBranch(),
+      arbitraryAgentResumeNowMs(),
+      fc.integer({ min: MIN_LEADING_RECORDS, max: MAX_LEADING_RECORDS }),
+      fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
+    )
+    .chain((
+      [sessionId, homeDir, productScopeRoot, foreignRoot, targetBranch, otherBranch, nowMs, leading, trailing],
+    ) =>
+      fc
+        .tuple(
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(foreignRoot),
+        )
+        .map(([branchRecordCwd, foreignCwd]) => {
+          const stamp = (index: number): string =>
+            new Date(nowMs - (leading + trailing - index) * RECORD_INTERVAL_MS).toISOString();
+          const opening: ClaudeTranscriptRecord = {
+            cwd: foreignCwd,
+            timestamp: stamp(0),
+            branch: otherBranch,
+          };
+          const beforeBranch: ClaudeTranscriptRecord[] = Array.from({ length: leading - 1 }, (_unused, index) => ({
+            cwd: foreignCwd,
+            timestamp: stamp(index + 1),
+            branch: otherBranch,
+          }));
+          const branchRecord: ClaudeTranscriptRecord = {
+            cwd: branchRecordCwd,
+            timestamp: stamp(leading),
+            branch: targetBranch,
+          };
+          const afterBranch: ClaudeTranscriptRecord[] = Array.from({ length: trailing }, (_unused, index) => ({
+            cwd: branchRecordCwd,
+            timestamp: stamp(leading + 1 + index),
+            branch: otherBranch,
+          }));
+          const records: ClaudeTranscriptRecords = [opening, ...beforeBranch, branchRecord, ...afterBranch];
+          return {
+            homeDir,
+            sessionId,
+            productScopeRoot,
+            foreignRoot,
+            branchWorktreeRoot: productScopeRoot,
+            targetBranch,
+            otherBranch,
+            branchRecordIndex: leading,
+            branchRecordCwd,
+            records,
+            nowMs,
+          };
+        })
+    );
+}
 
 export interface AgentSearchBranchCommandEvidenceCase {
   readonly command: string;
