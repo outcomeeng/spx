@@ -1,6 +1,6 @@
 # Agent Search Adapters
 
-Agent-native session search uses a static, typed adapter set that maps each supported agent kind to its native store collector, its transcript metadata reader, and the evidence forms its transcript contract declares. A transcript records working directory and branch as a sequence of per-record values rather than one session-opening value, so search resolves a session's product scope and branch association from every recorded value in the transcript and reports the working directory recorded alongside the matching value. Selector evidence is located by raw byte scan before any structural parse, and a session-store directory name never excludes a transcript a selector would match. Pi sessions carry no inferred transcript branch identity or command-evidence grammar; their null-branch association uses same-product worktree roots, while Codex-specific subagent attribution remains confined to Codex transcripts.
+Agent-native session search uses a static, typed adapter set that maps each supported agent kind to its native store collector, its transcript metadata reader, and the evidence forms its transcript contract declares. A transcript records working directory and branch as a sequence of per-record values rather than one session-opening value, so search resolves a session's product scope and branch association from every recorded value in a transcript whose adapter declares a record reader, from the opening value where an adapter declares none, and reports the working directory recorded alongside the matching value. Selector evidence is located by raw byte scan before any structural parse, and a session-store directory name never excludes a transcript a selector would match. Pi sessions carry no inferred transcript branch identity or command-evidence grammar; their null-branch association uses same-product worktree roots, while Codex-specific subagent attribution remains confined to Codex transcripts.
 
 ## Rationale
 
@@ -16,7 +16,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 
 ## Invariants
 
-- A transcript's contribution to product scope and branch association is a function of its whole recorded value sequence, independent of any single record's position in that sequence.
+- Where an adapter declares a record reader, a transcript's contribution to product scope and branch association is a function of its whole recorded value sequence, independent of any single record's position in that sequence; where an adapter declares none, it is the opening value alone.
 - The candidate set a store collector yields is a superset of the set any selector matches; no collector decision removes a session whose transcript contents the selector would match.
 - Byte-scan candidacy is a superset of structural-parse candidacy: it selects the same transcripts as the structural parse for a content selector, and every candidate for a branch selector, whose evidence also arrives from worktree roots, accepted commands, and sibling transcripts of one session.
 
@@ -25,7 +25,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 ### Testing
 
 - ALWAYS: each supported search agent kind maps to its declared native store collector, transcript metadata reader, and declared evidence forms ([mapping])
-- ALWAYS: a session whose transcript records the requested branch in any record matches a branch search and reports the working directory recorded alongside that branch ([property])
+- ALWAYS: a session whose adapter declares a record reader and whose transcript records the requested branch in any record matches a branch search and reports the working directory recorded alongside that branch, whichever field path that record carries its working directory under ([property])
 - ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne ([compliance])
 - ALWAYS: byte-scan candidacy selects exactly the structurally matching transcripts for a literal-content selector, and never fewer than them for a branch selector ([property])
 - ALWAYS: the reach window search applies to its default candidate set is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
