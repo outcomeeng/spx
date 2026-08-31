@@ -35,6 +35,10 @@ reaches the whole store by declared behavior, so every candidate transcript is r
 and decoded as UTF-8 before any needle check. Gating the structured parses removed the
 JSON-parse share; the decode share remains.
 
+This bound applies to a branch selector alone. A selector-free listing decodes nothing and a
+content selector decodes only within the reach window, both covered by
+[tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts).
+
 **Resolution:** locate the needle without decoding the whole transcript — scan the raw
 buffer and decode only transcripts that hit. The two-pass scan named in
 [PLAN.md](PLAN.md) is the same work.
