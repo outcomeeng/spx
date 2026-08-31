@@ -134,7 +134,6 @@ export interface GeneratedMovingSessionScenario {
   readonly sessionId: string;
   readonly productScopeRoot: string;
   readonly foreignRoot: string;
-  readonly branchWorktreeRoot: string;
   readonly targetBranch: string;
   readonly otherBranch: string;
   readonly branchRecordIndex: number;
@@ -228,7 +227,6 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             sessionId,
             productScopeRoot,
             foreignRoot,
-            branchWorktreeRoot: productScopeRoot,
             targetBranch,
             otherBranch,
             branchRecordIndex: leading,
