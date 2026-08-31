@@ -128,7 +128,7 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
-  const paths = await adapter.collectPaths(options, claudeDirAdmission(options));
+  const paths = await adapter.collectPaths(options, claudeDirAdmission(options, adapter));
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -154,13 +154,13 @@ async function searchAgentStore(
 }
 
 /**
- * A selector resolves from recorded content, so the store-directory name — which encodes
- * only the opening working directory — must admit every candidate. A selector-free listing
- * scopes by that same opening directory anyway, so there the name excludes nothing the
- * scope check would keep.
+ * Only a selector read from recorded content can match a session the store filed elsewhere,
+ * so only that selector needs every directory admitted. Every other query resolves scope from
+ * the opening working directory alone — the same value the directory name encodes — so there
+ * the name excludes nothing the scope check would keep.
  */
-function claudeDirAdmission(options: AgentSearchOptions): (dirName: string) => boolean {
-  if (hasSearchSelector(options.query)) {
+function claudeDirAdmission(options: AgentSearchOptions, adapter: AgentSearchAdapter): (dirName: string) => boolean {
+  if (requiresTranscriptContent(options.query, adapter)) {
     return acceptsEveryClaudeProjectDir;
   }
   const projectPrefixes = [options.productScopeRoot, ...(options.branchAssociatedWorktreeRoots ?? [])]
