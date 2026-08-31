@@ -28,7 +28,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 - ALWAYS: a session whose adapter declares a record reader and whose transcript records the requested branch in any record matches a branch search and reports the working directory recorded alongside that branch, whichever field path that record carries its working directory under ([property])
 - ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne ([compliance])
 - ALWAYS: byte-scan candidacy selects exactly the structurally matching transcripts for a literal-content selector, and never fewer than them for a branch selector ([property])
-- ALWAYS: the reach window search applies to its default candidate set is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
+- ALWAYS: the reach window search applies to its default candidate set bounds transcript file modification time and is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
 - ALWAYS: a Pi session without branch metadata matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch ([compliance])
 - NEVER: a transcript is structurally parsed for a content-only selector whose needle its byte scan did not find ([compliance])
 - NEVER: a selector-free search reads any transcript's full content ([compliance])
