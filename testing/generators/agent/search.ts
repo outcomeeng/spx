@@ -40,6 +40,12 @@ export interface GeneratedSinceWindowScenario {
   readonly sinceMs: number;
   readonly insideModifiedAtMs: number;
   readonly outsideModifiedAtMs: number;
+  /**
+   * Content timestamps inverted against the modification times, so evidence built on this
+   * scenario passes only where the modification time decides eligibility.
+   */
+  readonly insideContentTimestampMs: number;
+  readonly outsideContentTimestampMs: number;
   readonly nowMs: number;
 }
 
@@ -79,6 +85,8 @@ export function arbitrarySinceWindowScenario(): fc.Arbitrary<GeneratedSinceWindo
           sinceMs,
           insideModifiedAtMs: nowMs - insideAgeMs,
           outsideModifiedAtMs: nowMs - outsideAgeMs,
+          insideContentTimestampMs: nowMs - outsideAgeMs,
+          outsideContentTimestampMs: nowMs - insideAgeMs,
           nowMs,
         }))
     );
