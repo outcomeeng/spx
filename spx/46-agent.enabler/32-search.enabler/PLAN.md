@@ -7,6 +7,9 @@ Remaining work extends agent-session search after the branch-association behavio
 - Feed search results into resume only after the shared result shape and bounds are declared for that integration.
 - Introduce a two-pass scan for high-volume content and branch-evidence searches when observed transcript-store cost justifies it, or require `--all` before full-history command-evidence reads.
 - Declare lineage-based subagent association before mapping subagent transcripts back to top-level sessions.
+- Declare which recorded position wins when one transcript records the requested branch more
+  than once with differing working directories. The reader reports the first occurrence today;
+  no assertion states that, and a session that leaves a branch and returns is the case at stake.
 - Cover the interaction between per-record branch association and same-product worktree-root
   association for one session: a branch-bearing record whose working directory lies outside the
   product root but inside a branch-associated worktree root. Each association path carries its
