@@ -190,6 +190,18 @@ export async function writeCodexCompactStdoutConfig(
   );
 }
 
+/** Writes a config document whose `methodology` section fails typed resolution: `packageDir` is not a string. */
+export async function writeMalformedMethodologyConfig(productDir: string): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: false,
+      },
+    }),
+  );
+}
+
 /** Writes the payload product's config document declaring only `methodology.packageDir`. */
 export async function writeMethodologyOnlyConfig(
   productDir: string,

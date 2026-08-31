@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
@@ -13,6 +14,7 @@ import {
   runCompactSessionStartCli,
   withCompactSessionStartCliEnv,
   writeCodexCompactStdoutConfig,
+  writeMalformedMethodologyConfig,
   writeMethodologyOnlyConfig,
   writeResolvedCompactRecoveryPackage,
 } from "@testing/harnesses/hooks/compact-recovery";
@@ -67,6 +69,23 @@ describe("hook CLI compact stdout boundary", () => {
 
       expect(result.exitCode, result.stderr).toBe(0);
       expect(result.stdout).toBe(directiveText);
+    });
+  });
+
+  it("keeps process stdout empty with a diagnostic when the methodology configuration fails to resolve", async () => {
+    await withCompactSessionStartCliEnv(async (env) => {
+      await writeMalformedMethodologyConfig(env.worktreePath);
+      const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
+        env: {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: env.envFile,
+        },
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).toContain(METHODOLOGY_SECTION);
     });
   });
 
