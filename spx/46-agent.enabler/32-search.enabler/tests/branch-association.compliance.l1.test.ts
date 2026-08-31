@@ -11,4 +11,13 @@ describe("agent search — branch association scope boundary", () => {
 
     expect(observation.results.map((result) => result.sessionId)).not.toContain(scenario.foreignOnlySessionId);
   });
+
+  it("omits a session recording the branch only where the working directory is foreign", async () => {
+    const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
+    const observation = await searchMovingSessionStore(scenario, { branch: scenario.targetBranch });
+
+    expect(observation.results.map((result) => result.sessionId)).not.toContain(
+      scenario.outOfScopeBranchSessionId,
+    );
+  });
 });
