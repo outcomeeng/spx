@@ -14,7 +14,9 @@ import {
   type AgentSessionFileSystem,
   type AgentSessionHead,
   type AgentStoreFile,
+  CLAUDE_PROJECT_ENCODED_SEPARATOR,
   claudeCodeSessionStoreDir,
+  claudeProjectDirName,
   claudeTranscriptFiles,
   codexSessionStoreDir,
   collectJsonlFiles,
@@ -51,7 +53,10 @@ export interface AgentSearchFileSystem extends AgentSessionFileSystem {
 }
 
 interface AgentSearchAdapter {
-  readonly collectPaths: (options: AgentSearchOptions) => Promise<readonly string[]>;
+  readonly collectPaths: (
+    options: AgentSearchOptions,
+    acceptsClaudeDir: (dirName: string) => boolean,
+  ) => Promise<readonly string[]>;
   readonly parseHead: AgentHeadParser;
   readonly readRecords: TranscriptRecordReader | null;
   readonly acceptsTranscriptCommandEvidence: boolean;
@@ -67,11 +72,11 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
     acceptsCodexSubagentEvidence: true,
   },
   [AGENT_SESSION_KIND.CLAUDE_CODE]: {
-    collectPaths: (options) =>
+    collectPaths: (options, acceptsClaudeDir) =>
       claudeTranscriptFiles(
         claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
         options.fs,
-        acceptsEveryClaudeProjectDir,
+        acceptsClaudeDir,
       ),
     parseHead: parseClaudeHead,
     readRecords: parseClaudeTranscriptRecords,
@@ -123,7 +128,7 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
-  const paths = await adapter.collectPaths(options);
+  const paths = await adapter.collectPaths(options, claudeDirAdmission(options));
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -146,6 +151,24 @@ async function searchAgentStore(
     topLevelBranchAssociations,
     subagentBranchAssociations,
   );
+}
+
+/**
+ * A selector resolves from recorded content, so the store-directory name — which encodes
+ * only the opening working directory — must admit every candidate. A selector-free listing
+ * scopes by that same opening directory anyway, so there the name excludes nothing the
+ * scope check would keep.
+ */
+function claudeDirAdmission(options: AgentSearchOptions): (dirName: string) => boolean {
+  if (hasSearchSelector(options.query)) {
+    return acceptsEveryClaudeProjectDir;
+  }
+  const projectPrefixes = [options.productScopeRoot, ...(options.branchAssociatedWorktreeRoots ?? [])]
+    .map(claudeProjectDirName);
+  return (dirName) =>
+    projectPrefixes.some((projectPrefix) =>
+      dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`)
+    );
 }
 
 function acceptsEveryClaudeProjectDir(): boolean {
@@ -228,9 +251,9 @@ async function scanTranscript(
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
 ): Promise<ScannedTranscript | null> {
-  const content = adapter.readRecords === null && !needsTranscriptContent(options.query, adapter)
-    ? null
-    : await options.fs.readText(path).catch(() => null);
+  const content = requiresTranscriptContent(options.query, adapter)
+    ? await options.fs.readText(path).catch(() => null)
+    : null;
   if (content !== null && !transcriptCarriesSelectorEvidence(content, options.query)) {
     return null;
   }
@@ -357,9 +380,16 @@ function transcriptRecords(
   return adapter.readRecords(content);
 }
 
-function needsTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
+/**
+ * A selector-free listing resolves from opening metadata alone, so it never decodes a
+ * transcript. Only a selector that reads recorded content pays that cost.
+ */
+function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
+  if (!hasSearchSelector(query)) {
+    return false;
+  }
   return query.contentNeedles.length > 0
-    || (query.branch !== null && adapter.acceptsTranscriptCommandEvidence);
+    || (query.branch !== null && (adapter.readRecords !== null || adapter.acceptsTranscriptCommandEvidence));
 }
 
 /**
