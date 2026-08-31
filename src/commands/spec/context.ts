@@ -21,6 +21,7 @@ import {
   foundationCatalogPaths,
   parseFoundationResourceManifest,
 } from "@/lib/methodology/foundation-manifest";
+import { containedPackageResourcePath, defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
@@ -451,7 +452,11 @@ async function readMethodologyPayload(
   // path binds a read only when it resolves — through any symbolic link —
   // inside the installed package location, the same containment every
   // product-document read gets from the product root.
-  const corePath = await containedDocumentPath(resolvedPackageDir, manifest.value.core);
+  const corePath = await containedPackageResourcePath(
+    resolvedPackageDir,
+    manifest.value.core,
+    defaultMethodologyPackageFileSystem,
+  );
   if (corePath === undefined) {
     throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
   }
