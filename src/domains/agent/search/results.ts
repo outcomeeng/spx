@@ -251,10 +251,12 @@ async function scanTranscript(
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
 ): Promise<ScannedTranscript | null> {
-  const content = requiresTranscriptContent(options.query, adapter)
-    ? await options.fs.readText(path).catch(() => null)
-    : null;
-  if (content !== null && !transcriptCarriesSelectorEvidence(content, options.query)) {
+  // A content needle decides candidacy from raw bytes, so it is scanned before any
+  // structural read. A branch selector cannot be, so its content read waits until the
+  // opening metadata has had its chance to answer.
+  const scanFirst = options.query.contentNeedles.length > 0;
+  const scanned = scanFirst ? await options.fs.readText(path).catch(() => null) : null;
+  if (scanned !== null && !transcriptCarriesSelectorEvidence(scanned, options.query)) {
     return null;
   }
   const head = await options.fs.readHead(path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
@@ -262,7 +264,16 @@ async function scanTranscript(
     return null;
   }
   const core = adapter.parseHead(head);
-  return core === null || !core.interactive ? null : { core, content };
+  if (core === null || !core.interactive) {
+    return null;
+  }
+  if (scanned !== null || !requiresTranscriptContent(options.query, adapter)) {
+    return { core, content: scanned };
+  }
+  if (openingMetadataResolvesBranch(core, options.query)) {
+    return { core, content: null };
+  }
+  return { core, content: await options.fs.readText(path).catch(() => null) };
 }
 
 function recordCurrentMetadataBranchAssociation(
@@ -384,6 +395,11 @@ function transcriptRecords(
  * A selector-free listing resolves from opening metadata alone, so it never decodes a
  * transcript. Only a selector that reads recorded content pays that cost.
  */
+/** The opening record already names the branch, so no later position needs reading. */
+function openingMetadataResolvesBranch(core: AgentSessionHead, query: AgentSearchQuery): boolean {
+  return query.branch !== null && core.branch === query.branch;
+}
+
 function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
   if (!hasSearchSelector(query)) {
     return false;
