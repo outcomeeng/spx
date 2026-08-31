@@ -163,15 +163,22 @@ export function coreMatchesSearchScope(
   return cwdMatchesSearchScope(core.cwd, productScopeRoot, branchAssociatedWorktreeRoots);
 }
 
+/**
+ * `metadataPairsBranchWithCwd` says whether this agent's head resolves both values from one
+ * row. Where it does not, the branch it reports may belong to a different record than the
+ * working directory, so only the worktree-root association — which reads the working
+ * directory alone — remains sound.
+ */
 export function currentMetadataBranchAssociationCwd(
   core: AgentSessionHead,
   branch: string | null,
   branchAssociatedWorktreeRoots: readonly string[],
+  metadataPairsBranchWithCwd: boolean,
 ): string | null {
   if (branch === null) {
     return null;
   }
-  if (core.branch === branch) {
+  if (metadataPairsBranchWithCwd && core.branch === branch) {
     return core.cwd;
   }
   return branchAssociatedWorktreeRoots.some((root) => isPathInsideOrEqual(root, core.cwd)) ? core.cwd : null;
