@@ -15,3 +15,30 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## Branch search cost exceeds the product-level command bound
+
+`spx.product.md` asserts every CLI command completes in under 100ms once the CLI process is
+running. A branch-associated search over a large Claude Code store does not.
+
+Measured on a store of 7796 transcripts totalling 6.0 GB, searching one branch across the
+whole store:
+
+| Stage                                                            | Wall clock |
+| ---------------------------------------------------------------- | ---------- |
+| Before per-record association                                    | ~67s       |
+| After gating command evidence and record parsing on a byte check | ~45s       |
+| `rg -l <branch>` over the same bytes                             | ~2.5s      |
+
+The residual cost is decoding transcript bytes into JavaScript strings: branch evidence
+reaches the whole store by declared behavior, so every candidate transcript is read in full
+and decoded as UTF-8 before any needle check. Gating the structured parses removed the
+JSON-parse share; the decode share remains.
+
+**Resolution:** locate the needle without decoding the whole transcript — scan the raw
+buffer and decode only transcripts that hit. The two-pass scan named in
+[PLAN.md](PLAN.md) is the same work.
+
+**Skills:** `/apply`, `/code-typescript`, `/test-typescript`.
+
+**Revisit condition:** before the next changeset touching branch-evidence collection.
