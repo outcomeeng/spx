@@ -2531,14 +2531,14 @@ export async function searchSinceWindowStore(
   writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
     sessionId: scenario.insideSessionId,
     cwd: scenario.insideCwd,
-    timestamp: new Date(scenario.insideModifiedAtMs).toISOString(),
+    timestamp: new Date(scenario.insideContentTimestampMs).toISOString(),
     branch: scenario.branch,
     modifiedAtMs: scenario.insideModifiedAtMs,
   });
   writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
     sessionId: scenario.outsideSessionId,
     cwd: scenario.outsideCwd,
-    timestamp: new Date(scenario.outsideModifiedAtMs).toISOString(),
+    timestamp: new Date(scenario.outsideContentTimestampMs).toISOString(),
     branch: scenario.branch,
     modifiedAtMs: scenario.outsideModifiedAtMs,
   });
