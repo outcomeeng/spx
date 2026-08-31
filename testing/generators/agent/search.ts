@@ -146,12 +146,16 @@ export interface GeneratedMovingSessionScenario {
   /** A session recording neither the requested branch nor any working directory in the product. */
   readonly foreignOnlySessionId: string;
   readonly foreignOnlyRecords: ClaudeTranscriptRecords;
+  /** A session recording the requested branch only where the working directory is foreign. */
+  readonly outOfScopeBranchSessionId: string;
+  readonly outOfScopeBranchRecords: ClaudeTranscriptRecords;
   readonly nowMs: number;
 }
 
 export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMovingSessionScenario> {
   return fc
     .tuple(
+      arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
@@ -172,6 +176,7 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
         sessionId,
         decoySessionId,
         foreignOnlySessionId,
+        outOfScopeBranchSessionId,
         homeDir,
         productScopeRoot,
         foreignRoot,
@@ -230,6 +235,12 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             timestamp: stamp(0),
             branch: otherBranch,
           }];
+          // The branch appears only where the working directory is foreign, while the
+          // opening record sits in the product: the head pairs the two across records.
+          const outOfScopeBranchRecords: ClaudeTranscriptRecords = [
+            { cwd: branchRecordCwd, timestamp: stamp(0) },
+            { cwd: foreignCwd, timestamp: stamp(1), branch: targetBranch },
+          ];
           const foreignOnlyRecords: ClaudeTranscriptRecords = [{
             cwd: foreignCwd,
             timestamp: stamp(0),
@@ -250,6 +261,8 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             decoyRecords,
             foreignOnlySessionId,
             foreignOnlyRecords,
+            outOfScopeBranchSessionId,
+            outOfScopeBranchRecords,
             nowMs,
           };
         })

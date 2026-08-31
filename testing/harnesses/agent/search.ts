@@ -2401,6 +2401,7 @@ export interface MovingSessionSearchObservation {
   readonly sessionPath: string;
   readonly decoyPath: string;
   readonly foreignOnlyPath: string;
+  readonly outOfScopeBranchPath: string;
 }
 
 export async function searchMovingSessionStore(
@@ -2425,6 +2426,12 @@ export async function searchMovingSessionStore(
     modifiedAtMs: scenario.nowMs,
   });
 
+  const outOfScopeBranchPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.outOfScopeBranchSessionId,
+    records: scenario.outOfScopeBranchRecords,
+    modifiedAtMs: scenario.nowMs,
+  });
+
   const results = await searchAgentSessions({
     agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
     nowMs: scenario.nowMs,
@@ -2434,7 +2441,7 @@ export async function searchMovingSessionStore(
     query: agentSearchQueryFromOptions(query),
   });
 
-  return { results, fs, sessionPath, decoyPath, foreignOnlyPath };
+  return { results, fs, sessionPath, decoyPath, foreignOnlyPath, outOfScopeBranchPath };
 }
 
 /** The two-session since-window store searched under one reach window. */
