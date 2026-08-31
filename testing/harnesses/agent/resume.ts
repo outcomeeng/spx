@@ -138,6 +138,8 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
   private readonly textReadPathSet = new Set<string>();
+  private readonly readDirPathSet = new Set<string>();
+  private readonly statPathSet = new Set<string>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -153,6 +155,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
 
   async readDir(path: string): Promise<readonly AgentSessionDirEntry[]> {
     const root = resolve(path);
+    this.readDirPathSet.add(root);
     const names = new Map<string, AgentSessionDirEntry>();
     for (const filePath of this.files.keys()) {
       const relativePath = relative(root, filePath);
@@ -206,8 +209,18 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     return [...this.textReadPathSet];
   }
 
+  readDirPaths(): readonly string[] {
+    return [...this.readDirPathSet];
+  }
+
+  statPaths(): readonly string[] {
+    return [...this.statPathSet];
+  }
+
   async stat(path: string): Promise<{ readonly mtimeMs: number }> {
-    const file = this.files.get(resolve(path));
+    const resolved = resolve(path);
+    this.statPathSet.add(resolved);
+    const file = this.files.get(resolved);
     if (file === undefined) {
       throw new Error(`missing file: ${path}`);
     }

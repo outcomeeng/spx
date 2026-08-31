@@ -22,7 +22,7 @@ import {
   AGENT_TRANSCRIPT_TOOL_NAME,
   type AgentSearchMatchReason,
 } from "@/domains/agent/protocol";
-import { discoverAgentResumeCandidates } from "@/domains/agent/resume";
+import { claudeCodeSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
 import type { AgentResumeCandidate } from "@/domains/agent/resume";
 import {
   type AgentSearchQuery,
@@ -70,7 +70,9 @@ import {
   agentSearchWorktreeResetAddCommand,
   type GeneratedBetweenReachWindowsScenario,
   type GeneratedMovingSessionScenario,
+  type GeneratedSessionIdentityScenario,
   type GeneratedSinceWindowScenario,
+  type GeneratedUnsafeSessionIdScenario,
 } from "@testing/generators/agent/search";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
@@ -2520,6 +2522,96 @@ export async function searchMovingSessionStore(
   });
 
   return { results, fs, sessionPath, decoyPath, foreignOnlyPath, outOfScopeBranchPath };
+}
+
+export interface SessionIdentitySearchObservation {
+  readonly results: readonly AgentSearchResult[];
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly storeRoot: string;
+  readonly targetPath: string;
+  readonly projectDirs: readonly string[];
+}
+
+/** The addressed session filed under a foreign project directory, beside decoys in their own. */
+export async function searchSessionIdentityStore(
+  scenario: GeneratedSessionIdentityScenario,
+  query: AgentSearchQueryOptions,
+): Promise<SessionIdentitySearchObservation> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const targetPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.sessionId,
+    records: scenario.records,
+    modifiedAtMs: scenario.nowMs,
+  });
+  const productDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.productDecoySessionId,
+    records: scenario.productDecoyRecords,
+    modifiedAtMs: scenario.nowMs,
+  });
+  const foreignDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.foreignDecoySessionId,
+    records: scenario.foreignDecoyRecords,
+    modifiedAtMs: scenario.nowMs,
+  });
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    productScopeRoot: scenario.productScopeRoot,
+    branchAssociatedWorktreeRoots: [],
+    fs,
+    query: agentSearchQueryFromOptions(query),
+  });
+
+  return {
+    results,
+    fs,
+    storeRoot: claudeCodeSessionStoreDir(agentHomeDirsFromHomeDir(scenario.homeDir).claudeCode),
+    targetPath,
+    projectDirs: [targetPath, productDecoyPath, foreignDecoyPath].map((path) => dirname(path)),
+  };
+}
+
+export interface UnsafeSessionIdAttempt {
+  readonly unsafeSessionId: string;
+  readonly results: readonly AgentSearchResult[];
+  readonly readPaths: readonly string[];
+}
+
+export interface UnsafeSessionIdObservation {
+  readonly storeRoot: string;
+  readonly attempts: readonly UnsafeSessionIdAttempt[];
+}
+
+/** Every unsafe session id run against a store that holds one addressable session. */
+export async function searchUnsafeSessionIdStore(
+  scenario: GeneratedUnsafeSessionIdScenario,
+): Promise<UnsafeSessionIdObservation> {
+  const homeDirs = agentHomeDirsFromHomeDir(scenario.homeDir);
+  const attempts: UnsafeSessionIdAttempt[] = [];
+  for (const unsafeSessionId of scenario.unsafeSessionIds) {
+    const fs = new MemoryAgentSessionFileSystem();
+    writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
+      sessionId: scenario.sessionId,
+      cwd: scenario.cwd,
+      timestamp: new Date(scenario.nowMs).toISOString(),
+      modifiedAtMs: scenario.nowMs,
+    });
+    const results = await searchAgentSessions({
+      agentHomeDirs: homeDirs,
+      nowMs: scenario.nowMs,
+      productScopeRoot: scenario.productScopeRoot,
+      branchAssociatedWorktreeRoots: [],
+      fs,
+      query: agentSearchQueryFromOptions({ sessionId: unsafeSessionId, agent: AGENT_SESSION_KIND.CLAUDE_CODE }),
+    });
+    attempts.push({
+      unsafeSessionId,
+      results,
+      readPaths: [...fs.readDirPaths(), ...fs.statPaths(), ...fs.textReadPaths()],
+    });
+  }
+  return { storeRoot: claudeCodeSessionStoreDir(homeDirs.claudeCode), attempts };
 }
 
 /** The two-session since-window store searched under one reach window. */

@@ -277,6 +277,133 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
     );
 }
 
+/**
+ * A store whose target session opens outside the invocation product and is therefore filed
+ * under a foreign project directory, beside decoy sessions filed under their own directories
+ * so an enumeration of the store is distinguishable from an addressed lookup.
+ */
+export interface GeneratedSessionIdentityScenario {
+  readonly homeDir: string;
+  readonly productScopeRoot: string;
+  readonly foreignRoot: string;
+  readonly sessionId: string;
+  readonly records: ClaudeTranscriptRecords;
+  /** The working directory the result reports: an in-product record when one exists, else the opening one. */
+  readonly expectedCwd: string;
+  readonly productDecoySessionId: string;
+  readonly productDecoyRecords: ClaudeTranscriptRecords;
+  readonly foreignDecoySessionId: string;
+  readonly foreignDecoyRecords: ClaudeTranscriptRecords;
+  readonly nowMs: number;
+}
+
+export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessionIdentityScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentResumeNowMs(),
+      fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
+      fc.boolean(),
+      fc.boolean(),
+    )
+    .chain((
+      [
+        sessionId,
+        productDecoySessionId,
+        foreignDecoySessionId,
+        homeDir,
+        productScopeRoot,
+        foreignRoot,
+        nowMs,
+        trailing,
+        recordsProductCwd,
+        productCwdUnderPayload,
+      ],
+    ) =>
+      fc
+        .tuple(
+          arbitraryAgentSessionCwd(foreignRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(foreignRoot),
+        )
+        .map(([openingCwd, productCwd, decoyProductCwd, decoyForeignCwd]) => {
+          const stamp = (index: number): string =>
+            new Date(nowMs - (trailing + 1 - index) * RECORD_INTERVAL_MS).toISOString();
+          // The opening record decides the project directory the store files this
+          // transcript under, so it stays outside the invocation product.
+          const opening: ClaudeTranscriptRecord = { cwd: openingCwd, timestamp: stamp(0) };
+          const later: ClaudeTranscriptRecord[] = Array.from({ length: trailing }, (_unused, index) => ({
+            cwd: recordsProductCwd ? productCwd : openingCwd,
+            timestamp: stamp(index + 1),
+            cwdUnderPayload: recordsProductCwd ? productCwdUnderPayload : false,
+          }));
+          const recordsProductPosition = recordsProductCwd && trailing > 0;
+          return {
+            homeDir,
+            productScopeRoot,
+            foreignRoot,
+            sessionId,
+            records: [opening, ...later] as ClaudeTranscriptRecords,
+            expectedCwd: recordsProductPosition ? productCwd : openingCwd,
+            productDecoySessionId,
+            productDecoyRecords: [{ cwd: decoyProductCwd, timestamp: stamp(0) }] as ClaudeTranscriptRecords,
+            foreignDecoySessionId,
+            foreignDecoyRecords: [{ cwd: decoyForeignCwd, timestamp: stamp(0) }] as ClaudeTranscriptRecords,
+            nowMs,
+          };
+        })
+    );
+}
+
+const PARENT_DIRECTORY_SEGMENT = "..";
+const POSIX_PATH_SEPARATOR = "/";
+const WINDOWS_PATH_SEPARATOR = "\\";
+
+/** A store holding one addressable session, plus session ids that name no single store entry. */
+export interface GeneratedUnsafeSessionIdScenario {
+  readonly homeDir: string;
+  readonly productScopeRoot: string;
+  readonly sessionId: string;
+  readonly cwd: string;
+  readonly unsafeSessionIds: readonly string[];
+  readonly nowMs: number;
+}
+
+export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafeSessionIdScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentResumeNowMs(),
+      arbitraryDomainLiteral(),
+      arbitraryDomainLiteral(),
+    )
+    .chain(([sessionId, homeDir, productScopeRoot, nowMs, head, tail]) =>
+      fc.tuple(arbitraryAgentSessionCwd(productScopeRoot)).map(([cwd]) => ({
+        homeDir,
+        productScopeRoot,
+        sessionId,
+        cwd,
+        unsafeSessionIds: [
+          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
+          `${head}${POSIX_PATH_SEPARATOR}${tail}`,
+          `${head}${WINDOWS_PATH_SEPARATOR}${tail}`,
+          `${POSIX_PATH_SEPARATOR}${head}`,
+          PARENT_DIRECTORY_SEGMENT,
+          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
+        ],
+        nowMs,
+      }))
+    );
+}
+
 export interface AgentSearchBranchCommandEvidenceCase {
   readonly command: string;
   readonly expected: boolean;
