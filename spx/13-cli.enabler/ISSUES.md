@@ -13,3 +13,22 @@
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** once the per-node terminal-escaping issues are cleared.
+
+## Error diagnostics render a doubled `Error:` prefix for base-class errors
+
+Descriptor error handlers compose a literal `Error:` prefix around a message that already interpolates `error.name`, so a plain `Error` renders `Error: Error: <message>`. The sites are `handleError` in `src/interfaces/cli/agent.ts` and the caught-error branch at `src/interfaces/cli/session.ts:381`, both shaped `` `Error: ${error.name}: ${error.message}` ``. The `error.name` clause carries information only for a subclass such as `TypeError`; for the base class it repeats the literal.
+
+Observed through the published executable:
+
+```bash
+spx agent search --since abc
+# stderr: Error: Error: agent search since must be a positive safe-integer duration: abc
+spx agent search --limit abc
+# stderr: Error: Error: agent search limit must be a positive integer: abc
+```
+
+**Impact:** every base-class error diagnostic on these two domains reads with a duplicated prefix. Exit code, stream routing, and message content are correct, so no gate objects.
+
+**Resolution:** compose the name segment only when it differs from the literal prefix — emit `error.name` when the error is a subclass and omit it for the base class — then cover the composition with evidence under the node's existing Commander-diagnostics compliance assertion, which already governs what these handlers echo to stderr.
+
+**Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
