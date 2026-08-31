@@ -164,6 +164,8 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
       fc.integer({ min: MIN_LEADING_RECORDS, max: MAX_LEADING_RECORDS }),
       fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
       fc.boolean(),
+      fc.boolean(),
+      fc.boolean(),
     )
     .chain((
       [
@@ -179,6 +181,8 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
         leading,
         trailing,
         branchCwdUnderPayload,
+        openingInsideProduct,
+        openingRecordsCarryBranch,
       ],
     ) =>
       fc
@@ -186,22 +190,28 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
           arbitraryAgentSessionCwd(productScopeRoot),
           arbitraryAgentSessionCwd(foreignRoot),
           arbitraryDomainLiteral(),
+          arbitraryAgentSessionCwd(productScopeRoot),
         )
-        .map(([branchRecordCwd, foreignCwd, needleLiteral]) => {
+        .map(([branchRecordCwd, foreignCwd, needleLiteral, secondProductCwd]) => {
           // Bound to this session's id so no sibling transcript in the store can
           // carry the needle by coincidence.
           const contentNeedle = `${needleLiteral}${NEEDLE_JOINER}${sessionId}`;
           const stamp = (index: number): string =>
             new Date(nowMs - (leading + trailing - index) * RECORD_INTERVAL_MS).toISOString();
+          // The metadata head resolves each field from the first row carrying it, so a
+          // transcript whose leading rows record no branch pairs a later row's branch with
+          // the opening row's working directory.
+          const openingCwd = openingInsideProduct ? secondProductCwd : foreignCwd;
+          const openingBranch = openingRecordsCarryBranch ? otherBranch : undefined;
           const opening: ClaudeTranscriptRecord = {
-            cwd: foreignCwd,
+            cwd: openingCwd,
             timestamp: stamp(0),
-            branch: otherBranch,
+            branch: openingBranch,
           };
           const beforeBranch: ClaudeTranscriptRecord[] = Array.from({ length: leading - 1 }, (_unused, index) => ({
-            cwd: foreignCwd,
+            cwd: openingCwd,
             timestamp: stamp(index + 1),
-            branch: otherBranch,
+            branch: openingBranch,
           }));
           const branchRecord: ClaudeTranscriptRecord = {
             cwd: branchRecordCwd,
