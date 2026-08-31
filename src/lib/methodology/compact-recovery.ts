@@ -6,21 +6,19 @@
  * @module lib/methodology/compact-recovery
  */
 
-import { join, resolve } from "node:path";
-
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
 import {
   formatCompactRecoveryEntryAbsentError,
-  formatFoundationManifestInvalidError,
-  formatFoundationManifestUnreadableError,
   formatFoundationPackageUnconfiguredError,
   formatFoundationResourceUnreadableError,
-  FOUNDATION_MANIFEST_RELATIVE_PATH,
-  parseFoundationResourceManifest,
 } from "./foundation-manifest";
-import { containedPackageResourcePath, type MethodologyPackageFileSystem } from "./package-resource";
+import {
+  containedPackageResourcePath,
+  type MethodologyPackageFileSystem,
+  resolveFoundationManifest,
+} from "./package-resource";
 
 export interface CompactRecoveryResolutionOptions {
   /** The payload product directory the methodology configuration was read from. */
@@ -44,19 +42,10 @@ export async function resolveCompactRecoveryDirective(
       error: formatFoundationPackageUnconfiguredError(METHODOLOGY_SECTION, METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR),
     };
   }
-  const resolvedPackageDir = resolve(options.productDir, options.packageDir);
-  const manifestPath = join(resolvedPackageDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
-  let manifestText: string;
-  try {
-    manifestText = await options.fs.readFile(manifestPath);
-  } catch {
-    return { ok: false, error: formatFoundationManifestUnreadableError(manifestPath) };
-  }
-  const manifest = parseFoundationResourceManifest(manifestText);
-  if (!manifest.ok) {
-    return { ok: false, error: formatFoundationManifestInvalidError(manifestPath, manifest.error) };
-  }
-  const entry = manifest.value.compactRecovery;
+  const resolved = await resolveFoundationManifest(options.productDir, options.packageDir, options.fs);
+  if (!resolved.ok) return resolved;
+  const { packageDir: resolvedPackageDir, manifestPath, manifest } = resolved.value;
+  const entry = manifest.compactRecovery;
   if (entry === undefined) {
     return { ok: false, error: formatCompactRecoveryEntryAbsentError(manifestPath) };
   }

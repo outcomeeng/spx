@@ -13,15 +13,15 @@ import {
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
 import {
-  formatFoundationManifestInvalidError,
-  formatFoundationManifestUnreadableError,
   formatFoundationPackageUnconfiguredError,
   formatFoundationResourceUnreadableError,
-  FOUNDATION_MANIFEST_RELATIVE_PATH,
   foundationCatalogPaths,
-  parseFoundationResourceManifest,
 } from "@/lib/methodology/foundation-manifest";
-import { containedPackageResourcePath, defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
+import {
+  containedPackageResourcePath,
+  defaultMethodologyPackageFileSystem,
+  resolveFoundationManifest,
+} from "@/lib/methodology/package-resource";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
@@ -436,45 +436,36 @@ async function readMethodologyPayload(
       formatFoundationPackageUnconfiguredError(METHODOLOGY_SECTION, METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR),
     );
   }
-  const resolvedPackageDir = resolve(productDir, packageDir);
-  const manifestPath = join(resolvedPackageDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
-  let manifestText: string;
-  try {
-    manifestText = await readFile(manifestPath, "utf8");
-  } catch {
-    throw new Error(formatFoundationManifestUnreadableError(manifestPath));
-  }
-  const manifest = parseFoundationResourceManifest(manifestText);
-  if (!manifest.ok) {
-    throw new Error(formatFoundationManifestInvalidError(manifestPath, manifest.error));
-  }
+  const resolved = await resolveFoundationManifest(productDir, packageDir, defaultMethodologyPackageFileSystem);
+  if (!resolved.ok) throw new Error(resolved.error);
+  const { packageDir: resolvedPackageDir, manifestPath, manifest } = resolved.value;
   // The manifest is validated data, not a trusted read authority: the core
   // path binds a read only when it resolves — through any symbolic link —
   // inside the installed package location, the same containment every
   // product-document read gets from the product root.
   const corePath = await containedPackageResourcePath(
     resolvedPackageDir,
-    manifest.value.core,
+    manifest.core,
     defaultMethodologyPackageFileSystem,
   );
   if (corePath === undefined) {
-    throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
+    throw new Error(formatFoundationResourceUnreadableError(manifest.core, manifestPath));
   }
   let coreBytes: Buffer;
   try {
     coreBytes = await readFile(corePath);
   } catch {
-    throw new Error(formatFoundationResourceUnreadableError(manifest.value.core, manifestPath));
+    throw new Error(formatFoundationResourceUnreadableError(manifest.core, manifestPath));
   }
   return {
     core: {
-      path: manifest.value.core,
+      path: manifest.core,
       roles: targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
-      content: decodeContextDocumentOrThrow(manifest.value.core, coreBytes),
+      content: decodeContextDocumentOrThrow(manifest.core, coreBytes),
       digest: specContextDigest(coreBytes),
       bytes: coreBytes.byteLength,
     },
-    catalog: foundationCatalogPaths(manifest.value),
+    catalog: foundationCatalogPaths(manifest),
   };
 }
 
