@@ -9,9 +9,18 @@
  */
 
 import { readFile as nodeReadFile, realpath as nodeRealPath } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 
+import type { Result } from "@/config/types";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+
+import {
+  formatFoundationManifestInvalidError,
+  formatFoundationManifestUnreadableError,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
+  type FoundationResourceManifest,
+  parseFoundationResourceManifest,
+} from "./foundation-manifest";
 
 export const METHODOLOGY_RESOURCE_ENCODING = "utf8";
 
@@ -24,6 +33,39 @@ export const defaultMethodologyPackageFileSystem: MethodologyPackageFileSystem =
   realPath: nodeRealPath,
   readFile: (path) => nodeReadFile(path, METHODOLOGY_RESOURCE_ENCODING),
 };
+
+/** A resolved installed-package manifest: the package root, the manifest's location, and its validated content. */
+export interface ResolvedFoundationManifest {
+  readonly packageDir: string;
+  readonly manifestPath: string;
+  readonly manifest: FoundationResourceManifest;
+}
+
+/**
+ * Resolves the installed methodology package's foundation-resource manifest
+ * from the configured package location: package-root resolution, the manifest
+ * path, the manifest read, and schema validation, with each failure named by
+ * its manifest diagnostic.
+ */
+export async function resolveFoundationManifest(
+  productDir: string,
+  packageDir: string,
+  fs: MethodologyPackageFileSystem,
+): Promise<Result<ResolvedFoundationManifest>> {
+  const resolvedPackageDir = resolve(productDir, packageDir);
+  const manifestPath = join(resolvedPackageDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
+  let manifestText: string;
+  try {
+    manifestText = await fs.readFile(manifestPath);
+  } catch {
+    return { ok: false, error: formatFoundationManifestUnreadableError(manifestPath) };
+  }
+  const manifest = parseFoundationResourceManifest(manifestText);
+  if (!manifest.ok) {
+    return { ok: false, error: formatFoundationManifestInvalidError(manifestPath, manifest.error) };
+  }
+  return { ok: true, value: { packageDir: resolvedPackageDir, manifestPath, manifest: manifest.value } };
+}
 
 /**
  * The canonical absolute location of a package resource, or undefined when the
