@@ -144,6 +144,9 @@ const SEARCH_SAMPLE = {
   FALLBACK_SESSION_ID: 37,
   FALLBACK_FOREIGN_SESSION_ID: 38,
   MAPPING_SINCE: 37,
+  SINCE_CLI_HOME_DIR: 34,
+  SINCE_CLI_PRODUCT_ROOT: 35,
+  SINCE_CLI_NOW_MS: 36,
   REJECTED_SINCE_CWD: 38,
   REJECTED_SINCE_DURATIONS: 39,
   LIMIT_CWD: 40,
@@ -784,6 +787,81 @@ export async function withAgentSearchUnsafeLimitEvidence(
     stderr: stderr.join(""),
     unsafeLimit,
     sanitizedLimit: sanitizeCliArgument(unsafeLimit),
+  });
+}
+
+/** The since duration crossing the real CLI string parser, not a pre-parsed millisecond value. */
+export async function withAgentSearchSinceCliEvidence(
+  callback: (evidence: {
+    readonly records: readonly Record<string, unknown>[];
+    readonly insideSessionId: string;
+    readonly outsideSessionId: string;
+    readonly sinceText: string;
+  }) => void,
+): Promise<void> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const homeDir = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.SINCE_CLI_HOME_DIR);
+  const productScopeRoot = sampleAgentResumeValue(
+    arbitraryAgentWorktreeRoot(),
+    SEARCH_SAMPLE.SINCE_CLI_PRODUCT_ROOT,
+  );
+  const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), SEARCH_SAMPLE.SINCE_CLI_NOW_MS);
+  const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), SEARCH_SAMPLE.MAPPING_SINCE);
+  const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
+  const insideSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.MAPPING_SESSION_ID);
+  const outsideSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    SEARCH_SAMPLE.PRODUCT_WIDE_FOREIGN_SESSION_ID,
+  );
+  const insideModifiedAtMs = nowMs - Math.floor(since.durationMs / 2);
+  const outsideModifiedAtMs = nowMs - since.durationMs * 2;
+  writeClaudeProjectTranscriptFile(fs, homeDir, {
+    sessionId: insideSessionId,
+    cwd: sampleAgentResumeValue(arbitraryAgentSessionCwd(productScopeRoot), SEARCH_SAMPLE.CLAUDE_CWD),
+    timestamp: new Date(insideModifiedAtMs).toISOString(),
+    branch,
+    modifiedAtMs: insideModifiedAtMs,
+  });
+  writeClaudeProjectTranscriptFile(fs, homeDir, {
+    sessionId: outsideSessionId,
+    cwd: sampleAgentResumeValue(arbitraryAgentSessionCwd(productScopeRoot), SEARCH_SAMPLE.CODEX_CWD),
+    timestamp: new Date(outsideModifiedAtMs).toISOString(),
+    branch,
+    modifiedAtMs: outsideModifiedAtMs,
+  });
+
+  const stdout: string[] = [];
+  const program = createCliProgram({
+    domains: [
+      createAgentDomain({
+        searchDeps: {
+          fs,
+          agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
+          nowMs: () => nowMs,
+          resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
+          resolveBranchAssociatedWorktreeRoots: async () => [],
+        },
+      }),
+    ],
+    processCwd: () => productScopeRoot,
+    writeStdout: (output) => stdout.push(output),
+  });
+
+  await program.parseAsync([
+    AGENT_CLI.commandName,
+    AGENT_CLI.searchCommandName,
+    AGENT_CLI.flags.branch,
+    branch,
+    AGENT_CLI.flags.since,
+    since.text,
+    AGENT_CLI.flags.json,
+  ], { from: SPX_COMMANDER_PARSE_SOURCE });
+
+  callback({
+    records: JSON.parse(stdout.join("")) as readonly Record<string, unknown>[],
+    insideSessionId,
+    outsideSessionId,
+    sinceText: since.text,
   });
 }
 
