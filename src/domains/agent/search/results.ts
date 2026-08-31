@@ -215,8 +215,8 @@ async function collectMatchingSessions(
       adapter,
       topLevelBranchAssociations,
       subagentBranchAssociations,
-      currentMetadataBranchAssociationCwds.get(core.sessionId)
-        ?? recordedBranchAssociationCwd(records, options),
+      recordedBranchAssociationCwd(records, options)
+        ?? currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
       content,
     );
     if (match === null) continue;
@@ -270,7 +270,7 @@ async function scanTranscript(
   if (scanned !== null || !requiresTranscriptContent(options.query, adapter)) {
     return { core, content: scanned };
   }
-  if (openingMetadataResolvesBranch(core, options.query)) {
+  if (adapter.readRecords === null && openingMetadataResolvesBranch(core, options.query)) {
     return { core, content: null };
   }
   return { core, content: await options.fs.readText(path).catch(() => null) };
@@ -391,7 +391,11 @@ function transcriptRecords(
   return adapter.readRecords(content);
 }
 
-/** The opening record already names the branch, so no later position needs reading. */
+/**
+ * The metadata head names the branch. This answers only where one row supplies both the
+ * branch and the working directory; an adapter that declares a record reader scans the
+ * records instead, because its head resolves each field from the first row carrying it.
+ */
 function openingMetadataResolvesBranch(core: AgentSessionHead, query: AgentSearchQuery): boolean {
   return query.branch !== null && core.branch === query.branch;
 }
