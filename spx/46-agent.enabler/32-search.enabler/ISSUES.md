@@ -16,7 +16,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
 
-## Branch search cost exceeds the product-level command bound
+## Selector search cost exceeds the product-level command bound
 
 `spx.product.md` asserts every CLI command completes in under 100ms once the CLI process is
 running. A branch-associated search over a large Claude Code store does not.
@@ -30,14 +30,13 @@ whole store:
 | After gating command evidence and record parsing on a byte check | ~45s       |
 | `rg -l <branch>` over the same bytes                             | ~2.5s      |
 
-The residual cost is decoding transcript bytes into JavaScript strings: branch evidence
-reaches the whole store by declared behavior, so every candidate transcript is read in full
-and decoded as UTF-8 before any needle check. Gating the structured parses removed the
-JSON-parse share; the decode share remains.
+The residual cost is decoding transcript bytes into JavaScript strings. Gating the structured
+parses removed the JSON-parse share; the decode share remains. Branch evidence is the extreme
+because it reaches past the reach window by declared behavior, so it decodes all history
+rather than the window.
 
-This bound applies to a branch selector alone. A selector-free listing decodes nothing and a
-content selector decodes only within the reach window, both covered by
-[tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts).
+A selector-free listing decodes nothing, which
+[tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces.
 
 **Resolution:** locate the needle without decoding the whole transcript — scan the raw
 buffer and decode only transcripts that hit. The two-pass scan named in
