@@ -459,7 +459,7 @@ export async function collectJsonlFiles(root: string, fs: AgentSessionFileSystem
 export function isRecentAgentSessionMtime(
   modifiedAtMs: number,
   nowMs: number,
-  recentWindowMs = AGENT_RESUME_RECENT_WINDOW_MS,
+  recentWindowMs: number,
 ): boolean {
   return modifiedAtMs <= nowMs && nowMs - modifiedAtMs <= recentWindowMs;
 }

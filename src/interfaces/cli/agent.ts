@@ -99,6 +99,7 @@ export interface AgentSearchCliOptions {
   readonly branch?: string;
   readonly agent?: string;
   readonly all?: boolean;
+  readonly since?: string;
   readonly limit?: string;
 }
 
@@ -145,10 +146,12 @@ function parseSearchLimit(value: string): number {
   return parsed;
 }
 
-function parseResumeSince(value: string): number {
+function parseAgentSinceDuration(commandName: string, value: string): number {
   const parsed = parseDuration(value);
   if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0 || !Number.isSafeInteger(parsed)) {
-    throw new Error(`agent resume since must be a positive safe-integer duration: ${sanitizeCliArgument(value)}`);
+    throw new Error(
+      `agent ${commandName} since must be a positive safe-integer duration: ${sanitizeCliArgument(value)}`,
+    );
   }
   return parsed;
 }
@@ -170,6 +173,9 @@ function searchQueryFromOptions(options: AgentSearchCliOptions): AgentSearchQuer
     branch: options.branch,
     agent: options.agent === undefined ? undefined : parseSearchAgentKind(options.agent),
     all: options.all,
+    sinceMs: options.since === undefined
+      ? undefined
+      : parseAgentSinceDuration(AGENT_CLI.searchCommandName, options.since),
     limit: options.limit === undefined ? AGENT_SEARCH_DEFAULT_LIMIT : parseSearchLimit(options.limit),
   };
 }
@@ -226,7 +232,9 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
                 cwd: productContext.effectiveInvocationDir,
                 fallbackWorktreeRoot: productContext.productDir,
                 scope: resumeScopeFromOptions(options),
-                sinceMs: options.since === undefined ? undefined : parseResumeSince(options.since),
+                sinceMs: options.since === undefined
+                  ? undefined
+                  : parseAgentSinceDuration(AGENT_CLI.resumeCommandName, options.since),
                 deps: resolvedDeps.resumeDeps,
               };
 
@@ -254,6 +262,7 @@ export function createAgentDomain(deps: Partial<AgentCliDependencies> = {}): Dom
         .option(AGENT_CLI.optionArgs.branch, "Search by branch association")
         .option(AGENT_CLI.optionArgs.agent, "Search only one agent kind")
         .option(AGENT_CLI.flags.all, "Include sessions outside the recent-session window")
+        .option(AGENT_CLI.optionArgs.since, "Include only sessions active within the duration")
         .option(AGENT_CLI.optionArgs.limit, "Maximum number of results")
         .option(AGENT_CLI.flags.json, "Print matching sessions as JSON")
         .action(async (options: AgentSearchCliOptions) => {

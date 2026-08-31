@@ -17,6 +17,7 @@ export interface AgentSearchQuery {
   readonly branch: string | null;
   readonly agent: AgentSearchSessionKind | null;
   readonly includeAll: boolean;
+  readonly sinceMs: number | null;
   readonly limit: number;
 }
 
@@ -27,6 +28,7 @@ export interface AgentSearchQueryOptions {
   readonly branch?: string;
   readonly agent?: AgentSearchSessionKind;
   readonly all?: boolean;
+  readonly sinceMs?: number;
   readonly limit?: number;
 }
 
@@ -51,6 +53,7 @@ export function agentSearchQueryFromOptions(options: AgentSearchQueryOptions): A
     branch: options.branch ?? null,
     agent: options.agent ?? null,
     includeAll: options.all === true,
+    sinceMs: options.sinceMs ?? null,
     limit: options.limit ?? AGENT_SEARCH_DEFAULT_LIMIT,
   };
 }
