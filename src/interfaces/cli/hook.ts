@@ -61,7 +61,7 @@ interface HookExecutionContext {
 
 function resolveHookCliAgent(env: HookSessionStartEnv): Agent {
   if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT.CODEX;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT.CLAUDE_CODE;
+  if (env[HOOK_SESSION_START_ENV.CLAUDE_CODE_SESSION_ID]?.trim()) return AGENT.CLAUDE_CODE;
   if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT.CLAUDE_CODE;
   return AGENT.CODEX;
 }

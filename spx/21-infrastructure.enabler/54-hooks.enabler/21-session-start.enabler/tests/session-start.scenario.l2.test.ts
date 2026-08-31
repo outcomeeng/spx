@@ -18,7 +18,7 @@ describe("hook CLI session-start boundary", () => {
       expect(evidence.claim?.startedAt).toBe(evidence.startedAt);
       expect(evidence.envContent.startsWith(evidence.originalEnvLine)).toBe(true);
       expect(evidence.envContent).toContain(
-        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID}=${evidence.sessionId}`,
+        `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.SPX_AGENT_SESSION_ID}=${evidence.sessionId}`,
       );
       expect(evidence.envContent).toContain(
         `${HOOK_ENV_FILE.EXPORT_PREFIX}${HOOK_SESSION_START_ENV.CLAUDE_PROJECT_DIR}=`,
