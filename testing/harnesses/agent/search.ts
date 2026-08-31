@@ -52,6 +52,7 @@ import {
   arbitraryAgentBranch,
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeRecentOffsetMs,
+  arbitraryAgentResumeSinceDuration,
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
@@ -138,6 +139,7 @@ const SEARCH_SAMPLE = {
   FALLBACK_PICKUP_ID: 36,
   FALLBACK_SESSION_ID: 37,
   FALLBACK_FOREIGN_SESSION_ID: 38,
+  MAPPING_SINCE: 37,
   REJECTED_SINCE_CWD: 38,
   REJECTED_SINCE_DURATIONS: 39,
   LIMIT_CWD: 40,
@@ -1051,6 +1053,7 @@ export function withAgentSearchOptionMappingEvidence(
     readonly branch: { readonly query: AgentSearchQuery; readonly branch: string };
     readonly agent: AgentSearchQuery;
     readonly limit: { readonly query: AgentSearchQuery; readonly limit: number };
+    readonly since: { readonly query: AgentSearchQuery; readonly sinceMs: number };
     readonly all: AgentSearchQuery;
   }) => void,
 ): void {
@@ -1059,6 +1062,7 @@ export function withAgentSearchOptionMappingEvidence(
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), SEARCH_SAMPLE.MAPPING_SESSION_ID);
   const branch = sampleAgentResumeValue(arbitraryAgentBranch(), SEARCH_SAMPLE.MAPPING_BRANCH);
   const explicitLimit = AGENT_SEARCH_DEFAULT_LIMIT + 1;
+  const since = sampleAgentResumeValue(arbitraryAgentResumeSinceDuration(), SEARCH_SAMPLE.MAPPING_SINCE);
   callback({
     pickup: { query: agentSearchQueryFromOptions({ pickupId }), pickupId },
     contains: { query: agentSearchQueryFromOptions({ contains }), literal: contains },
@@ -1066,6 +1070,7 @@ export function withAgentSearchOptionMappingEvidence(
     branch: { query: agentSearchQueryFromOptions({ branch }), branch },
     agent: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CLAUDE_CODE }),
     limit: { query: agentSearchQueryFromOptions({ limit: explicitLimit }), limit: explicitLimit },
+    since: { query: agentSearchQueryFromOptions({ sinceMs: since.durationMs }), sinceMs: since.durationMs },
     all: agentSearchQueryFromOptions({ all: true }),
   });
 }
