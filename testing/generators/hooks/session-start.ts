@@ -29,3 +29,10 @@ export function arbitraryCompactDirectiveText(): Arbitrary<string> {
     )
     .map((lines) => lines.join(DIRECTIVE_LINE_SEPARATOR) + DIRECTIVE_LINE_SEPARATOR);
 }
+
+const UTF8_BYTE_ORDER_MARK = "\ufeff";
+
+/** Directive text opening with a UTF-8 byte-order mark: the byte-fidelity boundary a lossy decode strips. */
+export function arbitraryBomPrefixedCompactDirectiveText(): Arbitrary<string> {
+  return arbitraryCompactDirectiveText().map((text) => UTF8_BYTE_ORDER_MARK + text);
+}
