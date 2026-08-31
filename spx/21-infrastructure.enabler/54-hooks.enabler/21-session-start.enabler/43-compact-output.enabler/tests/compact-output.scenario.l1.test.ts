@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   HOOK_SESSION_START_SOURCE,
@@ -13,7 +12,17 @@ import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
+import { defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
+import { arbitraryCompactDirectiveText } from "@testing/generators/hooks/session-start";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import {
+  COMPACT_RECOVERY_FIXTURE_VARIANT,
+  type CompactRecoveryPackageFixture,
+  createRecordingCompactDirectiveResolver,
+  withCompactRecoveryPackage,
+} from "@testing/harnesses/hooks/compact-recovery";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
 interface CompactOutputScenarioInput {
@@ -21,6 +30,7 @@ interface CompactOutputScenarioInput {
   readonly compactStdout: boolean;
   readonly env: HookSessionStartEnv;
   readonly envFile?: string;
+  readonly resolveCompactDirective: (productDir: string) => ReturnType<typeof resolveCompactRecoveryDirective>;
 }
 
 function compactHookContent(env: WorktreePoolEnv): string {
@@ -28,6 +38,15 @@ function compactHookContent(env: WorktreePoolEnv): string {
     [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
     [HOOK_SESSION_START_PAYLOAD.SOURCE]: HOOK_SESSION_START_SOURCE.COMPACT,
   });
+}
+
+function fixtureDirectiveResolver(fixture: CompactRecoveryPackageFixture) {
+  return () =>
+    resolveCompactRecoveryDirective({
+      productDir: fixture.productDir,
+      packageDir: fixture.packageDir,
+      fs: defaultMethodologyPackageFileSystem,
+    });
 }
 
 async function runCompactOutputScenario(env: WorktreePoolEnv, input: CompactOutputScenarioInput) {
@@ -41,6 +60,7 @@ async function runCompactOutputScenario(env: WorktreePoolEnv, input: CompactOutp
     gitDeps: defaultGitDependencies,
     worktreesDir: env.worktreesDir,
     processTable: env.processTable,
+    resolveCompactDirective: input.resolveCompactDirective,
     selfPid: env.holder.pid,
     env: input.env,
   });
@@ -53,12 +73,16 @@ describe("hook session-start compact output", () => {
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
     const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const recording = createRecordingCompactDirectiveResolver(
+      sampleGeneratedValue(arbitraryCompactDirectiveText()),
+    );
 
     await withWorktreePool({ worktreeName, holder }, async (env) => {
       const envFile = join(env.container, envFileName);
       const result = await runCompactOutputScenario(env, {
         claimRandomBytes,
         compactStdout: false,
+        resolveCompactDirective: recording.resolver,
         env: {
           [CONTROLLING_PID_ENV]: String(env.holder.pid),
           [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
@@ -73,27 +97,34 @@ describe("hook session-start compact output", () => {
     });
   });
 
-  it("emits the compact foundation directive when compact stdout policy is enabled", async () => {
+  it("emits the resolved compact-recovery directive bytes when compact stdout policy is enabled", async () => {
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
 
-    await withWorktreePool({ worktreeName, holder }, async (env) => {
-      const result = await runCompactOutputScenario(env, {
-        claimRandomBytes,
-        compactStdout: true,
-        env: {
-          [CONTROLLING_PID_ENV]: String(env.holder.pid),
-          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
-        },
-        envFile: join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName())),
-      });
+    await withCompactRecoveryPackage(
+      { directiveText, variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOLVED },
+      async (fixture) => {
+        await withWorktreePool({ worktreeName, holder }, async (env) => {
+          const result = await runCompactOutputScenario(env, {
+            claimRandomBytes,
+            compactStdout: true,
+            resolveCompactDirective: fixtureDirectiveResolver(fixture),
+            env: {
+              [CONTROLLING_PID_ENV]: String(env.holder.pid),
+              [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: sessionId,
+            },
+            envFile: join(env.container, sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName())),
+          });
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) throw new Error(result.error);
-      expect(result.value.claimed).toBe(true);
-      expect(result.value.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
-    });
+          expect(result.ok).toBe(true);
+          if (!result.ok) throw new Error(result.error);
+          expect(result.value.claimed).toBe(true);
+          expect(result.value.stdout).toBe(fixture.directiveText);
+        });
+      },
+    );
   });
 });

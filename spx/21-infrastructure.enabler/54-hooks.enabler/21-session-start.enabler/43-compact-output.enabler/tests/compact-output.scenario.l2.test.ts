@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILENAMES } from "@/config/index";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   AGENT,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   HARNESS_ENVIRONMENT_SECTION,
 } from "@/domains/agent-environment/config";
 import {
-  HOOK_COMPACT_FOUNDATION_DIRECTIVE,
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
   HOOK_SESSION_START_SOURCE,
@@ -19,11 +19,18 @@ import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
+import { arbitraryCompactDirectiveText } from "@testing/generators/hooks/session-start";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
+import { writeResolvedCompactRecoveryPackage } from "@testing/harnesses/hooks/compact-recovery";
 import { runWorktreeCli } from "@testing/harnesses/worktree/harness";
 
-async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: unknown = true): Promise<void> {
+async function writeCodexCompactStdoutConfig(
+  productDir: string,
+  compactStdout: unknown = true,
+  methodologyPackageDir?: string,
+): Promise<void> {
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
     JSON.stringify({
@@ -37,6 +44,22 @@ async function writeCodexCompactStdoutConfig(productDir: string, compactStdout: 
             },
           },
         },
+      },
+      ...(methodologyPackageDir === undefined ? {} : {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
+        },
+      }),
+    }),
+  );
+}
+
+async function writeMethodologyOnlyConfig(productDir: string, methodologyPackageDir: string): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
       },
     }),
   );
@@ -114,8 +137,11 @@ describe("hook CLI compact stdout boundary", () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
+    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
 
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
+      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
+      await writeMethodologyOnlyConfig(env.worktreePath, methodologyPackage.packageDir);
       const result = await runWorktreeCli(
         [
           HOOK_CLI.COMMAND,
@@ -139,7 +165,7 @@ describe("hook CLI compact stdout boundary", () => {
       );
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+      expect(result.stdout).toBe(directiveText);
     });
   });
 
@@ -220,10 +246,13 @@ describe("hook CLI compact stdout boundary", () => {
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
 
+    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
+
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
       const nestedInvocationDir = join(env.worktreePath, nestedDirectoryName);
       await mkdir(nestedInvocationDir);
-      await writeCodexCompactStdoutConfig(env.worktreePath);
+      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, methodologyPackage.packageDir);
 
       const result = await runWorktreeCli(
         [
@@ -247,7 +276,7 @@ describe("hook CLI compact stdout boundary", () => {
       );
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+      expect(result.stdout).toBe(directiveText);
     });
   });
 
@@ -259,10 +288,13 @@ describe("hook CLI compact stdout boundary", () => {
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
     const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
 
+    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
+
     await withHookCliWorktreeEnv({ envFileName, prefix, worktreeName }, async (env) => {
       const externalInvocationDir = join(env.worktreePath, "..", outsideDirectoryName);
       await mkdir(externalInvocationDir);
-      await writeCodexCompactStdoutConfig(env.worktreePath);
+      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, methodologyPackage.packageDir);
 
       const result = await runWorktreeCli(
         [
@@ -286,7 +318,7 @@ describe("hook CLI compact stdout boundary", () => {
       );
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(HOOK_COMPACT_FOUNDATION_DIRECTIVE);
+      expect(result.stdout).toBe(directiveText);
     });
   });
 });
