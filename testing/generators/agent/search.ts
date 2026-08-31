@@ -23,6 +23,7 @@ const MAX_TRAILING_RECORDS = 6;
 const RECORD_INTERVAL_MS = 1_000;
 const WINDOW_EDGE_MARGIN_MS = 1;
 const SINCE_WINDOW_DIVISOR = 4;
+const NEEDLE_JOINER = "-";
 
 /**
  * A store holding one session inside a caller-supplied reach window and one outside it,
@@ -185,7 +186,10 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
           arbitraryAgentSessionCwd(foreignRoot),
           arbitraryDomainLiteral(),
         )
-        .map(([branchRecordCwd, foreignCwd, contentNeedle]) => {
+        .map(([branchRecordCwd, foreignCwd, needleLiteral]) => {
+          // Bound to this session's id so no sibling transcript in the store can
+          // carry the needle by coincidence.
+          const contentNeedle = `${needleLiteral}${NEEDLE_JOINER}${sessionId}`;
           const stamp = (index: number): string =>
             new Date(nowMs - (leading + trailing - index) * RECORD_INTERVAL_MS).toISOString();
           const opening: ClaudeTranscriptRecord = {
