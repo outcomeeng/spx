@@ -30,7 +30,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 - ALWAYS: byte-scan candidacy selects exactly the structurally matching transcripts for a literal-content selector, and never fewer than them for a branch selector ([property])
 - ALWAYS: the reach window search applies to its default candidate set is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
 - ALWAYS: a Pi session without branch metadata matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch ([compliance])
-- NEVER: a transcript is structurally parsed for a selector whose byte scan did not match it ([compliance])
+- NEVER: a transcript is structurally parsed for a content selector whose needle its byte scan did not find ([compliance])
 - NEVER: a selector-free search reads any transcript's full content ([compliance])
 - NEVER: branch existence alone or incidental transcript content associates a Pi session with a branch ([compliance])
 - ALWAYS: transcript command evidence and subagent attribution are applied only to agent transcript contracts that declare those evidence forms ([compliance])
