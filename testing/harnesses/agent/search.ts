@@ -83,6 +83,7 @@ import {
   agentResumeWorktreeRootResolver,
   agentSessionJsonlName,
   codexTranscript,
+  ImmediateExit,
   MemoryAgentSessionFileSystem,
   writeClaudeMultiRecordTranscriptFile,
   writeClaudeProjectTranscriptFile,
@@ -758,6 +759,7 @@ export async function withAgentSearchRejectedSinceEvidence(
       readonly rejectedDuration: string;
       readonly sanitizedDuration: string;
       readonly error: unknown;
+      readonly exitCode: number | null;
       readonly stderr: string;
       readonly stdout: string;
     }[];
@@ -772,6 +774,7 @@ export async function withAgentSearchRejectedSinceEvidence(
     readonly rejectedDuration: string;
     readonly sanitizedDuration: string;
     readonly error: unknown;
+    readonly exitCode: number | null;
     readonly stderr: string;
     readonly stdout: string;
   }[] = [];
@@ -784,6 +787,9 @@ export async function withAgentSearchRejectedSinceEvidence(
       processCwd: () => cwd,
       writeStdout: (output) => stdout.push(output),
       writeStderr: (output) => stderr.push(output),
+      exit: (exitCode) => {
+        throw new ImmediateExit(exitCode);
+      },
     });
     program.exitOverride();
 
@@ -802,6 +808,7 @@ export async function withAgentSearchRejectedSinceEvidence(
       rejectedDuration,
       sanitizedDuration: sanitizeCliArgument(rejectedDuration),
       error,
+      exitCode: error instanceof ImmediateExit ? error.exitCode : null,
       stderr: stderr.join(""),
       stdout: stdout.join(""),
     });
