@@ -74,7 +74,9 @@ export async function collectTopLevelBranchAssociations(
       continue;
     }
     associated.commandCheckedSessionIds.add(core.sessionId);
-    if (transcriptHasAcceptedBranchCommand(content, branch)) {
+    // A command that associates a branch names that branch, so a transcript whose
+    // bytes never mention it cannot carry command evidence and is not parsed.
+    if (content.includes(branch) && transcriptHasAcceptedBranchCommand(content, branch)) {
       associated.commandAssociatedSessionIds.add(core.sessionId);
     }
   }
@@ -108,7 +110,7 @@ export async function collectCodexSubagentBranchAssociations(
       continue;
     }
     const content = await options.fs.readText(file.path).catch(() => null);
-    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
+    if (content !== null && content.includes(branch) && transcriptHasAcceptedBranchCommand(content, branch)) {
       addCodexSubagentBranchAssociation(associated, core);
     }
   }

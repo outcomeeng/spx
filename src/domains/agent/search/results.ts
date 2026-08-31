@@ -14,9 +14,7 @@ import {
   type AgentSessionFileSystem,
   type AgentSessionHead,
   type AgentStoreFile,
-  CLAUDE_PROJECT_ENCODED_SEPARATOR,
   claudeCodeSessionStoreDir,
-  claudeProjectDirName,
   claudeTranscriptFiles,
   codexSessionStoreDir,
   collectJsonlFiles,
@@ -40,17 +38,22 @@ import {
   type TopLevelBranchAssociations,
 } from "./branch-association";
 import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector } from "./query";
+import {
+  type AgentTranscriptRecord,
+  parseClaudeTranscriptRecords,
+  recordedBranchCwd,
+  recordedCwdMatching,
+  type TranscriptRecordReader,
+} from "./transcript-records";
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
 }
 
 interface AgentSearchAdapter {
-  readonly collectPaths: (
-    options: AgentSearchOptions,
-    acceptsClaudeDir: (dirName: string) => boolean,
-  ) => Promise<readonly string[]>;
+  readonly collectPaths: (options: AgentSearchOptions) => Promise<readonly string[]>;
   readonly parseHead: AgentHeadParser;
+  readonly readRecords: TranscriptRecordReader | null;
   readonly acceptsTranscriptCommandEvidence: boolean;
   readonly acceptsCodexSubagentEvidence: boolean;
 }
@@ -59,23 +62,26 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
   [AGENT_SESSION_KIND.CODEX]: {
     collectPaths: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
     parseHead: parseCodexHead,
+    readRecords: null,
     acceptsTranscriptCommandEvidence: true,
     acceptsCodexSubagentEvidence: true,
   },
   [AGENT_SESSION_KIND.CLAUDE_CODE]: {
-    collectPaths: (options, acceptsClaudeDir) =>
+    collectPaths: (options) =>
       claudeTranscriptFiles(
         claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
         options.fs,
-        acceptsClaudeDir,
+        acceptsEveryClaudeProjectDir,
       ),
     parseHead: parseClaudeHead,
+    readRecords: parseClaudeTranscriptRecords,
     acceptsTranscriptCommandEvidence: true,
     acceptsCodexSubagentEvidence: false,
   },
   [AGENT_SESSION_KIND.PI]: {
     collectPaths: (options) => collectJsonlFiles(options.agentHomeDirs.piSessions, options.fs),
     parseHead: parsePiHead,
+    readRecords: null,
     acceptsTranscriptCommandEvidence: false,
     acceptsCodexSubagentEvidence: false,
   },
@@ -116,12 +122,8 @@ async function searchAgentStore(
   agent: AgentSearchSessionKind,
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
-  const branchAssociatedRoots = options.branchAssociatedWorktreeRoots ?? [];
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
-  const paths = await adapter.collectPaths(
-    options,
-    claudeDirAcceptsProductScope(options.productScopeRoot, branchAssociatedRoots),
-  );
+  const paths = await adapter.collectPaths(options);
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -146,15 +148,8 @@ async function searchAgentStore(
   );
 }
 
-function claudeDirAcceptsProductScope(
-  productScopeRoot: string,
-  branchAssociatedWorktreeRoots: readonly string[],
-): (dirName: string) => boolean {
-  const projectPrefixes = [productScopeRoot, ...branchAssociatedWorktreeRoots].map(claudeProjectDirName);
-  return (dirName) =>
-    projectPrefixes.some((projectPrefix) =>
-      dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`)
-    );
+function acceptsEveryClaudeProjectDir(): boolean {
+  return true;
 }
 
 async function collectMatchingSessions(
@@ -170,10 +165,11 @@ async function collectMatchingSessions(
   const currentMetadataSessionIds = new Set<string>();
   const currentMetadataBranchAssociationCwds = new Map<string, string>();
   for (const file of files) {
-    const head = await options.fs.readHead(file.path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
-    if (head === null) continue;
-    const core = adapter.parseHead(head);
-    if (core === null || !core.interactive || seen.has(core.sessionId)) continue;
+    const scanned = await scanTranscript(file.path, options, adapter);
+    if (scanned === null) continue;
+    const core = scanned.core;
+    if (seen.has(core.sessionId)) continue;
+    const content = scanned.content;
     const candidateMetadataIsCurrent = !currentMetadataSessionIds.has(core.sessionId);
     currentMetadataSessionIds.add(core.sessionId);
     recordCurrentMetadataBranchAssociation(
@@ -182,7 +178,12 @@ async function collectMatchingSessions(
       candidateMetadataIsCurrent,
       currentMetadataBranchAssociationCwds,
     );
-    if (!coreCanHaveScopedSearchResult(core, options, subagentBranchAssociations)) continue;
+    const records = transcriptRecords(adapter, content, options.query);
+    const recordedScopeCwd = recordedCwdMatching(records, (cwd) => cwdMatchesSearchInputScope(cwd, options));
+    if (
+      recordedScopeCwd === null
+      && !coreCanHaveScopedSearchResult(core, options, subagentBranchAssociations)
+    ) continue;
     const match = await matchReasons(
       agent,
       core,
@@ -191,10 +192,12 @@ async function collectMatchingSessions(
       adapter,
       topLevelBranchAssociations,
       subagentBranchAssociations,
-      currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
+      currentMetadataBranchAssociationCwds.get(core.sessionId)
+        ?? recordedBranchAssociationCwd(records, options),
+      content,
     );
     if (match === null) continue;
-    const effectiveCwd = match.effectiveCwd ?? core.cwd;
+    const effectiveCwd = match.effectiveCwd ?? recordedScopeCwd ?? core.cwd;
     if (!cwdMatchesSearchInputScope(effectiveCwd, options)) continue;
     seen.add(core.sessionId);
     results.push({
@@ -209,6 +212,34 @@ async function collectMatchingSessions(
     });
   }
   return results;
+}
+
+interface ScannedTranscript {
+  readonly core: AgentSessionHead;
+  readonly content: string | null;
+}
+
+/**
+ * Locates the selector in raw bytes before any structural read, so a transcript that
+ * cannot match is never parsed for session metadata.
+ */
+async function scanTranscript(
+  path: string,
+  options: AgentSearchOptions,
+  adapter: AgentSearchAdapter,
+): Promise<ScannedTranscript | null> {
+  const content = adapter.readRecords === null && !needsTranscriptContent(options.query, adapter)
+    ? null
+    : await options.fs.readText(path).catch(() => null);
+  if (content !== null && !transcriptCarriesSelectorEvidence(content, options.query)) {
+    return null;
+  }
+  const head = await options.fs.readHead(path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
+  if (head === null) {
+    return null;
+  }
+  const core = adapter.parseHead(head);
+  return core === null || !core.interactive ? null : { core, content };
 }
 
 function recordCurrentMetadataBranchAssociation(
@@ -248,6 +279,7 @@ async function matchReasons(
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
   candidateMetadataBranchAssociationCwd: string | null,
+  prefetchedContent: string | null,
 ): Promise<BranchSearchMatch | null> {
   if (!hasSearchSelector(options.query)) {
     return {
@@ -269,9 +301,10 @@ async function matchReasons(
   if (branchMatches === null && topLevelBranchAssociations.commandCheckedSessionIds.has(core.sessionId)) {
     return null;
   }
-  const needsTranscriptContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
+  const requiresContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
     || options.query.contentNeedles.length > 0;
-  const content = needsTranscriptContent ? await options.fs.readText(path).catch(() => null) : undefined;
+  const content = prefetchedContent
+    ?? (requiresContent ? await options.fs.readText(path).catch(() => null) : undefined);
   if (content === null) {
     return null;
   }
@@ -291,6 +324,55 @@ async function matchReasons(
     reasons: [...metadataMatches, ...resolvedBranchMatches.reasons, ...contentMatches],
     effectiveCwd: resolvedBranchMatches.effectiveCwd,
   };
+}
+
+/** A branch selector matches on any recorded position, not only the opening one. */
+function recordedBranchAssociationCwd(
+  records: readonly AgentTranscriptRecord[],
+  options: AgentSearchOptions,
+): string | null {
+  const branch = options.query.branch;
+  if (branch === null) {
+    return null;
+  }
+  const branchCwd = recordedBranchCwd(records, branch);
+  return branchCwd !== null && cwdMatchesSearchInputScope(branchCwd, options) ? branchCwd : null;
+}
+
+/**
+ * Records are parsed only when the raw bytes can support the selector: a branch the
+ * transcript never names cannot appear in any of its records.
+ */
+function transcriptRecords(
+  adapter: AgentSearchAdapter,
+  content: string | null,
+  query: AgentSearchQuery,
+): readonly AgentTranscriptRecord[] {
+  if (adapter.readRecords === null || content === null) {
+    return [];
+  }
+  if (query.branch !== null && !content.includes(query.branch)) {
+    return [];
+  }
+  return adapter.readRecords(content);
+}
+
+function needsTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
+  return query.contentNeedles.length > 0
+    || (query.branch !== null && adapter.acceptsTranscriptCommandEvidence);
+}
+
+/**
+ * Byte-scan admission. Only a content-needle-only query is decidable from raw bytes:
+ * branch evidence also arrives from same-product worktree roots and accepted transcript
+ * commands, and one transcript's metadata can associate a branch for a sibling transcript
+ * of the same session, so a branch selector admits every candidate.
+ */
+function transcriptCarriesSelectorEvidence(content: string, query: AgentSearchQuery): boolean {
+  if (query.contentNeedles.length === 0 || query.branch !== null) {
+    return true;
+  }
+  return query.contentNeedles.some((needle) => content.includes(needle.value));
 }
 
 function coreMatchesSearchInputScope(
