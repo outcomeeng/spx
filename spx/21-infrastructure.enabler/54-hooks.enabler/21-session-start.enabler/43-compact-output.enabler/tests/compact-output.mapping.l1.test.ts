@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
+import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
 import {
   formatCompactRecoveryEntryAbsentError,
-  resolveCompactRecoveryDirective,
-} from "@/lib/methodology/compact-recovery";
-import {
   formatFoundationManifestInvalidError,
   formatFoundationManifestUnreadableError,
   formatFoundationPackageUnconfiguredError,
