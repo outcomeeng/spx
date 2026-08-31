@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { AGENT_SEARCH_DEFAULT_LIMIT, AGENT_SEARCH_MATCH_REASON, AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+import {
+  AGENT_SEARCH_DEFAULT_LIMIT,
+  AGENT_SEARCH_MATCH_REASON,
+  AGENT_SESSION_JSON_FIELDS,
+  AGENT_SESSION_KIND,
+} from "@/domains/agent/protocol";
 import { pickupIdSearchLiteral } from "@/domains/agent/search";
 
 import { withPiSearchCliSelectionEvidence } from "@testing/harnesses/agent/pi-search";
@@ -13,6 +18,7 @@ import {
   withAgentSearchMetadataBranchEvidence,
   withAgentSearchOlderDuplicateEvidence,
   withAgentSearchOptionMappingEvidence,
+  withAgentSearchSinceCliEvidence,
   withAgentSearchStaleMetadataEvidence,
   withAgentSearchSubagentCommandEvidence,
   withAgentSearchSubagentMetadataEvidence,
@@ -37,6 +43,14 @@ describe("agent session search option mappings", () => {
       expect(evidence.limit.query.limit).toBe(evidence.limit.limit);
       expect(evidence.since.query.sinceMs).toBe(evidence.since.sinceMs);
       expect(evidence.all.includeAll).toBe(true);
+    });
+  });
+
+  it("maps a since duration parsed from the command line to the reach bound", async () => {
+    await withAgentSearchSinceCliEvidence((evidence) => {
+      expect(evidence.records.map((record) => record[AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL])).toEqual([
+        evidence.insideSessionId,
+      ]);
     });
   });
 
