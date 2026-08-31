@@ -61,3 +61,35 @@ buffer and decode only transcripts that hit. The two-pass scan named in
 
 **Revisit condition:** before the next changeset touching branch-evidence or content-selector
 collection.
+
+## Session-id search cannot reach a session that moved into the invocation product
+
+The declared scoping rule gives per-record product scope to pickup-marker and literal-content
+searches where the adapter declares a record reader, and opening-record scope to agent-session-id
+and agent-kind searches. A session that opens in one product and moves into another therefore
+answers three of the four selectors and not the fourth — the one whose caller already names the
+exact session.
+
+Observed from one invocation directory against one Claude Code session whose opening working
+directory lies outside that product and whose later recorded working directory lies inside it:
+
+```bash
+spx agent search --contains work/chat-voice-core --json    # returns the session
+spx agent search --branch work/chat-voice-core --json      # returns the session
+spx agent search --session-id <that-session-id> --json     # returns nothing
+```
+
+**Impact:** the caller who supplies the strongest identifier gets the weakest reach. A user
+holding a session id, standing in the product where that session did its work, reads an empty
+result and has no signal distinguishing "no such session" from "filed under another product".
+
+**Resolution:** decide whether agent-session-id scope follows the per-record contract the
+adapter already supplies. An identifier naming one exact session carries no product ambiguity to
+resolve, so scope may be the wrong gate for it entirely; the alternative is keeping opening-record
+scope and reporting the out-of-scope match rather than an empty result. Either outcome amends the
+scoping rule in [search.md](search.md) and the identity contract in
+[21-search-adapters.adr.md](21-search-adapters.adr.md).
+
+**Skills:** `/apply`, `/author`, `/test-typescript`.
+
+**Revisit condition:** before the next changeset touching selector scope or store-collector admission.
