@@ -19,21 +19,30 @@ This node's terminal output path passes values that originated outside the produ
 ## Selector search cost exceeds the product-level command bound
 
 `spx.product.md` asserts every CLI command completes in under 100ms once the CLI process is
-running. A branch-associated search over a large Claude Code store does not.
+running. Search over a large Claude Code store does not.
 
-Measured on a store of 7796 transcripts totalling 6.0 GB, searching one branch across the
-whole store:
+A selector read from recorded content cannot be narrowed by the store-directory name — a
+session that moved into the product is filed under the directory its opening working
+directory named — so a branch or content selector enumerates the whole store. Every other
+query resolves scope from that same opening directory and stays scoped to it. What each pays
+beyond the listing depends on how much it decodes.
 
-| Stage                                                            | Wall clock |
-| ---------------------------------------------------------------- | ---------- |
-| Before per-record association                                    | ~67s       |
-| After gating command evidence and record parsing on a byte check | ~45s       |
-| `rg -l <branch>` over the same bytes                             | ~2.5s      |
+Measured on a store of 7796 transcripts totalling 6.0 GB, of which 602 transcripts and
+0.57 GB fall inside the thirty-day reach window:
 
-The residual cost is decoding transcript bytes into JavaScript strings. Gating the structured
-parses removed the JSON-parse share; the decode share remains. Branch evidence is the extreme
-because it reaches past the reach window by declared behavior, so it decodes all history
-rather than the window.
+| Invocation                 | Store work                                    | Wall clock |
+| -------------------------- | --------------------------------------------- | ---------- |
+| no selector                | scoped listing, opening metadata              | ~9s        |
+| `--session-id` / `--agent` | scoped listing, opening metadata              | ~3s        |
+| `--contains`               | whole-store listing, decodes the reach window | ~11s       |
+| `--branch`                 | whole-store listing, decodes all history      | ~44s       |
+| `rg -l <branch>` for scale | one memory-mapped byte scan of 6.0 GB         | ~2.5s      |
+
+The branch case measured ~67s before command evidence and record parsing were gated on a byte
+check. The residual cost is decoding transcript bytes into JavaScript strings; gating the
+structured parses removed the JSON-parse share and the decode share remains. Branch evidence
+is the extreme because it reaches past the reach window by declared behavior, so it decodes
+all history rather than the window.
 
 A selector-free listing decodes nothing, which
 [tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces.
@@ -44,4 +53,5 @@ buffer and decode only transcripts that hit. The two-pass scan named in
 
 **Skills:** `/apply`, `/code-typescript`, `/test-typescript`.
 
-**Revisit condition:** before the next changeset touching branch-evidence collection.
+**Revisit condition:** before the next changeset touching branch-evidence or content-selector
+collection.
