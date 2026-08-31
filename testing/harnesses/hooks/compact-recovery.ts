@@ -1,7 +1,14 @@
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { CONFIG_FILENAMES } from "@/config/index";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Result } from "@/config/types";
+import {
+  AGENT,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
+  HARNESS_ENVIRONMENT_SECTION,
+} from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
@@ -149,6 +156,53 @@ export async function writeResolvedCompactRecoveryPackage(
   await writePackageFile(packageRoot, CORE_PATH, directiveText);
   await writePackageFile(packageRoot, COMPACT_RECOVERY_PATH, directiveText);
   return { packageDir: PACKAGE_DIRECTORY };
+}
+
+/**
+ * Writes the payload product's config document declaring the Codex compact
+ * stdout policy, optionally alongside a `methodology.packageDir` declaration.
+ */
+export async function writeCodexCompactStdoutConfig(
+  productDir: string,
+  compactStdout: unknown = true,
+  methodologyPackageDir?: string,
+): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [HARNESS_ENVIRONMENT_SECTION]: {
+        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
+          [AGENT.CODEX]: {
+            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
+              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
+                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
+              },
+            },
+          },
+        },
+      },
+      ...(methodologyPackageDir === undefined ? {} : {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
+        },
+      }),
+    }),
+  );
+}
+
+/** Writes the payload product's config document declaring only `methodology.packageDir`. */
+export async function writeMethodologyOnlyConfig(
+  productDir: string,
+  methodologyPackageDir: string,
+): Promise<void> {
+  await writeFile(
+    join(productDir, CONFIG_FILENAMES.json),
+    JSON.stringify({
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
+      },
+    }),
+  );
 }
 
 export interface CompactHookCaseOptions {

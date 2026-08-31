@@ -1,15 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CONFIG_FILENAMES } from "@/config/index";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import {
-  AGENT,
-  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
-} from "@/domains/agent-environment/config";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
@@ -19,47 +12,10 @@ import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/gener
 import {
   runCompactSessionStartCli,
   withCompactSessionStartCliEnv,
+  writeCodexCompactStdoutConfig,
+  writeMethodologyOnlyConfig,
   writeResolvedCompactRecoveryPackage,
 } from "@testing/harnesses/hooks/compact-recovery";
-
-async function writeCodexCompactStdoutConfig(
-  productDir: string,
-  compactStdout: unknown = true,
-  methodologyPackageDir?: string,
-): Promise<void> {
-  await writeFile(
-    join(productDir, CONFIG_FILENAMES.json),
-    JSON.stringify({
-      [HARNESS_ENVIRONMENT_SECTION]: {
-        [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: {
-          [AGENT.CODEX]: {
-            [HARNESS_ENVIRONMENT_CONFIG_FIELDS.HOOKS]: {
-              [HARNESS_ENVIRONMENT_CONFIG_FIELDS.SESSION_START]: {
-                [HARNESS_ENVIRONMENT_CONFIG_FIELDS.COMPACT_STDOUT]: compactStdout,
-              },
-            },
-          },
-        },
-      },
-      ...(methodologyPackageDir === undefined ? {} : {
-        [METHODOLOGY_SECTION]: {
-          [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
-        },
-      }),
-    }),
-  );
-}
-
-async function writeMethodologyOnlyConfig(productDir: string, methodologyPackageDir: string): Promise<void> {
-  await writeFile(
-    join(productDir, CONFIG_FILENAMES.json),
-    JSON.stringify({
-      [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
-      },
-    }),
-  );
-}
 
 describe("hook CLI compact stdout boundary", () => {
   it("keeps process stdout empty for Codex compact source under the default agent policy", async () => {
