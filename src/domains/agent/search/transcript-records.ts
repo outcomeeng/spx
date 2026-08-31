@@ -20,7 +20,10 @@ export function parseClaudeTranscriptRecords(content: string): readonly AgentTra
     if (row === null) {
       continue;
     }
-    const cwd = firstString(row, [[AGENT_SESSION_JSON_FIELDS.CWD]]);
+    const cwd = firstString(row, [
+      [AGENT_SESSION_JSON_FIELDS.CWD],
+      [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD],
+    ]);
     if (cwd === null) {
       continue;
     }
