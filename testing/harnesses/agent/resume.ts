@@ -423,6 +423,8 @@ export interface ClaudeTranscriptRecord {
   readonly cwd: string;
   readonly timestamp: string;
   readonly branch?: string;
+  /** Record the working directory under `payload` rather than at the top level. */
+  readonly cwdUnderPayload?: boolean;
 }
 
 export type ClaudeTranscriptRecords = readonly [ClaudeTranscriptRecord, ...ClaudeTranscriptRecord[]];
@@ -436,7 +438,9 @@ export function claudeCodeTranscriptRecords(
       JSON.stringify({
         [AGENT_SESSION_JSON_FIELDS.TIMESTAMP]: record.timestamp,
         [AGENT_SESSION_JSON_FIELDS.SESSION_ID_CAMEL]: sessionId,
-        [AGENT_SESSION_JSON_FIELDS.CWD]: record.cwd,
+        ...(record.cwdUnderPayload === true
+          ? { [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: { [AGENT_SESSION_JSON_FIELDS.CWD]: record.cwd } }
+          : { [AGENT_SESSION_JSON_FIELDS.CWD]: record.cwd }),
         [AGENT_SESSION_JSON_FIELDS.GIT_BRANCH]: record.branch ?? null,
       })
     )
