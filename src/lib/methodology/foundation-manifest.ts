@@ -17,12 +17,16 @@ export const FOUNDATION_MANIFEST_RELATIVE_PATH = "skills/understand/manifest.jso
 /** The manifest schema version this consumer accepts; unknown versions fail the projection. */
 export const FOUNDATION_MANIFEST_SCHEMA_VERSION = 1;
 
+/** Parse defect for a manifest document that is not valid JSON. */
+export const FOUNDATION_MANIFEST_NOT_JSON_ERROR = "manifest is not valid JSON";
+
 export const FOUNDATION_MANIFEST_FIELDS = {
   SCHEMA_VERSION: "schema_version",
   CORE: "core",
   REFERENCES: "references",
   TEMPLATES: "templates",
   EXAMPLES: "examples",
+  COMPACT_RECOVERY: "compact_recovery",
 } as const;
 
 /** The validated foundation-resource manifest: one core foundation document plus ordered resource catalogs. */
@@ -32,6 +36,8 @@ export interface FoundationResourceManifest {
   readonly references: readonly string[];
   readonly templates: readonly string[];
   readonly examples: readonly string[];
+  /** Optional package-relative compact-recovery directive resource; additive within schema version 1. */
+  readonly compactRecovery?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,7 +82,7 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
   try {
     parsed = JSON.parse(text);
   } catch {
-    return { ok: false, error: "manifest is not valid JSON" };
+    return { ok: false, error: FOUNDATION_MANIFEST_NOT_JSON_ERROR };
   }
   if (!isRecord(parsed)) {
     return { ok: false, error: "manifest must be a JSON object" };
@@ -114,6 +120,18 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
     parsed[FOUNDATION_MANIFEST_FIELDS.EXAMPLES],
   );
   if (!examples.ok) return examples;
+  const compactRecovery = parsed[FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY];
+  if (
+    compactRecovery !== undefined && (typeof compactRecovery !== "string" || !isPackageRelativePath(compactRecovery))
+  ) {
+    return {
+      ok: false,
+      error:
+        `${FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY} must be a non-empty package-relative path when present; rejected ${
+          JSON.stringify(compactRecovery)
+        }`,
+    };
+  }
   return {
     ok: true,
     value: {
@@ -122,6 +140,7 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
       references: references.value,
       templates: templates.value,
       examples: examples.value,
+      ...(compactRecovery === undefined ? {} : { compactRecovery }),
     },
   };
 }

@@ -6,12 +6,14 @@
 
 import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
+import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
 import { resolveAgentHomeDirs } from "@/domains/agent/home";
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ERROR,
+  HOOK_SESSION_START_SOURCE,
   type HookSessionStartEnv,
   type HookSessionStartPayload,
   isPiHookSessionStartPayload,
@@ -30,6 +32,8 @@ import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
+import { defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
@@ -74,6 +78,8 @@ export interface SessionStartHookOptions extends WorktreeScopeOptions {
   readonly envFileSystem?: HookEnvFileSystem;
   /** Injected bounded transcript reader for native session identity. */
   readonly transcriptFileSystem?: HookTranscriptFileSystem;
+  /** Injected compact-recovery directive resolution over the payload product directory. */
+  readonly resolveCompactDirective?: (productDir: string) => Promise<Result<string>>;
 }
 
 const defaultHookEnvFileSystem: HookEnvFileSystem = {
@@ -97,6 +103,16 @@ const defaultHookTranscriptFileSystem: HookTranscriptFileSystem = {
 };
 
 const ERROR_DETAIL_SEPARATOR = ": ";
+
+async function defaultResolveCompactDirective(productDir: string): Promise<Result<string>> {
+  const methodology = await resolveMethodologyConfig(productDir);
+  if (!methodology.ok) return methodology;
+  return resolveCompactRecoveryDirective({
+    productDir,
+    packageDir: methodology.value.packageDir,
+    fs: defaultMethodologyPackageFileSystem,
+  });
+}
 
 /** Runs the `session-start` hook event without blocking startup on degraded responsibilities. */
 export async function runSessionStartHook(options: SessionStartHookOptions): Promise<Result<SessionStartHookResult>> {
@@ -139,6 +155,16 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
     diagnostics,
   });
 
+  let compactDirective: string | undefined;
+  if (payload.source === HOOK_SESSION_START_SOURCE.COMPACT && options.compactStdout) {
+    const directive = await (options.resolveCompactDirective ?? defaultResolveCompactDirective)(productDir);
+    if (directive.ok) {
+      compactDirective = directive.value;
+    } else {
+      diagnostics.push(directive.error);
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -148,6 +174,7 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
       productDir,
       stdout: renderSessionStartStdout({
         compactStdout: options.compactStdout,
+        directive: compactDirective,
         source: payload.source,
       }),
       ...(claimPath === undefined ? {} : { claimPath }),

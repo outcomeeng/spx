@@ -85,6 +85,8 @@ export interface HookSessionStartEnvRenderInput {
 
 export interface HookSessionStartStdoutInput {
   readonly compactStdout: boolean;
+  /** The resolved compact-recovery directive bytes, when resolution succeeded. */
+  readonly directive?: string;
   readonly source?: string;
 }
 
@@ -96,21 +98,6 @@ const SHELL_SINGLE_QUOTE_ESCAPE = "'\"'\"'";
 const ENV_FILE_HEADER = "# Managed by spx hook run session-start";
 const LINE_SEPARATOR = "\n";
 const NO_STARTUP_DIRECTIVE = "";
-
-export const HOOK_COMPACT_FOUNDATION_ACTION = {
-  CONTEXTUALIZE: "/contextualize",
-  UNDERSTAND: "/understand",
-} as const;
-
-export const HOOK_COMPACT_FOUNDATION_REASON =
-  `Hook fired because the agent runtime reported ${HOOK_SESSION_START_PAYLOAD.SOURCE}=${HOOK_SESSION_START_SOURCE.COMPACT}.`;
-
-export const HOOK_COMPACT_FOUNDATION_DIRECTIVE = [
-  HOOK_COMPACT_FOUNDATION_REASON,
-  "Spec-tree foundation was reset by this compaction.",
-  `Before any spec-governed action, including resuming an in-flight PR, /apply, or /handoff, re-invoke ${HOOK_COMPACT_FOUNDATION_ACTION.UNDERSTAND} then ${HOOK_COMPACT_FOUNDATION_ACTION.CONTEXTUALIZE} on every spec node still in scope (not just the next one) before any gh/git archaeology or reading spec-governed source.`,
-  "Skill text carried in the compaction summary is context only, outside active tool authority.",
-].join(LINE_SEPARATOR);
 
 export function parseHookSessionStartPayload(content: string | undefined): Result<HookSessionStartPayload> {
   if (content === undefined || content.trim().length === 0) return { ok: true, value: {} };
@@ -175,7 +162,8 @@ export function isPiHookSessionStartPayload(payload: HookSessionStartPayload): b
 /** Renders the model-visible stdout for the `session-start` hook event. */
 export function renderSessionStartStdout(input: HookSessionStartStdoutInput): string {
   if (input.source !== HOOK_SESSION_START_SOURCE.COMPACT) return NO_STARTUP_DIRECTIVE;
-  return input.compactStdout ? HOOK_COMPACT_FOUNDATION_DIRECTIVE : NO_STARTUP_DIRECTIVE;
+  if (!input.compactStdout) return NO_STARTUP_DIRECTIVE;
+  return input.directive ?? NO_STARTUP_DIRECTIVE;
 }
 
 export function resolveHookSessionStartEnvFile(
