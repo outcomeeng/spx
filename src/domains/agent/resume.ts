@@ -385,6 +385,53 @@ export async function claudeTranscriptFiles(
   return perDir.flat();
 }
 
+/** The store file name a session id addresses. */
+export function agentSessionJsonlName(sessionId: string): string {
+  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
+}
+
+const AGENT_SESSION_ID_PATH_SEPARATORS = /[/\\]/;
+const CURRENT_DIRECTORY_SEGMENT = ".";
+const PARENT_DIRECTORY_SEGMENT = "..";
+
+/**
+ * A session id addresses one store entry only when it names a single path segment, so an
+ * identifier reaching the filesystem cannot compose a path outside the store it addresses.
+ */
+export function addressesOneStoreEntry(sessionId: string): boolean {
+  return sessionId.length > 0
+    && !AGENT_SESSION_ID_PATH_SEPARATORS.test(sessionId)
+    && sessionId !== CURRENT_DIRECTORY_SEGMENT
+    && sessionId !== PARENT_DIRECTORY_SEGMENT;
+}
+
+/**
+ * The Claude Code store files a transcript under its session id, so a session id resolves to
+ * an address by probing each project directory rather than by listing the store's transcripts.
+ */
+export async function claudeSessionIdTranscriptFiles(
+  root: string,
+  fs: AgentSessionFileSystem,
+  sessionId: string,
+): Promise<string[]> {
+  if (!addressesOneStoreEntry(sessionId)) {
+    return [];
+  }
+  const projectDirs = (await fs.readDir(root).catch(() => []))
+    .filter((entry) => entry.isDirectory)
+    .map((entry) => resolve(root, entry.name));
+  const located = await mapWithConcurrency(
+    projectDirs,
+    AGENT_RESUME_LIMITS.READ_CONCURRENCY,
+    async (dir) => {
+      const path = resolve(dir, agentSessionJsonlName(sessionId));
+      const stat = await fs.stat(path).catch((): AgentSessionFileStat | null => null);
+      return stat === null ? null : path;
+    },
+  );
+  return located.filter((path): path is string => path !== null);
+}
+
 // Scans recent candidate files, reading each transcript's metadata head and
 // bounded activity tail, then collects the newest scope-matching sessions per
 // agent up to the cap.

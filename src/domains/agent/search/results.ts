@@ -17,6 +17,7 @@ import {
   CLAUDE_PROJECT_ENCODED_SEPARATOR,
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
+  claudeSessionIdTranscriptFiles,
   claudeTranscriptFiles,
   codexSessionStoreDir,
   collectJsonlFiles,
@@ -52,11 +53,15 @@ export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readText(path: string): Promise<string>;
 }
 
+/** Resolves a session id to the store entries filed under it, where the store's naming allows. */
+type SessionAddressResolver = (options: AgentSearchOptions, sessionId: string) => Promise<readonly string[]>;
+
 interface AgentSearchAdapter {
   readonly collectPaths: (
     options: AgentSearchOptions,
     acceptsClaudeDir: (dirName: string) => boolean,
   ) => Promise<readonly string[]>;
+  readonly locateSessionId: SessionAddressResolver | null;
   readonly parseHead: AgentHeadParser;
   readonly readRecords: TranscriptRecordReader | null;
   readonly acceptsTranscriptCommandEvidence: boolean;
@@ -66,6 +71,7 @@ interface AgentSearchAdapter {
 const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, AgentSearchAdapter>> = {
   [AGENT_SESSION_KIND.CODEX]: {
     collectPaths: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
+    locateSessionId: null,
     parseHead: parseCodexHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: true,
@@ -78,6 +84,12 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
         options.fs,
         acceptsClaudeDir,
       ),
+    locateSessionId: (options, sessionId) =>
+      claudeSessionIdTranscriptFiles(
+        claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
+        options.fs,
+        sessionId,
+      ),
     parseHead: parseClaudeHead,
     readRecords: parseClaudeTranscriptRecords,
     acceptsTranscriptCommandEvidence: true,
@@ -85,6 +97,7 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
   },
   [AGENT_SESSION_KIND.PI]: {
     collectPaths: (options) => collectJsonlFiles(options.agentHomeDirs.piSessions, options.fs),
+    locateSessionId: null,
     parseHead: parsePiHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: false,
@@ -128,7 +141,7 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
-  const paths = await adapter.collectPaths(options, claudeDirAdmission(options, adapter));
+  const paths = await candidatePaths(options, adapter);
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -151,6 +164,26 @@ async function searchAgentStore(
     topLevelBranchAssociations,
     subagentBranchAssociations,
   );
+}
+
+/**
+ * A session id addresses its store entries directly where the adapter declares a resolver, so the
+ * store is never listed to answer it. Every other selector collects candidates from the store.
+ */
+async function candidatePaths(
+  options: AgentSearchOptions,
+  adapter: AgentSearchAdapter,
+): Promise<readonly string[]> {
+  const sessionId = options.query.sessionId;
+  if (sessionId !== null && adapter.locateSessionId !== null) {
+    return adapter.locateSessionId(options, sessionId);
+  }
+  return adapter.collectPaths(options, claudeDirAdmission(options, adapter));
+}
+
+/** A session id names one session, so product scope selects the reported directory, not the result set. */
+function scopeDecidesInclusion(query: AgentSearchQuery): boolean {
+  return query.sessionId === null;
 }
 
 /**
@@ -205,7 +238,8 @@ async function collectMatchingSessions(
     const records = transcriptRecords(adapter, content, options.query);
     const recordedScopeCwd = recordedCwdMatching(records, (cwd) => cwdMatchesSearchInputScope(cwd, options));
     if (
-      recordedScopeCwd === null
+      scopeDecidesInclusion(options.query)
+      && recordedScopeCwd === null
       && !coreCanHaveScopedSearchResult(core, options, subagentBranchAssociations)
     ) continue;
     const match = await matchReasons(
@@ -224,7 +258,7 @@ async function collectMatchingSessions(
     );
     if (match === null) continue;
     const effectiveCwd = match.effectiveCwd ?? recordedScopeCwd ?? core.cwd;
-    if (!cwdMatchesSearchInputScope(effectiveCwd, options)) continue;
+    if (scopeDecidesInclusion(options.query) && !cwdMatchesSearchInputScope(effectiveCwd, options)) continue;
     seen.add(core.sessionId);
     results.push({
       agent,
@@ -418,6 +452,7 @@ function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearch
     return false;
   }
   return query.contentNeedles.length > 0
+    || (query.sessionId !== null && adapter.readRecords !== null)
     || (query.branch !== null && (adapter.readRecords !== null || adapter.acceptsTranscriptCommandEvidence));
 }
 
