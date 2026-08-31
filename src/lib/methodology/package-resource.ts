@@ -31,7 +31,10 @@ export interface MethodologyPackageFileSystem {
 
 export const defaultMethodologyPackageFileSystem: MethodologyPackageFileSystem = {
   realPath: nodeRealPath,
-  readFile: (path) => nodeReadFile(path, METHODOLOGY_RESOURCE_ENCODING),
+  // A strict decode makes a non-UTF-8 resource unreadable instead of emitting
+  // replacement characters, so byte equality holds for everything that resolves.
+  readFile: async (path) =>
+    new TextDecoder(METHODOLOGY_RESOURCE_ENCODING, { fatal: true }).decode(await nodeReadFile(path)),
 };
 
 /** A resolved installed-package manifest: the package root, the manifest's location, and its validated content. */
