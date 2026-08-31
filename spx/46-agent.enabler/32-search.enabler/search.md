@@ -28,6 +28,7 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 ### Compliance
 
 - NEVER: a session whose transcript records no occurrence of the requested branch and whose recorded working directories all lie outside the invocation product is returned for `spx agent search --branch <name>` ([test](tests/branch-association.compliance.l1.test.ts))
+- NEVER: a session whose transcript records the requested branch only where the recorded working directory lies outside the invocation product is returned for `spx agent search --branch <name>` ([test](tests/branch-association.compliance.l1.test.ts))
 - NEVER: a search reads a transcript for structural session metadata when that transcript's recorded content does not match the requested selector ([test](tests/scan-bound.compliance.l1.test.ts))
 - NEVER: `spx agent search` reads any transcript's full content when the invocation carries no selector ([test](tests/scan-bound.compliance.l1.test.ts))
 - NEVER: `spx agent search` accepts an invalid, zero, negative, non-finite, or unsafe `--since` duration; each is rejected with a non-zero diagnostic before any result reaches standard output ([test](tests/reach-window.compliance.l1.test.ts))
