@@ -35,6 +35,7 @@ describe("agent session search option mappings", () => {
       expect(evidence.branch.query.branch).toBe(evidence.branch.branch);
       expect(evidence.agent.agent).toBe(AGENT_SESSION_KIND.CLAUDE_CODE);
       expect(evidence.limit.query.limit).toBe(evidence.limit.limit);
+      expect(evidence.since.query.sinceMs).toBe(evidence.since.sinceMs);
       expect(evidence.all.includeAll).toBe(true);
     });
   });
