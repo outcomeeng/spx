@@ -12,6 +12,7 @@ import {
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
+  HOOK_SESSION_START_SOURCE,
   type HookSessionStartEnv,
 } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
@@ -19,11 +20,13 @@ import { HOOK_CLI } from "@/interfaces/cli/hook";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
 import { runSessionStartHook, type SessionStartHookResult } from "@/interfaces/hooks/session-start";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
 import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
+import { defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -322,6 +325,36 @@ export async function withCompactSessionStartCliEnv(
       worktreeName: sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
     },
     callback,
+  );
+}
+
+/**
+ * Materializes the resolved-variant package for the supplied directive text and
+ * runs one compact-source hook invocation through the real library resolver,
+ * handing the raw result and fixture to the callback.
+ */
+export async function withResolvedCompactOutputCase(
+  directiveText: string,
+  callback: (
+    result: Result<SessionStartHookResult>,
+    fixture: CompactRecoveryPackageFixture,
+  ) => Promise<void> | void,
+): Promise<void> {
+  await withCompactRecoveryPackage(
+    { directiveText, variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOLVED },
+    async (fixture) => {
+      const result = await runCompactOutputHookCase({
+        compactStdout: true,
+        source: HOOK_SESSION_START_SOURCE.COMPACT,
+        resolveCompactDirective: () =>
+          resolveCompactRecoveryDirective({
+            productDir: fixture.productDir,
+            packageDir: fixture.packageDir,
+            fs: defaultMethodologyPackageFileSystem,
+          }),
+      });
+      await callback(result, fixture);
+    },
   );
 }
 
