@@ -20,7 +20,7 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 
 ### Properties
 
-- A session whose agent adapter declares a transcript record reader and whose transcript records the requested branch in any record is returned by `spx agent search --branch <name>`, carrying the working directory recorded alongside that branch and `branch` among its match reasons, for every position that branch occupies and whichever field path that record carries its working directory under ([test](tests/branch-association.property.l1.test.ts))
+- A session whose agent adapter declares a transcript record reader and whose transcript records the requested branch in any record is returned by `spx agent search --branch <name>`, carrying the working directory recorded alongside that branch and `branch` among its match reasons, whichever position that branch occupies and whichever field path that record carries its working directory under ([test](tests/branch-association.property.l1.test.ts))
 - A session whose transcript records evidence for the requested selector is returned whichever session-store directory holds that transcript ([test](tests/store-placement.property.l1.test.ts))
 - `spx agent search --since <duration>` admits exactly the sessions whose newest recorded transcript activity falls within that duration, for every duration and transcript age ([test](tests/reach-window.property.l1.test.ts))
 - Absent `--since` and `--all`, `spx agent search` bounds candidates to a search-owned thirty-day recent-session window that varies independently of the window `spx agent resume` applies ([test](tests/reach-window.property.l1.test.ts))
