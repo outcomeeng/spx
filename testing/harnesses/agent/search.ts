@@ -53,6 +53,7 @@ import {
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
   arbitraryPartialNumericAgentSearchLimit,
+  arbitraryRejectedAgentResumeSinceDurations,
   arbitraryUnsafeAgentSearchLimit,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
@@ -129,6 +130,8 @@ const SEARCH_SAMPLE = {
   FALLBACK_PICKUP_ID: 36,
   FALLBACK_SESSION_ID: 37,
   FALLBACK_FOREIGN_SESSION_ID: 38,
+  REJECTED_SINCE_CWD: 38,
+  REJECTED_SINCE_DURATIONS: 39,
   LIMIT_CWD: 40,
   UNSAFE_LIMIT: 41,
   PARTIAL_LIMIT_CWD: 42,
@@ -737,6 +740,64 @@ export async function withAgentSearchUnsafeLimitEvidence(
     unsafeLimit,
     sanitizedLimit: sanitizeCliArgument(unsafeLimit),
   });
+}
+
+export async function withAgentSearchRejectedSinceEvidence(
+  callback: (evidence: {
+    readonly attempts: readonly {
+      readonly rejectedDuration: string;
+      readonly sanitizedDuration: string;
+      readonly error: unknown;
+      readonly stderr: string;
+      readonly stdout: string;
+    }[];
+  }) => void,
+): Promise<void> {
+  const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.REJECTED_SINCE_CWD);
+  const rejectedDurations = sampleAgentResumeValue(
+    arbitraryRejectedAgentResumeSinceDurations(),
+    SEARCH_SAMPLE.REJECTED_SINCE_DURATIONS,
+  );
+  const attempts: {
+    readonly rejectedDuration: string;
+    readonly sanitizedDuration: string;
+    readonly error: unknown;
+    readonly stderr: string;
+    readonly stdout: string;
+  }[] = [];
+
+  for (const rejectedDuration of rejectedDurations) {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const program = createCliProgram({
+      domains: [createAgentDomain()],
+      processCwd: () => cwd,
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: (output) => stderr.push(output),
+    });
+    program.exitOverride();
+
+    let error: unknown = null;
+    try {
+      await program.parseAsync([
+        AGENT_CLI.commandName,
+        AGENT_CLI.searchCommandName,
+        AGENT_CLI.flags.since,
+        rejectedDuration,
+      ], { from: SPX_COMMANDER_PARSE_SOURCE });
+    } catch (caught) {
+      error = caught;
+    }
+    attempts.push({
+      rejectedDuration,
+      sanitizedDuration: sanitizeCliArgument(rejectedDuration),
+      error,
+      stderr: stderr.join(""),
+      stdout: stdout.join(""),
+    });
+  }
+
+  callback({ attempts });
 }
 
 export async function withAgentSearchPartialLimitEvidence(

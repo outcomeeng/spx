@@ -1,6 +1,11 @@
 import * as fc from "fast-check";
 
-import { AGENT_TRANSCRIPT_GIT_COMMAND } from "@/domains/agent/protocol";
+import {
+  AGENT_RESUME_RECENT_WINDOW_MS,
+  AGENT_SEARCH_RECENT_WINDOW_MS,
+  AGENT_TRANSCRIPT_GIT_COMMAND,
+} from "@/domains/agent/protocol";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import type { ClaudeTranscriptRecord, ClaudeTranscriptRecords } from "@testing/harnesses/agent/resume";
 
 import {
@@ -16,6 +21,107 @@ const MAX_LEADING_RECORDS = 6;
 const MIN_TRAILING_RECORDS = 0;
 const MAX_TRAILING_RECORDS = 6;
 const RECORD_INTERVAL_MS = 1_000;
+const WINDOW_EDGE_MARGIN_MS = 1;
+const SINCE_WINDOW_DIVISOR = 4;
+
+/**
+ * A store holding one session inside a caller-supplied reach window and one outside it,
+ * with both aged within the search default so only the window decides admission.
+ */
+export interface GeneratedSinceWindowScenario {
+  readonly homeDir: string;
+  readonly productScopeRoot: string;
+  readonly insideSessionId: string;
+  readonly outsideSessionId: string;
+  readonly insideCwd: string;
+  readonly outsideCwd: string;
+  readonly branch: string;
+  readonly sinceMs: number;
+  readonly insideModifiedAtMs: number;
+  readonly outsideModifiedAtMs: number;
+  readonly nowMs: number;
+}
+
+export function arbitrarySinceWindowScenario(): fc.Arbitrary<GeneratedSinceWindowScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentBranch(),
+      arbitraryAgentResumeNowMs(),
+      fc.integer({
+        min: Math.floor(AGENT_SEARCH_RECENT_WINDOW_MS / SINCE_WINDOW_DIVISOR),
+        max: AGENT_SEARCH_RECENT_WINDOW_MS - WINDOW_EDGE_MARGIN_MS,
+      }),
+    )
+    .chain(([insideSessionId, outsideSessionId, homeDir, productScopeRoot, branch, nowMs, sinceMs]) =>
+      fc
+        .tuple(
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
+          fc.integer({ min: 0, max: sinceMs - WINDOW_EDGE_MARGIN_MS }),
+          fc.integer({
+            min: sinceMs + WINDOW_EDGE_MARGIN_MS,
+            max: AGENT_SEARCH_RECENT_WINDOW_MS,
+          }),
+        )
+        .map(([insideCwd, outsideCwd, insideAgeMs, outsideAgeMs]) => ({
+          homeDir,
+          productScopeRoot,
+          insideSessionId,
+          outsideSessionId,
+          insideCwd,
+          outsideCwd,
+          branch,
+          sinceMs,
+          insideModifiedAtMs: nowMs - insideAgeMs,
+          outsideModifiedAtMs: nowMs - outsideAgeMs,
+          nowMs,
+        }))
+    );
+}
+
+/**
+ * A session older than the continuation window resume applies and newer than the
+ * forensic window search applies, so each consumer's default decides it differently.
+ */
+export interface GeneratedBetweenReachWindowsScenario {
+  readonly homeDir: string;
+  readonly productScopeRoot: string;
+  readonly sessionId: string;
+  readonly cwd: string;
+  readonly branch: string;
+  readonly modifiedAtMs: number;
+  readonly nowMs: number;
+}
+
+export function arbitraryBetweenReachWindowsScenario(): fc.Arbitrary<GeneratedBetweenReachWindowsScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentBranch(),
+      arbitraryAgentResumeNowMs(),
+      fc.integer({
+        min: AGENT_RESUME_RECENT_WINDOW_MS + WINDOW_EDGE_MARGIN_MS,
+        max: AGENT_SEARCH_RECENT_WINDOW_MS - WINDOW_EDGE_MARGIN_MS,
+      }),
+    )
+    .chain(([sessionId, homeDir, productScopeRoot, branch, nowMs, ageMs]) =>
+      arbitraryAgentSessionCwd(productScopeRoot).map((cwd) => ({
+        homeDir,
+        productScopeRoot,
+        sessionId,
+        cwd,
+        branch,
+        modifiedAtMs: nowMs - ageMs,
+        nowMs,
+      }))
+    );
+}
 
 /**
  * A session that opens in one product and later works in another, which is how a
@@ -33,12 +139,21 @@ export interface GeneratedMovingSessionScenario {
   readonly branchRecordIndex: number;
   readonly branchRecordCwd: string;
   readonly records: ClaudeTranscriptRecords;
+  readonly contentNeedle: string;
+  /** An in-scope session carrying neither the needle nor the requested branch. */
+  readonly decoySessionId: string;
+  readonly decoyRecords: ClaudeTranscriptRecords;
+  /** A session recording neither the requested branch nor any working directory in the product. */
+  readonly foreignOnlySessionId: string;
+  readonly foreignOnlyRecords: ClaudeTranscriptRecords;
   readonly nowMs: number;
 }
 
 export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMovingSessionScenario> {
   return fc
     .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
       arbitraryAgentWorktreeRoot(),
       arbitraryAgentWorktreeRoot(),
@@ -50,14 +165,27 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
       fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
     )
     .chain((
-      [sessionId, homeDir, productScopeRoot, foreignRoot, targetBranch, otherBranch, nowMs, leading, trailing],
+      [
+        sessionId,
+        decoySessionId,
+        foreignOnlySessionId,
+        homeDir,
+        productScopeRoot,
+        foreignRoot,
+        targetBranch,
+        otherBranch,
+        nowMs,
+        leading,
+        trailing,
+      ],
     ) =>
       fc
         .tuple(
           arbitraryAgentSessionCwd(productScopeRoot),
           arbitraryAgentSessionCwd(foreignRoot),
+          arbitraryDomainLiteral(),
         )
-        .map(([branchRecordCwd, foreignCwd]) => {
+        .map(([branchRecordCwd, foreignCwd, contentNeedle]) => {
           const stamp = (index: number): string =>
             new Date(nowMs - (leading + trailing - index) * RECORD_INTERVAL_MS).toISOString();
           const opening: ClaudeTranscriptRecord = {
@@ -81,6 +209,16 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             branch: otherBranch,
           }));
           const records: ClaudeTranscriptRecords = [opening, ...beforeBranch, branchRecord, ...afterBranch];
+          const decoyRecords: ClaudeTranscriptRecords = [{
+            cwd: branchRecordCwd,
+            timestamp: stamp(0),
+            branch: otherBranch,
+          }];
+          const foreignOnlyRecords: ClaudeTranscriptRecords = [{
+            cwd: foreignCwd,
+            timestamp: stamp(0),
+            branch: otherBranch,
+          }];
           return {
             homeDir,
             sessionId,
@@ -92,6 +230,11 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             branchRecordIndex: leading,
             branchRecordCwd,
             records,
+            contentNeedle,
+            decoySessionId,
+            decoyRecords,
+            foreignOnlySessionId,
+            foreignOnlyRecords,
             nowMs,
           };
         })
