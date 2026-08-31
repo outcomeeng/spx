@@ -55,6 +55,10 @@ function unresolvedDirectiveRows(): readonly UnresolvedDirectiveRow[] {
       variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_ESCAPING,
       expectedDiagnostic: (fixture) => formatFoundationResourceUnreadableError(fixture.entryPath, fixture.manifestPath),
     },
+    {
+      variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_INVALID_UTF8,
+      expectedDiagnostic: (fixture) => formatFoundationResourceUnreadableError(fixture.entryPath, fixture.manifestPath),
+    },
   ];
 }
 

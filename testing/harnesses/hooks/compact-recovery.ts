@@ -44,6 +44,7 @@ export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   ENTRY_ABSENT: "entry-absent",
   RESOURCE_MISSING: "resource-missing",
   RESOURCE_ESCAPING: "resource-escaping",
+  RESOURCE_INVALID_UTF8: "resource-invalid-utf8",
 } as const;
 
 export type CompactRecoveryFixtureVariant =
@@ -117,6 +118,14 @@ export async function withCompactRecoveryPackage(
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_MISSING: {
         await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        break;
+      }
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_INVALID_UTF8: {
+        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        const resourcePath = join(packageRoot, COMPACT_RECOVERY_PATH);
+        await mkdir(dirname(resourcePath), { recursive: true });
+        // 0xff can begin no UTF-8 sequence, so a strict decode always rejects this content.
+        await writeFile(resourcePath, Buffer.from([0xff, 0xfe, 0xfd]));
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_ESCAPING: {
