@@ -2,6 +2,7 @@ import type { AgentHomeDirs } from "../home";
 import {
   AGENT_RESUME_LIMITS,
   AGENT_SEARCH_MATCH_REASON,
+  AGENT_SEARCH_RECENT_WINDOW_MS,
   AGENT_SEARCH_SESSION_KINDS,
   AGENT_SESSION_KIND,
   type AgentSearchMatchReason,
@@ -123,10 +124,11 @@ async function searchAgentStore(
   );
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
-  const allFiles = needsBranchEvidence ? await storeFiles(paths, options.fs, options.nowMs, true) : [];
+  const recentWindowMs = searchRecentWindowMs(options.query);
+  const allFiles = needsBranchEvidence ? await storeFiles(paths, options.fs, options.nowMs, true, recentWindowMs) : [];
   const files = needsBranchEvidence
-    ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs)
-    : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll);
+    ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs, recentWindowMs)
+    : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll, recentWindowMs);
   const branchEvidenceFiles = needsBranchEvidence ? nonFutureStoreFiles(allFiles, options.nowMs) : [];
   const topLevelBranchAssociations = needsBranchEvidence && adapter.acceptsTranscriptCommandEvidence
     ? await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser)
@@ -343,16 +345,21 @@ function matchingContentNeedles(
   return matches.length === needles.length ? matches : null;
 }
 
+function searchRecentWindowMs(query: AgentSearchQuery): number {
+  return query.sinceMs ?? AGENT_SEARCH_RECENT_WINDOW_MS;
+}
+
 async function storeFiles(
   paths: readonly string[],
   fs: AgentSessionFileSystem,
   nowMs: number,
   includeAll: boolean,
+  recentWindowMs: number,
 ): Promise<AgentStoreFile[]> {
   const files = await mapWithConcurrency(paths, AGENT_RESUME_LIMITS.READ_CONCURRENCY, async (path) => {
     const stat = await fs.stat(path).catch((): AgentSessionFileStat | null => null);
     if (stat === null) return null;
-    if (!includeAll && !isRecentAgentSessionMtime(stat.mtimeMs, nowMs)) return null;
+    if (!includeAll && !isRecentAgentSessionMtime(stat.mtimeMs, nowMs, recentWindowMs)) return null;
     return { path, modifiedAtMs: stat.mtimeMs };
   });
   return files
@@ -360,8 +367,12 @@ async function storeFiles(
     .sort((left, right) => right.modifiedAtMs - left.modifiedAtMs || compareAgentSessionText(left.path, right.path));
 }
 
-function recentStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
-  return files.filter((file) => isRecentAgentSessionMtime(file.modifiedAtMs, nowMs));
+function recentStoreFiles(
+  files: readonly AgentStoreFile[],
+  nowMs: number,
+  recentWindowMs: number,
+): AgentStoreFile[] {
+  return files.filter((file) => isRecentAgentSessionMtime(file.modifiedAtMs, nowMs, recentWindowMs));
 }
 
 function nonFutureStoreFiles(files: readonly AgentStoreFile[], nowMs: number): AgentStoreFile[] {
