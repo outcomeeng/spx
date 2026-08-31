@@ -163,6 +163,7 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
       arbitraryAgentResumeNowMs(),
       fc.integer({ min: MIN_LEADING_RECORDS, max: MAX_LEADING_RECORDS }),
       fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
+      fc.boolean(),
     )
     .chain((
       [
@@ -177,6 +178,7 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
         nowMs,
         leading,
         trailing,
+        branchCwdUnderPayload,
       ],
     ) =>
       fc
@@ -205,6 +207,7 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
             cwd: branchRecordCwd,
             timestamp: stamp(leading),
             branch: targetBranch,
+            cwdUnderPayload: branchCwdUnderPayload,
           };
           const afterBranch: ClaudeTranscriptRecord[] = Array.from({ length: trailing }, (_unused, index) => ({
             cwd: branchRecordCwd,
