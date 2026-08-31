@@ -214,11 +214,13 @@ async function collectMatchingSessions(
       file.path,
       options,
       adapter,
-      topLevelBranchAssociations,
-      subagentBranchAssociations,
-      recordedBranchAssociationCwd(records, options)
-        ?? currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
-      content,
+      {
+        topLevel: topLevelBranchAssociations,
+        subagent: subagentBranchAssociations,
+        candidateCwd: recordedBranchAssociationCwd(records, options)
+          ?? currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
+        prefetchedContent: content,
+      },
     );
     if (match === null) continue;
     const effectiveCwd = match.effectiveCwd ?? recordedScopeCwd ?? core.cwd;
@@ -307,16 +309,20 @@ function coreCanHaveScopedSearchResult(
     || subagentBranchAssociations.has(core.sessionId);
 }
 
+interface BranchAssociationContext {
+  readonly topLevel: TopLevelBranchAssociations;
+  readonly subagent: ReadonlyMap<string, CodexSubagentBranchAssociation>;
+  readonly candidateCwd: string | null;
+  readonly prefetchedContent: string | null;
+}
+
 async function matchReasons(
   agent: AgentSearchSessionKind,
   core: AgentSessionHead,
   path: string,
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
-  topLevelBranchAssociations: TopLevelBranchAssociations,
-  subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
-  candidateMetadataBranchAssociationCwd: string | null,
-  prefetchedContent: string | null,
+  association: BranchAssociationContext,
 ): Promise<BranchSearchMatch | null> {
   if (!hasSearchSelector(options.query)) {
     return {
@@ -331,16 +337,16 @@ async function matchReasons(
   const branchMatches = branchMetadataOrWorktreeMatchReasons(
     core,
     options.query.branch,
-    topLevelBranchAssociations,
-    subagentBranchAssociations,
-    candidateMetadataBranchAssociationCwd,
+    association.topLevel,
+    association.subagent,
+    association.candidateCwd,
   );
-  if (branchMatches === null && topLevelBranchAssociations.commandCheckedSessionIds.has(core.sessionId)) {
+  if (branchMatches === null && association.topLevel.commandCheckedSessionIds.has(core.sessionId)) {
     return null;
   }
   const requiresContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
     || options.query.contentNeedles.length > 0;
-  const content = prefetchedContent
+  const content = association.prefetchedContent
     ?? (requiresContent ? await options.fs.readText(path).catch(() => null) : undefined);
   if (content === null) {
     return null;
@@ -422,10 +428,7 @@ function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearch
  * of the same session, so a branch selector admits every candidate.
  */
 function transcriptCarriesSelectorEvidence(content: string, query: AgentSearchQuery): boolean {
-  if (query.contentNeedles.length === 0 || query.branch !== null) {
-    return true;
-  }
-  return query.contentNeedles.some((needle) => content.includes(needle.value));
+  return query.branch !== null || query.contentNeedles.some((needle) => content.includes(needle.value));
 }
 
 function coreMatchesSearchInputScope(
