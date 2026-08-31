@@ -110,6 +110,9 @@ const SEARCH_SAMPLE = {
   PRODUCT_WIDE_PICKUP_ID: 306,
   PRODUCT_WIDE_INVOCATION_SESSION_ID: 307,
   PRODUCT_WIDE_SIBLING_SESSION_ID: 308,
+  PRODUCT_WIDE_RELOCATED_SESSION_ID: 391,
+  PRODUCT_WIDE_RELOCATED_OPENING_CWD: 392,
+  PRODUCT_WIDE_RELOCATED_CWD: 393,
   PRODUCT_WIDE_FOREIGN_SESSION_ID: 309,
   POOL_BRANCH_HOME_DIR: 310,
   POOL_BRANCH_NOW_MS: 311,
@@ -398,6 +401,8 @@ export async function withAgentSearchProductWideSelectorEvidence(
     readonly invocationSessionId: string;
     readonly siblingSessionId: string;
     readonly foreignSessionId: string;
+    readonly relocatedSessionId: string;
+    readonly relocatedCwd: string;
   }) => void | Promise<void>,
 ): Promise<void> {
   const layoutCase = sampleMainCheckoutTestValue(arbitraryBarePoolLayoutCase());
@@ -458,6 +463,33 @@ export async function withAgentSearchProductWideSelectorEvidence(
       modifiedAtMs: nowMs - 2,
     });
 
+    // A record-reading adapter whose opening record sits in another product and whose later
+    // record sits in this one: exclusion here is decided from the recorded sequence, not the
+    // opening value.
+    const relocatedSessionId = sampleAgentResumeValue(
+      arbitraryAgentSessionId(),
+      SEARCH_SAMPLE.PRODUCT_WIDE_RELOCATED_SESSION_ID,
+    );
+    const relocatedCwd = sampleAgentResumeValue(
+      arbitraryAgentSessionCwd(invocationWorktree),
+      SEARCH_SAMPLE.PRODUCT_WIDE_RELOCATED_CWD,
+    );
+    writeClaudeMultiRecordTranscriptFile(fs, homeDir, {
+      sessionId: relocatedSessionId,
+      records: [
+        {
+          cwd: sampleAgentResumeValue(
+            arbitraryAgentSessionCwd(foreignProductRoot),
+            SEARCH_SAMPLE.PRODUCT_WIDE_RELOCATED_OPENING_CWD,
+          ),
+          timestamp,
+        },
+        { cwd: relocatedCwd, timestamp },
+      ],
+      marker,
+      modifiedAtMs: nowMs - 3,
+    });
+
     const productWideResults = async (options: AgentSearchQueryOptions): Promise<AgentSearchResult[]> =>
       loadAgentSearchResults({
         cwd: invocationWorktree,
@@ -481,6 +513,8 @@ export async function withAgentSearchProductWideSelectorEvidence(
       invocationSessionId,
       siblingSessionId,
       foreignSessionId,
+      relocatedSessionId,
+      relocatedCwd,
     });
   });
 }

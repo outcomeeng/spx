@@ -81,11 +81,16 @@ describe("agent session search compliance", () => {
       expect(evidence.pickupResults.map((result) => result.sessionId)).toEqual([
         evidence.invocationSessionId,
         evidence.siblingSessionId,
+        evidence.relocatedSessionId,
       ]);
       expect(evidence.containsResults.map((result) => result.sessionId)).toEqual([
         evidence.invocationSessionId,
         evidence.siblingSessionId,
+        evidence.relocatedSessionId,
       ]);
+      expect(
+        evidence.containsResults.find((result) => result.sessionId === evidence.relocatedSessionId)?.cwd,
+      ).toBe(evidence.relocatedCwd);
       expect(evidence.agentResults.map((result) => result.sessionId)).toEqual([
         evidence.invocationSessionId,
         evidence.siblingSessionId,
