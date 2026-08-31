@@ -198,6 +198,7 @@ async function collectMatchingSessions(
     recordCurrentMetadataBranchAssociation(
       core,
       options,
+      adapter,
       candidateMetadataIsCurrent,
       currentMetadataBranchAssociationCwds,
     );
@@ -279,6 +280,7 @@ async function scanTranscript(
 function recordCurrentMetadataBranchAssociation(
   core: AgentSessionHead,
   options: AgentSearchOptions,
+  adapter: AgentSearchAdapter,
   candidateMetadataIsCurrent: boolean,
   currentMetadataBranchAssociationCwds: Map<string, string>,
 ): void {
@@ -289,6 +291,7 @@ function recordCurrentMetadataBranchAssociation(
     core,
     options.query.branch,
     options.branchAssociatedWorktreeRoots ?? [],
+    adapter.readRecords === null,
   );
   if (branchAssociationCwd !== null && cwdMatchesSearchInputScope(branchAssociationCwd, options)) {
     currentMetadataBranchAssociationCwds.set(core.sessionId, branchAssociationCwd);
