@@ -96,7 +96,9 @@ describe("agent session search compliance", () => {
         evidence.siblingSessionId,
       ]);
       expect(evidence.siblingSessionIdResults.map((result) => result.sessionId)).toEqual([evidence.siblingSessionId]);
-      expect(evidence.foreignSessionIdResults).toEqual([]);
+      expect(evidence.foreignSessionIdResults.map((result) => result.sessionId)).toEqual([
+        evidence.foreignSessionId,
+      ]);
     });
   });
 

@@ -22,7 +22,11 @@ import {
   AGENT_TRANSCRIPT_TOOL_NAME,
   type AgentSearchMatchReason,
 } from "@/domains/agent/protocol";
-import { claudeCodeSessionStoreDir, discoverAgentResumeCandidates } from "@/domains/agent/resume";
+import {
+  agentSessionJsonlName,
+  claudeCodeSessionStoreDir,
+  discoverAgentResumeCandidates,
+} from "@/domains/agent/resume";
 import type { AgentResumeCandidate } from "@/domains/agent/resume";
 import {
   type AgentSearchQuery,
@@ -83,7 +87,6 @@ import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktr
 
 import {
   agentResumeWorktreeRootResolver,
-  agentSessionJsonlName,
   codexTranscript,
   ImmediateExit,
   MemoryAgentSessionFileSystem,

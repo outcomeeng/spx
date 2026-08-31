@@ -288,8 +288,12 @@ export interface GeneratedSessionIdentityScenario {
   readonly foreignRoot: string;
   readonly sessionId: string;
   readonly records: ClaudeTranscriptRecords;
-  /** The working directory the result reports: an in-product record when one exists, else the opening one. */
-  readonly expectedCwd: string;
+  /**
+   * The working directories the result may report: every in-product recorded directory when the
+   * transcript records any, otherwise the opening one. Which in-product position wins is undeclared,
+   * so the set carries every directory the assertion admits.
+   */
+  readonly acceptableCwds: readonly string[];
   readonly productDecoySessionId: string;
   readonly productDecoyRecords: ClaudeTranscriptRecords;
   readonly foreignDecoySessionId: string;
@@ -310,6 +314,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
       fc.integer({ min: MIN_TRAILING_RECORDS, max: MAX_TRAILING_RECORDS }),
       fc.boolean(),
       fc.boolean(),
+      fc.integer({ min: 0, max: MAX_TRAILING_RECORDS }),
     )
     .chain((
       [
@@ -323,6 +328,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
         trailing,
         recordsProductCwd,
         productCwdUnderPayload,
+        productRecordOffset,
       ],
     ) =>
       fc
@@ -330,27 +336,42 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
           arbitraryAgentSessionCwd(foreignRoot),
           arbitraryAgentSessionCwd(productScopeRoot),
           arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
           arbitraryAgentSessionCwd(foreignRoot),
         )
-        .map(([openingCwd, productCwd, decoyProductCwd, decoyForeignCwd]) => {
+        .map(([openingCwd, productCwd, secondProductCwd, decoyProductCwd, decoyForeignCwd]) => {
           const stamp = (index: number): string =>
             new Date(nowMs - (trailing + 1 - index) * RECORD_INTERVAL_MS).toISOString();
           // The opening record decides the project directory the store files this
           // transcript under, so it stays outside the invocation product.
           const opening: ClaudeTranscriptRecord = { cwd: openingCwd, timestamp: stamp(0) };
-          const later: ClaudeTranscriptRecord[] = Array.from({ length: trailing }, (_unused, index) => ({
-            cwd: recordsProductCwd ? productCwd : openingCwd,
-            timestamp: stamp(index + 1),
-            cwdUnderPayload: recordsProductCwd ? productCwdUnderPayload : false,
-          }));
           const recordsProductPosition = recordsProductCwd && trailing > 0;
+          // Trailing records interleave foreign and in-product directories around a first
+          // in-product position, so no single position is the only one the assertion admits.
+          const firstProductIndex = recordsProductPosition ? productRecordOffset % trailing : -1;
+          const trailingCwd = (index: number): string => {
+            if (!recordsProductPosition || index < firstProductIndex) {
+              return openingCwd;
+            }
+            if (index === firstProductIndex) {
+              return productCwd;
+            }
+            return index % 2 === 0 ? secondProductCwd : openingCwd;
+          };
+          const later: ClaudeTranscriptRecord[] = Array.from({ length: trailing }, (_unused, index) => ({
+            cwd: trailingCwd(index),
+            timestamp: stamp(index + 1),
+            cwdUnderPayload: recordsProductPosition && index === firstProductIndex ? productCwdUnderPayload : false,
+          }));
           return {
             homeDir,
             productScopeRoot,
             foreignRoot,
             sessionId,
             records: [opening, ...later] as ClaudeTranscriptRecords,
-            expectedCwd: recordsProductPosition ? productCwd : openingCwd,
+            acceptableCwds: recordsProductPosition
+              ? [...new Set(later.map((record) => record.cwd).filter((cwd) => cwd !== openingCwd))]
+              : [openingCwd],
             productDecoySessionId,
             productDecoyRecords: [{ cwd: decoyProductCwd, timestamp: stamp(0) }] as ClaudeTranscriptRecords,
             foreignDecoySessionId,

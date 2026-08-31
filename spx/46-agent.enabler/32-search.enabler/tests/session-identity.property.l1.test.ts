@@ -21,7 +21,8 @@ describe("agent search — session identity", () => {
       arbitrarySessionIdentityScenario(),
       async (scenario): Promise<boolean> => {
         const observation = await searchSessionIdentityStore(scenario, { sessionId: scenario.sessionId });
-        return observation.results.map((result) => result.cwd).join() === scenario.expectedCwd;
+        const reported = observation.results.map((result) => result.cwd);
+        return reported.length === 1 && reported.every((cwd) => scenario.acceptableCwds.includes(cwd));
       },
       { level: PROPERTY_LEVEL.L1 },
     );

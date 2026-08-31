@@ -20,6 +20,7 @@ import {
   type AgentResumeCandidate,
   type AgentResumeSessionFileSystem,
   type AgentSessionDirEntry,
+  agentSessionJsonlName,
   branchResumeScope,
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
@@ -266,10 +267,6 @@ function codexTranscriptMeta(input: Omit<TranscriptInput, "timestamp">, timestam
 
 export function codexSubagentTranscript(input: TranscriptInput): string {
   return codexTranscript({ ...input, threadSource: CODEX_SESSION_THREAD_SOURCE.SUBAGENT });
-}
-
-export function agentSessionJsonlName(sessionId: string): string {
-  return `${sessionId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
 }
 
 export function agentResumeWorktreeRootResolver(worktreeRoot: string): (cwd: string) => Promise<string> {

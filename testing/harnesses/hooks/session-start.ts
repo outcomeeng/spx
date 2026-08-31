@@ -5,6 +5,7 @@ import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/status";
 import type { Result } from "@/config/types";
 import { AGENT_HOME_ENV } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
+import { agentSessionJsonlName } from "@/domains/agent/resume";
 import {
   HOOK_ENV_FILE,
   HOOK_SESSION_START_ENV,
@@ -35,7 +36,6 @@ import {
 } from "@testing/generators/session/session";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { piTranscript } from "@testing/harnesses/agent/pi-resume";
-import { agentSessionJsonlName } from "@testing/harnesses/agent/resume";
 import { withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
 import {
   runWorktreeCli,

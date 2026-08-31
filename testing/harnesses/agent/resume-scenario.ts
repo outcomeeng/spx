@@ -4,6 +4,7 @@ import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
 import {
   type AgentResumeCandidate,
+  agentSessionJsonlName,
   branchResumeScope,
   buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
@@ -28,7 +29,6 @@ import {
   agentResumeCandidate,
   agentResumeFixedWorktreeRootResolver,
   agentResumeMultiRootResolver,
-  agentSessionJsonlName,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   codexTranscript,
