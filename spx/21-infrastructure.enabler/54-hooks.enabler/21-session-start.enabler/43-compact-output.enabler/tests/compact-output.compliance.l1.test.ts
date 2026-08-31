@@ -10,35 +10,41 @@ import {
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { runSessionStartHook } from "@/interfaces/hooks/session-start";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { arbitraryCompactDirectiveText } from "@testing/generators/hooks/session-start";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { createRecordingCompactDirectiveResolver } from "@testing/harnesses/hooks/compact-recovery";
 import { withWorktreePool, type WorktreePoolEnv } from "@testing/harnesses/worktree/harness";
 
-function hookContentWithSource(env: WorktreePoolEnv, source: string): string {
-  return JSON.stringify({
-    [HOOK_SESSION_START_PAYLOAD.SOURCE]: source,
-    [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
-  });
+interface CompactBoundaryInput {
+  readonly compactStdout: boolean;
+  readonly source: string;
 }
 
-async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => string): Promise<void> {
+async function runCompactBoundaryCase(input: CompactBoundaryInput) {
   const worktreeName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
   const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
   const envFileName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.envFileName());
   const threadId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
   const claimRandomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+  const recording = createRecordingCompactDirectiveResolver(sampleGeneratedValue(arbitraryCompactDirectiveText()));
 
-  await withWorktreePool({ worktreeName, holder }, async (env) => {
-    const envFile = join(env.container, envFileName);
+  let stdout: string | undefined;
+  await withWorktreePool({ worktreeName, holder }, async (env: WorktreePoolEnv) => {
     const result = await runSessionStartHook({
       claimRandomBytes,
-      compactStdout: false,
-      content: renderContent(env),
+      compactStdout: input.compactStdout,
+      content: JSON.stringify({
+        [HOOK_SESSION_START_PAYLOAD.SOURCE]: input.source,
+        [HOOK_SESSION_START_PAYLOAD.CWD]: env.worktreePath,
+      }),
       cwd: env.container,
-      envFile,
+      envFile: join(env.container, envFileName),
       fs: env.fs,
       gitDeps: defaultGitDependencies,
       worktreesDir: env.worktreesDir,
       processTable: env.processTable,
+      resolveCompactDirective: recording.resolver,
       selfPid: env.holder.pid,
       env: {
         [CONTROLLING_PID_ENV]: String(env.holder.pid),
@@ -46,14 +52,38 @@ async function expectNoHookStdoutFor(renderContent: (env: WorktreePoolEnv) => st
       },
     });
 
-    expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    expect(result.value.stdout).toHaveLength(0);
+    stdout = result.value.stdout;
   });
+  return { invocations: recording.invocations, stdout };
 }
 
 describe("hook session-start compact stdout boundary", () => {
-  it("emits no hook stdout for the compact lifecycle source", async () => {
-    await expectNoHookStdoutFor((env) => hookContentWithSource(env, HOOK_SESSION_START_SOURCE.COMPACT));
+  it("emits no hook stdout for the compact lifecycle source when the policy is false", async () => {
+    const evidence = await runCompactBoundaryCase({
+      compactStdout: false,
+      source: HOOK_SESSION_START_SOURCE.COMPACT,
+    });
+
+    expect(evidence.stdout).toHaveLength(0);
+  });
+
+  it("never invokes directive resolution for a compact invocation whose policy is false", async () => {
+    const evidence = await runCompactBoundaryCase({
+      compactStdout: false,
+      source: HOOK_SESSION_START_SOURCE.COMPACT,
+    });
+
+    expect(evidence.invocations).toHaveLength(0);
+  });
+
+  it("never invokes directive resolution for a non-compact lifecycle source whose policy is true", async () => {
+    const evidence = await runCompactBoundaryCase({
+      compactStdout: true,
+      source: HOOK_SESSION_START_SOURCE.STARTUP,
+    });
+
+    expect(evidence.invocations).toHaveLength(0);
+    expect(evidence.stdout).toHaveLength(0);
   });
 });
