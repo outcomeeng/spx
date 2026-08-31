@@ -391,15 +391,15 @@ function transcriptRecords(
   return adapter.readRecords(content);
 }
 
-/**
- * A selector-free listing resolves from opening metadata alone, so it never decodes a
- * transcript. Only a selector that reads recorded content pays that cost.
- */
 /** The opening record already names the branch, so no later position needs reading. */
 function openingMetadataResolvesBranch(core: AgentSessionHead, query: AgentSearchQuery): boolean {
   return query.branch !== null && core.branch === query.branch;
 }
 
+/**
+ * A selector-free listing resolves from opening metadata alone, so it never decodes a
+ * transcript. Only a selector that reads recorded content pays that cost.
+ */
 function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
   if (!hasSearchSelector(query)) {
     return false;
