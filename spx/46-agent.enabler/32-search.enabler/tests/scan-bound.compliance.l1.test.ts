@@ -11,4 +11,11 @@ describe("agent search — structural read bound", () => {
 
     expect(observation.fs.maxHeadReadBytes(observation.decoyPath)).toBe(0);
   });
+
+  it("reads no transcript's full content when the invocation carries no selector", async () => {
+    const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
+    const observation = await searchMovingSessionStore(scenario);
+
+    expect(observation.fs.textReadPaths()).toHaveLength(0);
+  });
 });

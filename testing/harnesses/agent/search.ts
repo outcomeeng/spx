@@ -2359,7 +2359,7 @@ export interface MovingSessionSearchObservation {
 
 export async function searchMovingSessionStore(
   scenario: GeneratedMovingSessionScenario,
-  query: AgentSearchQueryOptions,
+  query: AgentSearchQueryOptions = {},
 ): Promise<MovingSessionSearchObservation> {
   const fs = new MemoryAgentSessionFileSystem();
   const sessionPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
