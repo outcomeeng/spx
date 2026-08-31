@@ -47,6 +47,12 @@ all history rather than the window.
 A selector-free listing decodes nothing, which
 [tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces.
 
+A branch search decodes each candidate twice: once in the branch-evidence collectors and
+again when a session's recorded positions are scanned. Collapsing that to one pass means
+moving per-record association into the collectors, which filter on the opening working
+directory — the value a moved session fails — so it needs the same restructure the
+resolution below describes rather than a local change.
+
 **Resolution:** locate the needle without decoding the whole transcript — scan the raw
 buffer and decode only transcripts that hit. The two-pass scan named in
 [PLAN.md](PLAN.md) is the same work.
