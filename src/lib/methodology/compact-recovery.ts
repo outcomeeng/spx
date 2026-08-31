@@ -12,20 +12,15 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import type { Result } from "@/config/types";
 
 import {
+  formatCompactRecoveryEntryAbsentError,
   formatFoundationManifestInvalidError,
   formatFoundationManifestUnreadableError,
   formatFoundationPackageUnconfiguredError,
   formatFoundationResourceUnreadableError,
-  FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   parseFoundationResourceManifest,
 } from "./foundation-manifest";
 import { containedPackageResourcePath, type MethodologyPackageFileSystem } from "./package-resource";
-
-/** Diagnostic for a manifest that carries no compact-recovery entry. */
-export function formatCompactRecoveryEntryAbsentError(manifestPath: string): string {
-  return `Compact-recovery entry absent: ${manifestPath} names no ${FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY} resource`;
-}
 
 export interface CompactRecoveryResolutionOptions {
   /** The payload product directory the methodology configuration was read from. */

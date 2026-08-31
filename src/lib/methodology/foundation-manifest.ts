@@ -170,3 +170,8 @@ export function formatFoundationResourceUnreadableError(resourcePath: string, ma
 export function formatFoundationPackageUnconfiguredError(section: string, field: string): string {
   return `Foundation methodology requested but no installed package location is configured; set ${section}.${field}`;
 }
+
+/** Diagnostic for a manifest that carries no compact-recovery entry. */
+export function formatCompactRecoveryEntryAbsentError(manifestPath: string): string {
+  return `Compact-recovery entry absent: ${manifestPath} names no ${FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY} resource`;
+}
