@@ -10,6 +10,7 @@ import {
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import {
+  AGENT_RESUME_SCOPE,
   AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
@@ -21,6 +22,8 @@ import {
   AGENT_TRANSCRIPT_TOOL_NAME,
   type AgentSearchMatchReason,
 } from "@/domains/agent/protocol";
+import { discoverAgentResumeCandidates } from "@/domains/agent/resume";
+import type { AgentResumeCandidate } from "@/domains/agent/resume";
 import {
   type AgentSearchQuery,
   agentSearchQueryFromOptions,
@@ -64,6 +67,9 @@ import {
   agentSearchSwitchCommand,
   agentSearchSwitchCreateCommand,
   agentSearchWorktreeResetAddCommand,
+  type GeneratedBetweenReachWindowsScenario,
+  type GeneratedMovingSessionScenario,
+  type GeneratedSinceWindowScenario,
 } from "@testing/generators/agent/search";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
@@ -73,9 +79,11 @@ import {
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 import {
+  agentResumeWorktreeRootResolver,
   agentSessionJsonlName,
   codexTranscript,
   MemoryAgentSessionFileSystem,
+  writeClaudeMultiRecordTranscriptFile,
   writeClaudeProjectTranscriptFile,
   writeClaudeSubagentTranscriptFile,
   writeCodexSubagentTranscriptFile,
@@ -2334,4 +2342,120 @@ function claudeBashToolResultWithoutStatusRow(): string {
       ],
     },
   });
+}
+
+/**
+ * The moving-session store: the drawn session plus the decoy and wholly foreign
+ * sessions it is distinguished from, searched under one query. Returns the store
+ * and its observations; every predicate belongs to the calling test.
+ */
+export interface MovingSessionSearchObservation {
+  readonly results: readonly AgentSearchResult[];
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly sessionPath: string;
+  readonly decoyPath: string;
+  readonly foreignOnlyPath: string;
+}
+
+export async function searchMovingSessionStore(
+  scenario: GeneratedMovingSessionScenario,
+  query: AgentSearchQueryOptions,
+): Promise<MovingSessionSearchObservation> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const sessionPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.sessionId,
+    records: scenario.records,
+    modifiedAtMs: scenario.nowMs,
+    marker: scenario.contentNeedle,
+  });
+  const decoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.decoySessionId,
+    records: scenario.decoyRecords,
+    modifiedAtMs: scenario.nowMs,
+  });
+  const foreignOnlyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.foreignOnlySessionId,
+    records: scenario.foreignOnlyRecords,
+    modifiedAtMs: scenario.nowMs,
+  });
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    productScopeRoot: scenario.productScopeRoot,
+    branchAssociatedWorktreeRoots: [],
+    fs,
+    query: agentSearchQueryFromOptions(query),
+  });
+
+  return { results, fs, sessionPath, decoyPath, foreignOnlyPath };
+}
+
+/** The two-session since-window store searched under one reach window. */
+export async function searchSinceWindowStore(
+  scenario: GeneratedSinceWindowScenario,
+  query: AgentSearchQueryOptions,
+): Promise<readonly AgentSearchResult[]> {
+  const fs = new MemoryAgentSessionFileSystem();
+  writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.insideSessionId,
+    cwd: scenario.insideCwd,
+    timestamp: new Date(scenario.insideModifiedAtMs).toISOString(),
+    branch: scenario.branch,
+    modifiedAtMs: scenario.insideModifiedAtMs,
+  });
+  writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.outsideSessionId,
+    cwd: scenario.outsideCwd,
+    timestamp: new Date(scenario.outsideModifiedAtMs).toISOString(),
+    branch: scenario.branch,
+    modifiedAtMs: scenario.outsideModifiedAtMs,
+  });
+
+  return searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    productScopeRoot: scenario.productScopeRoot,
+    branchAssociatedWorktreeRoots: [],
+    fs,
+    query: agentSearchQueryFromOptions(query),
+  });
+}
+
+/** One session offered to both consumers' default reach windows. */
+export interface ReachWindowConsumerObservation {
+  readonly searched: readonly AgentSearchResult[];
+  readonly resumable: readonly AgentResumeCandidate[];
+}
+
+export async function searchAndResumeBetweenReachWindows(
+  scenario: GeneratedBetweenReachWindowsScenario,
+): Promise<ReachWindowConsumerObservation> {
+  const fs = new MemoryAgentSessionFileSystem();
+  writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.sessionId,
+    cwd: scenario.cwd,
+    timestamp: new Date(scenario.modifiedAtMs).toISOString(),
+    branch: scenario.branch,
+    modifiedAtMs: scenario.modifiedAtMs,
+  });
+
+  const searched = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    productScopeRoot: scenario.productScopeRoot,
+    branchAssociatedWorktreeRoots: [],
+    fs,
+    query: agentSearchQueryFromOptions({ branch: scenario.branch }),
+  });
+  const resumable = await discoverAgentResumeCandidates({
+    invocationDir: scenario.cwd,
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    scope: { kind: AGENT_RESUME_SCOPE.BRANCH, branch: scenario.branch },
+    fs,
+    resolveWorktreeRoot: agentResumeWorktreeRootResolver(scenario.productScopeRoot),
+  });
+
+  return { searched, resumable };
 }

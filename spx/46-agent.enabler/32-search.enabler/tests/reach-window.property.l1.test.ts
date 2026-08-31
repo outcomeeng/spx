@@ -1,16 +1,7 @@
 import { describe, it } from "vitest";
 
-import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
-import { AGENT_RESUME_SCOPE } from "@/domains/agent/protocol";
-import { discoverAgentResumeCandidates } from "@/domains/agent/resume";
-import { agentSearchQueryFromOptions, searchAgentSessions } from "@/domains/agent/search";
-
 import { arbitraryBetweenReachWindowsScenario, arbitrarySinceWindowScenario } from "@testing/generators/agent/search";
-import {
-  agentResumeWorktreeRootResolver,
-  MemoryAgentSessionFileSystem,
-  writeClaudeProjectTranscriptFile,
-} from "@testing/harnesses/agent/resume";
+import { searchAndResumeBetweenReachWindows, searchSinceWindowStore } from "@testing/harnesses/agent/search";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("agent search — reach window", () => {
@@ -18,31 +9,10 @@ describe("agent search — reach window", () => {
     await assertProperty(
       arbitrarySinceWindowScenario(),
       async (scenario): Promise<boolean> => {
-        const fs = new MemoryAgentSessionFileSystem();
-        writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
-          sessionId: scenario.insideSessionId,
-          cwd: scenario.insideCwd,
-          timestamp: new Date(scenario.insideModifiedAtMs).toISOString(),
+        const results = await searchSinceWindowStore(scenario, {
           branch: scenario.branch,
-          modifiedAtMs: scenario.insideModifiedAtMs,
+          sinceMs: scenario.sinceMs,
         });
-        writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
-          sessionId: scenario.outsideSessionId,
-          cwd: scenario.outsideCwd,
-          timestamp: new Date(scenario.outsideModifiedAtMs).toISOString(),
-          branch: scenario.branch,
-          modifiedAtMs: scenario.outsideModifiedAtMs,
-        });
-
-        const results = await searchAgentSessions({
-          agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
-          nowMs: scenario.nowMs,
-          productScopeRoot: scenario.productScopeRoot,
-          branchAssociatedWorktreeRoots: [],
-          fs,
-          query: agentSearchQueryFromOptions({ branch: scenario.branch, sinceMs: scenario.sinceMs }),
-        });
-
         return results.map((result) => result.sessionId).join() === scenario.insideSessionId;
       },
       { level: PROPERTY_LEVEL.L1 },
@@ -53,34 +23,9 @@ describe("agent search — reach window", () => {
     await assertProperty(
       arbitraryBetweenReachWindowsScenario(),
       async (scenario): Promise<boolean> => {
-        const fs = new MemoryAgentSessionFileSystem();
-        writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
-          sessionId: scenario.sessionId,
-          cwd: scenario.cwd,
-          timestamp: new Date(scenario.modifiedAtMs).toISOString(),
-          branch: scenario.branch,
-          modifiedAtMs: scenario.modifiedAtMs,
-        });
-
-        const searched = await searchAgentSessions({
-          agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
-          nowMs: scenario.nowMs,
-          productScopeRoot: scenario.productScopeRoot,
-          branchAssociatedWorktreeRoots: [],
-          fs,
-          query: agentSearchQueryFromOptions({ branch: scenario.branch }),
-        });
-        const resumable = await discoverAgentResumeCandidates({
-          invocationDir: scenario.cwd,
-          agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
-          nowMs: scenario.nowMs,
-          scope: { kind: AGENT_RESUME_SCOPE.BRANCH, branch: scenario.branch },
-          fs,
-          resolveWorktreeRoot: agentResumeWorktreeRootResolver(scenario.productScopeRoot),
-        });
-
-        return searched.map((result) => result.sessionId).join() === scenario.sessionId
-          && resumable.every((candidate) => candidate.sessionId !== scenario.sessionId);
+        const observation = await searchAndResumeBetweenReachWindows(scenario);
+        return observation.searched.map((result) => result.sessionId).join() === scenario.sessionId
+          && observation.resumable.every((candidate) => candidate.sessionId !== scenario.sessionId);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
