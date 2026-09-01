@@ -46,6 +46,8 @@ const RECORD_SCOPE_SAMPLE = {
   FALLBACK_SESSION_ID: 518,
   FALLBACK_OPENING_CWD: 519,
   MID_WINDOW_RECORD_CWD: 520,
+  RECORD_IN_SCOPE_SESSION_ID: 521,
+  RECORD_IN_SCOPE_CWD: 522,
 } as const;
 
 const TAIL_FILLER_CHAR = "x";
@@ -201,6 +203,8 @@ export interface CodexRecordWindowEvidence {
   readonly fallbackSessionId: string;
   readonly fallbackOpeningCwd: string;
   readonly outsideSessionId: string;
+  readonly recordInScopeSessionId: string;
+  readonly recordInScopeCwd: string;
   readonly maxHeadReadBytes: number;
   readonly maxTailReadBytes: number;
 }
@@ -219,6 +223,14 @@ export async function withCodexRecordWindowEvidence(
   const midWindowSessionId = sampleAgentResumeValue(
     arbitraryAgentSessionId(),
     RECORD_SCOPE_SAMPLE.MID_WINDOW_SESSION_ID,
+  );
+  const recordInScopeSessionId = sampleAgentResumeValue(
+    arbitraryAgentSessionId(),
+    RECORD_SCOPE_SAMPLE.RECORD_IN_SCOPE_SESSION_ID,
+  );
+  const recordInScopeCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(worktreeRoot),
+    RECORD_SCOPE_SAMPLE.RECORD_IN_SCOPE_CWD,
   );
   const fallbackSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), RECORD_SCOPE_SAMPLE.FALLBACK_SESSION_ID);
   const outsideSessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), RECORD_SCOPE_SAMPLE.OUTSIDE_SESSION_ID);
@@ -279,6 +291,15 @@ export async function withCodexRecordWindowEvidence(
     ].join("\n"),
     modifiedAtMs,
   );
+  fs.writeFile(
+    codexTranscriptPath(homeDir, agentSessionJsonlName(recordInScopeSessionId)),
+    [
+      codexTranscript({ sessionId: recordInScopeSessionId, cwd: forkRoot, timestamp }),
+      codexCommandExecutionItemRow(recordInScopeCwd),
+      agentTranscriptActivityRow(timestamp),
+    ].join("\n"),
+    modifiedAtMs,
+  );
 
   const candidates = await discoverWorktreeScopedCandidates({ fs, homeDir, worktreeRoot, invocationCwd, nowMs });
   assert({
@@ -288,6 +309,8 @@ export async function withCodexRecordWindowEvidence(
     fallbackSessionId,
     fallbackOpeningCwd,
     outsideSessionId,
+    recordInScopeSessionId,
+    recordInScopeCwd,
     maxHeadReadBytes: fs.maxHeadReadBytes(midWindowPath),
     maxTailReadBytes: fs.maxTailReadBytes(midWindowPath),
   });
