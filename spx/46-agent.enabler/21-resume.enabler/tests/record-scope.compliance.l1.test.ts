@@ -19,4 +19,11 @@ describe("Codex record-window compliance", () => {
       expect(evidence.candidateSessionIds).not.toContain(evidence.outsideSessionId);
     });
   });
+
+  it("includes a session by an in-window record resolving inside the invocation worktree when its opening working directory lies outside", async () => {
+    await withCodexRecordWindowEvidence((evidence) => {
+      expect(evidence.candidateSessionIds).toContain(evidence.recordInScopeSessionId);
+      expect(evidence.candidateCwds.get(evidence.recordInScopeSessionId)).toBe(evidence.recordInScopeCwd);
+    });
+  });
 });

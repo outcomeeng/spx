@@ -296,6 +296,7 @@ export function limitAgentResumeCandidates(
 }
 
 interface AgentResumeScopeContext {
+  readonly consumesWorkingDirRecords: boolean;
   readonly resolveCwd: (core: AgentSessionHead, workingDirRecords: readonly string[]) => string | null;
   readonly claudeDirAccepts: (dirName: string) => boolean;
 }
@@ -305,11 +306,16 @@ async function resolveAgentResumeScopeContext(
 ): Promise<AgentResumeScopeContext | null> {
   if (options.scope.kind === AGENT_RESUME_SCOPE.BRANCH) {
     const target = options.scope.branch;
-    return { resolveCwd: (core) => (core.branch === target ? core.cwd : null), claudeDirAccepts: () => true };
+    return {
+      consumesWorkingDirRecords: false,
+      resolveCwd: (core) => (core.branch === target ? core.cwd : null),
+      claudeDirAccepts: () => true,
+    };
   }
   const invocationRoot = await options.resolveWorktreeRoot(options.invocationDir);
   const projectPrefix = claudeProjectDirName(invocationRoot);
   return {
+    consumesWorkingDirRecords: true,
     // The newest in-scope working-directory record wins; the opening recorded
     // working directory is the fallback when no record resolves inside the root.
     resolveCwd: (core, workingDirRecords) => {
@@ -471,18 +477,20 @@ async function collectAgentCandidates(
     if (core === null || !core.interactive) {
       return null;
     }
-    // Without a working-directory record reader, opening metadata alone decides
-    // scope, so an out-of-scope transcript needs no tail read.
-    if (adapter.workingDirRecords === undefined && scope.resolveCwd(core, []) === null) {
+    // When the scope decides from opening metadata alone — because it consumes
+    // no working-directory records or the adapter declares no reader — an
+    // out-of-scope transcript needs no tail read.
+    const scanRecords = scope.consumesWorkingDirRecords && adapter.workingDirRecords !== undefined;
+    if (!scanRecords && scope.resolveCwd(core, []) === null) {
       return null;
     }
     const tail = await fs.readTail(file.path, AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES).catch(() => null);
     if (tail === null) {
       return null;
     }
-    const workingDirRecords = adapter.workingDirRecords === undefined
-      ? []
-      : [...adapter.workingDirRecords(head), ...adapter.workingDirRecords(tail)];
+    const workingDirRecords = scanRecords && adapter.workingDirRecords !== undefined
+      ? [...adapter.workingDirRecords(head), ...adapter.workingDirRecords(tail)]
+      : [];
     const cwd = scope.resolveCwd(core, workingDirRecords);
     if (cwd === null) {
       return null;
