@@ -8,6 +8,7 @@ import {
   CODEX_TRANSCRIPT_ITEM_TYPE,
 } from "@/domains/agent/protocol";
 import {
+  agentSessionJsonlName,
   buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
   parseCodexWorkingDirRecords,
@@ -23,7 +24,6 @@ import {
 } from "@testing/generators/agent/resume";
 import {
   agentResumeWorktreeRootResolver,
-  agentSessionJsonlName,
   agentTranscriptActivityRow,
   codexTranscript,
   codexTranscriptPath,

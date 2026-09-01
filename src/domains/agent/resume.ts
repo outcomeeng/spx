@@ -481,17 +481,15 @@ async function collectAgentCandidates(
     // When the scope decides from opening metadata alone — because it consumes
     // no working-directory records or the adapter declares no reader — an
     // out-of-scope transcript needs no tail read.
-    const scanRecords = scope.consumesWorkingDirRecords && adapter.workingDirRecords !== undefined;
-    if (!scanRecords && scope.resolveCwd(core, []) === null) {
+    const recordReader = scope.consumesWorkingDirRecords ? adapter.workingDirRecords : undefined;
+    if (recordReader === undefined && scope.resolveCwd(core, []) === null) {
       return null;
     }
     const tail = await fs.readTail(file.path, AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES).catch(() => null);
     if (tail === null) {
       return null;
     }
-    const workingDirRecords = scanRecords && adapter.workingDirRecords !== undefined
-      ? [...adapter.workingDirRecords(head), ...adapter.workingDirRecords(tail)]
-      : [];
+    const workingDirRecords = recordReader === undefined ? [] : [...recordReader(head), ...recordReader(tail)];
     const cwd = scope.resolveCwd(core, workingDirRecords);
     if (cwd === null) {
       return null;
