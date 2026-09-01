@@ -22,6 +22,7 @@ import {
   type AgentSessionKind,
   CODEX_SESSION_ORIGINATOR,
   CODEX_SESSION_THREAD_SOURCE,
+  CODEX_TRANSCRIPT_ITEM_TYPE,
   compareAgentSessionText,
 } from "./protocol";
 import { firstString, parseJsonObject, valueAtPath } from "./transcript-json";
@@ -568,9 +569,25 @@ function normalizeRecordedWorkingDir(recorded: string): string | null {
 
 // A turn-context record carries the working directory at `payload.cwd` as a
 // plain path; a command-execution item record carries it at `payload.item.cwd`
-// as a file URI. The opening `session_meta` row also holds `payload.cwd`, but
-// it is not a turn-context record, so it never enters the record sequence —
-// opening metadata stays the separate fallback the scope resolver consumes.
+// as a file URI, discriminated by the item's own `CommandExecution` type. The
+// opening `session_meta` row also holds `payload.cwd`, but it is not a
+// turn-context record, so it never enters the record sequence — opening
+// metadata stays the separate fallback the scope resolver consumes.
+function recordedWorkingDirOfRow(row: Record<string, unknown>): string | null {
+  if (firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) === AGENT_SESSION_ROW_TYPE.CODEX_TURN_CONTEXT) {
+    return firstString(row, [[AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD]]);
+  }
+  const itemType = firstString(row, [
+    [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ITEM, AGENT_SESSION_JSON_FIELDS.TYPE],
+  ]);
+  if (itemType !== CODEX_TRANSCRIPT_ITEM_TYPE.COMMAND_EXECUTION) {
+    return null;
+  }
+  return firstString(row, [
+    [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ITEM, AGENT_SESSION_JSON_FIELDS.CWD],
+  ]);
+}
+
 export function parseCodexWorkingDirRecords(transcriptSlice: string): readonly string[] {
   const records: string[] = [];
   for (const line of transcriptSlice.split("\n")) {
@@ -578,11 +595,7 @@ export function parseCodexWorkingDirRecords(transcriptSlice: string): readonly s
     if (row === null) {
       continue;
     }
-    const recorded = firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) === AGENT_SESSION_ROW_TYPE.CODEX_TURN_CONTEXT
-      ? firstString(row, [[AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD]])
-      : firstString(row, [
-        [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ITEM, AGENT_SESSION_JSON_FIELDS.CWD],
-      ]);
+    const recorded = recordedWorkingDirOfRow(row);
     if (recorded === null) {
       continue;
     }

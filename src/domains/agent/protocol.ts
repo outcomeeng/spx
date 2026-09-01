@@ -224,6 +224,10 @@ export const AGENT_TRANSCRIPT_TOOL_NAME = {
   CLAUDE_BASH: "Bash",
 } as const;
 
+export const CODEX_TRANSCRIPT_ITEM_TYPE = {
+  COMMAND_EXECUTION: "CommandExecution",
+} as const;
+
 export const AGENT_TRANSCRIPT_CONTENT_TYPE = {
   TOOL_USE: "tool_use",
   TOOL_RESULT: "tool_result",

@@ -20,7 +20,7 @@ Keeping store parsing pure and injected lets tests cover every format without to
 - A launch command is derived only from the candidate agent, session id, source path, and recorded current working directory.
 - Every supported resume adapter emits the same candidate shape and is enumerated exactly once by the static registry.
 - The transcript reads and per-candidate worktree resolution discovery performs are bounded by the active scope and fixed head and tail byte windows, not by whole-transcript size.
-- A candidate's resolved working directory is a deterministic function of its opening metadata and the working-directory records inside the fixed head and tail windows.
+- A worktree-scoped candidate's resolved working directory is a deterministic function of its opening metadata and the working-directory records inside the fixed head and tail windows; a branch-scoped candidate's resolved working directory is its opening recorded working directory.
 
 ## Verification
 
