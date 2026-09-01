@@ -1,6 +1,6 @@
 # Agent Search Adapters
 
-Agent-native session search uses a static, typed adapter set that maps each supported agent kind to its native store collector, its transcript metadata reader, and the evidence forms its transcript contract declares. A transcript records working directory and branch as a sequence of per-record values rather than one session-opening value, so search resolves a session's product scope and branch association from every recorded value in a transcript whose adapter declares a record reader, from the opening value where an adapter declares none, and reports the working directory recorded alongside the matching value. Selector evidence is located by raw byte scan before any structural parse, and a session-store directory name never excludes a transcript a selector would match. Pi sessions carry no inferred transcript branch identity or command-evidence grammar; their null-branch association uses same-product worktree roots, while Codex-specific subagent attribution remains confined to Codex transcripts.
+Agent-native session search uses a static, typed adapter set that maps each supported agent kind to its native store collector, its transcript metadata reader, the session-address resolver its store naming supports, and the evidence forms its transcript contract declares. A resolver accepts only a session id that names one entry of its store, so an identifier reaching the filesystem cannot address a path outside it. A transcript records working directory and branch as a sequence of per-record values rather than one session-opening value, so search resolves a session's product scope and branch association from every recorded value in a transcript whose adapter declares a record reader, from the opening value where an adapter declares none, and reports the working directory recorded alongside the matching value. A session id names one session rather than a region of the store, so the invocation's product scope selects which recorded working directory a session-id result carries rather than whether the session is returned, and an adapter whose store files a transcript under its session id declares a resolver addressing those entries without listing the store. Selector evidence is located by raw byte scan before any structural parse, and a session-store directory name never excludes a transcript a selector would match. Pi sessions carry no inferred transcript branch identity or command-evidence grammar; their null-branch association uses same-product worktree roots, while Codex-specific subagent attribution remains confined to Codex transcripts.
 
 ## Rationale
 
@@ -12,24 +12,39 @@ A store-directory name derived from a working directory encodes exactly one reco
 
 Structurally parsing every transcript to locate one branch or literal is unbounded work over a store that grows without limit and spans every product its user works on, which no reach window makes acceptable; [`spx/spx.product.md`](../../spx.product.md) bounds command completion at 100 milliseconds once the process is running. A raw byte scan decides candidacy at I/O cost alone, so structured parsing runs only over the transcripts that carry the needle. That scan bounds a content selector exactly, because a literal a transcript never records cannot match it. It cannot bound a branch selector, whose evidence also arrives from same-product worktree roots, accepted transcript commands, and sibling transcripts of one session — so a branch selector admits every candidate and the scan bounds only the parses beneath it. That admission holds even when a content needle accompanies the branch: a transcript missing the needle can never be a result row itself, yet its recorded branch is what associates a sibling transcript of the same session that does carry the needle, so rejecting it on the needle alone loses the association. A selector-free listing resolves from opening metadata and decodes nothing.
 
+Scope and address are separate concerns. Scope semantics reach every adapter, because one flag means one thing whatever store answers it; the address is the mechanism an adapter declares when its store naming carries the session id, and its absence changes cost rather than result.
+
+A session id and a product scope answer different questions. Scope narrows a search whose subject is a region of work — which sessions here touched this branch, carry this marker, hold this literal. A session id has already named its subject, so scoping it converts an identifier into a filter and lets the store's filing decide whether an identified session exists. A caller standing in one product holding the id of a session that worked there reads an empty result that no signal distinguishes from an unrecorded id.
+
+Resolving through the address is also cheaper than the scoped listing it replaces. A store that files a transcript under its session id answers the selector with one path probe per session-store directory, where an enumeration reads every transcript the store holds; [`spx/spx.product.md`](../../spx.product.md) bounds command completion at 100 milliseconds once the process is running, and an identifier lookup is the one selector that can be answered without reading the store. Where a store's naming carries no session id, the adapter declares no resolver and the selector falls back to enumeration under the collector's own bound.
+
+Rejected: giving the session-id selector the per-record product scope that content selectors carry. It keeps scope in the decision path, so the store-directory prefilter is forfeited and the cheapest selector becomes a whole-store enumeration to answer a question the address answers directly.
+
 Rejected: widening the branch-associated worktree-root set while preserving opening-record identity. A session that begins inside one product and moves to another records no opening value that any worktree root of the invocation product covers, so the wider root set leaves it unreachable.
 
 ## Invariants
 
 - Where an adapter declares a record reader, a transcript's contribution to product scope and branch association is a function of its whole recorded value sequence, independent of any single record's position in that sequence; where an adapter declares none, it is the opening value alone.
 - The candidate set a store collector yields is a superset of the set any selector matches; no collector decision removes a session whose transcript contents the selector would match.
+- A session-id selector's result set is a function of the session id and the store alone, independent of the invocation's product scope.
+- Where an adapter declares a session-address resolver, the transcripts it yields for a session id are exactly those the store files under that id.
+- Every address a resolver yields lies inside its session store, for every session id the selector carries.
 - Byte-scan candidacy is a superset of structural-parse candidacy: it selects the same transcripts as the structural parse for a content selector, and every candidate for a branch selector, whose evidence also arrives from worktree roots, accepted commands, and sibling transcripts of one session.
 
 ## Verification
 
 ### Testing
 
-- ALWAYS: each supported search agent kind maps to its declared native store collector, transcript metadata reader, and declared evidence forms ([mapping])
+- ALWAYS: each supported search agent kind maps to its declared native store collector, transcript metadata reader, session-address resolver or its declared absence, and declared evidence forms ([mapping])
 - ALWAYS: a session whose adapter declares a record reader and whose transcript records the requested branch in any record matches a branch search and reports the working directory recorded alongside that branch, whichever field path that record carries its working directory under ([property])
 - ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne ([compliance])
 - ALWAYS: byte-scan candidacy selects exactly the structurally matching transcripts for a literal-content selector, and never fewer than them for a branch selector ([property])
 - ALWAYS: the reach window search applies to its default candidate set bounds transcript file modification time and is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
 - ALWAYS: a Pi session without branch metadata matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch ([compliance])
+- ALWAYS: a session-id selector returns the session the store files under that id, whichever recorded working directories that transcript carries and whichever product the invocation addresses ([property])
+- ALWAYS: a session-id result reports a recorded working directory inside the invocation product when the transcript records one, and the opening working directory otherwise ([property])
+- NEVER: a session-id selector enumerates a session store whose adapter declares a session-address resolver ([compliance])
+- NEVER: a session id that names no single store entry — one carrying a path separator, a current- or parent-directory segment, or no characters at all — resolves to a session address, and no store read is attempted for it ([compliance])
 - NEVER: a transcript is structurally parsed for a content-only selector whose needle its byte scan did not find ([compliance])
 - NEVER: a selector-free search reads any transcript's full content ([compliance])
 - NEVER: branch existence alone or incidental transcript content associates a Pi session with a branch ([compliance])
@@ -38,6 +53,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 ### Audit
 
 - ALWAYS: the supported search-agent vocabulary and adapter selection are static, typed, and exhaustive ([audit])
-- ALWAYS: session-store filesystem operations and worktree association dependencies cross typed dependency-injection boundaries ([audit])
+- ALWAYS: session-store filesystem operations, session-address resolution, and worktree association dependencies cross typed dependency-injection boundaries ([audit])
+- NEVER: a product-scope check decides whether a session-id selector yields a result; scope reaches only which recorded working directory the located session reports ([audit])
 - NEVER: a store-collector filter derived from a directory name, path encoding, or any other store-layout signal decides whether a session matches a selector ([audit])
 - NEVER: tests replace session-store or worktree-association boundaries through module mocking ([audit])

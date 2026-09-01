@@ -9,7 +9,7 @@ import {
   resolveAgentHomeDirs,
 } from "@/domains/agent/home";
 import { AGENT_SESSION_STORE } from "@/domains/agent/protocol";
-import { claudeProjectDirName, worktreeResumeScope } from "@/domains/agent/resume";
+import { agentSessionJsonlName, claudeProjectDirName, worktreeResumeScope } from "@/domains/agent/resume";
 import { agentSearchQueryFromOptions } from "@/domains/agent/search";
 import {
   arbitraryAgentResumeNowMs,
@@ -19,12 +19,7 @@ import {
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 import { piTranscript } from "@testing/harnesses/agent/pi-resume";
-import {
-  agentSessionJsonlName,
-  claudeCodeTranscript,
-  codexTranscript,
-  MemoryAgentSessionFileSystem,
-} from "@testing/harnesses/agent/resume";
+import { claudeCodeTranscript, codexTranscript, MemoryAgentSessionFileSystem } from "@testing/harnesses/agent/resume";
 
 const CODEX_TRANSCRIPT_PARTS = ["sessions", "2026", "06", "27"] as const;
 const PI_CONFIGURED_AGENT_HOME_SAMPLE = {

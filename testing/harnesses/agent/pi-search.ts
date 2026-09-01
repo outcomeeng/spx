@@ -8,6 +8,7 @@ import {
   AGENT_SESSION_ROW_TYPE,
   type AgentSearchMatchReason,
 } from "@/domains/agent/protocol";
+import { agentSessionJsonlName } from "@/domains/agent/resume";
 import {
   agentSearchQueryFromOptions,
   type AgentSearchResult,
@@ -29,7 +30,6 @@ import {
 import { agentSearchSwitchCommand } from "@testing/generators/agent/search";
 import { piTranscript, piTranscriptPath } from "@testing/harnesses/agent/pi-resume";
 import {
-  agentSessionJsonlName,
   claudeCodeTranscript,
   claudeProjectTranscriptPath,
   codexTranscript,
