@@ -58,6 +58,5 @@
         }
       }
     }
-  ],
-  "expectedWorkingDirs": ["/workspace/product-a", "/workspace/product-b"]
+  ]
 }

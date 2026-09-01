@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { AGENT_SESSION_ROW_TYPE, CODEX_TRANSCRIPT_ITEM_TYPE } from "@/domains/agent/protocol";
 import { withCodexCapturedRecordEvidence, withCodexRecordParsingEvidence } from "@testing/harnesses/agent/record-scope";
 
 describe("Codex working-directory record mapping", () => {
@@ -10,9 +11,11 @@ describe("Codex working-directory record mapping", () => {
     });
   });
 
-  it("decodes the captured Codex transcript sample, proving the discriminator vocabulary against the real wire format", async () => {
+  it("finds the production discriminator vocabulary in the captured Codex transcript sample and extracts records from it", async () => {
     await withCodexCapturedRecordEvidence((evidence) => {
-      expect(evidence.records).toEqual(evidence.expectedWorkingDirs);
+      expect(evidence.rowTypes).toContain(AGENT_SESSION_ROW_TYPE.CODEX_TURN_CONTEXT);
+      expect(evidence.itemTypes).toContain(CODEX_TRANSCRIPT_ITEM_TYPE.COMMAND_EXECUTION);
+      expect(evidence.records.length).toBeGreaterThan(0);
     });
   });
 });

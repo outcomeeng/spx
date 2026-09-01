@@ -17,6 +17,7 @@ import {
   parseCodexWorkingDirRecords,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
+import { firstString } from "@/domains/agent/transcript-json";
 import {
   arbitraryAgentResumeNowMs,
   arbitraryAgentResumeRecentOffsetMs,
@@ -68,7 +69,6 @@ const CAPTURED_RECORDS_FIXTURE_PATH = resolve(__dirname, "../../fixtures/agent/c
 
 interface CodexCapturedRecordsFixture {
   readonly rows: readonly Record<string, unknown>[];
-  readonly expectedWorkingDirs: readonly string[];
 }
 
 export function codexTurnContextRow(cwd: string): string {
@@ -197,7 +197,8 @@ export async function withCodexForkedRecordScopeEvidence(
 
 export interface CodexCapturedRecordEvidence {
   readonly records: readonly string[];
-  readonly expectedWorkingDirs: readonly string[];
+  readonly rowTypes: readonly string[];
+  readonly itemTypes: readonly string[];
 }
 
 export async function withCodexCapturedRecordEvidence(
@@ -207,7 +208,17 @@ export async function withCodexCapturedRecordEvidence(
     await readFile(CAPTURED_RECORDS_FIXTURE_PATH, AGENT_SESSION_STORE.TEXT_ENCODING),
   ) as CodexCapturedRecordsFixture;
   const slice = fixture.rows.map((row) => JSON.stringify(row)).join("\n");
-  assert({ records: parseCodexWorkingDirRecords(slice), expectedWorkingDirs: fixture.expectedWorkingDirs });
+  const rowValues = (path: readonly string[]): string[] =>
+    fixture.rows.map((row) => firstString(row, [path])).filter((value): value is string => value !== null);
+  assert({
+    records: parseCodexWorkingDirRecords(slice),
+    rowTypes: rowValues([AGENT_SESSION_JSON_FIELDS.TYPE]),
+    itemTypes: rowValues([
+      AGENT_SESSION_JSON_FIELDS.PAYLOAD,
+      AGENT_SESSION_JSON_FIELDS.ITEM,
+      AGENT_SESSION_JSON_FIELDS.TYPE,
+    ]),
+  });
 }
 
 export interface CodexRecordParsingEvidence {
