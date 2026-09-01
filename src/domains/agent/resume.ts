@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
 
@@ -201,6 +202,10 @@ interface AgentResumeAdapter {
     scope: AgentResumeScopeContext,
   ) => Promise<readonly string[]>;
   readonly parseHead: (head: string) => AgentSessionHead | null;
+  // Declared only by adapters whose sessions can occupy a worktree their
+  // opening metadata does not record — a forked Codex session inherits the
+  // fork parent's opening working directory.
+  readonly workingDirRecords?: (transcriptSlice: string) => readonly string[];
   readonly launch: (candidate: AgentResumeCandidate) => AgentResumeLaunchCommand;
 }
 
@@ -210,6 +215,7 @@ export const AGENT_RESUME_ADAPTER_REGISTRY: Readonly<Record<AgentSessionKind, Ag
     scopes: [AGENT_RESUME_SCOPE.WORKTREE, AGENT_RESUME_SCOPE.BRANCH],
     collectFiles: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
     parseHead: parseCodexHead,
+    workingDirRecords: parseCodexWorkingDirRecords,
     launch: (candidate) => ({
       command: AGENT_RESUME_COMMAND.CODEX_BINARY,
       args: [AGENT_RESUME_COMMAND.CODEX_RESUME, candidate.sessionId],
@@ -264,7 +270,7 @@ export async function discoverAgentResumeCandidates(
   const perAgent = await Promise.all(
     AGENT_RESUME_ADAPTERS.filter((adapter) => adapter.scopes.includes(options.scope.kind)).map(async (adapter) =>
       collectAgentCandidates(
-        adapter.agent,
+        adapter,
         await recentStoreFiles(
           await adapter.collectFiles(options, scope),
           options.fs,
@@ -273,8 +279,7 @@ export async function discoverAgentResumeCandidates(
         ),
         options.fs,
         cap,
-        scope.match,
-        adapter.parseHead,
+        scope,
         options.nowMs,
         options.sinceMs,
       )
@@ -291,7 +296,7 @@ export function limitAgentResumeCandidates(
 }
 
 interface AgentResumeScopeContext {
-  readonly match: (core: AgentSessionHead) => boolean;
+  readonly resolveCwd: (core: AgentSessionHead, workingDirRecords: readonly string[]) => string | null;
   readonly claudeDirAccepts: (dirName: string) => boolean;
 }
 
@@ -300,12 +305,22 @@ async function resolveAgentResumeScopeContext(
 ): Promise<AgentResumeScopeContext | null> {
   if (options.scope.kind === AGENT_RESUME_SCOPE.BRANCH) {
     const target = options.scope.branch;
-    return { match: (core) => core.branch === target, claudeDirAccepts: () => true };
+    return { resolveCwd: (core) => (core.branch === target ? core.cwd : null), claudeDirAccepts: () => true };
   }
   const invocationRoot = await options.resolveWorktreeRoot(options.invocationDir);
   const projectPrefix = claudeProjectDirName(invocationRoot);
   return {
-    match: (core) => isPathInsideOrEqual(invocationRoot, core.cwd),
+    // The newest in-scope working-directory record wins; the opening recorded
+    // working directory is the fallback when no record resolves inside the root.
+    resolveCwd: (core, workingDirRecords) => {
+      for (let index = workingDirRecords.length - 1; index >= 0; index -= 1) {
+        const recorded = workingDirRecords[index];
+        if (isPathInsideOrEqual(invocationRoot, recorded)) {
+          return recorded;
+        }
+      }
+      return isPathInsideOrEqual(invocationRoot, core.cwd) ? core.cwd : null;
+    },
     claudeDirAccepts: (dirName) =>
       dirName === projectPrefix || dirName.startsWith(`${projectPrefix}${CLAUDE_PROJECT_ENCODED_SEPARATOR}`),
   };
@@ -439,12 +454,11 @@ export async function claudeSessionIdTranscriptFiles(
 // newer transcript never suppresses an in-scope older one; among matching
 // sources the newest transcript activity wins and later duplicates are skipped.
 async function collectAgentCandidates(
-  agent: AgentSessionKind,
+  adapter: AgentResumeAdapter,
   files: readonly AgentStoreFile[],
   fs: AgentResumeSessionFileSystem,
   cap: number,
-  match: (core: AgentSessionHead) => boolean,
-  parseHead: (head: string) => AgentSessionHead | null,
+  scope: AgentResumeScopeContext,
   nowMs: number,
   sinceMs: number | undefined,
 ): Promise<AgentResumeCandidate[]> {
@@ -453,12 +467,24 @@ async function collectAgentCandidates(
     if (head === null) {
       return null;
     }
-    const core = parseHead(head);
-    if (core === null || !core.interactive || !match(core)) {
+    const core = adapter.parseHead(head);
+    if (core === null || !core.interactive) {
+      return null;
+    }
+    // Without a working-directory record reader, opening metadata alone decides
+    // scope, so an out-of-scope transcript needs no tail read.
+    if (adapter.workingDirRecords === undefined && scope.resolveCwd(core, []) === null) {
       return null;
     }
     const tail = await fs.readTail(file.path, AGENT_RESUME_LIMITS.ACTIVITY_TAIL_BYTES).catch(() => null);
     if (tail === null) {
+      return null;
+    }
+    const workingDirRecords = adapter.workingDirRecords === undefined
+      ? []
+      : [...adapter.workingDirRecords(head), ...adapter.workingDirRecords(tail)];
+    const cwd = scope.resolveCwd(core, workingDirRecords);
+    if (cwd === null) {
       return null;
     }
     const lastActivityAtMs = latestTranscriptTimestampMs(tail);
@@ -466,9 +492,9 @@ async function collectAgentCandidates(
       return null;
     }
     return {
-      agent,
+      agent: adapter.agent,
       sessionId: core.sessionId,
-      cwd: core.cwd,
+      cwd,
       sourcePath: file.path,
       modifiedAtMs: file.modifiedAtMs,
       lastActivityAtMs,
@@ -517,6 +543,47 @@ export function isAgentSessionActivityWithinWindow(
   sinceMs: number,
 ): boolean {
   return lastActivityAtMs !== null && lastActivityAtMs <= nowMs && nowMs - lastActivityAtMs <= sinceMs;
+}
+
+const FILE_URI_SCHEME_PREFIX = "file://";
+
+function normalizeRecordedWorkingDir(recorded: string): string | null {
+  if (!recorded.startsWith(FILE_URI_SCHEME_PREFIX)) {
+    return recorded;
+  }
+  try {
+    return fileURLToPath(recorded);
+  } catch {
+    return null;
+  }
+}
+
+// A turn-context record carries the working directory at `payload.cwd` as a
+// plain path; a command-execution item record carries it at `payload.item.cwd`
+// as a file URI. The opening `session_meta` row also holds `payload.cwd`, but
+// it is not a turn-context record, so it never enters the record sequence —
+// opening metadata stays the separate fallback the scope resolver consumes.
+export function parseCodexWorkingDirRecords(transcriptSlice: string): readonly string[] {
+  const records: string[] = [];
+  for (const line of transcriptSlice.split("\n")) {
+    const row = parseJsonObject(line);
+    if (row === null) {
+      continue;
+    }
+    const recorded = firstString(row, [[AGENT_SESSION_JSON_FIELDS.TYPE]]) === AGENT_SESSION_ROW_TYPE.CODEX_TURN_CONTEXT
+      ? firstString(row, [[AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.CWD]])
+      : firstString(row, [
+        [AGENT_SESSION_JSON_FIELDS.PAYLOAD, AGENT_SESSION_JSON_FIELDS.ITEM, AGENT_SESSION_JSON_FIELDS.CWD],
+      ]);
+    if (recorded === null) {
+      continue;
+    }
+    const normalized = normalizeRecordedWorkingDir(recorded);
+    if (normalized !== null) {
+      records.push(normalized);
+    }
+  }
+  return records;
 }
 
 export function parseCodexHead(head: string): AgentSessionHead | null {

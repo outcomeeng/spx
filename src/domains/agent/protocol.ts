@@ -131,6 +131,7 @@ export const AGENT_SESSION_JSON_FIELDS = {
   GIT_BRANCH: "gitBranch",
   THREAD_SOURCE: "thread_source",
   VERSION: "version",
+  ITEM: "item",
 } as const;
 
 export const AGENT_TRANSCRIPT_GIT_COMMAND = {
@@ -207,6 +208,7 @@ export const AGENT_TRANSCRIPT_GIT_COMMAND = {
 export const AGENT_SESSION_ROW_TYPE = {
   CODEX_SESSION_META: "session_meta",
   CODEX_RESPONSE_ITEM: "response_item",
+  CODEX_TURN_CONTEXT: "turn_context",
   CLAUDE_ASSISTANT: "assistant",
   CLAUDE_USER: "user",
   PI_SESSION: "session",
