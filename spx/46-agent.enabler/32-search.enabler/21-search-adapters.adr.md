@@ -44,7 +44,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 - ALWAYS: a session-id selector returns the session the store files under that id, whichever recorded working directories that transcript carries and whichever product the invocation addresses ([property])
 - ALWAYS: a session-id result reports a recorded working directory inside the invocation product when the transcript records one, and the opening working directory otherwise ([property])
 - NEVER: a session-id selector enumerates a session store whose adapter declares a session-address resolver ([compliance])
-- NEVER: a session id carrying a path separator or a parent-directory segment resolves to a session address ([compliance])
+- NEVER: a session id that names no single store entry — one carrying a path separator, a current- or parent-directory segment, or no characters at all — resolves to a session address, and no store read is attempted for it ([compliance])
 - NEVER: a transcript is structurally parsed for a content-only selector whose needle its byte scan did not find ([compliance])
 - NEVER: a selector-free search reads any transcript's full content ([compliance])
 - NEVER: branch existence alone or incidental transcript content associates a Pi session with a branch ([compliance])
