@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
@@ -5,6 +7,7 @@ import {
   AGENT_RESUME_LIMITS,
   AGENT_SESSION_JSON_FIELDS,
   AGENT_SESSION_ROW_TYPE,
+  AGENT_SESSION_STORE,
   CODEX_TRANSCRIPT_ITEM_TYPE,
 } from "@/domains/agent/protocol";
 import {
@@ -58,6 +61,15 @@ const RECORD_SCOPE_SAMPLE = {
 
 const TAIL_FILLER_CHAR = "x";
 const TAIL_FILLER_MULTIPLIER = 2;
+// Anonymized rows captured from a real Codex rollout transcript, so record
+// parsing is proven against the agent's actual wire format rather than rows
+// rebuilt from the parser's own discriminator constants.
+const CAPTURED_RECORDS_FIXTURE_PATH = resolve(__dirname, "../../fixtures/agent/codex-working-dir-records.json");
+
+interface CodexCapturedRecordsFixture {
+  readonly rows: readonly Record<string, unknown>[];
+  readonly expectedWorkingDirs: readonly string[];
+}
 
 export function codexTurnContextRow(cwd: string): string {
   return JSON.stringify({
@@ -181,6 +193,21 @@ export async function withCodexForkedRecordScopeEvidence(
     outsideSessionId,
     newestInScopeRecordCwd,
   });
+}
+
+export interface CodexCapturedRecordEvidence {
+  readonly records: readonly string[];
+  readonly expectedWorkingDirs: readonly string[];
+}
+
+export async function withCodexCapturedRecordEvidence(
+  assert: (evidence: CodexCapturedRecordEvidence) => void,
+): Promise<void> {
+  const fixture = JSON.parse(
+    await readFile(CAPTURED_RECORDS_FIXTURE_PATH, AGENT_SESSION_STORE.TEXT_ENCODING),
+  ) as CodexCapturedRecordsFixture;
+  const slice = fixture.rows.map((row) => JSON.stringify(row)).join("\n");
+  assert({ records: parseCodexWorkingDirRecords(slice), expectedWorkingDirs: fixture.expectedWorkingDirs });
 }
 
 export interface CodexRecordParsingEvidence {
