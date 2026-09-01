@@ -21,7 +21,7 @@ CAN continue the right Codex, Claude Code, or Pi conversation through `spx agent
 - Resume activity window maps to candidate eligibility: without `--since`, the default recent-session window applies; with `--since <duration>`, only sessions whose newest parseable transcript activity falls within that duration are eligible; either window composes with every scope and output mode ([test](tests/resume.mapping.l1.test.ts))
 - Conflicting resume mode flags map to a non-zero diagnostic that tells the user to choose only one resume mode and prevents any native agent launch ([test](tests/resume.mapping.l1.test.ts))
 - Codex working-directory records map to recorded working directories: a turn-context record carries a plain-path working directory and a command-execution item record carries a file-URI working directory decoded to its filesystem path ([test](tests/record-scope.mapping.l1.test.ts))
-- Agent candidate maps to launch command and context: every candidate launches from the candidate's resolved working directory — in worktree scope the newest in-scope bounded-window working-directory record when one exists, otherwise the opening recorded working directory — a Codex candidate uses `codex resume <session-id>`, a Claude Code candidate uses `claude --resume <session-id>`, and a Pi candidate uses `pi --session <source-path>` ([test](tests/pi-resume.mapping.l1.test.ts))
+- Agent candidate maps to launch command and context: every candidate launches from the candidate's working directory, a Codex candidate uses `codex resume <session-id>`, a Claude Code candidate uses `claude --resume <session-id>`, and a Pi candidate uses `pi --session <source-path>` ([test](tests/pi-resume.mapping.l1.test.ts))
 
 ### Compliance
 
