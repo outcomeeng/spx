@@ -1,0 +1,63 @@
+{
+  "description": "Anonymized rows captured from a real Codex CLI 0.151.0 rollout transcript. The turn_context row carries a plain-path payload.cwd; the CommandExecution item_completed row carries a file-URI payload.item.cwd; the session_meta row and the non-CommandExecution item row carry working-directory-shaped fields that are not working-directory records.",
+  "rows": [
+    {
+      "timestamp": "2026-08-30T18:20:11.542Z",
+      "ordinal": 1042,
+      "type": "turn_context",
+      "payload": {
+        "turn_id": "01a053e6-81d8-7571-bebb-737c9b0eb6e6",
+        "cwd": "/workspace/product-a",
+        "workspace_roots": ["/workspace/product-a"],
+        "current_date": "2026-08-30",
+        "approval_policy": "on-request"
+      }
+    },
+    {
+      "timestamp": "2026-09-01T07:11:09.676Z",
+      "ordinal": 32633,
+      "type": "event_msg",
+      "payload": {
+        "type": "item_completed",
+        "thread_id": "01a053e5-440e-7470-9f4b-78abd66b8c41",
+        "turn_id": "01a05bc6-c347-7b90-b031-89b8fa9e5cc1",
+        "item": {
+          "type": "CommandExecution",
+          "id": "exec-76b6f751-9b56-43a0-a5aa-ce119d2d24dd",
+          "process_id": "15339",
+          "command": ["/bin/zsh", "-lc", "git status"],
+          "cwd": "file:///workspace/product-b",
+          "parsed_cmd": [{ "type": "unknown", "cmd": "git status" }]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-08-30T18:18:49.444Z",
+      "ordinal": 1034,
+      "type": "session_meta",
+      "payload": {
+        "session_id": "01a053e5-440e-7470-9f4b-78abd66b8c41",
+        "id": "01a053e5-440e-7470-9f4b-78abd66b8c41",
+        "cwd": "/workspace/product-c",
+        "originator": "codex-tui",
+        "cli_version": "0.151.0",
+        "source": "cli",
+        "thread_source": "user"
+      }
+    },
+    {
+      "timestamp": "2026-09-01T07:11:10.000Z",
+      "ordinal": 32634,
+      "type": "event_msg",
+      "payload": {
+        "type": "item_completed",
+        "item": {
+          "type": "Reasoning",
+          "id": "reasoning-4f0a",
+          "cwd": "file:///workspace/product-d"
+        }
+      }
+    }
+  ],
+  "expectedWorkingDirs": ["/workspace/product-a", "/workspace/product-b"]
+}
