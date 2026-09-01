@@ -1,7 +1,12 @@
 import { pathToFileURL } from "node:url";
 
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
-import { AGENT_RESUME_LIMITS, AGENT_SESSION_JSON_FIELDS, AGENT_SESSION_ROW_TYPE } from "@/domains/agent/protocol";
+import {
+  AGENT_RESUME_LIMITS,
+  AGENT_SESSION_JSON_FIELDS,
+  AGENT_SESSION_ROW_TYPE,
+  CODEX_TRANSCRIPT_ITEM_TYPE,
+} from "@/domains/agent/protocol";
 import {
   buildAgentResumeLaunchCommand,
   discoverAgentResumeCandidates,
@@ -48,6 +53,7 @@ const RECORD_SCOPE_SAMPLE = {
   MID_WINDOW_RECORD_CWD: 520,
   RECORD_IN_SCOPE_SESSION_ID: 521,
   RECORD_IN_SCOPE_CWD: 522,
+  NON_COMMAND_ITEM_CWD: 523,
 } as const;
 
 const TAIL_FILLER_CHAR = "x";
@@ -61,6 +67,17 @@ export function codexTurnContextRow(cwd: string): string {
 }
 
 export function codexCommandExecutionItemRow(cwd: string): string {
+  return JSON.stringify({
+    [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
+      [AGENT_SESSION_JSON_FIELDS.ITEM]: {
+        [AGENT_SESSION_JSON_FIELDS.TYPE]: CODEX_TRANSCRIPT_ITEM_TYPE.COMMAND_EXECUTION,
+        [AGENT_SESSION_JSON_FIELDS.CWD]: pathToFileURL(cwd).href,
+      },
+    },
+  });
+}
+
+export function codexNonCommandItemRow(cwd: string): string {
   return JSON.stringify({
     [AGENT_SESSION_JSON_FIELDS.PAYLOAD]: {
       [AGENT_SESSION_JSON_FIELDS.ITEM]: { [AGENT_SESSION_JSON_FIELDS.CWD]: pathToFileURL(cwd).href },
@@ -170,6 +187,7 @@ export interface CodexRecordParsingEvidence {
   readonly records: readonly string[];
   readonly plainPathCwd: string;
   readonly fileUriSourceCwd: string;
+  readonly nonCommandItemCwd: string;
 }
 
 export function withCodexRecordParsingEvidence(
@@ -184,6 +202,10 @@ export function withCodexRecordParsingEvidence(
     arbitraryAgentSessionCwd(metaRoot),
     RECORD_SCOPE_SAMPLE.FILE_URI_SOURCE_CWD,
   );
+  const nonCommandItemCwd = sampleAgentResumeValue(
+    arbitraryAgentSessionCwd(metaRoot),
+    RECORD_SCOPE_SAMPLE.NON_COMMAND_ITEM_CWD,
+  );
   const sessionId = sampleAgentResumeValue(arbitraryAgentSessionId(), RECORD_SCOPE_SAMPLE.PARSE_SESSION_ID);
   const nowMs = sampleAgentResumeValue(arbitraryAgentResumeNowMs(), RECORD_SCOPE_SAMPLE.NOW_MS);
   const timestamp = new Date(nowMs).toISOString();
@@ -191,9 +213,10 @@ export function withCodexRecordParsingEvidence(
     codexTranscript({ sessionId, cwd: metaRoot, timestamp }),
     codexTurnContextRow(plainPathCwd),
     codexCommandExecutionItemRow(fileUriSourceCwd),
+    codexNonCommandItemRow(nonCommandItemCwd),
     agentTranscriptActivityRow(timestamp),
   ].join("\n");
-  assert({ records: parseCodexWorkingDirRecords(slice), plainPathCwd, fileUriSourceCwd });
+  assert({ records: parseCodexWorkingDirRecords(slice), plainPathCwd, fileUriSourceCwd, nonCommandItemCwd });
 }
 
 export interface CodexRecordWindowEvidence {
