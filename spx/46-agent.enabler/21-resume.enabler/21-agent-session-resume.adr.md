@@ -27,7 +27,7 @@ Keeping store parsing pure and injected lets tests cover every format without to
 ### Testing
 
 - ALWAYS: the Codex working-directory record reader accepts turn-context records carrying a plain-path working directory and command-execution item records carrying a file-URI working directory, decoding the URI to a filesystem path ([mapping])
-- ALWAYS: worktree-scope classification includes a candidate when its opening working directory or any bounded-window working-directory record resolves inside the invocation worktree root, and the resolved working directory is the newest in-scope record with opening metadata as the fallback ([mapping])
+- ALWAYS: worktree-scope classification includes a candidate when its opening working directory or any bounded-window working-directory record resolves inside the invocation worktree root, and the resolved working directory is the newest in-scope record with opening metadata as the fallback ([compliance])
 - NEVER: working-directory record identification reads transcript bytes beyond the fixed metadata-head and activity-tail windows discovery already reads for candidate identity and activity ([compliance])
 
 ### Audit
