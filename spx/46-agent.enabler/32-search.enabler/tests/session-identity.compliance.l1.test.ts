@@ -15,15 +15,13 @@ describe("agent search — session address bound", () => {
     }
   });
 
-  it("resolves no address for a session id naming more than one store entry", async () => {
+  it("reads nothing for a session id that names no single store entry", async () => {
     const observation = await searchUnsafeSessionIdStore(sampleGeneratedValue(arbitraryUnsafeSessionIdScenario()));
 
     expect(observation.attempts.length).toBeGreaterThan(0);
     for (const attempt of observation.attempts) {
       expect(attempt.results).toHaveLength(0);
-      for (const readPath of attempt.readPaths) {
-        expect(readPath.startsWith(observation.storeRoot)).toBe(true);
-      }
+      expect(attempt.readPaths).toHaveLength(0);
     }
   });
 });

@@ -2582,7 +2582,6 @@ export interface UnsafeSessionIdAttempt {
 }
 
 export interface UnsafeSessionIdObservation {
-  readonly storeRoot: string;
   readonly attempts: readonly UnsafeSessionIdAttempt[];
 }
 
@@ -2614,7 +2613,7 @@ export async function searchUnsafeSessionIdStore(
       readPaths: [...fs.readDirPaths(), ...fs.statPaths(), ...fs.textReadPaths()],
     });
   }
-  return { storeRoot: claudeCodeSessionStoreDir(homeDirs.claudeCode), attempts };
+  return { attempts };
 }
 
 /** The two-session since-window store searched under one reach window. */

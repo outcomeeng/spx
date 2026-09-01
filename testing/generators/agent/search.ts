@@ -383,6 +383,8 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
 }
 
 const PARENT_DIRECTORY_SEGMENT = "..";
+const CURRENT_DIRECTORY_SEGMENT = ".";
+const EMPTY_SESSION_ID = "";
 const POSIX_PATH_SEPARATOR = "/";
 const WINDOWS_PATH_SEPARATOR = "\\";
 
@@ -419,6 +421,8 @@ export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafe
           `${POSIX_PATH_SEPARATOR}${head}`,
           PARENT_DIRECTORY_SEGMENT,
           `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
+          CURRENT_DIRECTORY_SEGMENT,
+          EMPTY_SESSION_ID,
         ],
         nowMs,
       }))
