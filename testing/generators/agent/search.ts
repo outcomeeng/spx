@@ -429,6 +429,37 @@ export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafe
     );
 }
 
+/**
+ * One transcript text and one needle over an open Unicode domain, half the time with the needle
+ * embedded at a code-point boundary so hits and misses both arise; splitting between code points
+ * never manufactures a lone surrogate, which real UTF-8 transcripts cannot carry.
+ */
+export interface GeneratedTranscriptNeedleCase {
+  readonly content: string;
+  readonly needle: string;
+}
+
+const MAX_TRANSCRIPT_TEXT_GRAPHEMES = 64;
+const MAX_NEEDLE_GRAPHEMES = 8;
+
+export function arbitraryTranscriptNeedleCase(): fc.Arbitrary<GeneratedTranscriptNeedleCase> {
+  return fc
+    .tuple(
+      fc.string({ unit: "grapheme", maxLength: MAX_TRANSCRIPT_TEXT_GRAPHEMES }),
+      fc.string({ unit: "grapheme", minLength: 1, maxLength: MAX_NEEDLE_GRAPHEMES }),
+      fc.boolean(),
+      fc.nat(),
+    )
+    .map(([text, needle, embed, offset]) => {
+      if (!embed) {
+        return { content: text, needle };
+      }
+      const codePoints = [...text];
+      const at = offset % (codePoints.length + 1);
+      return { content: `${codePoints.slice(0, at).join("")}${needle}${codePoints.slice(at).join("")}`, needle };
+    });
+}
+
 export interface AgentSearchBranchCommandEvidenceCase {
   readonly command: string;
   readonly expected: boolean;

@@ -141,6 +141,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly textReadPathSet = new Set<string>();
   private readonly readDirPathSet = new Set<string>();
   private readonly statPathSet = new Set<string>();
+  private readonly bytesReadPathSet = new Set<string>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -208,6 +209,20 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
 
   textReadPaths(): readonly string[] {
     return [...this.textReadPathSet];
+  }
+
+  async readBytes(path: string): Promise<Uint8Array> {
+    const resolved = resolve(path);
+    this.bytesReadPathSet.add(resolved);
+    const file = this.files.get(resolved);
+    if (file === undefined) {
+      throw new Error(`missing file: ${path}`);
+    }
+    return Buffer.from(file.content, "utf8");
+  }
+
+  bytesReadPaths(): readonly string[] {
+    return [...this.bytesReadPathSet];
   }
 
   readDirPaths(): readonly string[] {
