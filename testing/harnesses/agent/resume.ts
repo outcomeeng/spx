@@ -138,9 +138,11 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
-  private readonly textReadPathSet = new Set<string>();
+  private readonly bytesByInstance = new WeakMap<Uint8Array, string>();
+  private readonly decodedPathSet = new Set<string>();
   private readonly readDirPathSet = new Set<string>();
   private readonly statPathSet = new Set<string>();
+  private readonly bytesReadPathSet = new Set<string>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -196,18 +198,34 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     return content.subarray(start).toString("utf8");
   }
 
-  async readText(path: string): Promise<string> {
+  /** Decodes only a buffer this store handed out, attributing the decode to that buffer's file. */
+  decodeText(bytes: Uint8Array): string {
+    const path = this.bytesByInstance.get(bytes);
+    if (path === undefined) {
+      throw new Error("decodeText received bytes this store did not read");
+    }
+    this.decodedPathSet.add(path);
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
+  }
+
+  decodedPaths(): readonly string[] {
+    return [...this.decodedPathSet];
+  }
+
+  async readBytes(path: string): Promise<Uint8Array> {
     const resolved = resolve(path);
-    this.textReadPathSet.add(resolved);
+    this.bytesReadPathSet.add(resolved);
     const file = this.files.get(resolved);
     if (file === undefined) {
       throw new Error(`missing file: ${path}`);
     }
-    return file.content;
+    const bytes = Buffer.from(file.content, "utf8");
+    this.bytesByInstance.set(bytes, resolved);
+    return bytes;
   }
 
-  textReadPaths(): readonly string[] {
-    return [...this.textReadPathSet];
+  bytesReadPaths(): readonly string[] {
+    return [...this.bytesReadPathSet];
   }
 
   readDirPaths(): readonly string[] {

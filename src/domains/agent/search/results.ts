@@ -40,6 +40,7 @@ import {
   cwdMatchesSearchScope,
   type TopLevelBranchAssociations,
 } from "./branch-association";
+import { transcriptBytesCarry, transcriptBytesCarryEvery } from "./byte-scan";
 import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector } from "./query";
 import {
   type AgentTranscriptRecord,
@@ -50,7 +51,9 @@ import {
 } from "./transcript-records";
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
-  readText(path: string): Promise<string>;
+  readBytes(path: string): Promise<Uint8Array>;
+  /** The store's bytes as text, under the encoding the store records. */
+  decodeText(bytes: Uint8Array): string;
 }
 
 /** Resolves a session id to the store entries filed under it, where the store's naming allows. */
@@ -245,7 +248,6 @@ async function collectMatchingSessions(
     const match = await matchReasons(
       agent,
       core,
-      file.path,
       options,
       adapter,
       {
@@ -288,12 +290,17 @@ async function scanTranscript(
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
 ): Promise<ScannedTranscript | null> {
-  // A content needle decides candidacy from raw bytes, so it is scanned before any
-  // structural read. A branch selector cannot be, so its content read waits until the
-  // opening metadata has had its chance to answer.
-  const scanFirst = options.query.contentNeedles.length > 0;
-  const scanned = scanFirst ? await options.fs.readText(path).catch(() => null) : null;
-  if (scanned !== null && !transcriptCarriesSelectorEvidence(scanned, options.query)) {
+  // Candidacy is decided over undecoded bytes: a content needle absent from them rejects
+  // the transcript before any structural read, and a selector decodes a transcript only
+  // once its bytes carry a needle that selector requires. A branch selector keeps a
+  // needle-less transcript as a candidate, because its recorded branch may be what
+  // associates a sibling transcript of the same session that does carry the needle.
+  const needles = options.query.contentNeedles.map((needle) => needle.value);
+  const bytes = requiresTranscriptContent(options.query, adapter)
+    ? await options.fs.readBytes(path).catch(() => null)
+    : null;
+  const carriesEveryNeedle = needles.length > 0 && bytes !== null && transcriptBytesCarryEvery(bytes, needles);
+  if (needles.length > 0 && !carriesEveryNeedle && options.query.branch === null) {
     return null;
   }
   const head = await options.fs.readHead(path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
@@ -304,13 +311,35 @@ async function scanTranscript(
   if (core === null || !core.interactive) {
     return null;
   }
-  if (scanned !== null || !requiresTranscriptContent(options.query, adapter)) {
-    return { core, content: scanned };
-  }
-  if (adapter.readRecords === null && openingMetadataResolvesBranch(core, options.query)) {
+  if (bytes === null || !decodeWarranted(bytes, core, options.query, adapter, carriesEveryNeedle)) {
     return { core, content: null };
   }
-  return { core, content: await options.fs.readText(path).catch(() => null) };
+  return { core, content: options.fs.decodeText(bytes) };
+}
+
+/**
+ * A content selector already proved its needles present. A session-id selector decodes to
+ * read the addressed transcript's records, needle-free but bounded by address. A branch
+ * selector decodes only a transcript whose bytes name the branch, and not even then where
+ * the opening metadata alone resolves it for an adapter without a record reader.
+ */
+function decodeWarranted(
+  bytes: Uint8Array,
+  core: AgentSessionHead,
+  query: AgentSearchQuery,
+  adapter: AgentSearchAdapter,
+  carriesEveryNeedle: boolean,
+): boolean {
+  if (carriesEveryNeedle) {
+    return true;
+  }
+  if (query.sessionId !== null && adapter.readRecords !== null) {
+    return true;
+  }
+  if (query.branch === null || !transcriptBytesCarry(bytes, query.branch)) {
+    return false;
+  }
+  return !(adapter.readRecords === null && openingMetadataResolvesBranch(core, query));
 }
 
 function recordCurrentMetadataBranchAssociation(
@@ -353,7 +382,6 @@ interface BranchAssociationContext {
 async function matchReasons(
   agent: AgentSearchSessionKind,
   core: AgentSessionHead,
-  path: string,
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
   association: BranchAssociationContext,
@@ -380,8 +408,9 @@ async function matchReasons(
   }
   const requiresContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
     || options.query.contentNeedles.length > 0;
-  const content = association.prefetchedContent
-    ?? (requiresContent ? await options.fs.readText(path).catch(() => null) : undefined);
+  // Scanning decided whether this transcript's bytes warrant a decode; one it left
+  // undecoded carries no evidence a content read here could add.
+  const content = association.prefetchedContent ?? (requiresContent ? null : undefined);
   if (content === null) {
     return null;
   }
@@ -454,16 +483,6 @@ function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearch
   return query.contentNeedles.length > 0
     || (query.sessionId !== null && adapter.readRecords !== null)
     || (query.branch !== null && (adapter.readRecords !== null || adapter.acceptsTranscriptCommandEvidence));
-}
-
-/**
- * Byte-scan admission. Only a content-needle-only query is decidable from raw bytes:
- * branch evidence also arrives from same-product worktree roots and accepted transcript
- * commands, and one transcript's metadata can associate a branch for a sibling transcript
- * of the same session, so a branch selector admits every candidate.
- */
-function transcriptCarriesSelectorEvidence(content: string, query: AgentSearchQuery): boolean {
-  return query.branch !== null || query.contentNeedles.some((needle) => content.includes(needle.value));
 }
 
 function coreMatchesSearchInputScope(

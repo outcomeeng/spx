@@ -429,6 +429,94 @@ export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafe
     );
 }
 
+/**
+ * One transcript text and one needle over an open Unicode domain, half the time with the needle
+ * embedded at a code-point boundary so hits and misses both arise; splitting between code points
+ * never manufactures a lone surrogate, which real UTF-8 transcripts cannot carry.
+ */
+export interface GeneratedTranscriptNeedleCase {
+  readonly content: string;
+  readonly needle: string;
+}
+
+const MAX_TRANSCRIPT_TEXT_GRAPHEMES = 64;
+const MAX_NEEDLE_GRAPHEMES = 8;
+
+export function arbitraryTranscriptNeedleCase(): fc.Arbitrary<GeneratedTranscriptNeedleCase> {
+  return fc
+    .tuple(
+      fc.string({ unit: "grapheme", maxLength: MAX_TRANSCRIPT_TEXT_GRAPHEMES }),
+      fc.string({ unit: "grapheme", minLength: 1, maxLength: MAX_NEEDLE_GRAPHEMES }),
+      fc.boolean(),
+      fc.nat(),
+    )
+    .map(([text, needle, embed, offset]) => {
+      if (!embed) {
+        return { content: text, needle };
+      }
+      const codePoints = [...text];
+      const at = offset % (codePoints.length + 1);
+      return { content: `${codePoints.slice(0, at).join("")}${needle}${codePoints.slice(at).join("")}`, needle };
+    });
+}
+
+/**
+ * A Codex store whose top-level parent and two subagent transcripts all open on another
+ * branch: one subagent names the requested branch only inside an accepted command and the
+ * other never names it, so the collectors face one decode-worthy transcript and two that are not.
+ */
+export interface GeneratedCodexBranchEvidenceScenario {
+  readonly homeDir: string;
+  readonly productScopeRoot: string;
+  readonly parentSessionId: string;
+  readonly parentCwd: string;
+  readonly hitTranscriptId: string;
+  readonly hitCwd: string;
+  readonly missTranscriptId: string;
+  readonly missCwd: string;
+  readonly targetBranch: string;
+  readonly otherBranch: string;
+  readonly nowMs: number;
+}
+
+export function arbitraryCodexBranchEvidenceScenario(): fc.Arbitrary<GeneratedCodexBranchEvidenceScenario> {
+  return fc
+    .tuple(
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
+      arbitraryAgentSessionId(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentBranch(),
+      arbitraryAgentBranch(),
+      arbitraryAgentResumeNowMs(),
+    )
+    .filter(([, , , , , target, other]) => target !== other && !target.includes(other) && !other.includes(target))
+    .chain((
+      [parentSessionId, hitTranscriptId, missTranscriptId, homeDir, productScopeRoot, targetBranch, otherBranch, nowMs],
+    ) =>
+      fc
+        .tuple(
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
+          arbitraryAgentSessionCwd(productScopeRoot),
+        )
+        .map(([parentCwd, hitCwd, missCwd]) => ({
+          homeDir,
+          productScopeRoot,
+          parentSessionId,
+          parentCwd,
+          hitTranscriptId,
+          hitCwd,
+          missTranscriptId,
+          missCwd,
+          targetBranch,
+          otherBranch,
+          nowMs,
+        }))
+    );
+}
+
 export interface AgentSearchBranchCommandEvidenceCase {
   readonly command: string;
   readonly expected: boolean;

@@ -66,8 +66,11 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
       await handle.close();
     }
   },
-  async readText(path) {
-    return readFile(path, AGENT_SESSION_STORE.TEXT_ENCODING);
+  async readBytes(path) {
+    return readFile(path);
+  },
+  decodeText(bytes) {
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(AGENT_SESSION_STORE.TEXT_ENCODING);
   },
   async stat(path) {
     const result = await stat(path);

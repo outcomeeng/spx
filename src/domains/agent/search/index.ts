@@ -1,3 +1,4 @@
+export { encodeTranscriptText, transcriptBytesCarry, transcriptBytesCarryEvery } from "./byte-scan";
 export type { AgentSearchContentNeedle, AgentSearchQuery, AgentSearchQueryOptions } from "./query";
 export { agentSearchQueryFromOptions, pickupIdSearchLiteral } from "./query";
 export { renderAgentSearchJson, renderAgentSearchList } from "./render";
