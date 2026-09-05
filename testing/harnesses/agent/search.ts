@@ -73,6 +73,7 @@ import {
   agentSearchSwitchCreateCommand,
   agentSearchWorktreeResetAddCommand,
   type GeneratedBetweenReachWindowsScenario,
+  type GeneratedCodexBranchEvidenceScenario,
   type GeneratedMovingSessionScenario,
   type GeneratedSessionIdentityScenario,
   type GeneratedSinceWindowScenario,
@@ -2614,6 +2615,57 @@ export async function searchUnsafeSessionIdStore(
     });
   }
   return { attempts };
+}
+
+export interface CodexBranchEvidenceObservation {
+  readonly results: readonly AgentSearchResult[];
+  readonly fs: MemoryAgentSessionFileSystem;
+  readonly parentPath: string;
+  readonly hitPath: string;
+  readonly missPath: string;
+}
+
+/** A Codex parent and two subagents, one naming the branch only inside an accepted command. */
+export async function searchCodexBranchEvidenceStore(
+  scenario: GeneratedCodexBranchEvidenceScenario,
+): Promise<CodexBranchEvidenceObservation> {
+  const fs = new MemoryAgentSessionFileSystem();
+  const timestamp = new Date(scenario.nowMs).toISOString();
+  const parentPath = writeCodexTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.parentSessionId,
+    cwd: scenario.parentCwd,
+    timestamp,
+    branch: scenario.otherBranch,
+    modifiedAtMs: scenario.nowMs - 2,
+  });
+  const hitPath = writeCodexSubagentTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.parentSessionId,
+    transcriptId: scenario.hitTranscriptId,
+    cwd: scenario.hitCwd,
+    timestamp,
+    branch: scenario.otherBranch,
+    marker: codexExecCommandRows(agentSearchSwitchCommand(scenario.targetBranch)),
+    modifiedAtMs: scenario.nowMs - 1,
+  });
+  const missPath = writeCodexSubagentTranscriptFile(fs, scenario.homeDir, {
+    sessionId: scenario.parentSessionId,
+    transcriptId: scenario.missTranscriptId,
+    cwd: scenario.missCwd,
+    timestamp,
+    branch: scenario.otherBranch,
+    modifiedAtMs: scenario.nowMs,
+  });
+
+  const results = await searchAgentSessions({
+    agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
+    nowMs: scenario.nowMs,
+    productScopeRoot: scenario.productScopeRoot,
+    branchAssociatedWorktreeRoots: [],
+    fs,
+    query: agentSearchQueryFromOptions({ branch: scenario.targetBranch }),
+  });
+
+  return { results, fs, parentPath, hitPath, missPath };
 }
 
 /** The two-session since-window store searched under one reach window. */
