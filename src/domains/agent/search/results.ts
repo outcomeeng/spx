@@ -52,7 +52,8 @@ import {
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
   readBytes(path: string): Promise<Uint8Array>;
-  readText(path: string): Promise<string>;
+  /** The store's bytes as text, under the encoding the store records. */
+  decodeText(bytes: Uint8Array): string;
 }
 
 /** Resolves a session id to the store entries filed under it, where the store's naming allows. */
@@ -313,7 +314,7 @@ async function scanTranscript(
   if (bytes === null || !decodeWarranted(bytes, core, options.query, adapter, carriesEveryNeedle)) {
     return { core, content: null };
   }
-  return { core, content: await options.fs.readText(path).catch(() => null) };
+  return { core, content: options.fs.decodeText(bytes) };
 }
 
 /**

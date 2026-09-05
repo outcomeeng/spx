@@ -13,7 +13,7 @@ export type AgentHeadParser = (head: string) => AgentSessionHead | null;
 
 export interface AgentSearchReadableFileSystem extends AgentSessionFileSystem {
   readBytes(path: string): Promise<Uint8Array>;
-  readText(path: string): Promise<string>;
+  decodeText(bytes: Uint8Array): string;
 }
 
 export interface BranchAssociationOptions {
@@ -81,8 +81,7 @@ export async function collectTopLevelBranchAssociations(
     if (!transcriptBytesCarry(bytes, branch)) {
       continue;
     }
-    const content = await options.fs.readText(file.path).catch(() => null);
-    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
+    if (transcriptHasAcceptedBranchCommand(options.fs.decodeText(bytes), branch)) {
       associated.commandAssociatedSessionIds.add(core.sessionId);
     }
   }
@@ -119,8 +118,7 @@ export async function collectCodexSubagentBranchAssociations(
     if (bytes === null || !transcriptBytesCarry(bytes, branch)) {
       continue;
     }
-    const content = await options.fs.readText(file.path).catch(() => null);
-    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
+    if (transcriptHasAcceptedBranchCommand(options.fs.decodeText(bytes), branch)) {
       addCodexSubagentBranchAssociation(associated, core);
     }
   }
