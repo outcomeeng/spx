@@ -138,7 +138,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
-  private readonly textReadPathSet = new Set<string>();
+  private readonly decodedTexts: string[] = [];
   private readonly readDirPathSet = new Set<string>();
   private readonly statPathSet = new Set<string>();
   private readonly bytesReadPathSet = new Set<string>();
@@ -197,18 +197,21 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     return content.subarray(start).toString("utf8");
   }
 
-  async readText(path: string): Promise<string> {
-    const resolved = resolve(path);
-    this.textReadPathSet.add(resolved);
-    const file = this.files.get(resolved);
-    if (file === undefined) {
-      throw new Error(`missing file: ${path}`);
-    }
-    return file.content;
+  decodeText(bytes: Uint8Array): string {
+    const text = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
+    this.decodedTexts.push(text);
+    return text;
   }
 
-  textReadPaths(): readonly string[] {
-    return [...this.textReadPathSet];
+  /** The files whose text the search decoded, resolved from each decoded text's unique content. */
+  decodedPaths(): readonly string[] {
+    const paths = new Set<string>();
+    for (const [path, file] of this.files) {
+      if (this.decodedTexts.includes(file.content)) {
+        paths.add(path);
+      }
+    }
+    return [...paths];
   }
 
   async readBytes(path: string): Promise<Uint8Array> {

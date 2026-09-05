@@ -16,6 +16,6 @@ describe("agent search — structural read bound", () => {
     const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
     const observation = await searchMovingSessionStore(scenario);
 
-    expect(observation.fs.textReadPaths()).toHaveLength(0);
+    expect(observation.fs.bytesReadPaths()).toHaveLength(0);
   });
 });

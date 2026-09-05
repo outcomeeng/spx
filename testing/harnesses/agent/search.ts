@@ -2611,7 +2611,7 @@ export async function searchUnsafeSessionIdStore(
     attempts.push({
       unsafeSessionId,
       results,
-      readPaths: [...fs.readDirPaths(), ...fs.statPaths(), ...fs.textReadPaths()],
+      readPaths: [...fs.readDirPaths(), ...fs.statPaths(), ...fs.bytesReadPaths()],
     });
   }
   return { attempts };
