@@ -6,11 +6,13 @@ import {
   isPathInsideOrEqual,
   parseCodexHead,
 } from "../resume";
+import { transcriptBytesCarry } from "./byte-scan";
 import { transcriptHasAcceptedBranchCommand } from "./transcript-command-evidence";
 
 export type AgentHeadParser = (head: string) => AgentSessionHead | null;
 
 export interface AgentSearchReadableFileSystem extends AgentSessionFileSystem {
+  readBytes(path: string): Promise<Uint8Array>;
   readText(path: string): Promise<string>;
 }
 
@@ -69,14 +71,18 @@ export async function collectTopLevelBranchAssociations(
     ) {
       continue;
     }
-    const content = await options.fs.readText(file.path).catch(() => null);
-    if (content === null) {
+    const bytes = await options.fs.readBytes(file.path).catch(() => null);
+    if (bytes === null) {
       continue;
     }
     associated.commandCheckedSessionIds.add(core.sessionId);
     // A command that associates a branch names that branch, so a transcript whose
-    // bytes never mention it cannot carry command evidence and is not parsed.
-    if (content.includes(branch) && transcriptHasAcceptedBranchCommand(content, branch)) {
+    // bytes never mention it carries no command evidence and is not decoded.
+    if (!transcriptBytesCarry(bytes, branch)) {
+      continue;
+    }
+    const content = await options.fs.readText(file.path).catch(() => null);
+    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
       associated.commandAssociatedSessionIds.add(core.sessionId);
     }
   }
@@ -109,8 +115,12 @@ export async function collectCodexSubagentBranchAssociations(
       addCodexSubagentBranchAssociation(associated, core);
       continue;
     }
+    const bytes = await options.fs.readBytes(file.path).catch(() => null);
+    if (bytes === null || !transcriptBytesCarry(bytes, branch)) {
+      continue;
+    }
     const content = await options.fs.readText(file.path).catch(() => null);
-    if (content !== null && content.includes(branch) && transcriptHasAcceptedBranchCommand(content, branch)) {
+    if (content !== null && transcriptHasAcceptedBranchCommand(content, branch)) {
       addCodexSubagentBranchAssociation(associated, core);
     }
   }
