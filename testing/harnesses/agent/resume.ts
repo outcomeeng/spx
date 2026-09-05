@@ -138,7 +138,8 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
-  private readonly decodedTexts: string[] = [];
+  private readonly bytesByInstance = new WeakMap<Uint8Array, string>();
+  private readonly decodedPathSet = new Set<string>();
   private readonly readDirPathSet = new Set<string>();
   private readonly statPathSet = new Set<string>();
   private readonly bytesReadPathSet = new Set<string>();
@@ -197,21 +198,18 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     return content.subarray(start).toString("utf8");
   }
 
+  /** Decodes only a buffer this store handed out, attributing the decode to that buffer's file. */
   decodeText(bytes: Uint8Array): string {
-    const text = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
-    this.decodedTexts.push(text);
-    return text;
+    const path = this.bytesByInstance.get(bytes);
+    if (path === undefined) {
+      throw new Error("decodeText received bytes this store did not read");
+    }
+    this.decodedPathSet.add(path);
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
   }
 
-  /** The files whose text the search decoded, resolved from each decoded text's unique content. */
   decodedPaths(): readonly string[] {
-    const paths = new Set<string>();
-    for (const [path, file] of this.files) {
-      if (this.decodedTexts.includes(file.content)) {
-        paths.add(path);
-      }
-    }
-    return [...paths];
+    return [...this.decodedPathSet];
   }
 
   async readBytes(path: string): Promise<Uint8Array> {
@@ -221,7 +219,9 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     if (file === undefined) {
       throw new Error(`missing file: ${path}`);
     }
-    return Buffer.from(file.content, "utf8");
+    const bytes = Buffer.from(file.content, "utf8");
+    this.bytesByInstance.set(bytes, resolved);
+    return bytes;
   }
 
   bytesReadPaths(): readonly string[] {
