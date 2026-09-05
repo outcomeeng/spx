@@ -31,37 +31,44 @@ depends on how much it decodes.
 Measured on a store of 7796 transcripts totalling 6.0 GB, of which 602 transcripts and
 0.57 GB fall inside the thirty-day reach window:
 
-| Invocation                 | Store work                                    | Wall clock |
-| -------------------------- | --------------------------------------------- | ---------- |
-| no selector                | scoped listing, opening metadata              | ~9s        |
-| `--session-id`             | addressed lookup, one probe per directory     | ~1s        |
-| `--agent`                  | scoped listing, opening metadata              | ~3s        |
-| `--contains`               | whole-store listing, decodes the reach window | ~11s       |
-| `--branch`                 | whole-store listing, decodes all history      | ~44s       |
-| `rg -l <branch>` for scale | one memory-mapped byte scan of 6.0 GB         | ~2.5s      |
+| Invocation                 | Store work                                  | Wall clock |
+| -------------------------- | ------------------------------------------- | ---------- |
+| no selector                | scoped listing, opening metadata            | ~9s        |
+| `--session-id`             | addressed lookup, one probe per directory   | ~1s        |
+| `--agent`                  | scoped listing, opening metadata            | ~3s        |
+| `--contains`               | whole-store listing, byte-scans the window  | ~5s        |
+| `--branch`                 | whole-store listing, byte-scans all history | ~28s       |
+| `rg -l <branch>` for scale | one memory-mapped byte scan of 6.0 GB       | ~2.5s      |
 
 The branch case measured ~67s before command evidence and record parsing were gated on a byte
-check. The residual cost is decoding transcript bytes into JavaScript strings; gating the
-structured parses removed the JSON-parse share and the decode share remains. Branch evidence
-is the extreme because it reaches past the reach window by declared behavior, so it decodes
-all history rather than the window.
+check, and ~44s while every candidate was still decoded to text so it could be searched.
+Candidacy now runs over undecoded bytes and only transcripts whose bytes carry a required
+needle are decoded. The residual is CPU-bound — roughly 25s of user time in the ~28s branch
+case — and is the byte search itself: Node's `Buffer.includes` is a plain byte scan with no
+SIMD, and the branch case runs it twice over all history, once in the branch-evidence
+collectors and once in candidate scanning. Branch evidence remains the extreme because it
+reaches past the reach window by declared behavior.
 
 A selector-free listing decodes nothing, which
 [tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces. A
 session-id selector lists no project directory, which
 [tests/session-identity.compliance.l1.test.ts](tests/session-identity.compliance.l1.test.ts)
-enforces; its row above was measured after that address resolution landed, while the other rows
-predate it.
+enforces. A content or branch selector decodes no transcript whose bytes lack a required
+needle, which [tests/byte-scan.compliance.l1.test.ts](tests/byte-scan.compliance.l1.test.ts)
+enforces. The `--contains` and `--branch` rows were measured after byte-scan candidacy landed;
+the `--session-id` row after address resolution; the remaining rows predate both.
 
-A branch search decodes each candidate twice: once in the branch-evidence collectors and
-again when a session's recorded positions are scanned. Collapsing that to one pass means
-moving per-record association into the collectors, which filter on the opening working
-directory — the value a moved session fails — so it needs the same restructure the
-resolution below describes rather than a local change.
+A branch search scans each candidate's bytes twice: once in the branch-evidence collectors,
+which cover in-scope top-level transcripts across all history, and again in candidate
+scanning over the reach window. The collectors already hold the byte verdict for every path
+they visit, so handing that verdict to candidate scanning removes the second read and scan
+for those paths; a moved session, which the collectors skip on its opening working directory,
+still needs its own scan.
 
-**Resolution:** locate the needle without decoding the whole transcript — scan the raw
-buffer and decode only transcripts that hit. The two-pass scan named in
-[PLAN.md](PLAN.md) is the same work.
+**Resolution:** carry the collectors' per-path byte verdict into candidate scanning so a
+branch selector scans each transcript's bytes once. The byte search itself is the floor for a
+pure-JavaScript implementation; a memory-mapped SIMD scan of the kind `rg` performs would need
+native code and is out of this node's declared scope.
 
 **Skills:** `/apply`, `/code-typescript`, `/test-typescript`.
 
