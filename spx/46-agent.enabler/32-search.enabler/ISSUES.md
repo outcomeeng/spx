@@ -42,12 +42,13 @@ Measured on a store of 7796 transcripts totalling 6.0 GB, of which 602 transcrip
 
 The branch case measured ~67s before command evidence and record parsing were gated on a byte
 check, and ~44s while every candidate was still decoded to text so it could be searched.
-Candidacy now runs over undecoded bytes and only transcripts whose bytes carry a required
-needle are decoded. The residual is CPU-bound — roughly 25s of user time in the ~28s branch
-case — and is the byte search itself: Node's `Buffer.includes` is a plain byte scan with no
-SIMD, and the branch case runs it twice over all history, once in the branch-evidence
-collectors and once in candidate scanning. Branch evidence remains the extreme because it
-reaches past the reach window by declared behavior.
+Candidacy now runs over undecoded bytes, each transcript is read once per pass, and only a
+transcript whose bytes carry a required needle is decoded, in memory from the bytes already
+held. The residual is CPU-bound — roughly 25s of user time in the ~28s branch case — and is
+the byte search itself: Node's `Buffer.includes` is a plain byte scan with no SIMD, and the
+branch case runs it in two passes over all history, once in the branch-evidence collectors
+and once in candidate scanning. Branch evidence remains the extreme because it reaches past
+the reach window by declared behavior.
 
 A selector-free listing decodes nothing, which
 [tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces. A
