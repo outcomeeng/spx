@@ -29,7 +29,14 @@ across files, and exits each file at its first hit.
   time over that store.
 - One locator serves every selector. The Claude session-address resolver is replaced: a session
   id is located as a needle across every store, so Codex and Pi gain id lookup and the
-  traversal guard becomes moot because no id ever forms a path.
+  traversal guard becomes moot because no id ever forms a path. This trades the ADR's cost
+  argument for the resolver against one mechanism, and the measured terms are close on a
+  warm cache — the resolver's stat probes answer in 1.1–2.0s through the built CLI, the
+  locator names the 81 candidate files in 1.2s and then reads 81 opening heads. The resolver
+  reads no transcript at all, so it is cache-independent, while the locator reads the whole
+  store and is slower on a cold cache by whatever the disk costs; that is the accepted
+  trade-off, and the ADR update states it in place of the resolver's cost rationale rather
+  than deleting the argument silently.
 - One pull request carries the port, the adapter, the rewire, and the deletions, in separate
   commits, so `main` never holds both mechanisms.
 
@@ -96,8 +103,9 @@ of `MemoryAgentSessionFileSystem`. `readText` returns to the boundary and is cal
   needle's bytes occur exactly when the needle occurs in the decoded text is re-homed to the
   locator. New invariants: no transcript outside a locator result set is read for a
   locator-dependent selector; a session id is located, never addressed as a path. The
-  session-address resolver paragraphs, the traversal boundary, and the undecoded-bytes
-  rationale are removed.
+  session-address resolver paragraphs and the traversal boundary are replaced by the
+  one-mechanism decision and its stated cost trade-off; the undecoded-bytes rationale is
+  removed.
 - `spx/46-agent.enabler/32-search.enabler/search.md`: the `--session-id` mapping names the
   locator; the decode-boundary compliance rule becomes "NEVER: a locator-dependent selector
   reads a transcript the locator did not name"; the store-enumeration and path-separator rules
@@ -134,9 +142,11 @@ of `MemoryAgentSessionFileSystem`. `readText` returns to the boundary and is cal
   on the same snapshot — 1, 8, and 1 rows at the time of the plan, reduced from 74, 74,
   and 81 locator candidates; the branch and content queries share one literal, so they share
   one candidate set and differ only in how the domain reduces it.
-- Wall clock on that snapshot: the locator's own time plus the in-window listing's head
-  reads. Measure both terms before setting the bound; three seconds for the branch query is
-  the expectation, not a derived number.
+- Wall clock on that snapshot, warm cache: the locator's own time plus the in-window
+  listing's head reads. Measure both terms before setting the bound; three seconds for the
+  branch and content queries and two seconds for the session-id query are the expectations,
+  not derived numbers, and the session-id bound must hold against the 1.1–2.0s the resolver
+  it replaces measures today.
 - The boundary evidence is green and survives its mutation litmus.
 - The "Selector search cost" entry in [ISSUES.md](ISSUES.md) closes with the measurement.
 
