@@ -5,6 +5,7 @@ import {
   expectedFindingsForScenario,
   observeProductResolvedStreamingRun,
   observeProductSuppliedVitestRun,
+  observeProductsWithoutNodeApi,
   observeRunnerlessStreamingRun,
 } from "@testing/harnesses/testing/journal-reporter";
 import { readProductRuntimeDependencyNames } from "@testing/harnesses/testing/typescript-runner";
@@ -51,6 +52,30 @@ describe("journal-streaming run over a product that supplies no runner", () => {
       });
       expect(observation.sink.scopes).toEqual([]);
       expect(observation.sink.findings).toEqual([]);
+    });
+  });
+
+  it("reports a product whose Vitest package exposes no usable Node API entry the same way, and rethrows a manifest it cannot read", async () => {
+    await observeProductsWithoutNodeApi().then((observation) => {
+      expect(observation.withoutNodeExport.resolution).toEqual({
+        resolved: false,
+        productDir: observation.withoutNodeExport.request.productDir,
+      });
+      expect(observation.withoutNodeExport.invocation).toEqual({
+        invoked: false,
+        unresolvedRunner: { productDir: observation.withoutNodeExport.request.productDir },
+      });
+      expect(observation.nodeEntryMissing.resolution).toEqual({
+        resolved: false,
+        productDir: observation.nodeEntryMissing.request.productDir,
+      });
+      expect(observation.nodeEntryMissing.invocation).toEqual({
+        invoked: false,
+        unresolvedRunner: { productDir: observation.nodeEntryMissing.request.productDir },
+      });
+      expect(observation.withoutNodeExport.sink.scopes).toEqual([]);
+      expect(observation.nodeEntryMissing.sink.scopes).toEqual([]);
+      expect(observation.malformedManifest.resolutionError).toBeInstanceOf(Error);
     });
   });
 });

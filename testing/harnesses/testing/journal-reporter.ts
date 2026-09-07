@@ -3,13 +3,13 @@ import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-import { expect } from "vitest";
 import type { Reporter, TestCase, TestModule, Vitest } from "vitest/node";
 
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   createJournalReporter,
   createVitestRunStarter,
+  type JournalRunOutcome,
   productVitestNodeApiLoader,
   runTestsStreaming,
   VITEST_NODE_API_ENTRY,
@@ -21,14 +21,13 @@ import {
   type VitestRunStarter,
   type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
-import {
-  JOURNAL_RUN_TERMINAL_STATUS,
-  type JournalRunInvocation,
-  type JournalRunRequest,
-  type JournalRunTerminalStatus,
-  type TestFinding,
-  type TestRunEvidenceSink,
-  type TestScopeUnit,
+import type {
+  JournalRunInvocation,
+  JournalRunRequest,
+  JournalRunTerminalStatus,
+  TestFinding,
+  TestRunEvidenceSink,
+  TestScopeUnit,
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -224,62 +223,84 @@ export function createContractVitestNodeApiLoader(
   };
 }
 
+/** A recording sink driven with interleaved appends, plus the appends the driver made in the order it made them. */
+export interface InterleavedSinkObservation {
+  readonly sink: RecordingEvidenceSink;
+  /** Every append performed against the sink, in invocation order across both channels. */
+  readonly appended: readonly RecordedSinkCall[];
+}
+
 /**
- * Asserts a fresh recording sink records the given scope and finding appends in
- * invocation order across both channels.
+ * Drives a fresh recording sink with the given scope and finding appends interleaved —
+ * so the recorded call order exercises cross-channel invocation order — and returns the
+ * sink alongside the appends as they were performed, for the test to compare.
  */
-export function assertRecordingSinkRecordsInOrder(
+export function observeInterleavedSinkAppends(
   scopes: readonly TestScopeUnit[],
   findings: readonly TestFinding[],
-): void {
+): InterleavedSinkObservation {
   const sink = createRecordingEvidenceSink();
-  // Interleave scope and finding appends so the recorded call order exercises
-  // cross-channel invocation order: a sink that grouped calls by kind rather than
-  // preserving invocation order would record a different sink.calls sequence and fail.
-  const expectedCalls: RecordedSinkCall[] = [];
+  const appended: RecordedSinkCall[] = [];
   for (let i = 0; i < Math.max(scopes.length, findings.length); i += 1) {
     if (i < scopes.length) {
       const unit = scopes[i];
       sink.appendScope(unit);
-      expectedCalls.push({ kind: "scope", unit });
+      appended.push({ kind: "scope", unit });
     }
     if (i < findings.length) {
       const finding = findings[i];
       sink.appendFinding(finding);
-      expectedCalls.push({ kind: "finding", finding });
+      appended.push({ kind: "finding", finding });
     }
   }
-  expect(sink.scopes).toEqual(scopes);
-  expect(sink.findings).toEqual(findings);
-  expect(sink.calls).toEqual(expectedCalls);
+  return { sink, appended };
+}
+
+/** Snapshots of one async-sink channel at three points around a single append. */
+export interface AsyncAppendTimingObservation<T> {
+  /** The channel's contents right after the append is issued, before any await. */
+  readonly beforeAwait: readonly T[];
+  /** The channel's contents after one microtask tick. */
+  readonly afterMicrotask: readonly T[];
+  /** The channel's contents after the append's promise resolves. */
+  readonly afterAwait: readonly T[];
+}
+
+/** Both channels of the async recording sink observed around one scope append and one finding append. */
+export interface AsyncSinkTimingObservation {
+  readonly scope: AsyncAppendTimingObservation<TestScopeUnit>;
+  readonly finding: AsyncAppendTimingObservation<TestFinding>;
 }
 
 /**
- * Asserts the async recording sink defers each append past the microtask queue to a
- * macrotask boundary: a not-yet-awaited `appendScope`/`appendFinding` records nothing,
- * a microtask tick still records nothing, and only awaiting the append's promise records
- * it. This is the observable contract the reporter's await-behavior test rests on — a
- * consumer that fires the append and returns without awaiting records nothing.
+ * Issues one scope append and one finding append against the async recording sink and
+ * snapshots each channel before awaiting, after a microtask tick, and after the append's
+ * promise resolves — the timing a reporter's await-behavior test rests on.
  */
-export async function assertAsyncSinkRecordsAfterMacrotask(
+export async function observeAsyncSinkAppendTiming(
   unit: TestScopeUnit,
   finding: TestFinding,
-): Promise<void> {
+): Promise<AsyncSinkTimingObservation> {
   const sink = createAsyncRecordingEvidenceSink();
 
   const scopePending = sink.appendScope(unit);
-  expect(sink.scopes).toEqual([]);
+  const scopeBeforeAwait = [...sink.scopes];
   await Promise.resolve();
-  expect(sink.scopes).toEqual([]);
+  const scopeAfterMicrotask = [...sink.scopes];
   await scopePending;
-  expect(sink.scopes).toEqual([unit]);
+  const scopeAfterAwait = [...sink.scopes];
 
   const findingPending = sink.appendFinding(finding);
-  expect(sink.findings).toEqual([]);
+  const findingBeforeAwait = [...sink.findings];
   await Promise.resolve();
-  expect(sink.findings).toEqual([]);
+  const findingAfterMicrotask = [...sink.findings];
   await findingPending;
-  expect(sink.findings).toEqual([finding]);
+  const findingAfterAwait = [...sink.findings];
+
+  return {
+    scope: { beforeAwait: scopeBeforeAwait, afterMicrotask: scopeAfterMicrotask, afterAwait: scopeAfterAwait },
+    finding: { beforeAwait: findingBeforeAwait, afterMicrotask: findingAfterMicrotask, afterAwait: findingAfterAwait },
+  };
 }
 
 // Minimal Vitest doubles carrying only the fields the reporter reads; the real
@@ -318,69 +339,91 @@ export function expectedFindingsForScenario(scenario: GeneratedRunScenario): rea
     .map((runCase) => ({ moduleId: scenario.moduleId, testName: runCase.testName, errors: runCase.errors }));
 }
 
-/** Asserts the reporter maps a scenario to one module scope, a finding per failing case, none per passing case, and the run reason to its terminal status. */
-export async function assertJournalReporterMapping(
+/** What the reporter recorded after being driven over a whole scenario: the sink's channels and the captured terminal status. */
+export interface ReporterMappingObservation {
+  readonly scopes: readonly TestScopeUnit[];
+  readonly findings: readonly TestFinding[];
+  readonly terminalStatus: JournalRunTerminalStatus | undefined;
+}
+
+/** Drives a journal reporter over a scenario, sealing with the given reason, and returns what the sink recorded and the status the reporter captured. */
+export async function observeJournalReporterMapping(
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
-): Promise<void> {
+): Promise<ReporterMappingObservation> {
   const sink = createRecordingEvidenceSink();
   const reporter = createJournalReporter(sink);
   await driveReporterOverScenario(reporter, scenario, reason);
-  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
-  expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
-  expect(reporter.terminalStatus).toBe(reason);
+  return { scopes: sink.scopes, findings: sink.findings, terminalStatus: reporter.terminalStatus };
+}
+
+/** The sink's findings channel as it stood right after one case's result hook returned. */
+export interface CaseResultSnapshot {
+  readonly runCase: GeneratedRunCase;
+  readonly findings: readonly TestFinding[];
+}
+
+/** Per-hook snapshots of what the reporter had recorded when each lifecycle hook returned, before run end. */
+export interface ReporterPerHookObservation {
+  /** The sink's scopes right after the module-start hook returned. */
+  readonly scopesAfterModuleStart: readonly TestScopeUnit[];
+  /** The sink's findings right after each case's result hook returned, in case order. */
+  readonly caseSnapshots: readonly CaseResultSnapshot[];
 }
 
 /**
- * Asserts the reporter appends each event as its hook fires: the module scope is
- * recorded on module start and a failing-case finding on that case's result, both
- * before run end rather than batched at the terminal event.
+ * Drives a journal reporter hook by hook over a scenario with a recording sink and
+ * snapshots the sink after each hook returns, so a test can tell whether evidence was
+ * recorded as its hook fired or only at run end.
  */
-export async function assertReporterStreamsPerHook(scenario: GeneratedRunScenario): Promise<void> {
+export async function observeReporterPerHook(scenario: GeneratedRunScenario): Promise<ReporterPerHookObservation> {
   const sink = createRecordingEvidenceSink();
   const reporter = createJournalReporter(sink);
   const testModule = buildTestModuleDouble(scenario.moduleId);
   await reporter.onTestModuleStart?.(testModule);
-  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+  const scopesAfterModuleStart = [...sink.scopes];
+  const caseSnapshots: CaseResultSnapshot[] = [];
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
-    if (runCase.state === GENERATED_CASE_STATE.FAILED) {
-      expect(sink.findings.at(-1)).toEqual({
-        moduleId: scenario.moduleId,
-        testName: runCase.testName,
-        errors: runCase.errors,
-      });
-    }
+    caseSnapshots.push({ runCase, findings: [...sink.findings] });
   }
+  return { scopesAfterModuleStart, caseSnapshots };
+}
+
+/** What an async recording sink held after each reporter hook returned. */
+export interface ReporterAsyncSinkObservation {
+  /** The sink's scopes right after the module-start hook returned. */
+  readonly scopesAfterModuleStart: readonly TestScopeUnit[];
+  /** The sink's findings right after the last case's result hook returned. */
+  readonly findingsAfterCases: readonly TestFinding[];
 }
 
 /**
- * Asserts the reporter awaits each sink append: driven over a scenario with an async
- * sink whose writes land only after a macrotask, the recorded scope and findings match
- * the scenario — which holds only when each hook awaits its append before returning, so
- * the streaming guarantee survives an asynchronous journal backing.
+ * Drives a journal reporter over a scenario with the async recording sink, whose
+ * appends land only after a macrotask, and returns what the sink held when each hook
+ * returned — populated only when the hook awaited its append before returning.
  */
-export async function assertReporterAwaitsAsyncAppends(scenario: GeneratedRunScenario): Promise<void> {
+export async function observeReporterWithAsyncSink(
+  scenario: GeneratedRunScenario,
+): Promise<ReporterAsyncSinkObservation> {
   const sink = createAsyncRecordingEvidenceSink();
   const reporter = createJournalReporter(sink);
   const testModule = buildTestModuleDouble(scenario.moduleId);
   await reporter.onTestModuleStart?.(testModule);
-  expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+  const scopesAfterModuleStart = [...sink.scopes];
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
   }
-  expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
+  return { scopesAfterModuleStart, findingsAfterCases: [...sink.findings] };
 }
 
-/** Asserts a journal-streaming run registers the journal reporter on a programmatically started run through the injected starter, carrying no command-line reporter flag. */
-export async function assertRunRegistersReporterProgrammatically(
-  request: { readonly productDir: string; readonly testPaths: readonly string[] },
-): Promise<void> {
+/** Drives a journal-streaming run through a spy starter and returns the start options the run supplied it. */
+export async function observeStreamingRunStart(
+  request: JournalRunRequest,
+): Promise<readonly VitestRunStartOptions[]> {
   const starter = createSpyVitestRunStarter();
   await runTestsStreaming(request, { sink: createRecordingEvidenceSink(), starter });
-  expect(starter.startedRuns).toHaveLength(1);
-  expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
-  expect(starter.startedRuns[0]?.testPaths).toEqual(request.testPaths);
+  return starter.startedRuns;
 }
 
 const VITEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "vitest");
@@ -409,13 +452,13 @@ async function linkProductRunnerToolchain(productDir: string): Promise<void> {
  * runner toolchain linked in so the product directory resolves Vitest, and invokes the
  * callback with the product directory and the copied suite's relative path.
  */
-export function withMixedVitestProduct(
-  callback: (productDir: string, testFileName: string) => Promise<void>,
-): Promise<void> {
+export function withMixedVitestProduct<T>(
+  callback: (productDir: string, testFileName: string) => Promise<T>,
+): Promise<T> {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
     await linkProductRunnerToolchain(productDir);
     await copyFile(join(VITEST_FIXTURE_DIR, MIXED_FIXTURE), join(productDir, MIXED_SUITE_NAME));
-    await callback(productDir, MIXED_SUITE_NAME);
+    return callback(productDir, MIXED_SUITE_NAME);
   });
 }
 
@@ -425,20 +468,29 @@ export function withMixedVitestProduct(
  * one finding — for the failing case, carrying error text and the module's identity —
  * and yields the failed terminal status. The passing case records no finding.
  */
-export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
-  await withMixedVitestProduct(async (productDir, testFileName) => {
+export interface RealMixedRunObservation {
+  readonly sink: RecordingEvidenceSink;
+  readonly outcome: JournalRunOutcome;
+  /** `process.exitCode` as it stood before the run started. */
+  readonly exitCodeBeforeRun: typeof process.exitCode;
+  /** `process.exitCode` as it stood after the run resolved. */
+  readonly exitCodeAfterRun: typeof process.exitCode;
+}
+
+/**
+ * Drives a real programmatic Vitest run over the mixed fixture with the production
+ * starter over the product-resolving loader and a recording sink, and returns what the
+ * sink recorded, the run's outcome, and the process exit code before and after the run.
+ */
+export function observeRealMixedRun(): Promise<RealMixedRunObservation> {
+  return withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;
     const sink = createRecordingEvidenceSink();
     const outcome = await runTestsStreaming(
       { productDir, testPaths: [testFileName] },
       { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
     );
-    expect(sink.scopes).toHaveLength(1);
-    expect(sink.findings).toHaveLength(1);
-    expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
-    expect(sink.findings[0]?.errors.length).toBeGreaterThan(0);
-    expect(outcome).toEqual({ started: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
-    expect(process.exitCode).toBe(exitCodeBeforeRun);
+    return { sink, outcome, exitCodeBeforeRun, exitCodeAfterRun: process.exitCode };
   });
 }
 
@@ -473,6 +525,34 @@ function productSuppliedNodeApiSource(reason: JournalRunTerminalStatus, startRec
   ].join("\n");
 }
 
+/** The `exports` subpath a product's Vitest package maps the Node API entry under. */
+const NODE_API_EXPORT_SUBPATH = `./${VITEST_NODE_API_ENTRY}`;
+/** The Node API entry file a product's Vitest package ships. */
+const NODE_API_ENTRY_FILENAME = `${VITEST_NODE_API_ENTRY}.js`;
+/** A package's root export subpath and the entry it maps to, for a manifest exporting no Node API. */
+const PACKAGE_ROOT_EXPORT_SUBPATH = ".";
+const PACKAGE_ROOT_ENTRY = "./index.js";
+/** A manifest Node cannot parse as a package configuration. */
+const MALFORMED_MANIFEST_TEXT = "{";
+
+/** The manifest of a product-supplied `vitest` package with the given `exports` map. */
+function productVitestManifest(exports: Readonly<Record<string, string>>): string {
+  return JSON.stringify({
+    name: VITEST_PACKAGE_NAME,
+    version: PRODUCT_SUPPLIED_VERSION,
+    type: ESM_PACKAGE_TYPE,
+    exports,
+  });
+}
+
+/** Writes a `vitest` package directory holding the given manifest text under the product's `node_modules`, returning the package directory. */
+async function writeProductVitestPackage(productDir: string, manifestText: string): Promise<string> {
+  const packageDir = join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY, VITEST_PACKAGE_NAME);
+  await mkdir(packageDir, { recursive: true });
+  await writeFile(join(packageDir, PACKAGE_MANIFEST_FILENAME), manifestText);
+  return packageDir;
+}
+
 /**
  * Writes a product-supplied `vitest` package under the product's `node_modules` whose `node`
  * entry is a real ESM module the product directory resolves and Node imports: it records
@@ -483,21 +563,75 @@ async function materializeProductSuppliedVitest(
   productDir: string,
   reason: JournalRunTerminalStatus,
 ): Promise<{ readonly entryPath: string; readonly startRecordPath: string }> {
-  const packageDir = join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY, VITEST_PACKAGE_NAME);
-  const entryFilename = `${VITEST_NODE_API_ENTRY}.js`;
-  const startRecordPath = join(packageDir, START_RECORD_FILENAME);
-  await mkdir(packageDir, { recursive: true });
-  await writeFile(
-    join(packageDir, PACKAGE_MANIFEST_FILENAME),
-    JSON.stringify({
-      name: VITEST_PACKAGE_NAME,
-      version: PRODUCT_SUPPLIED_VERSION,
-      type: ESM_PACKAGE_TYPE,
-      exports: { [`./${VITEST_NODE_API_ENTRY}`]: `./${entryFilename}` },
-    }),
+  const packageDir = await writeProductVitestPackage(
+    productDir,
+    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: `./${NODE_API_ENTRY_FILENAME}` }),
   );
-  await writeFile(join(packageDir, entryFilename), productSuppliedNodeApiSource(reason, startRecordPath));
-  return { entryPath: await realpath(join(packageDir, entryFilename)), startRecordPath };
+  const startRecordPath = join(packageDir, START_RECORD_FILENAME);
+  await writeFile(join(packageDir, NODE_API_ENTRY_FILENAME), productSuppliedNodeApiSource(reason, startRecordPath));
+  return { entryPath: await realpath(join(packageDir, NODE_API_ENTRY_FILENAME)), startRecordPath };
+}
+
+/** What a descriptor streaming run over a product whose Vitest package exposes no usable Node API entry exposes for inspection. */
+export interface UnresolvableNodeApiObservation {
+  readonly request: JournalRunRequest;
+  /** The production loader's resolution against the product directory. */
+  readonly resolution: VitestNodeApiResolution;
+  readonly sink: RecordingEvidenceSink;
+  readonly invocation: JournalRunInvocation;
+}
+
+/** Products that carry a `vitest` package the loader must still report as runnerless, plus one whose manifest is unreadable. */
+export interface ProductsWithoutNodeApiObservation {
+  /** The package's `exports` map carries no Node API subpath. */
+  readonly withoutNodeExport: UnresolvableNodeApiObservation;
+  /** The package maps the Node API subpath to an entry file that does not exist. */
+  readonly nodeEntryMissing: UnresolvableNodeApiObservation;
+  /** The package manifest is not parseable; the loader's resolution attempt and whatever it threw. */
+  readonly malformedManifest: {
+    readonly request: JournalRunRequest;
+    /** The error resolution threw, or `undefined` when it returned instead. */
+    readonly resolutionError: unknown;
+  };
+}
+
+async function observeUnresolvableNodeApi(manifestText: string): Promise<UnresolvableNodeApiObservation> {
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  return withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
+    await writeProductVitestPackage(productDir, manifestText);
+    const request: JournalRunRequest = { productDir, testPaths };
+    const resolution = productVitestNodeApiLoader.resolve(productDir);
+    const sink = createRecordingEvidenceSink();
+    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
+    return { request, resolution, sink, invocation };
+  });
+}
+
+/**
+ * Materializes, one after another, a product whose `vitest` package exports no Node API
+ * subpath, one whose Node API subpath maps to a missing file, and one whose manifest is
+ * malformed; drives the production loader and the descriptor's streaming run over the
+ * first two and the loader alone over the third, returning every observation.
+ */
+export async function observeProductsWithoutNodeApi(): Promise<ProductsWithoutNodeApiObservation> {
+  const withoutNodeExport = await observeUnresolvableNodeApi(
+    productVitestManifest({ [PACKAGE_ROOT_EXPORT_SUBPATH]: PACKAGE_ROOT_ENTRY }),
+  );
+  const nodeEntryMissing = await observeUnresolvableNodeApi(
+    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: `./${NODE_API_ENTRY_FILENAME}` }),
+  );
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  const malformedManifest = await withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
+    await writeProductVitestPackage(productDir, MALFORMED_MANIFEST_TEXT);
+    const request: JournalRunRequest = { productDir, testPaths };
+    try {
+      productVitestNodeApiLoader.resolve(productDir);
+      return { request, resolutionError: undefined };
+    } catch (error: unknown) {
+      return { request, resolutionError: error };
+    }
+  });
+  return { withoutNodeExport, nodeEntryMissing, malformedManifest };
 }
 
 /** What a descriptor streaming run driven through the contract loader exposes for inspection. */
