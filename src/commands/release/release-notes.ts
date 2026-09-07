@@ -12,7 +12,6 @@ import type { GitDependencies } from "@/lib/git/root";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 const PACKAGE_MANIFEST = "package.json";
-export const RELEASE_NOTES_OUTPUT_PREFIX = "Generated release notes";
 
 export interface ReleaseNotesCommandOptions {
   readonly productDir: string;
@@ -45,7 +44,7 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     isSymbolicLink: filesystem.isSymbolicLink,
     isFile: filesystem.isFile,
   });
-  return `${RELEASE_NOTES_OUTPUT_PREFIX}: ${result.changelogPath}`;
+  return result.changelogPath;
 }
 
 export async function readPackageVersion(productDir: string): Promise<string> {

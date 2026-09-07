@@ -93,7 +93,7 @@ export function createReleaseDomain(
           try {
             const productDir = invocation.resolveProductContext().productDir;
             const agentRunner = new ClaudeAgentRunner();
-            const output = await releaseNotesCommand({
+            const changelogPath = await releaseNotesCommand({
               productDir,
               config: { changelogPath: options.changelogPath },
               agentRunner,
@@ -102,7 +102,7 @@ export function createReleaseDomain(
                 productDir,
               ),
             });
-            invocation.io.writeStdout(formatReleaseNotesOutput(output));
+            invocation.io.writeStdout(formatReleaseNotesOutput(changelogPath));
           } catch (error) {
             invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
             invocation.io.exit(1);
