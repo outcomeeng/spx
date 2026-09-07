@@ -59,6 +59,7 @@ describe("release publication dispatch", () => {
       expect(observation.packagePublishRequests.map((request) => request.value)).toEqual([
         observation.scenario.packagePublication,
       ]);
+      expect(observation.packageInspectRequests).toHaveLength(2);
       expect(observation.packageState).toEqual(observation.scenario.packagePublication);
       expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
         observation.scenario.expectedHostedRelease,
@@ -137,6 +138,7 @@ describe("release publication dispatch", () => {
       observePublication(sampleReleaseTestValue(arbitraryPublicationRetryScenario())),
     ).resolves.toSatisfy((observation: PublicationObservation) => {
       expect(observation.packagePublishRequests).toEqual([]);
+      expect(observation.packageInspectRequests).toHaveLength(1);
       expect(observation.packageState).toEqual(observation.scenario.packagePublication);
       expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
         observation.scenario.expectedHostedRelease,

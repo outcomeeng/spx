@@ -92,13 +92,15 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
   }
 
   const existingPackage = await input.packagePublisher.inspect(expectedPackage);
-  if (existingPackage === null) {
-    await input.packagePublisher.publish(expectedPackage);
-  } else if (!packagePublicationMatches(expectedPackage, existingPackage)) {
+  if (existingPackage !== null && !packagePublicationMatches(expectedPackage, existingPackage)) {
     throw new ReleasePublicationError("Published package does not match the verified release identity");
   }
+  if (existingPackage === null) {
+    await input.packagePublisher.publish(expectedPackage);
+  }
 
-  const confirmedPackage = await input.packagePublisher.inspect(expectedPackage);
+  // An already-published matching record is its own confirmation; only a fresh publish is re-read.
+  const confirmedPackage = existingPackage ?? await input.packagePublisher.inspect(expectedPackage);
   if (confirmedPackage === null || !packagePublicationMatches(expectedPackage, confirmedPackage)) {
     throw new ReleasePublicationError("Package publication could not be confirmed with verified provenance");
   }
