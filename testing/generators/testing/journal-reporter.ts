@@ -43,6 +43,17 @@ export interface GeneratedRunScenario {
   readonly cases: readonly GeneratedRunCase[];
 }
 
+/**
+ * The findings a generated scenario's failing cases construct: one finding per failing case,
+ * carrying the scenario's module id and the case's name and error text — the construction law
+ * this generator's case vocabulary implies, held here independently of the reporter source.
+ */
+export function expectedFindingsForScenario(scenario: GeneratedRunScenario): readonly TestFinding[] {
+  return scenario.cases
+    .filter((runCase) => runCase.state === GENERATED_CASE_STATE.FAILED)
+    .map((runCase) => ({ moduleId: scenario.moduleId, testName: runCase.testName, errors: runCase.errors }));
+}
+
 const MIN_CASES = 1;
 const MAX_CASES = 5;
 const MIN_ERRORS = 1;

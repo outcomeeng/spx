@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { VITEST_PACKAGE_NAME, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
+import { expectedFindingsForScenario } from "@testing/generators/testing/journal-reporter";
 import {
-  expectedFindingsForScenario,
   observeProductResolvedStreamingRun,
   observeProductSuppliedVitestRun,
   observeProductsWithoutNodeApi,
