@@ -72,7 +72,7 @@ export const MODULE_NAMING_SKIP: Record<string, ReadonlySet<string>> = {
   ExportNamedDeclaration: new Set(["source"]),
   ExportAllDeclaration: new Set(["source"]),
   ImportExpression: new Set(["source"]),
-  TSImportType: new Set(["source", "argument"]),
+  TSImportType: new Set(["source"]),
   TSExternalModuleReference: new Set(["expression"]),
 };
 

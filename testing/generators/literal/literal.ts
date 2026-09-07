@@ -83,7 +83,8 @@ const ALL_PRESET_NAMES: ReadonlyArray<PresetName> = Object.values(PRESET_NAMES);
  * provenance is the spec assertion, not the detector's skip registry: the linked
  * compliance evidence cross-checks the two sets both ways, so a position the
  * registry drops still yields a fixture whose specifier would then be indexed,
- * and a position the registry adds without a spec entry fails the check.
+ * and a position the registry adds without a spec entry fails the check. Every
+ * position here is a field the pinned visitor-keys map traverses for its node.
  */
 const MODULE_NAMING_POSITIONS: readonly {
   readonly nodeType: string;
@@ -103,7 +104,6 @@ const MODULE_NAMING_POSITIONS: readonly {
     buildSource: (specifier) => `const load = () => import("${specifier}");`,
   },
   { nodeType: "TSImportType", field: "source", buildSource: (specifier) => `type X = import("${specifier}").Thing;` },
-  { nodeType: "TSImportType", field: "argument", buildSource: (specifier) => `type X = import("${specifier}").Thing;` },
   {
     nodeType: "TSExternalModuleReference",
     field: "expression",
