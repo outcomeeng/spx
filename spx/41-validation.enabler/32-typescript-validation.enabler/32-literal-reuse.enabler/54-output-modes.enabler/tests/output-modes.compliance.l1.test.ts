@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatNoProblemsOfKind, literalCommand } from "@/commands/validation/literal";
+import { literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
@@ -159,7 +159,7 @@ describe("output-modes compliance", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
+      expect(result.output).toBe(`Literal: No problems of type ${LITERAL_PROBLEM_KIND.REUSE}`);
     });
 
     // dupe side: only src↔test reuse problems exist, so --kind dupe finds none.
@@ -178,7 +178,7 @@ describe("output-modes compliance", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.DUPE));
+      expect(result.output).toBe(`Literal: No problems of type ${LITERAL_PROBLEM_KIND.DUPE}`);
     });
   });
 
