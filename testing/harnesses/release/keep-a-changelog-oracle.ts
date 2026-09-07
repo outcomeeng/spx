@@ -27,7 +27,6 @@ export const KEEP_A_CHANGELOG_CHANGE_GROUPS = [
   "Security",
 ] as const;
 const CARRIAGE_RETURN = "\r";
-const MARKDOWN_REFERENCE_DEFINITION_PATTERN = /^\[[^\]\n]+\]:/u;
 
 export interface ParsedMarkdownHeading {
   readonly tag: string;
@@ -81,11 +80,22 @@ function independentSectionBoundary(lines: readonly string[], boundary: number):
     cursor -= 1;
   }
   let footerStart = boundary;
-  while (cursor >= 0 && MARKDOWN_REFERENCE_DEFINITION_PATTERN.test(normalizeLineEnding(lines[cursor]) ?? "")) {
+  while (cursor >= 0 && isMarkdownItReferenceDefinition(normalizeLineEnding(lines[cursor]) ?? "")) {
     footerStart = cursor;
     cursor -= 1;
   }
   return footerStart;
+}
+
+/**
+ * A trailing footer line is a CommonMark link reference definition. markdown-it consumes such a
+ * line into the parse environment's reference map and emits no block token for it, which is an
+ * observation independent of any line-shape pattern the production scanner applies.
+ */
+function isMarkdownItReferenceDefinition(line: string): boolean {
+  const env: { references?: Readonly<Record<string, unknown>> } = {};
+  const tokens = new MarkdownIt({ html: true }).parse(line, env);
+  return tokens.length === 0 && Object.keys(env.references ?? {}).length === 1;
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
