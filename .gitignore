@@ -7,6 +7,7 @@
 .codex/*
 !.codex/config.toml
 !.codex/skills/*
+.*.interview-state.json
 
 # Pi project plugin runtime
 .pi/*
