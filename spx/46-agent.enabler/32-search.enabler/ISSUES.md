@@ -59,17 +59,15 @@ needle, which [tests/byte-scan.compliance.l1.test.ts](tests/byte-scan.compliance
 enforces. The `--contains` and `--branch` rows were measured after byte-scan candidacy landed;
 the `--session-id` row after address resolution; the remaining rows predate both.
 
-A branch search scans each candidate's bytes twice: once in the branch-evidence collectors,
-which cover in-scope top-level transcripts across all history, and again in candidate
-scanning over the reach window. The collectors already hold the byte verdict for every path
-they visit, so handing that verdict to candidate scanning removes the second read and scan
-for those paths; a moved session, which the collectors skip on its opening working directory,
-still needs its own scan.
+A branch search scans each candidate's bytes twice, once in the branch-evidence collectors
+and once in candidate scanning, and even one pass is bounded by an in-process byte search:
+`readFile` copies every transcript into a heap buffer, `Buffer.includes` is a scalar loop, and
+Node runs it single-threaded. `rg -l` over the same three stores — all history, every
+adapter — names the branch hits in 1.2–2.8s because it memory-maps, searches with SIMD,
+parallelizes across files, and exits each file at its first hit. That gap is architectural.
 
-**Resolution:** carry the collectors' per-path byte verdict into candidate scanning so a
-branch selector scans each transcript's bytes once. The byte search itself is the floor for a
-pure-JavaScript implementation; a memory-mapped SIMD scan of the kind `rg` performs would need
-native code and is out of this node's declared scope.
+**Resolution:** locate candidates with ripgrep and read only the transcripts it names, per the
+native-locator slice in [PLAN.md](PLAN.md). The in-process byte scan is removed with it.
 
 **Skills:** `/apply`, `/code-typescript`, `/test-typescript`.
 
