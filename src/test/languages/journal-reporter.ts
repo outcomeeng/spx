@@ -13,8 +13,7 @@
  * module that resolution names, so a globally installed harness starts the product's
  * own Vitest and a product without one yields an unresolved outcome instead of a run.
  */
-import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -31,8 +30,6 @@ import {
 export const VITEST_PACKAGE_NAME = "vitest";
 /** The Vitest package entry exposing the Node API. */
 export const VITEST_NODE_API_ENTRY = "node";
-/** The specifier the run resolves against the product directory to reach the Vitest Node API. */
-export const VITEST_NODE_API_SPECIFIER = `${VITEST_PACKAGE_NAME}/${VITEST_NODE_API_ENTRY}`;
 /** The Vitest run mode a journal-streaming run starts. */
 export const VITEST_RUN_MODE = "test";
 
@@ -41,11 +38,16 @@ const PACKAGE_DEPENDENCIES_DIRECTORY = "node_modules";
 /** The manifest a package declares its entry points in; resolution is anchored at the product's Vitest manifest. */
 const PACKAGE_MANIFEST_FILENAME = "package.json";
 
-/** The Node resolver error codes meaning the product's Vitest package exposes no Node API entry. */
-const UNRESOLVABLE_MODULE_ERROR_CODES: ReadonlySet<string> = new Set([
-  "MODULE_NOT_FOUND",
-  "ERR_PACKAGE_PATH_NOT_EXPORTED",
-]);
+/** The `exports` subpath under which a Vitest package maps its Node API entry. */
+const NODE_API_EXPORT_SUBPATH = `./${VITEST_NODE_API_ENTRY}`;
+/** The manifest field declaring a package's entry points. */
+const MANIFEST_EXPORTS_FIELD = "exports";
+/**
+ * The export conditions the run resolves under, in Node's precedence order for an ESM import:
+ * the run loads the entry with `import()`, so a target reachable only under `require` is
+ * not one it can load, and a target declared under `import` only is.
+ */
+const IMPORT_RESOLUTION_CONDITIONS: readonly string[] = ["import", "node", "default"];
 
 /** The slice of the Vitest Node API a journal-streaming run drives. */
 export type VitestNodeApi = Pick<typeof import("vitest/node"), "startVitest">;
@@ -75,14 +77,41 @@ export interface VitestNodeApiLoader {
   load(specifier: string): Promise<VitestNodeApi>;
 }
 
-function isUnresolvableModuleError(error: unknown): boolean {
-  return (
-    typeof error === "object"
-    && error !== null
-    && "code" in error
-    && typeof error.code === "string"
-    && UNRESOLVABLE_MODULE_ERROR_CODES.has(error.code)
-  );
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Resolves one `exports` target to its relative path under the import conditions: a string is
+ * unconditional, an array is a fallback list taking its first resolvable member, and a
+ * conditions object takes its first key (in declaration order) among the conditions the run
+ * resolves under. A target no condition reaches resolves to nothing.
+ */
+function resolveExportTarget(target: unknown): string | undefined {
+  if (typeof target === "string") return target;
+  if (Array.isArray(target)) {
+    for (const candidate of target) {
+      const resolved = resolveExportTarget(candidate);
+      if (resolved !== undefined) return resolved;
+    }
+    return undefined;
+  }
+  if (!isRecord(target)) return undefined;
+  for (const [condition, candidate] of Object.entries(target)) {
+    if (!IMPORT_RESOLUTION_CONDITIONS.includes(condition)) continue;
+    const resolved = resolveExportTarget(candidate);
+    if (resolved !== undefined) return resolved;
+  }
+  return undefined;
+}
+
+/** The Node API entry file a package's manifest maps under the import conditions, or nothing when it exposes none. */
+function nodeApiEntryFromManifest(manifestText: string): string | undefined {
+  const manifest: unknown = JSON.parse(manifestText);
+  if (!isRecord(manifest)) return undefined;
+  const exports = manifest[MANIFEST_EXPORTS_FIELD];
+  if (!isRecord(exports)) return undefined;
+  return resolveExportTarget(exports[NODE_API_EXPORT_SUBPATH]);
 }
 
 /**
@@ -110,22 +139,26 @@ function findProductVitestPackageDir(productDir: string): string | undefined {
 
 /**
  * The production loader: it locates the product's Vitest package through the product
- * directory's own `node_modules` hierarchy, resolves the Node API entry from inside that
- * package — Node's self-reference resolution honors the package's `exports` map — and
- * imports the resolved file. Anchoring at the product keeps the version the product
- * selected in force; a bare specifier would resolve against the harness's own install instead.
+ * directory's own `node_modules` hierarchy, resolves the Node API entry from that package's
+ * `exports` map under the same import conditions the run loads it with, and imports the
+ * resolved file. Anchoring at the product keeps the version the product selected in force —
+ * a bare specifier would resolve against the harness's own install instead — and resolving
+ * under the import conditions keeps an entry the product exposes to `import()` resolvable
+ * even when its manifest exposes none to `require()`. A package whose manifest maps no
+ * Node API entry under those conditions, or maps one to a file that does not exist, is a
+ * product without the runner; a manifest that cannot be parsed is an error the caller sees.
  */
 export const productVitestNodeApiLoader: VitestNodeApiLoader = {
   resolve(productDir: string): VitestNodeApiResolution {
     const packageDir = findProductVitestPackageDir(productDir);
     if (packageDir === undefined) return { resolved: false, productDir };
-    const packageRequire = createRequire(join(packageDir, PACKAGE_MANIFEST_FILENAME));
-    try {
-      return { resolved: true, specifier: packageRequire.resolve(VITEST_NODE_API_SPECIFIER) };
-    } catch (error) {
-      if (isUnresolvableModuleError(error)) return { resolved: false, productDir };
-      throw error;
-    }
+    const entryTarget = nodeApiEntryFromManifest(
+      readFileSync(join(packageDir, PACKAGE_MANIFEST_FILENAME), "utf8"),
+    );
+    if (entryTarget === undefined) return { resolved: false, productDir };
+    const entryPath = resolve(packageDir, entryTarget);
+    if (!existsSync(entryPath)) return { resolved: false, productDir };
+    return { resolved: true, specifier: realpathSync(entryPath) };
   },
   load(specifier: string): Promise<VitestNodeApi> {
     return import(pathToFileURL(specifier).href) as Promise<VitestNodeApi>;
