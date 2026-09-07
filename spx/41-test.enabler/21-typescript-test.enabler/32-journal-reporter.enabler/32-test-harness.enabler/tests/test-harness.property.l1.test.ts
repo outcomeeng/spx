@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
-  assertAsyncSinkRecordsAfterMacrotask,
-  assertRecordingSinkRecordsInOrder,
+  observeAsyncSinkAppendTiming,
+  observeInterleavedSinkAppends,
 } from "@testing/harnesses/testing/journal-reporter";
 
 describe("journal reporter recording evidence sink", () => {
@@ -15,7 +15,12 @@ describe("journal reporter recording evidence sink", () => {
         JOURNAL_REPORTER_TEST_GENERATOR.scopeUnits(),
         JOURNAL_REPORTER_TEST_GENERATOR.findings(),
       ),
-      ([scopes, findings]) => assertRecordingSinkRecordsInOrder(scopes, findings),
+      ([scopes, findings]) => {
+        const observation = observeInterleavedSinkAppends(scopes, findings);
+        expect(observation.sink.scopes).toEqual(scopes);
+        expect(observation.sink.findings).toEqual(findings);
+        expect(observation.sink.calls).toEqual(observation.appended);
+      },
       { level: PROPERTY_LEVEL.L1 },
     );
   });
@@ -28,7 +33,15 @@ describe("journal reporter async recording evidence sink", () => {
         JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit(),
         JOURNAL_REPORTER_TEST_GENERATOR.finding(),
       ),
-      async ([unit, finding]) => assertAsyncSinkRecordsAfterMacrotask(unit, finding),
+      async ([unit, finding]) => {
+        const observation = await observeAsyncSinkAppendTiming(unit, finding);
+        expect(observation.scope.beforeAwait).toEqual([]);
+        expect(observation.scope.afterMicrotask).toEqual([]);
+        expect(observation.scope.afterAwait).toEqual([unit]);
+        expect(observation.finding.beforeAwait).toEqual([]);
+        expect(observation.finding.afterMicrotask).toEqual([]);
+        expect(observation.finding.afterAwait).toEqual([finding]);
+      },
       { level: PROPERTY_LEVEL.L1 },
     );
   });
