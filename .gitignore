@@ -50,3 +50,6 @@ npm-debug.log*
 # and exists only at the Git common-dir product root — ignore it wholesale
 # so new subdirectories (e.g. reviews/) do not drift out of coverage.
 .spx/
+
+# Interview scratch state never belongs in the spec tree.
+.*.interview-state.json
