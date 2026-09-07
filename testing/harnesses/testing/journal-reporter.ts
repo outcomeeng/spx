@@ -30,6 +30,7 @@ import type {
   TestScopeUnit,
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
@@ -179,7 +180,8 @@ const CONTRACT_NODE_API_ENTRY_SEGMENTS = [
 
 function reportersOf(options: Parameters<VitestNodeApi["startVitest"]>[2]): readonly Reporter[] {
   const declared = options?.reporters;
-  const entries = Array.isArray(declared) ? declared : declared === undefined ? [] : [declared];
+  if (declared === undefined) return [];
+  const entries = Array.isArray(declared) ? declared : [declared];
   return entries.filter((entry): entry is Reporter => typeof entry === "object" && !Array.isArray(entry));
 }
 
@@ -550,12 +552,9 @@ async function writeProductVitestPackage(productDir: string, manifestText: strin
 async function materializeProductSuppliedVitest(
   productDir: string,
   reason: JournalRunTerminalStatus,
-  nodeApiExportTarget: unknown = `./${NODE_API_ENTRY_FILENAME}`,
+  nodeApiExports: Readonly<Record<string, unknown>> = UNCONDITIONAL_NODE_API_EXPORTS,
 ): Promise<{ readonly entryPath: string; readonly startRecordPath: string }> {
-  const packageDir = await writeProductVitestPackage(
-    productDir,
-    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: nodeApiExportTarget }),
-  );
+  const packageDir = await writeProductVitestPackage(productDir, productVitestManifest(nodeApiExports));
   const startRecordPath = join(packageDir, START_RECORD_FILENAME);
   await writeFile(join(packageDir, NODE_API_ENTRY_FILENAME), productSuppliedNodeApiSource(reason, startRecordPath));
   return { entryPath: await realpath(join(packageDir, NODE_API_ENTRY_FILENAME)), startRecordPath };
@@ -672,22 +671,64 @@ export interface ProductSuppliedVitestRunObservation {
  * starter and loader — and returns the resolution the production loader reports, the
  * arguments the product-supplied entry recorded, and the run's outcome.
  */
-export function observeProductSuppliedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
-  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
-  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
-  return withTempDir(PRODUCT_SUPPLIED_PREFIX, async (productDir) => {
-    const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason);
-    const request: JournalRunRequest = { productDir, testPaths };
-    const resolution = productVitestNodeApiLoader.resolve(productDir);
-    const sink = createRecordingEvidenceSink();
-    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
-    const recordedStart = JSON.parse(await readFile(startRecordPath, "utf8")) as RecordedVitestStart;
-    return { request, reason, productSuppliedEntryPath: entryPath, resolution, sink, invocation, recordedStart };
-  });
-}
-
 /** The types declaration a product's package maps beside an import-only Node API entry. */
 const NODE_API_TYPES_FILENAME = `${VITEST_NODE_API_ENTRY}.d.ts`;
+
+/** The manifest `exports` shapes a product's Vitest may declare its Node API entry through. */
+const UNCONDITIONAL_NODE_API_EXPORTS: Readonly<Record<string, unknown>> = {
+  [NODE_API_EXPORT_SUBPATH]: `./${NODE_API_ENTRY_FILENAME}`,
+};
+/** The Node API entry declared under the `import` and `types` conditions only — no `default`, no `require`. */
+const IMPORT_CONDITIONED_NODE_API_EXPORTS: Readonly<Record<string, unknown>> = {
+  [NODE_API_EXPORT_SUBPATH]: {
+    import: `./${NODE_API_ENTRY_FILENAME}`,
+    types: `./${NODE_API_TYPES_FILENAME}`,
+  },
+};
+/** Every subpath declared through one pattern key whose wildcard names the entry file. */
+const PATTERN_NODE_API_EXPORTS: Readonly<Record<string, unknown>> = {
+  "./*": "./*.js",
+};
+
+/**
+ * Drives the descriptor's streaming run, with only a sink, over a product whose Vitest
+ * package declares its Node API entry through the given `exports` shape, resolving the
+ * product directory through the production loader alongside; returns what the product's
+ * entry recorded and what the run yielded.
+ */
+async function observeSuppliedVitestRun(
+  productDir: string,
+  reason: JournalRunTerminalStatus,
+  nodeApiExports: Readonly<Record<string, unknown>>,
+  runProductDir: string = productDir,
+): Promise<ProductSuppliedVitestRunObservation> {
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason, nodeApiExports);
+  const request: JournalRunRequest = { productDir: runProductDir, testPaths };
+  const resolution = productVitestNodeApiLoader.resolve(runProductDir);
+  const sink = createRecordingEvidenceSink();
+  const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
+  const recordedStart = JSON.parse(await readFile(startRecordPath, "utf8")) as RecordedVitestStart;
+  return { request, reason, productSuppliedEntryPath: entryPath, resolution, sink, invocation, recordedStart };
+}
+
+/** Observes the run over a product whose Vitest declares the Node API entry as an unconditional string target. */
+export function observeProductSuppliedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  return withTempDir(
+    PRODUCT_SUPPLIED_PREFIX,
+    (productDir) => observeSuppliedVitestRun(productDir, reason, UNCONDITIONAL_NODE_API_EXPORTS),
+  );
+}
+
+/** Observes the run over a product whose Vitest declares every subpath through one pattern export key. */
+export function observePatternExportedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  return withTempDir(
+    PRODUCT_SUPPLIED_PREFIX,
+    (productDir) => observeSuppliedVitestRun(productDir, reason, PATTERN_NODE_API_EXPORTS),
+  );
+}
 
 /**
  * Materializes a product whose `vitest` package maps the Node API entry only under the
@@ -697,18 +738,28 @@ const NODE_API_TYPES_FILENAME = `${VITEST_NODE_API_ENTRY}.d.ts`;
  */
 export function observeImportConditionedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
   const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
-  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
-  return withTempDir(PRODUCT_SUPPLIED_PREFIX, async (productDir) => {
-    const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason, {
-      import: `./${NODE_API_ENTRY_FILENAME}`,
-      types: `./${NODE_API_TYPES_FILENAME}`,
-    });
-    const request: JournalRunRequest = { productDir, testPaths };
-    const resolution = productVitestNodeApiLoader.resolve(productDir);
-    const sink = createRecordingEvidenceSink();
-    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
-    const recordedStart = JSON.parse(await readFile(startRecordPath, "utf8")) as RecordedVitestStart;
-    return { request, reason, productSuppliedEntryPath: entryPath, resolution, sink, invocation, recordedStart };
+  return withTempDir(
+    PRODUCT_SUPPLIED_PREFIX,
+    (productDir) => observeSuppliedVitestRun(productDir, reason, IMPORT_CONDITIONED_NODE_API_EXPORTS),
+  );
+}
+
+const HOISTED_WORKSPACE_PREFIX = "spx-hoisted-vitest-workspace-";
+
+/**
+ * Materializes a workspace whose `vitest` package sits under the workspace root's
+ * `node_modules` while the product directory is a member directory below it that installs
+ * nothing of its own — the hoisted layout a workspace package manager produces — and drives
+ * the descriptor's streaming run over the member product with only a sink, returning the
+ * same observation shape as the product-supplied run.
+ */
+export function observeHoistedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  const memberDirectoryName = sampleGeneratedValue(CONFIG_TEST_GENERATOR.key());
+  return withTempDir(HOISTED_WORKSPACE_PREFIX, async (workspaceDir) => {
+    const productDir = join(workspaceDir, memberDirectoryName);
+    await mkdir(productDir, { recursive: true });
+    return observeSuppliedVitestRun(workspaceDir, reason, UNCONDITIONAL_NODE_API_EXPORTS, productDir);
   });
 }
 
