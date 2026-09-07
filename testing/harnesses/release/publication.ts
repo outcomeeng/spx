@@ -273,7 +273,7 @@ function publicationInput(
     tag: scenario.tag,
     taggedCommit: scenario.taggedCommit,
     releaseNotesSection: scenario.expectedHostedRelease.body,
-    packagePublication: scenario.packagePublication,
+    packageName: scenario.packagePublication.name,
     packagePublisher,
     hostedReleasePublisher,
   };

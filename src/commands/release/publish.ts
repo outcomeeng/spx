@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import {
   type HostedReleasePublisher,
-  PACKAGE_PROVENANCE,
   type PackagePublisher,
   publishRelease,
   ReleasePublicationError,
@@ -84,12 +83,7 @@ export async function publishReleaseCommand(
     tag,
     taggedCommit,
     releaseNotesSection: validatedReleaseNotesSection(changelog, packageIdentity.version),
-    packagePublication: {
-      name: packageIdentity.name,
-      version: packageIdentity.version,
-      commit: taggedCommit,
-      provenance: PACKAGE_PROVENANCE.VERIFIED,
-    },
+    packageName: packageIdentity.name,
     packagePublisher: deps.createPackagePublisher(options.productDir),
     hostedReleasePublisher: deps.createHostedReleasePublisher(options.productDir),
   });

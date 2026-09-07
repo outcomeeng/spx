@@ -35,7 +35,8 @@ export interface PublishReleaseInput {
   readonly tag: string;
   readonly taggedCommit: string;
   readonly releaseNotesSection: string;
-  readonly packagePublication: PackagePublication;
+  /** The package name; version, commit, and provenance derive from the verified release inputs. */
+  readonly packageName: string;
   readonly packagePublisher: PackagePublisher;
   readonly hostedReleasePublisher: HostedReleasePublisher;
 }
@@ -82,14 +83,11 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
     );
   }
   const expectedPackage: PackagePublication = {
-    ...input.packagePublication,
+    name: input.packageName,
     version: input.releaseData.version,
     commit: input.taggedCommit,
     provenance: PACKAGE_PROVENANCE.VERIFIED,
   };
-  if (!packagePublicationMatches(expectedPackage, input.packagePublication)) {
-    throw new ReleasePublicationError("Package publication input does not match the verified release identity");
-  }
 
   const existingPackage = await input.packagePublisher.inspect(expectedPackage);
   if (existingPackage !== null && !packagePublicationMatches(expectedPackage, existingPackage)) {
