@@ -97,11 +97,19 @@ export const JOURNAL_RUN_TERMINAL_STATUS = {
 /** Terminal status a journal-streaming run yields for the consumer to seal with. */
 export type JournalRunTerminalStatus = (typeof JOURNAL_RUN_TERMINAL_STATUS)[keyof typeof JOURNAL_RUN_TERMINAL_STATUS];
 
-/** Outcome of a descriptor's journal-streaming run: gated out by detection, or invoked with its terminal status. */
+/** Outcome of a descriptor's journal-streaming run: gated out by detection, unresolvable in the product, or invoked with its terminal status. */
 export type JournalRunInvocation =
   | {
     /** Detection gated the runner out before any run started. */
     readonly invoked: false;
+  }
+  | {
+    /** The language is present, but the product directory searched supplies no runner to start. */
+    readonly invoked: false;
+    readonly unresolvedRunner: {
+      /** The product directory searched for the runner. */
+      readonly productDir: string;
+    };
   }
   | {
     /** The run started and yielded this terminal status. */

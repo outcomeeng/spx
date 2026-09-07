@@ -14,6 +14,7 @@ import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   createVitestRunStarter,
+  productVitestNodeApiLoader,
   runTestsStreaming as reporterRunTestsStreaming,
   type VitestRunStarter,
 } from "@/test/languages/journal-reporter";
@@ -409,10 +410,12 @@ async function relatedTestPaths(
  * TypeScript is absent the run is gated out with no Vitest invoked. Otherwise it delegates
  * the programmatic Vitest run and its reporter to `runTestsStreaming` in `./journal-reporter`,
  * streaming per-module scope and per-failing-case findings into the injected sink and yielding
- * the run's terminal status. The production Vitest run-starter is the default; an injected
- * starter lets `l1` tests drive synthetic lifecycle events without a real Vitest run. Widening
- * the descriptor's `{ sink }` dependency to `{ sink, starter? }` conforms to the neutral
- * `TestingLanguageDescriptor` contract while exposing the starter seam TypeScript verification needs.
+ * the run's terminal status — or the unresolved-runner outcome naming the product directory
+ * when that directory supplies no Vitest Node API. The production run-starter over the
+ * product-resolving loader is the default; an injected starter lets `l1` tests drive synthetic
+ * lifecycle events without a real Vitest run. Widening the descriptor's `{ sink }` dependency
+ * to `{ sink, starter? }` conforms to the neutral `TestingLanguageDescriptor` contract while
+ * exposing the starter seam TypeScript verification needs.
  */
 export async function runTestsStreaming(
   request: JournalRunRequest,
@@ -421,11 +424,14 @@ export async function runTestsStreaming(
   if (!detect(request.productDir, deps)) {
     return { invoked: false };
   }
-  const terminalStatus = await reporterRunTestsStreaming(request, {
+  const outcome = await reporterRunTestsStreaming(request, {
     sink: deps.sink,
-    starter: deps.starter ?? createVitestRunStarter(),
+    starter: deps.starter ?? createVitestRunStarter(productVitestNodeApiLoader),
   });
-  return { invoked: true, terminalStatus };
+  if (!outcome.started) {
+    return { invoked: false, unresolvedRunner: { productDir: outcome.unresolvedProductDir } };
+  }
+  return { invoked: true, terminalStatus: outcome.terminalStatus };
 }
 
 export const typescriptTestingLanguage: TestingLanguageDescriptor = {
