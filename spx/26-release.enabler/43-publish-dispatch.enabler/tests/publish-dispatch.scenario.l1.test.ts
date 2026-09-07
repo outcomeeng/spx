@@ -115,6 +115,7 @@ describe("release publication dispatch", () => {
     });
     expect(observation.taggedCommit).toBe(observation.headCommit);
     expect(observation.changelog).toBe(observation.scenario.changelog);
+    expect(observation.changelogThroughSymlinkedCheckout).toBe(observation.scenario.changelog);
   });
 
   it("dispatches the release publish CLI verb", async () => {

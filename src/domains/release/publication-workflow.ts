@@ -19,6 +19,7 @@ export const RELEASE_PUBLICATION_WORKFLOW = {
 export const RELEASE_PUBLICATION_WORKFLOW_VIOLATION = {
   COMMAND_ABSENT: "command-absent",
   DEPENDENCY_INSTALL_ABSENT: "dependency-install-absent",
+  DEPENDENCY_INSTALL_AFTER_PUBLISH: "dependency-install-after-publish",
   DETERMINISTIC_DEPENDENCY_ABSENT: "deterministic-dependency-absent",
   PUBLISH_CONTENTS_WRITE_ABSENT: "publish-contents-write-absent",
   PUBLISH_ID_TOKEN_WRITE_ABSENT: "publish-id-token-write-absent",
@@ -59,8 +60,10 @@ export function releasePublicationWorkflowViolations(
   if (publishIndex < 0) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.COMMAND_ABSENT);
   }
-  if (installIndex < 0 || (publishIndex >= 0 && installIndex > publishIndex)) {
+  if (installIndex < 0) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DEPENDENCY_INSTALL_ABSENT);
+  } else if (publishIndex >= 0 && installIndex > publishIndex) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DEPENDENCY_INSTALL_AFTER_PUBLISH);
   }
   if (
     publishJob === undefined

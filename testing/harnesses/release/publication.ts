@@ -1,3 +1,6 @@
+import { symlink } from "node:fs/promises";
+import { join } from "node:path";
+
 import { Command } from "commander";
 
 import {
@@ -23,6 +26,7 @@ import type {
 } from "@testing/generators/release/publication";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export interface RecordedPublicationRequest<T> {
   readonly sequence: number;
@@ -106,9 +110,13 @@ export interface DefaultPublishDependenciesObservation {
   readonly taggedCommit: string;
   readonly headCommit: string;
   readonly changelog: string;
+  /** The changelog read with the product directory addressed through a symbolic link to the checkout. */
+  readonly changelogThroughSymlinkedCheckout: string;
 }
 
 const PACKAGE_MANIFEST_FILE = "package.json";
+const SYMLINKED_CHECKOUT_PREFIX = "spx-publish-symlinked-checkout-";
+const SYMLINKED_CHECKOUT_NAME = "checkout";
 
 /**
  * Materializes the scenario's package manifest and changelog in a real git
@@ -134,7 +142,22 @@ export async function observeDefaultPublishDependencies(
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveTaggedCommit(env.productDir, scenario.tag),
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(env.productDir, DEFAULT_CHANGELOG_PATH),
     ]);
-    observation = { scenario, packageIdentity, taggedCommit, headCommit, changelog };
+    const changelogThroughSymlinkedCheckout = await withTempDir(SYMLINKED_CHECKOUT_PREFIX, async (linkRoot) => {
+      const symlinkedProductDir = join(linkRoot, SYMLINKED_CHECKOUT_NAME);
+      await symlink(env.productDir, symlinkedProductDir);
+      return await DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
+        symlinkedProductDir,
+        DEFAULT_CHANGELOG_PATH,
+      );
+    });
+    observation = {
+      scenario,
+      packageIdentity,
+      taggedCommit,
+      headCommit,
+      changelog,
+      changelogThroughSymlinkedCheckout,
+    };
   });
   if (observation === undefined) {
     throw new Error("Default publish dependencies produced no observation");
