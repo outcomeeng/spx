@@ -214,9 +214,10 @@ worktree.
    `git tag vX.Y.Z`
 6. Push: `git push origin main && git push origin vX.Y.Z`
 7. Approve the deployment in the GitHub Actions `npm-publish` environment. The
-   tagged workflow runs `spx release publish`, which confirms or publishes the
-   provenance-bearing npm package before it creates or repairs the GitHub
-   Release from the exact validated changelog section.
+   tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"`, which
+   verifies the triggering tag against the package version, then confirms or
+   publishes the provenance-bearing npm package before it creates or repairs
+   the GitHub Release from the exact validated changelog section.
 8. Confirm the published version, provenance, and hosted release:
 
 ```bash
