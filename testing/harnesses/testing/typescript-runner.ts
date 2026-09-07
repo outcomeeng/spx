@@ -21,6 +21,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
+  expectedFindingsForScenario,
   JOURNAL_REPORTER_TEST_GENERATOR,
   sampleJournalReporterValue,
 } from "@testing/generators/testing/journal-reporter";
@@ -38,7 +39,6 @@ import {
 import {
   createRecordingEvidenceSink,
   createScenarioDrivingVitestRunStarter,
-  expectedFindingsForScenario,
   withMixedVitestProduct,
 } from "@testing/harnesses/testing/journal-reporter";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";

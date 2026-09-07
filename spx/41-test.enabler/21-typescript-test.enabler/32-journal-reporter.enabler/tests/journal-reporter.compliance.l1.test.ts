@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   expectedFindingsForScenario,
+  GENERATED_CASE_STATE,
+  JOURNAL_REPORTER_TEST_GENERATOR,
+} from "@testing/generators/testing/journal-reporter";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import {
   observeReporterPerHook,
   observeReporterWithAsyncSink,
   observeStreamingRunStart,

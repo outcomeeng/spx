@@ -32,7 +32,7 @@ import type {
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
-import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The directory a product's installed runner toolchain resolves from. */
@@ -332,13 +332,6 @@ export async function driveReporterOverScenario(
   await reporter.onTestRunEnd?.([testModule], [], reason);
 }
 
-/** The findings a scenario's failing cases map to: one finding per failing case, carrying the module id, case name, and error text. */
-export function expectedFindingsForScenario(scenario: GeneratedRunScenario): readonly TestFinding[] {
-  return scenario.cases
-    .filter((runCase) => runCase.state === GENERATED_CASE_STATE.FAILED)
-    .map((runCase) => ({ moduleId: scenario.moduleId, testName: runCase.testName, errors: runCase.errors }));
-}
-
 /** What the reporter recorded after being driven over a whole scenario: the sink's channels and the captured terminal status. */
 export interface ReporterMappingObservation {
   readonly scopes: readonly TestScopeUnit[];
@@ -462,12 +455,7 @@ export function withMixedVitestProduct<T>(
   });
 }
 
-/**
- * Drives a real programmatic Vitest run over the mixed fixture with the production
- * starter and a recording sink, asserting the run records exactly one module scope and
- * one finding — for the failing case, carrying error text and the module's identity —
- * and yields the failed terminal status. The passing case records no finding.
- */
+/** What a real programmatic Vitest run over the mixed fixture exposes for inspection. */
 export interface RealMixedRunObservation {
   readonly sink: RecordingEvidenceSink;
   readonly outcome: JournalRunOutcome;
