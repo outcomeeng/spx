@@ -1,13 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+
 const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
 export type ResolvedProductDir = {
   readonly productDir: string;
-  readonly warning?: string;
+  readonly warning?: TerminalText;
 };
 
 export type ProductDirResolverDeps = {
@@ -28,8 +30,11 @@ export function resolveProductDir(
 
   return {
     productDir: resolvedCwd,
-    warning:
-      `warning: ${resolvedCwd} is not inside a git worktree — falling back to the current working directory. ${GIT_NOT_REPO_MARKER}.`,
+    warning: terminal`warning: ${
+      externalValue(resolvedCwd)
+    } is not inside a git worktree — falling back to the current working directory. ${
+      authoredText(GIT_NOT_REPO_MARKER)
+    }.`,
   };
 }
 

@@ -30,12 +30,19 @@ import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagn
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
@@ -137,8 +144,8 @@ export const DIAGNOSE_TEXT_DETAIL = {
 } as const;
 
 /** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
-export function renderReportJson(report: DiagnoseReport): string {
-  return JSON.stringify(
+export function renderReportJson(report: DiagnoseReport): TerminalText {
+  return authoredText(JSON.stringify(
     {
       checks: report.checks.map((check) => ({
         name: check.name,
@@ -151,7 +158,7 @@ export function renderReportJson(report: DiagnoseReport): string {
     },
     null,
     2,
-  );
+  ));
 }
 
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
@@ -217,17 +224,19 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
  */
 function reading(check: CheckRecord, key: string): TerminalText | undefined {
   const value = check.readings[key];
-  return value === undefined ? undefined : terminal`${value}`;
+  return value === undefined ? undefined : terminal`${externalValue(value)}`;
 }
 
 /**
  * Builds one `label: value` detail line. Both sides arrive already composed, so
  * a caller states whether its value is product-authored or external instead of
- * letting the builder assume; an absent value resolves to the escaper's
- * undefined sentinel.
+ * letting the builder assume, and the composed value is spliced in as it stands
+ * rather than escaped a second time. An absent reading has no value to state, so
+ * it resolves to the sentinel the escaper names for that case — a string this
+ * product owns, not one a reading supplied.
  */
 function detail(label: string, value: TerminalText | undefined): string {
-  return renderTerminalText(terminal`${authoredText(label)}: ${value}`);
+  return renderTerminalText(terminal`${authoredText(label)}: ${value ?? authoredText(SENTINEL_UNDEFINED)}`);
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
@@ -492,8 +501,8 @@ function toStyledModel(report: DiagnoseReport): StyledReportModel {
 }
 
 /** Renders the report as human-readable diagnosis text through the styled-output primitive. */
-export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): string {
-  return renderStyledReport(toStyledModel(report), options);
+export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): TerminalText {
+  return authoredText(renderStyledReport(toStyledModel(report), options));
 }
 
 /** Renders the report in the requested format; the color choice applies to the text form only. */
@@ -501,6 +510,6 @@ export function renderReport(
   report: DiagnoseReport,
   format: DiagnoseFormat,
   options: StyledReportOptions,
-): string {
+): TerminalText {
   return format === DIAGNOSE_FORMAT.JSON ? renderReportJson(report) : renderReportText(report, options);
 }

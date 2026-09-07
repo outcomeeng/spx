@@ -14,7 +14,13 @@
  * @module domains/verify/rejection-report
  */
 
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 export const VERIFY_REJECTION_TEXT = {
   VERIFICATION_TYPE_LABEL: "verification type",
@@ -62,9 +68,9 @@ function labelledLine(label: string, value: TerminalText): TerminalText {
  */
 export function renderVerifyRejection(report: VerifyRejectionReport): string {
   const lines: readonly TerminalText[] = [
-    terminal`${authoredText(report.headline)}`,
+    authoredText(report.headline),
     authoredText(REJECTION_BLANK_LINE),
-    labelledLine(VERIFY_REJECTION_TEXT.VERIFICATION_TYPE_LABEL, terminal`${report.verificationType}`),
+    labelledLine(VERIFY_REJECTION_TEXT.VERIFICATION_TYPE_LABEL, externalValue(report.verificationType)),
     labelledLine(VERIFY_REJECTION_TEXT.EVIDENCE_KIND_LABEL, authoredText(report.evidenceKind)),
     labelledLine(VERIFY_REJECTION_TEXT.REASON_LABEL, authoredText(report.reason)),
     authoredText(REJECTION_BLANK_LINE),

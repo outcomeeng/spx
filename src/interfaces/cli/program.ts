@@ -1,9 +1,10 @@
-import { Command, type ErrorOptions } from "commander";
+import { type Argument, Command, type Option } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
+import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -22,20 +23,77 @@ type CliGlobalOptions = {
 };
 
 /**
- * A Commander program that escapes the user-supplied portion of every error
- * message before Commander renders it, so terminal-control bytes echoed from an
- * unknown option or command cannot rewrite the terminal or forge a diagnostic
- * line. Subcommands inherit the behavior through `createCommand`. Escaping is
- * escape-only — it applies no length bound — so Commander's own multi-line
- * usage and help structure is preserved around the escaped message.
+ * Commander builds each diagnostic itself, fusing its own words with whatever the caller typed,
+ * so by the time a message reaches `error` the two are no longer separable. These three hooks are
+ * where they are still apart: every other diagnostic Commander raises embeds only declarations
+ * the product wrote — an option's flags, an argument's name, the command's own name, a count.
+ * Commander marks all three `@api private` and omits them from its published typings; this states
+ * the runtime shape the overrides bind to.
+ */
+declare module "commander" {
+  interface Command {
+    unknownOption(flag: string): void;
+    unknownCommand(): void;
+    _callParseArg(
+      target: Option | Argument,
+      value: string,
+      previous: unknown,
+      invalidArgumentMessage: string,
+    ): unknown;
+  }
+}
+
+/**
+ * Restates a message Commander already composed with the caller's value in escaped form. The
+ * substitution takes the first occurrence, which is the caller's own: it runs only when escaping
+ * changed the value, and a value that changed carries a byte no flags string, argument name, or
+ * command name the product declared around it can hold. An empty value is left alone — there is
+ * no byte in it to rewrite the terminal with, and the escaper answers it with a sentinel that
+ * would replace Commander's quoted empty argument with prose the caller never typed.
+ */
+function withEscapedValue(message: string, value: string): string {
+  const escapedValue = escapeCliArgument(value);
+  if (value.length === 0 || escapedValue === value) return message;
+  return message.replace(value, escapedValue);
+}
+
+/**
+ * A Commander program that escapes the caller-supplied token where Commander embeds it, so
+ * terminal-control bytes echoed from an unknown option or command cannot rewrite the terminal
+ * or forge a diagnostic line, while the diagnostic Commander composes around that token — its
+ * newline before a suggestion, its usage and help blocks — keeps its own bytes. Subcommands
+ * inherit the behavior through `createCommand`. Escaping is escape-only and leaves printable
+ * input untouched, so Commander's near-match suggestions are unchanged for ordinary tokens.
+ *
+ * The value an option or argument rejects arrives the same way: Commander writes it into the
+ * invalid-argument message before any handler sees it, and the parse hook is the last place the
+ * value is still a separate parameter, whether it came from argv or from the environment
+ * variable an option declares.
  */
 class SafeDiagnosticCommand extends Command {
   override createCommand(name?: string): SafeDiagnosticCommand {
     return new SafeDiagnosticCommand(name);
   }
 
-  override error(message: string, errorOptions?: ErrorOptions): never {
-    return super.error(escapeCliArgument(message), errorOptions);
+  override unknownOption(flag: string): void {
+    super.unknownOption(escapeCliArgument(flag));
+  }
+
+  override unknownCommand(): void {
+    // The unknown name is read from `args` rather than passed, so it is escaped in place. The
+    // call below never returns, which is why rewriting the parsed operands here reaches nothing.
+    const [unknownName, ...remainingArgs] = this.args;
+    this.args = [escapeCliArgument(unknownName), ...remainingArgs];
+    super.unknownCommand();
+  }
+
+  override _callParseArg(
+    target: Option | Argument,
+    value: string,
+    previous: unknown,
+    invalidArgumentMessage: string,
+  ): unknown {
+    return super._callParseArg(target, value, previous, withEscapedValue(invalidArgumentMessage, value));
   }
 }
 
@@ -44,6 +102,12 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
   const io: CliIo = {
     writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
     writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
+    // Pass-through and composed output share one stream, so a caller that redirects standard
+    // output receives both unless it redirects the relay separately. The two stay distinct in the
+    // type — one claims control-byte safety and the other does not — not in their destination.
+    writePassThrough: options.writePassThrough ?? options.writeStdout ?? DEFAULT_CLI_IO.writePassThrough,
+    writePassThroughError: options.writePassThroughError ?? options.writeStderr
+      ?? DEFAULT_CLI_IO.writePassThroughError,
     setExitCode: options.setExitCode ?? DEFAULT_CLI_IO.setExitCode,
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };
@@ -64,7 +128,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     resolveProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {
-        io.writeStderr(`${warning}\n`);
+        io.writeStderr(renderTerminalText(terminal`${warning}\n`));
       }
     },
     io,

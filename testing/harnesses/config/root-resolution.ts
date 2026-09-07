@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import { resolveProductDir } from "@/domains/config/root";
 import { type CliIo, createCliInvocation } from "@/interfaces/cli/product-context";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -10,6 +11,8 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const TEST_IO: CliIo = {
   writeStdout: () => undefined,
   writeStderr: () => undefined,
+  writePassThrough: () => undefined,
+  writePassThroughError: () => undefined,
   setExitCode: () => undefined,
   exit: (exitCode) => {
     throw new Error(`unexpected config root test exit ${exitCode}`);
@@ -26,14 +29,14 @@ async function withGitProduct(callback: (productDir: string) => Promise<void>): 
 export type ProductRootObservation = {
   readonly actualProductDir: string;
   readonly expectedProductDir: string;
-  readonly warning: string | undefined;
+  readonly warning: TerminalText | undefined;
 };
 
 export type InvocationRootObservation = {
   readonly context: ReturnType<ReturnType<typeof createCliInvocation>["resolveProductContext"]>;
   readonly expectedInvocationDir: string;
   readonly observedInvocationDir: string;
-  readonly writtenWarning: string | undefined;
+  readonly writtenWarning: TerminalText | undefined;
 };
 
 type SyncObservationConsumer<T> = (observation: T) => void;
@@ -119,7 +122,7 @@ export async function withNonWorktreeRootObservation(
   consume: AsyncObservationConsumer<InvocationRootObservation>,
 ): Promise<void> {
   await withTempDir(sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix()), async (invocationDirectory) => {
-    let writtenWarning: string | undefined;
+    let writtenWarning: TerminalText | undefined;
     const invocation = createCliInvocation({
       readDirectoryOption: () => undefined,
       processCwd: () => invocationDirectory,

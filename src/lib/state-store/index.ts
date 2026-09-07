@@ -13,6 +13,7 @@ import { basename, dirname, join } from "node:path";
 
 import type { Result } from "@/config/types";
 import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const STATE_STORE_SCOPE_PATH = {
   SPX_DIR: ".spx",
@@ -294,19 +295,19 @@ export async function resolveWorktreeScopeDir(options: ResolveScopeOptions = {})
 /** The shared `.spx/sessions` scope dir plus the non-git-repo diagnostic, if any. */
 export interface ResolveSessionsScopeResult {
   readonly sessionsDir: string;
-  readonly warning?: string;
+  readonly warning?: TerminalText;
 }
 
 /** The shared `.spx/changes` scope dir plus the non-git-repo diagnostic, if any. */
 export interface ResolveChangesScopeResult {
   readonly changesDir: string;
-  readonly warning?: string;
+  readonly warning?: TerminalText;
 }
 
 /** The shared `.spx/worktrees` scope dir plus the non-git-repo diagnostic, if any. */
 export interface ResolveWorktreesScopeResult {
   readonly worktreesDir: string;
-  readonly warning?: string;
+  readonly warning?: TerminalText;
 }
 
 /**
