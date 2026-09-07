@@ -43,11 +43,14 @@ const NODE_API_EXPORT_SUBPATH = `./${VITEST_NODE_API_ENTRY}`;
 /** The manifest field declaring a package's entry points. */
 const MANIFEST_EXPORTS_FIELD = "exports";
 /**
- * The export conditions the run resolves under, in Node's precedence order for an ESM import:
- * the run loads the entry with `import()`, so a target reachable only under `require` is
- * not one it can load, and a target declared under `import` only is.
+ * The export conditions the run resolves under — those of an ESM import: the run loads the
+ * entry with `import()`, so a target reachable only under `require` is not one it can load,
+ * and a target declared under `import` only is. Precedence among matching conditions is the
+ * manifest's own key order, as in Node.
  */
-const IMPORT_RESOLUTION_CONDITIONS: readonly string[] = ["import", "node", "default"];
+const IMPORT_RESOLUTION_CONDITIONS: ReadonlySet<string> = new Set(["import", "node", "default"]);
+/** The wildcard a pattern export key and its target carry, standing for the matched subpath segment. */
+const EXPORT_PATTERN_WILDCARD = "*";
 
 /** The slice of the Vitest Node API a journal-streaming run drives. */
 export type VitestNodeApi = Pick<typeof import("vitest/node"), "startVitest">;
@@ -98,20 +101,60 @@ function resolveExportTarget(target: unknown): string | undefined {
   }
   if (!isRecord(target)) return undefined;
   for (const [condition, candidate] of Object.entries(target)) {
-    if (!IMPORT_RESOLUTION_CONDITIONS.includes(condition)) continue;
+    if (!IMPORT_RESOLUTION_CONDITIONS.has(condition)) continue;
     const resolved = resolveExportTarget(candidate);
     if (resolved !== undefined) return resolved;
   }
   return undefined;
 }
 
-/** The Node API entry file a package's manifest maps under the import conditions, or nothing when it exposes none. */
+/** A pattern export key that covers the Node API subpath: the target it maps and the segment its wildcard matched. */
+interface PatternExportMatch {
+  readonly prefixLength: number;
+  readonly target: unknown;
+  readonly matched: string;
+}
+
+/**
+ * The pattern export key covering the Node API subpath, as Node matches one: a key carrying
+ * exactly one wildcard whose prefix and suffix enclose the subpath, the longest prefix
+ * winning among candidates. A literal key takes precedence and is looked up before this.
+ */
+function matchPatternExport(exports: Readonly<Record<string, unknown>>): PatternExportMatch | undefined {
+  let best: PatternExportMatch | undefined;
+  for (const [key, target] of Object.entries(exports)) {
+    const wildcard = key.indexOf(EXPORT_PATTERN_WILDCARD);
+    if (wildcard < 0 || key.includes(EXPORT_PATTERN_WILDCARD, wildcard + 1)) continue;
+    const prefix = key.slice(0, wildcard);
+    const suffix = key.slice(wildcard + 1);
+    const covers = NODE_API_EXPORT_SUBPATH.length > prefix.length + suffix.length
+      && NODE_API_EXPORT_SUBPATH.startsWith(prefix)
+      && NODE_API_EXPORT_SUBPATH.endsWith(suffix);
+    if (!covers || (best !== undefined && best.prefixLength >= prefix.length)) continue;
+    best = {
+      prefixLength: prefix.length,
+      target,
+      matched: NODE_API_EXPORT_SUBPATH.slice(prefix.length, NODE_API_EXPORT_SUBPATH.length - suffix.length),
+    };
+  }
+  return best;
+}
+
+/**
+ * The Node API entry file a package's manifest maps under the import conditions — through
+ * the literal Node API subpath key, or a pattern key covering it — or nothing when the
+ * manifest declares no such entry in its `exports` map. A manifest without an `exports` map
+ * declares none: the adapter resolves the entry a package declares, not a legacy layout.
+ */
 function nodeApiEntryFromManifest(manifestText: string): string | undefined {
   const manifest: unknown = JSON.parse(manifestText);
   if (!isRecord(manifest)) return undefined;
   const exports = manifest[MANIFEST_EXPORTS_FIELD];
   if (!isRecord(exports)) return undefined;
-  return resolveExportTarget(exports[NODE_API_EXPORT_SUBPATH]);
+  if (NODE_API_EXPORT_SUBPATH in exports) return resolveExportTarget(exports[NODE_API_EXPORT_SUBPATH]);
+  const pattern = matchPatternExport(exports);
+  if (pattern === undefined) return undefined;
+  return resolveExportTarget(pattern.target)?.replaceAll(EXPORT_PATTERN_WILDCARD, pattern.matched);
 }
 
 /**
@@ -144,9 +187,12 @@ function findProductVitestPackageDir(productDir: string): string | undefined {
  * resolved file. Anchoring at the product keeps the version the product selected in force —
  * a bare specifier would resolve against the harness's own install instead — and resolving
  * under the import conditions keeps an entry the product exposes to `import()` resolvable
- * even when its manifest exposes none to `require()`. A package whose manifest maps no
- * Node API entry under those conditions, or maps one to a file that does not exist, is a
- * product without the runner; a manifest that cannot be parsed is an error the caller sees.
+ * even when its manifest exposes none to `require()`. The entry is the one the manifest's
+ * `exports` map declares for the Node API subpath, through its literal key or a pattern key
+ * covering it. A package whose manifest declares no such entry — no `exports` map, no key
+ * covering the subpath, or no target under those conditions — or maps it to a file that does
+ * not exist, is a product without the runner; a manifest that cannot be parsed is an error
+ * the caller sees.
  */
 export const productVitestNodeApiLoader: VitestNodeApiLoader = {
   resolve(productDir: string): VitestNodeApiResolution {
