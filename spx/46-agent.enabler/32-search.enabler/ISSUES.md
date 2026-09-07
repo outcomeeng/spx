@@ -63,7 +63,7 @@ A branch search scans each candidate's bytes twice, once in the branch-evidence 
 and once in candidate scanning, and even one pass is bounded by an in-process byte search:
 `readFile` copies every transcript into a heap buffer, `Buffer.includes` is a scalar loop, and
 Node runs it single-threaded. `rg -l` over the same three stores — all history, every
-adapter — names the branch hits in 1.2–2.8s because it memory-maps, searches with SIMD,
+adapter — names the 74 files containing the branch string in 1.2–2.8s because it memory-maps, searches with SIMD,
 parallelizes across files, and exits each file at its first hit. That gap is architectural.
 
 **Resolution:** locate candidates with ripgrep and read only the transcripts it names, per the
