@@ -7,7 +7,7 @@ import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
-import { expectedAffectedFiles, expectedVerboseLines } from "@testing/harnesses/literal/output-expectations";
+import { expectedAffectedFiles, expectedVerboseSections } from "@testing/harnesses/literal/output-expectations";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 
 describe("output-modes — scenarios", () => {
@@ -107,9 +107,20 @@ describe("output-modes — scenarios", () => {
       const result = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true });
 
       expect(result.exitCode).toBe(1);
-      expect(result.output.split("\n")).toEqual(
-        expectedVerboseLines(inputs),
-      );
+      const lines = result.output.split("\n");
+      for (const section of expectedVerboseSections(inputs)) {
+        const headingIndex = lines.indexOf(section.heading);
+        expect(headingIndex).toBeGreaterThan(0);
+        for (const file of section.files) {
+          const headerIndex = lines.indexOf(file.header);
+          expect(headerIndex).toBeGreaterThan(headingIndex);
+          for (const [offset, problem] of file.problems.entries()) {
+            expect(lines[headerIndex + offset + 1]).toMatch(/^\s+\S/);
+            expect(lines[headerIndex + offset + 1]).toContain(problem.literal);
+            expect(lines[headerIndex + offset + 1]).toContain(problem.relatedFile);
+          }
+        }
+      }
     });
   });
 });

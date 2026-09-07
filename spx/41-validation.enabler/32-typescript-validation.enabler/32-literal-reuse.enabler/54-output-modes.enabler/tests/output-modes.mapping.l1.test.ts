@@ -28,7 +28,8 @@ import {
   expectedDefaultLines,
   expectedFixtureFindings,
   expectedLiteralLines,
-  expectedVerboseLines,
+  expectedVerboseSections,
+  expectedVerboseSummary,
 } from "@testing/harnesses/literal/output-expectations";
 
 describe("output-modes — mappings", () => {
@@ -140,7 +141,30 @@ describe("output-modes — mappings", () => {
 
       const verboseResult = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true });
       const output = verboseResult.output;
-      expect(output.split(LITERAL_TEXT_LAYOUT.lineSeparator)).toEqual(expectedVerboseLines(inputs));
+      const [summary, ...body] = output.split(LITERAL_TEXT_LAYOUT.lineSeparator);
+      const counts = expectedVerboseSummary();
+      expect(summary).toContain(String(counts.total));
+      expect(summary).toContain(LITERAL_PROBLEM_KIND.REUSE);
+      expect(summary).toContain(String(counts.reuse));
+      expect(summary).toContain(LITERAL_PROBLEM_KIND.DUPE);
+      expect(summary).toContain(String(counts.dupe));
+
+      let cursor = 0;
+      for (const section of expectedVerboseSections(inputs)) {
+        expect(body[cursor]).toBe(section.heading);
+        cursor += 1;
+        for (const file of section.files) {
+          expect(body[cursor]).toBe(file.header);
+          cursor += 1;
+          for (const problem of file.problems) {
+            expect(body[cursor]).toMatch(/^\s+\S/);
+            expect(body[cursor]).toContain(problem.literal);
+            expect(body[cursor]).toContain(problem.relatedFile);
+            cursor += 1;
+          }
+        }
+      }
+      expect(body).toHaveLength(cursor);
 
       // REUSE section appears before DUPE section
       const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());

@@ -86,21 +86,59 @@ export function expectedLiteralLines(inputs: LiteralReuseFixtureInputs, kind?: L
   ]);
 }
 
-/** `--verbose`: a count summary, then a REUSE section and a DUPE section of file headers with indented problem lines. */
-export function expectedVerboseLines(inputs: LiteralReuseFixtureInputs): string[] {
+/** The problem counts the `--verbose` summary line states, by kind. */
+export interface ExpectedVerboseSummary {
+  readonly total: number;
+  readonly reuse: number;
+  readonly dupe: number;
+}
+
+/** One problem line the `--verbose` output indents beneath its file header: the literal and where else it occurs. */
+export interface ExpectedVerboseProblem {
+  readonly literal: string;
+  readonly relatedFile: string;
+}
+
+export interface ExpectedVerboseFile {
+  readonly header: string;
+  readonly problems: readonly ExpectedVerboseProblem[];
+}
+
+export interface ExpectedVerboseSection {
+  readonly heading: string;
+  readonly files: readonly ExpectedVerboseFile[];
+}
+
+export function expectedVerboseSummary(): ExpectedVerboseSummary {
+  return {
+    total: FIXTURE_REUSE_PROBLEMS + FIXTURE_DUPE_PROBLEMS,
+    reuse: FIXTURE_REUSE_PROBLEMS,
+    dupe: FIXTURE_DUPE_PROBLEMS,
+  };
+}
+
+/**
+ * `--verbose` structure after the summary line: a REUSE section, then a DUPE section, each a
+ * sequence of file headers with the file's problem lines indented beneath. Only the structure
+ * the spec declares is expected here; the wording of a problem line is the formatter's own.
+ */
+export function expectedVerboseSections(inputs: LiteralReuseFixtureInputs): ExpectedVerboseSection[] {
   const [firstDupeFile, secondDupeFile] = dupeFilesByPath(inputs);
   return [
-    `Literal: ${
-      FIXTURE_REUSE_PROBLEMS + FIXTURE_DUPE_PROBLEMS
-    } problems (reuse: ${FIXTURE_REUSE_PROBLEMS}, dupe: ${FIXTURE_DUPE_PROBLEMS})`,
-    LITERAL_PROBLEM_KIND.REUSE.toUpperCase(),
-    inputs.reuseTestFile,
-    verboseProblemLine(inputs.reuseLiteral, inputs.reuseSourceFile),
-    LITERAL_PROBLEM_KIND.DUPE.toUpperCase(),
-    firstDupeFile,
-    verboseProblemLine(inputs.dupeLiteral, secondDupeFile),
-    secondDupeFile,
-    verboseProblemLine(inputs.dupeLiteral, firstDupeFile),
+    {
+      heading: LITERAL_PROBLEM_KIND.REUSE.toUpperCase(),
+      files: [{
+        header: inputs.reuseTestFile,
+        problems: [{ literal: quoted(inputs.reuseLiteral), relatedFile: inputs.reuseSourceFile }],
+      }],
+    },
+    {
+      heading: LITERAL_PROBLEM_KIND.DUPE.toUpperCase(),
+      files: [
+        { header: firstDupeFile, problems: [{ literal: quoted(inputs.dupeLiteral), relatedFile: secondDupeFile }] },
+        { header: secondDupeFile, problems: [{ literal: quoted(inputs.dupeLiteral), relatedFile: firstDupeFile }] },
+      ],
+    },
   ];
 }
 
@@ -111,10 +149,6 @@ export function compareExpectedStrings(left: string, right: string): number {
 
 function problemLine(kind: LiteralProblemKind, literal: string, file: string): string {
   return `[${kind}] ${quoted(literal)} ${file}:${LITERAL_FIXTURE_LINE}`;
-}
-
-function verboseProblemLine(literal: string, alsoInFile: string): string {
-  return `  line ${LITERAL_FIXTURE_LINE}: ${quoted(literal)} also in ${alsoInFile}:${LITERAL_FIXTURE_LINE}`;
 }
 
 function quoted(literal: string): string {
