@@ -1,10 +1,11 @@
 import { execa } from "execa";
-import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
@@ -52,6 +53,23 @@ const VITEST_FIXTURE_DIR = join(
 );
 const TEMP_PRODUCT_PREFIX = "spx-vitest-";
 export const COPIED_SUITE_NAME = "suite.test.ts";
+/** The manifest this product — the adapter's own package — declares its dependencies in. */
+const PACKAGE_MANIFEST_FILENAME = "package.json";
+
+/** The dependency-name fields a package manifest declares. */
+interface PackageManifestDependencies {
+  readonly dependencies?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Reads the runtime dependency names this product's own package manifest declares — the
+ * manifest is the oracle for what the shipped adapter installs alongside itself.
+ */
+export async function readProductRuntimeDependencyNames(): Promise<readonly string[]> {
+  const manifestText = await readFile(join(CONFIG_PROCESS_CWD.read(), PACKAGE_MANIFEST_FILENAME), "utf8");
+  const manifest = JSON.parse(manifestText) as PackageManifestDependencies;
+  return Object.keys(manifest.dependencies ?? {});
+}
 
 // Committed inert fixture suites copied into a temporary product for the real Vitest run.
 export const VITEST_FIXTURE = {

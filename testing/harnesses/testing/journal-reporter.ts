@@ -1,28 +1,47 @@
-import { copyFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { copyFile, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { expect } from "vitest";
-import type { Reporter, TestCase, TestModule } from "vitest/node";
+import type { Reporter, TestCase, TestModule, Vitest } from "vitest/node";
 
+import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   createJournalReporter,
   createVitestRunStarter,
+  productVitestNodeApiLoader,
   runTestsStreaming,
+  VITEST_NODE_API_ENTRY,
+  VITEST_PACKAGE_NAME,
+  type VitestNodeApi,
+  type VitestNodeApiLoader,
+  type VitestNodeApiResolution,
+  type VitestRunStart,
   type VitestRunStarter,
   type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
+  type JournalRunInvocation,
+  type JournalRunRequest,
   type JournalRunTerminalStatus,
   type TestFinding,
   type TestRunEvidenceSink,
   type TestScopeUnit,
 } from "@/test/languages/types";
+import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
-import { GENERATED_CASE_STATE } from "@testing/generators/testing/journal-reporter";
+import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+/** The directory a product's installed runner toolchain resolves from. */
+const PACKAGE_DEPENDENCIES_DIRECTORY = "node_modules";
+/** The manifest file a product-supplied package declares its entry points in. */
+const PACKAGE_MANIFEST_FILENAME = "package.json";
+/** The outcome every spy run-starter reports: the run started. */
+const STARTED_RUN: VitestRunStart = { started: true };
 
 /** One recorded append against a recording evidence sink, preserving invocation order. */
 export type RecordedSinkCall =
@@ -99,9 +118,9 @@ export interface SpyVitestRunStarter extends VitestRunStarter {
 export function createSpyVitestRunStarter(): SpyVitestRunStarter {
   const startedRuns: VitestRunStartOptions[] = [];
   return {
-    start(options: VitestRunStartOptions): Promise<void> {
+    start(options: VitestRunStartOptions): Promise<VitestRunStart> {
       startedRuns.push(options);
-      return Promise.resolve();
+      return Promise.resolve(STARTED_RUN);
     },
     get startedRuns(): readonly VitestRunStartOptions[] {
       return startedRuns;
@@ -122,14 +141,85 @@ export function createScenarioDrivingVitestRunStarter(
 ): SpyVitestRunStarter {
   const startedRuns: VitestRunStartOptions[] = [];
   return {
-    async start(options: VitestRunStartOptions): Promise<void> {
+    async start(options: VitestRunStartOptions): Promise<VitestRunStart> {
       startedRuns.push(options);
       for (const reporter of options.reporters) {
         await driveReporterOverScenario(reporter, scenario, reason);
       }
+      return STARTED_RUN;
     },
     get startedRuns(): readonly VitestRunStartOptions[] {
       return startedRuns;
+    },
+  };
+}
+
+/**
+ * A contract Vitest Node API loader (Stage 5 exception 7, contract probe, plus exception 6,
+ * observability): it resolves every product directory to a deterministic specifier derived
+ * from that directory, records each `resolve` and `load` call, and loads a Node API whose
+ * `startVitest` drives every registered reporter over the generated scenario and seals with
+ * the given reason — so the production run-starter's resolve-then-import protocol is
+ * observable at `l1` without a Vitest installation.
+ */
+export interface ContractVitestNodeApiLoader extends VitestNodeApiLoader {
+  /** Every product directory `resolve` was asked to resolve against, in call order. */
+  readonly resolvedProductDirs: readonly string[];
+  /** Every specifier `load` was asked to import, in call order. */
+  readonly loadedSpecifiers: readonly string[];
+  /** The specifier this loader resolves a product directory to. */
+  specifierFor(productDir: string): string;
+}
+
+/** The Node API entry path this contract loader derives under a product directory. */
+const CONTRACT_NODE_API_ENTRY_SEGMENTS = [
+  PACKAGE_DEPENDENCIES_DIRECTORY,
+  VITEST_PACKAGE_NAME,
+  `${VITEST_NODE_API_ENTRY}.js`,
+] as const;
+
+function reportersOf(options: Parameters<VitestNodeApi["startVitest"]>[2]): readonly Reporter[] {
+  const declared = options?.reporters;
+  const entries = Array.isArray(declared) ? declared : declared === undefined ? [] : [declared];
+  return entries.filter((entry): entry is Reporter => typeof entry === "object" && !Array.isArray(entry));
+}
+
+function createContractVitestNodeApi(scenario: GeneratedRunScenario, reason: JournalRunTerminalStatus): VitestNodeApi {
+  return {
+    startVitest: async (_mode, _cliFilters, options) => {
+      for (const reporter of reportersOf(options)) {
+        await driveReporterOverScenario(reporter, scenario, reason);
+      }
+      // The starter only closes the instance after the run; a closeable stand-in is the whole
+      // contract this probe honors (Stage 5: contract probe).
+      return { close: () => Promise.resolve() } as unknown as Vitest;
+    },
+  };
+}
+
+/** Builds a contract loader over the given scenario and terminal reason. */
+export function createContractVitestNodeApiLoader(
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): ContractVitestNodeApiLoader {
+  const resolvedProductDirs: string[] = [];
+  const loadedSpecifiers: string[] = [];
+  const specifierFor = (productDir: string): string => join(productDir, ...CONTRACT_NODE_API_ENTRY_SEGMENTS);
+  return {
+    specifierFor,
+    resolve(productDir: string): VitestNodeApiResolution {
+      resolvedProductDirs.push(productDir);
+      return { resolved: true, specifier: specifierFor(productDir) };
+    },
+    load(specifier: string): Promise<VitestNodeApi> {
+      loadedSpecifiers.push(specifier);
+      return Promise.resolve(createContractVitestNodeApi(scenario, reason));
+    },
+    get resolvedProductDirs(): readonly string[] {
+      return resolvedProductDirs;
+    },
+    get loadedSpecifiers(): readonly string[] {
+      return loadedSpecifiers;
     },
   };
 }
@@ -301,14 +391,29 @@ const MIXED_SUITE_NAME = "suite.test.ts";
 const TEMP_PRODUCT_PREFIX = "spx-journal-reporter-";
 
 /**
+ * Links this repository's installed runner toolchain into a temp product, so the product
+ * directory resolves the Vitest Node API the way an installed product would — from its own
+ * `node_modules` — without copying the install and without inheriting any product configuration.
+ */
+async function linkProductRunnerToolchain(productDir: string): Promise<void> {
+  await symlink(
+    resolve(CONFIG_PROCESS_CWD.read(), PACKAGE_DEPENDENCIES_DIRECTORY),
+    join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY),
+    "dir",
+  );
+}
+
+/**
  * Materializes the committed mixed-case fixture into a fresh temp product outside the
- * repository — so the programmatic run resolves no inherited Vitest config — and invokes
- * the callback with the product directory and the copied suite's relative path.
+ * repository — so the programmatic run resolves no inherited Vitest config — with the
+ * runner toolchain linked in so the product directory resolves Vitest, and invokes the
+ * callback with the product directory and the copied suite's relative path.
  */
 export function withMixedVitestProduct(
   callback: (productDir: string, testFileName: string) => Promise<void>,
 ): Promise<void> {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    await linkProductRunnerToolchain(productDir);
     await copyFile(join(VITEST_FIXTURE_DIR, MIXED_FIXTURE), join(productDir, MIXED_SUITE_NAME));
     await callback(productDir, MIXED_SUITE_NAME);
   });
@@ -324,15 +429,160 @@ export async function assertRealRunStreamsScopeAndFinding(): Promise<void> {
   await withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;
     const sink = createRecordingEvidenceSink();
-    const terminalStatus = await runTestsStreaming(
+    const outcome = await runTestsStreaming(
       { productDir, testPaths: [testFileName] },
-      { sink, starter: createVitestRunStarter() },
+      { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
     );
     expect(sink.scopes).toHaveLength(1);
     expect(sink.findings).toHaveLength(1);
     expect(sink.findings[0]?.moduleId).toBe(sink.scopes[0]?.moduleId);
     expect(sink.findings[0]?.errors.length).toBeGreaterThan(0);
-    expect(terminalStatus).toBe(JOURNAL_RUN_TERMINAL_STATUS.FAILED);
+    expect(outcome).toEqual({ started: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
     expect(process.exitCode).toBe(exitCodeBeforeRun);
+  });
+}
+
+const PRODUCT_SUPPLIED_PREFIX = "spx-product-supplied-vitest-";
+const RUNNERLESS_PREFIX = "spx-runnerless-product-";
+/** The file the product-supplied Node API records its `startVitest` arguments into. */
+const START_RECORD_FILENAME = "start-vitest-call.json";
+/** The version the product-supplied stand-in package declares. */
+const PRODUCT_SUPPLIED_VERSION = "0.0.0-product-supplied";
+/** The ESM module type the product-supplied stand-in declares so Node imports its entry natively. */
+const ESM_PACKAGE_TYPE = "module";
+
+/** The `startVitest` arguments the product-supplied Node API records when the streaming run starts it. */
+export interface RecordedVitestStart {
+  readonly mode: string;
+  readonly files: readonly string[];
+  readonly root: string;
+}
+
+/** The source of a product-supplied `vitest/node` entry: it records its start arguments and seals the run with the given reason. */
+function productSuppliedNodeApiSource(reason: JournalRunTerminalStatus, startRecordPath: string): string {
+  return [
+    `import { writeFileSync } from "node:fs";`,
+    `export async function startVitest(mode, cliFilters, options) {`,
+    `  writeFileSync(${
+      JSON.stringify(startRecordPath)
+    }, JSON.stringify({ mode, files: cliFilters, root: options.root }));`,
+    `  for (const reporter of options.reporters) await reporter.onTestRunEnd?.([], [], ${JSON.stringify(reason)});`,
+    `  return { close: async () => {} };`,
+    `}`,
+    ``,
+  ].join("\n");
+}
+
+/**
+ * Writes a product-supplied `vitest` package under the product's `node_modules` whose `node`
+ * entry is a real ESM module the product directory resolves and Node imports: it records
+ * the `startVitest` arguments it receives and seals the run with the given reason. Returns
+ * the entry's real path (the path Node's resolver reports) and the record path.
+ */
+async function materializeProductSuppliedVitest(
+  productDir: string,
+  reason: JournalRunTerminalStatus,
+): Promise<{ readonly entryPath: string; readonly startRecordPath: string }> {
+  const packageDir = join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY, VITEST_PACKAGE_NAME);
+  const entryFilename = `${VITEST_NODE_API_ENTRY}.js`;
+  const startRecordPath = join(packageDir, START_RECORD_FILENAME);
+  await mkdir(packageDir, { recursive: true });
+  await writeFile(
+    join(packageDir, PACKAGE_MANIFEST_FILENAME),
+    JSON.stringify({
+      name: VITEST_PACKAGE_NAME,
+      version: PRODUCT_SUPPLIED_VERSION,
+      type: ESM_PACKAGE_TYPE,
+      exports: { [`./${VITEST_NODE_API_ENTRY}`]: `./${entryFilename}` },
+    }),
+  );
+  await writeFile(join(packageDir, entryFilename), productSuppliedNodeApiSource(reason, startRecordPath));
+  return { entryPath: await realpath(join(packageDir, entryFilename)), startRecordPath };
+}
+
+/** What a descriptor streaming run driven through the contract loader exposes for inspection. */
+export interface ProductResolvedStreamingRunObservation {
+  readonly request: JournalRunRequest;
+  readonly scenario: GeneratedRunScenario;
+  readonly reason: JournalRunTerminalStatus;
+  readonly loader: ContractVitestNodeApiLoader;
+  readonly sink: RecordingEvidenceSink;
+  readonly invocation: JournalRunInvocation;
+}
+
+/**
+ * Drives the descriptor's streaming run with the production run-starter built over a
+ * contract loader, returning the loader's recorded resolve and load calls, the sink's
+ * recorded evidence, and the run's outcome for the test to judge.
+ */
+export async function observeProductResolvedStreamingRun(): Promise<ProductResolvedStreamingRunObservation> {
+  const scenario = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario());
+  const request = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  const loader = createContractVitestNodeApiLoader(scenario, reason);
+  const sink = createRecordingEvidenceSink();
+  const invocation = await descriptorRunTestsStreaming(request, {
+    sink,
+    starter: createVitestRunStarter(loader),
+    isLanguagePresent: () => true,
+  });
+  return { request, scenario, reason, loader, sink, invocation };
+}
+
+/** What a descriptor streaming run over a product supplying its own Vitest exposes for inspection. */
+export interface ProductSuppliedVitestRunObservation {
+  readonly request: JournalRunRequest;
+  readonly reason: JournalRunTerminalStatus;
+  /** The real path of the product-supplied `vitest/node` entry the harness wrote. */
+  readonly productSuppliedEntryPath: string;
+  /** The production loader's resolution against the product directory. */
+  readonly resolution: VitestNodeApiResolution;
+  readonly sink: RecordingEvidenceSink;
+  readonly invocation: JournalRunInvocation;
+  /** The `startVitest` arguments the product-supplied entry recorded. */
+  readonly recordedStart: RecordedVitestStart;
+}
+
+/**
+ * Materializes a product supplying its own `vitest/node` entry, drives the descriptor's
+ * streaming run over it with only a sink — so the descriptor builds its production
+ * starter and loader — and returns the resolution the production loader reports, the
+ * arguments the product-supplied entry recorded, and the run's outcome.
+ */
+export function observeProductSuppliedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  return withTempDir(PRODUCT_SUPPLIED_PREFIX, async (productDir) => {
+    const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason);
+    const request: JournalRunRequest = { productDir, testPaths };
+    const resolution = productVitestNodeApiLoader.resolve(productDir);
+    const sink = createRecordingEvidenceSink();
+    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
+    const recordedStart = JSON.parse(await readFile(startRecordPath, "utf8")) as RecordedVitestStart;
+    return { request, reason, productSuppliedEntryPath: entryPath, resolution, sink, invocation, recordedStart };
+  });
+}
+
+/** What a descriptor streaming run over a product supplying no runner exposes for inspection. */
+export interface RunnerlessStreamingRunObservation {
+  readonly request: JournalRunRequest;
+  /** The production loader's resolution against the runnerless product directory. */
+  readonly resolution: VitestNodeApiResolution;
+  readonly sink: RecordingEvidenceSink;
+  readonly invocation: JournalRunInvocation;
+}
+
+/**
+ * Drives the descriptor's streaming run, with only a sink, over an empty temp product that
+ * supplies no Vitest, and returns the production loader's resolution and the run's outcome.
+ */
+export function observeRunnerlessStreamingRun(): Promise<RunnerlessStreamingRunObservation> {
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  return withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
+    const request: JournalRunRequest = { productDir, testPaths };
+    const resolution = productVitestNodeApiLoader.resolve(productDir);
+    const sink = createRecordingEvidenceSink();
+    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
+    return { request, resolution, sink, invocation };
   });
 }
