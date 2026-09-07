@@ -6,10 +6,6 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ## Assertions
 
-- ALWAYS: the journal-streaming run resolves the Vitest Node API against the product directory under test and imports the resolved module, so the run starts the Vitest that product selected
-- ALWAYS: an unresolvable Vitest Node API surfaces as a runner outcome naming the product directory searched, so a product without the runner is distinguishable from a run that started and failed
-- NEVER: this adapter's own package declares Vitest a runtime dependency to satisfy the journal-streaming run — the runner belongs to the product under test
-
 ### Scenarios
 
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
@@ -26,5 +22,8 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 - ALWAYS: Vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-test.compliance.l1.test.ts))
 - ALWAYS: the TypeScript testing descriptor exposes a journal-streaming run alongside its CLI-flag run — a programmatic Vitest run hosting the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` — enumerated through the testing registry per `spx/19-language-registration.adr.md` and gated on the descriptor's detection result so an absent language yields a gated-out run with no Vitest invoked, so a language-neutral consumer drives per-module scope and per-failing-case evidence into an injected sink without naming Vitest or TypeScript ([test](tests/typescript-test.compliance.l1.test.ts), [test](tests/typescript-test.compliance.l2.test.ts))
+- ALWAYS: the journal-streaming run resolves the Vitest Node API against the product directory under test and imports the resolved module, so the run starts the Vitest that product selected ([test](tests/vitest-resolution.compliance.l1.test.ts))
+- ALWAYS: an unresolvable Vitest Node API surfaces as a runner outcome naming the product directory searched, so a product without the runner is distinguishable from a run that started and failed ([test](tests/vitest-resolution.compliance.l1.test.ts))
+- NEVER: this adapter's own package declares Vitest a runtime dependency to satisfy the journal-streaming run — the runner belongs to the product under test ([test](tests/vitest-resolution.compliance.l1.test.ts))
 - ALWAYS: TypeScript runner command construction, explicit test-file arguments, exclusion arguments, and tool invocation stay inside the selected TypeScript adapter per `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([audit])
 - NEVER: write vitest configuration into `vitest.config.ts`, `tsconfig.json`, or `package.json` — exclusion flags pass at invocation time ([audit])
