@@ -1,76 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import type { Domain } from "@/interfaces/cli/domain";
-import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createCliProgram } from "@/interfaces/cli/program";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import { OUTPUT_CHANNEL_VERB, runOutputChannelVerb } from "@testing/harnesses/cli/output-channels";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-
-const relayVerb = "relay";
-const composeVerb = "compose";
-
-/**
- * A domain whose two verbs differ only in the channel they select: one relays the payload as a
- * foreign document, the other states it as composed spx output. Both write the same bytes, so the
- * channel is the only thing the assertions can be reading.
- */
-function channelDomain(payload: string): Domain {
-  return {
-    name: "channel",
-    description: "Exercises the two standard-output channels",
-    register: (program, invocation) => {
-      program
-        .command(relayVerb)
-        .action(() => {
-          invocation.io.writePassThrough(payload);
-        });
-      program
-        .command(composeVerb)
-        .action(() => {
-          invocation.io.writeStdout(renderTerminalText(terminal`${externalValue(payload)}`));
-        });
-    },
-  };
-}
-
-async function runVerb(payload: string, verb: string): Promise<string> {
-  const captured: string[] = [];
-  const program = createCliProgram({
-    domains: [channelDomain(payload)],
-    writeStdout: (output) => captured.push(output),
-  });
-  await program.parseAsync([verb], { from: SPX_COMMANDER_PARSE_SOURCE });
-  return captured.join("");
-}
-
-/** Runs a verb with each channel redirected to its own buffer, so their destinations are distinguishable. */
-async function runVerbWithSplitChannels(
-  payload: string,
-  verb: string,
-): Promise<{ composed: string; relayed: string }> {
-  const composed: string[] = [];
-  const relayed: string[] = [];
-  const program = createCliProgram({
-    domains: [channelDomain(payload)],
-    writeStdout: (output) => composed.push(output),
-    writePassThrough: (output) => relayed.push(output),
-  });
-  await program.parseAsync([verb], { from: SPX_COMMANDER_PARSE_SOURCE });
-  return { composed: composed.join(""), relayed: relayed.join("") };
-}
 
 describe("the two standard-output channels", () => {
   it("relays a document byte-for-byte while composing the same bytes escapes them", () => {
     assertProperty(arbitraryTerminalUnsafeText(), async (payload) => {
-      const relayed = await runVerb(payload, relayVerb);
-      const composed = await runVerb(payload, composeVerb);
+      const { composed: relayed } = await runOutputChannelVerb(payload, OUTPUT_CHANNEL_VERB.RELAY);
+      const { composed } = await runOutputChannelVerb(payload, OUTPUT_CHANNEL_VERB.COMPOSE);
 
       expect(relayed).toBe(payload);
-      expect(composed).toBe(renderTerminalText(externalValue(payload)));
+      // The bounds are the escaper's own published contract, so the expectation does not rerun
+      // the escaper: whatever it turned each unsafe byte into, none may remain in the output.
+      for (const char of composed) {
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+        expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+      }
       // The generator guarantees at least one terminal-unsafe byte, so escaping must have
-      // changed the payload; without this the first assertion would hold against an identity
-      // escaper and prove nothing about the channel.
+      // changed the payload; an identity escaper would relay and compose the same bytes.
       expect(composed).not.toBe(relayed);
     }, { level: PROPERTY_LEVEL.L1 });
   });
@@ -78,10 +27,10 @@ describe("the two standard-output channels", () => {
   it("sends relayed output to the destination a caller set for composed output", () => {
     assertProperty(arbitraryTerminalUnsafeText(), async (payload) => {
       // Only the composed-text write is redirected. Both channels write one stream, so the
-      // relayed document has to arrive in the same buffer rather than the real standard output.
-      const relayed = await runVerb(payload, relayVerb);
+      // relayed document has to arrive in the composed buffer rather than the real standard output.
+      const { composed } = await runOutputChannelVerb(payload, OUTPUT_CHANNEL_VERB.RELAY);
 
-      expect(relayed).toBe(payload);
+      expect(composed).toBe(payload);
     }, { level: PROPERTY_LEVEL.L1 });
   });
 
@@ -90,7 +39,9 @@ describe("the two standard-output channels", () => {
       // This is the "unless it redirects the relay separately" carve-out. A caller that sets both
       // destinations gets them honoured independently, so the relay must not fall back to the
       // composed destination once it has one of its own.
-      const { composed, relayed } = await runVerbWithSplitChannels(payload, relayVerb);
+      const { composed, relayed } = await runOutputChannelVerb(payload, OUTPUT_CHANNEL_VERB.RELAY, {
+        splitRelay: true,
+      });
 
       expect(relayed).toBe(payload);
       expect(composed).toHaveLength(0);

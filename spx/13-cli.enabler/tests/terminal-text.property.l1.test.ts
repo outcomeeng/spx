@@ -2,7 +2,14 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
-import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
@@ -38,6 +45,23 @@ describe("terminal text composition invariants", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
       expect(renderTerminalText(terminal`${terminal`${authoredText(input)}`}`)).toBe(input);
     }, { level: PROPERTY_LEVEL.L1 });
+  });
+
+  it("joins already-composed parts around an authored separator without touching any of them", () => {
+    assertProperty(
+      fc.tuple(arbitraryTerminalUnsafeText(), fc.array(arbitraryTerminalUnsafeText(), { minLength: 1, maxLength: 5 })),
+      ([separator, inputs]) => {
+        // Parts alternate between authored and external so the join has both kinds to keep intact.
+        const parts: TerminalText[] = inputs.map((input, index) =>
+          index % 2 === 0 ? authoredText(input) : externalValue(input)
+        );
+        // The native join over the rendered parts is the oracle: it never sees the primitive.
+        expect(renderTerminalText(joinTerminalText(separator, parts))).toBe(
+          parts.map((part) => renderTerminalText(part)).join(separator),
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("does not escape an external value twice when composed text is composed again", () => {
