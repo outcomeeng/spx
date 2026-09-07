@@ -26,6 +26,17 @@ const SINCE_WINDOW_DIVISOR = 4;
 const NEEDLE_JOINER = "-";
 
 /**
+ * A scenario's labels are only true of distinct values: two sessions sharing an id are one
+ * session, a foreign root equal to the product root or the store is not foreign, and one
+ * branch equal to another is recorded at every position, not one. Session ids and roots are
+ * drawn independently, and the id domain is biased toward its edge values, so a draw that
+ * collides is skipped rather than shaped into a scenario the labels misdescribe.
+ */
+function distinct(values: readonly string[]): boolean {
+  return new Set(values).size === values.length;
+}
+
+/**
  * A store holding one session inside a caller-supplied reach window and one outside it,
  * with both aged within the search default so only the window decides admission.
  */
@@ -62,6 +73,9 @@ export function arbitrarySinceWindowScenario(): fc.Arbitrary<GeneratedSinceWindo
         min: Math.floor(AGENT_SEARCH_RECENT_WINDOW_MS / SINCE_WINDOW_DIVISOR),
         max: AGENT_SEARCH_RECENT_WINDOW_MS - WINDOW_EDGE_MARGIN_MS,
       }),
+    )
+    .filter(([insideSessionId, outsideSessionId, homeDir, productScopeRoot]) =>
+      distinct([insideSessionId, outsideSessionId]) && distinct([homeDir, productScopeRoot])
     )
     .chain(([insideSessionId, outsideSessionId, homeDir, productScopeRoot, branch, nowMs, sinceMs]) =>
       fc
@@ -119,6 +133,7 @@ export function arbitraryBetweenReachWindowsScenario(): fc.Arbitrary<GeneratedBe
         max: AGENT_SEARCH_RECENT_WINDOW_MS - WINDOW_EDGE_MARGIN_MS,
       }),
     )
+    .filter(([, homeDir, productScopeRoot]) => distinct([homeDir, productScopeRoot]))
     .chain(([sessionId, homeDir, productScopeRoot, branch, nowMs, ageMs]) =>
       arbitraryAgentSessionCwd(productScopeRoot).map((cwd) => ({
         homeDir,
@@ -179,10 +194,6 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
       fc.boolean(),
       fc.boolean(),
     )
-    // The scenario's labels are only true of distinct values: a target branch equal to the
-    // other branch is recorded at every position, not one; a foreign root equal to the product
-    // root or the store is not foreign; and two sessions sharing an id are one session. A draw
-    // that collides is skipped rather than shaped into a scenario the labels misdescribe.
     .filter((
       [
         sessionId,
@@ -196,9 +207,9 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
         otherBranch,
       ],
     ) =>
-      new Set([sessionId, decoySessionId, foreignOnlySessionId, outOfScopeBranchSessionId]).size === 4
-      && new Set([homeDir, productScopeRoot, foreignRoot]).size === 3
-      && targetBranch !== otherBranch
+      distinct([sessionId, decoySessionId, foreignOnlySessionId, outOfScopeBranchSessionId])
+      && distinct([homeDir, productScopeRoot, foreignRoot])
+      && distinct([targetBranch, otherBranch])
     )
     .chain((
       [
@@ -337,6 +348,10 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
       fc.boolean(),
       fc.integer({ min: 0, max: MAX_TRAILING_RECORDS }),
     )
+    .filter(([sessionId, productDecoySessionId, foreignDecoySessionId, homeDir, productScopeRoot, foreignRoot]) =>
+      distinct([sessionId, productDecoySessionId, foreignDecoySessionId])
+      && distinct([homeDir, productScopeRoot, foreignRoot])
+    )
     .chain((
       [
         sessionId,
@@ -429,6 +444,7 @@ export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafe
       arbitraryDomainLiteral(),
       arbitraryDomainLiteral(),
     )
+    .filter(([, homeDir, productScopeRoot]) => distinct([homeDir, productScopeRoot]))
     .chain(([sessionId, homeDir, productScopeRoot, nowMs, head, tail]) =>
       fc.tuple(arbitraryAgentSessionCwd(productScopeRoot)).map(([cwd]) => ({
         homeDir,
@@ -512,7 +528,11 @@ export function arbitraryCodexBranchEvidenceScenario(): fc.Arbitrary<GeneratedCo
       arbitraryAgentBranch(),
       arbitraryAgentResumeNowMs(),
     )
-    .filter(([, , , , , target, other]) => target !== other && !target.includes(other) && !other.includes(target))
+    .filter(([parentSessionId, hitTranscriptId, missTranscriptId, homeDir, productScopeRoot, target, other]) =>
+      distinct([parentSessionId, hitTranscriptId, missTranscriptId])
+      && distinct([homeDir, productScopeRoot])
+      && target !== other && !target.includes(other) && !other.includes(target)
+    )
     .chain((
       [parentSessionId, hitTranscriptId, missTranscriptId, homeDir, productScopeRoot, targetBranch, otherBranch, nowMs],
     ) =>
