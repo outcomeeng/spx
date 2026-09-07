@@ -87,7 +87,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 
 ### Compliance
 
-- ALWAYS: complete any CLI command in <100ms once the CLI process is running — agents depend on deterministic response times; this excludes Node.js process startup ([audit])
+- ALWAYS: complete any CLI command that reads repository state in <100ms once the CLI process is running — agents depend on deterministic response times; this excludes Node.js process startup, and a command that scans an agent-native transcript store is bounded by the native locator's time over that store rather than by this limit ([audit])
 - ALWAYS: ingest spec-tree context deterministically from the tracked `spx/` tree, root decisions, ancestor specs, lower-index siblings, co-located evidence links, and node-local escape hatches ([audit])
 - ALWAYS: govern spec-tree deterministic testing and validation through `spx.config.{toml,json,yaml}` rather than ad hoc files or command-local policy ([audit])
 - ALWAYS: persist spec-tree execution results so status commands can report last-run results and staleness without re-running the configured execution ([audit])
