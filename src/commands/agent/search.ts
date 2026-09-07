@@ -1,3 +1,4 @@
+import { execa } from "execa";
 import { open, readdir, readFile, stat } from "node:fs/promises";
 
 import {
@@ -7,10 +8,14 @@ import {
   type AgentSearchQuery,
   type AgentSearchResult,
   type AgentSessionDirEntry,
+  createRipgrepTranscriptLocator,
   renderAgentSearchJson,
   renderAgentSearchList,
   resolveAgentHomeDirs,
+  RIPGREP_LOCATOR_COMMAND,
   searchAgentSessions,
+  type TranscriptLocator,
+  type TranscriptLocatorRunner,
 } from "@/domains/agent";
 import {
   defaultGitDependencies,
@@ -34,6 +39,7 @@ export interface AgentSearchScopeRoots {
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
+  readonly locator: TranscriptLocator;
   readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
   readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<AgentSearchScopeRoots>;
@@ -78,8 +84,30 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
   },
 };
 
+/**
+ * Starts ripgrep with the composed arguments. An executable that cannot be started reports a
+ * null exit code, which the locator reads as the unavailable diagnostic; every other outcome
+ * carries ripgrep's own exit status and NUL-terminated output bytes.
+ */
+export const execaTranscriptLocatorRunner: TranscriptLocatorRunner = async (args) => {
+  const result = await execa(RIPGREP_LOCATOR_COMMAND.EXECUTABLE, [...args], {
+    reject: false,
+    encoding: "buffer",
+    stripFinalNewline: false,
+  });
+  if (result.failed && result.exitCode === undefined) {
+    return { exitCode: null, stdout: new Uint8Array(), stderr: "" };
+  }
+  return {
+    exitCode: result.exitCode ?? null,
+    stdout: result.stdout,
+    stderr: Buffer.from(result.stderr).toString(AGENT_SESSION_STORE.TEXT_ENCODING),
+  };
+};
+
 export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   fs: nodeAgentSearchFileSystem,
+  locator: createRipgrepTranscriptLocator(execaTranscriptLocatorRunner),
   agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
@@ -138,6 +166,7 @@ export async function loadAgentSearchResults(
       ? []
       : await deps.resolveBranchAssociatedWorktreeRoots(roots.worktreeRoot, options.query.branch),
     fs: deps.fs,
+    locator: deps.locator,
     query: options.query,
   });
 }

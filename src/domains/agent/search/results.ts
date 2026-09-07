@@ -41,6 +41,7 @@ import {
   type TopLevelBranchAssociations,
 } from "./branch-association";
 import { transcriptBytesCarry, transcriptBytesCarryEvery } from "./byte-scan";
+import type { TranscriptLocator } from "./locator";
 import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector } from "./query";
 import {
   type AgentTranscriptRecord,
@@ -114,6 +115,7 @@ export interface AgentSearchOptions {
   readonly productScopeRoot: string;
   readonly branchAssociatedWorktreeRoots?: readonly string[];
   readonly fs: AgentSearchFileSystem;
+  readonly locator: TranscriptLocator;
   readonly query: AgentSearchQuery;
 }
 
