@@ -28,6 +28,7 @@ import {
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
 import { type PlainTreeSection, renderPlainTree } from "@/lib/styled-output/styled-output";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -192,7 +193,7 @@ function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
       children.push(rendered);
     }
   }
-  return renderPlainTree({ sections });
+  return renderTerminalText(renderPlainTree({ sections }));
 }
 
 function renderParentDirectory(parent: string): string {
