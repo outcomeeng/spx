@@ -28,4 +28,4 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 ### Compliance
 
-- NEVER: perform network access or invoke an LLM to compute release data — git plumbing and the local working tree are the only inputs ([audit])
+- NEVER: perform network access or invoke an LLM to compute release data — git plumbing and the local working tree are the only inputs ([test](tests/release-data.compliance.l1.test.ts))
