@@ -14,6 +14,23 @@
 
 **Revisit condition:** once the per-node terminal-escaping issues are cleared.
 
+## Relayed documents still travel through the composed-text write
+
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) names a relayed document — agent-authored release notes, a session file's own content, a subprocess's own output — as the case for the pass-through channel that `CliIo.writePassThrough` and `CliIo.writePassThroughError` now carry. The descriptors that relay such documents still hand them to the composed-text write:
+
+- `src/interfaces/cli/release.ts:80` — `spx release notes` writes the agent-generated notes through `writeStdout`
+- `src/interfaces/cli/session.ts:87` — `spx session show` writes the session file's content through `writeStdout`
+- `src/interfaces/cli/compact.ts:62` — the compact command writes its result through `writeStdout`
+- `src/interfaces/cli/agent.ts:121` and `:125` — the agent commands relay output through `writeStdout` and `writeStderr`
+
+**Impact:** none observable today, because both writes take a plain `string` and reach one stream; the channel a command selects states which of the two claims its output makes, and these sites state the wrong one.
+
+**Resolution:** each owning node migrates its descriptor to select the pass-through channel for the document it relays and the composed-text write for the report it composes — `spx/26-release.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/37-compact.enabler`, `spx/46-agent.enabler/21-resume.enabler`, and `spx/46-agent.enabler/32-search.enabler` — under the same per-node migration that clears the write-boundary entry above.
+
+**Skills:** `/apply`, `/audit-typescript-code`.
+
+**Revisit condition:** once the per-node terminal-escaping issues are cleared.
+
 ## Error diagnostics render a doubled `Error:` prefix for base-class errors
 
 Descriptor error handlers compose a literal `Error:` prefix around a message that already interpolates `error.name`, so a plain `Error` renders `Error: Error: <message>`. The sites are `handleError` in `src/interfaces/cli/agent.ts` and the caught-error branch at `src/interfaces/cli/session.ts:381`, both shaped `` `Error: ${error.name}: ${error.message}` ``. The `error.name` clause carries information only for a subclass such as `TypeError`; for the base class it repeats the literal.
