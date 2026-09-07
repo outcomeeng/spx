@@ -1,5 +1,15 @@
 # Open Issues
 
+## CLI source layers carry the pre-surfaces layer names
+
+[`spx/14-cli-composition.adr.md`](14-cli-composition.adr.md) and [`spx/13-cli.enabler/15-cli-architecture.adr.md`](13-cli.enabler/15-cli-architecture.adr.md) bind every Commander descriptor to `src/interfaces/cli/{domain}.ts` and every shared capability library to `src/lib/`. The spec tree governs those same descriptors from [`spx/60-surfaces.enabler/21-cli-surface.enabler`](60-surfaces.enabler/21-cli-surface.enabler/cli-surface.md), and the area projection in `spx/PLAN.md` separates Interfaces (stable consumption contracts over domains or capabilities) from Surfaces (concrete CLI, MCP, web API, and UI interaction boundaries) and names Capabilities as its own area. A descriptor — command names, option grammar, help, exit diagnostics — is a surface under that taxonomy; the source spells the layer `interfaces`, and spells the capabilities layer `lib`.
+
+**Impact:** every new descriptor lands in a directory the taxonomy supersedes, and every rename inside `src/interfaces/cli/` (the verification family's `verify` → `verification` correction in [`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md`](60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md) is the pending instance) is a move that repeats when the layer itself moves.
+
+**Scope:** product-wide — the two ADRs, every `src/interfaces/cli/*.ts` descriptor, the CLI registry, and the `src/lib/` libraries whose capability nodes the projection lists.
+
+**Resolution:** truth flows down, so the two ADRs change first: rename the descriptor layer to the surfaces layer and state the capabilities layer's home, reviewed as a `decompose-next` projection and passed through `adr-auditor`; then move `src/interfaces/cli/` and settle `src/lib/` in one pass with `git mv` and import updates. Until the ADRs change, new descriptors follow them as they stand. Re-enter after `spx/PLAN.md`'s configured node-kind support lands, because the surfaces area is not a valid node kind before it.
+
 ## Locale-dependent ordering remains in projection and listing paths
 
 `String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
