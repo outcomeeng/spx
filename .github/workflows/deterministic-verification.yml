@@ -125,6 +125,14 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
+      # The agent-search locator shells out to ripgrep, which the hosted Ubuntu
+      # image does not carry; the L1 locator scenario runs against the real binary.
+      - name: Provision ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ripgrep
+          rg --version
+
       # One suite run: `spx test passing` runs the configured passing scope and
       # records per-node last-run evidence under .spx/. The status step then
       # reuses that fresh evidence to regenerate the committed status projection
