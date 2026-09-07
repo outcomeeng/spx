@@ -12,6 +12,7 @@ import {
   WEB_PRESET_TOKENS,
   type WebPresetToken,
 } from "@/validation/literal/config";
+import { MODULE_NAMING_SKIP } from "@/validation/literal/detector";
 import {
   type DetectionResult,
   type DupeFinding,
@@ -27,6 +28,7 @@ import {
   buildStringDeclaration,
   buildTemplateDeclaration,
 } from "@testing/generators/literal/snippets";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const DOMAIN_LITERAL_MIN_LENGTH = DEFAULT_MIN_STRING_LENGTH + 4;
 const DOMAIN_LITERAL_MAX_LENGTH = 32;
@@ -76,44 +78,24 @@ const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
 const ALL_PRESET_NAMES: ReadonlyArray<PresetName> = Object.values(PRESET_NAMES);
 
-const MODULE_NAMING_FIXTURES: readonly LiteralModuleNamingFixture[] = [
-  {
-    nodeType: "ImportDeclaration",
-    field: "source",
-    source: `import { a } from "./import-decl-path";`,
-    path: "./import-decl-path",
-  },
-  {
-    nodeType: "ExportNamedDeclaration",
-    field: "source",
-    source: `export { x } from "./export-named-path";`,
-    path: "./export-named-path",
-  },
-  {
-    nodeType: "ExportAllDeclaration",
-    field: "source",
-    source: `export * from "./export-all-path";`,
-    path: "./export-all-path",
-  },
-  {
-    nodeType: "ImportExpression",
-    field: "source",
-    source: `const load = () => import("./dynamic-import-path");`,
-    path: "./dynamic-import-path",
-  },
-  {
-    nodeType: "TSImportType",
-    field: "source",
-    source: `type X = import("./type-only-path").Thing;`,
-    path: "./type-only-path",
-  },
-  {
-    nodeType: "TSExternalModuleReference",
-    field: "expression",
-    source: `import eq = require("./equals-required-path");`,
-    path: "./equals-required-path",
-  },
-];
+const MODULE_NAMING_POSITION_SEPARATOR = ".";
+
+/**
+ * One TypeScript source snippet per module-naming position the detector skips,
+ * keyed by `nodeType.field`. The positions themselves come from the production
+ * registry; this table only knows how to write source that places a module
+ * specifier at each one, so a position the registry adds without a snippet here
+ * fails fixture construction instead of silently narrowing the evidence.
+ */
+const MODULE_NAMING_SOURCE_BUILDERS: ReadonlyMap<string, (specifier: string) => string> = new Map([
+  ["ImportDeclaration.source", (specifier) => `import { a } from "${specifier}";`],
+  ["ExportNamedDeclaration.source", (specifier) => `export { x } from "${specifier}";`],
+  ["ExportAllDeclaration.source", (specifier) => `export * from "${specifier}";`],
+  ["ImportExpression.source", (specifier) => `const load = () => import("${specifier}");`],
+  ["TSImportType.source", (specifier) => `type X = import("${specifier}").Thing;`],
+  ["TSImportType.argument", (specifier) => `type X = import("${specifier}").Thing;`],
+  ["TSExternalModuleReference.expression", (specifier) => `import eq = require("${specifier}");`],
+]);
 
 const AST_OCCURRENCE_MAPPING_LABEL = {
   STRING_DECLARATION: "stringLiteralDeclaration",
@@ -454,8 +436,24 @@ export interface LiteralModuleNamingFixture {
   readonly path: string;
 }
 
+/** A relative module specifier of the shape import and export positions carry. */
+export function arbitraryModuleSpecifier(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral().map((slug) => `./${slug}`);
+}
+
+/** One fixture per module-naming position the production detector skips, derived from that registry. */
 export function literalModuleNamingFixtures(): readonly LiteralModuleNamingFixture[] {
-  return MODULE_NAMING_FIXTURES;
+  return Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) =>
+    [...fields].map((field) => {
+      const position = `${nodeType}${MODULE_NAMING_POSITION_SEPARATOR}${field}`;
+      const buildSource = MODULE_NAMING_SOURCE_BUILDERS.get(position);
+      if (buildSource === undefined) {
+        throw new Error(`No module-naming source snippet covers the detector position ${position}`);
+      }
+      const path = sampleGeneratedValue(arbitraryModuleSpecifier());
+      return { nodeType, field, source: buildSource(path), path };
+    })
+  );
 }
 
 export function literalAstOccurrenceCases(): readonly {
