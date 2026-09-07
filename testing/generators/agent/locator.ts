@@ -10,6 +10,8 @@ import {
   type TranscriptLocatorRunResult,
 } from "@/domains/agent/search";
 
+import { RIPGREP_UNSTARTABLE_CODE, type RipgrepProcessOutcome } from "@/commands/agent/search";
+
 import { arbitraryTranscriptNeedleCase, type GeneratedMovingSessionScenario } from "./search";
 
 const MAX_NEEDLE_GRAPHEMES = 8;
@@ -163,4 +165,57 @@ export function arbitraryLocatorStoreCase(): fc.Arbitrary<GeneratedLocatorStoreC
       missFileName: `${STORE_FILE_NAME_PREFIX}${missId}${AGENT_SESSION_STORE.JSONL_EXTENSION}`,
     }))
     .filter((storeCase) => !storeCase.missContent.includes(storeCase.needle));
+}
+
+/** The finite outcome domain a ripgrep process reports: an exit status, a spawn failure, or a signal termination. */
+export const RIPGREP_PROCESS_OUTCOME_KIND = {
+  EXITED: "exited",
+  UNSTARTABLE: "unstartable",
+  SIGNALED: "signaled",
+} as const;
+
+export type RipgrepProcessOutcomeKind =
+  (typeof RIPGREP_PROCESS_OUTCOME_KIND)[keyof typeof RIPGREP_PROCESS_OUTCOME_KIND];
+
+export interface GeneratedRipgrepProcessOutcomeCase {
+  readonly kind: RipgrepProcessOutcomeKind;
+  readonly outcome: RipgrepProcessOutcome;
+  readonly printedPaths: readonly string[];
+  readonly stderrText: string;
+}
+
+const TERMINATING_SIGNALS = ["SIGTERM", "SIGKILL", "SIGINT"] as const;
+
+/** One process outcome per kind over the same generated output, every exit status included. */
+export function arbitraryRipgrepProcessOutcomeCases(): fc.Arbitrary<readonly GeneratedRipgrepProcessOutcomeCase[]> {
+  return fc
+    .tuple(
+      arbitraryRipgrepPathList(),
+      fc.string({ unit: "grapheme", maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
+      fc.constantFrom(...TERMINATING_SIGNALS),
+    )
+    .map(([pathList, stderrText, signal]) => {
+      const stderr = Buffer.from(stderrText, AGENT_SESSION_STORE.TEXT_ENCODING);
+      const exited = [RIPGREP_EXIT_CODE.MATCH, RIPGREP_EXIT_CODE.NO_MATCH, RIPGREP_EXIT_CODE.ERROR].map((exitCode) => ({
+        kind: RIPGREP_PROCESS_OUTCOME_KIND.EXITED,
+        outcome: { exitCode, stdout: pathList.stdout, stderr },
+        printedPaths: pathList.paths,
+        stderrText,
+      }));
+      return [
+        ...exited,
+        {
+          kind: RIPGREP_PROCESS_OUTCOME_KIND.UNSTARTABLE,
+          outcome: { code: RIPGREP_UNSTARTABLE_CODE, stdout: new Uint8Array(), stderr: new Uint8Array() },
+          printedPaths: [],
+          stderrText: "",
+        },
+        {
+          kind: RIPGREP_PROCESS_OUTCOME_KIND.SIGNALED,
+          outcome: { signal, stdout: pathList.stdout, stderr },
+          printedPaths: pathList.paths,
+          stderrText,
+        },
+      ];
+    });
 }

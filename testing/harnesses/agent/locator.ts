@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 
-import { execaTranscriptLocatorRunner } from "@/commands/agent/search";
+import { createTranscriptLocatorRunner, execaTranscriptLocatorRunner } from "@/commands/agent/search";
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
@@ -14,8 +14,13 @@ import {
   TRANSCRIPT_LOCATOR_DIAGNOSTIC,
   type TranscriptLocator,
   type TranscriptLocatorRunner,
+  type TranscriptLocatorRunResult,
 } from "@/domains/agent/search";
-import type { GeneratedInvalidNeedleCase, GeneratedLocatorStoreCase } from "@testing/generators/agent/locator";
+import type {
+  GeneratedInvalidNeedleCase,
+  GeneratedLocatorStoreCase,
+  GeneratedRipgrepProcessOutcomeCase,
+} from "@testing/generators/agent/locator";
 import type { GeneratedMovingSessionScenario } from "@testing/generators/agent/search";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -171,4 +176,24 @@ export async function searchWithRejectedNeedle(
   const fs = movingSessionStore(scenario);
   const locator = new MemoryTranscriptLocator(fs);
   return { ...(await observeSearch(scenario, fs, locator, invalidCase.query)), locator };
+}
+
+export interface RunnerOutcomeObservation {
+  readonly outcomeCase: GeneratedRipgrepProcessOutcomeCase;
+  readonly result: TranscriptLocatorRunResult;
+}
+
+/**
+ * Drives each process outcome through the command-layer runner with the process dependency
+ * replaced by a contract probe returning that outcome, so the runner's own mapping is observed.
+ */
+export async function observeRunnerOutcomes(
+  cases: readonly GeneratedRipgrepProcessOutcomeCase[],
+): Promise<readonly RunnerOutcomeObservation[]> {
+  const observations: RunnerOutcomeObservation[] = [];
+  for (const outcomeCase of cases) {
+    const runner = createTranscriptLocatorRunner({ runRipgrep: async () => outcomeCase.outcome });
+    observations.push({ outcomeCase, result: await runner([]) });
+  }
+  return observations;
 }
