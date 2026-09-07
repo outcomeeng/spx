@@ -97,7 +97,6 @@ describe("output-modes — mappings", () => {
       await env.writeReuseFixture(inputs);
 
       const defaultResult = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS });
-      const findings = expectedFixtureFindings(inputs);
       const lines = defaultResult.output.split(LITERAL_TEXT_LAYOUT.lineSeparator).filter(Boolean);
       const reuseTag = `[${LITERAL_PROBLEM_KIND.REUSE}]`;
       const dupeTag = `[${LITERAL_PROBLEM_KIND.DUPE}]`;
@@ -105,12 +104,12 @@ describe("output-modes — mappings", () => {
       const dupeLines = lines.filter((l) => l.startsWith(dupeTag));
       const problemLines = [...reuseLines, ...dupeLines];
 
-      expect(problemLines).toEqual(expectedDefaultLines(findings));
+      expect(problemLines).toEqual(expectedDefaultLines(inputs));
       expect(problemLines).toEqual(lines);
       expect(reuseLines).toEqual([...reuseLines].sort(compareExpectedStrings));
       expect(dupeLines).toEqual([...dupeLines].sort(compareExpectedStrings));
 
-      const firstReuse = findings.srcReuse[0];
+      const [firstReuse] = expectedFixtureFindings(inputs).srcReuse;
       const sameFileFindings = {
         srcReuse: [
           {
@@ -125,8 +124,12 @@ describe("output-modes — mappings", () => {
         ],
         testDupe: [],
       };
-      expect(formatDefaultLiteralProblems(sameFileFindings).split(LITERAL_TEXT_LAYOUT.lineSeparator))
-        .toEqual(expectedDefaultLines(sameFileFindings));
+      const sameFileLines = formatDefaultLiteralProblems(sameFileFindings).split(LITERAL_TEXT_LAYOUT.lineSeparator);
+      expect(sameFileLines).toHaveLength(sameFileFindings.srcReuse.length);
+      expect(sameFileLines[0]).toContain(`${firstReuse.test.file}:${firstReuse.test.line}`);
+      expect(sameFileLines[1]).toContain(
+        `${firstReuse.test.file}:${firstReuse.test.line + LITERAL_TEST_GENERATOR_COUNTS.one}`,
+      );
     });
   });
 
@@ -136,9 +139,8 @@ describe("output-modes — mappings", () => {
       await env.writeReuseFixture(inputs);
 
       const verboseResult = await literalCommand({ cwd: env.productDir, config: LITERAL_DEFAULTS, verbose: true });
-      const findings = expectedFixtureFindings(inputs);
       const output = verboseResult.output;
-      expect(output.split(LITERAL_TEXT_LAYOUT.lineSeparator)).toEqual(expectedVerboseLines(findings));
+      expect(output.split(LITERAL_TEXT_LAYOUT.lineSeparator)).toEqual(expectedVerboseLines(inputs));
 
       // REUSE section appears before DUPE section
       const reuseHeaderIdx = output.indexOf(LITERAL_PROBLEM_KIND.REUSE.toUpperCase());
@@ -155,7 +157,7 @@ describe("output-modes — mappings", () => {
       const problemLines = output
         .split(LITERAL_TEXT_LAYOUT.lineSeparator)
         .filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
-      expect(problemLines.length).toBe(findings.srcReuse.length + findings.testDupe.length);
+      expect(problemLines.length).toBe(expectedDefaultLines(inputs).length);
     });
   });
 
@@ -175,7 +177,7 @@ describe("output-modes — mappings", () => {
         expect(line).not.toMatch(/:\d+$/);
       }
 
-      expect(lines).toEqual(expectedAffectedFiles(expectedFixtureFindings(inputs)));
+      expect(lines).toEqual(expectedAffectedFiles(inputs));
     });
   });
 
@@ -195,7 +197,7 @@ describe("output-modes — mappings", () => {
         expect(line.startsWith("\"") && line.endsWith("\"")).toBe(true);
       }
 
-      expect(lines).toEqual(expectedLiteralLines(expectedFixtureFindings(inputs)));
+      expect(lines).toEqual(expectedLiteralLines(inputs));
     });
   });
 

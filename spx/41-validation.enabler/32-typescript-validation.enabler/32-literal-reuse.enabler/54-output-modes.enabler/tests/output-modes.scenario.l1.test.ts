@@ -7,11 +7,7 @@ import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
-import {
-  expectedAffectedFiles,
-  expectedFixtureFindings,
-  expectedVerboseLines,
-} from "@testing/harnesses/literal/output-expectations";
+import { expectedAffectedFiles, expectedVerboseLines } from "@testing/harnesses/literal/output-expectations";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 
 describe("output-modes — scenarios", () => {
@@ -98,7 +94,7 @@ describe("output-modes — scenarios", () => {
       });
 
       expect(result.output.split("\n").filter(Boolean)).toEqual(
-        expectedAffectedFiles(expectedFixtureFindings(inputs, LITERAL_PROBLEM_KIND.REUSE)),
+        expectedAffectedFiles(inputs, LITERAL_PROBLEM_KIND.REUSE),
       );
     });
   });
@@ -112,7 +108,7 @@ describe("output-modes — scenarios", () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.output.split("\n")).toEqual(
-        expectedVerboseLines(expectedFixtureFindings(inputs)),
+        expectedVerboseLines(inputs),
       );
     });
   });

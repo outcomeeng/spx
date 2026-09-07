@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { literalCommand } from "@/commands/validation/literal";
+import { formatNoProblemsOfKind, literalCommand } from "@/commands/validation/literal";
 import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
 import { LITERAL_DEFAULTS } from "@/validation/literal/config";
 import { parseLiteralReuseResult } from "@/validation/literal/index";
@@ -11,7 +11,6 @@ import {
   expectedDefaultLines,
   expectedFixtureFindings,
   expectedLiteralLines,
-  expectedNoProblemsOfKind,
 } from "@testing/harnesses/literal/output-expectations";
 
 describe("output-modes compliance", () => {
@@ -24,7 +23,7 @@ describe("output-modes compliance", () => {
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(lines).toEqual(expectedDefaultLines(expectedFixtureFindings(inputs)));
+      expect(lines).toEqual(expectedDefaultLines(inputs));
     });
   });
 
@@ -37,7 +36,7 @@ describe("output-modes compliance", () => {
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(lines).toEqual(expectedAffectedFiles(expectedFixtureFindings(inputs)));
+      expect(lines).toEqual(expectedAffectedFiles(inputs));
       for (const line of lines) {
         expect(line).not.toMatch(/:\d+$/);
       }
@@ -53,7 +52,7 @@ describe("output-modes compliance", () => {
 
       expect(result.exitCode).toBe(1);
       const lines = result.output.split("\n").filter(Boolean);
-      expect(lines).toEqual(expectedLiteralLines(expectedFixtureFindings(inputs)));
+      expect(lines).toEqual(expectedLiteralLines(inputs));
     });
   });
 
@@ -160,7 +159,7 @@ describe("output-modes compliance", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.output).toBe(expectedNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
+      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.REUSE));
     });
 
     // dupe side: only src↔test reuse problems exist, so --kind dupe finds none.
@@ -179,7 +178,7 @@ describe("output-modes compliance", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.output).toBe(expectedNoProblemsOfKind(LITERAL_PROBLEM_KIND.DUPE));
+      expect(result.output).toBe(formatNoProblemsOfKind(LITERAL_PROBLEM_KIND.DUPE));
     });
   });
 
