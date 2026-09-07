@@ -36,6 +36,7 @@ import {
   codexTranscriptPath,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
+import { MemoryTranscriptLocator } from "@testing/harnesses/agent/locator";
 
 const PI_SEARCH_SAMPLE = {
   HOME_DIR: 501,
@@ -161,6 +162,7 @@ export async function withPiSearchPickupEvidence(
       nowMs,
       productScopeRoot: productRoot,
       fs,
+      locator: new MemoryTranscriptLocator(fs),
       query: agentSearchQueryFromOptions({ pickupId }),
     }),
     expectedSessionIds: [codexSessionId, claudeSessionId, piSessionId],
@@ -222,6 +224,7 @@ export async function withPiSearchBranchEvidence(
       productScopeRoot: productRoot,
       branchAssociatedWorktreeRoots: [associatedRoot],
       fs,
+      locator: new MemoryTranscriptLocator(fs),
       query: agentSearchQueryFromOptions({ branch }),
     }),
     associatedSessionId,
@@ -268,6 +271,7 @@ export async function withPiSearchCliSelectionEvidence(
     domains: [createAgentDomain({
       searchDeps: {
         fs,
+        locator: new MemoryTranscriptLocator(fs),
         agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
         nowMs: () => nowMs,
         resolveProductScopeRoot: async () => ({ productScopeRoot: productRoot, worktreeRoot: productRoot }),

@@ -5,17 +5,19 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import { searchMovingSessionStore } from "@testing/harnesses/agent/search";
 
 describe("agent search — structural read bound", () => {
-  it("performs no structural metadata read on a transcript whose content lacks the selector", async () => {
+  it("performs no structural metadata read on a transcript the locator did not name for the content needle", async () => {
     const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
     const observation = await searchMovingSessionStore(scenario, { contains: scenario.contentNeedle });
 
+    expect(observation.locator.namedPaths()).not.toContain(observation.decoyPath);
     expect(observation.fs.maxHeadReadBytes(observation.decoyPath)).toBe(0);
   });
 
-  it("reads no transcript's full content when the invocation carries no selector", async () => {
+  it("reads no transcript past its head and calls no locator when the invocation carries no selector", async () => {
     const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
     const observation = await searchMovingSessionStore(scenario);
 
-    expect(observation.fs.bytesReadPaths()).toHaveLength(0);
+    expect(observation.fs.textReadPaths()).toHaveLength(0);
+    expect(observation.locator.calls()).toHaveLength(0);
   });
 });

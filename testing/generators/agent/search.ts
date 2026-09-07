@@ -420,50 +420,31 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
 
 const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_SEGMENT = ".";
-const EMPTY_SESSION_ID = "";
 const POSIX_PATH_SEPARATOR = "/";
 const WINDOWS_PATH_SEPARATOR = "\\";
 
-/** A store holding one addressable session, plus session ids that name no single store entry. */
-export interface GeneratedUnsafeSessionIdScenario {
-  readonly homeDir: string;
-  readonly productScopeRoot: string;
-  readonly sessionId: string;
-  readonly cwd: string;
-  readonly unsafeSessionIds: readonly string[];
-  readonly nowMs: number;
-}
-
-export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafeSessionIdScenario> {
-  return fc
-    .tuple(
-      arbitraryAgentSessionId(),
-      arbitraryAgentWorktreeRoot(),
-      arbitraryAgentWorktreeRoot(),
-      arbitraryAgentResumeNowMs(),
-      arbitraryDomainLiteral(),
-      arbitraryDomainLiteral(),
-    )
-    .filter(([, homeDir, productScopeRoot]) => distinct([homeDir, productScopeRoot]))
-    .chain(([sessionId, homeDir, productScopeRoot, nowMs, head, tail]) =>
-      fc.tuple(arbitraryAgentSessionCwd(productScopeRoot)).map(([cwd]) => ({
-        homeDir,
-        productScopeRoot,
-        sessionId,
-        cwd,
-        unsafeSessionIds: [
-          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
-          `${head}${POSIX_PATH_SEPARATOR}${tail}`,
-          `${head}${WINDOWS_PATH_SEPARATOR}${tail}`,
-          `${POSIX_PATH_SEPARATOR}${head}`,
-          PARENT_DIRECTORY_SEGMENT,
-          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
-          CURRENT_DIRECTORY_SEGMENT,
-          EMPTY_SESSION_ID,
-        ],
-        nowMs,
-      }))
-    );
+/**
+ * A session id over an open domain that includes path-shaped values — separators, current- and
+ * parent-directory segments, absolute prefixes — beside ordinary ids, so evidence can show that
+ * no id reaches a store as a path component whatever characters it carries.
+ */
+export function arbitraryPathShapedSessionId(): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryAgentSessionId(),
+    fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral()).map(([head, tail]) =>
+      `${head}${POSIX_PATH_SEPARATOR}${tail}`
+    ),
+    fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral()).map(([head, tail]) =>
+      `${head}${WINDOWS_PATH_SEPARATOR}${tail}`
+    ),
+    arbitraryDomainLiteral().map((head) => `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`),
+    arbitraryDomainLiteral().map((head) => `${POSIX_PATH_SEPARATOR}${head}`),
+    arbitraryDomainLiteral().map((head) =>
+      `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`
+    ),
+    fc.constant(PARENT_DIRECTORY_SEGMENT),
+    fc.constant(CURRENT_DIRECTORY_SEGMENT),
+  );
 }
 
 /**
