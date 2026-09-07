@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import {
   type HostedReleasePublisher,
   type PackagePublisher,
@@ -17,9 +14,9 @@ import { defaultGitDependencies, GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
 import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
 
+import { type PackageIdentity, readPackageIdentity } from "./package-manifest";
 import { createReleaseNotesFilesystem } from "./release-notes-filesystem";
 
-const PACKAGE_MANIFEST = "package.json";
 const GIT_COMMIT_SUFFIX = "^{commit}";
 
 export interface PublishReleaseCommandOptions {
@@ -30,7 +27,7 @@ export interface PublishReleaseCommandOptions {
 }
 
 export interface PublishReleaseCommandDependencies {
-  readonly readPackageIdentity: (productDir: string) => Promise<{ readonly name: string; readonly version: string }>;
+  readonly readPackageIdentity: (productDir: string) => Promise<PackageIdentity>;
   readonly resolveTaggedCommit: (productDir: string, tag: string) => Promise<string>;
   readonly resolveReleaseData: (productDir: string, version: string, tag: string) => Promise<ReleaseData>;
   readonly readReleaseNotes: (productDir: string, changelogPath: string) => Promise<string>;
@@ -88,24 +85,4 @@ export async function publishReleaseCommand(
     hostedReleasePublisher: deps.createHostedReleasePublisher(options.productDir),
   });
   return tag;
-}
-
-async function readPackageIdentity(
-  productDir: string,
-): Promise<{ readonly name: string; readonly version: string }> {
-  const manifest = JSON.parse(await readFile(join(productDir, PACKAGE_MANIFEST), "utf8")) as unknown;
-  if (
-    !isRecord(manifest)
-    || typeof manifest.name !== "string"
-    || manifest.name.length === 0
-    || typeof manifest.version !== "string"
-    || manifest.version.length === 0
-  ) {
-    throw new ReleasePublicationError("package.json must declare a package name and version");
-  }
-  return { name: manifest.name, version: manifest.version };
-}
-
-function isRecord(candidate: unknown): candidate is Record<string, unknown> {
-  return typeof candidate === "object" && candidate !== null;
 }

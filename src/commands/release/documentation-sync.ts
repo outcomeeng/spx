@@ -16,7 +16,7 @@ import {
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 
 import { createDocumentationSyncFilesystem } from "./documentation-sync-filesystem";
-import { readPackageVersion } from "./release-notes";
+import { readPackageVersion } from "./package-manifest";
 
 export interface DocumentationSyncCommandOptions {
   readonly productDir: string;

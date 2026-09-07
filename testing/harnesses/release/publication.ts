@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { Command } from "commander";
 
+import { PACKAGE_MANIFEST } from "@/commands/release/package-manifest";
 import {
   DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
@@ -113,8 +114,6 @@ export interface DefaultPublishDependenciesObservation {
   /** The changelog read with the product directory addressed through a symbolic link to the checkout. */
   readonly changelogThroughSymlinkedCheckout: string;
 }
-
-const PACKAGE_MANIFEST_FILE = "package.json";
 const SYMLINKED_CHECKOUT_PREFIX = "spx-publish-symlinked-checkout-";
 const SYMLINKED_CHECKOUT_NAME = "checkout";
 
@@ -129,7 +128,7 @@ export async function observeDefaultPublishDependencies(
   let observation: DefaultPublishDependenciesObservation | undefined;
   await withGitWorktreeEnv(async (env) => {
     await env.writeTracked(
-      PACKAGE_MANIFEST_FILE,
+      PACKAGE_MANIFEST,
       JSON.stringify({ name: scenario.packagePublication.name, version: scenario.packagePublication.version }),
     );
     await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.changelog);
