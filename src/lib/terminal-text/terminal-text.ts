@@ -75,12 +75,13 @@ export function terminal(strings: TemplateStringsArray, ...values: readonly Term
 }
 
 /**
- * Joins already-composed parts with a product-authored separator. A rendered
+ * Joins already-composed parts with an already-composed separator. A rendered
  * list is one composition whose rows are external and whose row separator is
- * the product's own line structure, so the separator keeps its bytes while each
- * part keeps the escaping decision made where its values were embedded.
+ * the product's own line structure, so the separator carries the decision its
+ * producer made — authored, keeping its bytes — while each part keeps the
+ * escaping decision made where its values were embedded.
  */
-export function joinTerminalText(separator: string, parts: readonly TerminalText[]): TerminalText {
+export function joinTerminalText(separator: TerminalText, parts: readonly TerminalText[]): TerminalText {
   return brand(parts.join(separator));
 }
 

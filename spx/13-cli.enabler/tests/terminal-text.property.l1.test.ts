@@ -56,7 +56,7 @@ describe("terminal text composition invariants", () => {
           index % 2 === 0 ? authoredText(input) : externalValue(input)
         );
         // The native join over the rendered parts is the oracle: it never sees the primitive.
-        expect(renderTerminalText(joinTerminalText(separator, parts))).toBe(
+        expect(renderTerminalText(joinTerminalText(authoredText(separator), parts))).toBe(
           parts.map((part) => renderTerminalText(part)).join(separator),
         );
       },

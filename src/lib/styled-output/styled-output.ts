@@ -111,7 +111,7 @@ export interface PlainTreeModel {
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
  * ANSI-stripped colored render equals the plain render.
  */
-const TREE_LINE_SEPARATOR = "\n";
+const TREE_LINE_SEPARATOR = authoredText("\n");
 
 export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): TerminalText {
   const chalk = new Chalk({ level: options.color ? 1 : 0 });
