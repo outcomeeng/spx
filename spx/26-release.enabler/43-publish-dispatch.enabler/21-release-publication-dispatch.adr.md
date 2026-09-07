@@ -21,7 +21,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 - ALWAYS: package publication confirmation compares an existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published ([compliance])
 - ALWAYS: changelog-section extraction returns the exact validated section for the verified release version and rejects changelogs that omit that version or define it more than once ([compliance])
 - ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from verified release inputs and performs an idempotent create-or-update operation only after package confirmation succeeds ([compliance])
-- ALWAYS: the publication workflow invokes `spx release publish` only after deterministic verification and grants the publication job the minimum combined authority of `contents: write` and `id-token: write`, while every other job retains read-only repository contents ([compliance])
+- ALWAYS: the publication workflow invokes `spx release publish` with the tag that triggered the run, only after deterministic verification, and grants the publication job the minimum combined authority of `contents: write` and `id-token: write`, while every other job retains read-only repository contents ([compliance])
 
 ### Audit
 
