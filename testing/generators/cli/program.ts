@@ -73,6 +73,12 @@ function oneEditFrom(registeredName: string): string {
 }
 
 const ANSI_SGR_RED_BODY = "[31m";
+/**
+ * The pattern `String.prototype.replace` reads as "the matched text" in a string replacement.
+ * Carried right after the escape byte, it turns a diagnostic that splices its escaped value in
+ * as a replacement string into one that pastes the raw match — escape byte included — back in.
+ */
+const REPLACEMENT_MATCH_PATTERN = "$&";
 const UNKNOWN_OPTION_MARKER = "--";
 const USAGE_FORGERY_PREFIX = "Usage: ";
 const LINE_FEED = "\n";
@@ -83,7 +89,8 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
   const rawEscapeByte = String.fromCodePoint(ESCAPE_CONTROL_CHAR_CODE);
   const token = sampleLiteralTestValue(arbitraryDomainLiteral()).repeat(MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1);
   const forgedLine = `${USAGE_FORGERY_PREFIX}${token}`;
-  const unsafeValue = `${token}${rawEscapeByte}${ANSI_SGR_RED_BODY}${LINE_FEED}${forgedLine}`;
+  const unsafeValue =
+    `${token}${rawEscapeByte}${REPLACEMENT_MATCH_PATTERN}${ANSI_SGR_RED_BODY}${LINE_FEED}${forgedLine}`;
   const unsafeOption = `${UNKNOWN_OPTION_MARKER}${unsafeValue}`;
   return {
     unsafeOption,

@@ -3,8 +3,7 @@ import { type Argument, Command, type Option } from "commander";
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
-import { renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -49,12 +48,24 @@ declare module "commander" {
  * changed the value, and a value that changed carries a byte no flags string, argument name, or
  * command name the product declared around it can hold. An empty value is left alone — there is
  * no byte in it to rewrite the terminal with, and the escaper answers it with a sentinel that
- * would replace Commander's quoted empty argument with prose the caller never typed.
+ * would replace Commander's quoted empty argument with prose the caller never typed. The
+ * replacement is supplied as a function so the escaped text is spliced literally: handed over as
+ * a string, `$&` or `$'` inside it would be read as a substitution pattern and paste the raw
+ * match — control byte included — back into the diagnostic.
  */
+/**
+ * Decides a caller-supplied token as external and renders it back to the string Commander takes.
+ * Commander composes the diagnostic itself, so the token cannot be spliced as composed text; the
+ * decision still goes through the composition primitive rather than the escaper directly.
+ */
+function escapedToken(value: string): string {
+  return renderTerminalText(externalValue(value));
+}
+
 function withEscapedValue(message: string, value: string): string {
-  const escapedValue = escapeCliArgument(value);
+  const escapedValue = escapedToken(value);
   if (value.length === 0 || escapedValue === value) return message;
-  return message.replace(value, escapedValue);
+  return message.replace(value, () => escapedValue);
 }
 
 /**
@@ -76,14 +87,14 @@ class SafeDiagnosticCommand extends Command {
   }
 
   override unknownOption(flag: string): void {
-    super.unknownOption(escapeCliArgument(flag));
+    super.unknownOption(escapedToken(flag));
   }
 
   override unknownCommand(): void {
     // The unknown name is read from `args` rather than passed, so it is escaped in place. The
     // call below never returns, which is why rewriting the parsed operands here reaches nothing.
     const [unknownName, ...remainingArgs] = this.args;
-    this.args = [escapeCliArgument(unknownName), ...remainingArgs];
+    this.args = [escapedToken(unknownName), ...remainingArgs];
     super.unknownCommand();
   }
 
