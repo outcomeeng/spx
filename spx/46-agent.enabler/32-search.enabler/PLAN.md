@@ -9,8 +9,11 @@ Search locates candidate transcripts with ripgrep and touches only the transcrip
 The domain stops reading transcript bytes to decide anything: a `TranscriptLocator` port takes
 store roots and one literal needle and returns the paths containing it, and every spx-specific
 judgment — session identity, per-record scope, dedupe, subagent attribution, match reasons —
-runs on those hits. Measured on the 6.0 GB, 7,796-transcript store: `rg` names the 74 branch
-hits in 1.2–2.8s; the in-process byte scan it replaces takes 28s on the same bytes, and no
+runs on those hits. Candidates and results are different counts: on the 6.0 GB,
+7,796-transcript store, `rg -l` names the 74 files containing the literal
+`work/chat-voice-core` across all three stores in 1.2–2.8s, and the search reduces those 74
+candidates to the one session it returns today. The in-process byte scan the locator
+replaces takes 28s to reach the same 74 files, and no
 in-process scan can close that gap because `rg` memory-maps, searches with SIMD, parallelizes
 across files, and exits each file at its first hit.
 
@@ -112,9 +115,11 @@ of `MemoryAgentSessionFileSystem`. `readText` returns to the boundary and is cal
 
 ### Done criteria
 
-- On the 6.0 GB store: `--branch` and `--contains` complete within three seconds wall clock,
-  and `--session-id` within two, each returning the results the store returns today
-  (1, 8, and 1 for the recorded needles).
+- On the 6.0 GB store: `--branch work/chat-voice-core` and `--contains work/chat-voice-core`
+  complete within three seconds wall clock and `--session-id 080e9a4e-08eb-4a09-8825-96f60ef94b02`
+  within two, each returning exactly the sessions the store returns today — 1, 8, and 1
+  result rows respectively — reduced from the locator's candidate files, 74 of them for the
+  branch needle.
 - The boundary evidence is green and survives its mutation litmus.
 - The "Selector search cost" entry in [ISSUES.md](ISSUES.md) closes with the measurement.
 
