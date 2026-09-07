@@ -79,12 +79,17 @@ describe("ALWAYS: domain path filters narrow literal reuse indexing", () => {
 });
 
 describe("NEVER: index literals from module-naming positions", () => {
-  it("every fixture exercises a position that the source-side MODULE_NAMING_SKIP enumerates", () => {
-    for (const fixture of literalModuleNamingFixtures()) {
-      const skipFields = MODULE_NAMING_SKIP[fixture.nodeType];
-      expect(skipFields).toBeDefined();
-      expect(skipFields?.has(fixture.field)).toBe(true);
-    }
+  it("the spec-enumerated positions and the detector's skip registry name the same set", () => {
+    const declaredPositions = new Set(
+      literalModuleNamingFixtures().map((fixture) => `${fixture.nodeType}.${fixture.field}`),
+    );
+    const registryPositions = new Set(
+      Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) =>
+        [...fields].map((field) => `${nodeType}.${field}`)
+      ),
+    );
+
+    expect(declaredPositions).toEqual(registryPositions);
   });
 
   it.each(literalModuleNamingFixtures())(

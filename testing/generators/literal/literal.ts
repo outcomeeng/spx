@@ -12,7 +12,6 @@ import {
   WEB_PRESET_TOKENS,
   type WebPresetToken,
 } from "@/validation/literal/config";
-import { MODULE_NAMING_SKIP } from "@/validation/literal/detector";
 import {
   type DetectionResult,
   type DupeFinding,
@@ -78,24 +77,39 @@ const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
 const ALL_PRESET_NAMES: ReadonlyArray<PresetName> = Object.values(PRESET_NAMES);
 
-const MODULE_NAMING_POSITION_SEPARATOR = ".";
-
 /**
- * One TypeScript source snippet per module-naming position the detector skips,
- * keyed by `nodeType.field`. The positions themselves come from the production
- * registry; this table only knows how to write source that places a module
- * specifier at each one, so a position the registry adds without a snippet here
- * fails fixture construction instead of silently narrowing the evidence.
+ * The module-naming positions the detection spec enumerates, each with a source
+ * snippet that places a module specifier at that position. The enumeration's
+ * provenance is the spec assertion, not the detector's skip registry: the linked
+ * compliance evidence cross-checks the two sets both ways, so a position the
+ * registry drops still yields a fixture whose specifier would then be indexed,
+ * and a position the registry adds without a spec entry fails the check.
  */
-const MODULE_NAMING_SOURCE_BUILDERS: ReadonlyMap<string, (specifier: string) => string> = new Map([
-  ["ImportDeclaration.source", (specifier) => `import { a } from "${specifier}";`],
-  ["ExportNamedDeclaration.source", (specifier) => `export { x } from "${specifier}";`],
-  ["ExportAllDeclaration.source", (specifier) => `export * from "${specifier}";`],
-  ["ImportExpression.source", (specifier) => `const load = () => import("${specifier}");`],
-  ["TSImportType.source", (specifier) => `type X = import("${specifier}").Thing;`],
-  ["TSImportType.argument", (specifier) => `type X = import("${specifier}").Thing;`],
-  ["TSExternalModuleReference.expression", (specifier) => `import eq = require("${specifier}");`],
-]);
+const MODULE_NAMING_POSITIONS: readonly {
+  readonly nodeType: string;
+  readonly field: string;
+  readonly buildSource: (specifier: string) => string;
+}[] = [
+  { nodeType: "ImportDeclaration", field: "source", buildSource: (specifier) => `import { a } from "${specifier}";` },
+  {
+    nodeType: "ExportNamedDeclaration",
+    field: "source",
+    buildSource: (specifier) => `export { x } from "${specifier}";`,
+  },
+  { nodeType: "ExportAllDeclaration", field: "source", buildSource: (specifier) => `export * from "${specifier}";` },
+  {
+    nodeType: "ImportExpression",
+    field: "source",
+    buildSource: (specifier) => `const load = () => import("${specifier}");`,
+  },
+  { nodeType: "TSImportType", field: "source", buildSource: (specifier) => `type X = import("${specifier}").Thing;` },
+  { nodeType: "TSImportType", field: "argument", buildSource: (specifier) => `type X = import("${specifier}").Thing;` },
+  {
+    nodeType: "TSExternalModuleReference",
+    field: "expression",
+    buildSource: (specifier) => `import eq = require("${specifier}");`,
+  },
+];
 
 const AST_OCCURRENCE_MAPPING_LABEL = {
   STRING_DECLARATION: "stringLiteralDeclaration",
@@ -441,19 +455,12 @@ export function arbitraryModuleSpecifier(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `./${slug}`);
 }
 
-/** One fixture per module-naming position the production detector skips, derived from that registry. */
+/** One fixture per module-naming position the detection spec enumerates, each carrying a generated specifier. */
 export function literalModuleNamingFixtures(): readonly LiteralModuleNamingFixture[] {
-  return Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) =>
-    [...fields].map((field) => {
-      const position = `${nodeType}${MODULE_NAMING_POSITION_SEPARATOR}${field}`;
-      const buildSource = MODULE_NAMING_SOURCE_BUILDERS.get(position);
-      if (buildSource === undefined) {
-        throw new Error(`No module-naming source snippet covers the detector position ${position}`);
-      }
-      const path = sampleGeneratedValue(arbitraryModuleSpecifier());
-      return { nodeType, field, source: buildSource(path), path };
-    })
-  );
+  return MODULE_NAMING_POSITIONS.map(({ nodeType, field, buildSource }) => {
+    const path = sampleGeneratedValue(arbitraryModuleSpecifier());
+    return { nodeType, field, source: buildSource(path), path };
+  });
 }
 
 export function literalAstOccurrenceCases(): readonly {
