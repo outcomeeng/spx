@@ -7,19 +7,23 @@
  * actually distinguishes, and guarantee at least one unsafe byte per value so a
  * regression in the escaping branch fails rather than passes vacuously.
  *
+ * The byte classes and the escape rendering are declared here from the ASCII
+ * standard (C0 controls occupy 0x00–0x1F, DEL is 0x7F, printable text begins
+ * at 0x20) and the `\xNN` two-digit lowercase hex form the CLI spec declares.
+ * They are deliberately not imported from the production sanitizer: an oracle
+ * that shared production's boundary constants would move in lockstep with a
+ * boundary regression and could never detect it.
+ *
  * @module testing/generators/terminal-text/terminal-text
  */
 
 import fc from "fast-check";
 
-import {
-  CONTROL_CHAR_UPPER_BOUND,
-  DEL_CHAR_CODE,
-  FIRST_PRINTABLE_CHAR_CODE,
-  HEX_PAD,
-  HEX_RADIX,
-} from "@/lib/sanitize-cli-argument";
-
+const ORACLE_C0_CONTROL_UPPER_BOUND = 0x1f;
+const ORACLE_DEL_CODE_POINT = 0x7f;
+const ORACLE_FIRST_PRINTABLE_CODE_POINT = 0x20;
+const ORACLE_HEX_RADIX = 16;
+const ORACLE_HEX_DIGITS = 2;
 const ORACLE_HEX_ESCAPE_PREFIX = String.raw`\x`;
 const ORACLE_HEX_PAD_CHARACTER = "0";
 
@@ -30,11 +34,11 @@ export interface TerminalEscapingCase {
 
 /** A byte the terminal treats as a command rather than as text: C0 controls and DEL. */
 export const arbitraryTerminalUnsafeCodePoint = (): fc.Arbitrary<number> =>
-  fc.oneof(fc.integer({ min: 0, max: CONTROL_CHAR_UPPER_BOUND }), fc.constant(DEL_CHAR_CODE));
+  fc.oneof(fc.integer({ min: 0, max: ORACLE_C0_CONTROL_UPPER_BOUND }), fc.constant(ORACLE_DEL_CODE_POINT));
 
 /** A byte that renders as itself. */
 export const arbitraryPrintableCodePoint = (): fc.Arbitrary<number> =>
-  fc.integer({ min: FIRST_PRINTABLE_CHAR_CODE, max: DEL_CHAR_CODE - 1 });
+  fc.integer({ min: ORACLE_FIRST_PRINTABLE_CODE_POINT, max: ORACLE_DEL_CODE_POINT - 1 });
 
 /**
  * Text carrying at least one terminal-unsafe byte among printable characters —
@@ -64,8 +68,10 @@ function independentlyEscapeTerminalText(input: string): string {
     if (codePoint === undefined) {
       throw new Error("Terminal escaping oracle received an empty character");
     }
-    return codePoint <= CONTROL_CHAR_UPPER_BOUND || codePoint === DEL_CHAR_CODE
-      ? `${ORACLE_HEX_ESCAPE_PREFIX}${codePoint.toString(HEX_RADIX).padStart(HEX_PAD, ORACLE_HEX_PAD_CHARACTER)}`
+    return codePoint <= ORACLE_C0_CONTROL_UPPER_BOUND || codePoint === ORACLE_DEL_CODE_POINT
+      ? `${ORACLE_HEX_ESCAPE_PREFIX}${
+        codePoint.toString(ORACLE_HEX_RADIX).padStart(ORACLE_HEX_DIGITS, ORACLE_HEX_PAD_CHARACTER)
+      }`
       : character;
   }).join("");
 }
