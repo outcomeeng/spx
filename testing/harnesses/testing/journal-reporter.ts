@@ -665,12 +665,6 @@ export interface ProductSuppliedVitestRunObservation {
   readonly recordedStart: RecordedVitestStart;
 }
 
-/**
- * Materializes a product supplying its own `vitest/node` entry, drives the descriptor's
- * streaming run over it with only a sink — so the descriptor builds its production
- * starter and loader — and returns the resolution the production loader reports, the
- * arguments the product-supplied entry recorded, and the run's outcome.
- */
 /** The types declaration a product's package maps beside an import-only Node API entry. */
 const NODE_API_TYPES_FILENAME = `${VITEST_NODE_API_ENTRY}.d.ts`;
 
