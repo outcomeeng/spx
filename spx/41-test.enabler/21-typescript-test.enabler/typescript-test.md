@@ -6,6 +6,10 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ## Assertions
 
+- ALWAYS: the journal-streaming run resolves the Vitest Node API against the product directory under test and imports the resolved module, so the run starts the Vitest that product selected
+- ALWAYS: an unresolvable Vitest Node API surfaces as a runner outcome naming the product directory searched, so a product without the runner is distinguishable from a run that started and failed
+- NEVER: this adapter's own package declares Vitest a runtime dependency to satisfy the journal-streaming run — the runner belongs to the product under test
+
 ### Scenarios
 
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
