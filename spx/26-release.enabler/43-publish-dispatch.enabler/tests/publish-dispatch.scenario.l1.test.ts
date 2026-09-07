@@ -12,6 +12,7 @@ import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   createPublicationHarness,
   createPublishReleaseCommandHarness,
+  observeDefaultPublishDependencies,
   observePublication,
   observePublishReleaseCli,
   observePublishReleaseCommand,
@@ -102,6 +103,18 @@ describe("release publication dispatch", () => {
     expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
       observation.scenario.expectedHostedRelease,
     ]);
+  });
+
+  it("reads the committed release artifacts and tagged commit from the product repository", async () => {
+    const observation = await observeDefaultPublishDependencies(
+      sampleReleaseTestValue(arbitraryPublicationScenario()),
+    );
+    expect(observation.packageIdentity).toEqual({
+      name: observation.scenario.packagePublication.name,
+      version: observation.scenario.packagePublication.version,
+    });
+    expect(observation.taggedCommit).toBe(observation.headCommit);
+    expect(observation.changelog).toBe(observation.scenario.changelog);
   });
 
   it("dispatches the release publish CLI verb", async () => {

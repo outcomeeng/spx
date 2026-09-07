@@ -10,14 +10,14 @@ import {
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import {
   DEFAULT_CHANGELOG_PATH,
-  resolveReleaseNotesPath,
+  resolveCanonicalReleaseNotesPath,
   validatedReleaseNotesSection,
 } from "@/domains/release/release-notes";
 import { defaultGitDependencies, GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
 import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
 
-import { canonicalizeExistingPath, createReleaseNotesFilesystem } from "./release-notes-filesystem";
+import { createReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 const PACKAGE_MANIFEST = "package.json";
 const GIT_COMMIT_SUFFIX = "^{commit}";
@@ -56,11 +56,11 @@ export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommand
   resolveReleaseData: async (productDir, version, tag) =>
     await computeReleaseData({ productDir, packageVersion: version, releaseRef: tag }),
   readReleaseNotes: async (productDir, changelogPath) => {
-    const resolvedPath = resolveReleaseNotesPath(productDir, { changelogPath });
-    const canonicalPath = await canonicalizeExistingPath(resolvedPath);
-    if (canonicalPath !== resolvedPath) {
-      throw new ReleasePublicationError(`Changelog path is not a canonical file: ${resolvedPath}`);
-    }
+    const canonicalPath = await resolveCanonicalReleaseNotesPath(
+      productDir,
+      { changelogPath },
+      releaseNotesFilesystem,
+    );
     return await releaseNotesFilesystem.readArtifact(canonicalPath, canonicalPath);
   },
   createPackagePublisher: (productDir) => createNpmPackagePublisher({ productDir }),

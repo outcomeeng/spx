@@ -1,6 +1,10 @@
 import { Command } from "commander";
 
-import { publishReleaseCommand, type PublishReleaseCommandOptions } from "@/commands/release/publish";
+import {
+  DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
+  publishReleaseCommand,
+  type PublishReleaseCommandOptions,
+} from "@/commands/release/publish";
 import {
   type HostedRelease,
   type HostedReleasePublisher,
@@ -9,12 +13,16 @@ import {
   publishRelease,
   type PublishReleaseInput,
 } from "@/domains/release/publication";
+import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import type {
   PublicationConfirmationFailureScenario,
   PublicationScenario,
 } from "@testing/generators/release/publication";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 export interface RecordedPublicationRequest<T> {
   readonly sequence: number;
@@ -89,6 +97,49 @@ export function createPublicationHarness(
     publish: () => publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher)),
     observe: () => publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
   };
+}
+
+/** What the default publish dependencies read back from a real product repository. */
+export interface DefaultPublishDependenciesObservation {
+  readonly scenario: PublicationScenario;
+  readonly packageIdentity: { readonly name: string; readonly version: string };
+  readonly taggedCommit: string;
+  readonly headCommit: string;
+  readonly changelog: string;
+}
+
+const PACKAGE_MANIFEST_FILE = "package.json";
+
+/**
+ * Materializes the scenario's package manifest and changelog in a real git
+ * repository, tags the commit, and reads them back through the production
+ * default dependencies — real filesystem and real git, no controlled boundary.
+ */
+export async function observeDefaultPublishDependencies(
+  scenario: PublicationScenario,
+): Promise<DefaultPublishDependenciesObservation> {
+  let observation: DefaultPublishDependenciesObservation | undefined;
+  await withGitWorktreeEnv(async (env) => {
+    await env.writeTracked(
+      PACKAGE_MANIFEST_FILE,
+      JSON.stringify({ name: scenario.packagePublication.name, version: scenario.packagePublication.version }),
+    );
+    await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.changelog);
+    await env.commit(scenario.tag);
+    await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
+    const headCommit = (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
+
+    const [packageIdentity, taggedCommit, changelog] = await Promise.all([
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readPackageIdentity(env.productDir),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveTaggedCommit(env.productDir, scenario.tag),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(env.productDir, DEFAULT_CHANGELOG_PATH),
+    ]);
+    observation = { scenario, packageIdentity, taggedCommit, headCommit, changelog };
+  });
+  if (observation === undefined) {
+    throw new Error("Default publish dependencies produced no observation");
+  }
+  return observation;
 }
 
 export interface PublishReleaseCommandHarness {
