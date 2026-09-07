@@ -9,12 +9,17 @@ import {
   SEVERITY,
   SEVERITY_STYLE,
 } from "@/lib/styled-output/styled-output";
+import { authoredText } from "@/lib/terminal-text/terminal-text";
 
 describe("a styled report renders bold headers, dim tree-indented detail, and a severity-colored bold summary", () => {
   it("styles each element per the convention when color is enabled", () => {
     const chalk = new Chalk({ level: 1 });
-    const section = { severity: SEVERITY.OK, header: SEVERITY.OK, details: [SEVERITY.WARN, SEVERITY.ERROR] };
-    const summary = { severity: SEVERITY.ERROR, text: SEVERITY.ERROR };
+    const section = {
+      severity: SEVERITY.OK,
+      header: authoredText(SEVERITY.OK),
+      details: [authoredText(SEVERITY.WARN), authoredText(SEVERITY.ERROR)],
+    };
+    const summary = { severity: SEVERITY.ERROR, text: authoredText(SEVERITY.ERROR) };
 
     const [headerLine, firstDetail, lastDetail, summaryLine] = renderStyledReport(
       { sections: [section], summary },

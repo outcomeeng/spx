@@ -70,18 +70,18 @@ export const DETAIL_BRANCH_SEPARATOR = "── ";
 export interface StyledSection {
   /** The severity that keys the section's status glyph and color. */
   readonly severity: Severity;
-  /** The bold section header text. */
-  readonly header: string;
-  /** The dim, tree-indented detail lines under the header. */
-  readonly details: readonly string[];
+  /** The bold section header text, composed where it was produced. */
+  readonly header: TerminalText;
+  /** The dim, tree-indented detail lines under the header, each composed where it was produced. */
+  readonly details: readonly TerminalText[];
 }
 
 /** The severity-colored, bold summary line that closes a styled report. */
 export interface StyledSummary {
   /** The severity that colors the summary line. */
   readonly severity: Severity;
-  /** The summary line text. */
-  readonly text: string;
+  /** The summary line text, composed where it was produced. */
+  readonly text: TerminalText;
 }
 
 /** A styled report: a list of sections plus a closing summary line. */
@@ -113,22 +113,24 @@ export interface PlainTreeModel {
  */
 const TREE_LINE_SEPARATOR = "\n";
 
-export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): string {
+export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): TerminalText {
   const chalk = new Chalk({ level: options.color ? 1 : 0 });
-  const lines: string[] = [];
+  // Every header, detail, and summary arrives with its escaping already decided, so chalk only
+  // wraps ANSI around content the producer settled; each styled line is the product's own and
+  // keeps the bytes chalk added.
+  const lines: TerminalText[] = [];
   for (const section of model.sections) {
     const { glyph, style } = SEVERITY_STYLE[section.severity];
-    lines.push(`${chalk[style](glyph)} ${chalk.bold(section.header)}`);
+    lines.push(authoredText(`${chalk[style](glyph)} ${chalk.bold(section.header)}`));
     const lastIndex = section.details.length - 1;
     section.details.forEach((detail, index) => {
       const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-      const detailText = `${branch} ${detail}`;
-      lines.push(`${DETAIL_INDENT}${chalk.dim(detailText)}`);
+      lines.push(authoredText(`${DETAIL_INDENT}${chalk.dim(`${branch} ${detail}`)}`));
     });
   }
   const summaryStyle = SEVERITY_STYLE[model.summary.severity].style;
-  lines.push(chalk.bold(chalk[summaryStyle](model.summary.text)));
-  return lines.join("\n");
+  lines.push(authoredText(chalk.bold(chalk[summaryStyle](model.summary.text))));
+  return joinTerminalText(TREE_LINE_SEPARATOR, lines);
 }
 
 /**
