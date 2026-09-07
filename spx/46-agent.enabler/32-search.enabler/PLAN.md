@@ -37,9 +37,17 @@ across files, and exits each file at its first hit.
 
 `TranscriptLocator` lives in `src/domains/agent/search/` as a typed port:
 `locate(roots: readonly string[], needle: string): Promise<readonly string[]>`. Its production
-adapter lives beside `nodeAgentSearchFileSystem` in `src/commands/agent/search.ts` and receives
-an `execa`-shaped runner through dependency injection, mirroring `GitDependencies` in
-`src/lib/git/root.ts`.
+adapter is a ripgrep runner under `src/lib/ripgrep/`, mirroring the git runner in
+`src/lib/git/` and receiving an `execa`-shaped dependency the same way `GitDependencies` does;
+`spx/13-cli.enabler/15-cli-architecture.adr.md` keeps process mechanics out of the CLI layer,
+so the command layer only wires the runner in, beside `nodeAgentSearchFileSystem`.
+
+The locator is line-oriented: `rg` matches within a line, so a needle carrying a newline can
+never match, where a substring search over the whole text would. Every selector needle spx
+composes — a branch name, a pickup marker, a session id — is newline-free, and `--contains`
+rejects a literal carrying a newline with a diagnostic. The byte-equals-text invariant is
+declared over newline-free needles, and the property generator excludes them by construction
+rather than by chance.
 
 The adapter's invocation, every flag of which is a correctness bug when omitted:
 
@@ -48,9 +56,8 @@ rg -l -F -a --hidden --no-ignore --no-messages -0 -g '*.jsonl' -- <needle> <root
 ```
 
 - `-l` names files only; `-F` treats the needle as a literal, since a branch name is not a regex.
-- `-a` treats every file as text: a transcript carrying a NUL byte is otherwise skipped as
-  binary. On the real store `-a` finds the same 74 files and runs faster, because it skips
-  detection.
+- `-a` treats every file as text: a transcript carrying a NUL byte is otherwise treated as
+  binary and matches after the NUL are lost. On the real store `-a` names the same 74 files.
 - `--hidden` and `--no-ignore`: all three stores live under dotfolders, and a `.gitignore`
   anywhere above them would otherwise silently exclude transcripts.
 - `-0` NUL-separates paths, so a path carrying a newline survives.
@@ -64,9 +71,15 @@ Selector candidacy becomes set algebra over locator results:
   evidence, per-record association, and sibling association. A transcript in the branch set
   but outside the content set is never a row, yet its recorded branch still associates a
   sibling transcript of the same session that is — the rule the existing `search.mapping`
-  evidence enforces. Worktree-root association still comes from head metadata and calls no
-  locator.
-- `--session-id` yields the transcripts containing the id, across every store.
+  evidence enforces. Worktree-root association is declared for a session whose transcript
+  never names the branch, so a branch query still lists the in-window transcripts and reads
+  their opening metadata; the locator removes the byte scan over all history, not that
+  listing. The branch candidate set is the union of the locator's hits and the in-window
+  listing, and only the hits are ever read past their head.
+- `--session-id` yields every transcript containing the id string — on the real store 81
+  files, most of them other sessions that merely mention it. Head-metadata identity still
+  decides: a candidate is a row only when its own opening metadata carries that session id.
+  The locator replaces enumeration, never the identity check.
 - A selector-free listing calls no locator and keeps the opening-directory admission.
 
 Removed with the rewire: `src/domains/agent/search/byte-scan.ts`, the `readBytes` and
@@ -115,11 +128,14 @@ of `MemoryAgentSessionFileSystem`. `readText` returns to the boundary and is cal
 
 ### Done criteria
 
-- On the 6.0 GB store: `--branch work/chat-voice-core` and `--contains work/chat-voice-core`
-  complete within three seconds wall clock and `--session-id 080e9a4e-08eb-4a09-8825-96f60ef94b02`
-  within two, each returning exactly the sessions the store returns today — 1, 8, and 1
-  result rows respectively — reduced from the locator's candidate files, 74 of them for the
-  branch needle.
+- Differential check on one store snapshot: for `--branch work/chat-voice-core`,
+  `--contains work/chat-voice-core`, and `--session-id 080e9a4e-08eb-4a09-8825-96f60ef94b02`,
+  the locator-backed search returns row for row what the in-process implementation returns
+  on the same snapshot — 1, 8, and 1 rows at the time of the plan, reduced from 74, 8-plus,
+  and 81 locator candidates.
+- Wall clock on that snapshot: the locator's own time plus the in-window listing's head
+  reads. Measure both terms before setting the bound; three seconds for the branch query is
+  the expectation, not a derived number.
 - The boundary evidence is green and survives its mutation litmus.
 - The "Selector search cost" entry in [ISSUES.md](ISSUES.md) closes with the measurement.
 
