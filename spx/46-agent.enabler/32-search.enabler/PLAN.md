@@ -131,8 +131,9 @@ of `MemoryAgentSessionFileSystem`. `readText` returns to the boundary and is cal
 - Differential check on one store snapshot: for `--branch work/chat-voice-core`,
   `--contains work/chat-voice-core`, and `--session-id 080e9a4e-08eb-4a09-8825-96f60ef94b02`,
   the locator-backed search returns row for row what the in-process implementation returns
-  on the same snapshot — 1, 8, and 1 rows at the time of the plan, reduced from 74, 8-plus,
-  and 81 locator candidates.
+  on the same snapshot — 1, 8, and 1 rows at the time of the plan, reduced from 74, 74,
+  and 81 locator candidates; the branch and content queries share one literal, so they share
+  one candidate set and differ only in how the domain reduces it.
 - Wall clock on that snapshot: the locator's own time plus the in-window listing's head
   reads. Measure both terms before setting the bound; three seconds for the branch query is
   the expectation, not a derived number.
