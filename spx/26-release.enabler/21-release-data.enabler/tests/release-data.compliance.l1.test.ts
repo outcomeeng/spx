@@ -4,10 +4,10 @@ import { computeReleaseData } from "@/domains/release/release-data";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { RecordingReleaseGitRunner } from "@testing/harnesses/release/git-runner";
+import { GIT_REMOTE_SUBCOMMANDS, RecordingReleaseGitRunner } from "@testing/harnesses/release/git-runner";
 
 describe("computeReleaseData — git plumbing and the working tree are the only inputs", () => {
-  it("invokes only the git executable through the injected runner", async () => {
+  it("invokes only git, and never a subcommand that reaches a remote", async () => {
     await withGitWorktreeEnv(async (env) => {
       const [base, head] = sampleReleaseTestValue(
         RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.complianceCommits),
@@ -28,9 +28,23 @@ describe("computeReleaseData — git plumbing and the working tree are the only 
         deps: runner,
       });
 
-      expect(runner.invokedExecutables.length).toBeGreaterThan(0);
-      expect(runner.invokedExecutables.every((executable) => executable === GIT_TEST_COMMAND)).toBe(true);
+      expect(runner.invocations.length).toBeGreaterThan(0);
+      for (const invocation of runner.invocations) {
+        expect(invocation.executable).toBe(GIT_TEST_COMMAND);
+        expect(GIT_REMOTE_SUBCOMMANDS).not.toContain(invocation.args[0]);
+      }
       expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
+    });
+  });
+
+  it("records a remote-reaching subcommand so the evidence above can fail", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const runner = new RecordingReleaseGitRunner();
+
+      await runner.execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.FETCH], { cwd: env.productDir, reject: false });
+
+      expect(runner.invocations.map((invocation) => invocation.args[0])).toEqual([GIT_TEST_SUBCOMMANDS.FETCH]);
+      expect(GIT_REMOTE_SUBCOMMANDS).toContain(GIT_TEST_SUBCOMMANDS.FETCH);
     });
   });
 });

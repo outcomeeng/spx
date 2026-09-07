@@ -13,6 +13,7 @@ export const GIT_TEST_SUBCOMMANDS = {
   CLONE: "clone",
   COMMIT: "commit",
   CONFIG: "config",
+  FETCH: "fetch",
   INIT: "init",
   LS_FILES: "ls-files",
   MERGE: "merge",
