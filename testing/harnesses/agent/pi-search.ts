@@ -28,6 +28,7 @@ import {
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 import { agentSearchSwitchCommand } from "@testing/generators/agent/search";
+import { MemoryTranscriptLocator } from "@testing/harnesses/agent/locator";
 import { piTranscript, piTranscriptPath } from "@testing/harnesses/agent/pi-resume";
 import {
   claudeCodeTranscript,
@@ -36,7 +37,6 @@ import {
   codexTranscriptPath,
   MemoryAgentSessionFileSystem,
 } from "@testing/harnesses/agent/resume";
-import { MemoryTranscriptLocator } from "@testing/harnesses/agent/locator";
 
 const PI_SEARCH_SAMPLE = {
   HOME_DIR: 501,

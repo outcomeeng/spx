@@ -1272,6 +1272,7 @@ export async function withAgentSearchExplicitLimitEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ pickupId, limit: explicitLimit }),
   });
 
@@ -1308,6 +1309,7 @@ export async function withAgentSearchAllSessionsEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ all: true }),
   });
 
@@ -1354,6 +1356,7 @@ export async function withAgentSearchOlderDuplicateEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ branch, contains }),
   });
 
@@ -1605,6 +1608,7 @@ export async function withAgentSearchDefaultLimitEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 

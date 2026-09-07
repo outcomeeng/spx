@@ -1,3 +1,4 @@
+import { piSessionStoreDir } from "../home";
 import type { AgentHomeDirs } from "../home";
 import {
   AGENT_RESUME_LIMITS,
@@ -17,7 +18,6 @@ import {
   CLAUDE_PROJECT_ENCODED_SEPARATOR,
   claudeCodeSessionStoreDir,
   claudeProjectDirName,
-  claudeSessionIdTranscriptFiles,
   claudeTranscriptFiles,
   codexSessionStoreDir,
   collectJsonlFiles,
@@ -40,7 +40,6 @@ import {
   cwdMatchesSearchScope,
   type TopLevelBranchAssociations,
 } from "./branch-association";
-import { transcriptBytesCarry, transcriptBytesCarryEvery } from "./byte-scan";
 import type { TranscriptLocator } from "./locator";
 import { type AgentSearchContentNeedle, type AgentSearchQuery, hasSearchSelector } from "./query";
 import {
@@ -52,20 +51,16 @@ import {
 } from "./transcript-records";
 
 export interface AgentSearchFileSystem extends AgentSessionFileSystem {
-  readBytes(path: string): Promise<Uint8Array>;
-  /** The store's bytes as text, under the encoding the store records. */
-  decodeText(bytes: Uint8Array): string;
+  /** The transcript's whole text; read only for a transcript the locator named. */
+  readText(path: string): Promise<string>;
 }
 
-/** Resolves a session id to the store entries filed under it, where the store's naming allows. */
-type SessionAddressResolver = (options: AgentSearchOptions, sessionId: string) => Promise<readonly string[]>;
-
 interface AgentSearchAdapter {
+  readonly storeRoot: (agentHomeDirs: AgentHomeDirs) => string;
   readonly collectPaths: (
     options: AgentSearchOptions,
     acceptsClaudeDir: (dirName: string) => boolean,
   ) => Promise<readonly string[]>;
-  readonly locateSessionId: SessionAddressResolver | null;
   readonly parseHead: AgentHeadParser;
   readonly readRecords: TranscriptRecordReader | null;
   readonly acceptsTranscriptCommandEvidence: boolean;
@@ -74,25 +69,20 @@ interface AgentSearchAdapter {
 
 const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, AgentSearchAdapter>> = {
   [AGENT_SESSION_KIND.CODEX]: {
+    storeRoot: (agentHomeDirs) => codexSessionStoreDir(agentHomeDirs.codex),
     collectPaths: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
-    locateSessionId: null,
     parseHead: parseCodexHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: true,
     acceptsCodexSubagentEvidence: true,
   },
   [AGENT_SESSION_KIND.CLAUDE_CODE]: {
+    storeRoot: (agentHomeDirs) => claudeCodeSessionStoreDir(agentHomeDirs.claudeCode),
     collectPaths: (options, acceptsClaudeDir) =>
       claudeTranscriptFiles(
         claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
         options.fs,
         acceptsClaudeDir,
-      ),
-    locateSessionId: (options, sessionId) =>
-      claudeSessionIdTranscriptFiles(
-        claudeCodeSessionStoreDir(options.agentHomeDirs.claudeCode),
-        options.fs,
-        sessionId,
       ),
     parseHead: parseClaudeHead,
     readRecords: parseClaudeTranscriptRecords,
@@ -100,8 +90,9 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
     acceptsCodexSubagentEvidence: false,
   },
   [AGENT_SESSION_KIND.PI]: {
-    collectPaths: (options) => collectJsonlFiles(options.agentHomeDirs.piSessions, options.fs),
-    locateSessionId: null,
+    storeRoot: (agentHomeDirs) => piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions),
+    collectPaths: (options) =>
+      collectJsonlFiles(piSessionStoreDir(options.agentHomeDirs.piAgent, options.agentHomeDirs.piSessions), options.fs),
     parseHead: parsePiHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: false,
@@ -130,6 +121,17 @@ export interface AgentSearchResult {
   readonly matches: readonly AgentSearchMatchReason[];
 }
 
+/**
+ * The transcripts the locator named for one store, per needle. A row lies in every content
+ * needle's set and, under a session-id selector, in the id's set; a branch needle's set bounds
+ * transcript-borne branch evidence. A transcript outside every set is never read past its head.
+ */
+interface LocatedTranscripts {
+  readonly content: readonly ReadonlySet<string>[];
+  readonly sessionId: ReadonlySet<string> | null;
+  readonly branch: ReadonlySet<string> | null;
+}
+
 export async function searchAgentSessions(options: AgentSearchOptions): Promise<AgentSearchResult[]> {
   const selectedAgents = options.query.agent === null ? AGENT_SEARCH_SESSION_KINDS : [options.query.agent];
   const perAgent = await Promise.all(
@@ -146,7 +148,8 @@ async function searchAgentStore(
   options: AgentSearchOptions,
 ): Promise<AgentSearchResult[]> {
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
-  const paths = await candidatePaths(options, adapter);
+  const located = await locateTranscripts(options, adapter);
+  const paths = await adapter.collectPaths(options, claudeDirAdmission(options));
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -154,7 +157,10 @@ async function searchAgentStore(
   const files = needsBranchEvidence
     ? options.query.includeAll ? allFiles : recentStoreFiles(allFiles, options.nowMs, recentWindowMs)
     : await storeFiles(paths, options.fs, options.nowMs, options.query.includeAll, recentWindowMs);
-  const branchEvidenceFiles = needsBranchEvidence ? nonFutureStoreFiles(allFiles, options.nowMs) : [];
+  const candidates = candidateFiles(files, located, options.query);
+  const branchEvidenceFiles = needsBranchEvidence
+    ? nonFutureStoreFiles(allFiles, options.nowMs).filter((file) => located.branch?.has(file.path) === true)
+    : [];
   const topLevelBranchAssociations = needsBranchEvidence && adapter.acceptsTranscriptCommandEvidence
     ? await collectTopLevelBranchAssociations(branchEvidenceFiles, options, parser)
     : emptyTopLevelBranchAssociations();
@@ -163,27 +169,61 @@ async function searchAgentStore(
     : new Map<string, CodexSubagentBranchAssociation>();
   return collectMatchingSessions(
     agent,
-    files,
+    candidates,
     options,
     adapter,
+    located,
     topLevelBranchAssociations,
     subagentBranchAssociations,
   );
 }
 
 /**
- * A session id addresses its store entries directly where the adapter declares a resolver, so the
- * store is never listed to answer it. Every other selector collects candidates from the store.
+ * Runs the locator once per needle over the store root. A selector-free listing calls no
+ * locator, and a store root the filesystem cannot list yields empty sets without a run.
  */
-async function candidatePaths(
+async function locateTranscripts(
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
-): Promise<readonly string[]> {
-  const sessionId = options.query.sessionId;
-  if (sessionId !== null && adapter.locateSessionId !== null) {
-    return adapter.locateSessionId(options, sessionId);
+): Promise<LocatedTranscripts> {
+  const { query } = options;
+  const root = adapter.storeRoot(options.agentHomeDirs);
+  const rootListable = await options.fs.readDir(root).then(() => true, () => false);
+  const locate = async (needle: string): Promise<ReadonlySet<string>> =>
+    new Set(rootListable ? await options.locator.locate([root], needle) : []);
+  const [content, sessionId, branch] = await Promise.all([
+    Promise.all(query.contentNeedles.map((needle) => locate(needle.value))),
+    query.sessionId === null ? Promise.resolve(null) : locate(query.sessionId),
+    query.branch === null ? Promise.resolve(null) : locate(query.branch),
+  ]);
+  return { content, sessionId, branch };
+}
+
+/**
+ * A row lies in every content set and in the session-id set. A branch selector admits every
+ * listed file: worktree-root association reads opening metadata the locator cannot see, and a
+ * transcript in the branch set but outside the content set is never a row, yet its recorded
+ * branch associates a sibling transcript of the same session that is one.
+ */
+function candidateFiles(
+  files: readonly AgentStoreFile[],
+  located: LocatedTranscripts,
+  query: AgentSearchQuery,
+): readonly AgentStoreFile[] {
+  if (query.branch !== null) {
+    return files;
   }
-  return adapter.collectPaths(options, claudeDirAdmission(options, adapter));
+  return files.filter((file) =>
+    located.content.every((set) => set.has(file.path))
+    && (located.sessionId === null || located.sessionId.has(file.path))
+  );
+}
+
+/** Whether the locator named this transcript for any needle of the invocation. */
+function locatorNamed(located: LocatedTranscripts, path: string): boolean {
+  return located.content.some((set) => set.has(path))
+    || located.sessionId?.has(path) === true
+    || located.branch?.has(path) === true;
 }
 
 /** A session id names one session, so product scope selects the reported directory, not the result set. */
@@ -197,8 +237,8 @@ function scopeDecidesInclusion(query: AgentSearchQuery): boolean {
  * the opening working directory alone — the same value the directory name encodes — so there
  * the name excludes nothing the scope check would keep.
  */
-function claudeDirAdmission(options: AgentSearchOptions, adapter: AgentSearchAdapter): (dirName: string) => boolean {
-  if (requiresTranscriptContent(options.query, adapter)) {
+function claudeDirAdmission(options: AgentSearchOptions): (dirName: string) => boolean {
+  if (hasLocatorNeedle(options.query)) {
     return acceptsEveryClaudeProjectDir;
   }
   const projectPrefixes = [options.productScopeRoot, ...(options.branchAssociatedWorktreeRoots ?? [])]
@@ -218,6 +258,7 @@ async function collectMatchingSessions(
   files: readonly AgentStoreFile[],
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
+  located: LocatedTranscripts,
   topLevelBranchAssociations: TopLevelBranchAssociations,
   subagentBranchAssociations: ReadonlyMap<string, CodexSubagentBranchAssociation>,
 ): Promise<AgentSearchResult[]> {
@@ -226,7 +267,7 @@ async function collectMatchingSessions(
   const currentMetadataSessionIds = new Set<string>();
   const currentMetadataBranchAssociationCwds = new Map<string, string>();
   for (const file of files) {
-    const scanned = await scanTranscript(file.path, options, adapter);
+    const scanned = await scanTranscript(file.path, options, adapter, located);
     if (scanned === null) continue;
     const core = scanned.core;
     if (seen.has(core.sessionId)) continue;
@@ -240,14 +281,14 @@ async function collectMatchingSessions(
       candidateMetadataIsCurrent,
       currentMetadataBranchAssociationCwds,
     );
-    const records = transcriptRecords(adapter, content, options.query);
+    const records = transcriptRecords(adapter, content);
     const recordedScopeCwd = recordedCwdMatching(records, (cwd) => cwdMatchesSearchInputScope(cwd, options));
     if (
       scopeDecidesInclusion(options.query)
       && recordedScopeCwd === null
       && !coreCanHaveScopedSearchResult(core, options, subagentBranchAssociations)
     ) continue;
-    const match = await matchReasons(
+    const match = matchReasons(
       agent,
       core,
       options,
@@ -257,7 +298,7 @@ async function collectMatchingSessions(
         subagent: subagentBranchAssociations,
         candidateCwd: recordedBranchAssociationCwd(records, options)
           ?? currentMetadataBranchAssociationCwds.get(core.sessionId) ?? null,
-        prefetchedContent: content,
+        content,
       },
     );
     if (match === null) continue;
@@ -284,27 +325,16 @@ interface ScannedTranscript {
 }
 
 /**
- * Locates the selector in raw bytes before any structural read, so a transcript that
- * cannot match is never parsed for session metadata.
+ * Reads a candidate's metadata head, then its text only when the locator named the transcript
+ * and the selector consumes text through this adapter. A candidate the locator did not name
+ * is never read past its head.
  */
 async function scanTranscript(
   path: string,
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
+  located: LocatedTranscripts,
 ): Promise<ScannedTranscript | null> {
-  // Candidacy is decided over undecoded bytes: a content needle absent from them rejects
-  // the transcript before any structural read, and a selector decodes a transcript only
-  // once its bytes carry a needle that selector requires. A branch selector keeps a
-  // needle-less transcript as a candidate, because its recorded branch may be what
-  // associates a sibling transcript of the same session that does carry the needle.
-  const needles = options.query.contentNeedles.map((needle) => needle.value);
-  const bytes = requiresTranscriptContent(options.query, adapter)
-    ? await options.fs.readBytes(path).catch(() => null)
-    : null;
-  const carriesEveryNeedle = needles.length > 0 && bytes !== null && transcriptBytesCarryEvery(bytes, needles);
-  if (needles.length > 0 && !carriesEveryNeedle && options.query.branch === null) {
-    return null;
-  }
   const head = await options.fs.readHead(path, AGENT_RESUME_LIMITS.METADATA_HEAD_BYTES).catch(() => null);
   if (head === null) {
     return null;
@@ -313,35 +343,33 @@ async function scanTranscript(
   if (core === null || !core.interactive) {
     return null;
   }
-  if (bytes === null || !decodeWarranted(bytes, core, options.query, adapter, carriesEveryNeedle)) {
+  if (!locatorNamed(located, path) || !textWarranted(core, options.query, adapter)) {
     return { core, content: null };
   }
-  return { core, content: options.fs.decodeText(bytes) };
+  const content = await options.fs.readText(path).catch(() => null);
+  return { core, content };
 }
 
 /**
- * A content selector already proved its needles present. A session-id selector decodes to
- * read the addressed transcript's records, needle-free but bounded by address. A branch
- * selector decodes only a transcript whose bytes name the branch, and not even then where
- * the opening metadata alone resolves it for an adapter without a record reader.
+ * A content selector reads its needles from the text. A session-id selector reads the located
+ * transcript's records where the adapter declares a reader. A branch selector reads a located
+ * transcript's records or commands, and not even those where the opening metadata alone
+ * resolves it for an adapter without a record reader.
  */
-function decodeWarranted(
-  bytes: Uint8Array,
-  core: AgentSessionHead,
-  query: AgentSearchQuery,
-  adapter: AgentSearchAdapter,
-  carriesEveryNeedle: boolean,
-): boolean {
-  if (carriesEveryNeedle) {
+function textWarranted(core: AgentSessionHead, query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
+  if (query.contentNeedles.length > 0) {
     return true;
   }
   if (query.sessionId !== null && adapter.readRecords !== null) {
     return true;
   }
-  if (query.branch === null || !transcriptBytesCarry(bytes, query.branch)) {
+  if (query.branch === null) {
     return false;
   }
-  return !(adapter.readRecords === null && openingMetadataResolvesBranch(core, query));
+  if (adapter.readRecords !== null) {
+    return true;
+  }
+  return adapter.acceptsTranscriptCommandEvidence && !openingMetadataResolvesBranch(core, query);
 }
 
 function recordCurrentMetadataBranchAssociation(
@@ -378,16 +406,16 @@ interface BranchAssociationContext {
   readonly topLevel: TopLevelBranchAssociations;
   readonly subagent: ReadonlyMap<string, CodexSubagentBranchAssociation>;
   readonly candidateCwd: string | null;
-  readonly prefetchedContent: string | null;
+  readonly content: string | null;
 }
 
-async function matchReasons(
+function matchReasons(
   agent: AgentSearchSessionKind,
   core: AgentSessionHead,
   options: AgentSearchOptions,
   adapter: AgentSearchAdapter,
   association: BranchAssociationContext,
-): Promise<BranchSearchMatch | null> {
+): BranchSearchMatch | null {
   if (!hasSearchSelector(options.query)) {
     return {
       reasons: [AGENT_SEARCH_MATCH_REASON.ALL],
@@ -408,23 +436,16 @@ async function matchReasons(
   if (branchMatches === null && association.topLevel.commandCheckedSessionIds.has(core.sessionId)) {
     return null;
   }
-  const requiresContent = (branchMatches === null && adapter.acceptsTranscriptCommandEvidence)
-    || options.query.contentNeedles.length > 0;
-  // Scanning decided whether this transcript's bytes warrant a decode; one it left
-  // undecoded carries no evidence a content read here could add.
-  const content = association.prefetchedContent ?? (requiresContent ? null : undefined);
-  if (content === null) {
-    return null;
-  }
+  // A transcript the scan left unread carries no evidence a content read here could add.
   const resolvedBranchMatches = branchMatches ?? (
-    adapter.acceptsTranscriptCommandEvidence
-      ? branchTranscriptCommandMatchReasons(content, options.query.branch)
+    adapter.acceptsTranscriptCommandEvidence && association.content !== null
+      ? branchTranscriptCommandMatchReasons(association.content, options.query.branch)
       : null
   );
   if (resolvedBranchMatches === null) {
     return null;
   }
-  const contentMatches = contentMatchReasons(content, options.query);
+  const contentMatches = contentMatchReasons(association.content, options.query);
   if (contentMatches === null) {
     return null;
   }
@@ -447,19 +468,12 @@ function recordedBranchAssociationCwd(
   return branchCwd !== null && cwdMatchesSearchInputScope(branchCwd, options) ? branchCwd : null;
 }
 
-/**
- * Records are parsed only when the raw bytes can support the selector: a branch the
- * transcript never names cannot appear in any of its records.
- */
+/** Records come only from text the scan read, which the locator bounded to its hits. */
 function transcriptRecords(
   adapter: AgentSearchAdapter,
   content: string | null,
-  query: AgentSearchQuery,
 ): readonly AgentTranscriptRecord[] {
   if (adapter.readRecords === null || content === null) {
-    return [];
-  }
-  if (query.branch !== null && !content.includes(query.branch)) {
     return [];
   }
   return adapter.readRecords(content);
@@ -474,17 +488,9 @@ function openingMetadataResolvesBranch(core: AgentSessionHead, query: AgentSearc
   return query.branch !== null && core.branch === query.branch;
 }
 
-/**
- * A selector-free listing resolves from opening metadata alone, so it never decodes a
- * transcript. Only a selector that reads recorded content pays that cost.
- */
-function requiresTranscriptContent(query: AgentSearchQuery, adapter: AgentSearchAdapter): boolean {
-  if (!hasSearchSelector(query)) {
-    return false;
-  }
-  return query.contentNeedles.length > 0
-    || (query.sessionId !== null && adapter.readRecords !== null)
-    || (query.branch !== null && (adapter.readRecords !== null || adapter.acceptsTranscriptCommandEvidence));
+/** Whether the invocation carries a selector the locator answers. */
+function hasLocatorNeedle(query: AgentSearchQuery): boolean {
+  return query.contentNeedles.length > 0 || query.sessionId !== null || query.branch !== null;
 }
 
 function coreMatchesSearchInputScope(
@@ -520,13 +526,13 @@ function metadataMatchReasons(
 }
 
 function contentMatchReasons(
-  content: string | undefined,
+  content: string | null,
   query: AgentSearchQuery,
 ): AgentSearchMatchReason[] | null {
   if (query.contentNeedles.length === 0) {
     return [];
   }
-  return content === undefined ? null : matchingContentNeedles(content, query.contentNeedles);
+  return content === null ? null : matchingContentNeedles(content, query.contentNeedles);
 }
 
 function matchingContentNeedles(
