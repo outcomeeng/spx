@@ -52,6 +52,17 @@ describe("Commander diagnostics — terminal byte-safety compliance", () => {
     expect(run.stderr).toContain(scenario.escapedEscapeByte);
   });
 
+  it("escapes control bytes in a value an option's own parser repeats in the message it throws", async () => {
+    const scenario = commanderDiagnosticScenario();
+
+    const run = await runCliDiagnostic(scenario.rejectingParserArgv, { registerRejectingParser: true });
+
+    expect(run.commanderError).toBeInstanceOf(CommanderError);
+    expect(run.stderr).not.toContain(scenario.rawEscapeByte);
+    expect(run.stderr).not.toContain(scenario.rawForgedLineBreak);
+    expect(run.stderr).toContain(scenario.escapedEscapeByte);
+  });
+
   it("keeps the newline Commander wrote between a near-match option diagnostic and its suggestion", async () => {
     const scenario = commanderDiagnosticScenario();
 

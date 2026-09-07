@@ -1,4 +1,4 @@
-import { type Argument, Command, type Option } from "commander";
+import { type Argument, Command, InvalidArgumentError, type Option } from "commander";
 
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
@@ -26,10 +26,13 @@ type CliGlobalOptions = {
  * so by the time a message reaches `error` the two are no longer separable. These three hooks are
  * where they are still apart: every other diagnostic Commander raises embeds only declarations
  * the product wrote — an option's flags, an argument's name, the command's own name, a count.
- * Commander marks all three `@api private` and omits them from its published typings; this states
- * the runtime shape the overrides bind to.
+ * Commander marks all three `@api private` and omits them from its published typings, as it omits
+ * the parser an argument carries; this states the runtime shape the overrides bind to.
  */
 declare module "commander" {
+  interface Argument {
+    parseArg?: <T>(value: string, previous: T) => T;
+  }
   interface Command {
     unknownOption(flag: string): void;
     unknownCommand(): void;
@@ -43,17 +46,6 @@ declare module "commander" {
 }
 
 /**
- * Restates a message Commander already composed with the caller's value in escaped form. The
- * substitution takes the first occurrence, which is the caller's own: it runs only when escaping
- * changed the value, and a value that changed carries a byte no flags string, argument name, or
- * command name the product declared around it can hold. An empty value is left alone — there is
- * no byte in it to rewrite the terminal with, and the escaper answers it with a sentinel that
- * would replace Commander's quoted empty argument with prose the caller never typed. The
- * replacement is supplied as a function so the escaped text is spliced literally: handed over as
- * a string, `$&` or `$'` inside it would be read as a substitution pattern and paste the raw
- * match — control byte included — back into the diagnostic.
- */
-/**
  * Decides a caller-supplied token as external and renders it back to the string Commander takes.
  * Commander composes the diagnostic itself, so the token cannot be spliced as composed text; the
  * decision still goes through the composition primitive rather than the escaper directly.
@@ -62,10 +54,21 @@ function escapedToken(value: string): string {
   return renderTerminalText(externalValue(value));
 }
 
+/**
+ * Restates a message Commander composed with every occurrence of the caller's value in escaped
+ * form. The substitution runs only when escaping changed the value, and a value that changed
+ * carries a byte no flags string, argument name, or command name the product declared around it
+ * can hold, so no declared text is touched. An empty value is left alone — there is no byte in it
+ * to rewrite the terminal with, and the escaper answers it with a sentinel that would replace
+ * Commander's quoted empty argument with prose the caller never typed. The replacement is supplied
+ * as a function so the escaped text is spliced literally: handed over as a string, `$&` or `$'`
+ * inside it would be read as a substitution pattern and paste the raw match — control byte
+ * included — back into the diagnostic.
+ */
 function withEscapedValue(message: string, value: string): string {
   const escapedValue = escapedToken(value);
   if (value.length === 0 || escapedValue === value) return message;
-  return message.replace(value, () => escapedValue);
+  return message.replaceAll(value, () => escapedValue);
 }
 
 /**
@@ -98,13 +101,24 @@ class SafeDiagnosticCommand extends Command {
     super.unknownCommand();
   }
 
+  // Commander's own body, with the escaping applied over the whole message it would raise: the
+  // prefix Commander composed and the text the parser threw, since a parser that names the value
+  // it rejected embeds it a second time. Delegating to the base would escape only the prefix.
   override _callParseArg(
     target: Option | Argument,
     value: string,
     previous: unknown,
     invalidArgumentMessage: string,
   ): unknown {
-    return super._callParseArg(target, value, previous, withEscapedValue(invalidArgumentMessage, value));
+    try {
+      return target.parseArg?.(value, previous);
+    } catch (error) {
+      if (error instanceof InvalidArgumentError) {
+        const message = withEscapedValue(`${invalidArgumentMessage} ${error.message}`, value);
+        this.error(message, { exitCode: error.exitCode, code: error.code });
+      }
+      throw error;
+    }
   }
 }
 

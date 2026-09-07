@@ -3,6 +3,7 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { ESCAPE_CONTROL_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { REJECTING_PARSER_CLI } from "@testing/harnesses/cli/diagnostics";
 
 /**
  * A single Commander-diagnostic scenario: user-supplied argv carrying an ANSI
@@ -55,6 +56,11 @@ export interface CommanderDiagnosticScenario {
    * caller typed sit in one string.
    */
   readonly invalidChoiceArgv: readonly string[];
+  /**
+   * Argv handing the unsafe value to an option whose own parser repeats it in the message it
+   * throws, so the value is embedded once by Commander and once by the parser.
+   */
+  readonly rejectingParserArgv: readonly string[];
   /** An unknown command one character short of a registered subcommand, answered the same way. */
   readonly nearMatchCommandArgv: readonly string[];
   /** The registered command name Commander suggests for `nearMatchCommandArgv`. */
@@ -101,6 +107,7 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     rawForgedLineBreak: `${LINE_FEED}${forgedLine}`,
     escapedEscapeByte: ESCAPED_ESCAPE_BYTE,
     invalidChoiceArgv: [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, unsafeValue],
+    rejectingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
     nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
     nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],

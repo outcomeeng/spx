@@ -1,5 +1,6 @@
-import { type Command, CommanderError } from "commander";
+import { type Command, CommanderError, InvalidArgumentError } from "commander";
 
+import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { CLI_DOMAINS } from "@/interfaces/cli/registry";
@@ -11,7 +12,36 @@ export interface CliDiagnosticRun {
   readonly commanderError: CommanderError | undefined;
 }
 
+/** The command and flag of the harness domain whose option parser names the value it rejects. */
+export const REJECTING_PARSER_CLI = {
+  COMMAND: "reject",
+  FLAG: "--value",
+} as const;
+
+/**
+ * A domain with one option whose parser refuses every value and repeats it in the message it
+ * throws. Commander appends that message to its own invalid-argument prefix, so the value reaches
+ * the diagnostic twice — once where Commander embedded it and once where the parser did — and a
+ * program that escapes only the prefix leaves the second copy raw.
+ */
+function rejectingParserDomain(): Domain {
+  return {
+    name: REJECTING_PARSER_CLI.COMMAND,
+    description: "Rejects every value through its own parser",
+    register: (program) => {
+      program
+        .command(REJECTING_PARSER_CLI.COMMAND)
+        .option(`${REJECTING_PARSER_CLI.FLAG} <value>`, "A value the parser never accepts", (value: string) => {
+          throw new InvalidArgumentError(`got ${value}`);
+        })
+        .action(() => undefined);
+    },
+  };
+}
+
 export interface CliDiagnosticOptions {
+  /** Register the harness domain whose option parser repeats the rejected value in its own message. */
+  readonly registerRejectingParser?: boolean;
   /**
    * Register the production domain registry so Commander builds every subcommand
    * through the program's own `createCommand`. Left off, the program carries no
@@ -42,7 +72,10 @@ function captureEveryCommand(command: Command): void {
  */
 function createCapturingProgram(stderr: string[], options: CliDiagnosticOptions): Command {
   const program = createCliProgram({
-    domains: options.registerProductionDomains === true ? CLI_DOMAINS : [],
+    domains: [
+      ...(options.registerProductionDomains === true ? CLI_DOMAINS : []),
+      ...(options.registerRejectingParser === true ? [rejectingParserDomain()] : []),
+    ],
     writeStderr: (output) => stderr.push(output),
   });
   captureEveryCommand(program);
