@@ -271,6 +271,12 @@ function mutateWorkflowSnapshot(
           commands: job.commands.filter((command) => command !== RELEASE_PUBLISH_INVOCATION),
         };
       }
+      if (violation === RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DEPENDENCY_INSTALL_ABSENT && isPublishJob) {
+        return {
+          ...job,
+          commands: job.commands.filter((command) => command !== RELEASE_PUBLICATION_WORKFLOW.DEPENDENCY_INSTALL),
+        };
+      }
       if (
         violation === RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DETERMINISTIC_DEPENDENCY_ABSENT
         && isPublishJob

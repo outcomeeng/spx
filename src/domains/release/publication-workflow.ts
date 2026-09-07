@@ -2,6 +2,8 @@ export const RELEASE_PUBLICATION_WORKFLOW = {
   PATH: ".github/workflows/publish.yml",
   /** The tag that triggered the workflow run, which the publish job hands to the command for verification. */
   TRIGGERING_REF: "${GITHUB_REF_NAME}",
+  /** The install that provides the packaged CLI's external runtime dependencies. */
+  DEPENDENCY_INSTALL: "pnpm install --frozen-lockfile --ignore-scripts",
   JOB: {
     DETERMINISTIC: "deterministic",
     PUBLISH: "publish",
@@ -16,6 +18,7 @@ export const RELEASE_PUBLICATION_WORKFLOW = {
 
 export const RELEASE_PUBLICATION_WORKFLOW_VIOLATION = {
   COMMAND_ABSENT: "command-absent",
+  DEPENDENCY_INSTALL_ABSENT: "dependency-install-absent",
   DETERMINISTIC_DEPENDENCY_ABSENT: "deterministic-dependency-absent",
   PUBLISH_CONTENTS_WRITE_ABSENT: "publish-contents-write-absent",
   PUBLISH_ID_TOKEN_WRITE_ABSENT: "publish-id-token-write-absent",
@@ -37,12 +40,13 @@ export interface ReleasePublicationWorkflowSnapshot {
 }
 
 /**
- * Violations of the publication workflow contract: the publish job must run the
- * supplied publish invocation — which binds the triggering tag to the command so
- * publication verifies it against the package version — depend on the
- * deterministic job, and hold exactly the write authority publication needs,
- * while every other job stays read-only. The invocation string is supplied by
- * the caller because the CLI layer owns how the packaged executable is invoked.
+ * Violations of the publication workflow contract: the publish job must install
+ * the packaged CLI's runtime dependencies and then run the supplied publish
+ * invocation — which binds the triggering tag to the command so publication
+ * verifies it against the package version — depend on the deterministic job,
+ * and hold exactly the write authority publication needs, while every other job
+ * stays read-only. The invocation string is supplied by the caller because the
+ * CLI layer owns how the packaged executable is invoked.
  */
 export function releasePublicationWorkflowViolations(
   snapshot: ReleasePublicationWorkflowSnapshot,
@@ -50,8 +54,13 @@ export function releasePublicationWorkflowViolations(
 ): readonly ReleasePublicationWorkflowViolation[] {
   const violations = new Set<ReleasePublicationWorkflowViolation>();
   const publishJob = snapshot.jobs.find((job) => job.id === RELEASE_PUBLICATION_WORKFLOW.JOB.PUBLISH);
-  if (publishJob === undefined || !publishJob.commands.includes(publishInvocation)) {
+  const publishIndex = publishJob?.commands.indexOf(publishInvocation) ?? -1;
+  const installIndex = publishJob?.commands.indexOf(RELEASE_PUBLICATION_WORKFLOW.DEPENDENCY_INSTALL) ?? -1;
+  if (publishIndex < 0) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.COMMAND_ABSENT);
+  }
+  if (installIndex < 0 || (publishIndex >= 0 && installIndex > publishIndex)) {
+    violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DEPENDENCY_INSTALL_ABSENT);
   }
   if (
     publishJob === undefined

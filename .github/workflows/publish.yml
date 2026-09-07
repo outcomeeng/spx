@@ -34,12 +34,18 @@ jobs:
       id-token: write # Required for OIDC Trusted Publishing + Sigstore provenance
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - run: corepack enable
 
       # Node 24.x required for npm >= 11.5.1 (OIDC Trusted Publishing)
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24.x"
           registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      # The packaged CLI keeps its subprocess and tooling dependencies external
+      # to dist/, so they must be installed before it runs.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
 
       # The verified build from the deterministic gate; never rebuilt here.
       - name: Download dist artifact
