@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { GENERATED_CASE_STATE, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
@@ -64,5 +65,22 @@ describe("journal reporter run-scenario generator", () => {
       },
       { level: PROPERTY_LEVEL.L1 },
     );
+  });
+
+  it("varies case states, failing-case error text, and module ids across a batch of draws", () => {
+    const batch = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runScenarioBatch());
+    expect(new Set(batch.flatMap((scenario) => scenario.cases.map((runCase) => runCase.state)))).toEqual(
+      new Set(Object.values(GENERATED_CASE_STATE)),
+    );
+    expect(
+      new Set(
+        batch.flatMap((scenario) =>
+          scenario.cases
+            .filter((runCase) => runCase.state === GENERATED_CASE_STATE.FAILED)
+            .flatMap((runCase) => runCase.errors)
+        ),
+      ).size,
+    ).toBeGreaterThan(1);
+    expect(new Set(batch.map((scenario) => scenario.moduleId)).size).toBeGreaterThan(1);
   });
 });

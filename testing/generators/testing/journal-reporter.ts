@@ -171,6 +171,18 @@ function arbitraryRunScenario(): fc.Arbitrary<GeneratedRunScenario> {
   });
 }
 
+/**
+ * The number of independent scenario draws a batch holds. Across a batch this size, a generator
+ * whose case states, error text, and module ids vary produces every case state, more than one
+ * error text, and more than one module id; a generator collapsed to one shape cannot.
+ */
+const VARIATION_BATCH_SIZE = 24;
+
+/** A batch of independent scenario draws, sized so the generator's variation is observable across it. */
+function arbitraryRunScenarioBatch(): fc.Arbitrary<readonly GeneratedRunScenario[]> {
+  return fc.array(arbitraryRunScenario(), { minLength: VARIATION_BATCH_SIZE, maxLength: VARIATION_BATCH_SIZE });
+}
+
 /** A scenario guaranteed to hold at least one passing case and one failing case. */
 function arbitraryMixedRunScenario(): fc.Arbitrary<GeneratedRunScenario> {
   return fc
@@ -239,6 +251,7 @@ function arbitraryFindingMissingRequiredField(): fc.Arbitrary<TestMissingFieldSc
 
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
+  runScenarioBatch: arbitraryRunScenarioBatch,
   mixedRunScenario: arbitraryMixedRunScenario,
   runCase: arbitraryRunCase,
   passingCase: arbitraryPassingCase,
