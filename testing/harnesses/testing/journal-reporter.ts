@@ -524,7 +524,7 @@ const PACKAGE_ROOT_ENTRY = "./index.js";
 const MALFORMED_MANIFEST_TEXT = "{";
 
 /** The manifest of a product-supplied `vitest` package with the given `exports` map. */
-function productVitestManifest(exports: Readonly<Record<string, string>>): string {
+function productVitestManifest(exports: Readonly<Record<string, unknown>>): string {
   return JSON.stringify({
     name: VITEST_PACKAGE_NAME,
     version: PRODUCT_SUPPLIED_VERSION,
@@ -550,10 +550,11 @@ async function writeProductVitestPackage(productDir: string, manifestText: strin
 async function materializeProductSuppliedVitest(
   productDir: string,
   reason: JournalRunTerminalStatus,
+  nodeApiExportTarget: unknown = `./${NODE_API_ENTRY_FILENAME}`,
 ): Promise<{ readonly entryPath: string; readonly startRecordPath: string }> {
   const packageDir = await writeProductVitestPackage(
     productDir,
-    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: `./${NODE_API_ENTRY_FILENAME}` }),
+    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: nodeApiExportTarget }),
   );
   const startRecordPath = join(packageDir, START_RECORD_FILENAME);
   await writeFile(join(packageDir, NODE_API_ENTRY_FILENAME), productSuppliedNodeApiSource(reason, startRecordPath));
@@ -676,6 +677,32 @@ export function observeProductSuppliedVitestRun(): Promise<ProductSuppliedVitest
   const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
   return withTempDir(PRODUCT_SUPPLIED_PREFIX, async (productDir) => {
     const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason);
+    const request: JournalRunRequest = { productDir, testPaths };
+    const resolution = productVitestNodeApiLoader.resolve(productDir);
+    const sink = createRecordingEvidenceSink();
+    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
+    const recordedStart = JSON.parse(await readFile(startRecordPath, "utf8")) as RecordedVitestStart;
+    return { request, reason, productSuppliedEntryPath: entryPath, resolution, sink, invocation, recordedStart };
+  });
+}
+
+/** The types declaration a product's package maps beside an import-only Node API entry. */
+const NODE_API_TYPES_FILENAME = `${VITEST_NODE_API_ENTRY}.d.ts`;
+
+/**
+ * Materializes a product whose `vitest` package maps the Node API entry only under the
+ * `import` and `types` conditions — no `default` and no `require` — and drives the
+ * descriptor's streaming run over it with only a sink, returning the same observation
+ * shape as the unconditional product-supplied run.
+ */
+export function observeImportConditionedVitestRun(): Promise<ProductSuppliedVitestRunObservation> {
+  const reason = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus());
+  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
+  return withTempDir(PRODUCT_SUPPLIED_PREFIX, async (productDir) => {
+    const { entryPath, startRecordPath } = await materializeProductSuppliedVitest(productDir, reason, {
+      import: `./${NODE_API_ENTRY_FILENAME}`,
+      types: `./${NODE_API_TYPES_FILENAME}`,
+    });
     const request: JournalRunRequest = { productDir, testPaths };
     const resolution = productVitestNodeApiLoader.resolve(productDir);
     const sink = createRecordingEvidenceSink();

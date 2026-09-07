@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VITEST_PACKAGE_NAME, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
 import { expectedFindingsForScenario } from "@testing/generators/testing/journal-reporter";
 import {
+  observeImportConditionedVitestRun,
   observeProductResolvedStreamingRun,
   observeProductSuppliedVitestRun,
   observeProductsWithoutNodeApi,
@@ -25,6 +26,21 @@ describe("journal-streaming run resolves the Vitest Node API from the product un
 
   it("starts the Vitest the product directory supplies through the production loader rather than the harness's own install", async () => {
     await observeProductSuppliedVitestRun().then((observation) => {
+      expect(observation.resolution).toEqual({
+        resolved: true,
+        specifier: observation.productSuppliedEntryPath,
+      });
+      expect(observation.recordedStart).toEqual({
+        mode: VITEST_RUN_MODE,
+        files: observation.request.testPaths,
+        root: observation.request.productDir,
+      });
+      expect(observation.invocation).toEqual({ invoked: true, terminalStatus: observation.reason });
+    });
+  });
+
+  it("resolves a Node API entry the product exposes only under the import condition, the condition the run loads it with", async () => {
+    await observeImportConditionedVitestRun().then((observation) => {
       expect(observation.resolution).toEqual({
         resolved: true,
         specifier: observation.productSuppliedEntryPath,
