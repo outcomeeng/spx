@@ -5,7 +5,7 @@ import {
   RELEASE_PUBLICATION_WORKFLOW,
   type ReleasePublicationWorkflowJob,
   type ReleasePublicationWorkflowSnapshot,
-} from "@/interfaces/cli/release-publication-workflow";
+} from "@/domains/release/publication-workflow";
 import { parse as parseYaml } from "yaml";
 
 export async function observeReleasePublicationWorkflow(): Promise<

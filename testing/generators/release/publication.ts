@@ -6,14 +6,14 @@ import {
   type PackagePublication,
   releaseTagForVersion,
 } from "@/domains/release/publication";
-import type { ReleaseData } from "@/domains/release/release-data";
 import {
   RELEASE_PUBLICATION_WORKFLOW,
   RELEASE_PUBLICATION_WORKFLOW_VIOLATION,
-  RELEASE_PUBLISH_INVOCATION,
   type ReleasePublicationWorkflowSnapshot,
   type ReleasePublicationWorkflowViolation,
-} from "@/interfaces/cli/release-publication-workflow";
+} from "@/domains/release/publication-workflow";
+import type { ReleaseData } from "@/domains/release/release-data";
+import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
@@ -62,6 +62,11 @@ export interface PublicationSectionValidationScenario {
   readonly footerChangelog: string;
 }
 
+/** A publish request the registry then fails to confirm: the package is absent or lacks verified provenance. */
+export interface PublicationConfirmationFailureScenario extends PublicationScenario {
+  readonly confirmedPackage: PackagePublication | null;
+}
+
 export interface PublicationWorkflowViolationScenario {
   readonly snapshot: ReleasePublicationWorkflowSnapshot;
   readonly expectedViolation: ReleasePublicationWorkflowViolation;
@@ -86,6 +91,27 @@ export function arbitraryPublicationRetryScenario(): fc.Arbitrary<PublicationRet
           ...scenario.expectedHostedRelease,
           body: staleBody,
         },
+      }))
+  );
+}
+
+export function arbitraryPublicationConfirmationFailureScenario(): fc.Arbitrary<
+  PublicationConfirmationFailureScenario
+> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .record({
+        confirmedPackage: fc.constantFrom<PackagePublication | null>(null, {
+          ...scenario.packagePublication,
+          provenance: PACKAGE_PROVENANCE.UNVERIFIED,
+        }),
+        staleBody: arbitraryDomainLiteral().filter((body) => body !== scenario.expectedHostedRelease.body),
+      })
+      .map(({ confirmedPackage, staleBody }) => ({
+        ...scenario,
+        existingPackage: null,
+        existingHostedRelease: { ...scenario.expectedHostedRelease, body: staleBody },
+        confirmedPackage,
       }))
   );
 }

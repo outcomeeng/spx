@@ -16,6 +16,7 @@ import {
 } from "@/domains/release/documentation-sync";
 import { createReleaseNotesFaithfulnessAuditor } from "@/domains/release/release-notes";
 import type { Domain } from "@/interfaces/cli/domain";
+import { PACKAGED_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
   formatDocumentationSyncOutput,
@@ -32,6 +33,13 @@ export const RELEASE_CLI = {
   PUBLISH_COMMAND: "publish",
   CHANGELOG_PATH_OPTION: "--changelog-path <path>",
 } as const;
+
+/** The packaged-executable invocation the publication workflow must run. */
+export const RELEASE_PUBLISH_INVOCATION = [
+  PACKAGED_CLI_INVOCATION,
+  RELEASE_CLI.COMMAND,
+  RELEASE_CLI.PUBLISH_COMMAND,
+].join(" ");
 
 const RELEASE_DOMAIN_DESCRIPTION = "Prepare release artifacts from the current product history";
 const RELEASE_NOTES_DESCRIPTION = "Generate release notes for the current package version";

@@ -11,7 +11,10 @@ import {
 } from "@/domains/release/publication";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
-import type { PublicationScenario } from "@testing/generators/release/publication";
+import type {
+  PublicationConfirmationFailureScenario,
+  PublicationScenario,
+} from "@testing/generators/release/publication";
 
 export interface RecordedPublicationRequest<T> {
   readonly sequence: number;
@@ -68,9 +71,15 @@ export async function observePublication(scenario: PublicationScenario): Promise
   return harness.observe();
 }
 
-export function createPublicationHarness(scenario: PublicationScenario): PublicationHarness {
+export function createPublicationHarness(
+  scenario: PublicationScenario | PublicationConfirmationFailureScenario,
+): PublicationHarness {
   const sequence = new PublicationRequestSequence();
-  const packagePublisher = new RecordingPackagePublisher(scenario.existingPackage, sequence);
+  const packagePublisher = new RecordingPackagePublisher(
+    scenario.existingPackage,
+    sequence,
+    "confirmedPackage" in scenario ? () => scenario.confirmedPackage : (publication) => publication,
+  );
   const hostedReleasePublisher = new RecordingHostedReleasePublisher(
     scenario.existingHostedRelease,
     sequence,
@@ -85,7 +94,11 @@ export async function observePublishReleaseCommand(
   scenario: PublicationScenario,
 ): Promise<PublishReleaseCommandObservation> {
   const sequence = new PublicationRequestSequence();
-  const packagePublisher = new RecordingPackagePublisher(scenario.existingPackage, sequence);
+  const packagePublisher = new RecordingPackagePublisher(
+    scenario.existingPackage,
+    sequence,
+    (publication) => publication,
+  );
   const hostedReleasePublisher = new RecordingHostedReleasePublisher(
     scenario.existingHostedRelease,
     sequence,
@@ -193,6 +206,7 @@ class RecordingPackagePublisher implements PackagePublisher {
   constructor(
     private current: PackagePublication | null,
     private readonly sequence: PublicationRequestSequence,
+    private readonly registryStateAfterPublish: (publication: PackagePublication) => PackagePublication | null,
   ) {}
 
   inspect(publication: PackagePublication): Promise<PackagePublication | null> {
@@ -202,7 +216,7 @@ class RecordingPackagePublisher implements PackagePublisher {
 
   publish(publication: PackagePublication): Promise<void> {
     this.publishRequests.push(this.sequence.record(publication));
-    this.current = publication;
+    this.current = this.registryStateAfterPublish(publication);
     return Promise.resolve();
   }
 

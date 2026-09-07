@@ -1,6 +1,3 @@
-import { PACKAGED_CLI_INVOCATION } from "@/interfaces/cli/invocation";
-import { RELEASE_CLI } from "@/interfaces/cli/release";
-
 export const RELEASE_PUBLICATION_WORKFLOW = {
   PATH: ".github/workflows/publish.yml",
   JOB: {
@@ -14,12 +11,6 @@ export const RELEASE_PUBLICATION_WORKFLOW = {
     WRITE: "write",
   },
 } as const;
-
-export const RELEASE_PUBLISH_INVOCATION = [
-  PACKAGED_CLI_INVOCATION,
-  RELEASE_CLI.COMMAND,
-  RELEASE_CLI.PUBLISH_COMMAND,
-].join(" ");
 
 export const RELEASE_PUBLICATION_WORKFLOW_VIOLATION = {
   COMMAND_ABSENT: "command-absent",
@@ -43,12 +34,20 @@ export interface ReleasePublicationWorkflowSnapshot {
   readonly jobs: readonly ReleasePublicationWorkflowJob[];
 }
 
+/**
+ * Violations of the publication workflow contract: the publish job must run the
+ * supplied publish invocation, depend on the deterministic job, and hold exactly
+ * the write authority publication needs, while every other job stays read-only.
+ * The invocation string is supplied by the caller because the CLI layer owns how
+ * the packaged executable is invoked.
+ */
 export function releasePublicationWorkflowViolations(
   snapshot: ReleasePublicationWorkflowSnapshot,
+  publishInvocation: string,
 ): readonly ReleasePublicationWorkflowViolation[] {
   const violations = new Set<ReleasePublicationWorkflowViolation>();
   const publishJob = snapshot.jobs.find((job) => job.id === RELEASE_PUBLICATION_WORKFLOW.JOB.PUBLISH);
-  if (publishJob === undefined || !publishJob.commands.includes(RELEASE_PUBLISH_INVOCATION)) {
+  if (publishJob === undefined || !publishJob.commands.includes(publishInvocation)) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.COMMAND_ABSENT);
   }
   if (

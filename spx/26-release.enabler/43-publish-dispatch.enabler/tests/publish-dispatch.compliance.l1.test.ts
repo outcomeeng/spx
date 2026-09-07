@@ -1,9 +1,16 @@
-import { hostedReleaseFor, PACKAGE_PROVENANCE, packagePublicationMatches } from "@/domains/release/publication";
+import {
+  hostedReleaseFor,
+  PACKAGE_PROVENANCE,
+  packagePublicationMatches,
+  ReleasePublicationError,
+} from "@/domains/release/publication";
+import { releasePublicationWorkflowViolations } from "@/domains/release/publication-workflow";
 import { ReleaseNotesError, validatedReleaseNotesSection } from "@/domains/release/release-notes";
-import { releasePublicationWorkflowViolations } from "@/interfaces/cli/release-publication-workflow";
+import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { GITHUB_RELEASE } from "@/lib/release-publication/github-release-publisher";
 import { NPM_PUBLICATION } from "@/lib/release-publication/npm-package-publisher";
 import {
+  arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationRetryScenario,
   arbitraryPublicationScenario,
@@ -12,7 +19,7 @@ import {
 } from "@testing/generators/release/publication";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
-import { observePublication } from "@testing/harnesses/release/publication";
+import { createPublicationHarness, observePublication } from "@testing/harnesses/release/publication";
 import {
   observeGithubReleasePublisher,
   observeNpmPackagePublisher,
@@ -203,13 +210,30 @@ describe("release publication compliance", () => {
     );
   });
 
+  it("withholds the hosted release when the published package is not confirmed with verified provenance", async () => {
+    await assertProperty(
+      arbitraryPublicationConfirmationFailureScenario(),
+      async (scenario) => {
+        const harness = createPublicationHarness(scenario);
+        await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+        const observation = harness.observe();
+        expect(observation.packagePublishRequests.map((request) => request.value)).toEqual([
+          scenario.packagePublication,
+        ]);
+        expect(observation.hostedReleaseRequests).toEqual([]);
+        expect(observation.hostedReleaseState).toEqual(scenario.existingHostedRelease);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
   it("detects every publication workflow authority or ordering violation", async () => {
     const workflow = await observeReleasePublicationWorkflow();
-    expect(releasePublicationWorkflowViolations(workflow)).toEqual([]);
+    expect(releasePublicationWorkflowViolations(workflow, RELEASE_PUBLISH_INVOCATION)).toEqual([]);
     assertProperty(
       arbitraryPublicationWorkflowViolation(workflow),
       ({ snapshot, expectedViolation }) => {
-        expect(releasePublicationWorkflowViolations(snapshot)).toContain(expectedViolation);
+        expect(releasePublicationWorkflowViolations(snapshot, RELEASE_PUBLISH_INVOCATION)).toContain(expectedViolation);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
