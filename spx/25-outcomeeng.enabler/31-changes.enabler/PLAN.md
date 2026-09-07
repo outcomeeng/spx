@@ -1,50 +1,20 @@
-# PLAN
+# Local Change draft prototype
 
-> **Reconcile against `spx/PLAN.md` first.** This node is the backend-neutral exemplar for durable change records: build `change-store` + its worktree records backend + `.spx/changes/` scope addressing before the `.surface` CLI, which is deferred until SPX supports configured node kinds, methodology context injection, and target suffix readiness. Treat durable records as persistence-capability inventory until a reviewed receiver and ordering evidence settle its final shape. Where this note predates the root plan, the root plan governs.
+Implement the operator-approved local draft capability and its CLI, with coordination/change audit classification under `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler`.
 
-## Harness vocabulary guard
+## Structure
 
-Before applying this plan to agent-authored change intake, agent-facing surfaces, or session boundaries, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+The changes node is the current holding path for Change semantics. Draft persistence is a capability; its create/list/delete contract is interface behavior; command grammar is surface behavior. Configured target-kind migration remains governed by `spx/PLAN.md`; this change uses supported enabler suffixes.
 
-## Backend-neutral changes and surfaces
+The first-half composition horizon contains the governing Change-store PDR at 21, draft architecture at 26, local draft capability at 32, and CLI consumer at 43. The architecture consumes the PDR's draft/backend distinction. The draft capability consumes those decisions; the CLI consumes the draft operations and descriptors. Later independent Change capabilities remain unassigned.
 
-### Purpose
+## Activities
 
-This coordination note tracks the remaining structure and implementation work for the changes domain. Durable change-store behavior lives in `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md` and `spx/25-outcomeeng.enabler/31-changes.enabler/changes.md`.
+1. Route the decision rules and assertions through `/verify`, then obtain the independent decision audits on a committed subject.
+2. Establish and audit deterministic draft and CLI evidence; implement the corresponding operations through `/apply`.
+3. Exercise local creation, recovery by listing, and exact deletion together with independent coordination/change audit recording.
+4. Converge the affected evidence, implementation, and changeset gates; merge through `/merge` and release the CLI capability.
 
-### Durable decisions
+The separate plugins Product consumes the released commands in its agreed eight-file Change skill prototype. This SPX change creates no hosted Change backend, canonical `.spx/changes/` store, session migration, eval, or Python implementation script.
 
-- External Outcome Engineering methodology owns methodology vocabulary, and root `spx/PLAN.md` coordinates when SPX consumes that vocabulary locally.
-- `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md` owns the backend-neutral change model, dependency and priority semantics, worktree status vocabulary, and session boundary.
-
-### Pending structure work
-
-Run `/decompose` before authoring the next structure change. The intended candidates are:
-
-- `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler` for the worktree-backed change store.
-- A future CLI surface node for `spx change` commands after `.surface` is valid.
-- A future placement decision for `spx/31-spec-domain.enabler` after `.surface` is valid.
-
-Session-domain cleanup stays under `spx/36-session.enabler/PLAN.md` until a later decision changes that domain.
-
-### First implementation slice
-
-Sequencing per the root `spx/PLAN.md` and the reconciliation header above: `.surface` is deferred. The first executable slice is:
-
-1. Extend `spx/18-state.enabler/32-scope-addressing.enabler` with `.spx/changes/` shared scope addressing before implementing the worktree backend.
-2. Create `spx/25-outcomeeng.enabler/31-changes.enabler/29-changes-worktree.enabler`.
-3. Implement the change-store fields and query semantics governed by `spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md`.
-
-### Parked surface slice
-
-Re-enter this slice only after SPX supports configured node kinds, methodology context injection, and target suffix readiness:
-
-1. Update the spec-tree filename grammar, kind registry, validation model, and naming-schema version so `.surface` is a recognized canonical node suffix.
-2. Add the `surface` node type to the configured methodology after the grammar can recognize it.
-3. Create the future CLI surface node for `spx change` commands.
-4. Expose change records through JSON and text surfaces after the CLI surface exists.
-
-### Open structure questions
-
-- Whether `spx/31-spec-domain.enabler` moves under `spx/45-cli.surface` in the same node-type migration or in a later slice.
-- Whether `spx/36-session.enabler` remains independently governed until pruned, or is rewritten after changes exist.
+Publication keeps unfinished drafts and intermediate audit output separate from the shared Change. Audit evidence may use local or private hosted storage through environment-configured verification backends. This change adds no confidentiality gate or access-control capability; ordinary file-safety checks still protect draft operations against overwrite and path escape.
