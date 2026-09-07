@@ -86,19 +86,12 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 /**
  * Resolves one `exports` target to its relative path under the import conditions: a string is
- * unconditional, an array is a fallback list taking its first resolvable member, and a
- * conditions object takes its first key (in declaration order) among the conditions the run
- * resolves under. A target no condition reaches resolves to nothing.
+ * unconditional, and a conditions object takes its first key (in declaration order) among the
+ * conditions the run resolves under, recursing into nested conditions. A target no condition
+ * reaches resolves to nothing.
  */
 function resolveExportTarget(target: unknown): string | undefined {
   if (typeof target === "string") return target;
-  if (Array.isArray(target)) {
-    for (const candidate of target) {
-      const resolved = resolveExportTarget(candidate);
-      if (resolved !== undefined) return resolved;
-    }
-    return undefined;
-  }
   if (!isRecord(target)) return undefined;
   for (const [condition, candidate] of Object.entries(target)) {
     if (!IMPORT_RESOLUTION_CONDITIONS.has(condition)) continue;
