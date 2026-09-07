@@ -179,6 +179,27 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
       fc.boolean(),
       fc.boolean(),
     )
+    // The scenario's labels are only true of distinct values: a target branch equal to the
+    // other branch is recorded at every position, not one; a foreign root equal to the product
+    // root or the store is not foreign; and two sessions sharing an id are one session. A draw
+    // that collides is skipped rather than shaped into a scenario the labels misdescribe.
+    .filter((
+      [
+        sessionId,
+        decoySessionId,
+        foreignOnlySessionId,
+        outOfScopeBranchSessionId,
+        homeDir,
+        productScopeRoot,
+        foreignRoot,
+        targetBranch,
+        otherBranch,
+      ],
+    ) =>
+      new Set([sessionId, decoySessionId, foreignOnlySessionId, outOfScopeBranchSessionId]).size === 4
+      && new Set([homeDir, productScopeRoot, foreignRoot]).size === 3
+      && targetBranch !== otherBranch
+    )
     .chain((
       [
         sessionId,
