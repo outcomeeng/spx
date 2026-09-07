@@ -13,7 +13,7 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 - Given a matching search result, when `spx agent search --json` runs, then the JSON output exposes the agent kind, agent session id, current working directory, source transcript path, modification time, updated timestamp, branch, and match reasons for that result ([test](tests/search.scenario.l1.test.ts))
 - Given a top-level Codex, Claude Code, or Pi session whose current working directory is inside a same-product worktree checked out on the requested branch while its transcript records no occurrence of that branch, when `spx agent search --branch <name> --json` runs, then the session is returned with `branch` in its match reasons ([test](tests/search.scenario.l1.test.ts))
 - Given a Codex subagent transcript whose parent top-level session exists and whose branch metadata names the requested branch, when `spx agent search --branch <name> --json` runs, then the parent top-level session is returned with the branch-evidence current working directory, `branch` in its match reasons, and the subagent transcript is not returned as its own row ([test](tests/search.scenario.l1.test.ts))
-- Given a temporary store holding one transcript whose text carries the needle and one whose text does not, when the ripgrep transcript locator runs over that store, then it names exactly the first transcript ([test](tests/locator.scenario.l1.test.ts))
+- Given a temporary store holding one transcript whose text carries the needle and one whose text does not, when the ripgrep transcript locator runs over that store, then it names exactly the first transcript ([test](tests/locator.scenario.l2.test.ts))
 
 ### Mappings
 

@@ -9,7 +9,9 @@ import {
   type AgentSearchQueryOptions,
   type AgentSearchResult,
   createRipgrepTranscriptLocator,
+  RIPGREP_LOCATOR_COMMAND,
   searchAgentSessions,
+  TRANSCRIPT_LOCATOR_DIAGNOSTIC,
   type TranscriptLocator,
   type TranscriptLocatorRunner,
 } from "@/domains/agent/search";
@@ -71,11 +73,16 @@ export interface RipgrepLocatorStoreObservation {
   readonly missPath: string;
 }
 
-/** A two-file temporary store searched by the production ripgrep locator. */
+/**
+ * A two-file temporary store searched by the production ripgrep locator. The binary is
+ * verified before the store is built, so a machine without ripgrep fails with the install
+ * diagnostic rather than inside the locator call.
+ */
 export async function withRipgrepLocatorStore(
   storeCase: GeneratedLocatorStoreCase,
   callback: (observation: RipgrepLocatorStoreObservation) => void,
 ): Promise<void> {
+  await requireRipgrep(execaTranscriptLocatorRunner);
   await withTempDir(LOCATOR_STORE_TEMP_PREFIX, async (dir) => {
     const hitPath = join(dir, storeCase.hitFileName);
     const missPath = join(dir, storeCase.missFileName);
@@ -84,6 +91,14 @@ export async function withRipgrepLocatorStore(
     const named = await createRipgrepTranscriptLocator(execaTranscriptLocatorRunner).locate([dir], storeCase.needle);
     callback({ named: named.map((path) => resolve(path)), hitPath: resolve(hitPath), missPath: resolve(missPath) });
   });
+}
+
+/** Fails with the install diagnostic when the runner cannot start ripgrep, before any store is built. */
+async function requireRipgrep(runner: TranscriptLocatorRunner): Promise<void> {
+  const probe = await runner([RIPGREP_LOCATOR_COMMAND.VERSION]);
+  if (probe.exitCode === null) {
+    throw new Error(`${TRANSCRIPT_LOCATOR_DIAGNOSTIC.UNAVAILABLE}; the locator scenario needs the binary on PATH`);
+  }
 }
 
 /** A runner whose executable cannot be started: the failure-simulation exception at the process boundary. */

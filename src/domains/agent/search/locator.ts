@@ -31,6 +31,7 @@ export const RIPGREP_LOCATOR_COMMAND = {
   GLOB: "-g",
   PATTERN: "-e",
   END_OF_OPTIONS: "--",
+  VERSION: "--version",
 } as const;
 
 /** The glob restricting the search to transcript files, derived from the store's transcript extension. */
