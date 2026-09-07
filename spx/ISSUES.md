@@ -10,6 +10,17 @@
 
 **Resolution:** truth flows down, so the two ADRs change first: rename the descriptor layer to the surfaces layer and state the capabilities layer's home, reviewed as a `decompose-next` projection and passed through `adr-auditor`; then move `src/interfaces/cli/` and settle `src/lib/` in one pass with `git mv` and import updates. Until the ADRs change, new descriptors follow them as they stand. Re-enter after `spx/PLAN.md`'s configured node-kind support lands, because the surfaces area is not a valid node kind before it.
 
+## Subprocess wrappers report a missing exit code as success
+
+Execa leaves `exitCode` undefined when a subprocess could not be spawned or was terminated by a signal. Wrappers that normalize that value with `result.exitCode ?? 0` report such a run as a successful exit-code-zero completion to every caller that only checks `exitCode !== 0`. The release publication runner (`src/lib/release-publication/runner.ts`) and the release git-runner harness now fail such a run; the same normalization remains at:
+
+- `src/lib/git/root.ts` — the production git runner default. Owned by [`spx/18-state.enabler`](18-state.enabler/state.md).
+- `testing/harnesses/with-git-env.ts`, `testing/harnesses/testing/typescript-runner.ts`, and `testing/harnesses/git/changed-paths.ts` — harness runners whose owning nodes govern their evidence.
+
+**Impact:** a spawn failure or signal kill of `git` or a test runner can read as a clean run wherever only the exit code is inspected.
+
+**Resolution:** in each owning node's own changeset, make the wrapper fail (or expose a distinct incomplete state) when `exitCode` is undefined, add the violating case to that node's evidence, and remove the site from this list.
+
 ## Locale-dependent ordering remains in projection and listing paths
 
 `String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
