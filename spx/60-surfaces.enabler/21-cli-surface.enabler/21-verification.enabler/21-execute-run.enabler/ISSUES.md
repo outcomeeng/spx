@@ -2,25 +2,21 @@
 
 > Coordination note, not product truth. Reconcile against `execute-run.md`, the executor spec
 > `spx/34-verification.enabler/43-execute.enabler/execute.md`, and the TypeScript descriptor
-> `spx/41-test.enabler/21-typescript-test.enabler/typescript-test.md` before acting.
+> `spx/41-test.enabler/21-typescript-test.enabler/typescript-test.md` before acting. The
+> family-level list in `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md`
+> carries every remaining issue for this family; this note keeps only what is local to this node.
 
-## Streaming default run-starter loads the dev-only Vitest Node API at runtime
+## The command paths are unwired and the evidence links are broken
 
-The executor drives a verification type's runner resolved through that type's registry
-(`resolveVerificationRunner` / `resolveTestRunner` in `src/commands/verification-exec/`), which for
-`test` reaches the TypeScript descriptor's journal-streaming run. That run defaults to the production
-Vitest run-starter (`createVitestRunStarter` in `src/test/languages/journal-reporter.ts`), which loads
-`vitest/node` through a dynamic import. `tsup.config.ts` externalizes `vitest`/`vitest/node` (never
-bundled; resolved at runtime). Vitest is a `devDependency`, so a globally installed `spx` has no
-`vitest/node` in its own resolution scope, and ESM resolves the bare specifier relative to the
-shipped module, not the invocation cwd.
+`execute-run.md` links its three `[compliance]` assertions to `tests/execute-run.compliance.l1.test.ts`,
+which does not exist, and `src/interfaces/cli/verify.ts` registers no `spx verification <type> run`
+path. The node stays in `spx/EXCLUDE` until the `/apply` that wires the command path also writes
+that evidence, removes the exclusion, and regenerates the committed status through the projector.
 
-The executor node (`spx/34-verification.enabler/43-execute.enabler`) injects controlled runners in its
-`l1` tests, so it never exercises the real default starter. This surface node is where a
-`spx verification test run` command drives the real runner in a shipped context. When this node's
-`/apply` wires that command, it must make `vitest/node` resolvable at runtime — declare Vitest a
-runtime dependency, resolve it from the target product's `node_modules`, or run the streaming run in
-the target's own context — rather than relying on the dev-time devDependency.
-
-Surfaced by the descriptor streaming-run PR's packaged build; migrated here from the executor node
-once the executor's `/apply` composed the runner without the shipped command path.
+The runner-resolution gap that used to block a shipped `spx` from driving the `test` type is
+closed: the descriptor's journal-streaming run resolves the Vitest Node API from the product
+directory under test and reports a runnerless product as its own outcome
+(`spx/41-test.enabler/21-typescript-test.enabler/typescript-test.md`, Vitest-resolution compliance
+assertions). What this surface still owes is the diagnostic that carries the searched product
+directory to the caller; the executor fold that currently erases that outcome is recorded at the
+family level.
