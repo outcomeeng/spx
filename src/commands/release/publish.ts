@@ -7,7 +7,6 @@ import {
   type PackagePublisher,
   publishRelease,
   ReleasePublicationError,
-  releaseTagForVersion,
 } from "@/domains/release/publication";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import {
@@ -26,6 +25,8 @@ const GIT_COMMIT_SUFFIX = "^{commit}";
 
 export interface PublishReleaseCommandOptions {
   readonly productDir: string;
+  /** The release tag that triggered publication; verified against the package version before anything publishes. */
+  readonly tag: string;
   readonly changelogPath?: string;
 }
 
@@ -72,7 +73,7 @@ export async function publishReleaseCommand(
   deps: PublishReleaseCommandDependencies = DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
 ): Promise<string> {
   const packageIdentity = await deps.readPackageIdentity(options.productDir);
-  const tag = releaseTagForVersion(packageIdentity.version);
+  const tag = options.tag;
   const [taggedCommit, releaseData, changelog] = await Promise.all([
     deps.resolveTaggedCommit(options.productDir, tag),
     deps.resolveReleaseData(options.productDir, packageIdentity.version, tag),

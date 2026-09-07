@@ -1,5 +1,7 @@
 export const RELEASE_PUBLICATION_WORKFLOW = {
   PATH: ".github/workflows/publish.yml",
+  /** The tag that triggered the workflow run, which the publish job hands to the command for verification. */
+  TRIGGERING_REF: "${GITHUB_REF_NAME}",
   JOB: {
     DETERMINISTIC: "deterministic",
     PUBLISH: "publish",
@@ -36,10 +38,11 @@ export interface ReleasePublicationWorkflowSnapshot {
 
 /**
  * Violations of the publication workflow contract: the publish job must run the
- * supplied publish invocation, depend on the deterministic job, and hold exactly
- * the write authority publication needs, while every other job stays read-only.
- * The invocation string is supplied by the caller because the CLI layer owns how
- * the packaged executable is invoked.
+ * supplied publish invocation — which binds the triggering tag to the command so
+ * publication verifies it against the package version — depend on the
+ * deterministic job, and hold exactly the write authority publication needs,
+ * while every other job stays read-only. The invocation string is supplied by
+ * the caller because the CLI layer owns how the packaged executable is invoked.
  */
 export function releasePublicationWorkflowViolations(
   snapshot: ReleasePublicationWorkflowSnapshot,

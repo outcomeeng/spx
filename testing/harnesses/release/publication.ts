@@ -36,7 +36,8 @@ export interface PublicationHarness {
 }
 
 export interface PublishReleaseCommandObservation extends PublicationObservation {
-  readonly tag: string;
+  /** The tag the command returned; undefined when publication rejected before returning. */
+  readonly tag: string | undefined;
   readonly packageIdentityProductDirs: readonly string[];
   readonly taggedCommitRequests: readonly TaggedCommitRequest[];
   readonly releaseDataRequests: readonly ReleaseDataRequest[];
@@ -90,9 +91,20 @@ export function createPublicationHarness(
   };
 }
 
+export interface PublishReleaseCommandHarness {
+  publish(): Promise<string>;
+  observe(): PublishReleaseCommandObservation;
+}
+
 export async function observePublishReleaseCommand(
   scenario: PublicationScenario,
 ): Promise<PublishReleaseCommandObservation> {
+  const harness = createPublishReleaseCommandHarness(scenario);
+  await harness.publish();
+  return harness.observe();
+}
+
+export function createPublishReleaseCommandHarness(scenario: PublicationScenario): PublishReleaseCommandHarness {
   const sequence = new PublicationRequestSequence();
   const packagePublisher = new RecordingPackagePublisher(
     scenario.existingPackage,
@@ -110,48 +122,55 @@ export async function observePublishReleaseCommand(
   const packagePublisherProductDirs: string[] = [];
   const hostedReleasePublisherProductDirs: string[] = [];
 
-  const tag = await publishReleaseCommand(
-    { productDir: scenario.productDir },
-    {
-      readPackageIdentity: (productDir) => {
-        packageIdentityProductDirs.push(productDir);
-        return Promise.resolve({
-          name: scenario.packagePublication.name,
-          version: scenario.packagePublication.version,
-        });
+  let publishedTag: string | undefined;
+  const publish = async (): Promise<string> => {
+    publishedTag = await publishReleaseCommand(
+      { productDir: scenario.productDir, tag: scenario.tag },
+      {
+        readPackageIdentity: (productDir) => {
+          packageIdentityProductDirs.push(productDir);
+          return Promise.resolve({
+            name: scenario.packagePublication.name,
+            version: scenario.packagePublication.version,
+          });
+        },
+        resolveTaggedCommit: (productDir, requestedTag) => {
+          taggedCommitRequests.push({ productDir, tag: requestedTag });
+          return Promise.resolve(scenario.taggedCommit);
+        },
+        resolveReleaseData: (productDir, version, requestedTag) => {
+          releaseDataRequests.push({ productDir, version, tag: requestedTag });
+          return Promise.resolve(scenario.releaseData);
+        },
+        readReleaseNotes: (productDir, changelogPath) => {
+          releaseNotesRequests.push({ productDir, changelogPath });
+          return Promise.resolve(scenario.changelog);
+        },
+        createPackagePublisher: (productDir) => {
+          packagePublisherProductDirs.push(productDir);
+          return packagePublisher;
+        },
+        createHostedReleasePublisher: (productDir) => {
+          hostedReleasePublisherProductDirs.push(productDir);
+          return hostedReleasePublisher;
+        },
       },
-      resolveTaggedCommit: (productDir, requestedTag) => {
-        taggedCommitRequests.push({ productDir, tag: requestedTag });
-        return Promise.resolve(scenario.taggedCommit);
-      },
-      resolveReleaseData: (productDir, version, requestedTag) => {
-        releaseDataRequests.push({ productDir, version, tag: requestedTag });
-        return Promise.resolve(scenario.releaseData);
-      },
-      readReleaseNotes: (productDir, changelogPath) => {
-        releaseNotesRequests.push({ productDir, changelogPath });
-        return Promise.resolve(scenario.changelog);
-      },
-      createPackagePublisher: (productDir) => {
-        packagePublisherProductDirs.push(productDir);
-        return packagePublisher;
-      },
-      createHostedReleasePublisher: (productDir) => {
-        hostedReleasePublisherProductDirs.push(productDir);
-        return hostedReleasePublisher;
-      },
-    },
-  );
+    );
+    return publishedTag;
+  };
 
   return {
-    ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
-    tag,
-    packageIdentityProductDirs,
-    taggedCommitRequests,
-    releaseDataRequests,
-    releaseNotesRequests,
-    packagePublisherProductDirs,
-    hostedReleasePublisherProductDirs,
+    publish,
+    observe: () => ({
+      ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
+      tag: publishedTag,
+      packageIdentityProductDirs,
+      taggedCommitRequests,
+      releaseDataRequests,
+      releaseNotesRequests,
+      packagePublisherProductDirs,
+      hostedReleasePublisherProductDirs,
+    }),
   };
 }
 
@@ -183,7 +202,7 @@ export async function observePublishReleaseCli(
     },
   }).register(program, invocation);
   await program.parseAsync(
-    [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND],
+    [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND, RELEASE_CLI.TAG_FLAG, scenario.tag],
     { from: SPX_COMMANDER_PARSE_SOURCE },
   );
   return { scenario, requests, stdout: stdout.join("") };

@@ -11,6 +11,7 @@ import {
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   createPublicationHarness,
+  createPublishReleaseCommandHarness,
   observePublication,
   observePublishReleaseCli,
   observePublishReleaseCommand,
@@ -28,6 +29,16 @@ describe("release publication dispatch", () => {
     await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
     const observation = harness.observe();
     expect(observation.packageInspectRequests).toEqual([]);
+    expect(observation.packagePublishRequests).toEqual([]);
+    expect(observation.hostedReleaseRequests).toEqual([]);
+  });
+
+  it("rejects a triggering tag that does not name the package version through the publish command", async () => {
+    const harness = createPublishReleaseCommandHarness(
+      sampleReleaseTestValue(arbitraryPublicationTagMismatchScenario()),
+    );
+    await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+    const observation = harness.observe();
     expect(observation.packagePublishRequests).toEqual([]);
     expect(observation.hostedReleaseRequests).toEqual([]);
   });
@@ -98,6 +109,7 @@ describe("release publication dispatch", () => {
     );
     expect(observation.requests).toEqual([{
       productDir: observation.scenario.productDir,
+      tag: observation.scenario.tag,
       changelogPath: undefined,
     }]);
     expect(observation.stdout).toBe(
