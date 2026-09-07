@@ -1,12 +1,59 @@
+import { join } from "node:path";
+
 import type { HostedRelease, PackagePublication } from "@/domains/release/publication";
+import { SIGTERM_NAME } from "@/lib/process-lifecycle";
 import { createGithubReleasePublisher, GITHUB_RELEASE } from "@/lib/release-publication/github-release-publisher";
 import { createNpmPackagePublisher, NPM_PUBLICATION } from "@/lib/release-publication/npm-package-publisher";
-import type {
-  ReleasePublicationRunner,
-  ReleasePublicationRunOptions,
-  ReleasePublicationRunResult,
+import {
+  type ReleasePublicationRunner,
+  type ReleasePublicationRunOptions,
+  type ReleasePublicationRunResult,
+  runReleasePublicationCommand,
 } from "@/lib/release-publication/runner";
 import type { PublicationRetryScenario, PublicationScenario } from "@testing/generators/release/publication";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const RUNNER_TEMP_PREFIX = "spx-publication-runner-";
+const ABSENT_EXECUTABLE = "absent-publication-executable";
+const NODE_EVAL_FLAG = "-e";
+const SELF_SIGNAL_SCRIPT = "process.kill(process.pid, process.argv[1]);";
+const EXIT_WITH_CODE_SCRIPT = "process.exit(Number(process.argv[1]));";
+
+/**
+ * Runs the production publication runner against an executable path that does not exist,
+ * so the subprocess cannot be spawned. The returned promise is the observation.
+ */
+export function runAbsentPublicationExecutable(): Promise<ReleasePublicationRunResult> {
+  return withTempDir(
+    RUNNER_TEMP_PREFIX,
+    (dir) => runReleasePublicationCommand(join(dir, ABSENT_EXECUTABLE), [], { cwd: dir }),
+  );
+}
+
+/**
+ * Runs the production publication runner on a child that terminates itself with SIGTERM,
+ * so the subprocess ends without an exit code. The returned promise is the observation.
+ */
+export function runSignalTerminatedPublicationCommand(): Promise<ReleasePublicationRunResult> {
+  return withTempDir(RUNNER_TEMP_PREFIX, (dir) =>
+    runReleasePublicationCommand(
+      process.execPath,
+      [NODE_EVAL_FLAG, SELF_SIGNAL_SCRIPT, SIGTERM_NAME],
+      { cwd: dir },
+    ));
+}
+
+/** Runs the production publication runner on a child that exits with the given code. */
+export function runExitingPublicationCommand(
+  exitCode: number,
+): Promise<ReleasePublicationRunResult> {
+  return withTempDir(RUNNER_TEMP_PREFIX, (dir) =>
+    runReleasePublicationCommand(
+      process.execPath,
+      [NODE_EVAL_FLAG, EXIT_WITH_CODE_SCRIPT, String(exitCode)],
+      { cwd: dir },
+    ));
+}
 
 export interface RecordedReleasePublicationCommand {
   readonly command: string;

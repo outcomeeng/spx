@@ -37,8 +37,11 @@ export class RecordingReleaseGitRunner implements GitDependencies {
       env: withoutGitEnvironment(process.env),
       extendEnv: false,
     });
+    if (result.exitCode === undefined) {
+      throw new Error(`${command} ${args.join(" ")} did not complete: ${String(result.shortMessage)}`);
+    }
     return {
-      exitCode: result.exitCode ?? 0,
+      exitCode: result.exitCode,
       stdout: String(result.stdout),
       stderr: String(result.stderr),
     };

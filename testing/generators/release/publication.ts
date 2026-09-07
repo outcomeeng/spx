@@ -23,6 +23,8 @@ import {
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 
+const MAX_PROCESS_EXIT_CODE = 255;
+
 interface PublicationBaseScenario {
   readonly productDir: string;
   readonly releaseData: ReleaseData;
@@ -192,6 +194,11 @@ export function arbitraryPublicationSectionValidationScenario(): fc.Arbitrary<
       };
     })
   );
+}
+
+/** The exit codes a completed package-registry or repository-host command can report. */
+export function arbitraryPublicationCommandExitCode(): fc.Arbitrary<number> {
+  return fc.integer({ min: 0, max: MAX_PROCESS_EXIT_CODE });
 }
 
 export function arbitraryPublicationWorkflowViolation(

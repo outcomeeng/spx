@@ -10,6 +10,7 @@ import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { GITHUB_RELEASE } from "@/lib/release-publication/github-release-publisher";
 import { NPM_PUBLICATION } from "@/lib/release-publication/npm-package-publisher";
 import {
+  arbitraryPublicationCommandExitCode,
   arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationRetryScenario,
@@ -23,6 +24,9 @@ import { createPublicationHarness, observePublication } from "@testing/harnesses
 import {
   observeGithubReleasePublisher,
   observeNpmPackagePublisher,
+  runAbsentPublicationExecutable,
+  runExitingPublicationCommand,
+  runSignalTerminatedPublicationCommand,
 } from "@testing/harnesses/release/publication-adapters";
 import { observeReleasePublicationWorkflow } from "@testing/harnesses/release/publication-workflow";
 import { describe, expect, it } from "vitest";
@@ -222,6 +226,18 @@ describe("release publication compliance", () => {
         ]);
         expect(observation.hostedReleaseRequests).toEqual([]);
         expect(observation.hostedReleaseState).toEqual(scenario.existingHostedRelease);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("fails a publication command that cannot be spawned or is terminated by a signal", async () => {
+    await expect(runAbsentPublicationExecutable()).rejects.toBeInstanceOf(ReleasePublicationError);
+    await expect(runSignalTerminatedPublicationCommand()).rejects.toBeInstanceOf(ReleasePublicationError);
+    await assertProperty(
+      arbitraryPublicationCommandExitCode(),
+      async (exitCode) => {
+        expect((await runExitingPublicationCommand(exitCode)).exitCode).toBe(exitCode);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
