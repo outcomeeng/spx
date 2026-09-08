@@ -204,11 +204,11 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       };
     case METHODOLOGY_CONTEXT_VERDICT.MISMATCHED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_MISMATCHED,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_MISMATCHED),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
