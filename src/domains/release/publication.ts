@@ -1,10 +1,14 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { relative, resolve, sep, win32 } from "node:path";
 
 import type { ReleaseData } from "@/domains/release/release-data";
+import {
+  isPathContained,
+  PATH_CONTAINMENT_ROOT_CANDIDATE,
+  usesWindowsPathSemantics,
+} from "@/lib/file-system/pathContainment";
 
 /** The separator git uses between tree-path segments, whatever the host separator. */
 const GIT_TREE_PATH_SEPARATOR = "/";
-const PARENT_DIRECTORY_SEGMENT = "..";
 
 export const PACKAGE_PROVENANCE = {
   UNVERIFIED: "unverified",
@@ -66,16 +70,26 @@ export function releaseTagForVersion(version: string): string {
  * rejected.
  */
 export function committedChangelogTreePath(productDir: string, changelogPath: string): string {
-  const relativePath = relative(resolve(productDir), resolve(productDir, changelogPath));
-  const segments = relativePath.split(sep);
-  if (
-    relativePath.length === 0
-    || isAbsolute(relativePath)
-    || segments.at(0) === PARENT_DIRECTORY_SEGMENT
-  ) {
-    throw new ReleasePublicationError(`Configured changelog path escapes the product directory: ${changelogPath}`);
+  const relativePath = productRelativeChangelogPath(productDir, changelogPath);
+  if (relativePath.path === PATH_CONTAINMENT_ROOT_CANDIDATE || !isPathContained(productDir, changelogPath)) {
+    throw new ReleasePublicationError(
+      `Configured changelog path escapes or names the product directory: ${changelogPath}`,
+    );
   }
-  return segments.join(GIT_TREE_PATH_SEPARATOR);
+  return relativePath.path.split(relativePath.separator).join(GIT_TREE_PATH_SEPARATOR);
+}
+
+interface ProductRelativePath {
+  readonly path: string;
+  readonly separator: string;
+}
+
+/** The configured changelog path relative to the product directory, under the path semantics the directory's root selects. */
+function productRelativeChangelogPath(productDir: string, changelogPath: string): ProductRelativePath {
+  if (usesWindowsPathSemantics(productDir)) {
+    return { path: win32.relative(productDir, win32.resolve(productDir, changelogPath)), separator: win32.sep };
+  }
+  return { path: relative(resolve(productDir), resolve(productDir, changelogPath)), separator: sep };
 }
 
 export function packagePublicationMatches(
