@@ -2,8 +2,11 @@
 
 ## Pending steps
 
-1. Resolve the tree root from spx's package root — `../methodology` relative to the entry module, the same resolution `src/cli.ts` uses for `package.json` — instead of the product directory; drop provenance parsing and digest comparison from `src/lib/methodology/tree.ts` and read `source.json` for `provides` and `supports` when present.
-2. Address the tree by the `MAJOR.MINOR` line of the declared version; fail naming the declared version and the shipped lines when the line directory is absent.
-3. Route the compact-recovery hook (`src/lib/methodology/compact-recovery.ts`, `src/interfaces/hooks/session-start.ts`) through the same reader; no second resolution path.
-4. Re-fixture the four tests under `tests/` on a temp tree root shaped as `methodology/{line}/{agent}/spec-tree/skills/understand/`, injected through the reader's root; the fixture in `testing/harnesses/spec/context.ts` moves off the product directory.
-5. Route the four untagged assertions through `/apply` and `/verify` before adding their evidence.
+1. Route the three untagged assertions under `## Assertions` — coding-agent
+   scoping, the migration-source report, and the `provides`/`supports` check
+   against the tree's `source.json` — through `/verify` and `/test`, then link
+   their evidence from typed headings. Until then their behavior is implemented
+   in `src/commands/spec/context.ts` and `src/interfaces/cli/coding-agent.ts`
+   with no linked test of its own; the shipped `methodology/4.0` line records
+   no `provides`, so the check's positive and mismatch branches verify only over
+   a fixture tree whose `source.json` declares them.
