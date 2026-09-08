@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { resolveTargetedTestFiles } from "@/domains/test";
+import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { nodeOperand, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 
