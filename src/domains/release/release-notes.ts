@@ -415,6 +415,11 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   } = options;
+  if (releaseNotesSubjects(releaseData.commits).length === 0) {
+    throw new ReleaseNotesError(
+      `Release ${releaseData.version} has no commit describing a user-visible change, so it carries no release notes`,
+    );
+  }
   const configuredPath = configuredChangelogPath(config);
   const changelogPath = resolveReleaseNotesPath(workingDirectory, config);
   const preAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(

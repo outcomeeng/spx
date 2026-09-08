@@ -80,6 +80,28 @@ function arbitraryScopedSubject(): fc.Arbitrary<ScopedSubject> {
   );
 }
 
+/** A release whose every commit carries an omitted conventional type, so no subject reaches the prompts. */
+export function arbitraryReleaseNotesOmittedOnlyScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
+  return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
+    fc
+      .array(
+        fc.constantFrom(...ORACLE_OMITTED_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, false)),
+        { minLength: releaseData.commits.length, maxLength: releaseData.commits.length },
+      )
+      .map((subjects) => ({
+        releaseData: {
+          ...releaseData,
+          commits: releaseData.commits.map((commit, index) => ({
+            ...commit,
+            subject: subjects[index]?.subject ?? commit.subject,
+          })),
+        },
+        keptSubjects: [],
+        omittedSubjects: subjects.map((entry) => entry.subject),
+      }))
+  );
+}
+
 export function arbitraryReleaseNotesSubjectScopeScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
     fc

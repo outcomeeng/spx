@@ -17,6 +17,7 @@ import {
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
+  arbitraryReleaseNotesOmittedOnlyScenario,
   arbitraryReleaseNotesSubjectScopeScenario,
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
@@ -45,6 +46,7 @@ import {
   observeExistingReleaseNotesSection,
   observeReleaseNotesFaithfulness,
   observeReleaseNotesMutation,
+  observeReleaseNotesOmittedOnlyComposition,
   observeReleaseNotesPartialWriteFailure,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
@@ -723,6 +725,20 @@ describe("isPathContained verifies release path containment edge cases directly"
 });
 
 describe("release-notes prompts carry only the subjects the notes describe", () => {
+  it("fails a release whose every commit carries an omitted type before the agent runs", async () => {
+    await assertProperty(
+      arbitraryReleaseNotesOmittedOnlyScenario(),
+      async (scenario) => {
+        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual([]);
+        const observation = await observeReleaseNotesOmittedOnlyComposition(scenario);
+        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
+        expect(observation.agentRequestCount).toBe(0);
+        expect(observation.finalPathIsFile).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
   it("withholds spec, test, refactor, style, docs, ci, and build subjects from the producer and the audit alike", async () => {
     await assertProperty(
       arbitraryReleaseNotesSubjectScopeScenario(),
