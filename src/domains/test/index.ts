@@ -6,9 +6,3 @@ export {
 } from "./aggregation";
 export { type ChangedPathPartition, mergeChangedSetOperands, partitionChangedPaths } from "./changed-set-planning";
 export { groupTestFiles, type LanguageTestGroup, type TestFileGrouping } from "./grouping";
-export {
-  normalizeTargetOperand,
-  resolveTargetedTestFiles,
-  type TargetResolution,
-  type TargetSelection,
-} from "./targeting";

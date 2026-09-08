@@ -12,7 +12,7 @@ import {
 } from "@/config/index";
 import { applyPathFilter, type PathFilterConfig } from "@/config/primitives/path-filter";
 import type { Config, Result } from "@/config/types";
-import { normalizeTargetOperand, SUCCESS_EXIT_CODE, type TargetSelection } from "@/domains/test";
+import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import {
   defaultGitDependencies,
   getCurrentBranch,
@@ -21,6 +21,7 @@ import {
   type GitDependencies,
 } from "@/lib/git/root";
 import { compareAsciiStrings, hasErrorCode } from "@/lib/state-store";
+import { normalizeTargetOperand, type TargetSelection } from "@/lib/test-targeting";
 import { TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import type {
   RelatedTestDependencies,

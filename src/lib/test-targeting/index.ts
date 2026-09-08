@@ -1,3 +1,10 @@
+/**
+ * Positional product-path operand selection over a discovered test-file set — the shared capability
+ * every verification surface that narrows work by product path consumes, per
+ * `spx/29-verification-path-scope.pdr.md`. `spx test` and `spx verification <type> run` resolve
+ * their operands here, so a file operand, a node operand, and the recursive widening mean one thing
+ * across surfaces; the library is pure over its inputs and names no surface or language.
+ */
 import { applyPathFilter, normalizePathPrefix } from "@/config/primitives/path-filter";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
