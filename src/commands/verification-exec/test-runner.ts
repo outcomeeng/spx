@@ -32,6 +32,10 @@ function foldTerminalStatuses(statuses: readonly JournalRunTerminalStatus[]): Jo
  * Resolve the `test` verification type's streaming runner from the testing registry. The runner
  * drives every registry language that exposes a journal-streaming run, streaming each into the
  * injected sink; a run over a registry whose languages are all absent or non-streaming is gated out.
+ * A present language whose product directory supplies no runner is preserved as its own outcome:
+ * the fold reports the unresolved runner, naming the directory searched, when no language streamed,
+ * and reports `interrupted` when another language streamed alongside it, because the run is then
+ * incomplete rather than failed.
  */
 export function resolveTestRunner(registry: TestingRegistry = testingRegistry): JournalStreamingRunner {
   return {
@@ -40,13 +44,27 @@ export function resolveTestRunner(registry: TestingRegistry = testingRegistry): 
       deps: JournalStreamRunDependencies,
     ): Promise<JournalRunInvocation> {
       const statuses: JournalRunTerminalStatus[] = [];
+      let unresolvedProductDir: string | undefined;
       for (const language of registry.languages) {
         if (language.runTestsStreaming === undefined) continue;
         const invocation = await language.runTestsStreaming(request, deps);
-        if (invocation.invoked) statuses.push(invocation.terminalStatus);
+        if (invocation.invoked) {
+          statuses.push(invocation.terminalStatus);
+        } else if ("unresolvedRunner" in invocation) {
+          unresolvedProductDir ??= invocation.unresolvedRunner.productDir;
+        }
       }
-      if (statuses.length === 0) return { invoked: false };
-      return { invoked: true, terminalStatus: foldTerminalStatuses(statuses) };
+      if (statuses.length === 0) {
+        return unresolvedProductDir === undefined
+          ? { invoked: false }
+          : { invoked: false, unresolvedRunner: { productDir: unresolvedProductDir } };
+      }
+      return {
+        invoked: true,
+        terminalStatus: unresolvedProductDir === undefined
+          ? foldTerminalStatuses(statuses)
+          : JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED,
+      };
     },
   };
 }
