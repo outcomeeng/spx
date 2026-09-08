@@ -70,6 +70,22 @@ export const arbitraryTerminalUnsafeText = (options: TerminalUnsafeTextOptions =
     .map(([head, unsafe, tail]) => String.fromCodePoint(...head, unsafe, ...tail));
 };
 
+/**
+ * A path segment carrying at least one terminal-unsafe byte a filesystem can hold.
+ * NUL terminates a path at the syscall boundary and the separator would split the
+ * segment, so both are excluded — the escape byte and line feed, the bytes that
+ * rewrite a terminal or forge a line, remain in the domain.
+ */
+export const arbitraryTerminalUnsafePathSegment = (): fc.Arbitrary<string> =>
+  arbitraryTerminalUnsafeText()
+    .map((text) => Array.from(text).filter((character) => character !== "\u0000" && character !== "/").join(""))
+    .filter((text) =>
+      Array.from(text).some((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint <= ORACLE_C0_CONTROL_UPPER_BOUND || codePoint === ORACLE_DEL_CODE_POINT;
+      })
+    );
+
 /** Unsafe text paired with an escape rendering computed independently from production. */
 export const arbitraryTerminalEscapingCase = (
   options: TerminalUnsafeTextOptions = {},

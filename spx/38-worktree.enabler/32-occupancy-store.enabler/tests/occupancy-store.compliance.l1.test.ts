@@ -7,12 +7,17 @@ import {
   claimFilePath,
   classifyOccupancy,
   OCCUPANCY_CLAIM,
+  OCCUPANCY_ERROR,
   OCCUPANCY_STATUS,
 } from "@/domains/worktree/occupancy-store";
+import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { resolveWorktreesScopeDir, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
-import { createLiveHolderProbe } from "@testing/harnesses/worktree/harness";
+import { createLiveHolderProbe, failedClaimWrite } from "@testing/harnesses/worktree/harness";
 
 describe("worktree occupancy compliance", () => {
   it("composes claim paths under the resolved .spx/worktrees shared scope, the same from any worktree", async () => {
@@ -38,6 +43,23 @@ describe("worktree occupancy compliance", () => {
     if (!claimPath.ok) throw new Error(claimPath.error);
     expect(claimPath.value.startsWith(`${fromMain.worktreesDir}/`)).toBe(true);
     expect(claimPath.value.endsWith(`${name}${OCCUPANCY_CLAIM.FILE_EXTENSION}`)).toBe(true);
+  });
+
+  it("escapes the caught error a failed claim write reports, keeping the product's own error code", async () => {
+    await assertProperty(arbitraryTerminalUnsafeText(), async (failureMessage) => {
+      const written = await failedClaimWrite(failureMessage);
+
+      expect(written.ok).toBe(false);
+      if (written.ok) throw new Error(written.value);
+      const diagnostic = renderTerminalText(written.error);
+      // The code the store authored survives; the message the failing filesystem wrote does not
+      // reach the terminal as the bytes it carried.
+      expect(diagnostic.startsWith(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED)).toBe(true);
+      for (const character of diagnostic) {
+        expect(character.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+        expect(character.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+      }
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("never ages out: any live same-host holder with a matching start time reads running", () => {

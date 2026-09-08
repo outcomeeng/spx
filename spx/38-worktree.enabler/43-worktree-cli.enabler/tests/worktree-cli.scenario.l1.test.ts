@@ -29,6 +29,7 @@ import {
   type GitDependencies,
 } from "@/lib/git/root";
 import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW, DETAIL_TEE } from "@/lib/styled-output/styled-output";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { samplePathUnsafeAgentSessionIdentity, SESSION_GENERATOR_ERROR } from "@testing/generators/session/session";
@@ -237,8 +238,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(noClaim.ok).toBe(true);
-      if (!noClaim.ok) throw new Error(noClaim.error);
-      expect(JSON.parse(noClaim.value)).toEqual({ worktree: name, status: OCCUPANCY_STATUS.FREE });
+      if (!noClaim.ok) throw new Error(renderTerminalText(noClaim.error.text));
+      expect(JSON.parse(renderTerminalText(noClaim.value))).toEqual({ worktree: name, status: OCCUPANCY_STATUS.FREE });
 
       await writeClaim(
         env.worktreesDir,
@@ -262,8 +263,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(running.ok).toBe(true);
-      if (!running.ok) throw new Error(running.error);
-      expect(running.value).toContain(
+      if (!running.ok) throw new Error(renderTerminalText(running.error.text));
+      expect(renderTerminalText(running.value)).toContain(
         `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
       );
 
@@ -278,8 +279,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(runningJson.ok).toBe(true);
-      if (!runningJson.ok) throw new Error(runningJson.error);
-      expect(JSON.parse(runningJson.value)).toEqual({
+      if (!runningJson.ok) throw new Error(renderTerminalText(runningJson.error.text));
+      expect(JSON.parse(renderTerminalText(runningJson.value))).toEqual({
         worktree: name,
         status: OCCUPANCY_STATUS.RUNNING,
         pid: holder.pid,
@@ -296,8 +297,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(runningNoArg.ok).toBe(true);
-      if (!runningNoArg.ok) throw new Error(runningNoArg.error);
-      expect(runningNoArg.value).toContain(
+      if (!runningNoArg.ok) throw new Error(renderTerminalText(runningNoArg.error.text));
+      expect(renderTerminalText(runningNoArg.value)).toContain(
         `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
       );
 
@@ -311,7 +312,7 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(free.ok).toBe(true);
-      if (!free.ok) throw new Error(free.error);
+      if (!free.ok) throw new Error(renderTerminalText(free.error.text));
       const expectedParent = `${await realpath(env.container)}${sep}`;
       const freeLines = free.value.split("\n");
       expect(freeLines).toEqual([
@@ -415,9 +416,9 @@ describe("worktree command handlers", () => {
           });
 
           expect(status.ok).toBe(true);
-          if (!status.ok) throw new Error(status.error);
+          if (!status.ok) throw new Error(renderTerminalText(status.error.text));
           const expectedParent = `${await realpath(layout.container)}${sep}`;
-          const lines = status.value.split("\n");
+          const lines = renderTerminalText(status.value).split("\n");
           expect(lines).toEqual([
             expectedParent,
             `  ${DETAIL_TEE}${DETAIL_BRANCH_SEPARATOR}${firstName}: ${AGENT_RUNTIME_DISPLAY_NAME.codex} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
@@ -460,8 +461,8 @@ describe("worktree command handlers", () => {
       });
 
       expect(status.ok).toBe(true);
-      if (!status.ok) throw new Error(status.error);
-      const lines = status.value.split("\n");
+      if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+      const lines = renderTerminalText(status.value).split("\n");
       expect(lines).toEqual([
         `${firstParent}${sep}`,
         `  ${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}${firstWorktreeName}: ${WORKTREE_STATUS_RENDER.FREE}`,
@@ -494,8 +495,8 @@ describe("worktree command handlers", () => {
       });
 
       expect(status.ok).toBe(true);
-      if (!status.ok) throw new Error(status.error);
-      expect(JSON.parse(status.value)).toEqual([
+      if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+      expect(JSON.parse(renderTerminalText(status.value))).toEqual([
         { worktree: worktreeClaimName(env.worktreePath), status: OCCUPANCY_STATUS.FREE },
       ]);
     });
@@ -551,8 +552,8 @@ describe("worktree command handlers", () => {
           });
 
           expect(status.ok).toBe(true);
-          if (!status.ok) throw new Error(status.error);
-          expect(JSON.parse(status.value)).toEqual([
+          if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+          expect(JSON.parse(renderTerminalText(status.value))).toEqual([
             { worktree: secondClaimName, status: OCCUPANCY_STATUS.FREE },
             {
               worktree: firstClaimName,
@@ -579,7 +580,9 @@ describe("worktree command handlers", () => {
       pathInfo: defaultWorktreePathInfo,
     });
 
-    expect(status).toEqual({ ok: false, error: `${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${cwd}` });
+    expect(status.ok).toBe(false);
+    if (status.ok) throw new Error(renderTerminalText(status.value));
+    expect(renderTerminalText(status.error.text)).toBe(`${WORKTREE_RESOLVE_ERROR.NOT_A_WORKTREE}: ${cwd}`);
   });
 
   it("reports worktree-list unavailability when all targets are requested inside git and list fails", async () => {
@@ -598,7 +601,9 @@ describe("worktree command handlers", () => {
       pathInfo: defaultWorktreePathInfo,
     });
 
-    expect(status).toEqual({ ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE });
+    expect(status.ok).toBe(false);
+    if (status.ok) throw new Error(renderTerminalText(status.value));
+    expect(renderTerminalText(status.error.text)).toBe(WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE);
   });
 
   it("reports worktree-list unavailability when bare-basename fallback cannot list worktrees", async () => {
@@ -621,7 +626,9 @@ describe("worktree command handlers", () => {
       pathInfo: defaultWorktreePathInfo,
     });
 
-    expect(status).toEqual({ ok: false, error: WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE });
+    expect(status.ok).toBe(false);
+    if (status.ok) throw new Error(renderTerminalText(status.value));
+    expect(renderTerminalText(status.error.text)).toBe(WORKTREE_RESOLVE_ERROR.WORKTREE_LIST_UNAVAILABLE);
   });
 
   it("reports resolved targets when another target cannot read the worktree list", async () => {
@@ -646,8 +653,8 @@ describe("worktree command handlers", () => {
     });
 
     expect(status.ok).toBe(true);
-    if (!status.ok) throw new Error(status.error);
-    expect(JSON.parse(status.value)).toEqual([{
+    if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+    expect(JSON.parse(renderTerminalText(status.value))).toEqual([{
       worktree: worktreeClaimName(worktreeRoot),
       status: OCCUPANCY_STATUS.FREE,
     }]);
@@ -669,7 +676,9 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
 
-      expect(result).toEqual({ ok: false, error: WORKTREE_STATUS_ERROR.ALL_WITH_EXPLICIT_TARGETS });
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error(renderTerminalText(result.value));
+      expect(renderTerminalText(result.error.text)).toBe(WORKTREE_STATUS_ERROR.ALL_WITH_EXPLICIT_TARGETS);
     });
   });
 
@@ -790,8 +799,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(status.ok).toBe(true);
-      if (!status.ok) throw new Error(status.error);
-      expect(status.value).toContain(
+      if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+      expect(renderTerminalText(status.value)).toContain(
         `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
       );
 
@@ -943,8 +952,8 @@ describe("worktree command handlers", () => {
         pathInfo: defaultWorktreePathInfo,
       });
       expect(status.ok).toBe(true);
-      if (!status.ok) throw new Error(status.error);
-      expect(status.value).toContain(
+      if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+      expect(renderTerminalText(status.value)).toContain(
         `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
       );
     });
@@ -988,8 +997,8 @@ describe("worktree command handlers", () => {
           pathInfo: defaultWorktreePathInfo,
         });
         expect(status.ok).toBe(true);
-        if (!status.ok) throw new Error(status.error);
-        expect(status.value).toContain(
+        if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+        expect(renderTerminalText(status.value)).toContain(
           `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
         );
       });

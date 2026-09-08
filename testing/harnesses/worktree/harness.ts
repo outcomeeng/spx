@@ -8,6 +8,9 @@
  * @module testing/harnesses/worktree/harness
  */
 
+import { randomBytes as nodeRandomBytes } from "node:crypto";
+import { isAbsolute, relative } from "node:path";
+
 import { execa } from "execa";
 
 import type { Result } from "@/config/types";
@@ -16,8 +19,24 @@ import {
   type ControllingProcess,
   resolveControllingProcess,
 } from "@/domains/worktree/controlling-process";
-import type { OccupancyFileSystem, ProcessProbe, WorktreeClaimRecord } from "@/domains/worktree/occupancy-store";
+import {
+  type OccupancyFileSystem,
+  type ProcessProbe,
+  type WorktreeClaimRecord,
+  writeClaim,
+} from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
+import {
+  GIT_COMMON_DIR_ARGS,
+  GIT_CORE_BARE_ARGS,
+  GIT_CORE_BARE_TRUE,
+  GIT_SHOW_TOPLEVEL_ARGS,
+  GIT_WORKTREE_LIST_PORCELAIN_ARGS,
+  GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
+  type GitDependencies,
+} from "@/lib/git/root";
+export { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
@@ -401,4 +420,80 @@ export async function withWorktreePool(
         });
       }),
   );
+}
+
+/**
+ * A git runner reporting one pool worktree whose root is exactly `worktreeRoot`,
+ * so a caller can drive worktree resolution over a root it chose — including one
+ * carrying bytes a terminal would read as commands — without creating that path
+ * on a real filesystem.
+ */
+export function poolWorktreeGitDependencies(options: {
+  readonly worktreeRoot: string;
+  readonly commonDir: string;
+}): GitDependencies {
+  const gitArgsEqual = (args: readonly string[], expected: readonly string[]): boolean =>
+    args.length === expected.length && args.every((arg, index) => arg === expected[index]);
+  const isInsideWorktree = (candidate: string | undefined): boolean => {
+    if (candidate === undefined) return true;
+    const relativePath = relative(options.worktreeRoot, candidate);
+    return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+  };
+  return {
+    execa: async (_command, args, commandOptions) => {
+      // Only a directory inside the pool worktree resolves to it, so a caller can drive both the
+      // resolved and the refused path from the same runner.
+      if (gitArgsEqual(args, GIT_SHOW_TOPLEVEL_ARGS)) {
+        return isInsideWorktree(commandOptions?.cwd)
+          ? { exitCode: 0, stdout: options.worktreeRoot, stderr: "" }
+          : { exitCode: 1, stdout: "", stderr: "" };
+      }
+      if (gitArgsEqual(args, GIT_COMMON_DIR_ARGS)) {
+        return { exitCode: 0, stdout: options.commonDir, stderr: "" };
+      }
+      if (gitArgsEqual(args, GIT_WORKTREE_LIST_PORCELAIN_ARGS)) {
+        return {
+          exitCode: 0,
+          stdout: `${GIT_WORKTREE_PORCELAIN_ROOT_PREFIX}${options.worktreeRoot}`,
+          stderr: "",
+        };
+      }
+      if (gitArgsEqual(args, GIT_CORE_BARE_ARGS)) {
+        return { exitCode: 0, stdout: GIT_CORE_BARE_TRUE, stderr: "" };
+      }
+      return { exitCode: 1, stdout: "", stderr: "" };
+    },
+  };
+}
+
+const FAILED_CLAIM_WRITE_PREFIX = "spx-failed-claim-write-";
+
+/**
+ * Writes a claim into a temporary store whose filesystem fails with `failureMessage`,
+ * and returns the store's outcome. A real filesystem cannot be made to fail with a
+ * chosen message, so the boundary is a controlled implementation raising the error
+ * the store then reports — the failure-simulation case. The claim name and record are
+ * incidental to the failure, so this harness draws them.
+ */
+export async function failedClaimWrite(failureMessage: string): Promise<Result<string, TerminalText>> {
+  const fail = (): never => {
+    throw new Error(failureMessage);
+  };
+  const failingFs: OccupancyFileSystem = {
+    mkdir: () => Promise.reject(new Error(failureMessage)),
+    writeFile: fail,
+    rename: fail,
+    symlink: fail,
+    readlink: fail,
+    readFile: fail,
+    rm: fail,
+  };
+
+  return withTempDir(FAILED_CLAIM_WRITE_PREFIX, async (worktreesDir) =>
+    writeClaim(
+      worktreesDir,
+      sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName()),
+      sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord()),
+      { fs: failingFs, randomBytes: nodeRandomBytes },
+    ));
 }
