@@ -81,6 +81,21 @@ export const arbitraryTerminalUnsafeText = (options: TerminalUnsafeTextOptions =
     .map(([head, unsafe, tail]) => String.fromCodePoint(...head, unsafe, ...tail));
 };
 
+/** Text whose every byte renders as itself. */
+const arbitraryPrintableText = (): fc.Arbitrary<string> =>
+  fc
+    .array(arbitraryPrintableCodePoint(), { maxLength: DEFAULT_SEGMENT_MAX_LENGTH })
+    .map((points) => String.fromCodePoint(...points));
+
+/**
+ * Text over both byte classes, guaranteeing neither — the open domain a "for every
+ * input" assertion quantifies over. `fc.string()` cannot serve it: its unit is
+ * printable, so an escaping assertion drawn from it never reaches the escape branch
+ * and would hold against an identity escaper.
+ */
+export const arbitraryTerminalText = (): fc.Arbitrary<string> =>
+  fc.oneof(arbitraryPrintableText(), arbitraryTerminalUnsafeText());
+
 /**
  * A path segment carrying at least one terminal-unsafe byte a filesystem can hold.
  * NUL terminates a path at the syscall boundary and the separator would split the
@@ -105,6 +120,18 @@ export const arbitraryTerminalEscapingCase = (
     input,
     escaped: independentlyEscapeTerminalText(input),
   }));
+
+/** The escape a terminal-unsafe code point renders as, computed independently of production. */
+export const terminalOracleHexEscape = (codePoint: number): string =>
+  `${ORACLE_HEX_ESCAPE_PREFIX}${
+    codePoint.toString(ORACLE_HEX_RADIX).padStart(ORACLE_HEX_DIGITS, ORACLE_HEX_PAD_CHARACTER)
+  }`;
+
+/** Every code point a terminal reads as a command: the C0 controls and DEL. */
+export const TERMINAL_ORACLE_UNSAFE_CODE_POINTS: readonly number[] = [
+  ...Array.from({ length: ORACLE_C0_CONTROL_UPPER_BOUND + 1 }, (_unused, codePoint) => codePoint),
+  ORACLE_DEL_CODE_POINT,
+];
 
 function independentlyEscapeTerminalText(input: string): string {
   return Array.from(input, (character) => {

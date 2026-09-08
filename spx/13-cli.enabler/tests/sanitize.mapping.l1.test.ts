@@ -1,23 +1,18 @@
 import { describe, expect, it } from "vitest";
 
+import { escapeCliArgument, sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import {
-  CONTROL_CHAR_UPPER_BOUND,
-  DEL_CHAR_CODE,
-  escapeCliArgument,
-  formatHexEscape,
-  sanitizeCliArgument,
-} from "@/lib/sanitize-cli-argument";
+  TERMINAL_ORACLE_UNSAFE_CODE_POINTS,
+  terminalOracleHexEscape,
+} from "@testing/generators/terminal-text/terminal-text";
 
 describe("control-character input maps to its hex escape", () => {
-  it.each([
-    ...Array.from({ length: CONTROL_CHAR_UPPER_BOUND + 1 }, (_, code) => code),
-    DEL_CHAR_CODE,
-  ])(
-    "maps code point %s to its source-owned escape",
+  it.each([...TERMINAL_ORACLE_UNSAFE_CODE_POINTS])(
+    "maps code point %s to its hex escape",
     (code) => {
       const input = String.fromCodePoint(code);
-      expect(sanitizeCliArgument(input)).toBe(formatHexEscape(code));
-      expect(escapeCliArgument(input)).toBe(formatHexEscape(code));
+      expect(sanitizeCliArgument(input)).toBe(terminalOracleHexEscape(code));
+      expect(escapeCliArgument(input)).toBe(terminalOracleHexEscape(code));
     },
   );
 });
