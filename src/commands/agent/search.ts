@@ -99,9 +99,6 @@ export interface TranscriptLocatorRunnerDependencies {
   readonly runRipgrep: (args: readonly string[]) => Promise<RipgrepProcessOutcome>;
 }
 
-/** The error code the process dependency reports when the executable cannot be started. */
-export const RIPGREP_UNSTARTABLE_CODE = "ENOENT";
-
 /** The diagnostic a signal-terminated ripgrep run carries as its failure output. */
 export const RIPGREP_SIGNAL_DIAGNOSTIC = "ripgrep terminated by signal";
 
@@ -123,24 +120,28 @@ export const defaultTranscriptLocatorRunnerDependencies: TranscriptLocatorRunner
 };
 
 /**
- * Maps a ripgrep process outcome to the locator's run result: an executable that could not be
- * started is the unstartable result (null exit code); a signal-terminated run is a failed run
- * whose diagnostic names the signal; an exited run carries ripgrep's own exit status and its
+ * Maps a ripgrep process outcome to the locator's run result. A process that neither exited
+ * nor was terminated by a signal never started — whatever error code the spawn reported — and
+ * is the unstartable result (null exit code); a signal-terminated run is a failed run whose
+ * diagnostic names the signal; an exited run carries ripgrep's own exit status and its
  * NUL-terminated output bytes.
  */
 export function transcriptLocatorRunResultFromOutcome(outcome: RipgrepProcessOutcome): TranscriptLocatorRunResult {
-  if (outcome.code === RIPGREP_UNSTARTABLE_CODE) {
+  if (outcome.exitCode === undefined && outcome.signal === undefined) {
     return { exitCode: null, stdout: new Uint8Array(), stderr: "" };
   }
-  const stderr = Buffer.from(outcome.stderr).toString(AGENT_SESSION_STORE.TEXT_ENCODING);
   if (outcome.exitCode === undefined) {
     return {
       exitCode: RIPGREP_EXIT_CODE.ERROR,
       stdout: new Uint8Array(),
-      stderr: `${RIPGREP_SIGNAL_DIAGNOSTIC} ${outcome.signal ?? ""}`.trimEnd(),
+      stderr: `${RIPGREP_SIGNAL_DIAGNOSTIC} ${outcome.signal}`,
     };
   }
-  return { exitCode: outcome.exitCode, stdout: outcome.stdout, stderr };
+  return {
+    exitCode: outcome.exitCode,
+    stdout: outcome.stdout,
+    stderr: Buffer.from(outcome.stderr).toString(AGENT_SESSION_STORE.TEXT_ENCODING),
+  };
 }
 
 /** Starts ripgrep through the injected process dependency and maps its outcome to a run result. */

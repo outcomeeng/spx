@@ -10,7 +10,7 @@ import {
   type TranscriptLocatorRunResult,
 } from "@/domains/agent/search";
 
-import { RIPGREP_UNSTARTABLE_CODE, type RipgrepProcessOutcome } from "@/commands/agent/search";
+import type { RipgrepProcessOutcome } from "@/commands/agent/search";
 
 import { arbitraryTranscriptNeedleCase, type GeneratedMovingSessionScenario } from "./search";
 
@@ -185,6 +185,8 @@ export interface GeneratedRipgrepProcessOutcomeCase {
 }
 
 const TERMINATING_SIGNALS = ["SIGTERM", "SIGKILL", "SIGINT"] as const;
+/** The spawn error codes a process that never started reports: absent, not executable, or a non-directory path. */
+const SPAWN_FAILURE_CODES = ["ENOENT", "EACCES", "ENOTDIR"] as const;
 
 /** One process outcome per kind over the same generated output, every exit status included. */
 export function arbitraryRipgrepProcessOutcomeCases(): fc.Arbitrary<readonly GeneratedRipgrepProcessOutcomeCase[]> {
@@ -193,8 +195,9 @@ export function arbitraryRipgrepProcessOutcomeCases(): fc.Arbitrary<readonly Gen
       arbitraryRipgrepPathList(),
       fc.string({ unit: "grapheme", maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
       fc.constantFrom(...TERMINATING_SIGNALS),
+      fc.constantFrom(...SPAWN_FAILURE_CODES),
     )
-    .map(([pathList, stderrText, signal]) => {
+    .map(([pathList, stderrText, signal, spawnFailureCode]) => {
       const stderr = Buffer.from(stderrText, AGENT_SESSION_STORE.TEXT_ENCODING);
       const exited = [RIPGREP_EXIT_CODE.MATCH, RIPGREP_EXIT_CODE.NO_MATCH, RIPGREP_EXIT_CODE.ERROR].map((exitCode) => ({
         kind: RIPGREP_PROCESS_OUTCOME_KIND.EXITED,
@@ -206,7 +209,7 @@ export function arbitraryRipgrepProcessOutcomeCases(): fc.Arbitrary<readonly Gen
         ...exited,
         {
           kind: RIPGREP_PROCESS_OUTCOME_KIND.UNSTARTABLE,
-          outcome: { code: RIPGREP_UNSTARTABLE_CODE, stdout: new Uint8Array(), stderr: new Uint8Array() },
+          outcome: { code: spawnFailureCode, stdout: new Uint8Array(), stderr: new Uint8Array() },
           printedPaths: [],
           stderrText: "",
         },
