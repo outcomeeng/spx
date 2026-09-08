@@ -121,6 +121,20 @@ describe("changeset coherence root conformance", () => {
     );
   });
 
+  it("rejects a review unit under a coverage-gap root, which records no decomposition", () => {
+    assertProperty(
+      arbitraryChangesetCoherenceScenario(),
+      (scenario) => {
+        expect(unmetRequirement(validateChangesetScopedAudit(
+          scenario.reviewUnitUnderCoverageGapRootPayload,
+          [scenario.coverageGapRootEvent],
+          scenario.scopeIdentity,
+        ))).toContain(EVIDENCE_REQUIREMENT.AUDIT_REVIEW_UNIT_PARENT_IS_COHERENCE_ROOT);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
   it("rejects a changeset-class unit recorded in a file-scoped run", () => {
     assertProperty(
       arbitraryChangesetCoherenceScenario(),

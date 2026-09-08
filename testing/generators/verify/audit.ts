@@ -728,6 +728,8 @@ export interface ChangesetCoherenceScenario {
   readonly coverageGapRootPayload: JsonValue;
   readonly optionalCoverageGapRootPayload: JsonValue;
   readonly mismatchedCoverageGapRootPayload: JsonValue;
+  readonly coverageGapRootEvent: JournalEvent;
+  readonly reviewUnitUnderCoverageGapRootPayload: JsonValue;
 }
 
 export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoherenceScenario> {
@@ -735,7 +737,7 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
     .tuple(
       VERIFY_TEST_GENERATOR.changesetScopeScenario(),
       arbitraryAuditScopeFieldsForChangeset(),
-      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 3, maxLength: 6 }),
+      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 6, maxLength: 8 }),
       fc.array(fc.constantFrom(...AUDIT_COVERED_COVERAGE_STATUSES), { minLength: 2, maxLength: 5 }),
       arbitrarySourceFilePath(),
       arbitraryAuditFinding(),
@@ -753,12 +755,13 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
       const { producerProvenance: _rootProvenance, ...rootWithoutProvenance } = root;
       const coverageGapRoot: AuditScopeUnit = {
         ...rootWithoutProvenance,
+        unitId: unitIds[unitIds.length - 1] ?? `${root.unitId}-gap`,
         auditKind: AUDIT_KIND.COVERAGE_GAP,
         coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
       };
       const reviewUnits = statuses.map((coverageStatus, index) => ({
         ...root,
-        unitId: unitIds[index % unitIds.length] ?? `${root.unitId}-${index}`,
+        unitId: unitIds[index] ?? `${root.unitId}-${index}`,
         parentUnitId: root.unitId,
         auditKind: AUDIT_KIND.REVIEW_UNIT,
         coverageStatus,
@@ -804,6 +807,11 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
         mismatchedCoverageGapRootPayload: auditScopePayload({
           ...coverageGapRoot,
           subject: fileScopeIdentity,
+        }),
+        coverageGapRootEvent: auditScopeEvent(coverageGapRoot, JOURNAL_SEQ_BASE),
+        reviewUnitUnderCoverageGapRootPayload: auditScopePayload({
+          ...soleReviewUnit,
+          parentUnitId: coverageGapRoot.unitId,
         }),
       };
     });
