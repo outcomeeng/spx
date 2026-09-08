@@ -21,11 +21,11 @@ import {
 } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { AUDIT_FIXTURE, withAuditFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
+import { AUDIT_FIXTURE, withVerificationFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit evidence validation", () => {
   it("rejects whole invalid payload files without appending journal events and identifies the violation", async () => {
-    await withAuditFixtureRun(async (env) => {
+    await withVerificationFixtureRun(async (env) => {
       const beforeRoot = await env.events();
       const invalidScope = await env.appendScope(AUDIT_FIXTURE.MISSING_CLASS);
       expect(invalidScope.exitCode).not.toBe(0);

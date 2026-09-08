@@ -4,8 +4,15 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { journalReadCommand } from "@/commands/journal/cli";
-import { verifyAppendFindingCommand, verifyAppendScopeCommand, verifyFinishCommand, type VerifyCliDeps, type VerifyFinishCliOptions } from "@/commands/verify/cli";
-import { type AuditScopeUnit, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import {
+  verifyAppendFindingCommand,
+  verifyAppendScopeCommand,
+  type VerifyCliDeps,
+  type VerifyFinishCliOptions,
+  verifyFinishCommand,
+  type VerifyInputCliOptions,
+} from "@/commands/verify/cli";
+import { type AuditScopeUnit, VERIFY_VERIFICATION_TYPE, type VerifyVerificationType } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
 import {
@@ -44,13 +51,16 @@ export async function readVerificationFixture<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8")) as T;
 }
 
-export async function withAuditFixtureRun<T>(
+export async function withVerificationFixtureRun<T>(
   callback: (env: {
     appendScope(path: string): ReturnType<typeof verifyAppendScopeCommand>;
     appendFinding(path: string): ReturnType<typeof verifyAppendFindingCommand>;
-    finish(options: Pick<VerifyFinishCliOptions, "terminalStatus" | "terminalMetadata">): ReturnType<typeof verifyFinishCommand>;
+    finish(
+      options: Omit<VerifyFinishCliOptions, keyof VerifyInputCliOptions>,
+    ): ReturnType<typeof verifyFinishCommand>;
     events(): Promise<readonly JournalEvent[]>;
   }) => Promise<T>,
+  verificationType: VerifyVerificationType = VERIFY_VERIFICATION_TYPE.AUDIT,
 ): Promise<T> {
   return withTempDir("audit-append-", async (productDir) => {
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
@@ -65,7 +75,7 @@ export async function withAuditFixtureRun<T>(
     const root = await readVerificationFixture<AuditScopeUnit>(AUDIT_FIXTURE.ROOT);
     const scenario = {
       ...withFileScope(
-        withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+        withVerificationType(createVerifyRunContextScenario(), verificationType),
         root.subject,
       ),
       productDir,
@@ -91,7 +101,14 @@ export async function withAuditFixtureRun<T>(
     };
     const run = await startedRunToken(scenario, deps);
     return callback({
-      finish: (options) => verifyFinishCommand({ verificationType: scenario.verificationType, scopeType: scenario.scopeType, scope: scenario.scope, run, ...options }, deps),
+      finish: (options) =>
+        verifyFinishCommand({
+          verificationType: scenario.verificationType,
+          scopeType: scenario.scopeType,
+          scope: scenario.scope,
+          run,
+          ...options,
+        }, deps),
       appendScope: (payload) =>
         verifyAppendScopeCommand(verifyAppendOptions(scenario, { run, payload, idempotencyKey: randomUUID() }), deps),
       appendFinding: (payload) =>

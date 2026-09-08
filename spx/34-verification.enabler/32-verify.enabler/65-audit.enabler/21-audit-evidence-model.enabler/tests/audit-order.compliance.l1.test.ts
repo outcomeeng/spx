@@ -11,11 +11,11 @@ import {
   arbitraryFileAuditScopeScenario,
 } from "@testing/generators/verify/audit";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { AUDIT_FIXTURE, withAuditFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
+import { AUDIT_FIXTURE, withVerificationFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit scope append order", () => {
   it("enforces root and parent ordering when complete payload files reach the append command", async () => {
-    await withAuditFixtureRun(async (env) => {
+    await withVerificationFixtureRun(async (env) => {
       const beforeRoot = await env.events();
       expect((await env.appendScope(AUDIT_FIXTURE.CHILD)).exitCode).not.toBe(0);
       expect(await env.events()).toEqual(beforeRoot);
