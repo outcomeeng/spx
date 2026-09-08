@@ -25,7 +25,7 @@
  * @module lib/terminal-text/terminal-text
  */
 
-import { DEL_CHAR_CODE, escapeCliArgument } from "@/lib/sanitize-cli-argument";
+import { DEL_CHAR_CODE, escapeCliArgument, sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 declare const TERMINAL_TEXT_BRAND: unique symbol;
 
@@ -43,6 +43,18 @@ function brand(value: string): TerminalText {
  */
 export function authoredText(text: string): TerminalText {
   return brand(text);
+}
+
+/**
+ * An externally-originated token a diagnostic echoes, escaped and bounded for
+ * display through the shared sanitizer: control bytes are escaped, an absent or
+ * empty value is named by its sentinel, and a value past the display length is
+ * truncated with an ellipsis, so one caller-supplied token cannot flood the
+ * terminal. `externalValue` is the unbounded form, for a value whose full text
+ * is the point of the output.
+ */
+export function externalToken(value: unknown): TerminalText {
+  return brand(sanitizeCliArgument(value));
 }
 
 declare const ALREADY_COMPOSED: unique symbol;
