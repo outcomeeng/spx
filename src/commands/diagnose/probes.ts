@@ -9,7 +9,7 @@
  * @module commands/diagnose/probes
  */
 
-import { basename, dirname, join } from "node:path";
+import { basename, dirname } from "node:path";
 
 import { execa } from "execa";
 
@@ -60,8 +60,10 @@ import {
 } from "@/lib/git/root";
 import {
   checkProviderMatch,
+  compareCodeUnitOrder,
   defaultMethodologyTreeFileSystem,
   methodologyLine,
+  methodologyLineDir,
   type MethodologyTreeFileSystem,
   PROVIDER_MATCH,
   resolveMethodologyTree,
@@ -69,7 +71,6 @@ import {
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
-import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
@@ -573,7 +574,7 @@ async function defaultEnabledCodingAgents(productDir: string): Promise<readonly 
   return (Object.keys(harnessEnvironment.agents) as Agent[])
     .filter((agent) => harnessEnvironment.agents[agent].enabled)
     .map((agent) => METHODOLOGY_CODING_AGENT_BY_AGENT[agent])
-    .sort(compareCodeUnits);
+    .sort(compareCodeUnitOrder);
 }
 
 interface ShippedLineObservation {
@@ -591,7 +592,11 @@ async function observeShippedLine(
   line: string,
   enabledCodingAgents: readonly string[],
 ): Promise<ShippedLineObservation> {
-  const shippedCodingAgents = await fs.readDirectoryNames(join(treeRoot, line));
+  const lineDir = methodologyLineDir(treeRoot, line);
+  if (!lineDir.ok) {
+    return { shippedCodingAgents: [], providerMatch: undefined, providerMismatch: undefined, errored: true };
+  }
+  const shippedCodingAgents = await fs.readDirectoryNames(lineDir.value);
   let providerMatch: MethodologyContextObservation["providerMatch"];
   for (const codingAgent of enabledCodingAgents) {
     if (!shippedCodingAgents.includes(codingAgent)) continue;

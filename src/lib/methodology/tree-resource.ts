@@ -23,6 +23,7 @@ import {
   parseFoundationResourceManifest,
 } from "./foundation-manifest";
 import {
+  compareCodeUnitOrder,
   formatCodingAgentMissingError,
   formatCodingAgentUnresolvedError,
   formatMethodologyLineMissingError,
@@ -52,10 +53,6 @@ export interface MethodologyTreeFileSystem {
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error
     && (error as { readonly code?: unknown }).code === NOT_FOUND_ERROR_CODE;
-}
-
-function compareCodeUnitOrder(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export const defaultMethodologyTreeFileSystem: MethodologyTreeFileSystem = {

@@ -57,19 +57,14 @@ export interface MethodologySourceRecord {
   readonly plugins: Readonly<Record<string, MethodologySourcePlugin>>;
 }
 
-/** Whether `value` is an exact methodology version. */
-export function isMethodologyVersion(value: string): boolean {
-  return METHODOLOGY_VERSION_PATTERN.test(value);
-}
-
 /** Whether `value` is a methodology line, `MAJOR.MINOR`. */
 export function isMethodologyLine(value: string): boolean {
   return METHODOLOGY_LINE_PATTERN.test(value);
 }
 
-/** Diagnostic for a value that is not an exact methodology version. */
-export function formatMethodologyVersionInvalidError(version: string): string {
-  return `Methodology version must be an exact MAJOR.MINOR.PATCH version; rejected ${JSON.stringify(version)}`;
+/** Diagnostic for a value no methodology line derives from: it is not an exact version. */
+export function formatMethodologyLineParseError(version: string): string {
+  return `No methodology line derives from ${JSON.stringify(version)}; an exact MAJOR.MINOR.PATCH version is required`;
 }
 
 /** Diagnostic for a value that is not a methodology line. */
@@ -81,7 +76,7 @@ export function formatMethodologyLineInvalidError(line: string): string {
 export function methodologyLine(version: string): Result<string> {
   const match = METHODOLOGY_VERSION_PATTERN.exec(version);
   if (match === null) {
-    return { ok: false, error: formatMethodologyVersionInvalidError(version) };
+    return { ok: false, error: formatMethodologyLineParseError(version) };
   }
   return { ok: true, value: [match[MAJOR_GROUP], match[MINOR_GROUP]].join(LINE_SEPARATOR) };
 }
@@ -226,7 +221,8 @@ export function parseMethodologySourceRecord(text: string): Result<MethodologySo
 
 const SOURCE_RECORD_INDENTATION = 2;
 
-function compareCodeUnitOrder(left: string, right: string): number {
+/** Code-unit order, the host-independent ordering every methodology listing and record uses. */
+export function compareCodeUnitOrder(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
