@@ -660,3 +660,128 @@ export function arbitraryAuditScopeCoverageGapWithProvenance(): fc.Arbitrary<Jso
 export function arbitraryAuditScopeParentedToSelf(): fc.Arbitrary<JsonValue> {
   return arbitraryAuditScopeUnit().map((unit) => auditScopePayload({ ...unit, parentUnitId: unit.unitId }));
 }
+
+/**
+ * The audit kinds the changeset class accepts, declared from
+ * `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/15-audit-payload.pdr.md` rather
+ * than read from the production compatibility check, so a mapping case has an oracle the
+ * implementation under test does not supply.
+ */
+const CHANGESET_CLASS_ACCEPTED_KINDS: readonly string[] = [AUDIT_KIND.COHERENCE, AUDIT_KIND.REVIEW_UNIT];
+
+/** Every registered audit kind paired with whether the changeset class accepts it. */
+export interface ChangesetClassKindCase {
+  readonly auditKind: AuditScopeUnit["auditKind"];
+  readonly accepted: boolean;
+}
+
+export function changesetClassKindDomain(): readonly ChangesetClassKindCase[] {
+  return Object.values(AUDIT_KIND).map((auditKind) => ({
+    auditKind,
+    accepted: CHANGESET_CLASS_ACCEPTED_KINDS.includes(auditKind) || auditKind === AUDIT_KIND.COVERAGE_GAP,
+  }));
+}
+
+/** One changeset-class scope payload carrying the supplied audit kind. */
+export function arbitraryChangesetClassScopePayload(
+  auditKind: AuditScopeUnit["auditKind"],
+): fc.Arbitrary<JsonValue> {
+  return arbitraryAuditScopeFieldsForChangeset().map(({ producerProvenance, ...fields }) => {
+    const covered = { ...fields, producerProvenance, auditKind, coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED };
+    const uncovered = { ...fields, auditKind, coverageStatus: AUDIT_COVERAGE_STATUS.INCOMPLETE };
+    return auditScopePayload(auditKind === AUDIT_KIND.COVERAGE_GAP ? uncovered : covered);
+  });
+}
+
+function arbitraryAuditScopeFieldsForChangeset(): fc.Arbitrary<AuditScopeUnit> {
+  return arbitraryAuditScopeFields().map(({ parentUnitId: _parentUnitId, ...fields }) => ({
+    ...fields,
+    auditClass: AUDIT_CLASS.CHANGESET,
+    auditKind: AUDIT_KIND.COHERENCE,
+    coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
+  }));
+}
+
+/** A changeset-scoped coherence run: its coherence root and an ordered run of review units. */
+export interface ChangesetCoherenceScenario {
+  readonly scopeIdentity: string;
+  readonly fileScopeIdentity: string;
+  readonly rootPayload: JsonValue;
+  readonly rootEvent: JournalEvent;
+  readonly reviewUnitPayloads: readonly JsonValue[];
+  readonly reviewUnitEvents: readonly JournalEvent[];
+  readonly reviewUnitIds: readonly string[];
+  readonly soleReviewUnitEvent: JournalEvent;
+  readonly findingEvent: JournalEvent;
+  readonly mismatchedSubjectRootPayload: JsonValue;
+  readonly optionalRootPayload: JsonValue;
+  readonly parentedRootPayload: JsonValue;
+  readonly reviewUnitFirstPayload: JsonValue;
+  readonly lateRootPayload: JsonValue;
+  readonly unrootedReviewUnitPayload: JsonValue;
+}
+
+export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoherenceScenario> {
+  return fc
+    .tuple(
+      VERIFY_TEST_GENERATOR.changesetScopeScenario(),
+      arbitraryAuditScopeFieldsForChangeset(),
+      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 3, maxLength: 6 }),
+      fc.array(fc.constantFrom(...AUDIT_COVERED_COVERAGE_STATUSES), { minLength: 2, maxLength: 5 }),
+      arbitrarySourceFilePath(),
+      arbitraryAuditFinding(),
+      arbitraryExecutedAuditScopeUnit(),
+    )
+    .filter(([_changeset, root, unitIds, _statuses, fileScopeIdentity, _finding, unrooted]) =>
+      !unitIds.includes(root.unitId)
+      && !unitIds.includes(unrooted.unitId)
+      && root.unitId !== unrooted.unitId
+      && !fileScopeIdentity.includes(VERIFY_SCOPE_SEPARATOR)
+    )
+    .map(([changeset, rootFields, unitIds, statuses, fileScopeIdentity, finding, unrooted]) => {
+      const scopeIdentity = `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`;
+      const root: AuditScopeUnit = { ...rootFields, subject: scopeIdentity };
+      const reviewUnits = statuses.map((coverageStatus, index) => ({
+        ...root,
+        unitId: unitIds[index % unitIds.length] ?? `${root.unitId}-${index}`,
+        parentUnitId: root.unitId,
+        auditKind: AUDIT_KIND.REVIEW_UNIT,
+        coverageStatus,
+      }));
+      const uniqueReviewUnits = reviewUnits.filter(
+        (unit, index) => reviewUnits.findIndex((other) => other.unitId === unit.unitId) === index,
+      );
+      const soleReviewUnit = uniqueReviewUnits[0] ?? { ...root, auditKind: AUDIT_KIND.REVIEW_UNIT };
+      return {
+        scopeIdentity,
+        fileScopeIdentity,
+        rootPayload: auditScopePayload(root),
+        rootEvent: auditScopeEvent(root, JOURNAL_SEQ_BASE),
+        reviewUnitPayloads: uniqueReviewUnits.map(auditScopePayload),
+        reviewUnitIds: uniqueReviewUnits.map((unit) => unit.unitId),
+        reviewUnitEvents: uniqueReviewUnits.map((unit, index) => auditScopeEvent(unit, JOURNAL_SEQ_BASE + 1 + index)),
+        soleReviewUnitEvent: auditScopeEvent(soleReviewUnit, JOURNAL_SEQ_BASE + 1),
+        findingEvent: auditFindingEvent(
+          { ...finding, unitId: root.unitId },
+          JOURNAL_SEQ_BASE + 1 + uniqueReviewUnits.length,
+        ),
+        mismatchedSubjectRootPayload: auditScopePayload({ ...root, subject: fileScopeIdentity }),
+        optionalRootPayload: auditScopePayload({
+          ...root,
+          coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+        }),
+        parentedRootPayload: auditScopePayload({ ...root, parentUnitId: unrooted.unitId }),
+        reviewUnitFirstPayload: auditScopePayload({
+          ...root,
+          unitId: soleReviewUnit.unitId,
+          auditKind: AUDIT_KIND.REVIEW_UNIT,
+        }),
+        lateRootPayload: auditScopePayload({ ...root, unitId: unrooted.unitId }),
+        unrootedReviewUnitPayload: auditScopePayload({
+          ...soleReviewUnit,
+          parentUnitId: unrooted.unitId,
+        }),
+      };
+    });
+}
