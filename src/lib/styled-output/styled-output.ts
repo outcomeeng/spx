@@ -119,7 +119,8 @@ export function renderStyledReport(model: StyledReportModel, options: StyledRepo
     const lastIndex = section.details.length - 1;
     section.details.forEach((detail, index) => {
       const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-      lines.push(authoredText(`${DETAIL_INDENT}${chalk.dim(`${branch} ${detail}`)}`));
+      const detailLine = chalk.dim(`${branch} ${detail}`);
+      lines.push(authoredText(`${DETAIL_INDENT}${detailLine}`));
     });
   }
   const summaryStyle = SEVERITY_STYLE[model.summary.severity].style;
