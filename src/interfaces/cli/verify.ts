@@ -8,8 +8,10 @@ import {
   type ExecuteRunCliOptions,
   executeRunCommand,
   type ExecuteRunCommandResult,
+  executeRunFailureDiagnostic,
 } from "@/commands/verification-exec";
 import {
+  VERIFY_CLI_EXIT_CODE,
   type VerifyAppendCliOptions,
   verifyAppendFindingCommand,
   verifyAppendScopeCommand,
@@ -302,13 +304,20 @@ function registerExecuteRunCommands(command: Command, invocation: CliInvocation,
       .argument(EXECUTE_RUN_CLI_SURFACE.pathOperand, EXECUTE_RUN_CLI_SURFACE.pathOperandDescription)
       .option(EXECUTE_RUN_CLI_SURFACE.recursiveFlags, EXECUTE_RUN_CLI_SURFACE.recursiveDescription)
       .action(async (operands: readonly string[], options: ExecuteRunActionOptions) => {
-        reportExecuteRunResult(
-          await handlers.executeRun(
-            { verificationType, operands, recursive: options.recursive === true },
-            deps(),
-          ),
-          invocation.io,
-        );
+        try {
+          reportExecuteRunResult(
+            await handlers.executeRun(
+              { verificationType, operands, recursive: options.recursive === true },
+              deps(),
+            ),
+            invocation.io,
+          );
+        } catch (error) {
+          reportExecuteRunResult(
+            { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: executeRunFailureDiagnostic(error) },
+            invocation.io,
+          );
+        }
       });
   }
 }
