@@ -11,7 +11,12 @@ export {
   type PublishReleaseCommandOptions,
   type PublishReleasePublishers,
 } from "./publish";
-export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
+export {
+  DEFAULT_RELEASE_NOTES_COMMAND_DEPENDENCIES,
+  releaseNotesCommand,
+  type ReleaseNotesCommandDependencies,
+  type ReleaseNotesCommandOptions,
+} from "./release-notes";
 export {
   canonicalizeExistingPath,
   createReleaseNotesFilesystem,

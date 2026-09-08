@@ -4,20 +4,15 @@ import type { AgentRunner } from "@/agent/agent-runner";
 import { ClaudeAgentRunner } from "@/agent/claude-agent-runner";
 import {
   DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  DEFAULT_RELEASE_NOTES_COMMAND_DEPENDENCIES,
   documentationSyncCommand,
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
   publishReleaseCommand,
   type PublishReleasePublishers,
   releaseNotesCommand,
+  type ReleaseNotesCommandDependencies,
 } from "@/commands/release";
-import { resolveConfig } from "@/config/index";
-import {
-  RELEASE_SECTION,
-  type ReleaseConfig,
-  releaseConfigDescriptor,
-  type ReleaseNotesPolicyConfig,
-} from "@/domains/release/config";
 import {
   createDocumentationFaithfulnessAuditor,
   type DocumentationFaithfulnessAuditor,
@@ -74,8 +69,8 @@ export interface ReleaseCliDependencies {
     agentRunner: AgentRunner,
     productDir: string,
   ) => DocumentationFaithfulnessAuditor;
-  readonly resolveReleaseNotesPolicy: (productDir: string) => Promise<ReleaseNotesPolicyConfig>;
   readonly releaseNotesCommand: typeof releaseNotesCommand;
+  readonly releaseNotesCommandDependencies: ReleaseNotesCommandDependencies;
   readonly documentationSyncCommand: typeof documentationSyncCommand;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
   readonly publishReleaseCommand: typeof publishReleaseCommand;
@@ -86,12 +81,8 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
   createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
-  resolveReleaseNotesPolicy: async (productDir) => {
-    const loaded = await resolveConfig(productDir, [releaseConfigDescriptor]);
-    if (!loaded.ok) throw new Error(loaded.error);
-    return (loaded.value[RELEASE_SECTION] as ReleaseConfig).notes;
-  },
   releaseNotesCommand,
+  releaseNotesCommandDependencies: DEFAULT_RELEASE_NOTES_COMMAND_DEPENDENCIES,
   documentationSyncCommand,
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
@@ -121,21 +112,13 @@ export function createReleaseDomain(
           try {
             const productDir = invocation.resolveProductContext().productDir;
             const agentRunner = new ClaudeAgentRunner();
-            const policy = await deps.resolveReleaseNotesPolicy(productDir);
-            const config = {
-              changelogPath: options.changelogPath,
-              withheldCommitTypes: policy.withheldCommitTypes,
-            };
             const changelogPath = await deps.releaseNotesCommand({
               productDir,
-              config,
+              config: { changelogPath: options.changelogPath },
               agentRunner,
-              faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(
-                agentRunner,
-                productDir,
-                config,
-              ),
-            });
+              createFaithfulnessAuditor: (config) =>
+                createReleaseNotesFaithfulnessAuditor(agentRunner, productDir, config),
+            }, deps.releaseNotesCommandDependencies);
             invocation.io.writeStdout(formatReleaseNotesOutput(changelogPath));
           } catch (error) {
             invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
