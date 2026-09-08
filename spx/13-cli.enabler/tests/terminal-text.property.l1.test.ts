@@ -6,6 +6,7 @@ import {
   authoredText,
   externalValue,
   joinTerminalText,
+  jsonDocument,
   renderTerminalText,
   terminal,
   type TerminalText,
@@ -59,6 +60,28 @@ describe("terminal text composition invariants", () => {
         expect(renderTerminalText(joinTerminalText(authoredText(separator), parts))).toBe(
           parts.map((part) => renderTerminalText(part)).join(separator),
         );
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("serializes a JSON document with no control byte or DEL outside its line structure that parses back unchanged", () => {
+    const LINE_FEED_CODE_POINT = 0x0a;
+    assertProperty(
+      fc.tuple(
+        fc.dictionary(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText(), { noNullPrototype: true }),
+        fc.integer({ min: 0, max: 4 }),
+      ),
+      ([value, indent]) => {
+        const document = renderTerminalText(jsonDocument(value, indent));
+        for (const char of document) {
+          const codePoint = char.codePointAt(0);
+          if (codePoint !== LINE_FEED_CODE_POINT) {
+            expect(codePoint).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+          }
+          expect(codePoint).not.toBe(DEL_CHAR_CODE);
+        }
+        expect(JSON.parse(document)).toStrictEqual(value);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

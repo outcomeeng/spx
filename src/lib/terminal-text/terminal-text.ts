@@ -25,7 +25,7 @@
  * @module lib/terminal-text/terminal-text
  */
 
-import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
+import { DEL_CHAR_CODE, escapeCliArgument } from "@/lib/sanitize-cli-argument";
 
 declare const TERMINAL_TEXT_BRAND: unique symbol;
 
@@ -97,6 +97,24 @@ export function terminal(strings: TemplateStringsArray, ...values: readonly Term
  */
 export function joinTerminalText(separator: TerminalText, parts: readonly TerminalText[]): TerminalText {
   return brand(parts.join(separator));
+}
+
+/** The JSON escape for DEL, the one control byte `JSON.stringify` leaves as it stands. */
+const JSON_DEL_ESCAPE = String.raw`\u007f`;
+const DEL_CHAR = String.fromCodePoint(DEL_CHAR_CODE);
+
+/**
+ * A machine-readable JSON document the product serializes from values of any
+ * provenance. JSON's own grammar is the escaping decision here: the serializer
+ * writes every byte below U+0020 inside a string in JSON notation, and DEL —
+ * the one control byte the grammar leaves as it stands — is written in the same
+ * notation, so the document reaches the terminal with no raw control byte while
+ * a machine consumer parsing it decodes every value verbatim. Escaping the
+ * values as external segments instead would change what that consumer decodes,
+ * which is why a serialized document is neither authored nor external text.
+ */
+export function jsonDocument(value: object, indent?: number): TerminalText {
+  return brand(JSON.stringify(value, null, indent).replaceAll(DEL_CHAR, JSON_DEL_ESCAPE));
 }
 
 /**
