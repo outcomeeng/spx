@@ -8,7 +8,6 @@ export {
   createRipgrepTranscriptLocator,
   interpretTranscriptLocatorRun,
   parseRipgrepPaths,
-  RIPGREP_EXIT_CODE,
   RIPGREP_LOCATOR_COMMAND,
   RIPGREP_PATH_TERMINATOR,
   RIPGREP_TRANSCRIPT_GLOB,

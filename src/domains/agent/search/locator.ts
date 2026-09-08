@@ -1,3 +1,5 @@
+import { RIPGREP_EXIT_CODE, type RipgrepRunner, type RipgrepRunResult } from "@/lib/ripgrep/runner";
+
 import { AGENT_SESSION_STORE } from "../protocol";
 
 /**
@@ -9,17 +11,12 @@ export interface TranscriptLocator {
   locate(roots: readonly string[], needle: string): Promise<readonly string[]>;
 }
 
-/** One ripgrep run as the runner observed it; `exitCode` is null when the executable could not be started. */
-export interface TranscriptLocatorRunResult {
-  readonly exitCode: number | null;
-  readonly stdout: Uint8Array;
-  readonly stderr: string;
-}
+/** One ripgrep run as the locator reads it: the ripgrep runner library's result. */
+export type TranscriptLocatorRunResult = RipgrepRunResult;
 
-export type TranscriptLocatorRunner = (args: readonly string[]) => Promise<TranscriptLocatorRunResult>;
+export type TranscriptLocatorRunner = RipgrepRunner;
 
 export const RIPGREP_LOCATOR_COMMAND = {
-  EXECUTABLE: "rg",
   FILES_WITH_MATCHES: "-l",
   FIXED_STRINGS: "-F",
   TEXT: "-a",
@@ -31,18 +28,10 @@ export const RIPGREP_LOCATOR_COMMAND = {
   GLOB: "-g",
   PATTERN: "-e",
   END_OF_OPTIONS: "--",
-  VERSION: "--version",
 } as const;
 
 /** The glob restricting the search to transcript files, derived from the store's transcript extension. */
 export const RIPGREP_TRANSCRIPT_GLOB = `*${AGENT_SESSION_STORE.JSONL_EXTENSION}`;
-
-/** Ripgrep's documented exit statuses. */
-export const RIPGREP_EXIT_CODE = {
-  MATCH: 0,
-  NO_MATCH: 1,
-  ERROR: 2,
-} as const;
 
 /** The byte that terminates every path ripgrep prints under `-0`. */
 export const RIPGREP_PATH_TERMINATOR = 0;
@@ -133,7 +122,7 @@ export function interpretTranscriptLocatorRun(result: TranscriptLocatorRunResult
 }
 
 /**
- * The production locator: ripgrep through an injected runner. Empty roots name nothing
+ * The locator over an injected ripgrep runner. Empty roots name nothing
  * without a run, because ripgrep given no path searches the working directory.
  */
 export function createRipgrepTranscriptLocator(runner: TranscriptLocatorRunner): TranscriptLocator {

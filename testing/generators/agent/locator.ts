@@ -5,12 +5,10 @@ import {
   AGENT_SEARCH_NEEDLE_SELECTORS,
   type AgentSearchNeedleSelector,
   type AgentSearchQueryOptions,
-  RIPGREP_EXIT_CODE,
   RIPGREP_PATH_TERMINATOR,
   type TranscriptLocatorRunResult,
 } from "@/domains/agent/search";
-
-import type { RipgrepProcessOutcome } from "@/commands/agent/search";
+import { RIPGREP_EXIT_CODE, type RipgrepProcessOutcome } from "@/lib/ripgrep/runner";
 
 import { arbitraryTranscriptNeedleCase, type GeneratedMovingSessionScenario } from "./search";
 

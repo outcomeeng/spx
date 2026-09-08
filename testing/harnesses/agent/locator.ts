@@ -1,7 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 
-import { createTranscriptLocatorRunner, execaTranscriptLocatorRunner } from "@/commands/agent/search";
 import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
 import { AGENT_SESSION_KIND, AGENT_SESSION_STORE } from "@/domains/agent/protocol";
 import {
@@ -9,13 +8,17 @@ import {
   type AgentSearchQueryOptions,
   type AgentSearchResult,
   createRipgrepTranscriptLocator,
-  RIPGREP_LOCATOR_COMMAND,
   searchAgentSessions,
   TRANSCRIPT_LOCATOR_DIAGNOSTIC,
   type TranscriptLocator,
-  type TranscriptLocatorRunner,
-  type TranscriptLocatorRunResult,
 } from "@/domains/agent/search";
+import {
+  createRipgrepRunner,
+  defaultRipgrepRunner,
+  RIPGREP_COMMAND,
+  type RipgrepRunner,
+  type RipgrepRunResult,
+} from "@/lib/ripgrep/runner";
 import type {
   GeneratedInvalidNeedleCase,
   GeneratedLocatorStoreCase,
@@ -87,27 +90,27 @@ export async function withRipgrepLocatorStore(
   storeCase: GeneratedLocatorStoreCase,
   callback: (observation: RipgrepLocatorStoreObservation) => void,
 ): Promise<void> {
-  await requireRipgrep(execaTranscriptLocatorRunner);
+  await requireRipgrep(defaultRipgrepRunner);
   await withTempDir(LOCATOR_STORE_TEMP_PREFIX, async (dir) => {
     const hitPath = join(dir, storeCase.hitFileName);
     const missPath = join(dir, storeCase.missFileName);
     await writeFile(hitPath, storeCase.hitContent, AGENT_SESSION_STORE.TEXT_ENCODING);
     await writeFile(missPath, storeCase.missContent, AGENT_SESSION_STORE.TEXT_ENCODING);
-    const named = await createRipgrepTranscriptLocator(execaTranscriptLocatorRunner).locate([dir], storeCase.needle);
+    const named = await createRipgrepTranscriptLocator(defaultRipgrepRunner).locate([dir], storeCase.needle);
     callback({ named: named.map((path) => resolve(path)), hitPath: resolve(hitPath), missPath: resolve(missPath) });
   });
 }
 
 /** Fails with the install diagnostic when the runner cannot start ripgrep, before any store is built. */
-async function requireRipgrep(runner: TranscriptLocatorRunner): Promise<void> {
-  const probe = await runner([RIPGREP_LOCATOR_COMMAND.VERSION]);
+async function requireRipgrep(runner: RipgrepRunner): Promise<void> {
+  const probe = await runner([RIPGREP_COMMAND.VERSION]);
   if (probe.exitCode === null) {
     throw new Error(`${TRANSCRIPT_LOCATOR_DIAGNOSTIC.UNAVAILABLE}; the locator scenario needs the binary on PATH`);
   }
 }
 
 /** A runner whose executable cannot be started: the failure-simulation exception at the process boundary. */
-export function unstartableTranscriptLocatorRunner(): TranscriptLocatorRunner {
+export function unstartableTranscriptLocatorRunner(): RipgrepRunner {
   return async () => ({ exitCode: null, stdout: new Uint8Array(), stderr: "" });
 }
 
@@ -180,19 +183,19 @@ export async function searchWithRejectedNeedle(
 
 export interface RunnerOutcomeObservation {
   readonly outcomeCase: GeneratedRipgrepProcessOutcomeCase;
-  readonly result: TranscriptLocatorRunResult;
+  readonly result: RipgrepRunResult;
 }
 
 /**
- * Drives each process outcome through the command-layer runner with the process dependency
- * replaced by a contract probe returning that outcome, so the runner's own mapping is observed.
+ * Drives each process outcome through the ripgrep runner with the process dependency replaced
+ * by a contract probe returning that outcome, so the runner's own mapping is observed.
  */
 export async function observeRunnerOutcomes(
   cases: readonly GeneratedRipgrepProcessOutcomeCase[],
 ): Promise<readonly RunnerOutcomeObservation[]> {
   const observations: RunnerOutcomeObservation[] = [];
   for (const outcomeCase of cases) {
-    const runner = createTranscriptLocatorRunner({ runRipgrep: async () => outcomeCase.outcome });
+    const runner = createRipgrepRunner({ runRipgrep: async () => outcomeCase.outcome });
     observations.push({ outcomeCase, result: await runner([]) });
   }
   return observations;

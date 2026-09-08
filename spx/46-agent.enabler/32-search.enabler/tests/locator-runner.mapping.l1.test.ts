@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RIPGREP_SIGNAL_DIAGNOSTIC } from "@/commands/agent/search";
-import { RIPGREP_EXIT_CODE } from "@/domains/agent/search";
+import { RIPGREP_EXIT_CODE, RIPGREP_SIGNAL_DIAGNOSTIC } from "@/lib/ripgrep/runner";
 
 import { arbitraryRipgrepProcessOutcomeCases, RIPGREP_PROCESS_OUTCOME_KIND } from "@testing/generators/agent/locator";
 import { sampleGeneratedValue } from "@testing/generators/sample";

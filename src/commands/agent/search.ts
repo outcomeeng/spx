@@ -1,4 +1,3 @@
-import { execa } from "execa";
 import { open, readdir, readFile, stat } from "node:fs/promises";
 
 import {
@@ -12,12 +11,8 @@ import {
   renderAgentSearchJson,
   renderAgentSearchList,
   resolveAgentHomeDirs,
-  RIPGREP_EXIT_CODE,
-  RIPGREP_LOCATOR_COMMAND,
   searchAgentSessions,
   type TranscriptLocator,
-  type TranscriptLocatorRunner,
-  type TranscriptLocatorRunResult,
 } from "@/domains/agent";
 import {
   defaultGitDependencies,
@@ -27,6 +22,7 @@ import {
   type GitDependencies,
   parseGitWorktreePorcelainRecords,
 } from "@/lib/git/root";
+import { defaultRipgrepRunner } from "@/lib/ripgrep/runner";
 
 /**
  * The two roots of `spx/15-worktree-management.pdr.md`. Search filters candidates by
@@ -83,79 +79,9 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
   },
 };
 
-/** The outcome of one ripgrep process as the process dependency reports it: a subset of execa's result. */
-export interface RipgrepProcessOutcome {
-  /** Ripgrep's exit status; absent when the process did not exit normally. */
-  readonly exitCode?: number;
-  /** The Node error code when the executable could not be started, such as `ENOENT`. */
-  readonly code?: string;
-  /** The signal that terminated the process, when one did. */
-  readonly signal?: string;
-  readonly stdout: Uint8Array;
-  readonly stderr: Uint8Array;
-}
-
-export interface TranscriptLocatorRunnerDependencies {
-  readonly runRipgrep: (args: readonly string[]) => Promise<RipgrepProcessOutcome>;
-}
-
-/** The diagnostic a signal-terminated ripgrep run carries as its failure output. */
-export const RIPGREP_SIGNAL_DIAGNOSTIC = "ripgrep terminated by signal";
-
-export const defaultTranscriptLocatorRunnerDependencies: TranscriptLocatorRunnerDependencies = {
-  runRipgrep: async (args) => {
-    const result = await execa(RIPGREP_LOCATOR_COMMAND.EXECUTABLE, [...args], {
-      reject: false,
-      encoding: "buffer",
-      stripFinalNewline: false,
-    });
-    return {
-      exitCode: result.exitCode,
-      code: "code" in result && typeof result.code === "string" ? result.code : undefined,
-      signal: result.signal,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
-  },
-};
-
-/**
- * Maps a ripgrep process outcome to the locator's run result. A process that neither exited
- * nor was terminated by a signal never started — whatever error code the spawn reported — and
- * is the unstartable result (null exit code); a signal-terminated run is a failed run whose
- * diagnostic names the signal; an exited run carries ripgrep's own exit status and its
- * NUL-terminated output bytes.
- */
-export function transcriptLocatorRunResultFromOutcome(outcome: RipgrepProcessOutcome): TranscriptLocatorRunResult {
-  if (outcome.exitCode === undefined && outcome.signal === undefined) {
-    return { exitCode: null, stdout: new Uint8Array(), stderr: "" };
-  }
-  if (outcome.exitCode === undefined) {
-    return {
-      exitCode: RIPGREP_EXIT_CODE.ERROR,
-      stdout: new Uint8Array(),
-      stderr: `${RIPGREP_SIGNAL_DIAGNOSTIC} ${outcome.signal}`,
-    };
-  }
-  return {
-    exitCode: outcome.exitCode,
-    stdout: outcome.stdout,
-    stderr: Buffer.from(outcome.stderr).toString(AGENT_SESSION_STORE.TEXT_ENCODING),
-  };
-}
-
-/** Starts ripgrep through the injected process dependency and maps its outcome to a run result. */
-export function createTranscriptLocatorRunner(
-  deps: TranscriptLocatorRunnerDependencies = defaultTranscriptLocatorRunnerDependencies,
-): TranscriptLocatorRunner {
-  return async (args) => transcriptLocatorRunResultFromOutcome(await deps.runRipgrep(args));
-}
-
-export const execaTranscriptLocatorRunner: TranscriptLocatorRunner = createTranscriptLocatorRunner();
-
 export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   fs: nodeAgentSearchFileSystem,
-  locator: createRipgrepTranscriptLocator(execaTranscriptLocatorRunner),
+  locator: createRipgrepTranscriptLocator(defaultRipgrepRunner),
   agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,

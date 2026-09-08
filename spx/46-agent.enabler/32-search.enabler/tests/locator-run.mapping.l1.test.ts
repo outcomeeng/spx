@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  interpretTranscriptLocatorRun,
-  RIPGREP_EXIT_CODE,
-  TRANSCRIPT_LOCATOR_RUN_OUTCOME,
-} from "@/domains/agent/search";
+import { interpretTranscriptLocatorRun, TRANSCRIPT_LOCATOR_RUN_OUTCOME } from "@/domains/agent/search";
+import { RIPGREP_EXIT_CODE } from "@/lib/ripgrep/runner";
 
 import { arbitraryRipgrepRunCases, RIPGREP_RUN_EXIT_STATUSES } from "@testing/generators/agent/locator";
 import { sampleGeneratedValue } from "@testing/generators/sample";
