@@ -1,6 +1,7 @@
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+  CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
@@ -9,10 +10,11 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
+  RELEASE_NOTES_USER_FACING_INSTRUCTION,
+  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
-import { RELEASE_NOTES_PROMPT_CONTRACT } from "@/domains/release/release-notes-prompt-contract";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
@@ -63,9 +65,7 @@ it("instructs the producer to describe user-visible release behavior", () => {
     DEFAULT_CHANGELOG_PATH,
   );
 
-  for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.USER_FACING_REQUIRED_FRAGMENTS) {
-    expect(prompt).toContain(fragment);
-  }
+  expect(prompt).toContain(RELEASE_NOTES_USER_FACING_INSTRUCTION);
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -140,9 +140,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           observation.stagedPromptPath,
         ),
       ).toBe(true);
-      for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.PRESERVATION_REQUIRED_FRAGMENTS) {
-        expect(observation.prompt).toContain(fragment);
-      }
+      expect(observation.prompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
       return true;
     });
   });
@@ -284,9 +282,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
       );
-      for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.VERSION_HEADING_REQUIRED_FRAGMENTS) {
-        expect(observation.prompt).toContain(fragment);
-      }
+      expect(observation.prompt).toContain(RELEASE_NOTES_VERSION_HEADING_INSTRUCTION);
       expect(observation.prompt).toContain(
         JSON.stringify(CHANGELOG_VERSION_SECTION_PREFIX),
       );
