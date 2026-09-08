@@ -170,6 +170,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
   const configuredSource = reading(check, "configuredSource");
   const configuredVersion = reading(check, "configuredVersion");
   const shippedCodingAgents = reading(check, "shippedCodingAgents");
+  const providerMatch = reading(check, "providerMatch");
   switch (check.verdict as MethodologyContextVerdict) {
     case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
       return {
@@ -206,6 +207,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_MISMATCHED),
         details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), providerMatch),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),

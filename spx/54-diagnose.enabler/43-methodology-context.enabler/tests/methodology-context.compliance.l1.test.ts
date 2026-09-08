@@ -69,11 +69,16 @@ describe("methodology-context diagnose compliance", () => {
       expect(text, String(check.verdict)).toContain(header);
       // The unknown verdict renders only its retry guidance; every other verdict
       // renders the configured source the JSON record carries, and the verdicts
-      // over a declared version render that version too.
+      // over a declared version render that version too. The mismatched verdict
+      // additionally renders the provider diagnostic that names the disagreement,
+      // so the text report withholds nothing the JSON record carries.
       if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.UNKNOWN) continue;
       expect(text, String(check.verdict)).toContain(readings.configuredSource);
       if (methodology.version !== undefined) {
         expect(text, String(check.verdict)).toContain(readings.configuredVersion);
+      }
+      if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.MISMATCHED) {
+        expect(text, String(check.verdict)).toContain(readings.providerMatch);
       }
     }
   });
