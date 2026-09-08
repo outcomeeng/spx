@@ -575,6 +575,8 @@ export interface ProductsWithoutNodeApiObservation {
   readonly withoutNodeExport: UnresolvableNodeApiObservation;
   /** The package maps the Node API subpath to an entry file that does not exist. */
   readonly nodeEntryMissing: UnresolvableNodeApiObservation;
+  /** The package maps the Node API subpath, to an entry file that exists, under the `require` condition only. */
+  readonly requireOnlyNodeExport: UnresolvableNodeApiObservation;
   /** The package manifest is not parseable; the loader's resolution attempt and whatever it threw. */
   readonly malformedManifest: {
     readonly request: JournalRunRequest;
@@ -583,10 +585,19 @@ export interface ProductsWithoutNodeApiObservation {
   };
 }
 
-async function observeUnresolvableNodeApi(manifestText: string): Promise<UnresolvableNodeApiObservation> {
+/** The export condition a CommonJS `require()` resolves under, which the run's `import()` never does. */
+const REQUIRE_CONDITION = "require";
+/** A Node API entry file whose presence is the whole point: the run must decline it on its export condition, never on its absence. */
+const PRESENT_NODE_API_ENTRY_SOURCE = "export {};\n";
+
+async function observeUnresolvableNodeApi(
+  manifestText: string,
+  entrySource?: string,
+): Promise<UnresolvableNodeApiObservation> {
   const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
   return withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
-    await writeProductVitestPackage(productDir, manifestText);
+    const packageDir = await writeProductVitestPackage(productDir, manifestText);
+    if (entrySource !== undefined) await writeFile(join(packageDir, NODE_API_ENTRY_FILENAME), entrySource);
     const request: JournalRunRequest = { productDir, testPaths };
     const resolution = productVitestNodeApiLoader.resolve(productDir);
     const sink = createRecordingEvidenceSink();
@@ -608,6 +619,10 @@ export async function observeProductsWithoutNodeApi(): Promise<ProductsWithoutNo
   const nodeEntryMissing = await observeUnresolvableNodeApi(
     productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: `./${NODE_API_ENTRY_FILENAME}` }),
   );
+  const requireOnlyNodeExport = await observeUnresolvableNodeApi(
+    productVitestManifest({ [NODE_API_EXPORT_SUBPATH]: { [REQUIRE_CONDITION]: `./${NODE_API_ENTRY_FILENAME}` } }),
+    PRESENT_NODE_API_ENTRY_SOURCE,
+  );
   const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
   const malformedManifest = await withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
     await writeProductVitestPackage(productDir, MALFORMED_MANIFEST_TEXT);
@@ -619,7 +634,7 @@ export async function observeProductsWithoutNodeApi(): Promise<ProductsWithoutNo
       return { request, resolutionError: error };
     }
   });
-  return { withoutNodeExport, nodeEntryMissing, malformedManifest };
+  return { withoutNodeExport, nodeEntryMissing, requireOnlyNodeExport, malformedManifest };
 }
 
 /** What a descriptor streaming run driven through the contract loader exposes for inspection. */
