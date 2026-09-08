@@ -1,5 +1,29 @@
 # Issues: local Change draft prototype
 
+## CLI property timeouts block delivery
+
+On 2026-09-08, `pnpm run publish:check` passed 3,131 tests and failed all
+12 tests in
+`spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/change-cli.property.l1.test.ts`
+through timeouts. After the host-readiness waiter permitted another run,
+`pnpm exec tsx src/cli.ts test spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/change-cli.property.l1.test.ts`
+passed two tests and failed ten through timeouts on
+`c03a6341e1ffc4897012f37d97ab19de598d42ae`.
+
+Each property executes 25 generated cases, with a 5-second per-case limit and
+a 30-second whole-test limit. Every case creates a real Git fixture and starts
+the built CLI. Read-only timing probes measured `node bin/spx.js --version`
+at 1.49 seconds and `node bin/spx.js change draft list` at 0.78 seconds. The
+repeated process-start cost puts pressure on the whole-test allowance; these
+measurements do not explain every per-case timeout or establish a fix.
+
+Resolve through `/apply`, `/test`, and the TypeScript testing workflow. Keep
+the existing assertions and generated domains while diagnosing the execution
+cost. Any timeout increase requires operator approval. This is an active
+deterministic-verification blocker, separate from the approved evidence
+refinements below. Re-run focused evidence and the required delivery gate
+after repair; the earlier passing run remains historical evidence.
+
 ## Deferred prototype evidence refinements
 
 The operator approved deferring the following evidence refinements on 2026-09-08 while the first-use Change workflow is evaluated. The prototype may change or be retired. These gaps remain recorded without expanding this delivery into test-framework maintenance or claiming that the rejected audits approved it.
