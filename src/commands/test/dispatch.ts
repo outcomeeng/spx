@@ -1,12 +1,7 @@
 import { applyPathFilter, normalizePathPrefix, type PathFilterConfig } from "@/config/primitives/path-filter";
-import {
-  aggregateTestExitCode,
-  groupTestFiles,
-  type LanguageTestGroup,
-  resolveTargetedTestFiles,
-  type TargetSelection,
-} from "@/domains/test";
+import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/test";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveTargetedTestFiles, type TargetSelection } from "@/lib/test-targeting";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,

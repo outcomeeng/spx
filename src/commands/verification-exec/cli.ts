@@ -2,7 +2,7 @@
  * The `spx verification <type> run [paths…]` command handler.
  *
  * The handler composes the spx-driven executor: it resolves the verb's positional operands to test
- * files through the testing selection domain, records one `file`-scoped run whose selector is the
+ * files through the shared operand-selection library, records one `file`-scoped run whose selector is the
  * narrowest directory enclosing every operand with the executor's request as the recorded run
  * input, drives the type's streaming runner through the verification-type registry over production
  * recorder operations rooted at the worktree product root, and returns the run locator, the terminal
@@ -25,12 +25,12 @@ import { createRecorderOperations } from "@/commands/verification-exec/recorder-
 import { resolveVerificationRunner } from "@/commands/verification-exec/runner-registry";
 import { VERIFY_CLI_EXIT_CODE, type VerifyCliDeps } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
-import { resolveTargetedTestFiles } from "@/domains/test";
 import { executeRunScopeIdentity } from "@/domains/verification-exec/scope";
 import { type RunLocator, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { toMessage } from "@/lib/error-message";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 
 /** The diagnostics the execute-run command path raises; each names the command path and the failing input. */
 export const EXECUTE_RUN_CLI_ERROR = {

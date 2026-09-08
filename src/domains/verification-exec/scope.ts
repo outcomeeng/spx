@@ -5,8 +5,8 @@
  * addressing key for the run rather than its coverage claim; the narrowest enclosing directory is
  * the deterministic key that names what the caller asked for.
  */
-import { normalizeTargetOperand } from "@/domains/test";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { normalizeTargetOperand } from "@/lib/test-targeting";
 
 const PATH_SEGMENT_SEPARATOR = "/";
 
