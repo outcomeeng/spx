@@ -56,19 +56,26 @@ export const COPIED_SUITE_NAME = "suite.test.ts";
 /** The manifest this product — the adapter's own package — declares its dependencies in. */
 const PACKAGE_MANIFEST_FILENAME = "package.json";
 
-/** The dependency-name fields a package manifest declares. */
+/** The manifest fields whose entries a package manager installs for the package's consumers. */
 interface PackageManifestDependencies {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependencies?: Readonly<Record<string, string>>;
 }
 
 /**
- * Reads the runtime dependency names this product's own package manifest declares — the
- * manifest is the oracle for what the shipped adapter installs alongside itself.
+ * Reads the names of every package this product's own manifest installs for its consumers —
+ * its dependencies, optional dependencies, and peer dependencies — the manifest being the
+ * oracle for what the shipped adapter installs alongside itself.
  */
 export async function readProductRuntimeDependencyNames(): Promise<readonly string[]> {
   const manifestText = await readFile(join(CONFIG_PROCESS_CWD.read(), PACKAGE_MANIFEST_FILENAME), "utf8");
   const manifest = JSON.parse(manifestText) as PackageManifestDependencies;
-  return Object.keys(manifest.dependencies ?? {});
+  return [
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
+    ...Object.keys(manifest.peerDependencies ?? {}),
+  ];
 }
 
 // Committed inert fixture suites copied into a temporary product for the real Vitest run.

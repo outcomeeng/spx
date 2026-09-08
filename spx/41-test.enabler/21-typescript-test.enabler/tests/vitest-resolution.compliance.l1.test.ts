@@ -121,8 +121,17 @@ describe("journal-streaming run over a product that supplies no runner", () => {
         invoked: false,
         unresolvedRunner: { productDir: observation.nodeEntryMissing.request.productDir },
       });
+      expect(observation.requireOnlyNodeExport.resolution).toEqual({
+        resolved: false,
+        productDir: observation.requireOnlyNodeExport.request.productDir,
+      });
+      expect(observation.requireOnlyNodeExport.invocation).toEqual({
+        invoked: false,
+        unresolvedRunner: { productDir: observation.requireOnlyNodeExport.request.productDir },
+      });
       expect(observation.withoutNodeExport.sink.scopes).toEqual([]);
       expect(observation.nodeEntryMissing.sink.scopes).toEqual([]);
+      expect(observation.requireOnlyNodeExport.sink.scopes).toEqual([]);
       expect(observation.malformedManifest.resolutionError).toBeInstanceOf(Error);
     });
   });
