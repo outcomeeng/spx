@@ -1,7 +1,12 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { type MethodologyConfig, requireMethodologyVersion, resolveMethodologyIdentity } from "@/config/methodology";
+import {
+  type MethodologyConfig,
+  type MethodologyIdentity,
+  requireMethodologyVersion,
+  resolveMethodologyIdentity,
+} from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -92,6 +97,7 @@ export const SPEC_CONTEXT_TEXT_LABEL = {
   READ: "Read",
   LISTED: "Listed",
   METHODOLOGY_DOCUMENT: "Methodology document",
+  MIGRATING_FROM: "migrating from",
 } as const;
 
 const TEXT_LIST_INDENT = "  - ";
@@ -606,13 +612,19 @@ function renderReadDocument(document: SpecContextReadDocument): string {
   return `${renderRoleBindings(document.roles)}: ${document.path}${provenance}`;
 }
 
+/** The declared identity as `source@version`, or the source alone while no version is declared. */
+function renderMethodologyIdentity(identity: MethodologyIdentity): string {
+  const declared = identity.version === undefined ? identity.source : `${identity.source}@${identity.version}`;
+  return identity.migratingFrom === undefined
+    ? declared
+    : `${declared} (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${identity.migratingFrom})`;
+}
+
 export function renderSpecContextText(manifest: SpecContextManifest): string {
   const lines = [
     `${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${manifest.targets.join(", ")}`,
     `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}${
-      manifest.methodology.migratingFrom === undefined ? "" : ` (migrating from ${manifest.methodology.migratingFrom})`
-    }`,
+    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${renderMethodologyIdentity(manifest.methodology)}`,
     `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
     `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
   ];

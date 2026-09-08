@@ -109,6 +109,11 @@ function validateSegments(segments: readonly string[]): Result<undefined> {
   return { ok: true, value: undefined };
 }
 
+/** Absolute root holding every shipped methodology tree, under the supplied spx package root. */
+export function methodologyTreeRootDir(packageRoot: string): string {
+  return join(packageRoot, METHODOLOGY_TREE_ROOT);
+}
+
 /** Package-relative directory of one shipped line. */
 export function methodologyLineRelativeDir(line: string): Result<string> {
   const segments = validateSegments([line]);

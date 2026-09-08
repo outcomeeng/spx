@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
@@ -15,7 +15,11 @@ import {
   SPEC_TREE_CONFIG,
   specContextBootstrap,
 } from "@/lib/spec-tree";
-import { generatedMethodologySection } from "@testing/generators/config/descriptors";
+import {
+  generatedMethodologySection,
+  generatedMethodologySource,
+  generatedMigratingMethodologySection,
+} from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   specContextAmbiguousTargetFixture,
@@ -34,6 +38,7 @@ import {
   allManifestPaths,
   contextCommand,
   contextTextCommand,
+  METHODOLOGY_FIXTURE_VERSION,
   parseContextManifest,
   rejectedContextMessage,
   rootedSpecPath,
@@ -224,7 +229,9 @@ describe("spec context ingestion compliance", () => {
       const jsonOutput = await contextCommand({ targets: [target.id], cwd: env.productDir });
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: spx/${target.id}`);
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}:`);
+      expect(textOutput).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}\n`,
+      );
       expect(textOutput).toContain(
         `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`,
       );
@@ -232,6 +239,37 @@ describe("spec context ingestion compliance", () => {
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
       expect(parseContextManifest(jsonOutput).targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target.id}`]);
+    });
+  });
+
+  it("renders the methodology identity as the source alone while no version is declared and with the migration source while one is open", async () => {
+    const undeclaredSource = generatedMethodologySource();
+    await withSpecTreeEnv({
+      ...specTreeKindsConfig(),
+      [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.SOURCE]: undeclaredSource },
+    }, async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir });
+      // The identity line ends at the source: no version separator and no
+      // placeholder stands in for the undeclared version.
+      expect(textOutput).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}\n${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}:`,
+      );
+    });
+
+    const migrating = generatedMigratingMethodologySection();
+    await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: migrating }, async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir });
+      expect(textOutput).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE]}@${
+          migrating[METHODOLOGY_CONFIG_FIELDS.VERSION]
+        } (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]})\n`,
+      );
     });
   });
 

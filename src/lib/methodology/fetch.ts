@@ -253,7 +253,7 @@ function selectLine(providedLines: Readonly<Record<string, string>>, argumentLin
   if (distinctProvided.length > 1) {
     return { ok: false, error: formatFetchLineDisagreementError(providedLines) };
   }
-  const providedLine = distinctProvided[0];
+  const providedLine = distinctProvided.at(0);
   if (providedLine !== undefined && argumentLine !== undefined && providedLine !== argumentLine) {
     return { ok: false, error: formatFetchLineConflictError(argumentLine, providedLine) };
   }
