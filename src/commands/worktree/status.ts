@@ -28,7 +28,7 @@ import {
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
 import { type PlainTreeSection, renderPlainTree } from "@/lib/styled-output/styled-output";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import { jsonDocument, renderTerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -168,7 +168,7 @@ function renderStatus(
 ): string {
   if (format === WORKTREE_STATUS_FORMAT.JSON) {
     const jsonRecords = records.map(toJsonStatusRecord);
-    return JSON.stringify(multiTargetRequest ? jsonRecords : jsonRecords[0]);
+    return renderTerminalText(jsonDocument(multiTargetRequest ? jsonRecords : jsonRecords[0]));
   }
   return renderTextStatus(records);
 }
