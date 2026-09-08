@@ -22,9 +22,10 @@ import {
   type ExecuteRunCommandResult,
   type ExecuteRunReport,
   type JournalStreamingRunner,
+  resolveVerificationRunner,
 } from "@/commands/verification-exec";
 import { verifyInputCommand, type VerifyInputReport } from "@/commands/verify/cli";
-import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE, type VerifyVerificationType } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -169,33 +170,69 @@ export function invokeFromFirstTestDir(product: GeneratedTestProduct): string {
   return join(product.productDir, posix.dirname(product.testPaths[0]));
 }
 
+interface ExecuteRunDrive {
+  readonly verificationType: VerifyVerificationType;
+  readonly selectOperands: (product: GeneratedTestProduct) => readonly string[];
+  readonly selectInvocationDir: (product: GeneratedTestProduct) => string;
+  readonly invocation: JournalRunInvocation;
+  /** Resolves the runner the handler drives; the controlled runner, or the production registry. */
+  readonly resolveRunner: (
+    controlled: ControlledRunner,
+  ) => (verificationType: string) => JournalStreamingRunner | undefined;
+}
+
 /**
  * Drives the execute-run handler over a generated temp product with the given operands and a
  * controlled runner yielding the given invocation, from the selected invocation directory, against
  * the real recorder over an in-memory store and the production worktree-root resolver, and reads
  * back the recorded run input when a run opened.
  */
-export async function observeExecuteRunHandler(
+export function observeExecuteRunHandler(
   selectOperands: (product: GeneratedTestProduct) => readonly string[],
   invocation: JournalRunInvocation,
   selectInvocationDir: (product: GeneratedTestProduct) => string = invokeFromProductRoot,
 ): Promise<ExecuteRunHandlerObservation> {
+  return driveExecuteRun({
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    selectOperands,
+    selectInvocationDir,
+    invocation,
+    resolveRunner: (controlled) => () => controlled.runner,
+  });
+}
+
+/**
+ * Drives the execute-run handler with an agentic verification type — one the production registry
+ * resolves no streaming runner for — over the whole generated product, from its root.
+ */
+export function observeExecuteRunWithAgenticType(): Promise<ExecuteRunHandlerObservation> {
+  return driveExecuteRun({
+    verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+    selectOperands: () => [],
+    selectInvocationDir: invokeFromProductRoot,
+    invocation: invokedInvocations()[0],
+    resolveRunner: () => resolveVerificationRunner,
+  });
+}
+
+async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandlerObservation> {
+  const { invocation } = drive;
   let observation: ExecuteRunHandlerObservation | undefined;
   await withTestingTempProductDir(async (tempDir) => {
     const product = await materializeTestProduct(tempDir);
-    const operands = selectOperands(product);
-    const invocationDir = selectInvocationDir(product);
+    const operands = drive.selectOperands(product);
+    const invocationDir = drive.selectInvocationDir(product);
     const scenario = withVerificationType(
       { ...createVerifyRunContextScenario(), productDir: product.productDir },
-      VERIFY_VERIFICATION_TYPE.TEST,
+      drive.verificationType,
     );
     const fs = createInMemoryStateStoreFileSystem();
     const recorderDeps = verifyDeps(scenario, fs);
     const controlled = controlledRunner(invocation);
 
     const result = await executeRunCommand(
-      { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands, recursive: false },
-      { cwd: invocationDir, resolveRunner: () => controlled.runner, recorder: recorderDeps },
+      { verificationType: drive.verificationType, operands, recursive: false },
+      { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
     );
     const recordedInput = result.report === undefined
       ? undefined

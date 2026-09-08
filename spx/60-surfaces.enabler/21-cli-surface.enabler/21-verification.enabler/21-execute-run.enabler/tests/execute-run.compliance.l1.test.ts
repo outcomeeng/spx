@@ -22,6 +22,7 @@ import {
   invokeFromProductRoot,
   observeExecuteRunDescriptor,
   observeExecuteRunHandler,
+  observeExecuteRunWithAgenticType,
   unresolvedRunnerInvocation,
 } from "@testing/harnesses/verify/execute-run";
 
@@ -121,7 +122,7 @@ describe("execute run compliance", () => {
     expect(descriptor.exitCode).toBe(passed.exitCode);
   });
 
-  it("reports an operand selecting no test file without opening a run, and names a runnerless product directory after sealing", async () => {
+  it("reports an operand selecting no test file or a type without a runner without opening a run, and names a runnerless product directory after sealing", async () => {
     const unresolvedOperand = sampleGeneratedValue(arbitrarySourceFilePath());
     const noMatch = await observeExecuteRunHandler(() => [unresolvedOperand], invokedInvocations()[0]);
     expect(noMatch.report).toBeUndefined();
@@ -129,6 +130,13 @@ describe("execute run compliance", () => {
     expect(noMatch.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(noMatch.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS);
     expect(noMatch.diagnostic).toContain(unresolvedOperand);
+
+    const agenticType = await observeExecuteRunWithAgenticType();
+    expect(agenticType.report).toBeUndefined();
+    expect(agenticType.drivenRequest).toBeUndefined();
+    expect(agenticType.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(agenticType.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+    expect(agenticType.diagnostic).toContain(VERIFY_VERIFICATION_TYPE.AUDIT);
 
     const unresolvedRunner = unresolvedRunnerInvocation();
     const runnerless = await observeExecuteRunHandler(() => [], unresolvedRunner.invocation);

@@ -115,10 +115,12 @@ describe("spx-driven verification executor compliance", () => {
 
     await expect(observeTestRunnerFold([gatedOutDescriptor(), unresolvedRunnerDescriptor(productDir)])).resolves
       .toEqual({ invoked: false, unresolvedRunner: { productDir } });
-    await expect(observeTestRunnerFold([
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      unresolvedRunnerDescriptor(productDir),
-    ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
+    for (const streamedStatus of Object.values(JOURNAL_RUN_TERMINAL_STATUS)) {
+      await expect(observeTestRunnerFold([
+        streamingDescriptorYielding(streamedStatus),
+        unresolvedRunnerDescriptor(productDir),
+      ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
+    }
   });
 
   it("seals an unresolved-runner outcome interrupted and names the product directory searched, unlike a gated-out run", async () => {
