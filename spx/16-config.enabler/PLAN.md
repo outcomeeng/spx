@@ -90,7 +90,7 @@ Start from fresh origin/main on a branch named work/{packet-slug}. Before branch
 
 The output sentinel file for each packet must strip the numeric prefix and `.enabler` suffix from the node directory slug, then add `.md`; for example, `54-canonical-descriptor-digest.enabler` produces `canonical-descriptor-digest.md`. A node-local PLAN may name a different sentinel path only when the target artifact is intentionally elsewhere.
 
-Fallback: If the runtime cannot load `spec-tree:merge`, record the missing skill once in `spx/16-config.enabler/ISSUES.md`, then proceed using the product PR audit workflow in the top-level `CLAUDE.md` under "Pull request (PR) audit workflow" and "Executing PR workflow". `AGENTS.md`, if configured as a symlink to `CLAUDE.md`, provides the same product instructions.
+Fallback: If the runtime cannot load `spec-tree:merge`, record the missing skill once in `spx/16-config.enabler/ISSUES.md` and stop before publishing. The repository carries no skill-independent merge procedure: `spx/local/merging.md` configures the spec-tree merge skills (transport, verification lanes, merge command, release action) and is read through them, and the shared region of `CLAUDE.md` and `AGENTS.md` carries no merge or release workflow.
 
 Ownership and review loop:
 1. Own only {target-node} and the implementation files required by its assertions.
