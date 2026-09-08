@@ -1,4 +1,10 @@
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
 import type { ReleaseData } from "@/domains/release/release-data";
+
+/** The separator git uses between tree-path segments, whatever the host separator. */
+const GIT_TREE_PATH_SEPARATOR = "/";
+const PARENT_DIRECTORY_SEGMENT = "..";
 
 export const PACKAGE_PROVENANCE = {
   UNVERIFIED: "unverified",
@@ -50,6 +56,26 @@ export class ReleasePublicationError extends Error {
 
 export function releaseTagForVersion(version: string): string {
   return `v${version}`;
+}
+
+/**
+ * The git tree path of the configured changelog, relative to the product
+ * directory — what a committed-tree read resolves against the release tag.
+ * The check is lexical: a committed tree has no symlink to follow, so only a
+ * path that escapes the product directory or names the directory itself is
+ * rejected.
+ */
+export function committedChangelogTreePath(productDir: string, changelogPath: string): string {
+  const relativePath = relative(resolve(productDir), resolve(productDir, changelogPath));
+  const segments = relativePath.split(sep);
+  if (
+    relativePath.length === 0
+    || isAbsolute(relativePath)
+    || segments.at(0) === PARENT_DIRECTORY_SEGMENT
+  ) {
+    throw new ReleasePublicationError(`Configured changelog path escapes the product directory: ${changelogPath}`);
+  }
+  return segments.join(GIT_TREE_PATH_SEPARATOR);
 }
 
 export function packagePublicationMatches(

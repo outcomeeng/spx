@@ -1,19 +1,16 @@
 import {
+  committedChangelogTreePath,
   type HostedReleasePublisher,
   type PackagePublisher,
   publishRelease,
   ReleasePublicationError,
 } from "@/domains/release/publication";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
-import {
-  DEFAULT_CHANGELOG_PATH,
-  resolveCanonicalReleaseNotesPath,
-  validatedReleaseNotesSection,
-} from "@/domains/release/release-notes";
+import { DEFAULT_CHANGELOG_PATH, validatedReleaseNotesSection } from "@/domains/release/release-notes";
+import { committedFileContent } from "@/lib/git/release";
 import { defaultGitDependencies, GIT_ROOT_COMMAND } from "@/lib/git/root";
 
 import { type PackageIdentity, readPackageIdentity } from "./package-manifest";
-import { createReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 const GIT_COMMIT_SUFFIX = "^{commit}";
 
@@ -38,10 +35,9 @@ export interface PublishReleaseCommandDependencies {
   readonly readPackageIdentity: (productDir: string) => Promise<PackageIdentity>;
   readonly resolveTaggedCommit: (productDir: string, tag: string) => Promise<string>;
   readonly resolveReleaseData: (productDir: string, version: string, tag: string) => Promise<ReleaseData>;
-  readonly readReleaseNotes: (productDir: string, changelogPath: string) => Promise<string>;
+  /** Reads the changelog as committed at the release tag, so a checkout that moved past the tag cannot change the published notes. */
+  readonly readReleaseNotes: (productDir: string, tag: string, changelogPath: string) => Promise<string>;
 }
-
-const releaseNotesFilesystem = createReleaseNotesFilesystem();
 
 export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommandDependencies = {
   readPackageIdentity,
@@ -58,13 +54,13 @@ export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommand
   },
   resolveReleaseData: async (productDir, version, tag) =>
     await computeReleaseData({ productDir, packageVersion: version, releaseRef: tag }),
-  readReleaseNotes: async (productDir, changelogPath) => {
-    const canonicalPath = await resolveCanonicalReleaseNotesPath(
-      productDir,
-      { changelogPath },
-      releaseNotesFilesystem,
-    );
-    return await releaseNotesFilesystem.readArtifact(canonicalPath, canonicalPath);
+  readReleaseNotes: async (productDir, tag, changelogPath) => {
+    const treePath = committedChangelogTreePath(productDir, changelogPath);
+    const changelog = await committedFileContent(tag, treePath, productDir, defaultGitDependencies);
+    if (changelog === null) {
+      throw new ReleasePublicationError(`Release tag ${tag} does not commit the changelog ${treePath}`);
+    }
+    return changelog;
   },
 };
 
@@ -78,7 +74,7 @@ export async function publishReleaseCommand(
   const [taggedCommit, releaseData, changelog] = await Promise.all([
     deps.resolveTaggedCommit(options.productDir, tag),
     deps.resolveReleaseData(options.productDir, packageIdentity.version, tag),
-    deps.readReleaseNotes(options.productDir, options.changelogPath ?? DEFAULT_CHANGELOG_PATH),
+    deps.readReleaseNotes(options.productDir, tag, options.changelogPath ?? DEFAULT_CHANGELOG_PATH),
   ]);
   await publishRelease({
     releaseData,

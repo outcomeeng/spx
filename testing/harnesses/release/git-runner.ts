@@ -28,12 +28,13 @@ export class RecordingReleaseGitRunner implements GitDependencies {
   async execa(
     command: string,
     args: string[],
-    options?: { cwd?: string; reject?: boolean },
+    options?: { cwd?: string; reject?: boolean; stripFinalNewline?: boolean },
   ): Promise<ExecResult> {
     this.invocations.push({ executable: command, args: [...args] });
     const result = await execa(command, [...args], {
       cwd: options?.cwd,
       reject: options?.reject,
+      ...(options?.stripFinalNewline === undefined ? {} : { stripFinalNewline: options.stripFinalNewline }),
       env: withoutGitEnvironment(process.env),
       extendEnv: false,
     });

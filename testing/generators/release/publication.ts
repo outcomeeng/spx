@@ -17,6 +17,7 @@ import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
+  arbitraryConformantChangelog,
   arbitraryConformantChangelogScenario,
   changelogWithDuplicateCurrentVersionSections,
   changelogWithFooterReferenceScenario,
@@ -74,12 +75,28 @@ export interface PublicationWorkflowViolationScenario {
   readonly expectedViolation: ReleasePublicationWorkflowViolation;
 }
 
+/** A publication whose product checkout moved past the release tag, committing a changelog that differs from the tagged one. */
+export interface PublicationCheckoutDriftScenario extends PublicationScenario {
+  readonly checkoutChangelog: string;
+}
+
 export function arbitraryPublicationScenario(): fc.Arbitrary<PublicationScenario> {
   return arbitraryPublicationBase().map((scenario) => ({
     ...scenario,
     existingPackage: null,
     existingHostedRelease: null,
   }));
+}
+
+export function arbitraryPublicationCheckoutDriftScenario(): fc.Arbitrary<PublicationCheckoutDriftScenario> {
+  return arbitraryPublicationScenario().chain((scenario) =>
+    arbitraryConformantChangelog(
+      scenario.releaseData.version,
+      scenario.releaseData.commits.map((commit) => commit.subject),
+    )
+      .filter((changelog) => changelog !== scenario.changelog)
+      .map((checkoutChangelog) => ({ ...scenario, checkoutChangelog }))
+  );
 }
 
 export function arbitraryPublicationRetryScenario(): fc.Arbitrary<PublicationRetryScenario> {

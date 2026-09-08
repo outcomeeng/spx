@@ -64,11 +64,12 @@ export interface GitWorktreePorcelainRecord {
 
 // Dependencies for git operations.
 export interface GitDependencies {
-  // Execute a command.
+  // Execute a command. `stripFinalNewline` defaults to true; a caller reading
+  // committed file content passes false so the blob's final newline survives.
   execa: (
     command: string,
     args: string[],
-    options?: { cwd?: string; reject?: boolean },
+    options?: { cwd?: string; reject?: boolean; stripFinalNewline?: boolean },
   ) => Promise<ExecResult>;
 }
 

@@ -1,4 +1,4 @@
-import { symlink } from "node:fs/promises";
+import { readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Command } from "commander";
@@ -23,6 +23,7 @@ import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli
 import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import type {
+  PublicationCheckoutDriftScenario,
   PublicationConfirmationFailureScenario,
   PublicationScenario,
 } from "@testing/generators/release/publication";
@@ -69,8 +70,7 @@ export interface ReleaseDataRequest extends TaggedCommitRequest {
   readonly version: string;
 }
 
-export interface ReleaseNotesRequest {
-  readonly productDir: string;
+export interface ReleaseNotesRequest extends TaggedCommitRequest {
   readonly changelogPath: string;
 }
 
@@ -111,24 +111,35 @@ export function createPublicationHarness(
 
 /** What the default publish dependencies read back from a real product repository. */
 export interface DefaultPublishDependenciesObservation {
-  readonly scenario: PublicationScenario;
+  readonly scenario: PublicationCheckoutDriftScenario;
   readonly packageIdentity: { readonly name: string; readonly version: string };
+  /** The commit the harness tagged. */
+  readonly tagCommit: string;
+  /** The commit the default dependencies resolved for the tag. */
   readonly taggedCommit: string;
+  /** The checkout's head after it moved past the tag. */
   readonly headCommit: string;
+  /** The changelog the default dependencies read for the tag. */
   readonly changelog: string;
   /** The changelog read with the product directory addressed through a symbolic link to the checkout. */
   readonly changelogThroughSymlinkedCheckout: string;
+  /** The changelog the checkout's working tree holds after moving past the tag. */
+  readonly checkoutChangelog: string;
 }
 const SYMLINKED_CHECKOUT_PREFIX = "spx-publish-symlinked-checkout-";
 const SYMLINKED_CHECKOUT_NAME = "checkout";
+const CHECKOUT_ADVANCE_COMMIT_MESSAGE = "advance the checkout past the release tag";
+const CHANGELOG_TEXT_ENCODING = "utf8";
 
 /**
  * Materializes the scenario's package manifest and changelog in a real git
- * repository, tags the commit, and reads them back through the production
- * default dependencies — real filesystem and real git, no controlled boundary.
+ * repository, tags the commit, commits the drifted changelog on top so the
+ * checkout moves past the tag, and reads the release inputs back through the
+ * production default dependencies — real filesystem and real git, no
+ * controlled boundary.
  */
 export async function observeDefaultPublishDependencies(
-  scenario: PublicationScenario,
+  scenario: PublicationCheckoutDriftScenario,
 ): Promise<DefaultPublishDependenciesObservation> {
   let observation: DefaultPublishDependenciesObservation | undefined;
   await withGitWorktreeEnv(async (env) => {
@@ -139,28 +150,39 @@ export async function observeDefaultPublishDependencies(
     await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.changelog);
     await env.commit(scenario.tag);
     await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
+    const tagCommit = (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
+    await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.checkoutChangelog);
+    await env.commit(CHECKOUT_ADVANCE_COMMIT_MESSAGE);
     const headCommit = (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
+    const checkoutChangelog = await readFile(join(env.productDir, DEFAULT_CHANGELOG_PATH), CHANGELOG_TEXT_ENCODING);
 
     const [packageIdentity, taggedCommit, changelog] = await Promise.all([
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readPackageIdentity(env.productDir),
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveTaggedCommit(env.productDir, scenario.tag),
-      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(env.productDir, DEFAULT_CHANGELOG_PATH),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
+        env.productDir,
+        scenario.tag,
+        DEFAULT_CHANGELOG_PATH,
+      ),
     ]);
     const changelogThroughSymlinkedCheckout = await withTempDir(SYMLINKED_CHECKOUT_PREFIX, async (linkRoot) => {
       const symlinkedProductDir = join(linkRoot, SYMLINKED_CHECKOUT_NAME);
       await symlink(env.productDir, symlinkedProductDir);
       return await DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
         symlinkedProductDir,
+        scenario.tag,
         DEFAULT_CHANGELOG_PATH,
       );
     });
     observation = {
       scenario,
       packageIdentity,
+      tagCommit,
       taggedCommit,
       headCommit,
       changelog,
       changelogThroughSymlinkedCheckout,
+      checkoutChangelog,
     };
   });
   if (observation === undefined) {
@@ -230,8 +252,8 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
           releaseDataRequests.push({ productDir, version, tag: requestedTag });
           return Promise.resolve(scenario.releaseData);
         },
-        readReleaseNotes: (productDir, changelogPath) => {
-          releaseNotesRequests.push({ productDir, changelogPath });
+        readReleaseNotes: (productDir, requestedTag, changelogPath) => {
+          releaseNotesRequests.push({ productDir, tag: requestedTag, changelogPath });
           return Promise.resolve(scenario.changelog);
         },
       },

@@ -11,8 +11,14 @@ export interface GitCommit {
 const GIT_RELEASE_SUBCOMMAND = {
   DESCRIBE: "describe",
   LOG: "log",
+  SHOW: "show",
   TAG: "tag",
 } as const;
+
+/** Separator between a revision and a tree path in a `git show <rev>:<path>` object name. */
+const REVISION_PATH_SEPARATOR = ":";
+/** Prefix that makes `git show` resolve a tree path relative to the working directory rather than the repository root. */
+const CWD_RELATIVE_TREE_PATH_PREFIX = "./";
 
 const GIT_RELEASE_FLAG = {
   TAGS: "--tags",
@@ -98,6 +104,30 @@ export async function releaseTagsAt(
   );
   if (result.exitCode !== 0) return [];
   return nonEmptyLines(result.stdout);
+}
+
+/**
+ * Reads the content of the file at `treePath` — relative to `cwd`, forward-slash
+ * separated — as committed at `ref`, keeping the blob's bytes including its
+ * final newline. Returns null when the ref does not resolve or its tree holds
+ * no such file.
+ */
+export async function committedFileContent(
+  ref: string,
+  treePath: string,
+  cwd: string,
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      GIT_RELEASE_SUBCOMMAND.SHOW,
+      `${ref}${REVISION_PATH_SEPARATOR}${CWD_RELATIVE_TREE_PATH_PREFIX}${treePath}`,
+    ],
+    { cwd, reject: false, stripFinalNewline: false },
+  );
+  if (result.exitCode !== 0) return null;
+  return result.stdout;
 }
 
 /**

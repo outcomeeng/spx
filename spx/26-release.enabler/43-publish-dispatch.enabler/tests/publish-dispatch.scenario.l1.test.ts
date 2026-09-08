@@ -2,6 +2,7 @@ import { type PackagePublication, ReleasePublicationError } from "@/domains/rele
 import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
 import { RELEASE_CLI_OUTPUT } from "@/interfaces/cli/release-output";
 import {
+  arbitraryPublicationCheckoutDriftScenario,
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationMissingHostedReleaseScenario,
   arbitraryPublicationRetryScenario,
@@ -96,6 +97,7 @@ describe("release publication dispatch", () => {
     }]);
     expect(observation.releaseNotesRequests).toEqual([{
       productDir: observation.scenario.productDir,
+      tag: observation.scenario.tag,
       changelogPath: DEFAULT_CHANGELOG_PATH,
     }]);
     expect(observation.packagePublisherProductDirs).toEqual([observation.scenario.productDir]);
@@ -105,15 +107,18 @@ describe("release publication dispatch", () => {
     ]);
   });
 
-  it("reads the committed release artifacts and tagged commit from the product repository", async () => {
+  it("reads the release artifacts committed at the tag after the checkout moves past it", async () => {
     const observation = await observeDefaultPublishDependencies(
-      sampleReleaseTestValue(arbitraryPublicationScenario()),
+      sampleReleaseTestValue(arbitraryPublicationCheckoutDriftScenario()),
     );
     expect(observation.packageIdentity).toEqual({
       name: observation.scenario.packagePublication.name,
       version: observation.scenario.packagePublication.version,
     });
-    expect(observation.taggedCommit).toBe(observation.headCommit);
+    expect(observation.taggedCommit).toBe(observation.tagCommit);
+    expect(observation.headCommit).not.toBe(observation.tagCommit);
+    expect(observation.checkoutChangelog).toBe(observation.scenario.checkoutChangelog);
+    expect(observation.checkoutChangelog).not.toBe(observation.scenario.changelog);
     expect(observation.changelog).toBe(observation.scenario.changelog);
     expect(observation.changelogThroughSymlinkedCheckout).toBe(observation.scenario.changelog);
   });
