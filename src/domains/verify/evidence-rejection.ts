@@ -36,6 +36,11 @@ export const EVIDENCE_REQUIREMENT = {
   PAYLOAD_IS_OBJECT: "the payload is a JSON object",
   REVIEW_FINDING_ANCHOR: "a review finding anchors to a line or to a position",
   AUDIT_KIND_MATCHES_CLASS: "the audit kind is compatible with the audit class",
+  AUDIT_CHANGESET_CLASS_NEEDS_CHANGESET_SCOPE:
+    "a unit whose audit class is the changeset itself is recorded only in a changeset-scoped run",
+  AUDIT_CHANGESET_ROOT_IS_COHERENCE:
+    "a run rooted in the changeset class opens with a required, parentless coherence unit whose subject is the run's changeset scope",
+  AUDIT_REVIEW_UNIT_PARENT_IS_COHERENCE_ROOT: "a review unit names the run's coherence root as its parent",
   AUDIT_COVERAGE_GAP_IS_UNCOVERED: "a coverage-gap unit carries an uncovered coverage status",
   AUDIT_COVERAGE_GAP_HAS_NO_PROVENANCE: "a coverage-gap unit records no producer provenance",
   AUDIT_PARENT_IS_NOT_SELF: "a unit's parent unit differs from the unit itself",

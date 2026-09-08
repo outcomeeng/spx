@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
 import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import type { EvidenceValidationResult } from "@/domains/verify/evidence-rejection";
+import type { EvidenceRequirement, EvidenceValidationResult } from "@/domains/verify/evidence-rejection";
 import {
   acceptEvidence,
   EVIDENCE_REQUIREMENT,
@@ -185,6 +185,7 @@ export interface ReviewTerminalMetadata {
 }
 
 export const AUDIT_CLASS = {
+  CHANGESET: "changeset",
   IMPLEMENTATION: "implementation",
   INSTRUCTIONS: "instructions",
   SPEC: "spec",
@@ -196,11 +197,13 @@ export const AUDIT_KIND = {
   ADR: "adr",
   ARCHITECTURE: "architecture",
   CODE: "code",
+  COHERENCE: "coherence",
   COVERAGE_GAP: "coverage-gap",
   EVAL_EVIDENCE: "eval-evidence",
   GUIDE_TEMPLATE: "guide-template",
   PDR: "pdr",
   PROMPT: "prompt",
+  REVIEW_UNIT: "review-unit",
   SKILL: "skill",
   SPEC: "spec",
   SUBAGENT: "subagent",
@@ -762,6 +765,9 @@ function isCompatibleAuditKind(auditClass: AuditClass, auditKind: AuditKind): bo
   }
   if (auditClass === AUDIT_CLASS.SPEC) {
     return auditKind === AUDIT_KIND.SPEC || auditKind === AUDIT_KIND.ADR || auditKind === AUDIT_KIND.PDR;
+  }
+  if (auditClass === AUDIT_CLASS.CHANGESET) {
+    return auditKind === AUDIT_KIND.COHERENCE || auditKind === AUDIT_KIND.REVIEW_UNIT;
   }
   return (
     auditKind === AUDIT_KIND.CODE
@@ -1379,11 +1385,45 @@ function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly Au
   });
 }
 
+/**
+ * A changeset-class unit judges the changeset itself, so it belongs only to a changeset-scoped run,
+ * a run it roots as a required parentless `coherence` unit named for the run's own scope. Every
+ * review unit the run then records hangs off that root, which is what makes the recorded review
+ * units countable as one decomposition rather than an unordered set of siblings.
+ */
+function validateChangesetAuditScope(
+  scope: AuditScopeUnit,
+  recordedScopes: readonly AuditScopeUnit[],
+  selector: VerifyRunSelector,
+): EvidenceRequirement | undefined {
+  if (selector.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
+    return EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_CLASS_NEEDS_CHANGESET_SCOPE;
+  }
+  if (scope.auditKind === AUDIT_KIND.COHERENCE) {
+    return recordedScopes.length === 0
+        && scope.parentUnitId === undefined
+        && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
+        && scope.subject === selector.scopeIdentity
+      ? undefined
+      : EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_IS_COHERENCE;
+  }
+  if (scope.auditKind !== AUDIT_KIND.REVIEW_UNIT) return undefined;
+  return recordedScopes.some((recorded) =>
+      recorded.auditKind === AUDIT_KIND.COHERENCE && recorded.unitId === scope.parentUnitId
+    )
+    ? undefined
+    : EVIDENCE_REQUIREMENT.AUDIT_REVIEW_UNIT_PARENT_IS_COHERENCE_ROOT;
+}
+
 function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValidationResult<AuditScopeUnit> {
   const validated = validateAuditScope(input.payload);
   if (!validated.ok) return validated;
   const scope = validated.value;
   const recordedScopes = auditScopeUnitsFromEvents(input.events);
+  if (scope.auditClass === AUDIT_CLASS.CHANGESET) {
+    const unmet = validateChangesetAuditScope(scope, recordedScopes, input.selector);
+    if (unmet !== undefined) return rejectEvidenceRequirement(unmet);
+  }
   if (recordedScopes.length === 0) {
     if (scope.parentUnitId !== undefined) {
       return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FIRST_UNIT_IS_ROOT);
@@ -1485,6 +1525,15 @@ function fileAuditRootMatchesSelector(
   return roots.length === 1 && roots[0]?.subject === selector.scopeIdentity;
 }
 
+/**
+ * A coherence run that decomposes its changeset into more than one review unit has judged the
+ * changeset unpublishable as a single unit, so the rollup reads that count rather than waiting for
+ * a finding the producer may not record — the terminal status stays derived from recorded evidence.
+ */
+function auditReviewUnitsRejectRun(scopes: readonly AuditScopeUnit[]): boolean {
+  return scopes.filter((scope) => scope.auditKind === AUDIT_KIND.REVIEW_UNIT).length > 1;
+}
+
 function expectedAuditTerminalStatus(input: TerminalValidationInput): string {
   const hasFinding = countVerifyFindings(input.events) > 0;
   const auditScopes = auditScopeUnitsFromEvents(input.events);
@@ -1492,6 +1541,7 @@ function expectedAuditTerminalStatus(input: TerminalValidationInput): string {
   return hasFinding
       || auditScopes.length === 0
       || hasUncoveredRequiredScope
+      || auditReviewUnitsRejectRun(auditScopes)
       || !fileAuditRootMatchesSelector(auditScopes, input.selector)
     ? JOURNAL_RUN_STATE_STATUS.REJECTED
     : JOURNAL_RUN_STATE_STATUS.APPROVED;
