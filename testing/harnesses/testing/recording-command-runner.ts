@@ -1,16 +1,12 @@
-import * as fc from "fast-check";
-import { expect } from "vitest";
-
 import type { TestRunnerDependencies } from "@/test/languages/types";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import type { CommandInvocation } from "@testing/generators/testing/recording-command-runner";
 
 // The recording command runner each language test-harness provides: it captures the commands
 // the runner constructs and returns a configured outcome. The structure is identical across
-// language harnesses (kept parallel per `spx/41-test.enabler/ISSUES.md` until a third language
-// arrives), so this shared contract accepts any factory producing that shape.
+// language harnesses, kept parallel until a third language arrives, so this shared observation
+// accepts any factory producing that shape.
 export interface RecordingCommandRunner extends TestRunnerDependencies {
-  readonly calls: ReadonlyArray<{ readonly command: string; readonly args: readonly string[] }>;
+  readonly calls: readonly CommandInvocation[];
 }
 
 export type RecordingCommandRunnerFactory = (options: {
@@ -18,34 +14,34 @@ export type RecordingCommandRunnerFactory = (options: {
   readonly exitCode: number;
 }) => RecordingCommandRunner;
 
-// Asserts the shared recording-command-runner contract over a language harness's factory: the
-// runner reports its configured language presence, appends every `runCommand` invocation to its
-// `calls` in order, and returns the configured exit code for each call. The `present` and
-// `exitCode` arbitraries come from the calling language's source-owned generator so each language
-// verifies its own copy.
-export async function assertRecordingCommandRunnerContract(
+export interface RecordingCommandRunnerObservation {
+  /** What the runner answered when asked whether its language is present. */
+  readonly reportedPresence: boolean | undefined;
+  /** The exit code each invocation returned, in invocation order. */
+  readonly exitCodes: readonly number[];
+  /** The calls the runner recorded after every invocation ran. */
+  readonly calls: readonly CommandInvocation[];
+}
+
+// Drives one recording runner built by a language harness's factory through the supplied
+// invocations and reports what it answered and recorded; the linked test owns every predicate.
+export async function observeRecordingCommandRunner(
   createRunner: RecordingCommandRunnerFactory,
-  generators: { readonly present: fc.Arbitrary<boolean>; readonly exitCode: fc.Arbitrary<number> },
+  options: {
+    readonly present: boolean;
+    readonly exitCode: number;
+    readonly invocations: readonly CommandInvocation[];
+  },
   productDir: string,
-): Promise<void> {
-  await assertProperty(
-    fc.tuple(
-      generators.present,
-      generators.exitCode,
-      fc.array(fc.tuple(arbitraryDomainLiteral(), fc.array(arbitraryDomainLiteral()))),
-    ),
-    async ([present, exitCode, invocations]) => {
-      const runner = createRunner({ present, exitCode });
+): Promise<RecordingCommandRunnerObservation> {
+  const runner = createRunner({ present: options.present, exitCode: options.exitCode });
+  const reportedPresence = runner.isLanguagePresent?.(productDir);
+  const exitCodes: number[] = [];
 
-      expect(runner.isLanguagePresent?.(productDir)).toBe(present);
+  for (const { command, args } of options.invocations) {
+    const result = await runner.runCommand(command, args);
+    exitCodes.push(result.exitCode);
+  }
 
-      for (const [command, args] of invocations) {
-        const result = await runner.runCommand(command, args);
-        expect(result.exitCode).toBe(exitCode);
-      }
-
-      expect(runner.calls).toEqual(invocations.map(([command, args]) => ({ command, args })));
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-  );
+  return { reportedPresence, exitCodes, calls: runner.calls };
 }
