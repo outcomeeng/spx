@@ -21,11 +21,12 @@
 - `src/interfaces/cli/release.ts:80` — `spx release notes` writes the agent-generated notes through `writeStdout`
 - `src/interfaces/cli/session.ts:87` — `spx session show` writes the session file's content through `writeStdout`
 - `src/interfaces/cli/compact.ts:62` — the compact command writes its result through `writeStdout`
+- `src/interfaces/cli/spec.ts:61` — `spx spec context` hands the context bundle, whose document content is the exact bytes of each read spec, decision, and methodology file, to `writeStdout` through the shared `writeOutput` helper; the `spx spec status` and `spx spec next` reports that share the helper are composed and stay on the composed-text write
 - `src/interfaces/cli/agent.ts:242`, `:246`, and `:280` — the resume JSON and list output and the search output reach `writeStdout` through the shared `writeOutput` helper; the composed diagnostics that share `writeError` (`:130`, `:191`, `:228`) are the product's own speech and stay on the composed-text write
 
 **Impact:** none observable today, because both writes take a plain `string` and reach one stream; the channel a command selects states which of the two claims its output makes, and these sites state the wrong one.
 
-**Resolution:** each owning node migrates its descriptor to select the pass-through channel for the document it relays and the composed-text write for the report it composes — `spx/26-release.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/37-compact.enabler`, `spx/46-agent.enabler/21-resume.enabler`, and `spx/46-agent.enabler/32-search.enabler` — under the same per-node migration that clears the write-boundary entry above.
+**Resolution:** each owning node migrates its descriptor to select the pass-through channel for the document it relays and the composed-text write for the report it composes — `spx/26-release.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/37-compact.enabler`, `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler`, `spx/46-agent.enabler/21-resume.enabler`, and `spx/46-agent.enabler/32-search.enabler` — under the same per-node migration that clears the write-boundary entry above.
 
 **Skills:** `/apply`, `/audit-typescript-code`.
 
