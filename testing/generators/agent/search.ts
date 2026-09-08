@@ -3,7 +3,10 @@ import * as fc from "fast-check";
 import {
   AGENT_RESUME_RECENT_WINDOW_MS,
   AGENT_SEARCH_RECENT_WINDOW_MS,
+  AGENT_SEARCH_SESSION_KINDS,
+  AGENT_SESSION_KIND,
   AGENT_TRANSCRIPT_GIT_COMMAND,
+  type AgentSearchSessionKind,
 } from "@/domains/agent/protocol";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import type { ClaudeTranscriptRecord, ClaudeTranscriptRecords } from "@testing/harnesses/agent/resume";
@@ -315,10 +318,16 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
  * so an enumeration of the store is distinguishable from an addressed lookup.
  */
 export interface GeneratedSessionIdentityScenario {
+  /** The agent whose store holds every transcript of the scenario. */
+  readonly agent: AgentSearchSessionKind;
   readonly homeDir: string;
   readonly productScopeRoot: string;
   readonly foreignRoot: string;
   readonly sessionId: string;
+  /**
+   * The session's recorded positions. A Codex or Pi transcript carries its working directory in
+   * the opening row alone, so only a Claude Code transcript records later positions.
+   */
   readonly records: ClaudeTranscriptRecords;
   /**
    * The working directories the result may report: every in-product recorded directory when the
@@ -333,9 +342,12 @@ export interface GeneratedSessionIdentityScenario {
   readonly nowMs: number;
 }
 
-export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessionIdentityScenario> {
+export function arbitrarySessionIdentityScenario(
+  agents: readonly AgentSearchSessionKind[] = AGENT_SEARCH_SESSION_KINDS,
+): fc.Arbitrary<GeneratedSessionIdentityScenario> {
   return fc
     .tuple(
+      fc.constantFrom(...agents),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
@@ -348,12 +360,13 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
       fc.boolean(),
       fc.integer({ min: 0, max: MAX_TRAILING_RECORDS }),
     )
-    .filter(([sessionId, productDecoySessionId, foreignDecoySessionId, homeDir, productScopeRoot, foreignRoot]) =>
+    .filter(([, sessionId, productDecoySessionId, foreignDecoySessionId, homeDir, productScopeRoot, foreignRoot]) =>
       distinct([sessionId, productDecoySessionId, foreignDecoySessionId])
       && distinct([homeDir, productScopeRoot, foreignRoot])
     )
     .chain((
       [
+        agent,
         sessionId,
         productDecoySessionId,
         foreignDecoySessionId,
@@ -361,7 +374,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
         productScopeRoot,
         foreignRoot,
         nowMs,
-        trailing,
+        trailingDraw,
         recordsProductCwd,
         productCwdUnderPayload,
         productRecordOffset,
@@ -376,6 +389,8 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
           arbitraryAgentSessionCwd(foreignRoot),
         )
         .map(([openingCwd, productCwd, secondProductCwd, decoyProductCwd, decoyForeignCwd]) => {
+          // Only a Claude Code transcript records positions after the opening row.
+          const trailing = agent === AGENT_SESSION_KIND.CLAUDE_CODE ? trailingDraw : 0;
           const stamp = (index: number): string =>
             new Date(nowMs - (trailing + 1 - index) * RECORD_INTERVAL_MS).toISOString();
           // The opening record decides the project directory the store files this
@@ -400,6 +415,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
             cwdUnderPayload: recordsProductPosition && index === firstProductIndex ? productCwdUnderPayload : false,
           }));
           return {
+            agent,
             homeDir,
             productScopeRoot,
             foreignRoot,
@@ -420,50 +436,31 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
 
 const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_SEGMENT = ".";
-const EMPTY_SESSION_ID = "";
 const POSIX_PATH_SEPARATOR = "/";
 const WINDOWS_PATH_SEPARATOR = "\\";
 
-/** A store holding one addressable session, plus session ids that name no single store entry. */
-export interface GeneratedUnsafeSessionIdScenario {
-  readonly homeDir: string;
-  readonly productScopeRoot: string;
-  readonly sessionId: string;
-  readonly cwd: string;
-  readonly unsafeSessionIds: readonly string[];
-  readonly nowMs: number;
-}
-
-export function arbitraryUnsafeSessionIdScenario(): fc.Arbitrary<GeneratedUnsafeSessionIdScenario> {
-  return fc
-    .tuple(
-      arbitraryAgentSessionId(),
-      arbitraryAgentWorktreeRoot(),
-      arbitraryAgentWorktreeRoot(),
-      arbitraryAgentResumeNowMs(),
-      arbitraryDomainLiteral(),
-      arbitraryDomainLiteral(),
-    )
-    .filter(([, homeDir, productScopeRoot]) => distinct([homeDir, productScopeRoot]))
-    .chain(([sessionId, homeDir, productScopeRoot, nowMs, head, tail]) =>
-      fc.tuple(arbitraryAgentSessionCwd(productScopeRoot)).map(([cwd]) => ({
-        homeDir,
-        productScopeRoot,
-        sessionId,
-        cwd,
-        unsafeSessionIds: [
-          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
-          `${head}${POSIX_PATH_SEPARATOR}${tail}`,
-          `${head}${WINDOWS_PATH_SEPARATOR}${tail}`,
-          `${POSIX_PATH_SEPARATOR}${head}`,
-          PARENT_DIRECTORY_SEGMENT,
-          `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`,
-          CURRENT_DIRECTORY_SEGMENT,
-          EMPTY_SESSION_ID,
-        ],
-        nowMs,
-      }))
-    );
+/**
+ * A session id over an open domain that includes path-shaped values — separators, current- and
+ * parent-directory segments, absolute prefixes — beside ordinary ids, so evidence can show that
+ * no id reaches a store as a path component whatever characters it carries.
+ */
+export function arbitraryPathShapedSessionId(): fc.Arbitrary<string> {
+  return fc.oneof(
+    arbitraryAgentSessionId(),
+    fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral()).map(([head, tail]) =>
+      `${head}${POSIX_PATH_SEPARATOR}${tail}`
+    ),
+    fc.tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral()).map(([head, tail]) =>
+      `${head}${WINDOWS_PATH_SEPARATOR}${tail}`
+    ),
+    arbitraryDomainLiteral().map((head) => `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`),
+    arbitraryDomainLiteral().map((head) => `${POSIX_PATH_SEPARATOR}${head}`),
+    arbitraryDomainLiteral().map((head) =>
+      `${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${PARENT_DIRECTORY_SEGMENT}${POSIX_PATH_SEPARATOR}${head}`
+    ),
+    fc.constant(PARENT_DIRECTORY_SEGMENT),
+    fc.constant(CURRENT_DIRECTORY_SEGMENT),
+  );
 }
 
 /**

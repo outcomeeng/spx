@@ -7,10 +7,12 @@ import {
   type AgentSearchQuery,
   type AgentSearchResult,
   type AgentSessionDirEntry,
+  createRipgrepTranscriptLocator,
   renderAgentSearchJson,
   renderAgentSearchList,
   resolveAgentHomeDirs,
   searchAgentSessions,
+  type TranscriptLocator,
 } from "@/domains/agent";
 import {
   defaultGitDependencies,
@@ -20,6 +22,7 @@ import {
   type GitDependencies,
   parseGitWorktreePorcelainRecords,
 } from "@/lib/git/root";
+import { defaultRipgrepRunner } from "@/lib/ripgrep/runner";
 
 /**
  * The two roots of `spx/15-worktree-management.pdr.md`. Search filters candidates by
@@ -34,6 +37,7 @@ export interface AgentSearchScopeRoots {
 
 export interface AgentSearchCommandDeps {
   readonly fs: AgentSearchFileSystem;
+  readonly locator: TranscriptLocator;
   readonly agentHomeDirs: () => AgentHomeDirs;
   readonly nowMs: () => number;
   readonly resolveProductScopeRoot: (cwd: string, fallbackProductScopeRoot: string) => Promise<AgentSearchScopeRoots>;
@@ -66,11 +70,8 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
       await handle.close();
     }
   },
-  async readBytes(path) {
-    return readFile(path);
-  },
-  decodeText(bytes) {
-    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(AGENT_SESSION_STORE.TEXT_ENCODING);
+  async readText(path) {
+    return readFile(path, AGENT_SESSION_STORE.TEXT_ENCODING);
   },
   async stat(path) {
     const result = await stat(path);
@@ -80,6 +81,7 @@ export const nodeAgentSearchFileSystem: AgentSearchFileSystem = {
 
 export const defaultAgentSearchCommandDeps: AgentSearchCommandDeps = {
   fs: nodeAgentSearchFileSystem,
+  locator: createRipgrepTranscriptLocator(defaultRipgrepRunner),
   agentHomeDirs: resolveAgentHomeDirs,
   nowMs: Date.now,
   resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
@@ -138,6 +140,7 @@ export async function loadAgentSearchResults(
       ? []
       : await deps.resolveBranchAssociatedWorktreeRoots(roots.worktreeRoot, options.query.branch),
     fs: deps.fs,
+    locator: deps.locator,
     query: options.query,
   });
 }

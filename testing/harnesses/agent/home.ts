@@ -18,6 +18,7 @@ import {
   arbitraryAgentWorktreeRoot,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
+import { MemoryTranscriptLocator } from "@testing/harnesses/agent/locator";
 import { piTranscript } from "@testing/harnesses/agent/pi-resume";
 import { claudeCodeTranscript, codexTranscript, MemoryAgentSessionFileSystem } from "@testing/harnesses/agent/resume";
 
@@ -471,6 +472,7 @@ async function discoverSearch(
     query: agentSearchQueryFromOptions({}),
     deps: {
       fs: fixture.fs,
+      locator: new MemoryTranscriptLocator(fixture.fs),
       agentHomeDirs,
       nowMs: () => fixture.nowMs,
       resolveProductScopeRoot: async () => ({

@@ -8,7 +8,7 @@ import {
   resolveAgentSearchProductScopeRoot,
 } from "@/commands/agent/search";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
 import {
   AGENT_RESUME_SCOPE,
   AGENT_SEARCH_DEFAULT_LIMIT,
@@ -25,6 +25,7 @@ import {
 import {
   agentSessionJsonlName,
   claudeCodeSessionStoreDir,
+  codexSessionStoreDir,
   discoverAgentResumeCandidates,
 } from "@/domains/agent/resume";
 import type { AgentResumeCandidate } from "@/domains/agent/resume";
@@ -77,7 +78,6 @@ import {
   type GeneratedMovingSessionScenario,
   type GeneratedSessionIdentityScenario,
   type GeneratedSinceWindowScenario,
-  type GeneratedUnsafeSessionIdScenario,
 } from "@testing/generators/agent/search";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
@@ -86,8 +86,12 @@ import {
 } from "@testing/generators/main-checkout/main-checkout";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
+import { MemoryTranscriptLocator } from "./locator";
+import { piTranscript, piTranscriptPath } from "./pi-resume";
+
 import {
   agentResumeWorktreeRootResolver,
+  type ClaudeTranscriptRecords,
   codexTranscript,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
@@ -383,6 +387,7 @@ export async function withAgentSearchPoolBranchWorktreeEvidence(
         query: agentSearchQueryFromOptions({ branch: siblingBranch }),
         deps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
@@ -506,6 +511,7 @@ export async function withAgentSearchProductWideSelectorEvidence(
         query: agentSearchQueryFromOptions(options),
         deps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: resolveAgentSearchProductScopeRoot,
@@ -589,6 +595,7 @@ export async function withAgentSearchPickupMarkerEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
@@ -638,6 +645,7 @@ export async function withAgentSearchJsonMetadataEvidence(
       createAgentDomain({
         searchDeps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
@@ -728,6 +736,7 @@ export async function withAgentSearchFallbackScopeEvidence(
       createAgentDomain({
         searchDeps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: async (_cwd, fallbackRoot) => ({
@@ -842,6 +851,7 @@ export async function withAgentSearchSinceCliEvidence(
       createAgentDomain({
         searchDeps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
@@ -1083,6 +1093,7 @@ export async function withAgentSearchBranchWorktreeEvidence(
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
     deps: {
       fs,
+      locator: new MemoryTranscriptLocator(fs),
       agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
       nowMs: () => nowMs,
       resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
@@ -1145,6 +1156,7 @@ export async function withAgentSearchBranchCommandEvidence(
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
     deps: {
       fs,
+      locator: new MemoryTranscriptLocator(fs),
       agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
       nowMs: () => nowMs,
       resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
@@ -1263,6 +1275,7 @@ export async function withAgentSearchExplicitLimitEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ pickupId, limit: explicitLimit }),
   });
 
@@ -1299,6 +1312,7 @@ export async function withAgentSearchAllSessionsEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ all: true }),
   });
 
@@ -1345,6 +1359,7 @@ export async function withAgentSearchOlderDuplicateEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ branch, contains }),
   });
 
@@ -1434,6 +1449,7 @@ export async function withAgentSearchAllScopedSessionsEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({}),
   });
 
@@ -1481,6 +1497,7 @@ export async function withAgentSearchSelectedKindEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CODEX }),
   });
 
@@ -1547,6 +1564,7 @@ export async function withAgentSearchSelectorIntersectionEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ agent: AGENT_SESSION_KIND.CODEX, contains: matchingLiteral }),
   });
   const sessionAndBranch = await searchAgentSessions({
@@ -1554,6 +1572,7 @@ export async function withAgentSearchSelectorIntersectionEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ sessionId: sessionRightBranch, branch: targetBranch }),
   });
 
@@ -1592,6 +1611,7 @@ export async function withAgentSearchDefaultLimitEvidence(
     nowMs: fixture.nowMs,
     productScopeRoot: fixture.productScopeRoot,
     fs: fixture.fs,
+    locator: new MemoryTranscriptLocator(fixture.fs),
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
@@ -1684,6 +1704,7 @@ export async function withAgentSearchExclusionEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ pickupId }),
   });
 
@@ -1726,6 +1747,7 @@ export async function withAgentSearchBranchExistenceEvidence(
       createAgentDomain({
         searchDeps: {
           fs,
+          locator: new MemoryTranscriptLocator(fs),
           agentHomeDirs: () => agentHomeDirsFromHomeDir(homeDir),
           nowMs: () => nowMs,
           resolveProductScopeRoot: async () => ({ productScopeRoot, worktreeRoot: productScopeRoot }),
@@ -1847,6 +1869,7 @@ export async function withAgentSearchMetadataBranchEvidence(
     productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
   const wrongBranchResults = await searchAgentSessions({
@@ -1855,6 +1878,7 @@ export async function withAgentSearchMetadataBranchEvidence(
     productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: otherBranch }),
   });
 
@@ -1919,6 +1943,7 @@ export async function withAgentSearchStaleMetadataEvidence(
     productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -1967,6 +1992,7 @@ export async function withAgentSearchWorktreeRootEvidence(
     productScopeRoot,
     branchAssociatedWorktreeRoots: [branchAssociatedRoot],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
   const missingRootResults = await searchAgentSessions({
@@ -1975,6 +2001,7 @@ export async function withAgentSearchWorktreeRootEvidence(
     productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -2032,6 +2059,7 @@ export async function withAgentSearchSubagentMetadataEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -2096,6 +2124,7 @@ export async function withAgentSearchSubagentCommandEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -2160,6 +2189,7 @@ export async function withAgentSearchSubagentScopeEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -2333,6 +2363,7 @@ export async function withAgentSearchOlderBranchEvidence(
     nowMs,
     productScopeRoot,
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: targetBranch }),
   });
 
@@ -2482,6 +2513,7 @@ function claudeBashToolResultWithoutStatusRow(): string {
 export interface MovingSessionSearchObservation {
   readonly results: readonly AgentSearchResult[];
   readonly fs: MemoryAgentSessionFileSystem;
+  readonly locator: MemoryTranscriptLocator;
   readonly sessionPath: string;
   readonly decoyPath: string;
   readonly foreignOnlyPath: string;
@@ -2516,110 +2548,125 @@ export async function searchMovingSessionStore(
     modifiedAtMs: scenario.nowMs,
   });
 
+  const locator = new MemoryTranscriptLocator(fs);
   const results = await searchAgentSessions({
     agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
     nowMs: scenario.nowMs,
     productScopeRoot: scenario.productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator,
     query: agentSearchQueryFromOptions(query),
   });
 
-  return { results, fs, sessionPath, decoyPath, foreignOnlyPath, outOfScopeBranchPath };
+  return { results, fs, locator, sessionPath, decoyPath, foreignOnlyPath, outOfScopeBranchPath };
 }
 
 export interface SessionIdentitySearchObservation {
   readonly results: readonly AgentSearchResult[];
   readonly fs: MemoryAgentSessionFileSystem;
+  readonly locator: MemoryTranscriptLocator;
   readonly storeRoot: string;
   readonly targetPath: string;
+  /** Every transcript path the store holds; a read of any other path was composed, not listed or located. */
+  readonly storedPaths: readonly string[];
+  /** The project directories holding those transcripts. */
   readonly projectDirs: readonly string[];
 }
 
-/** The addressed session filed under a foreign project directory, beside decoys in their own. */
+/** Writes one session's transcript where the scenario's agent files it, and returns that path. */
+function writeSessionIdentityTranscript(
+  fs: MemoryAgentSessionFileSystem,
+  scenario: GeneratedSessionIdentityScenario,
+  sessionId: string,
+  records: ClaudeTranscriptRecords,
+): string {
+  const [opening] = records;
+  switch (scenario.agent) {
+    case AGENT_SESSION_KIND.CLAUDE_CODE:
+      return writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+        sessionId,
+        records,
+        modifiedAtMs: scenario.nowMs,
+      });
+    case AGENT_SESSION_KIND.CODEX:
+      return writeCodexTranscriptFile(fs, scenario.homeDir, {
+        sessionId,
+        cwd: opening.cwd,
+        timestamp: opening.timestamp,
+        modifiedAtMs: scenario.nowMs,
+      });
+    case AGENT_SESSION_KIND.PI: {
+      const path = piTranscriptPath(scenario.homeDir, agentSessionJsonlName(sessionId));
+      fs.writeFile(path, piTranscript({ sessionId, cwd: opening.cwd, timestamp: opening.timestamp }), scenario.nowMs);
+      return path;
+    }
+  }
+}
+
+/** The root of the store the scenario's agent files its transcripts under. */
+function sessionIdentityStoreRoot(scenario: GeneratedSessionIdentityScenario): string {
+  const homes = agentHomeDirsFromHomeDir(scenario.homeDir);
+  switch (scenario.agent) {
+    case AGENT_SESSION_KIND.CLAUDE_CODE:
+      return claudeCodeSessionStoreDir(homes.claudeCode);
+    case AGENT_SESSION_KIND.CODEX:
+      return codexSessionStoreDir(homes.codex);
+    case AGENT_SESSION_KIND.PI:
+      return piSessionStoreDir(homes.piAgent, homes.piSessions);
+  }
+}
+
+/**
+ * The located session beside decoys, filed where the scenario's agent keeps transcripts: under a
+ * foreign project directory for Claude Code, and directly under the store for Codex and Pi.
+ */
 export async function searchSessionIdentityStore(
   scenario: GeneratedSessionIdentityScenario,
   query: AgentSearchQueryOptions,
 ): Promise<SessionIdentitySearchObservation> {
   const fs = new MemoryAgentSessionFileSystem();
-  const targetPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.sessionId,
-    records: scenario.records,
-    modifiedAtMs: scenario.nowMs,
-  });
-  const productDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.productDecoySessionId,
-    records: scenario.productDecoyRecords,
-    modifiedAtMs: scenario.nowMs,
-  });
-  const foreignDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.foreignDecoySessionId,
-    records: scenario.foreignDecoyRecords,
-    modifiedAtMs: scenario.nowMs,
-  });
+  const targetPath = writeSessionIdentityTranscript(fs, scenario, scenario.sessionId, scenario.records);
+  const productDecoyPath = writeSessionIdentityTranscript(
+    fs,
+    scenario,
+    scenario.productDecoySessionId,
+    scenario.productDecoyRecords,
+  );
+  const foreignDecoyPath = writeSessionIdentityTranscript(
+    fs,
+    scenario,
+    scenario.foreignDecoySessionId,
+    scenario.foreignDecoyRecords,
+  );
 
+  const locator = new MemoryTranscriptLocator(fs);
   const results = await searchAgentSessions({
     agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
     nowMs: scenario.nowMs,
     productScopeRoot: scenario.productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator,
     query: agentSearchQueryFromOptions(query),
   });
 
+  const storedPaths = [targetPath, productDecoyPath, foreignDecoyPath];
   return {
     results,
     fs,
-    storeRoot: claudeCodeSessionStoreDir(agentHomeDirsFromHomeDir(scenario.homeDir).claudeCode),
+    locator,
+    storeRoot: sessionIdentityStoreRoot(scenario),
     targetPath,
-    projectDirs: [targetPath, productDecoyPath, foreignDecoyPath].map((path) => dirname(path)),
+    storedPaths,
+    projectDirs: scenario.agent === AGENT_SESSION_KIND.CLAUDE_CODE ? storedPaths.map((path) => dirname(path)) : [],
   };
-}
-
-export interface UnsafeSessionIdAttempt {
-  readonly unsafeSessionId: string;
-  readonly results: readonly AgentSearchResult[];
-  readonly readPaths: readonly string[];
-}
-
-export interface UnsafeSessionIdObservation {
-  readonly attempts: readonly UnsafeSessionIdAttempt[];
-}
-
-/** Every unsafe session id run against a store that holds one addressable session. */
-export async function searchUnsafeSessionIdStore(
-  scenario: GeneratedUnsafeSessionIdScenario,
-): Promise<UnsafeSessionIdObservation> {
-  const homeDirs = agentHomeDirsFromHomeDir(scenario.homeDir);
-  const attempts: UnsafeSessionIdAttempt[] = [];
-  for (const unsafeSessionId of scenario.unsafeSessionIds) {
-    const fs = new MemoryAgentSessionFileSystem();
-    writeClaudeProjectTranscriptFile(fs, scenario.homeDir, {
-      sessionId: scenario.sessionId,
-      cwd: scenario.cwd,
-      timestamp: new Date(scenario.nowMs).toISOString(),
-      modifiedAtMs: scenario.nowMs,
-    });
-    const results = await searchAgentSessions({
-      agentHomeDirs: homeDirs,
-      nowMs: scenario.nowMs,
-      productScopeRoot: scenario.productScopeRoot,
-      branchAssociatedWorktreeRoots: [],
-      fs,
-      query: agentSearchQueryFromOptions({ sessionId: unsafeSessionId, agent: AGENT_SESSION_KIND.CLAUDE_CODE }),
-    });
-    attempts.push({
-      unsafeSessionId,
-      results,
-      readPaths: [...fs.readDirPaths(), ...fs.statPaths(), ...fs.bytesReadPaths()],
-    });
-  }
-  return { attempts };
 }
 
 export interface CodexBranchEvidenceObservation {
   readonly results: readonly AgentSearchResult[];
   readonly fs: MemoryAgentSessionFileSystem;
+  readonly locator: MemoryTranscriptLocator;
   readonly parentPath: string;
   readonly hitPath: string;
   readonly missPath: string;
@@ -2656,16 +2703,18 @@ export async function searchCodexBranchEvidenceStore(
     modifiedAtMs: scenario.nowMs,
   });
 
+  const locator = new MemoryTranscriptLocator(fs);
   const results = await searchAgentSessions({
     agentHomeDirs: agentHomeDirsFromHomeDir(scenario.homeDir),
     nowMs: scenario.nowMs,
     productScopeRoot: scenario.productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator,
     query: agentSearchQueryFromOptions({ branch: scenario.targetBranch }),
   });
 
-  return { results, fs, parentPath, hitPath, missPath };
+  return { results, fs, locator, parentPath, hitPath, missPath };
 }
 
 /** The two-session since-window store searched under one reach window. */
@@ -2695,6 +2744,7 @@ export async function searchSinceWindowStore(
     productScopeRoot: scenario.productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions(query),
   });
 }
@@ -2723,6 +2773,7 @@ export async function searchAndResumeBetweenReachWindows(
     productScopeRoot: scenario.productScopeRoot,
     branchAssociatedWorktreeRoots: [],
     fs,
+    locator: new MemoryTranscriptLocator(fs),
     query: agentSearchQueryFromOptions({ branch: scenario.branch }),
   });
   const resumable = await discoverAgentResumeCandidates({

@@ -138,11 +138,10 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
   private readonly files = new Map<string, MemoryFile>();
   private readonly headReadBytes = new Map<string, number>();
   private readonly tailReadBytes = new Map<string, number>();
-  private readonly bytesByInstance = new WeakMap<Uint8Array, string>();
-  private readonly decodedPathSet = new Set<string>();
+  private readonly headReadPathSet = new Set<string>();
+  private readonly textReadPathSet = new Set<string>();
   private readonly readDirPathSet = new Set<string>();
   private readonly statPathSet = new Set<string>();
-  private readonly bytesReadPathSet = new Set<string>();
 
   writeFile(path: string, content: string, mtimeMs: number): void {
     this.files.set(resolve(path), { content, mtimeMs });
@@ -178,6 +177,7 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
 
   async readHead(path: string, maxBytes: number): Promise<string> {
     const resolved = resolve(path);
+    this.headReadPathSet.add(resolved);
     this.headReadBytes.set(resolved, Math.max(this.maxHeadReadBytes(resolved), maxBytes));
     const file = this.files.get(resolved);
     if (file === undefined) {
@@ -198,34 +198,28 @@ export class MemoryAgentSessionFileSystem implements AgentResumeSessionFileSyste
     return content.subarray(start).toString("utf8");
   }
 
-  /** Decodes only a buffer this store handed out, attributing the decode to that buffer's file. */
-  decodeText(bytes: Uint8Array): string {
-    const path = this.bytesByInstance.get(bytes);
-    if (path === undefined) {
-      throw new Error("decodeText received bytes this store did not read");
-    }
-    this.decodedPathSet.add(path);
-    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
-  }
-
-  decodedPaths(): readonly string[] {
-    return [...this.decodedPathSet];
-  }
-
-  async readBytes(path: string): Promise<Uint8Array> {
+  /** The transcript's whole text, recorded so evidence can bound which transcripts were read past their head. */
+  async readText(path: string): Promise<string> {
     const resolved = resolve(path);
-    this.bytesReadPathSet.add(resolved);
+    this.textReadPathSet.add(resolved);
     const file = this.files.get(resolved);
     if (file === undefined) {
       throw new Error(`missing file: ${path}`);
     }
-    const bytes = Buffer.from(file.content, "utf8");
-    this.bytesByInstance.set(bytes, resolved);
-    return bytes;
+    return file.content;
   }
 
-  bytesReadPaths(): readonly string[] {
-    return [...this.bytesReadPathSet];
+  textReadPaths(): readonly string[] {
+    return [...this.textReadPathSet];
+  }
+
+  headReadPaths(): readonly string[] {
+    return [...this.headReadPathSet];
+  }
+
+  /** Every stored path with its content, for an in-memory locator to search. */
+  entries(): readonly (readonly [string, string])[] {
+    return [...this.files].map(([path, file]) => [path, file.content] as const);
   }
 
   readDirPaths(): readonly string[] {

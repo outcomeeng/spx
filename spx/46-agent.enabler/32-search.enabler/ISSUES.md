@@ -16,60 +16,40 @@ This node's terminal output path passes values that originated outside the produ
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
 
-## Selector search cost exceeds the product-level command bound
+## Located transcripts are parsed line by line, twice for a branch query
 
-`spx.product.md` asserts every CLI command completes in under 100ms once the CLI process is
-running. Search over a large Claude Code store does not.
+Candidacy comes from the native locator, so a selector reads no transcript past its head that
+the locator did not name. The cost that remains scales with the located transcripts: a
+content or branch needle names every transcript that mentions it, and each named transcript
+is read whole and parsed row by row — once for its recorded working directories and branches,
+and again for accepted branch commands when the selector is a branch.
 
-A selector read from recorded content cannot be narrowed by the store-directory name — a
-session that moved into the product is filed under the directory its opening working
-directory named — so a branch or content selector enumerates the whole store. A session-id
-selector reads neither: it addresses its store entries directly. The remaining queries resolve
-scope from that same opening directory and stay scoped to it. What each pays beyond the listing
-depends on how much it decodes.
+Measured on a 12-core host at a load average of 22 over the same store as the earlier
+byte-scan measurements (7,796 transcripts, 6.0 GB), comparing the released in-process search
+with the locator-backed search on identical queries:
 
-Measured on a store of 7796 transcripts totalling 6.0 GB, of which 602 transcripts and
-0.57 GB fall inside the thirty-day reach window:
+| Invocation                  | Released | Locator | Rows | Identical rows |
+| --------------------------- | -------- | ------- | ---- | -------------- |
+| `--branch work/chat-...`    | 76.3s    | 18.6s   | 0    | yes            |
+| `--contains work/chat-...`  | 14.4s    | 15.7s   | 3    | yes            |
+| `--session-id 080e9a4e-...` | 4.8s     | 9.0s    | 1    | yes            |
 
-| Invocation                 | Store work                                  | Wall clock |
-| -------------------------- | ------------------------------------------- | ---------- |
-| no selector                | scoped listing, opening metadata            | ~9s        |
-| `--session-id`             | addressed lookup, one probe per directory   | ~1s        |
-| `--agent`                  | scoped listing, opening metadata            | ~3s        |
-| `--contains`               | whole-store listing, byte-scans the window  | ~5s        |
-| `--branch`                 | whole-store listing, byte-scans all history | ~28s       |
-| `rg -l <branch>` for scale | one memory-mapped byte scan of 6.0 GB       | ~2.5s      |
+Under that load the locator names the 87 transcripts carrying the branch literal (121 MB,
+the largest 29 MB) in 3.0s, process startup takes 2.1s, and the selector-free listing with
+its head reads takes 2.6s. The rest of each locator-backed invocation is the whole-text read
+and row-by-row JSON parse of the located transcripts, which the released search paid
+identically for the same transcripts after its byte scan. The session-id query costs more
+than the released store-address probe because it now reads and parses every transcript that
+mentions the id rather than probing one path per project directory; that trade is recorded
+in [`21-search-adapters.adr.md`](21-search-adapters.adr.md).
 
-The branch case measured ~67s before command evidence and record parsing were gated on a byte
-check, and ~44s while every candidate was still decoded to text so it could be searched.
-Candidacy now runs over undecoded bytes, each transcript is read once per pass, and only a
-transcript whose bytes carry a required needle is decoded, in memory from the bytes already
-held. The residual is CPU-bound — roughly 25s of user time in the ~28s branch case — and is
-the byte search itself: Node's `Buffer.includes` is a plain byte scan with no SIMD, and the
-branch case runs it in two passes over all history, once in the branch-evidence collectors
-and once in candidate scanning. Branch evidence remains the extreme because it reaches past
-the reach window by declared behavior.
+**Impact:** a needle carried by many large transcripts still costs seconds of CPU after the
+locator has answered, and a branch query parses each located transcript twice.
 
-A selector-free listing decodes nothing, which
-[tests/scan-bound.compliance.l1.test.ts](tests/scan-bound.compliance.l1.test.ts) enforces. A
-session-id selector lists no project directory, which
-[tests/session-identity.compliance.l1.test.ts](tests/session-identity.compliance.l1.test.ts)
-enforces. A content or branch selector decodes no transcript whose bytes lack a required
-needle, which [tests/byte-scan.compliance.l1.test.ts](tests/byte-scan.compliance.l1.test.ts)
-enforces. The `--contains` and `--branch` rows were measured after byte-scan candidacy landed;
-the `--session-id` row after address resolution; the remaining rows predate both.
+**Resolution:** parse each located transcript once, deriving recorded positions and command
+evidence from the same row pass, and bound the row parse to the rows a selector can use.
 
-A branch search scans each candidate's bytes twice, once in the branch-evidence collectors
-and once in candidate scanning, and even one pass is bounded by an in-process byte search:
-`readFile` copies every transcript into a heap buffer, `Buffer.includes` is a scalar loop, and
-Node runs it single-threaded. `rg -l` over the same three stores — all history, every
-adapter — names the 74 files containing the branch string in 1.2–2.8s because it memory-maps, searches with SIMD,
-parallelizes across files, and exits each file at its first hit. That gap is architectural.
+**Skills:** `/apply`, `/code-typescript`.
 
-**Resolution:** locate candidates with ripgrep and read only the transcripts it names, per the
-native-locator slice in [PLAN.md](PLAN.md). The in-process byte scan is removed with it.
-
-**Skills:** `/apply`, `/code-typescript`, `/test-typescript`.
-
-**Revisit condition:** before the next changeset touching branch-evidence or content-selector
-collection.
+**Revisit condition:** before the next changeset touching transcript record or command
+evidence parsing.

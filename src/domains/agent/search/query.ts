@@ -1,10 +1,46 @@
 import { formatSessionOutputMarker, SESSION_OUTPUT_MARKER } from "@/domains/session/types";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+
 import {
   AGENT_SEARCH_DEFAULT_LIMIT,
   AGENT_SEARCH_MATCH_REASON,
   type AgentSearchMatchReason,
   type AgentSearchSessionKind,
 } from "../protocol";
+
+/** The line terminators a locator needle can never carry: the locator matches within one line. */
+export const AGENT_SEARCH_NEEDLE_LINE_TERMINATORS = /[\r\n]/u;
+
+/** A selector value the locator can search for: non-empty and free of line terminators. */
+export function isAgentSearchNeedle(value: string): boolean {
+  return value.length > 0 && !AGENT_SEARCH_NEEDLE_LINE_TERMINATORS.test(value);
+}
+
+/** The selectors whose value reaches the store only as a locator needle. */
+export const AGENT_SEARCH_NEEDLE_SELECTORS = [
+  AGENT_SEARCH_MATCH_REASON.PICKUP_ID,
+  AGENT_SEARCH_MATCH_REASON.CONTAINS,
+  AGENT_SEARCH_MATCH_REASON.SESSION_ID,
+  AGENT_SEARCH_MATCH_REASON.BRANCH,
+] as const;
+
+export type AgentSearchNeedleSelector = (typeof AGENT_SEARCH_NEEDLE_SELECTORS)[number];
+
+export class AgentSearchNeedleError extends Error {
+  constructor(readonly selector: AgentSearchNeedleSelector, value: string) {
+    super(
+      `agent search ${selector} must be a non-empty single-line value: ${sanitizeCliArgument(value)}`,
+    );
+    this.name = "AgentSearchNeedleError";
+  }
+}
+
+function requireNeedle(selector: AgentSearchNeedleSelector, value: string): string {
+  if (!isAgentSearchNeedle(value)) {
+    throw new AgentSearchNeedleError(selector, value);
+  }
+  return value;
+}
 
 export interface AgentSearchContentNeedle {
   readonly reason: AgentSearchMatchReason;
@@ -41,16 +77,21 @@ export function agentSearchQueryFromOptions(options: AgentSearchQueryOptions): A
   if (options.pickupId !== undefined) {
     contentNeedles.push({
       reason: AGENT_SEARCH_MATCH_REASON.PICKUP_ID,
-      value: pickupIdSearchLiteral(options.pickupId),
+      value: pickupIdSearchLiteral(requireNeedle(AGENT_SEARCH_MATCH_REASON.PICKUP_ID, options.pickupId)),
     });
   }
   if (options.contains !== undefined) {
-    contentNeedles.push({ reason: AGENT_SEARCH_MATCH_REASON.CONTAINS, value: options.contains });
+    contentNeedles.push({
+      reason: AGENT_SEARCH_MATCH_REASON.CONTAINS,
+      value: requireNeedle(AGENT_SEARCH_MATCH_REASON.CONTAINS, options.contains),
+    });
   }
   return {
     contentNeedles,
-    sessionId: options.sessionId ?? null,
-    branch: options.branch ?? null,
+    sessionId: options.sessionId === undefined
+      ? null
+      : requireNeedle(AGENT_SEARCH_MATCH_REASON.SESSION_ID, options.sessionId),
+    branch: options.branch === undefined ? null : requireNeedle(AGENT_SEARCH_MATCH_REASON.BRANCH, options.branch),
     agent: options.agent ?? null,
     includeAll: options.all === true,
     sinceMs: options.sinceMs ?? null,
