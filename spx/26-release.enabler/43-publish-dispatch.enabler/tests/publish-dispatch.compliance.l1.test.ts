@@ -19,6 +19,7 @@ import {
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationPostPublishIdentityScenario,
   arbitraryPublicationProvenanceLagScenario,
+  arbitraryPublicationResumedProvenanceLagScenario,
   arbitraryPublicationRetryScenario,
   arbitraryPublicationScenario,
   arbitraryPublicationSectionValidationScenario,
@@ -238,6 +239,24 @@ describe("release publication compliance", () => {
         // the count and the waiting are what this proves.
         expect(observation.waits).toHaveLength(scenario.lateReads);
         expect(observation.waits.every((wait) => wait > 0)).toBe(true);
+        expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
+          scenario.expectedHostedRelease,
+        ]);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("waits out the attestation for a record a prior dispatch already published", async () => {
+    await assertProperty(
+      arbitraryPublicationResumedProvenanceLagScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeUndefined();
+        // The record is already published, so this dispatch publishes nothing
+        // and converges by waiting rather than failing on the unverified read.
+        expect(observation.packagePublishRequests).toEqual([]);
+        expect(observation.waits).toHaveLength(scenario.lateReads);
         expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
           scenario.expectedHostedRelease,
         ]);

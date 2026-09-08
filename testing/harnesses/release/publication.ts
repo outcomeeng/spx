@@ -496,9 +496,6 @@ class RecordingPackagePublisher implements PackagePublisher {
   readonly inspectRequests: RecordedPublicationRequest<PackagePublication>[] = [];
   readonly publishRequests: RecordedPublicationRequest<PackagePublication>[] = [];
 
-  /** Reads served after publication, one per confirmation attempt; the last repeats once exhausted. */
-  private postPublishReads = 0;
-
   constructor(
     private current: PackagePublication | null,
     private readonly sequence: PublicationRequestSequence,
@@ -508,11 +505,14 @@ class RecordingPackagePublisher implements PackagePublisher {
 
   inspect(publication: PackagePublication): Promise<PackagePublication | null> {
     this.inspectRequests.push(this.sequence.record(publication));
-    if (this.publishRequests.length === 0 || this.postPublishStates.length === 0) {
+    // The first read is the dispatch's own pre-check and sees the registry as it
+    // stands. Every read after it is a confirmation attempt, served one state at a
+    // time so a scenario can stage propagation whether or not this dispatch
+    // published; the last state repeats once the sequence is exhausted.
+    if (this.postPublishStates.length === 0 || this.inspectRequests.length === 1) {
       return Promise.resolve(this.current);
     }
-    const index = Math.min(this.postPublishReads, this.postPublishStates.length - 1);
-    this.postPublishReads += 1;
+    const index = Math.min(this.inspectRequests.length - 2, this.postPublishStates.length - 1);
     return Promise.resolve(this.postPublishStates[index]);
   }
 

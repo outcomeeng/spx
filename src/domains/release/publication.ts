@@ -199,16 +199,23 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
   };
 
   const existingPackage = await input.packagePublisher.inspect(expectedPackage);
-  if (existingPackage !== null && !packagePublicationMatches(expectedPackage, existingPackage)) {
-    throw new ReleasePublicationError("Published package does not match the verified release identity");
+  if (existingPackage !== null && !packagePublicationIdentityMatches(expectedPackage, existingPackage)) {
+    throw new ReleasePublicationError(
+      `Published package does not match the verified release identity: ${
+        packageIdentityMismatch(expectedPackage, existingPackage)
+      }`,
+    );
   }
   if (existingPackage === null) {
     await input.packagePublisher.publish(expectedPackage);
   }
 
-  // An already-published matching record is its own confirmation; only a fresh publish is re-read.
-  if (existingPackage === null) {
-    await confirmFreshPublication(input, expectedPackage);
+  // A record already carrying provenance is its own confirmation. Everything else
+  // is confirmed under the backoff: a publish this dispatch just made, and a
+  // record a prior dispatch published whose attestation has yet to appear — the
+  // resumed run this operation exists to converge.
+  if (existingPackage === null || !packagePublicationMatches(expectedPackage, existingPackage)) {
+    await confirmPublication(input, expectedPackage);
   }
 
   await input.hostedReleasePublisher.reconcile(
@@ -217,14 +224,14 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
 }
 
 /**
- * Re-reads the registry until the freshly published record carries verified
- * provenance. Two read outcomes are early rather than wrong and are retried under
+ * Re-reads the registry until the record carries verified provenance, whether
+ * this dispatch published it or a prior one did. Two read outcomes are early rather than wrong and are retried under
  * the backoff: no record yet, and a record that matches the release identity but
  * reports no provenance, because the registry serves a new version's metadata
  * before its attestation. A record naming a different release fails at once,
  * because no wait makes a mismatched identity correct.
  */
-async function confirmFreshPublication(
+async function confirmPublication(
   input: PublishReleaseInput,
   expectedPackage: PackagePublication,
 ): Promise<void> {

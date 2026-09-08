@@ -263,6 +263,38 @@ export interface PublicationPostPublishIdentityScenario extends PublicationScena
   };
 }
 
+/**
+ * A dispatch resumed after a prior run published: the registry already holds the
+ * record, and its attestation appears only after the first reads. Nothing is
+ * published again, and the confirmation waits the propagation out.
+ */
+export interface PublicationResumedProvenanceLagScenario extends PublicationScenario {
+  readonly postPublishStates: readonly (PackagePublication | null)[];
+  readonly lateReads: number;
+}
+
+export function arbitraryPublicationResumedProvenanceLagScenario(): fc.Arbitrary<
+  PublicationResumedProvenanceLagScenario
+> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .integer({ min: 1, max: PUBLICATION_CONFIRMATION_BACKOFF_MS.length })
+      .map((lateReads) => ({
+        ...scenario,
+        existingPackage: { ...scenario.packagePublication, provenance: PACKAGE_PROVENANCE.UNVERIFIED },
+        existingHostedRelease: null,
+        lateReads,
+        postPublishStates: [
+          ...Array.from({ length: lateReads }, () => ({
+            ...scenario.packagePublication,
+            provenance: PACKAGE_PROVENANCE.UNVERIFIED,
+          })),
+          scenario.packagePublication,
+        ],
+      }))
+  );
+}
+
 export function arbitraryPublicationPostPublishIdentityScenario(): fc.Arbitrary<
   PublicationPostPublishIdentityScenario
 > {
